@@ -124,7 +124,7 @@ func (h *WebsocketHub) SendJSON(ctx context.Context, message any, connectionID s
 	if err != nil {
 		return false, err
 	}
-	return h.sendPayload(ctx, payload, connectionID), nil
+	return h.sendFrame(ctx, websocket.MessageText, payload, connectionID), nil
 }
 
 func (h *WebsocketHub) BroadcastJSON(ctx context.Context, message any, selection Selection) (int, error) {
@@ -144,7 +144,7 @@ func (h *WebsocketHub) BroadcastJSON(ctx context.Context, message any, selection
 		wg.Add(1)
 		go func(connectionID string) {
 			defer wg.Done()
-			deliveredCounts <- h.sendPayload(ctx, payload, connectionID)
+			deliveredCounts <- h.sendFrame(ctx, websocket.MessageText, payload, connectionID)
 		}(target.ID)
 	}
 	wg.Wait()
@@ -185,7 +185,7 @@ func (h *WebsocketHub) SendFrontendIdentity(ctx context.Context, connectionID st
 	return err
 }
 
-func (h *WebsocketHub) sendPayload(ctx context.Context, payload []byte, connectionID string) bool {
+func (h *WebsocketHub) sendFrame(ctx context.Context, messageType websocket.MessageType, payload []byte, connectionID string) bool {
 	liveConnection, ok := h.liveConnection(connectionID)
 	if !ok {
 		return false
@@ -194,7 +194,7 @@ func (h *WebsocketHub) sendPayload(ctx context.Context, payload []byte, connecti
 	liveConnection.sendMu.Lock()
 	defer liveConnection.sendMu.Unlock()
 
-	if err := liveConnection.conn.Write(ctx, websocket.MessageText, payload); err != nil {
+	if err := liveConnection.conn.Write(ctx, messageType, payload); err != nil {
 		if shouldDropConnection(err) {
 			h.removeConnection(connectionID)
 		}

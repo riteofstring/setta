@@ -111,9 +111,13 @@ Current repo status as of 2026-03-06:
   - `internal/httpapi/listener_routes.go`
   - `internal/app/app.go`
   - runtime snapshot projection through `internal/projectview`
+- Go now also owns frontend websocket listener-event ingress under:
+  - `internal/wsapi/routes.go`
+  - `internal/realtime/listener_producer.go`
+  - structured dependency-key projection plus binary listener frame support in
+    `internal/realtime`
 - the remaining producer-side listener realtime sources still live only in
   Python across:
-  - `backend/setta/websockets/msg_handlers/frontend_receiver.py`
   - `backend/setta/project_state/artifacts.py`
   - `backend/setta/plugins/manager.py`
 - deployment share/app state and project-config transport is now fully Go-owned

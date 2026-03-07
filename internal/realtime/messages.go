@@ -1,8 +1,10 @@
 package realtime
 
 const (
-	MessageTypeAllConnections   = "AllConnections"
-	MessageTypeFrontendIdentity = "FrontendIdentity"
+	MessageTypeAllConnections          = "AllConnections"
+	MessageTypeFrontendIdentity        = "FrontendIdentity"
+	MessageTypeRealtimeUIChange        = "RealtimeUIChange"
+	MessageTypeRealtimeDependencyEvent = "RealtimeDependencyEvent"
 )
 
 type FrontendIdentityContent struct {

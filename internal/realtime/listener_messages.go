@@ -11,8 +11,9 @@ const (
 )
 
 type ListenerRealtimeDelta struct {
-	Dependency string          `json:"dependency"`
-	Value      json.RawMessage `json:"value"`
+	Dependency    string          `json:"dependency"`
+	Value         json.RawMessage `json:"value"`
+	BinaryPayload []byte          `json:"-"`
 }
 
 type ListenerRegisterCallbackSpec struct {
@@ -49,6 +50,7 @@ type ListenerDependencyEvent struct {
 	DependencyKey string          `json:"dependencyKey"`
 	Payload       json.RawMessage `json:"payload,omitempty"`
 	TimestampMS   int64           `json:"timestampMs"`
+	BinaryPayload []byte          `json:"-"`
 }
 
 type ListenerRealtimeEventContent struct {

@@ -12,7 +12,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/deployments"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 )
@@ -34,6 +36,7 @@ type RouteDependencies struct {
 	Transport           Dependencies
 	WebsocketHub        *realtime.WebsocketHub
 	ListenerBroadcaster *realtime.ListenerBroadcaster
+	ListenerProducer    *realtime.ListenerProducer
 	Terminals           *terminals.Service
 	FrontendIDSource    func() (string, error)
 }
@@ -51,6 +54,31 @@ type listenerEnvelope struct {
 type frontendCurrentAddressUpdate struct {
 	MessageType string `json:"messageType"`
 	Content     string `json:"content"`
+}
+
+type frontendRealtimeUIChangeContent struct {
+	ProjectID     string          `json:"projectConfigId"`
+	DependencyKey json.RawMessage `json:"dependencyKey"`
+	Value         json.RawMessage `json:"value"`
+}
+
+type frontendRealtimeDependencyEventContent struct {
+	ProjectID       string                                 `json:"projectConfigId"`
+	DependencyEvent frontendRealtimeDependencyEventPayload `json:"dependencyEvent"`
+}
+
+type frontendRealtimeDependencyEventPayload struct {
+	DependencyKey json.RawMessage `json:"dependencyKey"`
+	Payload       json.RawMessage `json:"payload"`
+	TimestampMS   int64           `json:"timestampMs"`
+}
+
+type frontendInboundMessage struct {
+	MessageType             string
+	CurrentAddress          *frontendCurrentAddressUpdate
+	RealtimeUIChange        *frontendRealtimeUIChangeContent
+	RealtimeDependencyEvent *frontendRealtimeDependencyEventContent
+	BinaryPayload           []byte
 }
 
 type terminalResizeMessage struct {
@@ -73,6 +101,9 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 	}
 	if deps.ListenerBroadcaster == nil {
 		return fmt.Errorf("listener broadcaster is required")
+	}
+	if deps.ListenerProducer == nil {
+		return fmt.Errorf("listener producer is required")
 	}
 	if deps.Terminals == nil {
 		return fmt.Errorf("terminal service is required")
@@ -126,7 +157,7 @@ func serveFrontendConnection(
 	}
 
 	for {
-		_, payload, err := conn.Read(ctx)
+		messageType, payload, err := conn.Read(ctx)
 		if err != nil {
 			if websocket.CloseStatus(err) != -1 || errors.Is(err, context.Canceled) {
 				return nil
@@ -137,18 +168,172 @@ func serveFrontendConnection(
 			return mapModesError(err)
 		}
 
-		envelope, err := decodeFrontendEnvelope(payload)
+		message, err := decodeFrontendMessage(messageType, payload)
 		if err != nil {
 			return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 		}
-		switch envelope.MessageType {
+		switch message.MessageType {
 		case FrontendMessageTypeCurrentAddressUpdate:
-			if err := deps.WebsocketHub.UpdateCurrentAddress(ctx, connection.ID, envelope.Content, broadcastConnections); err != nil {
+			if message.CurrentAddress == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if err := deps.WebsocketHub.UpdateCurrentAddress(ctx, connection.ID, message.CurrentAddress.Content, broadcastConnections); err != nil {
 				return err
+			}
+		case realtime.MessageTypeRealtimeUIChange:
+			if message.RealtimeUIChange == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if _, _, err := deps.ListenerProducer.EmitUIChange(ctx, realtime.EmitUIChangeParams{
+				ProjectID:      message.RealtimeUIChange.ProjectID,
+				ShareSessionID: info.Modes.ShareSessionID,
+				DependencyKey:  message.RealtimeUIChange.DependencyKey,
+				Value:          message.RealtimeUIChange.Value,
+				BinaryPayload:  message.BinaryPayload,
+			}); err != nil {
+				return mapListenerProducerError(err)
+			}
+		case realtime.MessageTypeRealtimeDependencyEvent:
+			if message.RealtimeDependencyEvent == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if _, _, err := deps.ListenerProducer.EmitDependencyEvent(ctx, realtime.EmitDependencyEventParams{
+				ProjectID:      message.RealtimeDependencyEvent.ProjectID,
+				ShareSessionID: info.Modes.ShareSessionID,
+				DependencyKey:  message.RealtimeDependencyEvent.DependencyEvent.DependencyKey,
+				Payload:        message.RealtimeDependencyEvent.DependencyEvent.Payload,
+				TimestampMS:    message.RealtimeDependencyEvent.DependencyEvent.TimestampMS,
+				BinaryPayload:  message.BinaryPayload,
+			}); err != nil {
+				return mapListenerProducerError(err)
 			}
 		default:
 			return &CloseError{Code: CloseCodeBadRequest, Reason: "Unsupported websocket message type."}
 		}
+	}
+}
+
+func decodeFrontendMessage(messageType websocket.MessageType, payload []byte) (frontendInboundMessage, error) {
+	switch messageType {
+	case websocket.MessageText:
+		return decodeFrontendTextMessage(payload)
+	case websocket.MessageBinary:
+		return decodeFrontendBinaryMessage(payload)
+	default:
+		return frontendInboundMessage{}, fmt.Errorf("unsupported websocket message type")
+	}
+}
+
+func decodeFrontendTextMessage(payload []byte) (frontendInboundMessage, error) {
+	var envelope frontendEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return frontendInboundMessage{}, err
+	}
+	return parseFrontendEnvelope(envelope, nil)
+}
+
+func decodeFrontendBinaryMessage(payload []byte) (frontendInboundMessage, error) {
+	header, binaryPayload, err := realtime.DecodeBinaryFrame(payload)
+	if err != nil {
+		return frontendInboundMessage{}, err
+	}
+
+	var envelope frontendEnvelope
+	if err := json.Unmarshal(header, &envelope); err != nil {
+		return frontendInboundMessage{}, err
+	}
+	return parseFrontendEnvelope(envelope, binaryPayload)
+}
+
+func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (frontendInboundMessage, error) {
+	switch envelope.MessageType {
+	case FrontendMessageTypeCurrentAddressUpdate:
+		if binaryPayload != nil {
+			return frontendInboundMessage{}, fmt.Errorf("current address updates do not support binary payloads")
+		}
+
+		var content string
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return frontendInboundMessage{}, err
+		}
+		return frontendInboundMessage{
+			MessageType: FrontendMessageTypeCurrentAddressUpdate,
+			CurrentAddress: &frontendCurrentAddressUpdate{
+				MessageType: envelope.MessageType,
+				Content:     content,
+			},
+		}, nil
+	case realtime.MessageTypeRealtimeUIChange:
+		var content frontendRealtimeUIChangeContent
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return frontendInboundMessage{}, err
+		}
+		if binaryPayload != nil {
+			isBinary, err := realtime.DependencyValueIsBinary(content.Value)
+			if err != nil {
+				return frontendInboundMessage{}, err
+			}
+			if !isBinary {
+				return frontendInboundMessage{}, fmt.Errorf("binary realtime UI change requires Binary value")
+			}
+		}
+		return frontendInboundMessage{
+			MessageType:      realtime.MessageTypeRealtimeUIChange,
+			RealtimeUIChange: &content,
+			BinaryPayload:    cloneBinaryPayload(binaryPayload),
+		}, nil
+	case realtime.MessageTypeRealtimeDependencyEvent:
+		var content frontendRealtimeDependencyEventContent
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return frontendInboundMessage{}, err
+		}
+		if binaryPayload != nil {
+			isBinary, err := realtime.DependencyValueIsBinary(content.DependencyEvent.Payload)
+			if err != nil {
+				return frontendInboundMessage{}, err
+			}
+			if !isBinary {
+				return frontendInboundMessage{}, fmt.Errorf("binary dependency event requires Binary payload")
+			}
+		}
+		return frontendInboundMessage{
+			MessageType:             realtime.MessageTypeRealtimeDependencyEvent,
+			RealtimeDependencyEvent: &content,
+			BinaryPayload:           cloneBinaryPayload(binaryPayload),
+		}, nil
+	default:
+		return frontendInboundMessage{
+			MessageType: envelope.MessageType,
+		}, nil
+	}
+}
+
+func cloneBinaryPayload(payload []byte) []byte {
+	if payload == nil {
+		return nil
+	}
+
+	cloned := make([]byte, len(payload))
+	copy(cloned, payload)
+	return cloned
+}
+
+func mapListenerProducerError(err error) error {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, realtime.ErrDependencyKeyTypeRequired),
+		errors.Is(err, realtime.ErrDependencyKeySectionIDRequired),
+		errors.Is(err, realtime.ErrDependencyKeyCodeObjIDRequired),
+		errors.Is(err, realtime.ErrUnsupportedDependencyKeyType),
+		errors.Is(err, realtime.ErrDependencyValueTypeRequired):
+		return &CloseError{Code: CloseCodeBadRequest, Reason: err.Error()}
+	case errors.Is(err, projectstate.ErrProjectNotFound),
+		errors.Is(err, deployments.ErrUnknownSession):
+		return &CloseError{Code: CloseCodeNotFound, Reason: err.Error()}
+	case errors.Is(err, projectstate.ErrSessionIDRequired):
+		return &CloseError{Code: CloseCodeBadRequest, Reason: err.Error()}
+	default:
+		return err
 	}
 }
 
@@ -310,28 +495,6 @@ func serveTerminalConnection(
 				return classifyTerminalWriteError(err)
 			}
 		}
-	}
-}
-
-func decodeFrontendEnvelope(payload []byte) (frontendCurrentAddressUpdate, error) {
-	var envelope frontendEnvelope
-	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return frontendCurrentAddressUpdate{}, err
-	}
-	switch envelope.MessageType {
-	case FrontendMessageTypeCurrentAddressUpdate:
-		var content string
-		if err := json.Unmarshal(envelope.Content, &content); err != nil {
-			return frontendCurrentAddressUpdate{}, err
-		}
-		return frontendCurrentAddressUpdate{
-			MessageType: envelope.MessageType,
-			Content:     content,
-		}, nil
-	default:
-		return frontendCurrentAddressUpdate{
-			MessageType: envelope.MessageType,
-		}, nil
 	}
 }
 

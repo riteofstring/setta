@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -17,8 +20,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/observability"
+	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/terminals"
 )
@@ -26,6 +31,105 @@ import (
 type routeMessageEnvelope struct {
 	MessageType string          `json:"messageType"`
 	Content     json.RawMessage `json:"content"`
+}
+
+func TestDecodeFrontendTextMessageParsesCurrentAddressUpdate(t *testing.T) {
+	t.Parallel()
+
+	message, err := decodeFrontendTextMessage([]byte(`{"messageType":"CurrentAddressUpdate","content":"/project"}`))
+	if err != nil {
+		t.Fatalf("decode text frontend message: %v", err)
+	}
+	if message.MessageType != FrontendMessageTypeCurrentAddressUpdate {
+		t.Fatalf("expected current address message type, got %q", message.MessageType)
+	}
+	if message.CurrentAddress == nil {
+		t.Fatal("expected current address payload")
+	}
+	if message.CurrentAddress.Content != "/project" {
+		t.Fatalf("expected /project current address, got %q", message.CurrentAddress.Content)
+	}
+	if message.BinaryPayload != nil {
+		t.Fatalf("expected no binary payload, got %d bytes", len(message.BinaryPayload))
+	}
+}
+
+func TestDecodeFrontendBinaryMessageParsesDependencyEvent(t *testing.T) {
+	t.Parallel()
+
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeDependencyEvent",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyEvent": map[string]any{
+				"dependencyKey": map[string]any{
+					"type":      "Section",
+					"sectionId": "section-action",
+				},
+				"payload": map[string]any{
+					"type": "Binary",
+					"payload": map[string]any{
+						"contentId": "bin-1",
+					},
+				},
+				"timestampMs": 123,
+			},
+		},
+	}, []byte("binary-action"))
+	if err != nil {
+		t.Fatalf("encode binary frontend message: %v", err)
+	}
+
+	message, err := decodeFrontendBinaryMessage(frame)
+	if err != nil {
+		t.Fatalf("decode binary frontend message: %v", err)
+	}
+	if message.MessageType != realtime.MessageTypeRealtimeDependencyEvent {
+		t.Fatalf("expected dependency event message type, got %q", message.MessageType)
+	}
+	if message.RealtimeDependencyEvent == nil {
+		t.Fatal("expected dependency event payload")
+	}
+	if message.RealtimeDependencyEvent.ProjectID != "project-a" {
+		t.Fatalf("expected project-a project id, got %q", message.RealtimeDependencyEvent.ProjectID)
+	}
+	if message.RealtimeDependencyEvent.DependencyEvent.TimestampMS != 123 {
+		t.Fatalf("expected timestamp 123, got %d", message.RealtimeDependencyEvent.DependencyEvent.TimestampMS)
+	}
+	if !bytes.Equal(message.BinaryPayload, []byte("binary-action")) {
+		t.Fatalf("expected binary-action payload, got %q", string(message.BinaryPayload))
+	}
+}
+
+func TestDecodeFrontendBinaryMessageRejectsNonBinaryRealtimeUIChangeValue(t *testing.T) {
+	t.Parallel()
+
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeUIChange",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyKey": map[string]any{
+				"type":      "SectionParam",
+				"sectionId": "section-a",
+				"codeObjId": "param-a",
+			},
+			"value": map[string]any{
+				"type":    "Literal",
+				"payload": "value-1",
+			},
+		},
+	}, []byte("binary-action"))
+	if err != nil {
+		t.Fatalf("encode invalid binary realtime ui change: %v", err)
+	}
+
+	_, err = decodeFrontendBinaryMessage(frame)
+	if err == nil {
+		t.Fatal("expected non-binary realtime ui change to fail")
+	}
+	if !strings.Contains(err.Error(), "Binary value") {
+		t.Fatalf("expected binary value validation error, got %v", err)
+	}
 }
 
 func TestRegisterRoutesFrontendConnectSendsIdentityAndRebroadcastsCurrentAddress(t *testing.T) {
@@ -125,6 +229,227 @@ func TestRegisterRoutesShareFrontendTouchesSessionOnConnectAndMessage(t *testing
 	})
 	if store.touched["share-a"] != 2 {
 		t.Fatalf("expected touch count 2 after message, got %d", store.touched["share-a"])
+	}
+}
+
+func TestRegisterRoutesFrontendRealtimeUIChangeBroadcastsToMatchingListener(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster:  broadcaster,
+			ProjectState: projectRuntime,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-a.param-a"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	ack := readNextMessage(t, listener)
+	assertListenerRegisterAck(t, ack, "project-a", "")
+
+	if err := frontend.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"RealtimeUIChange","content":{"projectConfigId":"project-a","dependencyKey":{"type":"SectionParam","sectionId":"section-a","codeObjId":"param-a"},"value":{"type":"Literal","payload":"value-1"}}}`)); err != nil {
+		t.Fatalf("write realtime UI change: %v", err)
+	}
+
+	realtimeEvent := readNextMessage(t, listener)
+	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, `{"type":"Literal","payload":"value-1"}`)
+}
+
+func TestRegisterRoutesFrontendRealtimeUIChangeClosesOnUnknownProject(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster:  broadcaster,
+			ProjectState: projectRuntime,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	if err := frontend.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"RealtimeUIChange","content":{"projectConfigId":"missing-project","dependencyKey":{"type":"Section","sectionId":"section-a"},"value":{"type":"Literal","payload":"value-1"}}}`)); err != nil {
+		t.Fatalf("write realtime UI change: %v", err)
+	}
+
+	_, _, err := frontend.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeNotFound {
+		t.Fatalf("expected not found close code %d, got %d", CloseCodeNotFound, status)
+	}
+}
+
+func TestRegisterRoutesFrontendBinaryDependencyEventBroadcastsBinaryFrame(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	projectRuntime := newRouteProjectRuntime(t, "project-a")
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster:  broadcaster,
+			ProjectState: projectRuntime,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer frontend.CloseNow()
+	_ = readNextMessages(t, frontend, 2)
+
+	listener := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a", authHeaderForCookie(t, authService), withPathParam("listener-a"))
+	defer listener.CloseNow()
+	if err := listener.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-action"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	ack := readNextMessage(t, listener)
+	assertListenerRegisterAck(t, ack, "project-a", "")
+
+	frame, err := realtime.EncodeBinaryFrame(map[string]any{
+		"messageType": "RealtimeDependencyEvent",
+		"content": map[string]any{
+			"projectConfigId": "project-a",
+			"dependencyEvent": map[string]any{
+				"dependencyKey": map[string]any{
+					"type":      "Section",
+					"sectionId": "section-action",
+				},
+				"payload": map[string]any{
+					"type": "Binary",
+					"payload": map[string]any{
+						"contentId": "bin-1",
+					},
+				},
+				"timestampMs": 123,
+			},
+		},
+	}, []byte("binary-action"))
+	if err != nil {
+		t.Fatalf("encode frontend binary dependency event: %v", err)
+	}
+	if err := frontend.Write(context.Background(), websocket.MessageBinary, frame); err != nil {
+		t.Fatalf("write binary dependency event: %v", err)
+	}
+
+	messageType, payload := readNextFrame(t, listener)
+	if messageType != websocket.MessageBinary {
+		t.Fatalf("expected binary listener frame, got %d", messageType)
+	}
+	header, binaryPayload, err := realtime.DecodeBinaryFrame(payload)
+	if err != nil {
+		t.Fatalf("decode listener binary frame: %v", err)
+	}
+	var envelope routeMessageEnvelope
+	if err := json.Unmarshal(header, &envelope); err != nil {
+		t.Fatalf("decode listener binary header: %v", err)
+	}
+	assertRouteListenerDependencyEvent(t, envelope, "project-a", "", 1, `{"type":"Binary","payload":{"contentId":"bin-1"}}`)
+	if string(binaryPayload) != "binary-action" {
+		t.Fatalf("expected binary-action payload, got %q", string(binaryPayload))
+	}
+}
+
+func TestRegisterRoutesShareFrontendDependencyEventScopesToSession(t *testing.T) {
+	t.Parallel()
+
+	deploymentRuntime := newRouteDeploymentRuntime(t, config.ModeShare)
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share-a session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create share-b session: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: deploymentRuntime,
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		ListenerProducer: realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: broadcaster,
+			Deployment:  deploymentRuntime,
+		}),
+	})
+	defer server.Close()
+
+	frontend := dialRouteConnection(t, server.URL, RouteFrontend+"?shareSessionId=share-a", nil)
+	defer frontend.CloseNow()
+	_ = readNextMessage(t, frontend)
+
+	listenerA := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-a", nil, withPathParam("listener-a"))
+	defer listenerA.CloseNow()
+	if err := listenerA.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-action"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message share-a: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listenerA), "project-a", "share-a")
+
+	listenerB := dialRouteConnection(t, server.URL, RouteListenerByID+"?projectId=project-a&shareSessionId=share-b", nil, withPathParam("listener-b"))
+	defer listenerB.CloseNow()
+	if err := listenerB.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["section-action"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message share-b: %v", err)
+	}
+	assertListenerRegisterAck(t, readNextMessage(t, listenerB), "project-a", "share-b")
+
+	if err := frontend.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"RealtimeDependencyEvent","content":{"projectConfigId":"project-a","dependencyEvent":{"dependencyKey":{"type":"Section","sectionId":"section-action"},"payload":{"type":"Literal","payload":"clicked"},"timestampMs":123}}}`)); err != nil {
+		t.Fatalf("write share dependency event: %v", err)
+	}
+
+	dependencyEvent := readNextMessage(t, listenerA)
+	assertRouteListenerDependencyEvent(t, dependencyEvent, "project-a", "share-a", 1, `{"type":"Literal","payload":"clicked"}`)
+
+	readCtx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	_, _, err := listenerB.Read(readCtx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected no message for share-b listener, got %v", err)
 	}
 }
 
@@ -439,6 +764,11 @@ func newRouteServer(t *testing.T, deps RouteDependencies) *httptest.Server {
 	if deps.Terminals == nil {
 		deps.Terminals = newRouteTerminalService(t)
 	}
+	if deps.ListenerProducer == nil {
+		deps.ListenerProducer = realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+			Broadcaster: deps.ListenerBroadcaster,
+		})
+	}
 	router := chi.NewRouter()
 	if err := RegisterRoutes(router, deps); err != nil {
 		t.Fatalf("register ws routes: %v", err)
@@ -477,6 +807,99 @@ func dialRouteConnection(t *testing.T, serverURL string, path string, headers ht
 	return conn
 }
 
+func newRouteProjectRuntime(t *testing.T, projectID string) *projectstate.Runtime {
+	t.Helper()
+
+	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: projectID,
+		Projects: map[string]projectstate.Project{
+			projectID: {
+				ID:   projectID,
+				Name: strings.ToUpper(projectID),
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open route project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close route project runtime: %v", err)
+		}
+	})
+	return runtime
+}
+
+func newRouteDeploymentRuntime(t *testing.T, mode config.Mode) *deployments.Runtime {
+	t.Helper()
+
+	root := t.TempDir()
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-a",
+		Projects: map[string]projectstate.Project{
+			"project-a": {
+				ID:   "project-a",
+				Name: "Project A",
+			},
+		},
+	}
+	writeRouteDeploymentJSON(t, filepath.Join(root, projectstate.MainFileName), document)
+
+	deploymentType := "share"
+	if mode == config.ModeApp {
+		deploymentType = "app"
+	}
+	writeRouteDeploymentJSON(t, filepath.Join(root, "manifest.json"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo",
+		"deploymentType":         deploymentType,
+		"defaultProjectConfigId": "project-a",
+		"deploymentVersion":      "v1",
+	})
+	writeRouteDeploymentJSON(t, filepath.Join(root, "policy.json"), map[string]any{})
+
+	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
+		DeploymentRoot: root,
+		RuntimeRoot:    runtimeRoot,
+		Now: func() time.Time {
+			return time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC)
+		},
+		IDGenerator: func() string {
+			return "generated-share"
+		},
+	})
+	if err != nil {
+		t.Fatalf("open route deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close route deployment runtime: %v", err)
+		}
+	})
+	return deploymentRuntime
+}
+
+func writeRouteDeploymentJSON(t *testing.T, path string, value any) {
+	t.Helper()
+
+	parent := filepath.Dir(path)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		t.Fatalf("mkdir route deployment parent: %v", err)
+	}
+
+	payload, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal route deployment json: %v", err)
+	}
+	payload = append(payload, '\n')
+	if err := os.WriteFile(path, payload, 0o644); err != nil {
+		t.Fatalf("write route deployment json: %v", err)
+	}
+}
+
 func authHeaderForCookie(t *testing.T, authService *auth.Service) http.Header {
 	t.Helper()
 
@@ -506,19 +929,26 @@ func readNextMessages(t *testing.T, conn *websocket.Conn, count int) []routeMess
 func readNextMessage(t *testing.T, conn *websocket.Conn) routeMessageEnvelope {
 	t.Helper()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	_, payload, err := conn.Read(ctx)
-	if err != nil {
-		t.Fatalf("read websocket message: %v", err)
-	}
+	_, payload := readNextFrame(t, conn)
 
 	var message routeMessageEnvelope
 	if err := json.Unmarshal(payload, &message); err != nil {
 		t.Fatalf("decode websocket message: %v", err)
 	}
 	return message
+}
+
+func readNextFrame(t *testing.T, conn *websocket.Conn) (websocket.MessageType, []byte) {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	messageType, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read websocket message: %v", err)
+	}
+	return messageType, payload
 }
 
 func readUntilMessageType(t *testing.T, conn *websocket.Conn, messageType string, maxReads int) routeMessageEnvelope {
@@ -773,7 +1203,7 @@ func assertRouteListenerRealtimeEvent(t *testing.T, message routeMessageEnvelope
 	if len(content.Deltas) != 1 {
 		t.Fatalf("expected 1 delta, got %d", len(content.Deltas))
 	}
-	if string(content.Deltas[0].Value) != expectedValue {
+	if compactJSON(t, content.Deltas[0].Value) != compactJSONString(t, expectedValue) {
 		t.Fatalf("expected delta value %s, got %s", expectedValue, string(content.Deltas[0].Value))
 	}
 }
@@ -801,7 +1231,22 @@ func assertRouteListenerDependencyEvent(t *testing.T, message routeMessageEnvelo
 	if len(content.DependencyEvents) != 1 {
 		t.Fatalf("expected 1 dependency event, got %d", len(content.DependencyEvents))
 	}
-	if string(content.DependencyEvents[0].Payload) != expectedPayload {
+	if compactJSON(t, content.DependencyEvents[0].Payload) != compactJSONString(t, expectedPayload) {
 		t.Fatalf("expected dependency payload %s, got %s", expectedPayload, string(content.DependencyEvents[0].Payload))
 	}
+}
+
+func compactJSONString(t *testing.T, value string) string {
+	t.Helper()
+	return compactJSON(t, []byte(value))
+}
+
+func compactJSON(t *testing.T, value []byte) string {
+	t.Helper()
+
+	var compacted bytes.Buffer
+	if err := json.Compact(&compacted, value); err != nil {
+		t.Fatalf("compact json %q: %v", string(value), err)
+	}
+	return compacted.String()
 }

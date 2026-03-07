@@ -23,8 +23,6 @@ Current repo status as of 2026-03-06:
   - `internal/app/app.go`
   - `internal/projectview`
 - the remaining producer-side listener realtime gaps are now:
-  - frontend websocket-originated `RealtimeUIChange`
-  - frontend websocket-originated `RealtimeDependencyEvent`
   - project-state artifact/image binary delta emission
   - plugin-worker `host.emit_listener_dependency_event`
 - Python reference behavior for this area still lives under:
@@ -77,18 +75,8 @@ new sequence machinery. Go already owns those boundaries.
 
 The remaining producer candidates are:
 
-- manual listener force refresh from HTTP
-- frontend websocket-originated listener deltas and dependency events
 - artifact/image binary listener deltas
 - plugin-emitted listener dependency events
-
-The smallest useful slice is manual listener force refresh because it:
-
-- already has a user-facing trigger in `frontend/src/state/actions/listeners.ts`
-- is bounded to one route and one broadcaster call
-- can reuse `internal/projectview` immediately for snapshot payload shaping
-- exercises bootstrapped listener targeting and sequence reset without dragging
-  in broader frontend mutation transport or binary payload streaming
 
 ## Working Decisions
 
@@ -163,7 +151,42 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- added Go-owned frontend websocket ingress for:
+  - `RealtimeUIChange`
+  - `RealtimeDependencyEvent`
+- introduced `internal/realtime.ListenerProducer` so project and
+  share-session validation stays out of `internal/wsapi`
+- added canonical dependency-key projection from structured frontend keys into
+  Go listener dependency strings
+- added explicit binary frame encode/decode support plus listener binary send
+  paths in `internal/realtime`
+- preserved shared sequence semantics across realtime deltas and dependency
+  events inside the Go broadcaster
+- added wsapi decoder coverage for text and binary frontend listener messages
+- added websocket integration coverage for:
+  - listener delivery of frontend-originated realtime UI changes
+  - listener delivery of frontend-originated dependency events
+  - project/session close behavior for invalid producer inputs
+
+Working decisions captured while landing Slice 2:
+
+- keep frontend websocket routes thin by decoding transport envelopes in
+  `internal/wsapi` and pushing project-aware producer semantics into
+  `internal/realtime.ListenerProducer`
+- preserve raw websocket binary frames for listener-facing binary deltas and
+  dependency events while Go still owns both transport ends
+- treat structured frontend dependency keys as transport input only; canonical
+  listener dependency strings remain the broadcaster source of truth
+
+Tests:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/realtime -run '^(TestBinaryFrameRoundTrip|TestCanonicalDependencyKeyConvertsSectionAndSectionParam|TestCanonicalDependencyKeyRejectsMissingRequiredFields|TestDependencyValueIsBinary)$' -count=1`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/wsapi -run '^TestDecodeFrontend' -count=1`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run '^$' -count=1`
 
 ### Slice 3: Artifact/Image Binary Listener Deltas
 
@@ -201,8 +224,6 @@ Status:
 
 ## Open Questions
 
-- whether frontend websocket listener-event ingress should land before any
-  broader Go project-mutation transport work
 - whether binary listener delta transport should reuse raw websocket binary
   frames or move to explicit content refs once Go owns both sides
 - whether plugin-emitted listener dependency events stay in Phase 4 or wait for
@@ -210,7 +231,7 @@ Status:
 
 ## Next Recommended Step
 
-- Start Slice 2: frontend websocket listener-event ingress.
-- Keep the slice narrow: migrate only the listener-facing `RealtimeUIChange`
-  and `RealtimeDependencyEvent` producer path onto Go, reusing current
-  share-session validation and broadcaster sequencing.
+- Start Slice 3: artifact/image binary listener deltas.
+- Keep the slice narrow: move only the producer boundary that emits binary
+  listener updates from Go-owned project-state/run pathways, reusing the binary
+  listener broadcaster work from Slice 2.

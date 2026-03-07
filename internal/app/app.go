@@ -135,6 +135,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
 	})
+	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+		Broadcaster:  listenerBroadcaster,
+		ProjectState: projectRuntime,
+		Deployment:   deploymentRuntime,
+	})
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
 			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
@@ -157,6 +162,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				},
 				WebsocketHub:        websocketHub,
 				ListenerBroadcaster: listenerBroadcaster,
+				ListenerProducer:    listenerProducer,
 				Terminals:           terminalService,
 			}); err != nil {
 				panic(err)
