@@ -16,11 +16,12 @@ Current repo status as of 2026-03-06:
 
 - Phase 1 foundation runtime is in place
 - Phase 2 auth, mode policy, request context, and websocket auth entry points are in place
-- there is still no Go `internal/projectstate` package
-- current project-state behavior still lives only in Python across:
-  - `backend/setta/database/db_objs.py`
-  - `backend/setta/database/backup.py`
-  - `backend/setta/project_state/history.py`
+- the Go rewrite now includes `internal/projectstate` with:
+  - file-backed document/store load-save behavior
+  - an in-memory project runtime
+  - monotonic runtime revision tracking
+  - serialized mutation execution
+- registry wiring and deployment overlays still live only in Python across:
   - `backend/setta/project_state/session_project_manager.py`
   - `backend/setta/project_state/project_manager_switcher.py`
 
@@ -195,6 +196,50 @@ Acceptance:
 - latest snapshot reads do not hit the filesystem directly
 - save persists the current snapshot only after queued mutations complete
 
+Status:
+
+- complete
+
+Completed:
+
+- added `ProjectRuntime` in `internal/projectstate/runtime.go`
+- runtime opens from the store once and keeps the current document in memory
+- chose a simple monotonic revision contract:
+  - runtime starts at revision `1` after successful load
+  - successful state-changing mutations bump the revision
+  - no-op mutations keep the current revision
+- added a serialized write queue through a dedicated runtime goroutine
+- added explicit runtime hooks:
+  - `Snapshot`
+  - `Mutate`
+  - `Flush`
+  - `Save`
+  - `Close`
+- kept reads cheap and explicit:
+  - snapshots clone the current document
+  - snapshot callers cannot mutate runtime-owned state accidentally
+- kept save semantics aligned with the Python reference behavior:
+  - queued mutations complete before a save writes to disk
+  - save writes the current in-memory snapshot through the project-state store
+
+Tests:
+
+- focused coverage in `internal/projectstate/runtime_test.go` for:
+  - initial load and starting revision
+  - revision bump vs no-op mutation behavior
+  - snapshot cloning semantics
+  - serialized mutation ordering
+  - `Flush` waiting for pending mutation completion
+  - `Save` persisting the latest queued mutation
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- panic/error supervision strategy for future richer runtime operations
+- mutation coalescing or undo/redo history
+- autosave debounce behavior
+- registry wiring for main/settings runtimes
+
 ### Slice 3: Runtime Registry And Main/Settings Split
 
 Deliver:
@@ -225,17 +270,18 @@ Acceptance:
 
 ## First Recommended Work Item
 
-Start with Slice 1 only.
+Start with Slice 3 only.
 
-That is the highest-leverage step because load/save behavior, schema ownership,
-and atomic persistence constrain every later project-state decision.
+That is the highest-leverage step because the runtime/store boundary now exists,
+and the next architectural gap is explicit ownership of main vs settings
+project-state runtimes.
 
 Specifically:
 
-- define the initial document envelope
-- implement store load/save APIs
-- verify missing-file, invalid-file, and atomic-write behavior with temp-dir tests
-- avoid route work until the store contract is stable
+- add a narrow runtime registry
+- keep main and settings stores/runtimes separate
+- wire the registry into `internal/app` without creating a giant singleton
+- avoid route migration until registry ownership is explicit
 
 ## Test Plan
 
@@ -278,15 +324,20 @@ Resolved In Slice 1:
 - the first Go document is a single file with a small project index, not a port of Python `ProjectStateBackend`
 - the store rejects schema-less legacy-looking files instead of implicitly treating them as compatible input
 
+Resolved In Slice 2:
+
+- runtime revision is monotonic and runtime-local rather than derived from file timestamps or persisted counters
+- mutation serialization is owned by the runtime queue, not scattered across handlers or filesystem helpers
+- save is an explicit runtime operation that runs after earlier queued mutations, not a direct store call from callers
+
 ## Next Recommended Step
 
-Implement Slice 2.
+Implement Slice 3.
 
 Specifically:
 
-- add `ProjectRuntime` with:
-  - in-memory current snapshot
-  - monotonic revision tracking
-  - serialized mutation execution
-  - explicit save/flush entry points
-- keep the runtime/store boundary narrow so later registry and websocket work can depend on stable runtime hooks instead of direct file access
+- add a runtime registry that owns:
+  - main project runtime
+  - settings project runtime
+- decide the minimum config/app wiring needed so later HTTP and websocket work can resolve runtimes through one narrow boundary
+- keep deployment overlays and route migration deferred until registry ownership is in place
