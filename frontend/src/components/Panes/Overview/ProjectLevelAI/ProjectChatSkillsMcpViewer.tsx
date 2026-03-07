@@ -34,32 +34,32 @@ import {
   route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
+  type AppGenSkillContent,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
+import { shallow } from "zustand/shallow";
 import {
-  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-  type AgentNativeSlashCommandsByProjectConfigId,
   type AgentNativeSlashCommandsEntry,
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY,
   EMPTY_AGENT_NATIVE_COMMANDS,
+  EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   type McpRuntimeServerStatus,
-  parseAgentNativeSlashCommandsStorage,
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
-  resolveAgentNativeSlashCommandsStorageUpdate,
   resolveMcpServerStatus,
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
+  useAgentNativeSlashCommandsCache,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 
@@ -144,6 +144,44 @@ type ResolveCustomSlashDraftByProjectConfigIdUpdateInput = {
   projectConfigId: string;
   nextDraft: CustomSlashCommandDraft;
 };
+type SkillContentCacheEntry = {
+  content: string;
+  truncated: boolean;
+  originalSizeBytes: number | null;
+};
+
+function compareAppGenSkillEntries(
+  first: AppGenSkillEntry,
+  second: AppGenSkillEntry,
+): number {
+  const rootLabelComparison = first.rootLabel.localeCompare(second.rootLabel);
+  if (rootLabelComparison !== 0) {
+    return rootLabelComparison;
+  }
+  const relativePathComparison = first.relativePath.localeCompare(
+    second.relativePath,
+  );
+  if (relativePathComparison !== 0) {
+    return relativePathComparison;
+  }
+  return first.name.localeCompare(second.name);
+}
+
+export function upsertAppGenSkillEntry(
+  skills: AppGenSkillEntry[],
+  nextSkill: AppGenSkillEntry,
+): AppGenSkillEntry[] {
+  const existingIndex = skills.findIndex(
+    (skill) => skill.skillId === nextSkill.skillId,
+  );
+  const nextSkills =
+    existingIndex >= 0
+      ? skills.map((skill, index) =>
+          index === existingIndex ? nextSkill : skill,
+        )
+      : [...skills, nextSkill];
+  return nextSkills.sort(compareAppGenSkillEntries);
+}
 
 export function resolveSkillMarkdownRawDraftBySkillIdHydration({
   skillMarkdownDraftStateBySkillId,
@@ -502,14 +540,13 @@ export function ProjectChatSkillsMcpViewer({
     customSlashDraftByProjectConfigId,
     setCustomSlashDraftByProjectConfigId,
   ] = useState<Record<string, CustomSlashCommandDraft>>({});
-  const [
-    agentNativeSlashCommandsByProjectConfigId,
-    setAgentNativeSlashCommandsByProjectConfigId,
-  ] = useState<AgentNativeSlashCommandsByProjectConfigId>(() => {
-    return parseAgentNativeSlashCommandsStorage(
-      storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+  const persistedAgentNativeSlashCommandsByEngineId =
+    useAgentNativeSlashCommandsCache(
+      (state) =>
+        state[projectConfigId] ??
+        EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
+      shallow,
     );
-  });
   const [skillsRevision, setSkillsRevision] = useState(0);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
@@ -523,16 +560,7 @@ export function ProjectChatSkillsMcpViewer({
   const selectedSkillIdRef = useRef<string | null>(null);
   const skillsSectionRef = useRef<HTMLDivElement | null>(null);
   const skillsResizeCleanupRef = useRef<(() => void) | null>(null);
-  const skillContentCache = useRef(
-    new Map<
-      string,
-      {
-        content: string;
-        truncated: boolean;
-        originalSizeBytes: number | null;
-      }
-    >(),
-  );
+  const skillContentCache = useRef(new Map<string, SkillContentCacheEntry>());
   const showSkillsSection = viewMode === "skills";
   const showMcpSection = viewMode === "mcp";
   const showSlashCommandsSection = viewMode === "slash_commands";
@@ -754,13 +782,6 @@ export function ProjectChatSkillsMcpViewer({
     });
   }, [selectedSkillContent, selectedSkillId, skillContentLoadStatus]);
 
-  useEffect(() => {
-    storageAdapter.setItem(
-      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-      JSON.stringify(agentNativeSlashCommandsByProjectConfigId),
-    );
-  }, [agentNativeSlashCommandsByProjectConfigId, storageAdapter]);
-
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
@@ -814,9 +835,6 @@ export function ProjectChatSkillsMcpViewer({
       engineConfigIds: slashCommandEngineIds,
     });
   }, [agentRuns, projectConfigId, slashCommandEngineIds]);
-  const persistedAgentNativeSlashCommandsByEngineId = useMemo(() => {
-    return agentNativeSlashCommandsByProjectConfigId[projectConfigId] ?? {};
-  }, [agentNativeSlashCommandsByProjectConfigId, projectConfigId]);
   const visibleAgentNativeSlashCommandsByEngineId = useMemo(() => {
     return resolveVisibleAgentNativeSlashCommandsByEngineId({
       agentRunsAuthorityState,
@@ -923,25 +941,6 @@ export function ProjectChatSkillsMcpViewer({
     }
     setSelectedSlashEngineId(slashCommandsByEngine[0]?.engineId ?? null);
   }, [selectedSlashEngineId, slashCommandsByEngine]);
-
-  useEffect(() => {
-    if (!showSlashCommandsSection || agentRunsAuthorityState !== "ready") {
-      return;
-    }
-    setAgentNativeSlashCommandsByProjectConfigId((current) => {
-      const next = resolveAgentNativeSlashCommandsStorageUpdate({
-        currentEntries: current,
-        projectConfigId,
-        nextEntries: runtimeAgentNativeSlashCommandsByEngineId,
-      });
-      return next ?? current;
-    });
-  }, [
-    agentRunsAuthorityState,
-    projectConfigId,
-    runtimeAgentNativeSlashCommandsByEngineId,
-    showSlashCommandsSection,
-  ]);
 
   useEffect(() => {
     const selectedEngineType = selectedSlashEngine?.engineType ?? null;
@@ -1281,6 +1280,46 @@ export function ProjectChatSkillsMcpViewer({
     },
     [projectConfigId],
   );
+  const applyUpsertedSkillResponse = useCallback(
+    ({
+      skill,
+      skillContent,
+    }: {
+      skill: AppGenSkillEntry;
+      skillContent: AppGenSkillContent;
+    }) => {
+      const cacheEntry: SkillContentCacheEntry = {
+        content: skillContent.content,
+        truncated: skillContent.truncated,
+        originalSizeBytes: skillContent.originalSizeBytes,
+      };
+      for (const key of skillContentCache.current.keys()) {
+        if (key.endsWith(`:${skill.skillId}`)) {
+          skillContentCache.current.set(key, cacheEntry);
+        }
+      }
+      skillContentCache.current.set(
+        `${skillsRevision}:${skill.skillId}`,
+        cacheEntry,
+      );
+      setSkills((current) => upsertAppGenSkillEntry(current, skill));
+      setSelectedSkillId(skill.skillId);
+      setSkillContentLoadStatus("loaded");
+      setSkillContentLoadError(null);
+      setSelectedSkillContent(skillContent.content);
+      setSelectedSkillContentTruncated(skillContent.truncated);
+      setSelectedSkillOriginalSizeBytes(skillContent.originalSizeBytes);
+      setSkillMarkdownDraftStateBySkillId((current) => {
+        const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
+          skillMarkdownDraftStateBySkillId: current,
+          skillId: skill.skillId,
+          nextRawDraft: skillContent.content,
+        });
+        return next ?? current;
+      });
+    },
+    [skillsRevision],
+  );
 
   const createCustomSkill = useCallback(async () => {
     const relativePath = newCustomSkillRelativePath.trim();
@@ -1310,23 +1349,12 @@ export function ProjectChatSkillsMcpViewer({
     setNewCustomSkillRelativePath("");
     setIsSkillMarkdownViewerOpen(true);
     setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
-    setSelectedSkillId(res.data.skillId);
-    setSkillContentLoadStatus("loaded");
-    setSkillContentLoadError(null);
-    setSelectedSkillContent(initialContent);
-    setSkillMarkdownDraftStateBySkillId((current) => {
-      const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
-        skillMarkdownDraftStateBySkillId: current,
-        skillId: res.data.skillId,
-        nextRawDraft: initialContent,
-      });
-      return next ?? current;
+    applyUpsertedSkillResponse({
+      skill: res.data.skill,
+      skillContent: res.data.skillContent,
     });
-    setSelectedSkillContentTruncated(false);
-    setSelectedSkillOriginalSizeBytes(initialContent.length);
     addTemporaryNotification(`Created custom skill ${relativePath}.`);
-    await refreshSkillsBrowser();
-  }, [newCustomSkillRelativePath, refreshSkillsBrowser]);
+  }, [applyUpsertedSkillResponse, newCustomSkillRelativePath]);
 
   const saveSelectedCustomSkill = useCallback(async () => {
     if (!selectedSkillId) {
@@ -1379,33 +1407,13 @@ export function ProjectChatSkillsMcpViewer({
       );
       return;
     }
-    const cacheEntry = {
-      content: nextContent,
-      truncated: false,
-      originalSizeBytes: nextContent.length,
-    };
-    for (const key of skillContentCache.current.keys()) {
-      if (key.endsWith(`:${requestSkillId}`)) {
-        skillContentCache.current.set(key, cacheEntry);
-      }
-    }
-    if (selectedSkillIdRef.current === requestSkillId) {
-      setSkillContentLoadStatus("loaded");
-      setSkillContentLoadError(null);
-      setSelectedSkillContent(nextContent);
-      setSelectedSkillContentTruncated(false);
-      setSelectedSkillOriginalSizeBytes(nextContent.length);
-    }
-    setSkillMarkdownDraftStateBySkillId((current) => {
-      const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
-        skillMarkdownDraftStateBySkillId: current,
-        skillId: requestSkillId,
-        nextRawDraft: nextContent,
-      });
-      return next ?? current;
+    applyUpsertedSkillResponse({
+      skill: res.data.skill,
+      skillContent: res.data.skillContent,
     });
     addTemporaryNotification("Saved custom skill.");
   }, [
+    applyUpsertedSkillResponse,
     selectedSkillEditabilityReason,
     selectedSkillContentTruncated,
     selectedSkillId,

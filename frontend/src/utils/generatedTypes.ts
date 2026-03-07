@@ -8811,6 +8811,8 @@ const UpsertAppGenCustomSkillResponseSchema = z.object({
   created: z.boolean(),
   rootPath: z.string(),
   skillDocPath: z.string(),
+  skill: AppGenSkillEntrySchema,
+  skillContent: AppGenSkillContentSchema,
 });
 
 export type UpsertAppGenCustomSkillResponse = z.infer<

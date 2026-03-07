@@ -1,9 +1,6 @@
 import {
-  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-  parseAgentNativeSlashCommandsStorage,
+  replaceAgentNativeSlashCommandsCache,
   resolveAgentNativeSlashCommandsByProjectConfigId,
-  resolveAgentNativeSlashCommandsStorageUpdate,
-  serializeAgentNativeSlashCommandsStorage,
 } from "components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils";
 import {
   receiveAgenticScopeViolationEdges,
@@ -138,7 +135,6 @@ import {
   UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
@@ -951,39 +947,10 @@ function scheduleAgentRunsRetry(transientFailureCount: number): void {
 function hydrateAgentNativeSlashCommandsStorageFromRuns(
   runs: AgentRun[],
 ): void {
-  const nextEntriesByProjectConfigId =
+  replaceAgentNativeSlashCommandsCache(
     resolveAgentNativeSlashCommandsByProjectConfigId({
       runs,
-    });
-  if (Object.keys(nextEntriesByProjectConfigId).length === 0) {
-    return;
-  }
-  const storageAdapter = getSafeLocalStorageAdapter("agent-runs");
-  const currentEntries = parseAgentNativeSlashCommandsStorage(
-    storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
-  );
-  let nextEntries = currentEntries;
-  let changed = false;
-  for (const [projectConfigId, projectEntries] of Object.entries(
-    nextEntriesByProjectConfigId,
-  )) {
-    const updated = resolveAgentNativeSlashCommandsStorageUpdate({
-      currentEntries: nextEntries,
-      projectConfigId,
-      nextEntries: projectEntries,
-    });
-    if (!updated) {
-      continue;
-    }
-    nextEntries = updated;
-    changed = true;
-  }
-  if (!changed) {
-    return;
-  }
-  storageAdapter.setItem(
-    AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-    serializeAgentNativeSlashCommandsStorage(nextEntries),
+    }),
   );
 }
 

@@ -179,6 +179,21 @@ describe("chatComposerControls", () => {
     expect(parsed?.promptTemplate).toBe("Summarize regressions.");
   });
 
+  it("preserves the raw custom prompt suffix exactly after the first separator", () => {
+    const commands = buildCustomPromptSlashCommandDefinitions([
+      { command: "/ship", prompt: "Ship the current build." },
+    ]);
+
+    const parsed = parseSlashCommand(
+      "/ship first line\n\n  second line",
+      commands,
+    );
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.args).toEqual(["first", "line", "second", "line"]);
+    expect(parsed?.rawSuffix).toBe("first line\n\n  second line");
+  });
+
   it("ignores malformed runtime custom slash command entries", () => {
     const malformedEntries: unknown[] = [
       null,

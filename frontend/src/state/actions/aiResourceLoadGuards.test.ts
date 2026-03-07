@@ -1,4 +1,8 @@
-import { AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY } from "components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils";
+import {
+  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+  replaceAgentNativeSlashCommandsCache,
+  useAgentNativeSlashCommandsCache,
+} from "components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils";
 import { resetProjectStores } from "state/utils";
 import { createAgentRun } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
@@ -64,6 +68,7 @@ describe("AI resource load guards", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    replaceAgentNativeSlashCommandsCache({});
     useAIStore.persist.setOptions({
       storage: {
         getItem: memoryStorage.getItem.bind(memoryStorage),
@@ -76,6 +81,7 @@ describe("AI resource load guards", () => {
 
   afterEach(() => {
     resetProjectStores();
+    replaceAgentNativeSlashCommandsCache({});
     agentRunsStorageAdapter.removeItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY);
     memoryStorage.clear();
   });
@@ -252,6 +258,42 @@ describe("AI resource load guards", () => {
         },
       },
     });
+    expect(useAgentNativeSlashCommandsCache.getState()).toEqual({
+      "project-a": {
+        "engine-live": {
+          commands: ["/deploy"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+    });
+  });
+
+  it("replaces cached native slash metadata snapshots and prunes removed projects", async () => {
+    replaceAgentNativeSlashCommandsCache({
+      "project-a": {
+        "engine-live": {
+          commands: ["/deploy"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+    });
+    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+      .route_get_agent_runs as unknown as vi.Mock;
+    route_get_agent_runs.mockReset();
+    route_get_agent_runs.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+
+    await loadAgentRuns();
+
+    expect(
+      agentRunsStorageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+    ).toBeNull();
+    expect(useAgentNativeSlashCommandsCache.getState()).toEqual({});
   });
 
   it("retries transient agent-runs load failures and recovers to ready", async () => {

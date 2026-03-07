@@ -64,6 +64,8 @@ class UpsertAppGenCustomSkillResponse(BaseModel):
     created: bool
     rootPath: str
     skillDocPath: str
+    skill: AppGenSkillEntry
+    skillContent: AppGenSkillContent
 
 
 def _extract_skill_description(skill_doc: Path) -> str:
@@ -462,6 +464,24 @@ def read_app_gen_skill_content(
     )
 
 
+def _build_written_skill_content(
+    *,
+    skill_id: str,
+    content: str,
+    skill_doc: Path,
+) -> AppGenSkillContent:
+    try:
+        original_size_bytes = skill_doc.stat().st_size
+    except OSError as exc:
+        raise ValueError(str(exc)) from exc
+    return AppGenSkillContent(
+        skillId=skill_id,
+        content=content,
+        truncated=False,
+        originalSizeBytes=original_size_bytes,
+    )
+
+
 def upsert_app_gen_custom_skill(
     *,
     workspace_root: Path,
@@ -542,11 +562,23 @@ def upsert_app_gen_custom_skill(
     except OSError as exc:
         raise ValueError(str(exc)) from exc
 
+    resolved_skill_id = f"{target_root_id}::{target_relative_path}"
+    skill_index = _build_skill_index_by_id(workspace_root)
+    if resolved_skill_id not in skill_index:
+        raise KeyError(f"Unknown or non-discoverable skillId: {resolved_skill_id}")
+    skill = skill_index[resolved_skill_id]
+
     return UpsertAppGenCustomSkillResponse(
-        skillId=f"{target_root_id}::{target_relative_path}",
+        skillId=resolved_skill_id,
         created=created,
         rootPath=str(target_root_path),
         skillDocPath=str(skill_doc),
+        skill=skill,
+        skillContent=_build_written_skill_content(
+            skill_id=resolved_skill_id,
+            content=content,
+            skill_doc=skill_doc,
+        ),
     )
 
 

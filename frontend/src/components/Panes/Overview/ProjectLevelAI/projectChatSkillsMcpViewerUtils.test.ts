@@ -19,6 +19,7 @@ import {
   groupSkillsByRootPath,
   parseAgentNativeSlashCommandsStorage,
   reconcileCustomSlashCommands,
+  replaceAgentNativeSlashCommandsCache,
   resolveAgentNativeSlashCommandsByEngineId,
   resolveAgentNativeSlashCommandsByProjectConfigId,
   resolveAgentNativeSlashCommandsStorageUpdate,
@@ -26,9 +27,45 @@ import {
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
+  useAgentNativeSlashCommandsCache,
 } from "./projectChatSkillsMcpViewerUtils";
 
 describe("projectChatSkillsMcpViewerUtils", () => {
+  it("publishes live native slash cache updates to subscribers", () => {
+    replaceAgentNativeSlashCommandsCache({});
+    const observedSnapshots: Array<Record<string, unknown>> = [];
+    const unsubscribe = useAgentNativeSlashCommandsCache.subscribe((state) => {
+      observedSnapshots.push(state);
+    });
+
+    try {
+      replaceAgentNativeSlashCommandsCache({
+        "project-a": {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      });
+    } finally {
+      unsubscribe();
+      replaceAgentNativeSlashCommandsCache({});
+    }
+
+    expect(observedSnapshots).toEqual([
+      {
+        "project-a": {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      },
+    ]);
+  });
+
   it("filters skills by name/path/root/description", () => {
     const rows = [
       {

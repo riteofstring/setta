@@ -86,7 +86,6 @@ import {
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
-import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { shallow } from "zustand/shallow";
 import {
   resolveProjectChatRunTypeForEngine,
@@ -94,13 +93,14 @@ import {
   type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
 import {
-  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+  EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
   buildReservedSlashCommandTokens,
   collectAgentNativeSlashCommandTokensFromEntries,
-  collectAgentNativeSlashCommandTokensFromStorage,
+  filterAgentNativeSlashCommandsByEngineId,
   isAgentRunsAuthorityReady,
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
+  useAgentNativeSlashCommandsCache,
   type AgentRunsAuthorityState,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
@@ -1207,10 +1207,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     state.engineConfigs.map((config) => config.id),
   );
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
-  const storageAdapter = useMemo(
-    () => getSafeLocalStorageAdapter("project-chat-core"),
-    [],
-  );
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
       selectCustomProjectChatSlashCommands(
@@ -1218,15 +1214,21 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         projectConfigId,
       ),
   );
+  const persistedAgentNativeSlashCommandsByEngineId =
+    useAgentNativeSlashCommandsCache(
+      (state) =>
+        state[projectConfigId] ??
+        EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
+      shallow,
+    );
   const persistedNativeSlashCommandTokens = useMemo(() => {
-    return collectAgentNativeSlashCommandTokensFromStorage({
-      rawStorageValue: storageAdapter.getItem(
-        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-      ),
-      projectConfigId,
-      engineConfigIds,
-    });
-  }, [engineConfigIds, projectConfigId, storageAdapter]);
+    return collectAgentNativeSlashCommandTokensFromEntries(
+      filterAgentNativeSlashCommandsByEngineId({
+        entries: persistedAgentNativeSlashCommandsByEngineId,
+        engineConfigIds,
+      }),
+    );
+  }, [engineConfigIds, persistedAgentNativeSlashCommandsByEngineId]);
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({
@@ -1668,13 +1670,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           }),
         );
       const refreshedPersistedNativeSlashCommandTokens =
-        collectAgentNativeSlashCommandTokensFromStorage({
-          rawStorageValue: storageAdapter.getItem(
-            AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-          ),
-          projectConfigId,
-          engineConfigIds,
-        });
+        collectAgentNativeSlashCommandTokensFromEntries(
+          filterAgentNativeSlashCommandsByEngineId({
+            entries:
+              useAgentNativeSlashCommandsCache.getState()[projectConfigId] ??
+              EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
+            engineConfigIds,
+          }),
+        );
       const refreshedDiscoveredAgentNativeSlashCommands =
         resolveProjectChatComposerNativeSlashCommandTokens({
           runtimeNativeSlashCommandTokens:
@@ -1722,7 +1725,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       projectConfigId,
       showPermissionExecutionControl,
       showSearchExecutionControl,
-      storageAdapter,
     ],
   );
 

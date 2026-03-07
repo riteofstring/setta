@@ -497,6 +497,7 @@ describe("resolveSlashCommandRequest", () => {
 
     expect(resolved.parsed?.command).toBe("/deploy");
     expect(resolved.commandAvailable).toBe(false);
+    expect(resolved.parsed?.rawSuffix).toBe("now");
   });
 });
 
@@ -513,6 +514,7 @@ describe("resolveCustomPromptSlashCommandSubmission", () => {
     const submission = resolveCustomPromptSlashCommandSubmission({
       promptTemplate: "Summarize the attached artifact.",
       args: ["for", "release"],
+      rawSuffix: "for release",
       attachments,
     });
 
@@ -534,10 +536,39 @@ describe("resolveCustomPromptSlashCommandSubmission", () => {
     const submission = resolveCustomPromptSlashCommandSubmission({
       promptTemplate: "   ",
       args: [],
+      rawSuffix: "",
       attachments: [],
     });
 
     expect(submission).toBeNull();
+  });
+
+  it("preserves exact multiline custom prompt suffix text", () => {
+    const submission = resolveCustomPromptSlashCommandSubmission({
+      promptTemplate: "Ship the current build.",
+      args: ["first", "line", "second", "line"],
+      rawSuffix: "first line\n\n  second line",
+      attachments: [
+        {
+          id: "artifact-2",
+          name: "deploy-notes.md",
+          mimeType: "text/markdown",
+          size: 64,
+        },
+      ],
+    });
+
+    expect(submission).toEqual({
+      message: "Ship the current build.\n\nfirst line\n\n  second line",
+      attachments: [
+        {
+          id: "artifact-2",
+          name: "deploy-notes.md",
+          mimeType: "text/markdown",
+          size: 64,
+        },
+      ],
+    });
   });
 });
 

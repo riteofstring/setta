@@ -373,3 +373,43 @@
   - Project AI Settings access through the live Project AI Chat settings popover flow,
   - slash-command UX with cached native metadata surviving terminal run-load failures,
   - updated Overview navigation paths without removed alias shortcuts.
+
+## 2026-03-06 07:22:34 PST
+
+### Consolidated findings implemented
+- Replaced the read-once native slash-command cache path with a subscribed shared store so the Project AI chat composer and slash-command viewer observe the same live authority state.
+- Changed native slash-command cache hydration from incremental patching to full authoritative snapshot replacement so deleted projects and removed commands are pruned instead of lingering in persisted storage.
+- Preserved raw custom-prompt slash-command suffix text through parsing and submission so multiline prompts, indentation, repeated spaces, and fenced code blocks are no longer rewritten before execution.
+- Made successful custom-skill writes authoritative in the frontend by returning the written skill row and content payload from `/upsertAppGenCustomSkill`, then seeding the local viewer state from that mutation response.
+
+### Proposed fixes applied
+- Added a dedicated shared native slash-command cache store in `projectChatSkillsMcpViewerUtils.ts` and moved both persistence and subscription logic behind that single source of truth.
+- Updated `ai.ts` agent-run hydration to normalize native slash-command entries per project and replace the persisted cache wholesale after each successful authoritative `agentRuns` load.
+- Switched `ProjectChatCore` and related Project AI helpers to derive reserved/native slash-command protection from the subscribed cache state rather than a stale `localStorage` snapshot captured at mount time.
+- Extended slash-command parsing in `chatComposerControls.ts` and `ChatInput.tsx` so managed commands still receive parsed arguments while `custom_prompt` commands receive the raw suffix verbatim.
+- Expanded the backend `UpsertAppGenCustomSkillResponse` model and route implementation to include the authoritative `AppGenSkillEntry` plus `skillContent`, matching what the frontend needs immediately after save/create.
+- Updated `ProjectChatSkillsMcpViewer.tsx` to upsert returned skill metadata into local list/editor state and treat follow-up list/content fetches as background synchronization instead of prerequisites for a successful write UX.
+
+### UX/DX before and after
+- Before: Native slash-command reservations could go stale after mount, disappear during degraded authority states, or remain reserved for projects that no longer owned them.  
+  After: Native slash-command reservations stay synchronized across load, cache, viewer, and composer state, and obsolete project reservations are pruned on the next authoritative hydration.
+- Before: A user could type `/custom-prompt` followed by structured markdown or code and have whitespace, blank lines, or indentation silently collapsed before submission.  
+  After: Custom prompt execution receives exactly the text the user typed after the slash token, preserving formatting-sensitive prompts.
+- Before: A `200` response from custom-skill create/save could still leave the new skill unavailable or stuck in read-only/error states if the immediate follow-up read failed.  
+  After: A successful write remains selectable and editable immediately because the write response itself seeds the authoritative local state.
+- Before: Frontend debugging had to reason about multiple partially-authoritative paths: cached storage, viewer-derived cache writeback, stale mount snapshots, and mutation success followed by fragile re-read dependencies.  
+  After: Authority boundaries are explicit, state flows are simpler to trace, and the tests now exercise the same pathways the production UI relies on.
+
+### Validation coverage added or updated
+- Backend pytest coverage for:
+  - authoritative custom-skill upsert responses including returned skill metadata and content,
+  - write-success behavior that remains valid even when subsequent readback would fail.
+- Frontend Vitest coverage for:
+  - full-snapshot native slash-command cache replacement and project-pruning behavior,
+  - shared cache reactivity between agent-run hydration, viewer state, and composer protection,
+  - raw-suffix preservation for custom prompt slash commands,
+  - frontend skill-state upserts from successful custom-skill mutations.
+- Playwright E2E coverage for:
+  - cached native slash-command visibility surviving terminal agent-run load failures,
+  - custom slash-command submissions preserving attachments and raw markdown-mode content,
+  - newly created custom skills remaining usable immediately without depending on follow-up reads.

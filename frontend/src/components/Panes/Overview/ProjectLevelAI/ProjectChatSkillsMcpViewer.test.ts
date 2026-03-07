@@ -7,6 +7,7 @@ import {
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
   shouldPollSlashCommandAgentRuns,
+  upsertAppGenSkillEntry,
 } from "./ProjectChatSkillsMcpViewer";
 import {
   areAgentNativeSlashCommandMapsEqual,
@@ -226,6 +227,70 @@ describe("filterAgentNativeSlashCommandsByEngineId", () => {
         statusDetail: null,
       },
     });
+  });
+});
+
+describe("upsertAppGenSkillEntry", () => {
+  it("keeps newly upserted skills sorted like the authoritative backend list", () => {
+    const next = upsertAppGenSkillEntry(
+      [
+        {
+          skillId: "user_agents_skills::beta",
+          name: "beta",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: "beta",
+          isEditable: true,
+          editabilityReason: null,
+          description: "",
+        },
+      ],
+      {
+        skillId: "user_agents_skills::alpha",
+        name: "alpha",
+        rootLabel: "User ~/.agents/skills",
+        rootPath: "/home/.agents/skills",
+        relativePath: "alpha",
+        isEditable: true,
+        editabilityReason: null,
+        description: "",
+      },
+    );
+
+    expect(next.map((skill) => skill.skillId)).toEqual([
+      "user_agents_skills::alpha",
+      "user_agents_skills::beta",
+    ]);
+  });
+
+  it("replaces existing skill rows without duplicating the selected skill", () => {
+    const next = upsertAppGenSkillEntry(
+      [
+        {
+          skillId: "user_agents_skills::triage",
+          name: "triage",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: "triage",
+          isEditable: true,
+          editabilityReason: null,
+          description: "Old description",
+        },
+      ],
+      {
+        skillId: "user_agents_skills::triage",
+        name: "triage",
+        rootLabel: "User ~/.agents/skills",
+        rootPath: "/home/.agents/skills",
+        relativePath: "triage",
+        isEditable: true,
+        editabilityReason: null,
+        description: "Updated description",
+      },
+    );
+
+    expect(next).toHaveLength(1);
+    expect(next[0]?.description).toBe("Updated description");
   });
 });
 

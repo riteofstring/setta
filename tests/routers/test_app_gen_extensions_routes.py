@@ -560,6 +560,14 @@ class TestAppGenExtensionsRoutes:
             assert response.skillDocPath == str(
                 expected_skill_doc.resolve(strict=False)
             )
+            assert response.skill.skillId == "user_agents_skills::my-custom-skill"
+            assert response.skill.relativePath == "my-custom-skill"
+            assert response.skill.isEditable is True
+            assert (
+                response.skillContent.skillId == "user_agents_skills::my-custom-skill"
+            )
+            assert response.skillContent.content == "# my-custom-skill\n\nBody.\n"
+            assert response.skillContent.truncated is False
             assert (
                 expected_skill_doc.read_text(encoding="utf-8")
                 == "# my-custom-skill\n\nBody.\n"
@@ -640,6 +648,11 @@ class TestAppGenExtensionsRoutes:
             assert response.skillDocPath == str(
                 expected_workspace_skill_doc.resolve(strict=False)
             )
+            assert response.skill.skillId == "workspace_agents_skills::priority-check"
+            assert response.skill.rootPath == str(
+                (workspace_root / ".agents" / "skills").resolve(strict=False)
+            )
+            assert response.skillContent.content == "# priority-check\n\nBody.\n"
             assert expected_workspace_skill_doc.exists() is True
             assert home_skill_doc.exists() is False
 
@@ -789,6 +802,8 @@ class TestAppGenExtensionsRoutes:
 
             assert response.skillId == "workspace_agents_skills::editable"
             assert response.created is False
+            assert response.skill.skillId == "workspace_agents_skills::editable"
+            assert response.skillContent.content == "# editable\n\nUpdated.\n"
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
     def test_rejects_skill_id_target_when_skill_is_not_discoverable(
@@ -895,6 +910,8 @@ class TestAppGenExtensionsRoutes:
 
             assert response.skillId == "workspace_agents_skills::editable"
             assert response.created is False
+            assert response.skill.skillId == "workspace_agents_skills::editable"
+            assert response.skillContent.content == "# editable\n\nUpdated.\n"
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
     def test_creates_custom_skill_in_next_writable_priority_root(
@@ -936,6 +953,8 @@ class TestAppGenExtensionsRoutes:
             assert response.skillDocPath == str(
                 expected_skill_doc.resolve(strict=False)
             )
+            assert response.skill.skillId == "user_agents_skills::writable-fallback"
+            assert response.skillContent.content == "# writable-fallback\n\nBody.\n"
             assert (
                 expected_skill_doc.read_text(encoding="utf-8")
                 == "# writable-fallback\n\nBody.\n"
@@ -1117,6 +1136,9 @@ class TestAppGenExtensionsRoutes:
             fake_home / ".agents" / "skills" / "route-created" / "SKILL.md"
         )
         assert payload["skillDocPath"] == str(expected_skill_doc)
+        assert payload["skill"]["skillId"] == "user_agents_skills::route-created"
+        assert payload["skill"]["relativePath"] == "route-created"
+        assert payload["skillContent"]["content"] == "# route-created\n\nBody.\n"
         assert (
             expected_skill_doc.read_text(encoding="utf-8")
             == "# route-created\n\nBody.\n"
@@ -1213,6 +1235,8 @@ class TestAppGenExtensionsRoutes:
             (workspace_root / ".agents" / "skills").resolve(strict=False)
         )
         assert payload["skillDocPath"] == str(workspace_skill_doc.resolve(strict=False))
+        assert payload["skill"]["skillId"] == "workspace_agents_skills::priority-check"
+        assert payload["skillContent"]["content"] == "# priority-check\n\nBody.\n"
         assert workspace_skill_doc.exists() is True
         assert home_skill_doc.exists() is False
         clear_setta_paths_cache()

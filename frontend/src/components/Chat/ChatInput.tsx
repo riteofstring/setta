@@ -137,6 +137,7 @@ export type ChatSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
   args: string[];
+  rawSuffix?: string;
   promptTemplate?: string;
 };
 
@@ -267,17 +268,19 @@ export function resolveSlashCommandRequest({
 export function resolveCustomPromptSlashCommandSubmission({
   promptTemplate,
   args,
+  rawSuffix,
   attachments,
 }: {
   promptTemplate: string | null | undefined;
   args: string[];
+  rawSuffix?: string | null;
   attachments: ChatFileAttachment[];
 }): { message: string; attachments: ChatFileAttachment[] } | null {
   const trimmedPromptTemplate = promptTemplate?.trim() ?? "";
   if (!trimmedPromptTemplate) {
     return null;
   }
-  const promptArgs = args.join(" ").trim();
+  const promptArgs = rawSuffix ?? args.join(" ").trim();
   return {
     message: promptArgs
       ? `${trimmedPromptTemplate}\n\n${promptArgs}`
@@ -822,6 +825,7 @@ export const ChatInput = memo(function ChatInput({
         const submission = resolveCustomPromptSlashCommandSubmission({
           promptTemplate: parsed.promptTemplate,
           args: parsed.args,
+          rawSuffix: parsed.rawSuffix,
           attachments,
         });
         if (!submission) {

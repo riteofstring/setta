@@ -22,11 +22,16 @@ import {
   type EngineConfig,
   type ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
+import { createWithEqualityFn } from "zustand/traditional";
 
 export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
+export const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
+  {},
+) as Record<string, AgentNativeSlashCommandsEntry>;
 type AgentNativeSlashCommandsStatus =
   | "unknown"
   | "available"
@@ -38,7 +43,7 @@ export type AgentNativeSlashCommandsEntry = {
   status: AgentNativeSlashCommandsStatus;
   statusDetail: string | null;
 };
-export type AgentNativeSlashCommandsByProjectConfigId = Record<
+type AgentNativeSlashCommandsByProjectConfigId = Record<
   string,
   Record<string, AgentNativeSlashCommandsEntry>
 >;
@@ -53,6 +58,16 @@ export const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommands
     status: "unknown",
     statusDetail: null,
   };
+const agentNativeSlashCommandsStorageAdapter =
+  getSafeLocalStorageAdapter("agent-runs");
+export const useAgentNativeSlashCommandsCache =
+  createWithEqualityFn<AgentNativeSlashCommandsByProjectConfigId>()(() =>
+    parseAgentNativeSlashCommandsStorage(
+      agentNativeSlashCommandsStorageAdapter.getItem(
+        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+      ),
+    ),
+  );
 
 export function isAgentRunsAuthorityReady(
   agentRunsAuthorityState: AgentRunsAuthorityState,
@@ -895,6 +910,26 @@ export function areAgentNativeSlashCommandMapsEqual(
   return true;
 }
 
+function areAgentNativeSlashCommandProjectMapsEqual(
+  current: AgentNativeSlashCommandsByProjectConfigId,
+  next: AgentNativeSlashCommandsByProjectConfigId,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+  for (const key of currentKeys) {
+    if (!(key in next)) {
+      return false;
+    }
+    if (!areAgentNativeSlashCommandMapsEqual(current[key] ?? {}, next[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function resolveAgentNativeSlashCommandsStorageUpdate({
   currentEntries,
   projectConfigId,
@@ -1286,10 +1321,38 @@ export function parseAgentNativeSlashCommandsStorage(
   }
 }
 
-export function serializeAgentNativeSlashCommandsStorage(
+function serializeAgentNativeSlashCommandsStorage(
   entries: AgentNativeSlashCommandsByProjectConfigId,
 ): string {
   return JSON.stringify(entries);
+}
+
+export function replaceAgentNativeSlashCommandsCache(
+  nextEntries: AgentNativeSlashCommandsByProjectConfigId,
+): void {
+  const currentEntries = useAgentNativeSlashCommandsCache.getState();
+  const persistedEntries = parseAgentNativeSlashCommandsStorage(
+    agentNativeSlashCommandsStorageAdapter.getItem(
+      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+    ),
+  );
+  if (
+    areAgentNativeSlashCommandProjectMapsEqual(currentEntries, nextEntries) &&
+    areAgentNativeSlashCommandProjectMapsEqual(persistedEntries, nextEntries)
+  ) {
+    return;
+  }
+  useAgentNativeSlashCommandsCache.setState(nextEntries, true);
+  if (Object.keys(nextEntries).length === 0) {
+    agentNativeSlashCommandsStorageAdapter.removeItem(
+      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+    );
+    return;
+  }
+  agentNativeSlashCommandsStorageAdapter.setItem(
+    AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+    serializeAgentNativeSlashCommandsStorage(nextEntries),
+  );
 }
 
 export function buildReservedSlashCommandTokens({

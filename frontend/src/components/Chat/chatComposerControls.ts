@@ -124,6 +124,7 @@ type ParsedSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
   args: string[];
+  rawSuffix: string;
   promptTemplate?: string;
 };
 
@@ -475,19 +476,29 @@ export function parseSlashCommand(
   text: string,
   commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
 ): ParsedSlashCommand | null {
-  const trimmed = text.trim();
-  if (!trimmed.startsWith("/")) {
+  const trimmedStart = text.trimStart();
+  if (!trimmedStart.startsWith("/")) {
     return null;
   }
-  const parts = trimmed.split(/\s+/u);
-  const rawCommand = parts[0];
+  const firstWhitespaceIndex = trimmedStart.search(/\s/u);
+  const rawCommand =
+    firstWhitespaceIndex < 0
+      ? trimmedStart
+      : trimmedStart.slice(0, firstWhitespaceIndex);
   if (!rawCommand) {
     return null;
   }
   if (!SLASH_COMMAND_TOKEN_RE.test(rawCommand)) {
     return null;
   }
-  const args = parts.slice(1);
+  const normalizedTail =
+    firstWhitespaceIndex < 0
+      ? ""
+      : trimmedStart.slice(firstWhitespaceIndex).replace(/^\s/u, "");
+  const args =
+    normalizedTail.trim().length === 0
+      ? []
+      : normalizedTail.trim().split(/\s+/u);
   const definition = resolveSlashCommandDefinition(rawCommand, commands);
   if (!definition) {
     return null;
@@ -496,6 +507,7 @@ export function parseSlashCommand(
     command: definition.command,
     action: definition.action,
     args,
+    rawSuffix: normalizedTail,
   };
   if (definition.promptTemplate) {
     parsedCommand.promptTemplate = definition.promptTemplate;
