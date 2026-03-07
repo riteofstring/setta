@@ -160,11 +160,15 @@ Use the docs in this order:
 66. `phase-6-set-section-style-color-tool-parity.md`
   - focused slice doc for Go-owned `set_section_style_color` MCP parity over
     the completed layout-presentation runtime and scoped write boundary
-67. `spike-mcp.md`
+67. `phase-6-set-watch-code-enabled-tool-parity.md`
+  - focused slice doc for Go-owned `set_watch_code_enabled` MCP parity over
+    the completed Watch Code runtime owner and project-scoped structural MCP
+    boundary
+68. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-68. `spike-pty.md`
+69. `spike-pty.md`
    - PTY uncertainty-reduction plan
-69. `spike-lsp.md`
+70. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
