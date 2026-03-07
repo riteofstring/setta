@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -265,6 +266,147 @@ func TestProjectSynchronizerRefreshesGeneratedDiagnosticsCallbackWithoutContentC
 	}
 	if len(filtered.UnmappedGenCode) != 0 {
 		t.Fatalf("expected no unmapped diagnostics after ignored callback, got %#v", filtered.UnmappedGenCode)
+	}
+}
+
+// A callable section should auto-refetch only after its generated undefined
+// symbol diagnostic clears without another callable-level error replacing it.
+func TestProjectSynchronizerAutoRefetchesResolvedUndefinedCallableSections(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	pythonBinary := resolveTestPythonBinary(t)
+	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
+	service := NewService(session)
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	var resolvedEvents [][]string
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        service,
+		Diagnostics:    diagnostics,
+		OnCallableSymbolsResolved: func(_ context.Context, projectID string, sectionIDs []string) {
+			if projectID != "project-alpha" {
+				t.Fatalf("unexpected project id %q", projectID)
+			}
+			resolvedEvents = append(resolvedEvents, append([]string(nil), sectionIDs...))
+		},
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	document, generatedPath, _ := lspGeneratedDiagnosticsDocument(t, settaFilesRoot, false, false)
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize generated diagnostics document: %v", err)
+	}
+
+	generatedCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read generated code file: %v", err)
+	}
+	callback := service.tracked[generatedPath].Callback
+	if callback == nil {
+		t.Fatal("expected generated code diagnostics callback")
+	}
+
+	callback(buildGeneratedPublishDiagnostics(
+		t,
+		generatedPath,
+		string(generatedCode),
+		"MissingFunc",
+		"MissingFunc is not defined",
+		"reportUndefinedVariable",
+	))
+	if len(resolvedEvents) != 0 {
+		t.Fatalf("expected no auto-refetch while callable is still undefined, got %#v", resolvedEvents)
+	}
+
+	uri, err := pathToURI(generatedPath)
+	if err != nil {
+		t.Fatalf("path to uri: %v", err)
+	}
+	callback(PublishDiagnosticsParams{URI: uri})
+
+	if !reflect.DeepEqual(resolvedEvents, [][]string{{"section-1"}}) {
+		t.Fatalf("unexpected resolved-section refetch events %#v", resolvedEvents)
+	}
+}
+
+// Callable mismatch refetch should trigger once when the mismatch first
+// appears, then stay quiet for duplicate publishes until the state changes.
+func TestProjectSynchronizerAutoRefetchesNewCallableMismatchesOnce(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	runtimeRoot := t.TempDir()
+	pythonBinary := resolveTestPythonBinary(t)
+	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
+	service := NewService(session)
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	var mismatchEvents [][]string
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+		Service:        service,
+		Diagnostics:    diagnostics,
+		OnCallableSignatureMismatch: func(_ context.Context, projectID string, sectionIDs []string) {
+			if projectID != "project-alpha" {
+				t.Fatalf("unexpected project id %q", projectID)
+			}
+			mismatchEvents = append(mismatchEvents, append([]string(nil), sectionIDs...))
+		},
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	document, generatedPath, _ := lspGeneratedDiagnosticsDocument(t, settaFilesRoot, false, false)
+	materializePythonGeneratedFiles(t, ctx, settaFilesRoot, runtimeRoot, document)
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize generated diagnostics document: %v", err)
+	}
+
+	generatedCode, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("read generated code file: %v", err)
+	}
+	callback := service.tracked[generatedPath].Callback
+	if callback == nil {
+		t.Fatal("expected generated code diagnostics callback")
+	}
+	params := buildGeneratedPublishDiagnostics(
+		t,
+		generatedPath,
+		string(generatedCode),
+		"MissingFunc",
+		`Argument missing for parameter "param"`,
+		"reportCallIssue",
+	)
+
+	callback(params)
+	callback(params)
+
+	if !reflect.DeepEqual(mismatchEvents, [][]string{{"section-1"}}) {
+		t.Fatalf("unexpected mismatch refetch events %#v", mismatchEvents)
 	}
 }
 

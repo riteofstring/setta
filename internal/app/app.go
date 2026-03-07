@@ -188,6 +188,26 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectRuntime = projectStates.Main()
 		plannerFilesRoot = cfg.Paths.SettaFilesRoot
 		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
+		projectLSPSyncer.SetCallableAutoRefetchHandlers(
+			func(ctx context.Context, projectID string, sectionIDs []string) {
+				if _, _, err := projectStates.Main().RefetchCallableParams(ctx, projectID, sectionIDs, lspSignature); err != nil {
+					logger.Error("lsp callable auto-refetch after symbol resolution failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
+				}
+			},
+			func(ctx context.Context, projectID string, sectionIDs []string) {
+				enabled, err := projectstate.AutoRefetchCallableParamsOnLSPMismatchEnabled(projectStates.Settings().Snapshot().Document)
+				if err != nil {
+					logger.Error("lsp callable mismatch refetch policy lookup failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
+					return
+				}
+				if !enabled {
+					return
+				}
+				if _, _, err := projectStates.Main().RefetchCallableParams(ctx, projectID, sectionIDs, lspSignature); err != nil {
+					logger.Error("lsp callable auto-refetch after mismatch failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
+				}
+			},
+		)
 	}
 
 	terminalService, err := terminals.New(terminals.Options{

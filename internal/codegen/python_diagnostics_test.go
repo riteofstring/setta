@@ -100,6 +100,37 @@ func TestPythonGeneratedDiagnosticsMapperUsesRangeIndexForUndefinedSymbol(t *tes
 	}
 }
 
+// Undefined callable diagnostics need to expose both the mapped callable error
+// payload and the raw section-id set used by auto-refetch callbacks.
+func TestPythonGeneratedDiagnosticsMapperCollectsUndefinedCallableSections(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		ParamValue: "",
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "MissingFunc")
+	if start < 0 {
+		t.Fatalf("expected callable name in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("MissingFunc"),
+		"MissingFunc is not defined",
+		"reportUndefinedVariable",
+	)
+
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if result.Diagnostics.Errors["section-1"].Callable[0] != "MissingFunc is not defined" {
+		t.Fatalf("expected mapped callable error, got %#v", result.Diagnostics.Errors)
+	}
+	if _, ok := result.UndefinedCallableSections["section-1"]; !ok {
+		t.Fatalf("expected undefined callable section, got %#v", result.UndefinedCallableSections)
+	}
+}
+
 // Named-argument call issues should map from the assignment target and identify
 // the specific missing param from the dependency graph.
 func TestPythonGeneratedDiagnosticsMapperMapsCallIssueFromAssignmentTarget(t *testing.T) {
@@ -130,6 +161,35 @@ func TestPythonGeneratedDiagnosticsMapperMapsCallIssueFromAssignmentTarget(t *te
 	}
 	if len(unmapped) != 0 {
 		t.Fatalf("expected named call issue to map cleanly, got %#v", unmapped)
+	}
+}
+
+// Callable mismatch diagnostics need to retain the owning section-id set so
+// the synchronizer can trigger a single refetch the first time the mismatch
+// appears.
+func TestPythonGeneratedDiagnosticsMapperCollectsCallableMismatchSections(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		ParamValue: "",
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "MissingFunc")
+	if start < 0 {
+		t.Fatalf("expected callable name in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("MissingFunc"),
+		`Argument missing for parameter "param"`,
+		"reportCallIssue",
+	)
+
+	result := mapper.AnalyzeCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if _, ok := result.CallableMismatchSections["section-1"]; !ok {
+		t.Fatalf("expected callable mismatch section, got %#v", result.CallableMismatchSections)
 	}
 }
 

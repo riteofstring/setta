@@ -28,6 +28,13 @@ type PythonGeneratedDiagnosticsMapper struct {
 	ignoredTypeErrorsByID map[string]pythonTypeErrorIgnoreState
 }
 
+type PythonGeneratedCodeDiagnosticsResult struct {
+	Diagnostics               projectstate.ProjectConfigDiagnostics
+	Unmapped                  []projectstate.LSPDiagnostic
+	UndefinedCallableSections map[string]struct{}
+	CallableMismatchSections  map[string]struct{}
+}
+
 type pythonTypeErrorIgnoreState struct {
 	Callable bool
 	Params   map[string]bool
@@ -100,20 +107,44 @@ func (m *PythonGeneratedDiagnosticsMapper) MapCodeDiagnostics(
 	diagnostics []PythonGeneratedDiagnostic,
 	uri string,
 ) (projectstate.ProjectConfigDiagnostics, []projectstate.LSPDiagnostic) {
+	result := m.AnalyzeCodeDiagnostics(diagnostics, uri)
+	return result.Diagnostics, result.Unmapped
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) AnalyzeCodeDiagnostics(
+	diagnostics []PythonGeneratedDiagnostic,
+	uri string,
+) PythonGeneratedCodeDiagnosticsResult {
 	if m == nil || m.renderer == nil || m.graph == nil {
-		return emptyGeneratedDiagnostics(""), buildProjectDiagnostics(diagnostics, uri)
+		return PythonGeneratedCodeDiagnosticsResult{
+			Diagnostics:               emptyGeneratedDiagnostics(""),
+			Unmapped:                  buildProjectDiagnostics(diagnostics, uri),
+			UndefinedCallableSections: map[string]struct{}{},
+			CallableMismatchSections:  map[string]struct{}{},
+		}
 	}
 
 	positions := convertDiagnosticLineColsToPositions(m.renderer.Code, diagnostics)
 	rangeIndex := buildDiagnosticRangeIndex(m.renderer)
 	errors := map[string]projectstate.SectionTypeErrors{}
 	unmapped := make([]projectstate.LSPDiagnostic, 0)
+	undefinedCallableSections := map[string]struct{}{}
+	callableMismatchSections := map[string]struct{}{}
 
 	for index, diagnostic := range diagnostics {
 		position := positions[index]
+		if isCallMismatchDiagnostic(diagnostic) {
+			if sectionID, ok := m.callableMismatchSectionID(position, rangeIndex); ok {
+				callableMismatchSections[sectionID] = struct{}{}
+			}
+		}
+		isUndefinedSymbol := isUndefinedSymbolDiagnostic(diagnostic)
 		results := m.processDiagnostic(diagnostic, position, rangeIndex)
 		mapped := len(results) > 0
 		for _, result := range results {
+			if isUndefinedSymbol && strings.TrimSpace(result.ParamID) == "" {
+				undefinedCallableSections[result.SectionID] = struct{}{}
+			}
 			if shouldIgnoreGeneratedTypeError(result.SectionID, result.ParamID, m.ignoredTypeErrorsByID) {
 				continue
 			}
@@ -124,11 +155,16 @@ func (m *PythonGeneratedDiagnosticsMapper) MapCodeDiagnostics(
 		}
 	}
 
-	return projectstate.ProjectConfigDiagnostics{
-		ProjectID: m.projectID,
-		Errors:    errors,
-		IsGenCode: true,
-	}, unmapped
+	return PythonGeneratedCodeDiagnosticsResult{
+		Diagnostics: projectstate.ProjectConfigDiagnostics{
+			ProjectID: m.projectID,
+			Errors:    errors,
+			IsGenCode: true,
+		},
+		Unmapped:                  unmapped,
+		UndefinedCallableSections: undefinedCallableSections,
+		CallableMismatchSections:  callableMismatchSections,
+	}
 }
 
 func (m *PythonGeneratedDiagnosticsMapper) MapMetadataDiagnostics(
@@ -238,6 +274,17 @@ func (m *PythonGeneratedDiagnosticsMapper) processUndefinedSymbol(
 		return nil
 	}
 	return []generatedDiagnosticResult{diagnosticResultForKey(depKey)}
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) callableMismatchSectionID(
+	position pythonGeneratedDiagnosticPosition,
+	rangeIndex pythonGeneratedDiagnosticRangeIndex,
+) (string, bool) {
+	depKey, ok := findDepKeyForRange(position, m.renderer, rangeIndex)
+	if !ok || strings.TrimSpace(depKey.SectionID) == "" {
+		return "", false
+	}
+	return depKey.SectionID, true
 }
 
 func diagnosticResultForKey(key PythonDependencyKey) generatedDiagnosticResult {
@@ -444,6 +491,14 @@ func extractQuotedParameters(message string) map[string]struct{} {
 		output[match[1]] = struct{}{}
 	}
 	return output
+}
+
+func isCallMismatchDiagnostic(diagnostic PythonGeneratedDiagnostic) bool {
+	if diagnosticCodeString(diagnostic.Code) != "reportCallIssue" {
+		return false
+	}
+	lowerMessage := strings.ToLower(diagnostic.Message)
+	return strings.Contains(lowerMessage, "positional argument") || strings.Contains(lowerMessage, "parameter")
 }
 
 func isUndefinedSymbolDiagnostic(diagnostic PythonGeneratedDiagnostic) bool {
