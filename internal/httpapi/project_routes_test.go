@@ -45,7 +45,7 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(_ context.Context, target projectstate.ProjectCodegenTarget) error {
 		validatedTargets = append(validatedTargets, target.Language)
 		return nil
-	}), nil)
+	}), nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -83,6 +83,53 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 	}
 	if string(project.CodegenTargets[0].Payload) != `{"language":"setta-fixture-backend-codegen:typescript","options":{"className":"AlphaState"}}` {
 		t.Fatalf("unexpected persisted payload %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
+func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project state payload: %v", err)
+	}
+	if payload.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha response, got %q", payload.ProjectState.ProjectConfig.ID)
+	}
+	if len(payload.CompletedOpIDs) != 0 || len(payload.PendingOpIDs) != 0 {
+		t.Fatalf("expected empty op ids, got completed=%#v pending=%#v", payload.CompletedOpIDs, payload.PendingOpIDs)
 	}
 }
 
@@ -188,7 +235,7 @@ func TestRegisterProjectRoutesDisablesPythonCodegenAndReturnsCleanedProjectState
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
-	}), nil)
+	}), nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -253,7 +300,7 @@ func TestRegisterProjectRoutesRejectsInvalidCodegenTargetPayload(t *testing.T) {
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
-	}), nil)
+	}), nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -337,7 +384,7 @@ func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSe
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
-	}), materializer)
+	}), materializer, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -392,7 +439,7 @@ func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSe
 func TestRegisterProjectRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newProjectRouteTestHandler(t, config.ModeShare, nil, nil, nil)
+	handler := newProjectRouteTestHandler(t, config.ModeShare, nil, nil, nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -410,14 +457,117 @@ func TestRegisterProjectRoutesBlocksDeploymentMode(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesSetsCallableAndPersistsUpdatedProjectState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": callableRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		nil,
+		nil,
+		projectstate.CallableSignatureResolver(&stubProjectRouteCallableSignatureResolver{
+			result: projectstate.CallableSignatureResult{
+				Documentation: "Sort values.",
+				Status:        projectstate.SignatureHelpStatusMatched,
+				Params: []projectstate.CallableParamProposal{
+					{
+						Name:         "iterable",
+						Description:  "Values to sort.",
+						PassingStyle: "POSITIONAL_ONLY",
+					},
+					{
+						Name:         "reverse",
+						DefaultValue: "False",
+						Description:  "Descending order flag.",
+						PassingStyle: "KEYWORD_ONLY",
+					},
+				},
+			},
+			ok: true,
+		}),
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetCallable,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","callableName":"sorted","refetchParams":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload projectstate.SetCallableResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode set callable payload: %v", err)
+	}
+	if payload.CallableID == nil || *payload.CallableID != "callable-2" {
+		t.Fatalf("expected callable-2 response, got %#v", payload.CallableID)
+	}
+	if payload.LSPStatus != projectstate.SignatureHelpStatusMatched {
+		t.Fatalf("expected matched status, got %q", payload.LSPStatus)
+	}
+	if len(payload.ChildCodeObjs) != 2 {
+		t.Fatalf("expected two child params, got %#v", payload.ChildCodeObjs)
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var latestPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &latestPayload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+	callableVariantID := latestPayload.ProjectState.ProjectConfig.SectionVariantMap["callable-section"]
+	callableImplID := latestPayload.ProjectState.SectionVariants[callableVariantID].Impl
+	callableImplPayload := string(latestPayload.ProjectState.SectionImpls[callableImplID])
+	if !strings.Contains(callableImplPayload, `"callable":"callable-2"`) {
+		t.Fatalf("expected callable-2 in persisted payload, got %q", callableImplPayload)
+	}
+}
+
 func newProjectRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
 	projectRuntime *projectstate.Runtime,
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
+	callableResolver projectstate.CallableSignatureResolver,
 ) http.Handler {
 	t.Helper()
+	if validator == nil {
+		validator = projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		})
+	}
 	if pythonReconciler == nil {
 		pythonReconciler = projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
 			return nil
@@ -434,6 +584,7 @@ func newProjectRouteTestHandler(
 				ProjectState:                   projectRuntime,
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,
+				CallableSignatures:             callableResolver,
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
 			}
@@ -450,4 +601,117 @@ func derefString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+type stubProjectRouteCallableSignatureResolver struct {
+	result projectstate.CallableSignatureResult
+	ok     bool
+	err    error
+}
+
+func (s *stubProjectRouteCallableSignatureResolver) ResolveCallableSignature(
+	_ context.Context,
+	_ projectstate.Project,
+	_ string,
+	_ string,
+) (projectstate.CallableSignatureResult, bool, error) {
+	return s.result, s.ok, s.err
+}
+
+func callableRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"callable-section": "callable-variant-1",
+		},
+		Sections: map[string]projectstate.Section{
+			"callable-section": {
+				ID:               "callable-section",
+				Name:             "CallSection",
+				VariantIDs:       []string{"callable-variant-1"},
+				DefaultVariantID: "callable-variant-1",
+				UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"callable-variant-1": {
+				ID:     "callable-variant-1",
+				ImplID: "callable-impl-1",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"callable-impl-1": {
+				ID:   "callable-impl-1",
+				Kind: projectstate.SectionKind("callable"),
+				Payload: projectstate.RawJSON(`{
+					"id":"callable-impl-1",
+					"type":"Callable",
+					"callable":"callable-1",
+					"codeObjVariantMap":{
+						"callable-1":"callable-variant-a",
+						"callable-2":"callable-variant-b",
+						"param-existing":"param-variant-existing"
+					}
+				}`),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"callable-1": {
+				ID:               "callable-1",
+				Name:             "existing_callable",
+				VariantIDs:       []string{"callable-variant-a"},
+				DefaultVariantID: "callable-variant-a",
+			},
+			"callable-2": {
+				ID:               "callable-2",
+				Name:             "sorted",
+				VariantIDs:       []string{"callable-variant-b"},
+				DefaultVariantID: "callable-variant-b",
+			},
+			"param-existing": {
+				ID:               "param-existing",
+				Name:             "iterable",
+				VariantIDs:       []string{"param-variant-existing"},
+				DefaultVariantID: "param-variant-existing",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"callable-variant-a": {
+				ID:     "callable-variant-a",
+				ImplID: "callable-impl-a",
+			},
+			"callable-variant-b": {
+				ID:     "callable-variant-b",
+				ImplID: "callable-impl-b",
+			},
+			"param-variant-existing": {
+				ID:     "param-variant-existing",
+				ImplID: "param-impl-existing",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"callable-impl-a": {
+				ID:      "callable-impl-a",
+				Type:    "CodeCallable",
+				Payload: projectstate.RawJSON(`{"id":"callable-impl-a","type":"CodeCallable","children":[]}`),
+			},
+			"callable-impl-b": {
+				ID:      "callable-impl-b",
+				Type:    "CodeCallable",
+				Payload: projectstate.RawJSON(`{"id":"callable-impl-b","type":"CodeCallable","children":["param-existing"]}`),
+			},
+			"param-impl-existing": {
+				ID:      "param-impl-existing",
+				Type:    "CodeParam",
+				Payload: projectstate.RawJSON(`{"id":"param-impl-existing","type":"CodeParam","value":"user_value","passingStyle":"DEFAULT"}`),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize callable route project: %v", err)
+	}
+	return project
 }

@@ -77,6 +77,23 @@ type CompletionResult struct {
 	Items        []CompletionItem `json:"items"`
 }
 
+type SignatureHelpResult struct {
+	Signatures      []SignatureInformation `json:"signatures,omitempty"`
+	ActiveSignature *int                   `json:"activeSignature,omitempty"`
+	ActiveParameter *int                   `json:"activeParameter,omitempty"`
+}
+
+type SignatureInformation struct {
+	Label         string                 `json:"label"`
+	Documentation any                    `json:"documentation,omitempty"`
+	Parameters    []ParameterInformation `json:"parameters,omitempty"`
+}
+
+type ParameterInformation struct {
+	Label         json.RawMessage `json:"label"`
+	Documentation any             `json:"documentation,omitempty"`
+}
+
 type DiagnosticsCallback func(PublishDiagnosticsParams)
 
 type SyncedDocument struct {
@@ -383,6 +400,34 @@ func (s *Session) Completion(ctx context.Context, path string, line int, charact
 		},
 	}, &result); err != nil {
 		return CompletionResult{}, err
+	}
+	return result, nil
+}
+
+func (s *Session) SignatureHelp(ctx context.Context, path string, line int, character int) (SignatureHelpResult, error) {
+	var result SignatureHelpResult
+	if err := s.Start(ctx); err != nil {
+		return result, err
+	}
+	uri, err := pathToURI(path)
+	if err != nil {
+		return result, fmt.Errorf("lsp: signature help document uri: %w", err)
+	}
+
+	if err := s.callStarted(ctx, "textDocument/signatureHelp", map[string]any{
+		"textDocument": map[string]any{
+			"uri": uri,
+		},
+		"position": map[string]int{
+			"line":      line,
+			"character": character,
+		},
+		"context": map[string]any{
+			"triggerKind":      2,
+			"triggerCharacter": "(",
+		},
+	}, &result); err != nil {
+		return SignatureHelpResult{}, err
 	}
 	return result, nil
 }

@@ -18,6 +18,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
+	"setta/internal/lspsignature"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/plugins"
@@ -72,6 +73,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspDiagnostics     *projectstate.LSPDiagnosticsRegistry
 		projectLSPSyncer   *lsp.ProjectSynchronizer
 		lspCompletion      *lspcompletion.Service
+		lspSignature       *lspsignature.Service
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
 		plannerFilesRoot   string
@@ -149,6 +151,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		lspCompletion, err = lspcompletion.NewService(lspcompletion.ServiceOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
+			LSPService:     lspService,
+		})
+		if err != nil {
+			return nil, err
+		}
+		lspSignature, err = lspsignature.NewService(lspsignature.ServiceOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			LSPService:     lspService,
@@ -295,6 +305,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ProjectState:                   projectRuntime,
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
+				CallableSignatures:             lspSignature,
 			}); err != nil {
 				panic(err)
 			}

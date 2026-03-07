@@ -79,6 +79,47 @@ func TestSessionFixtureServerDiagnosticsAndCompletion(t *testing.T) {
 	}
 }
 
+// Signature-help requests share the same stdio/session boundary as completion,
+// so the fixture server should prove that we frame and decode the request.
+func TestSessionFixtureServerSignatureHelp(t *testing.T) {
+	t.Parallel()
+
+	pythonBinary := resolveTestPythonBinary(t)
+	workspaceRoot := t.TempDir()
+	session := newFixtureSession(t, pythonBinary, workspaceRoot)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := session.Close(context.Background()); err != nil {
+			t.Fatalf("close session: %v", err)
+		}
+	}()
+
+	documentPath := filepath.Join(workspaceRoot, "fixture.py")
+	content := "value = sorted(\n"
+	if err := statefs.AtomicWriteFile(documentPath, []byte(content), 0o644); err != nil {
+		t.Fatalf("seed fixture document: %v", err)
+	}
+	if err := session.OpenDocument(ctx, documentPath, "python", content, nil); err != nil {
+		t.Fatalf("open document: %v", err)
+	}
+
+	signatureHelp, err := session.SignatureHelp(ctx, documentPath, 0, len("value = sorted("))
+	if err != nil {
+		t.Fatalf("signature help: %v", err)
+	}
+	if len(signatureHelp.Signatures) != 1 {
+		t.Fatalf("expected one signature, got %#v", signatureHelp.Signatures)
+	}
+	if signatureHelp.Signatures[0].Label != "sorted(iterable, /, *, key=None, reverse=False)" {
+		t.Fatalf("unexpected signature label %q", signatureHelp.Signatures[0].Label)
+	}
+	if len(signatureHelp.Signatures[0].Parameters) != 5 {
+		t.Fatalf("expected five parameters, got %#v", signatureHelp.Signatures[0].Parameters)
+	}
+}
+
 // Request timeouts must fail cleanly so a hung language server does not wedge
 // later slices that depend on completion and diagnostics calls.
 func TestSessionCompletionTimeout(t *testing.T) {

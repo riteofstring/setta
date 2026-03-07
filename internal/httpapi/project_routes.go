@@ -14,7 +14,11 @@ import (
 	"setta/internal/projectview"
 )
 
-const RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
+const (
+	RouteGetLatestProjectState          = "/getLatestProjectState"
+	RouteSetCallable                    = "/setCallable"
+	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
+)
 
 var (
 	ErrProjectCodegenTargetObjectRequired   = errors.New("project codegen target payload must be a JSON object")
@@ -26,11 +30,32 @@ type ProjectRouteDependencies struct {
 	ProjectState                   *projectstate.Runtime
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
+	CallableSignatures             projectstate.CallableSignatureResolver
+}
+
+type ProjectStateSingleConfigWithCompletedOpIDs struct {
+	ProjectState   projectview.SingleConfig `json:"projectState"`
+	CompletedOpIDs []string                 `json:"completedOpIds"`
+	PendingOpIDs   []string                 `json:"pendingOpIds"`
 }
 
 type SetProjectConfigCodegenTargetsRequest struct {
+	FrontendOpID   *string           `json:"frontendOpId"`
 	ProjectID      string            `json:"projectConfigId"`
 	CodegenTargets []json.RawMessage `json:"codegenTargets"`
+}
+
+type GetLatestProjectStateRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+}
+
+type SetCallableRequest struct {
+	FrontendOpID  *string `json:"frontendOpId"`
+	ProjectID     string  `json:"projectConfigId"`
+	SectionID     string  `json:"sectionId"`
+	CallableName  string  `json:"callableName"`
+	RefetchParams bool    `json:"refetchParams"`
 }
 
 func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) error {
@@ -49,8 +74,80 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		}
 	}
 
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
 	return nil
+}
+
+func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[GetLatestProjectStateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		projectStateView, err := projectview.SingleConfigByProjectID(deps.ProjectState.Snapshot().Document, projectID)
+		if err != nil {
+			writeProjectRouteStateError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, ProjectStateSingleConfigWithCompletedOpIDs{
+			ProjectState:   projectStateView,
+			CompletedOpIDs: []string{},
+			PendingOpIDs:   []string{},
+		})
+	}
+}
+
+func setCallableHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCallableRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		_, response, err := deps.ProjectState.SetCallable(
+			r.Context(),
+			projectID,
+			sectionID,
+			payload.CallableName,
+			payload.RefetchParams,
+			deps.CallableSignatures,
+		)
+		if err != nil {
+			writeSetCallableError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
 }
 
 func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
@@ -144,6 +241,18 @@ func decodeProjectCodegenTarget(payload json.RawMessage) (projectstate.ProjectCo
 	}, nil
 }
 
+func writeProjectRouteStateError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
 func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
@@ -159,6 +268,24 @@ func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Req
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_project_codegen_targets", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSetCallableError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCallableSectionRequired):
+		writeError(w, r, http.StatusBadRequest, "invalid_callable_section", "Section must resolve to a callable section.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
