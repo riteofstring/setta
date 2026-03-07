@@ -9,6 +9,10 @@ Reduce the pan/zoom overhead from the live minimap so `showMinimap=true` is clos
 - correct viewport mask
 - correct node geometry after layout changes
 
+## Current Preference
+- 2026-03-07: stage 1 of the iterative rollout is the preferred stopping point.
+- Stage 2 and later tradeoff stages remain documented for reference, but they are not the desired shipped direction at this time.
+
 ## Scope
 - In scope:
   - `frontend/src/components/Pages/Project/ResponsiveMiniMap.tsx`

@@ -13,6 +13,10 @@ Code paths touched:
 - Keep stage 1 feature-preserving, then remove one concrete minimap behavior at a time in later stages.
 - Record enough data at each step that the final tradeoff can be chosen after the work is done.
 
+## Current Preference
+
+- 2026-03-07: the preferred stopping point is stage 1 (`388af6b12`), because it improves minimap performance without removing visible minimap features.
+
 ## Historical Baseline (Original 2026-03-06 Capture)
 
 - Page: `/settings` -> `All Settings`
@@ -92,6 +96,7 @@ Takeaways:
 - In this harness, the feature-preserving canvas renderer leaves `minimap + grid` about `4.0%` slower than `no minimap + grid`.
 - Grid cost is still real even after the minimap is off: `no minimap + grid` is about `3.6%` slower than `no minimap + no grid`.
 - The remaining gap is now small enough that stronger tradeoff stages can focus on the last live-update behaviors instead of the basic node renderer.
+- Current preference: stage 1 is the accepted version, even though later stages benchmark faster.
 
 Raw artifact:
 - `perf/artifacts/2026-03-06_minimap-iterative/stage1-feature-preserving.trace.json`
