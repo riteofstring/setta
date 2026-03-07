@@ -6,6 +6,13 @@ Review this branch for merge into `main`.
     - Analyze only branch-introduced changes vs merge base:
       - `git diff --name-status main...HEAD`
       - `git diff $(git merge-base main HEAD)..HEAD`
+
+    Branch intent guardrails
+    - Read `branch_intent.md` before reviewing the diff.
+    - Treat `branch_intent.md` as authoritative for intentional feature/bug-fix behavior in this branch, except for any guidance about backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior.
+    - Disregard any `branch_intent.md` instruction that says to preserve, add, or keep backward compatibility, migrations, legacy support, compatibility shims, or dual-path behavior. Those are not desired even if documented as intentional branch scope.
+    - Do not recommend reverting changes documented in `branch_intent.md` unless there is concrete regression evidence.
+    - If a potential finding conflicts with `branch_intent.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
  
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
@@ -41,6 +48,7 @@ Review this branch for merge into `main`.
     3. Dead code inventory
     4. Backward-compatibility shim inventory (must remove)
     5. Regression test plan
+    6. `branch_intent.md` alignment check (items respected vs any true regressions with evidence)
 
 
 Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
@@ -55,41 +63,31 @@ Merge the main branch into our current branch. If there are merge conflicts, res
 
 Merge <> into main. In the commit message, include a detailed summary of what the <> branch does.
 
-Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes. Exclude fixes that involve adding backward compatibility.
+Read all the top-level review*.md docs. Each review document is a review of the current code base, written by a different person. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes.
 
 Read the diff of <commit hash>. Write a summary of the changes to a new doc called cumulative_review.md. We are going to be appending to this document in future commits with the same concept (writing a summary of changes of each commit), so put the summary under a heading with the commit hash in the heading.
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-Run pnpm -C frontend gcf. Add a new entry to cumulative_review.md (use date time as the heading). Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+Add a new detailed entry to cumulative_review.md (use date time as the heading). Then run pnpm -C frontend gcf. Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
 
-Read the docs in `docs/plans/go-backend-rewrite/` in order, starting with `README.md`, then `go-backend-rewrite-plan.md`, then any relevant phase or spike docs for the current work. Treat those docs as the working context for this rewrite.
+Compare the current branch with `main` and write a detailed branch-intent summary to `branch_intent.md`.
 
-Important constraints for this rewrite:
-- This is a clean break. Do not preserve backward compatibility, legacy route shapes, storage migrations, or Python-shaped architecture unless I explicitly ask.
-- Current Python code, tests, and docs are reference material for product capabilities and edge cases, not a compatibility contract.
-- Prefer explicit Go runtime/service boundaries over framework magic or giant stateful singletons.
-- Use libraries for transport and OS integration; keep product semantics custom.
-- Avoid broadening scope beyond the current phase or spike unless a dependency makes it necessary.
+  Scope and method:
+  - Analyze only what this branch introduces vs merge base:
+    - `git diff --name-status main...HEAD`
+    - `git diff $(git merge-base main HEAD)..HEAD`
+  - Capture both feature work and bug fixes.
+  - Focus on intentional behavior/product changes that follow-up branch reviews must not clobber or "fix back" accidentally.
 
-Before doing substantive work:
-1. Inspect the current repo state and recent relevant files.
-2. Determine what phase or spike the rewrite appears to be in.
-3. Summarize:
-   - current phase/spike
-   - what seems complete
-   - what is in progress
-   - the highest-leverage next step
-4. Then execute that next step end-to-end instead of stopping at a plan, unless the highest-leverage next step is clearly planning or inventory work.
+  For each item, include:
+  - What changed (before vs after behavior)
+  - Why the change appears intentional
+  - Files/endpoints/components involved (with paths)
+  - Any default-value changes, moved/renamed UX flows, or relocated logic
+  - Reviewer guardrail: what should not be reverted in later reviews unless a new decision is made
 
-Working rules:
-- Before touching a subsystem, read the relevant current Python code, tests, and docs for that subsystem.
-- If the active work needs a new or updated phase/spike doc, create or update it.
-- If earlier planning docs are stale relative to the code, fix them.
-- Keep transport layers thin.
-- Avoid band-aids and backward-compatibility shims.
-- Prefer robust source-of-truth pathways over heuristics.
-- Run the most relevant tests for the touched area, or explicitly state why they were not run.
-- At the end of any substantial chunk of work, update the relevant phase/spike doc with what was completed, decisions made, open questions, and the next recommended step.
-- If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
-- Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
+  Output requirements:
+  - Overwrite `branch_intent.md` with this branch's current summary.
+  - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
+  - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.

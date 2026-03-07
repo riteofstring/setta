@@ -1,4 +1,5 @@
 import { resetProjectStores } from "state/utils";
+import { createAgentRun } from "utils/generatedTypes";
 import {
   afterAll,
   afterEach,
@@ -9,6 +10,9 @@ import {
   it,
   vi,
 } from "vitest";
+
+const LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -206,6 +210,53 @@ describe("AI resource load guards", () => {
     expect(state.agentRunsAuthorityState).toBe("ready");
   });
 
+  it("does not persist native slash metadata from authoritative agent-run loads", async () => {
+    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+      .route_get_agent_runs as unknown as vi.Mock;
+    route_get_agent_runs.mockReset();
+    route_get_agent_runs.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        createAgentRun({
+          id: "run-live",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/deploy"],
+            },
+          },
+        }),
+      ],
+    });
+
+    await loadAgentRuns();
+
+    expect(
+      memoryStorage.getItem(LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+    ).toBeNull();
+  });
+
+  it("keeps the legacy native slash storage key absent when agent-run payloads are empty", async () => {
+    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+      .route_get_agent_runs as unknown as vi.Mock;
+    route_get_agent_runs.mockReset();
+    route_get_agent_runs.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+
+    await loadAgentRuns();
+
+    expect(
+      memoryStorage.getItem(LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+    ).toBeNull();
+  });
+
   it("retries transient agent-runs load failures and recovers to ready", async () => {
     vi.useFakeTimers();
     try {
@@ -328,6 +379,53 @@ describe("AI resource load guards", () => {
       expect(state.agentRunsInitialLoadComplete).toBe(true);
       expect(state.agentRunsLoadError).toBe("Failed to load agent runs");
       expect(route_get_agent_runs).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not rewrite the legacy native slash storage key after terminal agent-run failures", async () => {
+    vi.useFakeTimers();
+    try {
+      memoryStorage.setItem(
+        LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+        JSON.stringify({
+          "project-a": {
+            "engine-live": {
+              commands: ["/deploy"],
+              status: "available",
+              statusDetail: null,
+            },
+          },
+        }),
+      );
+      const route_get_agent_runs = (await import("utils/generatedEndpoints"))
+        .route_get_agent_runs as unknown as vi.Mock;
+      route_get_agent_runs.mockReset();
+      route_get_agent_runs.mockResolvedValue({
+        status: 500,
+        hasResponse: true,
+        data: { detail: "persistent failure" },
+      });
+
+      await loadAgentRuns();
+      await vi.advanceTimersByTimeAsync(4000);
+
+      expect(
+        JSON.parse(
+          memoryStorage.getItem(
+            LEGACY_AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+          ) ?? "{}",
+        ),
+      ).toEqual({
+        "project-a": {
+          "engine-live": {
+            commands: ["/deploy"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      });
     } finally {
       vi.useRealTimers();
     }
