@@ -40,6 +40,7 @@ type Metadata struct {
 	Kind                          Kind
 	AccessType                    AccessType
 	IDPathsByType                 map[IDType][]string
+	ResultIDPathsByType           map[IDType][]string
 	DefaultTargetSingletonSection string
 	ResultFilter                  ResultFilter
 	SearchTags                    []string
@@ -157,6 +158,14 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		}
 		idPathsByType[idType] = normalizePathList(paths)
 	}
+	resultIDPathsByType := make(map[IDType][]string, len(m.ResultIDPathsByType))
+	for rawIDType, paths := range m.ResultIDPathsByType {
+		idType, err := normalizeIDType(rawIDType)
+		if err != nil {
+			return Metadata{}, err
+		}
+		resultIDPathsByType[idType] = normalizePathList(paths)
+	}
 
 	searchTags, searchCategory := buildSearchMetadata(
 		toolName,
@@ -168,6 +177,7 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		Kind:                          normalizedKind,
 		AccessType:                    normalizedAccessType,
 		IDPathsByType:                 idPathsByType,
+		ResultIDPathsByType:           resultIDPathsByType,
 		DefaultTargetSingletonSection: strings.TrimSpace(m.DefaultTargetSingletonSection),
 		ResultFilter:                  normalizedResultFilter,
 		SearchTags:                    searchTags,

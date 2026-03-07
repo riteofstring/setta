@@ -21,6 +21,9 @@ func TestRegistryRegisterNormalizesMetadataAndListsSorted(t *testing.T) {
 			IDPathsByType: map[IDType][]string{
 				IDTypeSection: {" args.sectionId ", "args.otherId", "args.sectionId"},
 			},
+			ResultIDPathsByType: map[IDType][]string{
+				IDTypeSection: {" result.sectionId ", "result.sectionId"},
+			},
 			SearchTags: []string{"Layout", "layout"},
 		},
 		Handler: func(context.Context, map[string]any) (any, error) {
@@ -71,6 +74,9 @@ func TestRegistryRegisterNormalizesMetadataAndListsSorted(t *testing.T) {
 	if len(tool.Metadata.IDPathsByType[IDTypeSection]) != 2 {
 		t.Fatalf("expected deduped id paths, got %#v", tool.Metadata.IDPathsByType)
 	}
+	if len(tool.Metadata.ResultIDPathsByType[IDTypeSection]) != 1 || tool.Metadata.ResultIDPathsByType[IDTypeSection][0] != "result.sectionId" {
+		t.Fatalf("expected deduped result id paths, got %#v", tool.Metadata.ResultIDPathsByType)
+	}
 	if tool.Description != "update section sizes" {
 		t.Fatalf("expected trimmed description, got %q", tool.Description)
 	}
@@ -114,8 +120,11 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 	if _, err := registry.Register(Spec{
 		Name: "getProjectStateSummary",
 		Metadata: Metadata{
-			Kind:         KindDiscoverable,
-			AccessType:   AccessTypeRead,
+			Kind:       KindDiscoverable,
+			AccessType: AccessTypeRead,
+			ResultIDPathsByType: map[IDType][]string{
+				IDTypeSection: {"result.sectionId"},
+			},
 			ResultFilter: ResultFilterProjectStateSummary,
 			SearchTags:   []string{"project"},
 		},
@@ -131,6 +140,7 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 		t.Fatal("expected lookup result")
 	}
 	first.Metadata.SearchTags[0] = "mutated"
+	first.Metadata.ResultIDPathsByType[IDTypeSection][0] = "mutated.resultId"
 
 	second, ok := registry.Lookup("getProjectStateSummary")
 	if !ok {
@@ -141,5 +151,8 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 	}
 	if second.Metadata.ResultFilter != ResultFilterProjectStateSummary {
 		t.Fatalf("expected cloned result filter, got %q", second.Metadata.ResultFilter)
+	}
+	if second.Metadata.ResultIDPathsByType[IDTypeSection][0] != "result.sectionId" {
+		t.Fatalf("expected cloned result id paths, got %#v", second.Metadata.ResultIDPathsByType)
 	}
 }

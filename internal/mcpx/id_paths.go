@@ -75,12 +75,20 @@ func translateIDsAtPaths(payload map[string]any, paths []string, transform func(
 	if payload == nil {
 		return nil
 	}
+	_, err := rewriteIDsAtPaths(payload, paths, transform)
+	return err
+}
+
+func rewriteIDsAtPaths(payload any, paths []string, transform func(string) (string, error)) (any, error) {
+	current := payload
 	for _, path := range paths {
-		if _, err := rewriteIDsAtPath(payload, pathSegments(path), transform); err != nil {
-			return err
+		rewritten, err := rewriteIDsAtPath(current, pathSegments(path), transform)
+		if err != nil {
+			return nil, err
 		}
+		current = rewritten
 	}
-	return nil
+	return current, nil
 }
 
 func rewriteIDsAtPath(current any, segments []string, transform func(string) (string, error)) (any, error) {

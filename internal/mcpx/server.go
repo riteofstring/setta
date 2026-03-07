@@ -44,6 +44,7 @@ type ServerOptions struct {
 	Registry           *tools.Registry
 	WorkspaceRoot      string
 	ProjectState       projectStateProvider
+	SettingsState      settingsStateProvider
 	SectionNames       sectionNameProvider
 	LSPDiagnostics     lspDiagnosticsProvider
 	TemporaryIDMapPath string
@@ -57,11 +58,16 @@ type toolDefinition struct {
 
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
+	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+}
+
+type settingsStateProvider interface {
+	Snapshot() projectstate.Snapshot
 }
 
 type sectionNameProvider interface {
@@ -144,7 +150,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		instance.temporaryIDs = temporaryIDs
 	}
 
-	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.SectionNames, opts.LSPDiagnostics) {
+	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.SettingsState, opts.SectionNames, opts.LSPDiagnostics) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
 			return nil, err
@@ -393,6 +399,62 @@ func newLSPDiagnosticsHandler(diagnostics lspDiagnosticsProvider) tools.Handler 
 		}
 
 		return diagnostics.Snapshot(projectConfigID), nil
+	}
+}
+
+func newCreateTopLevelSectionHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		implType, err := readRequiredStringArgument(arguments, "implType")
+		if err != nil {
+			return nil, err
+		}
+		controlCodeObjType, err := readOptionalStringArgument(arguments, "controlCodeObjType")
+		if err != nil {
+			return nil, err
+		}
+		position, err := readOptionalPositionArgument(arguments, "position")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural section-creation invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		input := projectstate.CreateTopLevelSectionInput{
+			ImplType: implType,
+			Position: position,
+		}
+		if strings.TrimSpace(controlCodeObjType) != "" {
+			input.ControlCodeObjType = &controlCodeObjType
+		}
+
+		settingsDocument := projectstate.Document{}
+		if settingsState != nil {
+			settingsDocument = settingsState.Snapshot().Document
+		}
+
+		_, result, err := projectState.CreateTopLevelSection(ctx, projectConfigID, input, settingsDocument)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
 	}
 }
 
@@ -679,7 +741,15 @@ func (s *Server) setSessionAgenticContext(sessionKey string, value AgenticContex
 	s.agenticContextBySess[sessionKey] = value
 }
 
-func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tools.Registry, projectState projectStateProvider, sectionNames sectionNameProvider, lspDiagnostics lspDiagnosticsProvider) []toolDefinition {
+func defaultToolDefinitions(
+	server *Server,
+	workspaceRoot string,
+	registry *tools.Registry,
+	projectState projectStateProvider,
+	settingsState settingsStateProvider,
+	sectionNames sectionNameProvider,
+	lspDiagnostics lspDiagnosticsProvider,
+) []toolDefinition {
 	definitions := []toolDefinition{
 		{
 			Spec: tools.Spec{
@@ -789,6 +859,79 @@ func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tool
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "create_top_level_section",
+				Description: "Create a new top-level section in the requested project config.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"metaControlParamId"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"create", "section", "top", "level", "structural"},
+				},
+				Handler: newCreateTopLevelSectionHandler(projectState, settingsState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id where the new top-level section should be created.",
+					},
+					"implType": map[string]any{
+						"type":        "string",
+						"description": "Section implementation type to create.",
+					},
+					"controlCodeObjType": map[string]any{
+						"type":        "string",
+						"description": "Optional control code-object type for MetaControl sections.",
+					},
+					"position": map[string]any{
+						"type":        "object",
+						"description": "Optional explicit top-left position for the new section.",
+						"properties": map[string]any{
+							"x": map[string]any{
+								"type": "number",
+							},
+							"y": map[string]any{
+								"type": "number",
+							},
+						},
+						"required": []string{"x", "y"},
+					},
+				},
+				"required": []string{"projectConfigId", "implType"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sectionId": map[string]any{
+						"type": "string",
+					},
+					"metaControlParamId": map[string]any{
+						"type": "string",
+					},
+					"panTo": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"x": map[string]any{
+								"type": "number",
+							},
+							"y": map[string]any{
+								"type": "number",
+							},
+						},
+						"required": []string{"x", "y"},
+					},
+				},
+				"required": []string{"sectionId"},
 			},
 		})
 	}
@@ -1358,6 +1501,58 @@ func readRequiredArgument(arguments map[string]any, key string) (any, error) {
 	return value, nil
 }
 
+func readOptionalPositionArgument(arguments map[string]any, key string) (*projectstate.Position, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	object, ok := rawValue.(map[string]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an object", key)
+	}
+	x, err := readRequiredFiniteNumberField(object, key, "x")
+	if err != nil {
+		return nil, err
+	}
+	y, err := readRequiredFiniteNumberField(object, key, "y")
+	if err != nil {
+		return nil, err
+	}
+	return &projectstate.Position{X: x, Y: y}, nil
+}
+
+func readRequiredFiniteNumberField(object map[string]any, parentKey string, field string) (float64, error) {
+	rawValue, ok := object[field]
+	if !ok || rawValue == nil {
+		return 0, newToolError("invalid_arguments", "%s.%s is required", parentKey, field)
+	}
+
+	var value float64
+	switch typed := rawValue.(type) {
+	case float64:
+		value = typed
+	case float32:
+		value = float64(typed)
+	case int:
+		value = float64(typed)
+	case int8:
+		value = float64(typed)
+	case int16:
+		value = float64(typed)
+	case int32:
+		value = float64(typed)
+	case int64:
+		value = float64(typed)
+	default:
+		return 0, newToolError("invalid_arguments", "%s.%s must be a number", parentKey, field)
+	}
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
+	}
+	return value, nil
+}
+
 func readOptionalPositiveIntArgument(arguments map[string]any, key string) (*int, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -1462,9 +1657,16 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
 	case projectstate.IsInvalidSectionNameError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
+	case projectstate.IsInvalidAutoLayoutError(err):
+		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
+		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired),
+		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported),
+		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported),
+		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeNotAllowed),
+		errors.Is(err, projectstate.ErrTopLevelSectionPositionInvalid),
 		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode),
 		errors.Is(err, projectstate.ErrCodeObjectValueMutationUnsupported),
 		errors.Is(err, projectstate.ErrPasswordParamMutationUnsupported),
@@ -1499,6 +1701,11 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 		copied := append([]string(nil), paths...)
 		idPathsByType[string(idType)] = copied
 	}
+	resultIDPathsByType := make(map[string]any, len(metadata.ResultIDPathsByType))
+	for idType, paths := range metadata.ResultIDPathsByType {
+		copied := append([]string(nil), paths...)
+		resultIDPathsByType[string(idType)] = copied
+	}
 
 	payload := map[string]any{
 		"toolKind":       string(metadata.Kind),
@@ -1512,6 +1719,9 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 	}
 	if metadata.ResultFilter != "" {
 		payload["resultFilter"] = string(metadata.ResultFilter)
+	}
+	if len(resultIDPathsByType) != 0 {
+		payload["resultIdPathsByType"] = resultIDPathsByType
 	}
 
 	return sdkmcp.Meta{

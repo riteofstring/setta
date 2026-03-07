@@ -1,6 +1,7 @@
 package mcpx
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"strings"
@@ -76,11 +77,16 @@ func translateResultToTemporary(payload any, metadata tools.Metadata, store *Tem
 		return payload, nil
 	}
 
+	translatedPayload := payload
 	switch metadata.ResultFilter {
 	case tools.ResultFilterProjectStateSummary:
-		switch typed := payload.(type) {
+		switch typed := translatedPayload.(type) {
 		case projectStateSummary:
-			return translateProjectStateSummaryToTemporary(typed, store)
+			nextPayload, err := translateProjectStateSummaryToTemporary(typed, store)
+			if err != nil {
+				return nil, err
+			}
+			translatedPayload = nextPayload
 		case *projectStateSummary:
 			if typed == nil {
 				return payload, nil
@@ -89,14 +95,18 @@ func translateResultToTemporary(payload any, metadata tools.Metadata, store *Tem
 			if err != nil {
 				return nil, err
 			}
-			return &translated, nil
+			translatedPayload = &translated
 		default:
 			return nil, fmt.Errorf("mcpx: unsupported project-state summary result type %T", payload)
 		}
 	case tools.ResultFilterLSPDiagnostics:
-		switch typed := payload.(type) {
+		switch typed := translatedPayload.(type) {
 		case projectstate.LSPDiagnosticsPayload:
-			return translateLSPDiagnosticsPayloadToTemporary(typed, store)
+			nextPayload, err := translateLSPDiagnosticsPayloadToTemporary(typed, store)
+			if err != nil {
+				return nil, err
+			}
+			translatedPayload = nextPayload
 		case *projectstate.LSPDiagnosticsPayload:
 			if typed == nil {
 				return payload, nil
@@ -105,13 +115,17 @@ func translateResultToTemporary(payload any, metadata tools.Metadata, store *Tem
 			if err != nil {
 				return nil, err
 			}
-			return &translated, nil
+			translatedPayload = &translated
 		default:
 			return nil, fmt.Errorf("mcpx: unsupported lsp diagnostics result type %T", payload)
 		}
-	default:
-		return payload, nil
 	}
+
+	if len(metadata.ResultIDPathsByType) == 0 {
+		return translatedPayload, nil
+	}
+
+	return translateResultIDsByTypeToTemporary(translatedPayload, metadata.ResultIDPathsByType, store)
 }
 
 func translateToolErrorToTemporary(err error, store *TemporaryIDStore) error {
@@ -185,6 +199,41 @@ func translateStringArgumentField(arguments map[string]any, key string, store *T
 	}
 	arguments[key] = translated
 	return nil
+}
+
+func translateResultIDsByTypeToTemporary(
+	payload any,
+	resultIDPathsByType map[tools.IDType][]string,
+	store *TemporaryIDStore,
+) (any, error) {
+	if payload == nil || len(resultIDPathsByType) == 0 || store == nil {
+		return payload, nil
+	}
+
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("mcpx: marshal result payload for id translation: %w", err)
+	}
+
+	var decoded any
+	if err := json.Unmarshal(encoded, &decoded); err != nil {
+		return nil, fmt.Errorf("mcpx: decode result payload for id translation: %w", err)
+	}
+
+	rewritten := decoded
+	for _, idType := range []tools.IDType{tools.IDTypeSection, tools.IDTypeCodeObject} {
+		paths := resultIDPathsByType[idType]
+		if len(paths) == 0 {
+			continue
+		}
+		rewritten, err = rewriteIDsAtPaths(rewritten, paths, func(value string) (string, error) {
+			return translateStringValueToTemporary(value, store)
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return rewritten, nil
 }
 
 func translateStringValueToTemporary(value string, store *TemporaryIDStore) (string, error) {

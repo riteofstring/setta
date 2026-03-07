@@ -870,6 +870,7 @@ func parseToolMetadata(toolName string, meta sdkmcp.Meta) (*tools.Metadata, erro
 		SearchTags:                    parseStringList(payload["searchTags"]),
 		SearchCategory:                readOptionalString(payload, "searchCategory"),
 		IDPathsByType:                 parseIDPathsByType(payload["idPathsByType"]),
+		ResultIDPathsByType:           parseIDPathsByType(payload["resultIdPathsByType"]),
 	}
 	normalized, err := metadata.Normalize(toolName)
 	if err != nil {

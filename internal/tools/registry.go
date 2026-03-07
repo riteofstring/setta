@@ -136,10 +136,15 @@ func cloneMetadata(metadata Metadata) Metadata {
 	for idType, paths := range metadata.IDPathsByType {
 		clonedPaths[idType] = append([]string(nil), paths...)
 	}
+	clonedResultPaths := make(map[IDType][]string, len(metadata.ResultIDPathsByType))
+	for idType, paths := range metadata.ResultIDPathsByType {
+		clonedResultPaths[idType] = append([]string(nil), paths...)
+	}
 	return Metadata{
 		Kind:                          metadata.Kind,
 		AccessType:                    metadata.AccessType,
 		IDPathsByType:                 clonedPaths,
+		ResultIDPathsByType:           clonedResultPaths,
 		DefaultTargetSingletonSection: metadata.DefaultTargetSingletonSection,
 		ResultFilter:                  metadata.ResultFilter,
 		SearchTags:                    append([]string(nil), metadata.SearchTags...),
