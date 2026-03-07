@@ -500,3 +500,96 @@ Lower-priority suspects after this pass:
 
 - top-level `ParamGroupContainer` pinned/unpinned shells
 - outer scroll wrappers alone
+
+## Addendum: Explicit Simple Grid vs Flex vs Current Layout
+
+Date: 2026-03-07
+Baseline reference: same Settings `All Settings` target, viewport `1440x1200`, and fixed `~0.1` zoom region.
+
+Method note:
+
+- This addendum keeps the same render-isolation replay style as the prior row-layout addendum.
+- In this headed session, the replay behaved like a `~60-70 FPS` capped environment rather than the earlier higher-refresh runs.
+- Use these numbers for comparison within this addendum only.
+
+Goal: isolate whether the remaining layout penalty is:
+
+- the recursive real row shell itself
+- the flatter benchmark flex row layout
+- or the current section utility / named-grid row layout path
+
+New benchmark stage:
+
+- `param-simple-grid-shell`
+  - real recursive `ParamSwitch` / `ParamContainer` tree
+  - same lightweight labels + lightweight value shells as the prior row-shell stages
+  - explicit two-column grid row layout
+  - bypasses the current `section-key-value` / `section-lg-value` / `section-args-nested*` layout-class path
+
+### `param-flat-shell` rerun
+
+- DOM nodes in `.react-flow`: `5845`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Flat benchmark rows: `697`
+- Flat child wrappers: `66`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Average frame time: `16.27ms`
+- Approx FPS: `61.47`
+- Max frame time: `50.10ms`
+- Slow frames:
+  - `>16.7ms`: `33`
+  - `>33.3ms`: `15`
+  - `>50ms`: `1`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-flat-shell-simple-grid-followup-trace.json`
+
+### `param-simple-grid-shell`
+
+- DOM nodes in `.react-flow`: `5845`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Simple-grid benchmark rows: `697`
+- Simple-grid child wrappers: `66`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Average frame time: `14.87ms`
+- Approx FPS: `67.26`
+- Max frame time: `25.10ms`
+- Slow frames:
+  - `>16.7ms`: `42`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-simple-grid-shell-trace.json`
+- Observation: This is the best row-layout result in the current session. With the same recursive tree and the same DOM count as `param-flat-shell`, the explicit two-column grid improves average FPS by about `5.8` and removes the long-frame tail over `33ms`.
+
+### `param-structure-shell` rerun
+
+- DOM nodes in `.react-flow`: `4525`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Static row-mode markers: `697`
+- Average frame time: `19.86ms`
+- Approx FPS: `50.36`
+- Max frame time: `58.40ms`
+- Slow frames:
+  - `>16.7ms`: `32`
+  - `>33.3ms`: `31`
+  - `>50ms`: `9`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-simple-grid-followup-trace.json`
+- Observation: The current production row-layout path is still clearly the slowest of the three, even though it removes about `1320` DOM nodes versus the other two benchmark layouts. That further strengthens the conclusion that the bottleneck is layout strategy, not raw node count.
+
+### Layout Path Conclusion
+
+- The current row-layout implementation is now the clearest hotspot inside the row-shell bucket.
+  - `param-simple-grid-shell` and `param-structure-shell` keep the same recursive real tree, but the current production layout is about `16.9 FPS` slower in this pass.
+- The issue is broader than recursion alone.
+  - `param-simple-grid-shell` keeps recursion and still performs materially better than both the flatter flex shell and the current production layout.
+- The strongest remaining suspect is the current section utility / named-grid row layout path inside `ParamContainer`.
+  - That includes the `section-key-value`, `section-lg-value`, and `section-args-nested*` layout classes, plus the surrounding nested grid/subgrid structure they rely on.
+
+Recommended next implementation target:
+
+- replace the current production `ParamContainer` row layout with a flatter explicit-column layout closer to `param-simple-grid-shell`, then remeasure against this same benchmark

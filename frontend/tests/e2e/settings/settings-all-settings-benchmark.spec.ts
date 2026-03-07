@@ -13,6 +13,7 @@ const STAGES = [
   "static-param-list",
   "group-container-static-list",
   "param-flat-shell",
+  "param-simple-grid-shell",
   "param-structure-shell",
   "param-chrome-shell",
   "param-container-shell",
@@ -31,6 +32,8 @@ type StageMetrics = {
   paramContainerCount: number;
   flatParamRowCount: number;
   flatParamChildrenCount: number;
+  simpleGridParamRowCount: number;
+  simpleGridChildrenCount: number;
   lightLabelCount: number;
   paramValueShellCount: number;
   paramUiShellCount: number;
@@ -38,6 +41,7 @@ type StageMetrics = {
   textInputDummyCount: number;
   resizeHandleCount: number;
   flatRowModeCount: number;
+  simpleGridRowModeCount: number;
   staticRowModeCount: number;
   sortableRowModeCount: number;
 };
@@ -115,11 +119,49 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeGreaterThan(0);
   expect(metricsByStage.get("param-flat-shell")?.staticRowModeCount).toBe(0);
   expect(metricsByStage.get("param-flat-shell")?.sortableRowModeCount).toBe(0);
+  expect(metricsByStage.get("param-flat-shell")?.simpleGridRowModeCount).toBe(
+    0,
+  );
+
+  expect(metricsByStage.get("param-simple-grid-shell")?.staticRowCount).toBe(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.groupContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.simpleGridParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.simpleGridChildrenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.paramValueShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.simpleGridRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-simple-grid-shell")?.flatRowModeCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.staticRowModeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-simple-grid-shell")?.sortableRowModeCount,
+  ).toBe(0);
 
   expect(metricsByStage.get("param-structure-shell")?.staticRowCount).toBe(0);
   expect(metricsByStage.get("param-structure-shell")?.flatParamRowCount).toBe(
     0,
   );
+  expect(
+    metricsByStage.get("param-structure-shell")?.simpleGridParamRowCount,
+  ).toBe(0);
   expect(
     metricsByStage.get("param-structure-shell")?.paramContainerCount,
   ).toBeGreaterThan(0);
@@ -219,6 +261,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("group-container-static-list")?.domCount,
   ).toBeLessThan(metricsByStage.get("param-flat-shell")?.domCount ?? 0);
+  expect(
+    metricsByStage.get("group-container-static-list")?.domCount,
+  ).toBeLessThan(metricsByStage.get("param-simple-grid-shell")?.domCount ?? 0);
   expect(metricsByStage.get("param-structure-shell")?.domCount).toBeLessThan(
     metricsByStage.get("param-chrome-shell")?.domCount ?? 0,
   );
@@ -299,6 +344,12 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       flatParamChildrenCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-flat-param-children]",
       ).length,
+      simpleGridParamRowCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-simple-grid-param-row]",
+      ).length,
+      simpleGridChildrenCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-simple-grid-children]",
+      ).length,
       lightLabelCount: flowRoot.querySelectorAll(
         "[data-settings-benchmark-light-label]",
       ).length,
@@ -317,6 +368,9 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
         .length,
       flatRowModeCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-param-row-mode="flat"]',
+      ).length,
+      simpleGridRowModeCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-param-row-mode="simple-grid"]',
       ).length,
       staticRowModeCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-param-row-mode="static"]',
