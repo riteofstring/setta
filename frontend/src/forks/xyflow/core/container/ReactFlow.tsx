@@ -15,7 +15,6 @@ import AgenticEdgeRenderer from "./AgenticEdgeRenderer";
 import EdgeRenderer from "./EdgeRenderer";
 import FlowRenderer from "./FlowRenderer";
 import NodeRenderer from "./NodeRenderer";
-import StateMachineEdgeRenderer from "./StateMachineEdgeRenderer";
 import ViewportWrapper from "./Viewport";
 
 const wrapperStyle: CSSProperties = {
@@ -99,7 +98,6 @@ const ReactFlow = () => {
               <>
                 <EdgeRenderer />
                 <AgenticEdgeRenderer />
-                <StateMachineEdgeRenderer />
                 <NodeRenderer />
               </>
             )}
