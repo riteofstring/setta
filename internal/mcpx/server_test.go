@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 31 {
-		t.Fatalf("expected 31 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 32 {
+		t.Fatalf("expected 32 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -163,6 +163,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
 	var setSectionNameTool *sdkmcp.Tool
+	var setSectionTagColorTool *sdkmcp.Tool
 	var setParamTool *sdkmcp.Tool
 	var setParamNameAndValueTool *sdkmcp.Tool
 	var setTypeErrorIgnoreTool *sdkmcp.Tool
@@ -237,6 +238,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "set_section_name" {
 			setSectionNameTool = tool
 		}
+		if tool.Name == "set_section_tag_color" {
+			setSectionTagColorTool = tool
+		}
 		if tool.Name == "set_param_entered_value" {
 			setParamTool = tool
 		}
@@ -283,6 +287,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_param_entered_value",
 		"set_param_name_and_value",
 		"set_section_name",
+		"set_section_tag_color",
 		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
@@ -451,6 +456,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, setCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected set_code sectionId target path, got %#v", got)
 	}
+	setSectionTagColorMeta := mustStructuredMap(t, setSectionTagColorTool.Meta[toolMetaNamespace])
+	if setSectionTagColorMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_section_tag_color, got %#v", setSectionTagColorMeta["accessType"])
+	}
+	setSectionTagColorPaths := mustStructuredMap(t, setSectionTagColorMeta["idPathsByType"])
+	if got := mustStringList(t, setSectionTagColorPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_section_tag_color sectionId target path, got %#v", got)
+	}
 	autoLayoutTopLevelSectionsMeta := mustStructuredMap(t, autoLayoutTopLevelSectionsTool.Meta[toolMetaNamespace])
 	if autoLayoutTopLevelSectionsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for auto_layout_top_level_sections, got %#v", autoLayoutTopLevelSectionsMeta["accessType"])
@@ -561,6 +574,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setSectionNameTool == nil {
 		t.Fatal("expected set_section_name tool")
 	}
+	if setSectionTagColorTool == nil {
+		t.Fatal("expected set_section_tag_color tool")
+	}
 	if setParamTool == nil {
 		t.Fatal("expected set_param_entered_value tool")
 	}
@@ -625,8 +641,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 31 {
-		t.Fatalf("expected 31 registered tool names, got %#v", listNames)
+	if len(listNames) != 32 {
+		t.Fatalf("expected 32 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1967,6 +1983,143 @@ func TestServerSetSectionNameRespectsScopedWriteTargets(t *testing.T) {
 	}
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
 		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetSectionTagColorRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_tag_color",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"tagColor":        "#123456",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_tag_color allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_section_tag_color success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_section_tag_color: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	if got := allowedPayload["tagColor"]; got != "#123456" {
+		t.Fatalf("expected allowed-section tagColor #123456, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_tag_color",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+			"tagColor":        "#654321",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_tag_color blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_section_tag_color call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected targetSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetSectionTagColorClearsNull(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	tagColor := "#123456"
+	if _, err := projectRuntime.SetSectionTagColor(context.Background(), "project-alpha", "allowed-section", &tagColor); err != nil {
+		t.Fatalf("seed tag color: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_tag_color",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"tagColor":        nil,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_tag_color clear: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected tag-color clear success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after clearing tag color: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	got, ok := allowedPayload["tagColor"]
+	if !ok || got != nil {
+		t.Fatalf("expected allowed-section tagColor to clear to null, got %#v", allowedPayload["tagColor"])
+	}
+}
+
+func TestServerSetSectionTagColorFailsClosedForUnknownSectionTarget(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_tag_color",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "missing-section",
+			"tagColor":        "#123456",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call missing-target set_section_tag_color: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected missing-target set_section_tag_color call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != scopeViolationErrorCode {
+		t.Fatalf("expected scope_violation code, got %#v", payload["code"])
+	}
+	if payload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "missing-section" {
+		t.Fatalf("expected blockedSectionIds [missing-section], got %#v", ids)
+	}
+	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != "missing-section" {
+		t.Fatalf("expected targetSectionIds [missing-section], got %#v", ids)
 	}
 }
 
@@ -4021,6 +4174,84 @@ func TestServerSetSectionNameTranslatesTemporaryIDs(t *testing.T) {
 	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "16" {
 		t.Fatalf("expected translated blockedSectionIds [16], got %#v", ids)
+	}
+}
+
+func TestServerSetSectionTagColorTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_tag_color",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"tagColor":        "#123456",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_tag_color allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_section_tag_color success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_section_tag_color: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	if got := allowedPayload["tagColor"]; got != "#123456" {
+		t.Fatalf("expected translated allowed-section tagColor #123456, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_tag_color",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "16",
+			"tagColor":        "#654321",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_tag_color blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_section_tag_color call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "16" {
+		t.Fatalf("expected translated blockedSectionIds [16], got %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "16" {
+		t.Fatalf("expected translated targetSectionIds [16], got %#v", ids)
 	}
 }
 

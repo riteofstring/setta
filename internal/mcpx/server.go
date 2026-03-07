@@ -81,6 +81,7 @@ type projectStateProvider interface {
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
@@ -1187,6 +1188,44 @@ func newSetSectionNameHandler(sectionNames sectionNameProvider) tools.Handler {
 		}
 
 		if err := sectionNames.SetSectionName(ctx, projectConfigID, sectionID, name); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetSectionTagColorHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		tagColor, err := readOptionalNullableStringPointerArgument(arguments, "tagColor")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped section-tag-color invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetSectionTagColor(ctx, projectConfigID, sectionID, tagColor); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2472,6 +2511,50 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "set_section_tag_color",
+				Description: "Set or clear the tag color decoration for a section within the requested project config.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "presentation", "section", "tag", "color", "write"},
+				},
+				Handler: newSetSectionTagColorHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section tag color should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose tag color should be updated.",
+					},
+					"tagColor": map[string]any{
+						"type":        []string{"string", "null"},
+						"description": "Hex color string to persist for the section tag, or null to clear it.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "get_latest_lsp_diagnostics",
 				Description: "Return the latest filtered LSP diagnostics payload for the requested project config.",
 				Metadata: tools.Metadata{
@@ -3193,6 +3276,19 @@ func readOptionalStringArgument(arguments map[string]any, key string) (string, e
 		return "", newToolError("invalid_arguments", "%s must be a string", key)
 	}
 	return strings.TrimSpace(value), nil
+}
+
+func readOptionalNullableStringPointerArgument(arguments map[string]any, key string) (*string, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be a string or null", key)
+	}
+	trimmedValue := strings.TrimSpace(value)
+	return &trimmedValue, nil
 }
 
 func readOptionalNonBlankStringArgument(arguments map[string]any, key string) (string, error) {
