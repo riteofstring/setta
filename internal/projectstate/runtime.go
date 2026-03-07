@@ -28,11 +28,17 @@ type Snapshot struct {
 }
 
 type Mutation func(Document) (Document, error)
+type AfterSaveHook func(context.Context, Snapshot) error
+
+type RuntimeOptions struct {
+	AfterSave AfterSaveHook
+}
 
 type Runtime struct {
 	store      *Store
 	savePolicy SavePolicy
 	saveFn     func(context.Context, Document) error
+	afterSave  AfterSaveHook
 
 	stateMu  sync.RWMutex
 	current  Document
@@ -60,6 +66,10 @@ type runtimeState struct {
 }
 
 func OpenRuntime(ctx context.Context, store *Store) (*Runtime, error) {
+	return OpenRuntimeWithOptions(ctx, store, RuntimeOptions{})
+}
+
+func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOptions) (*Runtime, error) {
 	if store == nil {
 		return nil, fmt.Errorf("project store is required")
 	}
@@ -73,6 +83,7 @@ func OpenRuntime(ctx context.Context, store *Store) (*Runtime, error) {
 		store:      store,
 		savePolicy: SavePolicyPersist,
 		saveFn:     store.Save,
+		afterSave:  options.AfterSave,
 	})
 }
 
@@ -148,6 +159,11 @@ func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 			if err := r.saveFn(ctx, snapshot.Document); err != nil {
 				return snapshot, err
 			}
+			if r.savePolicy == SavePolicyPersist && r.saveFn != nil && r.afterSave != nil {
+				if err := r.afterSave(ctx, snapshot); err != nil {
+					return snapshot, err
+				}
+			}
 			return snapshot, nil
 		},
 	})
@@ -222,6 +238,7 @@ type saveController struct {
 	store      *Store
 	savePolicy SavePolicy
 	saveFn     func(context.Context, Document) error
+	afterSave  AfterSaveHook
 }
 
 func openRuntime(document Document, controller saveController) (*Runtime, error) {
@@ -234,6 +251,7 @@ func openRuntime(document Document, controller saveController) (*Runtime, error)
 		store:      controller.store,
 		savePolicy: controller.savePolicy,
 		saveFn:     controller.saveFn,
+		afterSave:  controller.afterSave,
 		current:    normalized.Clone(),
 		revision:   1,
 		ops:        make(chan operation, defaultRuntimeQueueSize),

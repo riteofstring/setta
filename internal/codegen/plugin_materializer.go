@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"setta/internal/plugins"
@@ -139,6 +140,31 @@ func (m *PluginMaterializer) MaterializeProject(ctx context.Context, document pr
 	return nil
 }
 
+func (m *PluginMaterializer) MaterializeDocument(ctx context.Context, document projectstate.Document) error {
+	if m == nil || m.workerSpecs == nil {
+		return ErrPluginCodegenResolverRequired
+	}
+
+	projectIDs := make([]string, 0, len(document.Projects))
+	expectedRoots := make(map[string]struct{}, len(document.Projects))
+	for projectID, project := range document.Projects {
+		projectIDs = append(projectIDs, projectID)
+		expectedRoots[pluginCodegenOutputRoot(m.settaFilesRoot, project.Name)] = struct{}{}
+	}
+	sort.Strings(projectIDs)
+
+	for _, projectID := range projectIDs {
+		if err := m.MaterializeProject(ctx, document, projectID); err != nil {
+			return err
+		}
+	}
+
+	if err := pruneStalePluginCodegenProjectRoots(m.settaFilesRoot, expectedRoots); err != nil {
+		return err
+	}
+	return nil
+}
+
 func resolveConfiguredPluginTargets(codegenTargets []projectstate.ProjectCodegenTarget) ([]configuredPluginTarget, error) {
 	configuredTargets := make([]configuredPluginTarget, 0, len(codegenTargets))
 	for _, target := range codegenTargets {
@@ -242,6 +268,41 @@ func pruneStalePluginCodegenTargets(outputRoot string, currentTargetDirs map[str
 		}
 		if err := os.RemoveAll(filepath.Join(outputRoot, entry.Name())); err != nil {
 			return fmt.Errorf("remove stale plugin codegen target dir %s: %w", entry.Name(), err)
+		}
+	}
+	return nil
+}
+
+func pruneStalePluginCodegenProjectRoots(settaFilesRoot string, expectedRoots map[string]struct{}) error {
+	sectionsRoot := filepath.Join(settaFilesRoot, "code", "sections")
+	projectDirs, err := os.ReadDir(sectionsRoot)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("read plugin codegen sections root: %w", err)
+	}
+
+	for _, projectDir := range projectDirs {
+		if !projectDir.IsDir() {
+			continue
+		}
+		outputRoot := filepath.Join(sectionsRoot, projectDir.Name(), "plugin_codegen")
+		if _, ok := expectedRoots[outputRoot]; ok {
+			continue
+		}
+		info, err := os.Stat(outputRoot)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return fmt.Errorf("stat plugin codegen output root: %w", err)
+		}
+		if !info.IsDir() {
+			continue
+		}
+		if err := os.RemoveAll(outputRoot); err != nil {
+			return fmt.Errorf("remove stale plugin codegen output root %s: %w", outputRoot, err)
 		}
 	}
 	return nil

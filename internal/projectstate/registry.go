@@ -28,6 +28,11 @@ type Paths struct {
 	Settings string
 }
 
+type RegistryOptions struct {
+	MainRuntime     RuntimeOptions
+	SettingsRuntime RuntimeOptions
+}
+
 type Registry struct {
 	paths    Paths
 	main     *Runtime
@@ -47,6 +52,10 @@ func ResolvePaths(settaFilesRoot string) (Paths, error) {
 }
 
 func OpenRegistry(ctx context.Context, settaFilesRoot string, storeOpts StoreOptions) (*Registry, error) {
+	return OpenRegistryWithOptions(ctx, settaFilesRoot, storeOpts, RegistryOptions{})
+}
+
+func OpenRegistryWithOptions(ctx context.Context, settaFilesRoot string, storeOpts StoreOptions, options RegistryOptions) (*Registry, error) {
 	paths, err := ResolvePaths(settaFilesRoot)
 	if err != nil {
 		return nil, err
@@ -56,7 +65,7 @@ func OpenRegistry(ctx context.Context, settaFilesRoot string, storeOpts StoreOpt
 	if err != nil {
 		return nil, fmt.Errorf("create main project store: %w", err)
 	}
-	mainRuntime, err := OpenRuntime(ctx, mainStore)
+	mainRuntime, err := OpenRuntimeWithOptions(ctx, mainStore, options.MainRuntime)
 	if err != nil {
 		return nil, fmt.Errorf("open main project runtime: %w", err)
 	}
@@ -66,7 +75,7 @@ func OpenRegistry(ctx context.Context, settaFilesRoot string, storeOpts StoreOpt
 		_ = mainRuntime.Close()
 		return nil, fmt.Errorf("create settings project store: %w", err)
 	}
-	settingsRuntime, err := OpenRuntime(ctx, settingsStore)
+	settingsRuntime, err := OpenRuntimeWithOptions(ctx, settingsStore, options.SettingsRuntime)
 	if err != nil {
 		_ = mainRuntime.Close()
 		return nil, fmt.Errorf("open settings project runtime: %w", err)

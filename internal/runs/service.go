@@ -28,16 +28,15 @@ var (
 )
 
 type ServiceOptions struct {
-	Planner            *Planner
-	ProjectState       *projectstate.Runtime
-	DeploymentRuntime  *deployments.Runtime
-	Terminals          *terminals.Service
-	BackendLogs        *backendlogs.Service
-	BinaryStore        *binarypayload.Store
-	ListenerProducer   *realtime.ListenerProducer
-	PluginMaterializer ProjectMaterializer
-	ArtifactsRoot      string
-	IDGenerator        func() string
+	Planner           *Planner
+	ProjectState      *projectstate.Runtime
+	DeploymentRuntime *deployments.Runtime
+	Terminals         *terminals.Service
+	BackendLogs       *backendlogs.Service
+	BinaryStore       *binarypayload.Store
+	ListenerProducer  *realtime.ListenerProducer
+	ArtifactsRoot     string
+	IDGenerator       func() string
 }
 
 type RunCodeRequest struct {
@@ -59,20 +58,15 @@ type RunCodeResult struct {
 }
 
 type Service struct {
-	planner            *Planner
-	projectState       *projectstate.Runtime
-	deployment         *deployments.Runtime
-	terminals          *terminals.Service
-	backendLogs        *backendlogs.Service
-	binaryStore        *binarypayload.Store
-	listener           *realtime.ListenerProducer
-	pluginMaterializer ProjectMaterializer
-	artifactsRoot      string
-	idGenerator        func() string
-}
-
-type ProjectMaterializer interface {
-	MaterializeProject(context.Context, projectstate.Document, string) error
+	planner       *Planner
+	projectState  *projectstate.Runtime
+	deployment    *deployments.Runtime
+	terminals     *terminals.Service
+	backendLogs   *backendlogs.Service
+	binaryStore   *binarypayload.Store
+	listener      *realtime.ListenerProducer
+	artifactsRoot string
+	idGenerator   func() string
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -102,16 +96,15 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}
 
 	return &Service{
-		planner:            options.Planner,
-		projectState:       options.ProjectState,
-		deployment:         options.DeploymentRuntime,
-		terminals:          options.Terminals,
-		backendLogs:        options.BackendLogs,
-		binaryStore:        options.BinaryStore,
-		listener:           options.ListenerProducer,
-		pluginMaterializer: options.PluginMaterializer,
-		artifactsRoot:      resolvedArtifactsRoot,
-		idGenerator:        idGenerator,
+		planner:       options.Planner,
+		projectState:  options.ProjectState,
+		deployment:    options.DeploymentRuntime,
+		terminals:     options.Terminals,
+		backendLogs:   options.BackendLogs,
+		binaryStore:   options.BinaryStore,
+		listener:      options.ListenerProducer,
+		artifactsRoot: resolvedArtifactsRoot,
+		idGenerator:   idGenerator,
 	}, nil
 }
 
@@ -291,7 +284,7 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectState *proj
 		if err != nil {
 			return "", err
 		}
-		if _, err := s.saveProjectState(ctx, projectState, projectID); err != nil {
+		if _, err := projectState.Save(ctx); err != nil {
 			return "", err
 		}
 		return terminalSectionID, nil
@@ -310,7 +303,7 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectState *proj
 	if err != nil {
 		return "", err
 	}
-	if _, err := s.saveProjectState(ctx, projectState, projectID); err != nil {
+	if _, err := projectState.Save(ctx); err != nil {
 		return "", err
 	}
 	return terminalSectionID, nil
@@ -410,7 +403,7 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projects
 	if _, err := projectState.SetDrawSectionRenderedImagePaths(projectID, renderedPathsBySectionID); err != nil {
 		return err
 	}
-	if _, err := s.saveProjectState(ctx, projectState, projectID); err != nil {
+	if _, err := projectState.Save(ctx); err != nil {
 		return err
 	}
 	if s.listener != nil {
@@ -434,23 +427,6 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projects
 		_ = s.binaryStore.Delete(update.ref.ContentID)
 	}
 	return nil
-}
-
-func (s *Service) saveProjectState(ctx context.Context, projectState *projectstate.Runtime, projectID string) (projectstate.Snapshot, error) {
-	snapshot, err := projectState.Save(ctx)
-	if err != nil {
-		return snapshot, err
-	}
-	if s.pluginMaterializer == nil {
-		return snapshot, nil
-	}
-	if projectState.SavePolicy() != projectstate.SavePolicyPersist {
-		return snapshot, nil
-	}
-	if err := s.pluginMaterializer.MaterializeProject(ctx, snapshot.Document, projectID); err != nil {
-		return snapshot, err
-	}
-	return snapshot, nil
 }
 
 func newRandomID() string {

@@ -2,6 +2,7 @@ package projectstate
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -281,10 +282,86 @@ func TestRuntimeSavePersistsLatestQueuedMutation(t *testing.T) {
 	}
 }
 
+func TestRuntimeSaveRunsAfterSaveHookWithLatestSnapshot(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	var observed Snapshot
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		AfterSave: func(_ context.Context, snapshot Snapshot) error {
+			observed = snapshot
+			return nil
+		},
+	})
+
+	if _, err := runtime.Mutate(func(document Document) (Document, error) {
+		document.Projects["project-alpha"] = Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate runtime: %v", err)
+	}
+
+	snapshot, err := runtime.Save(context.Background())
+	if err != nil {
+		t.Fatalf("save runtime: %v", err)
+	}
+	if observed.Revision != snapshot.Revision {
+		t.Fatalf("expected after-save revision %d, got %d", snapshot.Revision, observed.Revision)
+	}
+	if _, ok := observed.Document.Projects["project-alpha"]; !ok {
+		t.Fatal("expected after-save hook to observe persisted project-alpha state")
+	}
+}
+
+func TestRuntimeSaveReturnsAfterSaveHookErrorAfterPersistingState(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		AfterSave: func(context.Context, Snapshot) error {
+			return errors.New("after-save failed")
+		},
+	})
+
+	if _, err := runtime.Mutate(func(document Document) (Document, error) {
+		document.Projects["project-alpha"] = Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate runtime: %v", err)
+	}
+
+	_, err := runtime.Save(context.Background())
+	if err == nil || err.Error() != "after-save failed" {
+		t.Fatalf("expected after-save failure, got %v", err)
+	}
+
+	loaded, loadErr := store.Load(context.Background())
+	if loadErr != nil {
+		t.Fatalf("load persisted document: %v", loadErr)
+	}
+	if _, ok := loaded.Projects["project-alpha"]; !ok {
+		t.Fatal("expected persisted document despite after-save failure")
+	}
+}
+
 func openTestRuntime(t *testing.T, store *Store) *Runtime {
 	t.Helper()
 
-	runtime, err := OpenRuntime(context.Background(), store)
+	return openTestRuntimeWithOptions(t, store, RuntimeOptions{})
+}
+
+func openTestRuntimeWithOptions(t *testing.T, store *Store, options RuntimeOptions) *Runtime {
+	t.Helper()
+
+	runtime, err := OpenRuntimeWithOptions(context.Background(), store, options)
 	if err != nil {
 		t.Fatalf("open runtime: %v", err)
 	}

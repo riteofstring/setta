@@ -82,17 +82,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		artifactsRoot = deploymentRuntime.Paths().ArtifactsRoot
 		shareSessions = deploymentRuntime
 	} else {
-		projectStates, err = projectstate.OpenRegistry(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{})
-		if err != nil {
-			return nil, err
-		}
-		projectRuntime = projectStates.Main()
-		plannerFilesRoot = cfg.Paths.SettaFilesRoot
-		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
-
 		workerRuntimeProvider, err := plugins.NewCurrentProcessWorkerRuntimeProvider(plugins.CurrentProcessWorkerRuntimeProviderOptions{})
 		if err != nil {
-			_ = closeProjectResources(projectStates, deploymentRuntime)
 			return nil, err
 		}
 		workerSpecs, err := plugins.NewFilesystemWorkerSpecResolver(plugins.FilesystemWorkerSpecResolverOptions{
@@ -103,7 +94,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			ServerMode:      cfg.Server.Mode,
 		})
 		if err != nil {
-			_ = closeProjectResources(projectStates, deploymentRuntime)
 			return nil, err
 		}
 		pluginMaterializer, err = codegen.NewPluginMaterializer(codegen.PluginMaterializerOptions{
@@ -111,9 +101,21 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			WorkerSpecs:    workerSpecs,
 		})
 		if err != nil {
-			_ = closeProjectResources(projectStates, deploymentRuntime)
 			return nil, err
 		}
+		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
+			MainRuntime: projectstate.RuntimeOptions{
+				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+					return pluginMaterializer.MaterializeDocument(ctx, snapshot.Document)
+				},
+			},
+		})
+		if err != nil {
+			return nil, err
+		}
+		projectRuntime = projectStates.Main()
+		plannerFilesRoot = cfg.Paths.SettaFilesRoot
+		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
 	}
 
 	terminalService, err := terminals.New(terminals.Options{
@@ -156,15 +158,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
-		Planner:            runPlanner,
-		ProjectState:       projectRuntime,
-		DeploymentRuntime:  deploymentRuntime,
-		Terminals:          terminalService,
-		BackendLogs:        backendLogService,
-		BinaryStore:        binaryStore,
-		ListenerProducer:   listenerProducer,
-		PluginMaterializer: pluginMaterializer,
-		ArtifactsRoot:      artifactsRoot,
+		Planner:           runPlanner,
+		ProjectState:      projectRuntime,
+		DeploymentRuntime: deploymentRuntime,
+		Terminals:         terminalService,
+		BackendLogs:       backendLogService,
+		BinaryStore:       binaryStore,
+		ListenerProducer:  listenerProducer,
+		ArtifactsRoot:     artifactsRoot,
 	})
 	if err != nil {
 		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))

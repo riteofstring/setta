@@ -228,6 +228,64 @@ func TestPluginMaterializerRemovesOutputRootWhenNoPluginTargetsRemain(t *testing
 	}
 }
 
+// Document-level materialization should refresh all current projects and prune stale plugin roots left behind by removed or renamed projects.
+func TestPluginMaterializerMaterializeDocumentPrunesStaleProjectRoots(t *testing.T) {
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	materializer, err := NewPluginMaterializer(PluginMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		WorkerSpecs: pluginCodegenSpecResolverFunc(func(_ context.Context, targetID string) (plugins.BackendWorkerSpec, error) {
+			if targetID != "setta-fixture-backend-codegen:typescript" {
+				return plugins.BackendWorkerSpec{}, errors.New("unexpected target id")
+			}
+			return newBackendCodegenWorkerSpec(t), nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new materializer: %v", err)
+	}
+
+	staleRoot := pluginCodegenOutputRoot(settaFilesRoot, "Removed Project")
+	if err := os.MkdirAll(staleRoot, 0o755); err != nil {
+		t.Fatalf("mkdir stale root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(staleRoot, "stale.txt"), []byte("stale\n"), 0o644); err != nil {
+		t.Fatalf("write stale root file: %v", err)
+	}
+
+	document := pluginMaterializerTestDocument(t, "Plugin Codegen")
+	document.Projects["project-beta"] = projectstate.Project{
+		ID:   "project-beta",
+		Name: "Plain Project",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{Language: string(projectstate.CodeLanguagePython)},
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := materializer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize document: %v", err)
+	}
+
+	currentOutput := filepath.Join(
+		pluginCodegenOutputRoot(settaFilesRoot, "Plugin Codegen"),
+		pluginCodegenTargetDirName("setta-fixture-backend-codegen:typescript"),
+		"setta_gen.ts",
+	)
+	if _, err := os.Stat(currentOutput); err != nil {
+		t.Fatalf("expected current plugin output: %v", err)
+	}
+
+	plainProjectRoot := pluginCodegenOutputRoot(settaFilesRoot, "Plain Project")
+	if _, err := os.Stat(plainProjectRoot); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected plain project root removal, got %v", err)
+	}
+	if _, err := os.Stat(staleRoot); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected stale project root removal, got %v", err)
+	}
+}
+
 type pluginCodegenSpecResolverFunc func(context.Context, string) (plugins.BackendWorkerSpec, error)
 
 func (f pluginCodegenSpecResolverFunc) ResolvePluginCodegenWorkerSpec(ctx context.Context, targetID string) (plugins.BackendWorkerSpec, error) {

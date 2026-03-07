@@ -502,6 +502,65 @@ func TestAppRunCodeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
 	}
 }
 
+func TestAppMainRuntimeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	installAppBackendCodegenFixture(t, cfg)
+	seedAppRunCodeProject(t, app, cfg, "print('APP_SAVE_OK')\n")
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.CodegenTargets = []projectstate.ProjectCodegenTarget{
+			{
+				Language: "setta-fixture-backend-codegen:typescript",
+				Payload: mustAppJSON(t, map[string]any{
+					"language": "setta-fixture-backend-codegen:typescript",
+					"options": map[string]any{
+						"className": "DirectSaveState",
+					},
+				}),
+			},
+		}
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
+	}
+
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save project runtime: %v", err)
+	}
+
+	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("glob plugin codegen output: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one plugin codegen output, got %v", matches)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read plugin codegen output: %v", err)
+	}
+	expected := "export class DirectSaveState {\n  readonly projectName = 'Alpha';\n}\n"
+	if string(content) != expected {
+		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	}
+}
+
 func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
