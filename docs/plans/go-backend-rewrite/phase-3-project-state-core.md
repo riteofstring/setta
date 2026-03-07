@@ -126,13 +126,58 @@ Acceptance:
 
 Status:
 
-- not started
+- complete
 
 Notes:
 
 - Slice 1 should not attempt the full section/param schema.
 - Start with the smallest persisted envelope that later slices need.
 - Unowned feature subtrees can remain narrowly isolated until their subsystem is rebuilt.
+
+Completed:
+
+- added `internal/projectstate` with:
+  - `Document`
+  - `Project`
+  - `Store`
+- chose a deliberately small first persisted envelope:
+  - `schemaVersion`
+  - `defaultProjectId`
+  - `projects`
+- made schema ownership explicit:
+  - current Go document schema version is `1`
+  - missing files bootstrap to an empty Go-owned document
+  - existing files without the Go schema version fail instead of being treated as Python-compatible state
+- implemented file-backed load/save behavior with:
+  - path normalization
+  - atomic writes through `internal/statefs`
+  - optional locker injection with `NoopLocker` as the current default
+- fail-fast validation rules for:
+  - non-object JSON payloads
+  - unsupported schema versions
+  - blank project ids
+  - blank project names
+  - default project ids that do not exist in the project map
+
+Tests:
+
+- focused coverage in `internal/projectstate/store_test.go` for:
+  - missing-file bootstrap
+  - invalid JSON rejection
+  - non-object payload rejection
+  - unsupported schema-version rejection
+  - save/load round-trip
+  - invalid default-project rejection
+  - readable JSON save output
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- the full project graph schema
+- backup/versioning snapshots
+- runtime revision tracking
+- mutation queue/single-writer runtime ownership
+- main/settings registry wiring
 
 ### Slice 2: Runtime And Revision Core
 
@@ -228,12 +273,20 @@ Specifically:
 - are backup snapshots part of Phase 3 proper, or should they wait until autosave/manual-save behavior is rebuilt?
 - should deployment overlays reuse the same runtime type with a different save policy, or wrap the base runtime with a session layer?
 
+Resolved In Slice 1:
+
+- the first Go document is a single file with a small project index, not a port of Python `ProjectStateBackend`
+- the store rejects schema-less legacy-looking files instead of implicitly treating them as compatible input
+
 ## Next Recommended Step
 
-Implement Slice 1.
+Implement Slice 2.
 
 Specifically:
 
-- add `internal/projectstate` with document and store tests first
-- start from temp-dir-backed `project.json` load/save behavior, not HTTP routes
-- keep the initial schema only as large as needed for load/save/revision work
+- add `ProjectRuntime` with:
+  - in-memory current snapshot
+  - monotonic revision tracking
+  - serialized mutation execution
+  - explicit save/flush entry points
+- keep the runtime/store boundary narrow so later registry and websocket work can depend on stable runtime hooks instead of direct file access
