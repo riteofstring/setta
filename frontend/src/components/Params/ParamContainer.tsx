@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { isTempParam } from "forks/dnd-kit/paramDndState";
@@ -38,7 +37,6 @@ function _ParamContainer({
   dndClassName,
   listKey,
 }) {
-  const benchmark = useSettingsAllSettingsBenchmark();
   const { description: paramDescription, name: paramName } = useProjectState(
     (x) => {
       const codeObjImpl = getCurrEffectiveCodeObjImpl(
@@ -113,15 +111,11 @@ function _ParamContainer({
         ) : (
           <>{children}</>
         )}
-        {benchmark.renderParamInput ? (
-          <ParamInput
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            maybeErrorMessage={errorMessage}
-          />
-        ) : (
-          <BenchmarkParamValueShell />
-        )}
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          maybeErrorMessage={errorMessage}
+        />
         <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
         {hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
@@ -176,17 +170,6 @@ function _ParamContainer({
 }
 
 export const ParamContainer = React.memo(_ParamContainer, _.isEqual);
-
-function BenchmarkParamValueShell() {
-  return (
-    <div
-      className="section-key-value flex min-w-0 items-center rounded-sm border border-dashed border-setta-200/80 px-2 py-[0.2rem] text-[0.58rem] uppercase tracking-[0.14em] text-setta-400 dark:border-setta-700 dark:text-setta-500"
-      data-settings-benchmark-param-value-shell="true"
-    >
-      Value shell
-    </div>
-  );
-}
 
 function ErrorSection({
   sectionId,

@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useSortable } from "forks/dnd-kit/adapter";
 import {
   applyZoomToTransform,
@@ -16,7 +15,6 @@ import React, { useCallback } from "react";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
-  getParamDisplayName,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
@@ -129,7 +127,6 @@ function TempParamSwitch({
 
 function RealParamSwitch(props: ParamSwitchProps) {
   const { sectionId, paramInfoId, hasSectionStyleTheme } = props;
-  const benchmark = useSettingsAllSettingsBenchmark();
 
   const typeErrors = useTypeErrors(
     (x) => x.errors[sectionId]?.params?.[paramInfoId],
@@ -246,34 +243,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
     border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 
-  const label = benchmark.renderLiveParamLabels ? (
-    isKwarg ? (
-      <ParamNameInput
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        hasChildren={hasChildren}
-        onMouseDown={onMouseDownConditional}
-        border={hasChildren ? border : ""}
-        bg={hasChildren ? bg : ""}
-      />
-    ) : (
-      <ParamTextLabel
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        onMouseDown={onMouseDownConditional}
-        bg={hasChildren ? bg : ""}
-      />
-    )
-  ) : (
-    <BenchmarkParamLabel
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      onMouseDown={onMouseDownConditional}
-      bg={hasChildren ? bg : ""}
-      isKwarg={isKwarg}
-    />
-  );
-
   return (
     <ParamContainer
       {...props}
@@ -292,37 +261,25 @@ function RealParamSwitch(props: ParamSwitchProps) {
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}
     >
-      {label}
+      {isKwarg ? (
+        <ParamNameInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          hasChildren={hasChildren}
+          onMouseDown={onMouseDownConditional}
+          border={hasChildren ? border : ""}
+          bg={hasChildren ? bg : ""}
+        />
+      ) : (
+        <ParamTextLabel
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          onMouseDown={onMouseDownConditional}
+          bg={hasChildren ? bg : ""}
+        />
+      )}
     </ParamContainer>
   );
 }
 
 export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
-
-function BenchmarkParamLabel({
-  sectionId,
-  paramInfoId,
-  onMouseDown,
-  bg,
-  isKwarg,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  onMouseDown?: React.MouseEventHandler;
-  bg: string;
-  isKwarg: boolean;
-}) {
-  const name = useProjectState((x) =>
-    getParamDisplayName(x, sectionId, paramInfoId),
-  );
-
-  return (
-    <p
-      className={`${bg} truncate py-[.125rem] text-xs ${isKwarg ? "font-mono" : "font-semibold"} text-setta-700 dark:text-setta-200`}
-      onMouseDownCapture={onMouseDown}
-      data-settings-benchmark-light-label="true"
-    >
-      {name}
-    </p>
-  );
-}
