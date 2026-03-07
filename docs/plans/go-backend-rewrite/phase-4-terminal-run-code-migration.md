@@ -89,9 +89,15 @@ Current repo status as of 2026-03-06:
   - `cmd/setta-server`
   - `internal/app`
   - `internal/wsapi`
+- Go now also wires deployment `runCode` through that source of truth under:
+  - `internal/httpapi/terminal_routes.go`
+  - `internal/runs/service.go`
+  - deployment policy enforcement
+  - share-session overlay planning
+  - `share_runs/<session>` snapshot roots
 - Go does not yet have a `cliId` output transport equivalent
-- Go does not yet wire that deployment source of truth into the deployment
-  `runCode` route itself
+- Go does not yet expose deployment session creation/cleanup transport, so the
+  frontend still relies on Python for share/app session bootstrap
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
 
 ## Scope

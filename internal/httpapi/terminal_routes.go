@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	binarypayload "setta/internal/binary"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/runs"
@@ -19,9 +20,10 @@ const RouteInterruptTerminalProcesses = "/interruptTerminalProcesses"
 const RouteRunCode = "/runCode"
 
 type TerminalRouteDependencies struct {
-	ModePolicy modes.Policy
-	Terminals  *terminals.Service
-	RunCode    *runs.Service
+	ModePolicy    modes.Policy
+	ShareSessions modes.ShareSessionStore
+	Terminals     *terminals.Service
+	RunCode       *runs.Service
 }
 
 type DeleteTerminalsRequest struct {
@@ -60,7 +62,17 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 
 	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals))
 	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals))
-	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+	if deps.ModePolicy.IsDeployment() {
+		if deps.ShareSessions == nil {
+			return fmt.Errorf("share session store is required in deployment mode")
+		}
+		router.With(RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.ShareSessions,
+		})).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+	} else {
+		router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteRunCode, runCodeHandler(deps.RunCode))
+	}
 	return nil
 }
 
@@ -153,10 +165,6 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_cli", "Run code CLI output is not supported in Go yet.")
 			return
 		}
-		if len(payload.ParamOverrides) > 0 {
-			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_overrides", "Run code parameter overrides are not supported on the Go HTTP route yet.")
-			return
-		}
 
 		if _, err := runCodeService.RunCode(r.Context(), runs.RunCodeRequest{
 			ProjectID:                payload.ProjectID,
@@ -165,9 +173,16 @@ func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
 			RunSnapshotMode:          payload.RunSnapshotMode,
 			DrawSnapshotsBySectionID: payload.DrawSnapshotsBySectionID,
 			SectionVariantOverrides:  payload.SectionVariantOverrides,
+			ParamOverrides:           payload.ParamOverrides,
 			ShareSessionID:           requestInfo.ShareSessionID,
 		}); err != nil {
 			switch {
+			case errors.Is(err, runs.ErrDeploymentRunDenied),
+				errors.Is(err, runs.ErrDeploymentVariantDenied),
+				errors.Is(err, runs.ErrDeploymentSingleRunOnly):
+				writeError(w, r, http.StatusForbidden, "deployment_policy_denied", err.Error())
+			case errors.Is(err, deployments.ErrUnknownSession):
+				writeError(w, r, http.StatusNotFound, "unknown_share_session", err.Error())
 			case errors.Is(err, runs.ErrRunTargetRequired),
 				errors.Is(err, runs.ErrRunTargetNotRunnable),
 				errors.Is(err, runs.ErrRunSnapshotModeInvalid),

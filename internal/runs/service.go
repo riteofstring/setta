@@ -9,6 +9,7 @@ import (
 
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
+	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/statefs"
 	"setta/internal/terminals"
@@ -20,16 +21,20 @@ var (
 	ErrBackendLogsRequired     = fmt.Errorf("runs: backend log service is required")
 	ErrBinaryStoreRequired     = fmt.Errorf("runs: binary store is required")
 	ErrArtifactsRootRequired   = fmt.Errorf("runs: artifacts root is required")
+	ErrDeploymentRunDenied     = fmt.Errorf("runs: deployment policy disallows run and terminal access")
+	ErrDeploymentVariantDenied = fmt.Errorf("runs: deployment policy disallows variant changes")
+	ErrDeploymentSingleRunOnly = fmt.Errorf("runs: deployment policy allows only one run per session")
 )
 
 type ServiceOptions struct {
-	Planner       *Planner
-	ProjectState  *projectstate.Runtime
-	Terminals     *terminals.Service
-	BackendLogs   *backendlogs.Service
-	BinaryStore   *binarypayload.Store
-	ArtifactsRoot string
-	IDGenerator   func() string
+	Planner           *Planner
+	ProjectState      *projectstate.Runtime
+	DeploymentRuntime *deployments.Runtime
+	Terminals         *terminals.Service
+	BackendLogs       *backendlogs.Service
+	BinaryStore       *binarypayload.Store
+	ArtifactsRoot     string
+	IDGenerator       func() string
 }
 
 type RunCodeRequest struct {
@@ -39,6 +44,7 @@ type RunCodeRequest struct {
 	RunSnapshotMode          RunSnapshotMode
 	DrawSnapshotsBySectionID map[string]binarypayload.ContentRef
 	SectionVariantOverrides  map[string]string
+	ParamOverrides           map[string]string
 	ShareSessionID           string
 }
 
@@ -52,6 +58,7 @@ type RunCodeResult struct {
 type Service struct {
 	planner       *Planner
 	projectState  *projectstate.Runtime
+	deployment    *deployments.Runtime
 	terminals     *terminals.Service
 	backendLogs   *backendlogs.Service
 	binaryStore   *binarypayload.Store
@@ -88,6 +95,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	return &Service{
 		planner:       options.Planner,
 		projectState:  options.ProjectState,
+		deployment:    options.DeploymentRuntime,
 		terminals:     options.Terminals,
 		backendLogs:   options.BackendLogs,
 		binaryStore:   options.BinaryStore,
@@ -100,21 +108,38 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	if s == nil {
 		return RunCodeResult{}, ErrPlannerRequired
 	}
-	if err := s.applyDrawSnapshots(ctx, request.ProjectID, request.DrawSnapshotsBySectionID); err != nil {
+
+	execution, err := s.resolveExecution(request)
+	if err != nil {
 		return RunCodeResult{}, err
 	}
 
-	plan, err := s.planner.Plan(PlanRequest{
+	startupCommitted := false
+	if execution.reservedSingleRun {
+		defer func() {
+			if startupCommitted {
+				return
+			}
+			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
+		}()
+	}
+
+	if err := s.applyDrawSnapshots(ctx, execution.projectState, execution.artifactsRoot, request.ProjectID, request.DrawSnapshotsBySectionID); err != nil {
+		return RunCodeResult{}, err
+	}
+
+	plan, err := execution.planner.Plan(PlanRequest{
 		ProjectID:               request.ProjectID,
 		SectionID:               request.SectionID,
-		RunSnapshotMode:         request.RunSnapshotMode,
+		RunSnapshotMode:         execution.runSnapshotMode,
 		SectionVariantOverrides: request.SectionVariantOverrides,
+		ParamOverrides:          request.ParamOverrides,
 	})
 	if err != nil {
 		return RunCodeResult{}, err
 	}
 
-	terminalSectionID, err := s.resolveTerminalSection(ctx, request.ProjectID, request.ShareSessionID, plan, request.TerminalSectionID)
+	terminalSectionID, err := s.resolveTerminalSection(ctx, execution.projectState, request.ProjectID, request.ShareSessionID, plan, request.TerminalSectionID)
 	if err != nil {
 		return RunCodeResult{}, err
 	}
@@ -138,8 +163,14 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	if !strings.HasSuffix(command, "\n") {
 		command += "\n"
 	}
-	if err := s.terminals.Write(terminalID, []byte(command)); err != nil {
+	if err := s.terminals.RunCommand(terminalID, []byte(command)); err != nil {
 		return RunCodeResult{}, err
+	}
+	startupCommitted = true
+	if execution.deployment && !execution.reservedSingleRun {
+		if _, err := s.deployment.IncrementSessionRunCount(request.ShareSessionID); err != nil {
+			return RunCodeResult{}, err
+		}
 	}
 	if err := s.backendLogs.LogAndBroadcast(ctx, backendlogs.LogRequest{
 		Message:        "Started command",
@@ -158,9 +189,86 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	}, nil
 }
 
-func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, shareSessionID string, plan Plan, explicitTerminalSectionID string) (string, error) {
+type runExecution struct {
+	planner           *Planner
+	projectState      *projectstate.Runtime
+	artifactsRoot     string
+	runSnapshotMode   RunSnapshotMode
+	reservedSingleRun bool
+	deployment        bool
+}
+
+func (s *Service) resolveExecution(request RunCodeRequest) (runExecution, error) {
+	if s.deployment == nil {
+		return runExecution{
+			planner:         s.planner,
+			projectState:    s.projectState,
+			artifactsRoot:   s.artifactsRoot,
+			runSnapshotMode: request.RunSnapshotMode,
+		}, nil
+	}
+
+	policy := s.deployment.Policy()
+	if !policy.AllowRun {
+		return runExecution{}, ErrDeploymentRunDenied
+	}
+	if len(request.SectionVariantOverrides) > 0 && !policy.AllowVariantChanges {
+		return runExecution{}, ErrDeploymentVariantDenied
+	}
+
+	reservedSingleRun := false
+	if !policy.AllowMultipleRuns {
+		reserved, err := s.deployment.TryReserveSessionRun(request.ShareSessionID)
+		if err != nil {
+			return runExecution{}, err
+		}
+		if !reserved {
+			return runExecution{}, ErrDeploymentSingleRunOnly
+		}
+		reservedSingleRun = true
+	}
+
+	projectState, err := s.deployment.Overlay(request.ShareSessionID)
+	if err != nil {
+		if reservedSingleRun {
+			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
+		}
+		return runExecution{}, err
+	}
+	sessionRunRoot, err := s.deployment.Paths().SessionRunRoot(request.ShareSessionID)
+	if err != nil {
+		if reservedSingleRun {
+			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
+		}
+		return runExecution{}, err
+	}
+	planner, err := s.planner.withOptions(PlannerOptions{
+		ProjectState:           projectState,
+		SettaFilesRoot:         s.deployment.Paths().DeploymentRoot,
+		RuntimeRoot:            s.deployment.Paths().RuntimeRoot,
+		SnapshotRoot:           sessionRunRoot,
+		DefaultRunSnapshotMode: RunSnapshotMode(policy.RunSnapshotMode),
+	})
+	if err != nil {
+		if reservedSingleRun {
+			_, _ = s.deployment.RollbackReservedSessionRun(request.ShareSessionID)
+		}
+		return runExecution{}, err
+	}
+
+	return runExecution{
+		planner:           planner,
+		projectState:      projectState,
+		artifactsRoot:     s.deployment.Paths().ArtifactsRoot,
+		runSnapshotMode:   RunSnapshotMode(policy.RunSnapshotMode),
+		reservedSingleRun: reservedSingleRun,
+		deployment:        true,
+	}, nil
+}
+
+func (s *Service) resolveTerminalSection(ctx context.Context, projectState *projectstate.Runtime, projectID string, shareSessionID string, plan Plan, explicitTerminalSectionID string) (string, error) {
 	if plan.TargetKind == projectstate.RunTargetKindGeneratedEntry {
-		reusableTerminalSectionID, err := s.resolveReusableGeneratedEntryTerminalSection(projectID, shareSessionID)
+		reusableTerminalSectionID, err := s.resolveReusableGeneratedEntryTerminalSection(projectState, projectID, shareSessionID)
 		if err != nil {
 			return "", err
 		}
@@ -168,17 +276,17 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, 
 			return reusableTerminalSectionID, nil
 		}
 
-		_, terminalSectionID, err := s.projectState.CreateTemporaryTerminal(projectID, s.newTerminalSeed())
+		_, terminalSectionID, err := projectState.CreateTemporaryTerminal(projectID, s.newTerminalSeed())
 		if err != nil {
 			return "", err
 		}
-		if _, err := s.projectState.Save(ctx); err != nil {
+		if _, err := projectState.Save(ctx); err != nil {
 			return "", err
 		}
 		return terminalSectionID, nil
 	}
 
-	document := s.projectState.Snapshot().Document
+	document := projectState.Snapshot().Document
 	validExplicitTerminal, err := document.ValidateAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, explicitTerminalSectionID)
 	if err != nil {
 		return "", err
@@ -187,18 +295,18 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, 
 		return strings.TrimSpace(explicitTerminalSectionID), nil
 	}
 
-	_, terminalSectionID, err := s.projectState.EnsureCodeSectionAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, s.newTerminalSeed())
+	_, terminalSectionID, err := projectState.EnsureCodeSectionAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, s.newTerminalSeed())
 	if err != nil {
 		return "", err
 	}
-	if _, err := s.projectState.Save(ctx); err != nil {
+	if _, err := projectState.Save(ctx); err != nil {
 		return "", err
 	}
 	return terminalSectionID, nil
 }
 
-func (s *Service) resolveReusableGeneratedEntryTerminalSection(projectID string, shareSessionID string) (string, error) {
-	document := s.projectState.Snapshot().Document
+func (s *Service) resolveReusableGeneratedEntryTerminalSection(projectState *projectstate.Runtime, projectID string, shareSessionID string) (string, error) {
+	document := projectState.Snapshot().Document
 	project, err := document.ProjectByID(projectID)
 	if err != nil {
 		return "", err
@@ -232,12 +340,12 @@ func (s *Service) newTerminalSeed() projectstate.TerminalSectionSeed {
 	}
 }
 
-func (s *Service) applyDrawSnapshots(ctx context.Context, projectID string, refsBySectionID map[string]binarypayload.ContentRef) error {
+func (s *Service) applyDrawSnapshots(ctx context.Context, projectState *projectstate.Runtime, artifactsRoot string, projectID string, refsBySectionID map[string]binarypayload.ContentRef) error {
 	if len(refsBySectionID) == 0 {
 		return nil
 	}
 
-	document := s.projectState.Snapshot().Document
+	document := projectState.Snapshot().Document
 	project, err := document.ProjectByID(projectID)
 	if err != nil {
 		return err
@@ -263,7 +371,7 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectID string, refs
 
 		targetPath := strings.TrimSpace(impl.Draw.RenderedImagePath)
 		if targetPath == "" {
-			targetPath, err = projectstate.BuildDrawSnapshotPath(sectionID, s.artifactsRoot)
+			targetPath, err = projectstate.BuildDrawSnapshotPath(sectionID, artifactsRoot)
 			if err != nil {
 				return err
 			}
@@ -288,10 +396,10 @@ func (s *Service) applyDrawSnapshots(ctx context.Context, projectID string, refs
 		}
 	}
 
-	if _, err := s.projectState.SetDrawSectionRenderedImagePaths(projectID, renderedPathsBySectionID); err != nil {
+	if _, err := projectState.SetDrawSectionRenderedImagePaths(projectID, renderedPathsBySectionID); err != nil {
 		return err
 	}
-	if _, err := s.projectState.Save(ctx); err != nil {
+	if _, err := projectState.Save(ctx); err != nil {
 		return err
 	}
 	for _, update := range updates {

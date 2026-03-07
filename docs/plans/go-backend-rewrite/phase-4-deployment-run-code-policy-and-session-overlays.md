@@ -39,11 +39,11 @@ Current repo status as of 2026-03-06:
   - per-session overlay creation/deletion on top of that base runtime
   - share-session existence/touch semantics
   - per-session run-count reservation, increment, and rollback
-- the current Go deployment gap is now concentrated in wiring:
-  - deployment startup/session wiring now exists, but deployment `runCode`
-    transport still does not use it
+- the current Go deployment gap is now concentrated in remaining transport:
+  - deployment `runCode` now uses the Go deployment runtime and share-session
+    overlays
   - no Go route yet creates deployment sessions over HTTP
-  - `POST /api/runCode` is still mounted behind `RequireFullIDERuntime`
+  - deployment terminal delete/interrupt transport is still IDE-only
 - Python still owns deployment/share `runCode` semantics across:
   - `backend/setta/routers/terminals.py`
   - `backend/setta/share/policy.py`
@@ -275,7 +275,27 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- mounted deployment-mode `POST /api/runCode` through Go HTTP transport with
+  share-session middleware instead of `RequireFullIDERuntime`
+- moved deployment policy enforcement into `internal/runs`:
+  - `allowRun` denial
+  - `allowMultipleRuns=false` reservation and rollback
+  - variant-override denial when `allowVariantChanges=false`
+- kept `paramOverrides` explicitly unsupported until Go owns parameter state
+- planned deployment runs against per-session overlay runtimes from
+  `internal/deployments.Runtime`
+- snapped deployment runs under `share_runs/<shareSessionId>/...` using
+  deployment-root code bindings and deployment artifact roots
+- added explicit backend-owned terminal command dispatch so deployment runs can
+  start commands while websocket/user input remains disabled
+
+Tests:
+
+- `./scripts/go.sh test -p 1 ./internal/terminals ./internal/runs ./internal/httpapi ./internal/app -count=1`
 
 ## Open Questions
 
@@ -286,5 +306,7 @@ Status:
 
 ## Next Recommended Step
 
-- Implement Slice 3 from this doc:
-  deployment `runCode` route migration on top of the wired deployment runtime.
+- Add deployment session HTTP transport and cleanup wiring:
+  the frontend still cannot create share/app sessions from Go without Python,
+  and deployment terminal delete/interrupt parity still depends on that session
+  transport wave.

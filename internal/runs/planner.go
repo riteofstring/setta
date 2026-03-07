@@ -48,6 +48,7 @@ type PlannerOptions struct {
 	ProjectState           *projectstate.Runtime
 	SettaFilesRoot         string
 	RuntimeRoot            string
+	SnapshotRoot           string
 	DefaultRunSnapshotMode RunSnapshotMode
 	Now                    func() time.Time
 }
@@ -74,12 +75,13 @@ type Plan struct {
 }
 
 type Planner struct {
-	projectState   *projectstate.Runtime
-	settaFilesRoot string
-	runtimeRoot    string
-	defaultMode    RunSnapshotMode
-	now            func() time.Time
-	lookPath       func(string) (string, error)
+	projectState     *projectstate.Runtime
+	settaFilesRoot   string
+	runtimeRoot      string
+	snapshotRootPath string
+	defaultMode      RunSnapshotMode
+	now              func() time.Time
+	lookPath         func(string) (string, error)
 }
 
 type codeSectionInput struct {
@@ -102,6 +104,13 @@ func NewPlanner(options PlannerOptions) (*Planner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w", ErrRuntimeRootRequired)
 	}
+	snapshotRoot := ""
+	if strings.TrimSpace(options.SnapshotRoot) != "" {
+		snapshotRoot, err = statefs.NormalizePath(options.SnapshotRoot, "")
+		if err != nil {
+			return nil, fmt.Errorf("runs: snapshot root is invalid")
+		}
+	}
 
 	defaultMode := options.DefaultRunSnapshotMode
 	if defaultMode == "" {
@@ -118,13 +127,24 @@ func NewPlanner(options PlannerOptions) (*Planner, error) {
 	lookPath := exec.LookPath
 
 	return &Planner{
-		projectState:   options.ProjectState,
-		settaFilesRoot: settaFilesRoot,
-		runtimeRoot:    runtimeRoot,
-		defaultMode:    defaultMode,
-		now:            now,
-		lookPath:       lookPath,
+		projectState:     options.ProjectState,
+		settaFilesRoot:   settaFilesRoot,
+		runtimeRoot:      runtimeRoot,
+		snapshotRootPath: snapshotRoot,
+		defaultMode:      defaultMode,
+		now:              now,
+		lookPath:         lookPath,
 	}, nil
+}
+
+func (p *Planner) withOptions(options PlannerOptions) (*Planner, error) {
+	planner, err := NewPlanner(options)
+	if err != nil {
+		return nil, err
+	}
+	planner.now = p.now
+	planner.lookPath = p.lookPath
+	return planner, nil
 }
 
 func (p *Planner) Plan(request PlanRequest) (Plan, error) {
@@ -429,6 +449,9 @@ func (p *Planner) resolveBindingPath(rawPath string) (string, error) {
 }
 
 func (p *Planner) snapshotRoot(mode RunSnapshotMode) string {
+	if p.snapshotRootPath != "" {
+		return p.snapshotRootPath
+	}
 	switch mode {
 	case RunSnapshotModeEphemeral:
 		return p.runtimeRoot

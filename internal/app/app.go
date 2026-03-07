@@ -120,12 +120,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
-		Planner:       runPlanner,
-		ProjectState:  projectRuntime,
-		Terminals:     terminalService,
-		BackendLogs:   backendLogService,
-		BinaryStore:   binaryStore,
-		ArtifactsRoot: artifactsRoot,
+		Planner:           runPlanner,
+		ProjectState:      projectRuntime,
+		DeploymentRuntime: deploymentRuntime,
+		Terminals:         terminalService,
+		BackendLogs:       backendLogService,
+		BinaryStore:       binaryStore,
+		ArtifactsRoot:     artifactsRoot,
 	})
 	if err != nil {
 		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
@@ -164,9 +165,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
-				ModePolicy: modePolicy,
-				Terminals:  terminalService,
-				RunCode:    runCodeService,
+				ModePolicy:    modePolicy,
+				ShareSessions: shareSessions,
+				Terminals:     terminalService,
+				RunCode:       runCodeService,
 			}); err != nil {
 				panic(err)
 			}

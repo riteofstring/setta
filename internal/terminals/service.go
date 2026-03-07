@@ -353,10 +353,22 @@ func (s *Service) Write(sessionID string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	return s.writeToSession(session, data, true)
+}
+
+func (s *Service) RunCommand(sessionID string, data []byte) error {
+	session, err := s.requireSession(sessionID)
+	if err != nil {
+		return err
+	}
+	return s.writeToSession(session, data, false)
+}
+
+func (s *Service) writeToSession(session *session, data []byte, requireInput bool) error {
 	if len(data) == 0 {
 		return nil
 	}
-	if !session.allowInput {
+	if requireInput && !session.allowInput {
 		return ErrInputDisabled
 	}
 	if _, err := session.pty.Write(data); err != nil {

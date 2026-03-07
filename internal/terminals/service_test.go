@@ -195,6 +195,20 @@ func TestServiceRejectsWritesWhenInputDisabled(t *testing.T) {
 	if err := service.Write(sessionID, []byte("blocked\n")); !errors.Is(err, ErrInputDisabled) {
 		t.Fatalf("expected input-disabled error, got %v", err)
 	}
+
+	attachment, err := service.Attach(sessionID)
+	if err != nil {
+		t.Fatalf("attach terminal: %v", err)
+	}
+	t.Cleanup(attachment.Close)
+
+	if err := service.RunCommand(sessionID, []byte("printf 'RUN_OK\\n'\n")); err != nil {
+		t.Fatalf("run command: %v", err)
+	}
+	output := waitForOutputContains(t, attachment, "RUN_OK")
+	if !strings.Contains(output, "RUN_OK") {
+		t.Fatalf("expected backend-owned command output, got %q", output)
+	}
 }
 
 func TestServiceDeleteShareSessionRemovesOnlyMatchingSessions(t *testing.T) {

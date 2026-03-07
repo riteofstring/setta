@@ -21,6 +21,7 @@ import (
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
 	"setta/internal/config"
+	"setta/internal/deployments"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
@@ -801,7 +802,7 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 		{
 			name:         "param overrides",
 			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","paramOverrides":{"param-a":"value"}}`,
-			expectedCode: `"code":"unsupported_run_code_overrides"`,
+			expectedCode: `"code":"invalid_run_code_request"`,
 		},
 	}
 
@@ -821,6 +822,295 @@ func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 				t.Fatalf("expected response to contain %s, got %q", testCase.expectedCode, response.Body.String())
 			}
 		})
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsDeploymentRunWhenPolicyDisallows(t *testing.T) {
+	t.Parallel()
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+		t.Fatalf("expected deployment policy denial, got %q", response.Body.String())
+	}
+
+	runCount, err := runFixture.deployment.SessionRunCount("share-a")
+	if err != nil {
+		t.Fatalf("session run count: %v", err)
+	}
+	if runCount != 0 {
+		t.Fatalf("expected denied deployment run count 0, got %d", runCount)
+	}
+	if sessions := terminalService.List("project-alpha", "share-a"); len(sessions) != 0 {
+		t.Fatalf("did not expect deployment terminal sessions, got %#v", sessions)
+	}
+}
+
+func TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	policy.RunSnapshotMode = deployments.RunSnapshotModeAlways
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	sessions := terminalService.List("project-alpha", "share-a")
+	if len(sessions) != 1 {
+		t.Fatalf("expected one deployment terminal session, got %#v", sessions)
+	}
+	if sessions[0].AllowInput {
+		t.Fatal("did not expect deployment terminal input to be enabled")
+	}
+
+	attachment := attachHTTPTestTerminal(t, terminalService, sessions[0].ID)
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_RUN_OK")
+	if !strings.Contains(output, "ROUTE_RUN_OK") {
+		t.Fatalf("expected deployment run output, got %q", output)
+	}
+
+	runCount, err := runFixture.deployment.SessionRunCount("share-a")
+	if err != nil {
+		t.Fatalf("session run count: %v", err)
+	}
+	if runCount != 1 {
+		t.Fatalf("expected deployment run count 1, got %d", runCount)
+	}
+
+	sessionRunRoot, err := runFixture.deployment.Paths().SessionRunRoot("share-a")
+	if err != nil {
+		t.Fatalf("session run root: %v", err)
+	}
+	runEntries, err := os.ReadDir(sessionRunRoot)
+	if err != nil {
+		t.Fatalf("read session run root: %v", err)
+	}
+	runDirCount := 0
+	foundRunSnapshot := false
+	for _, entry := range runEntries {
+		if !entry.IsDir() {
+			continue
+		}
+		runDirCount++
+		if _, err := os.Stat(filepath.Join(sessionRunRoot, entry.Name(), "run.py")); err == nil {
+			foundRunSnapshot = true
+		}
+	}
+	if runDirCount != 1 {
+		t.Fatalf("expected one deployment run snapshot dir, got %d", runDirCount)
+	}
+	if !foundRunSnapshot {
+		t.Fatal("expected deployment run snapshot to include run.py under share_runs/<session>")
+	}
+
+	baseProject := runFixture.deployment.Base().Snapshot().Document.Projects["project-alpha"]
+	overlayRuntime, err := runFixture.deployment.Overlay("share-a")
+	if err != nil {
+		t.Fatalf("overlay runtime: %v", err)
+	}
+	overlayProject := overlayRuntime.Snapshot().Document.Projects["project-alpha"]
+	if len(baseProject.Sections) != 1 {
+		t.Fatalf("expected base project to keep one section, got %d", len(baseProject.Sections))
+	}
+	if len(overlayProject.Sections) <= len(baseProject.Sections) {
+		t.Fatalf("expected overlay project to add an attached terminal section, got base=%d overlay=%d", len(baseProject.Sections), len(overlayProject.Sections))
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsDeploymentVariantOverridesWhenPolicyDisallows(t *testing.T) {
+	t.Parallel()
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	policy.AllowVariantChanges = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"code-section":"code-bash-variant"}}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+		t.Fatalf("expected deployment policy denial, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsSecondDeploymentRunWhenMultipleRunsDisabled(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	policy.AllowMultipleRuns = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	for attempt := range 2 {
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section"}`))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+
+		if attempt == 0 {
+			if response.Code != http.StatusOK {
+				t.Fatalf("expected first run 200, got %d with body %q", response.Code, response.Body.String())
+			}
+			continue
+		}
+
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("expected second run 403, got %d with body %q", response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"deployment_policy_denied"`) {
+			t.Fatalf("expected deployment policy denial, got %q", response.Body.String())
+		}
+	}
+
+	runCount, err := runFixture.deployment.SessionRunCount("share-a")
+	if err != nil {
+		t.Fatalf("session run count: %v", err)
+	}
+	if runCount != 1 {
+		t.Fatalf("expected single-run deployment count 1, got %d", runCount)
+	}
+}
+
+func TestRegisterTerminalRoutesRollsBackReservedDeploymentRunOnStartupFailure(t *testing.T) {
+	t.Parallel()
+
+	terminalService := newHTTPTestTerminalService(t)
+	policy := deployments.DefaultPolicy()
+	policy.AllowRun = true
+	policy.AllowMultipleRuns = false
+	runFixture := newHTTPTestDeploymentRunCodeFixture(t, terminalService, policy)
+	if _, err := runFixture.deployment.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create share session: %v", err)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := terminalService.Close(shutdownCtx); err != nil {
+		t.Fatalf("close terminal service: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: modes.NewPolicy(config.ModeShare),
+		Register: func(r chi.Router) {
+			registerHTTPTestDeploymentTerminalRoutes(t, r, modes.NewPolicy(config.ModeShare), terminalService, runFixture.service, runFixture.deployment)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set(modes.ShareSessionHeaderName, "share-a")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	runCount, err := runFixture.deployment.SessionRunCount("share-a")
+	if err != nil {
+		t.Fatalf("session run count: %v", err)
+	}
+	if runCount != 0 {
+		t.Fatalf("expected reserved deployment run count rollback to 0, got %d", runCount)
 	}
 }
 
@@ -848,12 +1138,38 @@ func newHTTPTestTerminalService(t *testing.T) *terminals.Service {
 func registerHTTPTestTerminalRoutes(t *testing.T, router chi.Router, modePolicy modes.Policy, terminalService *terminals.Service, runCodeService *runs.Service) {
 	t.Helper()
 
+	var shareSessions modes.ShareSessionStore
+	if modePolicy.IsDeployment() {
+		shareSessions = newTestHTTPShareSessionStore("known")
+	}
+
 	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
-		ModePolicy: modePolicy,
-		Terminals:  terminalService,
-		RunCode:    runCodeService,
+		ModePolicy:    modePolicy,
+		ShareSessions: shareSessions,
+		Terminals:     terminalService,
+		RunCode:       runCodeService,
 	}); err != nil {
 		t.Fatalf("register terminal routes: %v", err)
+	}
+}
+
+func registerHTTPTestDeploymentTerminalRoutes(
+	t *testing.T,
+	router chi.Router,
+	modePolicy modes.Policy,
+	terminalService *terminals.Service,
+	runCodeService *runs.Service,
+	shareSessions modes.ShareSessionStore,
+) {
+	t.Helper()
+
+	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
+		ModePolicy:    modePolicy,
+		ShareSessions: shareSessions,
+		Terminals:     terminalService,
+		RunCode:       runCodeService,
+	}); err != nil {
+		t.Fatalf("register deployment terminal routes: %v", err)
 	}
 }
 
@@ -864,10 +1180,161 @@ type httpTestRunCodeFixture struct {
 	artifactsRoot string
 }
 
+type httpTestDeploymentRunCodeFixture struct {
+	deployment  *deployments.Runtime
+	service     *runs.Service
+	binaryStore *binarypayload.Store
+}
+
 func newHTTPTestRunCodeService(t *testing.T, terminalService *terminals.Service) *runs.Service {
 	t.Helper()
 
 	return newHTTPTestRunCodeFixture(t, terminalService).service
+}
+
+func newHTTPTestDeploymentRunCodeFixture(
+	t *testing.T,
+	terminalService *terminals.Service,
+	policy deployments.Policy,
+) httpTestDeploymentRunCodeFixture {
+	t.Helper()
+
+	root := t.TempDir()
+	deploymentRoot := filepath.Join(root, "deployments", "demo-share", "v1")
+	runtimeRoot := filepath.Join(root, "deployment_runtime", "demo-share", "v1")
+	codeRoot := filepath.Join(deploymentRoot, "code")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.MkdirAll(codeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir code root: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.py"), []byte("print('ROUTE_RUN_OK')\n"), 0o644); err != nil {
+		t.Fatalf("write deployment run.py: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.sh"), []byte("echo ROUTE_BASH_OK\n"), 0o644); err != nil {
+		t.Fatalf("write deployment run.sh: %v", err)
+	}
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				EntryCodeBlockID: "code-section",
+				TopLevelSectionIDs: []string{
+					"code-section",
+				},
+				SectionVariantMap: map[string]string{
+					"code-section": "code-python-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"code-section": {
+						ID:               "code-section",
+						Name:             "Runner",
+						VariantIDs:       []string{"code-python-variant", "code-bash-variant"},
+						DefaultVariantID: "code-python-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"code-python-variant": {
+						ID:     "code-python-variant",
+						ImplID: "code-python-impl",
+					},
+					"code-bash-variant": {
+						ID:     "code-bash-variant",
+						ImplID: "code-bash-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"code-python-impl": {
+						ID:   "code-python-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/run.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"code-bash-impl": {
+						ID:   "code-bash-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguageBash,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/run.sh",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	writeHTTPTestProjectDocument(t, filepath.Join(deploymentRoot, projectstate.MainFileName), document)
+	writeHTTPTestJSON(t, filepath.Join(deploymentRoot, "manifest.json"), map[string]any{
+		"version":                1,
+		"deploymentName":         "demo-share",
+		"deploymentType":         "share",
+		"defaultProjectConfigId": "project-alpha",
+		"deploymentVersion":      "v1",
+	})
+	writeHTTPTestJSON(t, filepath.Join(deploymentRoot, "policy.json"), policy)
+
+	deploymentRuntime, err := deployments.Open(context.Background(), deployments.RuntimeOptions{
+		DeploymentRoot: deploymentRoot,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("open deployment runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := deploymentRuntime.Close(); err != nil {
+			t.Fatalf("close deployment runtime: %v", err)
+		}
+	})
+
+	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
+		ProjectState:   deploymentRuntime.Base(),
+		SettaFilesRoot: deploymentRuntime.Paths().DeploymentRoot,
+		RuntimeRoot:    deploymentRuntime.Paths().RuntimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new deployment run planner: %v", err)
+	}
+
+	binaryStore, err := binarypayload.NewStoreForRuntimeRoot(runtimeRoot)
+	if err != nil {
+		t.Fatalf("new deployment binary store: %v", err)
+	}
+
+	runService, err := runs.NewService(runs.ServiceOptions{
+		Planner:           runPlanner,
+		ProjectState:      deploymentRuntime.Base(),
+		DeploymentRuntime: deploymentRuntime,
+		Terminals:         terminalService,
+		BackendLogs:       mustNewHTTPTestBackendLogService(t),
+		BinaryStore:       binaryStore,
+		ArtifactsRoot:     deploymentRuntime.Paths().ArtifactsRoot,
+		IDGenerator: func() string {
+			return "seed-1"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new deployment run service: %v", err)
+	}
+
+	return httpTestDeploymentRunCodeFixture{
+		deployment:  deploymentRuntime,
+		service:     runService,
+		binaryStore: binaryStore,
+	}
 }
 
 func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service) httpTestRunCodeFixture {
@@ -1106,6 +1573,32 @@ func mustNewHTTPTestBackendLogService(t *testing.T) *backendlogs.Service {
 		t.Fatalf("new backend log service: %v", err)
 	}
 	return service
+}
+
+func writeHTTPTestProjectDocument(t *testing.T, path string, document projectstate.Document) {
+	t.Helper()
+
+	normalized, err := document.Normalized()
+	if err != nil {
+		t.Fatalf("normalize http test project document: %v", err)
+	}
+	writeHTTPTestJSON(t, path, normalized)
+}
+
+func writeHTTPTestJSON(t *testing.T, path string, payload any) {
+	t.Helper()
+
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal http test json: %v", err)
+	}
+	encoded = append(encoded, '\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir http test json dir: %v", err)
+	}
+	if err := os.WriteFile(path, encoded, 0o644); err != nil {
+		t.Fatalf("write http test json: %v", err)
+	}
 }
 
 func openHTTPTestTerminal(t *testing.T, service *terminals.Service, options terminals.OpenOptions) {
