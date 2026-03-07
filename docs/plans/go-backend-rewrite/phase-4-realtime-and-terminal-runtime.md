@@ -653,12 +653,9 @@ Resolved In Slice 6:
 
 ## Next Recommended Step
 
-Continue
-`docs/plans/go-backend-rewrite/phase-4-listener-realtime-producer-migration.md`
-with the next bounded slice:
+The active Phase 4 follow-up docs are now complete.
 
-- frontend websocket listener-event ingress for `RealtimeUIChange` and
-  `RealtimeDependencyEvent`
-- keep `appDefinition` / `appSpec` as deployment-specific wrappers around the
-  projected single-config payload; that deployment transport slice remains
-  complete
+Return to the master roadmap and continue with the first bounded Phase 5 plan:
+
+- `docs/plans/go-backend-rewrite/phase-5-lsp-diagnostics-and-completion-runtime.md`
+- start with Slice 1 there rather than widening Phase 4 further

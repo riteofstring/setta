@@ -48,11 +48,13 @@ Use the docs in this order:
    - focused current-work plan for the first IDE project-state mutation/save transport that can drive the new Go codegen refresh hook
 22. `phase-4-python-codegen-runtime-and-enablement.md`
    - focused current-work plan for first-party Python codegen runtime ownership, generated file materialization, and target enablement
-23. `spike-mcp.md`
+23. `phase-5-lsp-diagnostics-and-completion-runtime.md`
+   - focused current-work plan for the first Go-owned LSP runtime, diagnostics, and completion transport
+24. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-24. `spike-pty.md`
+25. `spike-pty.md`
    - PTY uncertainty-reduction plan
-25. `spike-lsp.md`
+26. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
