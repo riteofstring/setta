@@ -273,6 +273,9 @@ Completed Slice 3 chunk on 2026-03-06:
   handling, and dropzone payload parsing
 - tightened the Go graph with explicit node/dependency order slices so wrapper
   rendering can stay deterministic instead of depending on Go map iteration
+- added a Go wrapper-class renderer for `setta_gen.py` with ordered top-level
+  traversal, helper-import block assembly, var-name mapping, and
+  value-position bookkeeping
 - added focused Go coverage for:
   - callable param path generation
   - global-variables top-level param export
@@ -284,6 +287,8 @@ Completed Slice 3 chunk on 2026-03-06:
   - Python value codec formatting for callable args, param representations,
     password/file helpers, section representations, dropzone payloads, and
     multiline collections
+  - wrapper renderer formatting for dict/callable multiline output, helper
+    import block emission, and plugin assignments
   - MetaControl allowlist resolution from the derived control param type
 
 Recommended Slice 3 structure:
@@ -323,10 +328,10 @@ Current open gap inside Slice 3:
   parser-backed `state.<name>` reference edges
 - Go now owns the value codec and helper-import layer for the graph value kinds
   it emits
-- Go still lacks the wrapper-class renderer that turns ordered dependency nodes
+- Go now owns the wrapper-class renderer that turns ordered dependency nodes
   into authoritative `setta_gen.py` assignments
-- metadata rendering and composed save-hook materialization should stay blocked
-  on that renderer instead of reintroducing ad-hoc formatting paths
+- Go still lacks the metadata renderer and composed save-hook materializer that
+  turn those renderers into authoritative generated files on save
 
 ### Slice 4: Generated Section Sync + Route Enablement
 

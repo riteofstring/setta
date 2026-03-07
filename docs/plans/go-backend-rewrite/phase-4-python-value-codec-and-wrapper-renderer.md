@@ -11,9 +11,10 @@ The Go rewrite now owns:
 - canonical Python codegen export data
 - a Go dependency graph with structural edges and parser-backed
   `state.<name>` reference edges
+- a Go value codec and wrapper-class renderer over that graph
 
-What Go still does not own is the formatter layer that turns those dependency
-nodes into authoritative Python expressions and wrapper-class assignments.
+What Go still does not own is the metadata/materialization layer that turns
+those rendered outputs into authoritative generated files from the save hook.
 
 ## Status
 
@@ -25,12 +26,13 @@ Current repo status as of 2026-03-06:
   - deterministic dependency/node ordering in the Go graph for later renderer
     work
   - a Go Python value codec for the graph value kinds Go currently emits
+  - a Go wrapper-class renderer with var-name mapping, helper-import assembly,
+    and value-position bookkeeping
   - effective section/code-object policy resolution under
     `internal/projectstate`
 - Python still owns:
-  - `backend/setta/code_gen/python/code_generator.py`
+  - `backend/setta/code_gen/python/meta_generator.py`
 - Go still lacks:
-  - wrapper-class line rendering for `setta_gen.py`
   - metadata rendering and save-hook materialization integration
 
 Completed 2026-03-06:
@@ -46,6 +48,12 @@ Completed 2026-03-06:
 - added focused Go coverage for callable formatting, param representations,
   password/file helpers, section representations, dropzone formatting, and
   multiline collection formatting
+- added `internal/codegen/python_code_renderer.go`
+- ported ordered top-level traversal, wrapper-class assignment emission,
+  helper-import blocks, var-name mapping, and value-position bookkeeping for
+  `setta_gen.py`
+- added focused Go coverage for dict/callable multiline formatting, helper
+  import block emission, and plugin assignment rendering
 
 ## Scope
 
@@ -178,6 +186,12 @@ Acceptance:
 - Go can render the generated body for dict/list/callable/plugin-style graphs
 - multiline collection formatting matches the current Python formatter policy
 
+Status:
+
+- complete for wrapper-class rendering of `setta_gen.py`
+- metadata import/assignment hooks exist, but authoritative metadata generation
+  is still blocked on the dedicated Go metadata renderer
+
 ### Slice C: Metadata Renderer + Save Hook Integration
 
 Deliver:
@@ -192,13 +206,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-Implement Slice B next:
+Implement Slice C next:
 
-- add the Go wrapper-class renderer over `PythonDependencyGraph.NodeOrder`
-  and per-node `DepOrder`
-- reuse `PythonValueCodec` as the only source of expression formatting and
-  helper imports
-- port the current `PythonCodeGenerator` line/position bookkeeping only after
-  the emitted assignment ordering is stable
-
-Keep metadata rendering and save-hook materialization blocked on that renderer.
+- port the Python metadata renderer over the same ordered dependency graph
+- wire `PythonCodeRenderer` and the metadata renderer into a composed Go
+  materializer for `setta_gen.py` and `setta_gen_meta.py`
+- integrate that materializer into the authoritative save hook before
+  reopening Python target enablement/edit support
