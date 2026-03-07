@@ -129,6 +129,8 @@ Current repo status as of 2026-03-06:
   - `internal/plugins/worker_rpc.go`
 - Go now also includes the first worker process/session lifecycle owner under:
   - `internal/plugins/worker_session.go`
+- Go now also includes the first caller-facing worker launcher boundary under:
+  - `internal/plugins/worker_launcher.go`
 - broader plugin worker discovery/load/runtime ownership still lives only in
   Python under:
   - `backend/setta/plugins/manager.py`

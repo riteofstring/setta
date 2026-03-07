@@ -23,12 +23,14 @@ Current repo status as of 2026-03-06:
   - worker JSON-RPC transport in `internal/plugins/worker_rpc.go`
 - Go now also owns the first worker process/session lifecycle wrapper under:
   - `internal/plugins/worker_session.go`
+- Go now also owns the first caller-facing worker launcher boundary under:
+  - `internal/plugins/worker_launcher.go`
 - Python still owns broader worker adoption/load lifecycle under:
   - `backend/setta/plugins/manager.py`
   - `tests/plugins/test_plugin_manager.py`
 - the next dependency is not more listener transport logic
-- the next dependency is the first caller-facing adoption boundary around the
-  Go session owner
+- the next dependency is the first real Go caller outside `internal/plugins`
+  that adopts the new launcher/session boundary
 
 ## Scope
 
@@ -74,6 +76,9 @@ boundary is:
 
 That layer now exists in `internal/plugins/worker_session.go`.
 
+The first caller-facing adoption boundary now also exists in
+`internal/plugins/worker_launcher.go`.
+
 ## Working Decisions
 
 - keep lifecycle ownership separate from listener semantics
@@ -86,6 +91,9 @@ That layer now exists in `internal/plugins/worker_session.go`.
   - no broad supervisor or registry yet
 - prefer explicit close/shutdown methods over implicit finalizers or global
   process maps
+- validate worker handshakes at the launcher boundary using the worker protocol
+  contract instead of passing untyped initialize payloads deeper into later
+  runtime work
 
 ## Implementation Slices
 
@@ -150,18 +158,41 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- added `internal/plugins/worker_launcher.go` as the first caller-facing
+  adoption boundary around the lower-level session type
+- introduced `BackendWorkerSpec` as the resolved worker metadata DTO for later
+  plugin runtime callers
+- introduced typed initialize handshake decoding and validation for:
+  - plugin id
+  - plugin version
+  - backend API version
+  - required worker RPC methods
+- kept failure cleanup explicit by closing worker sessions when initialize or
+  register fails during launcher-owned startup
+- covered the slice with focused Go tests for:
+  - launcher host requirements
+  - real Python worker start + initialize + register round-trip through the
+    launcher
+  - live handshake API mismatch rejection
+  - typed handshake validation failures for invalid payload shapes/contracts
+
+Tests:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/realtime ./internal/plugins ./internal/runs ./internal/app -count=1`
 
 ## Open Questions
 
-- whether the first caller-facing adopter should live entirely inside
-  `internal/plugins` or be owned by a higher-level runtime package
 - how much stderr buffering the first session wrapper should keep versus simply
   streaming to logs
 
 ## Next Recommended Step
 
-- Start Slice 2.
-- Keep it narrow: add the first caller-facing service that creates
-  `WorkerSession` instances from already-resolved plugin metadata without
-  widening into discovery, install, or registry persistence work.
+- Treat this focused plan as complete.
+- The next step is a separate, larger adoption problem: identify or define the
+  first real Go caller outside `internal/plugins` that should own resolved
+  plugin metadata and invoke `WorkerLauncher` without widening immediately into
+  discovery, install, or registry persistence work.
