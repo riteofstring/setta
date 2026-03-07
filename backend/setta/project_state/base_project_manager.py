@@ -117,6 +117,7 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
     CreateNewSectionVariantRequest,
+    CreateStateMachineEdgeRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
@@ -129,6 +130,7 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
+    DeleteStateMachineEdgesRequest,
     DeleteViewModeRequest,
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
@@ -208,6 +210,8 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
+    SetStateMachineEdgesRequest,
+    SetStateMachineSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -242,6 +246,7 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    UpdateStateMachineEdgeRequest,
     ValidateAppDefinitionRequest,
     ValidateAppDefinitionResponse,
 )
@@ -285,6 +290,7 @@ from setta.types.helpers_lvl2 import (
     create_child_sections_via_incrementer,
     create_edge,
     create_new_section_variant,
+    create_state_machine_edge,
     create_top_level_section,
     delete_agentic_edges,
     delete_child_sections_via_decrementer,
@@ -294,6 +300,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant_or_ask,
     delete_sections,
     delete_selected_params,
+    delete_state_machine_edges,
     detach_code_section_attached_terminal,
     ensure_code_section_attached_terminal,
     ensure_code_section_embedded_terminal_size,
@@ -352,6 +359,8 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_spreadsheet_file_path,
     set_spreadsheet_section_settings,
+    set_state_machine_edges,
+    set_state_machine_section_settings,
     set_task_board_section_state,
     set_text_block_display_mode,
     set_text_block_format,
@@ -373,6 +382,7 @@ from setta.types.helpers_lvl2 import (
     update_agentic_edge,
     update_edge,
     update_param_impl_config,
+    update_state_machine_edge,
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
@@ -425,6 +435,7 @@ from setta.types.section_impls import (
     TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.state_machine_edges import StateMachineEdge
 from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
@@ -3632,6 +3643,49 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def create_state_machine_edge(self, x: CreateStateMachineEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        edge_kwargs = {
+            "machineGroupId": x.machineGroupId,
+            "sourceSectionId": x.sourceSectionId,
+            "sourcePortId": x.sourcePortId,
+            "targetSectionId": x.targetSectionId,
+            "targetPortId": x.targetPortId,
+            "sourceFilter": x.sourceFilter,
+            "targetAction": x.targetAction,
+            "style": x.style,
+            "hidden": x.hidden,
+            "zIndex": x.zIndex,
+        }
+        if x.id is not None:
+            edge_kwargs["id"] = x.id
+        edge = StateMachineEdge(**edge_kwargs)
+        create_state_machine_edge(project_state, edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def update_state_machine_edge(self, x: UpdateStateMachineEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        update_state_machine_edge(project_state, x.edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def delete_state_machine_edges(self, x: DeleteStateMachineEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_state_machine_edges(project_state, x.edgeIds)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_state_machine_edges(self, x: SetStateMachineEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_state_machine_edges(project_state, x.edges)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -4805,6 +4859,20 @@ class BaseProjectManager(ABC):
             x.permissionMode,
             x.searchEnabled,
             x.dictationMode,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_state_machine_section_settings(
+        self, x: SetStateMachineSectionSettingsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_state_machine_section_settings(
+            project_state,
+            x.sectionId,
+            x.machineGroupId,
+            x.label,
+            x.gateType,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

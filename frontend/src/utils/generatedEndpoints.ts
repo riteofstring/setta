@@ -1235,6 +1235,30 @@ export async function route_set_agentic_edges(
   return await post("/setAgenticEdges", x);
 }
 
+export async function route_create_state_machine_edge(
+  x: gt.CreateStateMachineEdgeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/createStateMachineEdge", x);
+}
+
+export async function route_update_state_machine_edge(
+  x: gt.UpdateStateMachineEdgeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/updateStateMachineEdge", x);
+}
+
+export async function route_delete_state_machine_edges(
+  x: gt.DeleteStateMachineEdgesRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteStateMachineEdges", x);
+}
+
+export async function route_set_state_machine_edges(
+  x: gt.SetStateMachineEdgesRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setStateMachineEdges", x);
+}
+
 export async function route_set_section_variant(
   x: gt.SetSectionVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1431,6 +1455,12 @@ export async function route_set_chat_section_settings(
   x: gt.SetChatSectionSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionSettings", x);
+}
+
+export async function route_set_state_machine_section_settings(
+  x: gt.SetStateMachineSectionSettingsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setStateMachineSectionSettings", x);
 }
 
 export async function route_set_chat_section_state(
