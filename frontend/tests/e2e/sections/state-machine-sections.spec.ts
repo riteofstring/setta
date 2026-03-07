@@ -71,7 +71,7 @@ type LatestProjectStateResponse = {
 };
 
 test.describe.serial("state machine sections", () => {
-  test("creates workflow sections, connects workflow edges, and edits workflow settings", async ({
+  test("creates workflow sections, connects workflow edges, edits workflow settings, and controls workflow runs", async ({
     page,
   }) => {
     await seedLocalStorage(page, {
@@ -212,6 +212,15 @@ test.describe.serial("state machine sections", () => {
 
       await createStateMachineEdge(page, projectContext.projectConfigId, {
         machineGroupId: "workflow-main",
+        sourceSectionId: startSectionId,
+        sourcePortId: "workflow-source",
+        targetSectionId: gateSectionId,
+        targetPortId: "workflow-target",
+        sourceFilter: null,
+        targetAction: null,
+      });
+      await createStateMachineEdge(page, projectContext.projectConfigId, {
+        machineGroupId: "workflow-main",
         sourceSectionId: gateSectionId,
         sourcePortId: "workflow-source",
         targetSectionId: chatSectionId,
@@ -250,7 +259,7 @@ test.describe.serial("state machine sections", () => {
             await readStateMachineEdges(page, projectContext.projectConfigId),
           { timeout: 8000 },
         )
-        .toHaveLength(2);
+        .toHaveLength(3);
 
       const edges = await readStateMachineEdges(page, projectContext.projectConfigId);
       const gateToChatEdge = edges.find(
@@ -339,6 +348,41 @@ test.describe.serial("state machine sections", () => {
             threadStrategy: "continue_current_thread",
           },
         });
+
+      const startStatus = page.getByTestId(
+        `state-machine-run-status-${startSectionId}`,
+      );
+      const gateStatus = page.getByTestId(
+        `state-machine-run-status-${gateSectionId}`,
+      );
+      const startButton = page.getByTestId(
+        `state-machine-start-button-${startSectionId}`,
+      );
+      const stopButton = page.getByTestId(
+        `state-machine-stop-button-${startSectionId}`,
+      );
+      const resetButton = page.getByTestId(
+        `state-machine-reset-button-${startSectionId}`,
+      );
+
+      await expect(startStatus).toHaveText("Idle");
+      await expect(gateStatus).toHaveText("Idle");
+
+      await startButton.click();
+      await expect(startStatus).toHaveText("Running");
+      await expect(gateStatus).toHaveText("Running");
+
+      await stopButton.click();
+      await expect(startStatus).toHaveText("Stopped");
+      await expect(gateStatus).toHaveText("Stopped");
+
+      await startButton.click();
+      await expect(startStatus).toHaveText("Running");
+      await expect(gateStatus).toHaveText("Running");
+
+      await resetButton.click();
+      await expect(startStatus).toHaveText("Stopped");
+      await expect(gateStatus).toHaveText("Stopped");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
