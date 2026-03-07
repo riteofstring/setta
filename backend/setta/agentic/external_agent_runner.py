@@ -643,7 +643,6 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
-            run_id=run.id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
         )

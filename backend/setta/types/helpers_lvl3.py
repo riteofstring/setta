@@ -50,7 +50,6 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
 )
 from setta.types.shown_params import ShownParamIds
-from setta.types.state_machine_edges import StateMachineEdge
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 if TYPE_CHECKING:
@@ -582,12 +581,6 @@ def _filter_project_config_for_summary(
         if edge.sourceSectionId in allowed_section_ids
         and edge.targetSectionId in allowed_section_ids
     ]
-    cloned.stateMachineEdges = [
-        edge
-        for edge in cloned.stateMachineEdges
-        if edge.sourceSectionId in allowed_section_ids
-        and edge.targetSectionId in allowed_section_ids
-    ]
     if cloned.entryCodeBlockId not in allowed_section_ids:
         cloned.entryCodeBlockId = None
     for view_mode in cloned.viewModes.values():
@@ -805,11 +798,6 @@ def copy_project_config(
                 project_config.agenticEdges,
                 section_id_map,
             )
-        if project_config.stateMachineEdges:
-            new_values["stateMachineEdges"] = _remap_state_machine_edges(
-                project_config.stateMachineEdges,
-                section_id_map,
-            )
 
     return project_config.model_copy(update=new_values, deep=True)
 
@@ -860,32 +848,6 @@ def _remap_agentic_edges(
         if edge.targetSectionId not in section_id_map:
             raise KeyError(
                 f"Section {edge.targetSectionId} missing for agentic edge remap."
-            )
-        remapped.append(
-            edge.model_copy(
-                update={
-                    "sourceSectionId": section_id_map[edge.sourceSectionId],
-                    "targetSectionId": section_id_map[edge.targetSectionId],
-                },
-                deep=True,
-            )
-        )
-    return remapped
-
-
-def _remap_state_machine_edges(
-    edges: list[StateMachineEdge],
-    section_id_map: dict[ID, ID],
-) -> list[StateMachineEdge]:
-    remapped: list[StateMachineEdge] = []
-    for edge in edges:
-        if edge.sourceSectionId not in section_id_map:
-            raise KeyError(
-                f"Section {edge.sourceSectionId} missing for state machine edge remap."
-            )
-        if edge.targetSectionId not in section_id_map:
-            raise KeyError(
-                f"Section {edge.targetSectionId} missing for state machine edge remap."
             )
         remapped.append(
             edge.model_copy(
