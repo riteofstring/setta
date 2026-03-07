@@ -1,4 +1,5 @@
 import {
+  type SettingsAllSettingsBenchmarkNonTextWidgetScope,
   useSettingsAllSettingsBenchmark,
   type SettingsAllSettingsBenchmarkTextFamilyWidgetScope,
 } from "components/Pages/Project/settingsAllSettingsBenchmark";
@@ -74,6 +75,7 @@ type ParamUIProps = {
 };
 
 type TextFamilyBenchmarkKind = "code" | "text" | "text-area";
+type NonTextBenchmarkKind = "dropdown" | "switch" | "other";
 
 export function ParamUIConfig({
   sectionId,
@@ -279,6 +281,22 @@ export function ParamUI({
     );
   }
 
+  const nonTextBenchmarkKind = getNonTextBenchmarkKind(codeObjType);
+  if (
+    nonTextBenchmarkKind !== null &&
+    !shouldRenderNonTextBenchmarkWidget(
+      benchmark.nonTextWidgetScope ?? "all",
+      nonTextBenchmarkKind,
+    )
+  ) {
+    return (
+      <BenchmarkParamWidgetShell
+        kind="non-text-family"
+        nonTextKind={nonTextBenchmarkKind}
+      />
+    );
+  }
+
   // need to put the group/textinput in a higher div
 
   switch (codeObjType) {
@@ -474,6 +492,32 @@ function getTextFamilyBenchmarkKind(
   }
 }
 
+function getNonTextBenchmarkKind(
+  codeObjType: CodeObjTypeEnum,
+): NonTextBenchmarkKind | null {
+  switch (codeObjType) {
+    case CodeObjTypeEnum.CodeParam:
+    case CodeObjTypeEnum.TextParam:
+    case CodeObjTypeEnum.TextAreaParam:
+      return null;
+    case CodeObjTypeEnum.DropdownParam:
+      return "dropdown";
+    case CodeObjTypeEnum.SwitchParam:
+      return "switch";
+    case CodeObjTypeEnum.DateParam:
+    case CodeObjTypeEnum.TimeParam:
+    case CodeObjTypeEnum.SliderParam:
+    case CodeObjTypeEnum.RotaryParam:
+    case CodeObjTypeEnum.ColorPickerParam:
+    case CodeObjTypeEnum.ButtonParam:
+    case CodeObjTypeEnum.PasswordParam:
+    case CodeObjTypeEnum.DropzoneParam:
+      return "other";
+    default:
+      return codeObjType satisfies never;
+  }
+}
+
 function shouldRenderTextFamilyBenchmarkWidget(
   scope: SettingsAllSettingsBenchmarkTextFamilyWidgetScope,
   kind: TextFamilyBenchmarkKind,
@@ -494,17 +538,41 @@ function shouldRenderTextFamilyBenchmarkWidget(
   }
 }
 
+function shouldRenderNonTextBenchmarkWidget(
+  scope: SettingsAllSettingsBenchmarkNonTextWidgetScope,
+  kind: NonTextBenchmarkKind,
+) {
+  switch (scope) {
+    case "all":
+      return true;
+    case "dropdown-only":
+      return kind === "dropdown";
+    case "switch-only":
+      return kind === "switch";
+    case "other-only":
+      return kind === "other";
+    case "all-except-dropdown":
+      return kind !== "dropdown";
+    default:
+      return scope satisfies never;
+  }
+}
+
 function BenchmarkParamWidgetShell({
   kind,
   textFamilyKind,
+  nonTextKind,
 }: {
-  kind: "param-ui-shell" | "text-family";
+  kind: "param-ui-shell" | "text-family" | "non-text-family";
   textFamilyKind?: TextFamilyBenchmarkKind;
+  nonTextKind?: NonTextBenchmarkKind;
 }) {
   const label =
     kind === "param-ui-shell"
       ? "Input shell"
-      : `${textFamilyKind ?? "text"} widget disabled`;
+      : kind === "text-family"
+        ? `${textFamilyKind ?? "text"} widget disabled`
+        : `${nonTextKind ?? "other"} widget disabled`;
 
   return (
     <div
@@ -512,6 +580,9 @@ function BenchmarkParamWidgetShell({
       data-settings-benchmark-widget-shell={kind}
       data-settings-benchmark-text-widget-shell-kind={
         kind === "text-family" ? textFamilyKind : undefined
+      }
+      data-settings-benchmark-non-text-widget-shell-kind={
+        kind === "non-text-family" ? nonTextKind : undefined
       }
     >
       {label}

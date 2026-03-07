@@ -2517,3 +2517,113 @@ New benchmark stages:
 - So the next optimization target for activation should be:
   - reduce the number of widget subtrees that do meaningful work when `activeIds` changes
   - especially the combobox / passive-effect-heavy path
+
+## Addendum: deeper activation split shows dropdown / combobox widgets explain most of the non-text activation cliff
+
+- Date: `2026-03-07`
+- Goal: make the activation diagnosis more concrete by splitting the `non-text-widgets` stage into smaller widget families, then comparing activation timing and traces.
+- Method:
+  - repeated alternating clicks between the same two visible top-row sections (`shortcuts` and `gui`)
+  - measured `click -> active outline class flips`
+  - `6` runs per stage
+  - compare these numbers only within this addendum
+
+### Visual validation
+
+- `dropdown-widgets` screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/activation-deep-dive-2026-03-07/dropdown-widgets-visible.png`
+  - live counts: `76` combobox inputs, `0` switches, `125` non-text widget shells, `426` text-family widget shells
+- `switch-widgets` screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/activation-deep-dive-2026-03-07/switch-widgets-visible.png`
+  - live counts: `0` combobox inputs, `119` switches, `82` non-text widget shells, `426` text-family widget shells
+- `non-text-widgets-no-dropdown` screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/activation-deep-dive-2026-03-07/non-text-widgets-no-dropdown-visible.png`
+  - live counts: `0` combobox inputs, `119` switches, `76` non-text widget shells, `426` text-family widget shells
+
+### Activation split
+
+- `param-container-shell`
+  - average `75.70ms`
+  - min `27.60ms`
+  - max `92.10ms`
+  - runs `88.00`, `91.20`, `92.10`, `89.90`, `65.40`, `27.60`
+- `other-non-text-widgets`
+  - average `104.60ms`
+  - min `56.60ms`
+  - max `231.00ms`
+  - runs `231.00`, `159.00`, `60.90`, `61.50`, `58.60`, `56.60`
+- `switch-widgets`
+  - average `122.00ms`
+  - min `67.50ms`
+  - max `316.80ms`
+  - runs `316.80`, `124.20`, `78.80`, `74.00`, `67.50`, `70.70`
+- `non-text-widgets-no-dropdown`
+  - average `124.83ms`
+  - min `71.10ms`
+  - max `329.50ms`
+  - runs `329.50`, `105.60`, `95.00`, `71.10`, `71.90`, `75.90`
+- `dropdown-widgets`
+  - average `175.70ms`
+  - min `114.30ms`
+  - max `395.90ms`
+  - runs `395.90`, `119.50`, `121.40`, `116.50`, `114.30`, `186.60`
+- `non-text-widgets`
+  - average `228.05ms`
+  - min `131.10ms`
+  - max `415.30ms`
+  - runs `415.30`, `169.10`, `131.30`, `134.20`, `131.10`, `387.30`
+- `code-widgets`
+  - average `244.40ms`
+  - min `149.90ms`
+  - max `476.10ms`
+  - runs `476.10`, `154.80`, `149.90`, `152.40`, `235.50`, `297.70`
+- `full`
+  - average `254.27ms`
+  - min `155.70ms`
+  - max `439.90ms`
+  - runs `439.90`, `192.30`, `160.20`, `155.70`, `253.60`, `323.90`
+
+### What this isolates
+
+- `dropdown-widgets` is the biggest single non-text bucket in activation.
+  - `param-container-shell -> dropdown-widgets`: about `+100.00ms`
+- Removing dropdowns cuts the non-text activation cliff by almost half.
+  - `non-text-widgets`: `228.05ms`
+  - `non-text-widgets-no-dropdown`: `124.83ms`
+  - delta: about `-103.22ms`
+- So the dropdown / combobox path explains most of the `param-container-shell -> non-text-widgets` jump.
+- There is still a smaller secondary activation cost in the remaining live widgets.
+  - `param-container-shell -> non-text-widgets-no-dropdown`: about `+49.13ms`
+  - `switch-widgets` and `other-non-text-widgets` both sit above the shell baseline, but far below the dropdown stage
+- Code widgets are still not the main activation problem.
+  - `non-text-widgets -> code-widgets`: about `+16.35ms`
+  - `code-widgets -> full`: about `+9.87ms`
+
+### Trace comparison
+
+- Representative dropdown-only activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/activation-deep-dive-2026-03-07/dropdown-widgets-activation-trace.json`
+- Representative no-dropdown activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/activation-deep-dive-2026-03-07/non-text-widgets-no-dropdown-activation-trace.json`
+- Representative switch-only activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/activation-deep-dive-2026-03-07/switch-widgets-activation-trace.json`
+
+- The dropdown-only trace strongly reinforces the earlier `downshift` suspicion.
+  - `downshift` matches in the trace: `1569`
+  - `MinorGC`: `16`
+  - `MajorGC`: `2`
+  - repeated stacks include `downshift` `wrapper`, `validateControlledUnchanged2`, `setTimeout`, `clearTimeout`, and React passive-mount frames
+- The no-dropdown and switch-only traces do not show the same combobox signature.
+  - `non-text-widgets-no-dropdown`: `downshift 0`, `MinorGC 1`, `MajorGC 1`
+  - `switch-widgets`: `downshift 0`, `MinorGC 1`, `MajorGC 1`
+- There are still smaller secondary signals in the non-dropdown path, including section measurement / scrollability work, but they are not in the same cost band as the dropdown trace.
+
+### Activation conclusion
+
+- The activation problem is now much more concrete:
+  - the dominant remaining activation hotspot is the dropdown / `IdNameCombobox` / `downshift` path
+  - switches and the rest of the non-text widgets still cost something, but they are secondary
+  - code widgets remain a small tail on activation compared with their larger steady-state pan/zoom cost
+- If the next goal is reducing section activation lag, the best target is:
+  - the combobox mount / passive-effect path first
+  - then the remaining non-dropdown widget layer if needed

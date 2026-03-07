@@ -29,6 +29,10 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "param-container-shell",
   "param-input-shell",
   "non-text-widgets",
+  "dropdown-widgets",
+  "switch-widgets",
+  "other-non-text-widgets",
+  "non-text-widgets-no-dropdown",
   "code-widgets",
   "full",
   "full-section-snapdom",
@@ -46,6 +50,13 @@ export type SettingsAllSettingsBenchmarkTextFamilyWidgetScope =
   | "code-only"
   | "text-only"
   | "text-area-only";
+
+export type SettingsAllSettingsBenchmarkNonTextWidgetScope =
+  | "all"
+  | "dropdown-only"
+  | "switch-only"
+  | "other-only"
+  | "all-except-dropdown";
 
 type SettingsAllSettingsBenchmarkValue = {
   active: boolean;
@@ -65,6 +76,7 @@ type SettingsAllSettingsBenchmarkValue = {
   renderParamInput: boolean;
   renderParamWidgets: boolean;
   textFamilyWidgetScope: SettingsAllSettingsBenchmarkTextFamilyWidgetScope;
+  nonTextWidgetScope?: SettingsAllSettingsBenchmarkNonTextWidgetScope;
   renderParamChrome: boolean;
   renderParamSortable: boolean;
   renderSectionBodySnapdomPreview: boolean;
@@ -92,6 +104,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderParamInput: true,
   renderParamWidgets: true,
   textFamilyWidgetScope: "all",
+  nonTextWidgetScope: "all",
   renderParamChrome: true,
   renderParamSortable: true,
   renderSectionBodySnapdomPreview: false,
@@ -494,6 +507,103 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "none",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+      };
+    case "dropdown-widgets":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "none",
+        nonTextWidgetScope: "dropdown-only",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+      };
+    case "switch-widgets":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "none",
+        nonTextWidgetScope: "switch-only",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+      };
+    case "other-non-text-widgets":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "none",
+        nonTextWidgetScope: "other-only",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+      };
+    case "non-text-widgets-no-dropdown":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "none",
+        nonTextWidgetScope: "all-except-dropdown",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
@@ -517,6 +627,7 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "code-only",
+        nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
@@ -540,6 +651,7 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
@@ -564,6 +676,7 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,
@@ -589,6 +702,7 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
@@ -614,6 +728,7 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
@@ -639,6 +754,7 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,

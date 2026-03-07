@@ -23,6 +23,10 @@ const STAGES = [
   "param-container-shell",
   "param-input-shell",
   "non-text-widgets",
+  "dropdown-widgets",
+  "switch-widgets",
+  "other-non-text-widgets",
+  "non-text-widgets-no-dropdown",
   "code-widgets",
   "full",
   "full-section-snapdom",
@@ -47,7 +51,10 @@ type StageMetrics = {
   paramValueShellCount: number;
   paramUiShellCount: number;
   textWidgetShellCount: number;
+  nonTextWidgetShellCount: number;
   textInputDummyCount: number;
+  comboboxInputCount: number;
+  switchWidgetCount: number;
   codeTextWidgetCount: number;
   textTextWidgetCount: number;
   textAreaTextWidgetCount: number;
@@ -477,6 +484,9 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("param-input-shell")?.paramUiShellCount,
   ).toBeGreaterThan(0);
   expect(metricsByStage.get("param-input-shell")?.textWidgetShellCount).toBe(0);
+  expect(metricsByStage.get("param-input-shell")?.nonTextWidgetShellCount).toBe(
+    0,
+  );
 
   expect(
     metricsByStage.get("non-text-widgets")?.lightLabelCount,
@@ -499,6 +509,77 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("non-text-widgets")?.textAreaTextWidgetShellCount,
   ).toBe(0);
+  expect(
+    metricsByStage.get("non-text-widgets")?.comboboxInputCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("non-text-widgets")?.switchWidgetCount).toBeGreaterThan(
+    0,
+  );
+  expect(metricsByStage.get("non-text-widgets")?.nonTextWidgetShellCount).toBe(
+    0,
+  );
+
+  expect(metricsByStage.get("dropdown-widgets")?.paramUiShellCount).toBe(0);
+  expect(
+    metricsByStage.get("dropdown-widgets")?.textWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("dropdown-widgets")?.nonTextWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("dropdown-widgets")?.comboboxInputCount).toBeGreaterThan(
+    0,
+  );
+  expect(metricsByStage.get("dropdown-widgets")?.switchWidgetCount).toBe(0);
+  expect(metricsByStage.get("dropdown-widgets")?.codeTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("dropdown-widgets")?.textTextWidgetCount).toBe(0);
+  expect(metricsByStage.get("dropdown-widgets")?.textAreaTextWidgetCount).toBe(
+    0,
+  );
+
+  expect(metricsByStage.get("switch-widgets")?.paramUiShellCount).toBe(0);
+  expect(
+    metricsByStage.get("switch-widgets")?.textWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("switch-widgets")?.nonTextWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("switch-widgets")?.comboboxInputCount).toBe(0);
+  expect(metricsByStage.get("switch-widgets")?.switchWidgetCount).toBeGreaterThan(
+    0,
+  );
+
+  expect(metricsByStage.get("other-non-text-widgets")?.paramUiShellCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("other-non-text-widgets")?.textWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("other-non-text-widgets")?.nonTextWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("other-non-text-widgets")?.comboboxInputCount).toBe(
+    0,
+  );
+  expect(metricsByStage.get("other-non-text-widgets")?.switchWidgetCount).toBe(
+    0,
+  );
+
+  expect(
+    metricsByStage.get("non-text-widgets-no-dropdown")?.paramUiShellCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("non-text-widgets-no-dropdown")?.textWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("non-text-widgets-no-dropdown")
+      ?.nonTextWidgetShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("non-text-widgets-no-dropdown")?.comboboxInputCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("non-text-widgets-no-dropdown")?.switchWidgetCount,
+  ).toBeGreaterThan(0);
 
   expect(
     metricsByStage.get("code-widgets")?.paramContainerCount,
@@ -711,8 +792,32 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("param-container-shell")?.domCount,
   ).toBeLessThanOrEqual(metricsByStage.get("param-input-shell")?.domCount ?? 0);
   expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("dropdown-widgets")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("switch-widgets")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("other-non-text-widgets")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("non-text-widgets-no-dropdown")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("param-input-shell")?.domCount).toBeLessThanOrEqual(
     metricsByStage.get("non-text-widgets")?.domCount ?? 0,
   );
+  expect(metricsByStage.get("dropdown-widgets")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("non-text-widgets")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("switch-widgets")?.domCount).toBeLessThanOrEqual(
+    metricsByStage.get("non-text-widgets")?.domCount ?? 0,
+  );
+  expect(
+    metricsByStage.get("other-non-text-widgets")?.domCount,
+  ).toBeLessThanOrEqual(metricsByStage.get("non-text-widgets")?.domCount ?? 0);
+  expect(
+    metricsByStage.get("non-text-widgets-no-dropdown")?.domCount,
+  ).toBeLessThanOrEqual(metricsByStage.get("non-text-widgets")?.domCount ?? 0);
   expect(metricsByStage.get("non-text-widgets")?.domCount).toBeLessThanOrEqual(
     metricsByStage.get("code-widgets")?.domCount ?? 0,
   );
@@ -1097,8 +1202,15 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       textWidgetShellCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-widget-shell="text-family"]',
       ).length,
+      nonTextWidgetShellCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-widget-shell="non-text-family"]',
+      ).length,
       textInputDummyCount: flowRoot.querySelectorAll('[id$="-ParamInput"]')
         .length,
+      comboboxInputCount: flowRoot.querySelectorAll(
+        'input[aria-autocomplete="list"]',
+      ).length,
+      switchWidgetCount: flowRoot.querySelectorAll('[role="switch"]').length,
       codeTextWidgetCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-text-widget-kind="code"]',
       ).length,
