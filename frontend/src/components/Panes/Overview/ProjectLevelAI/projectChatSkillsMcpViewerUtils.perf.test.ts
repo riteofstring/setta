@@ -28,8 +28,6 @@ function makeRows(size: number) {
           ? "/home/.claude/skills"
           : "/home/.agents/skills",
     relativePath: `skill-${index}`,
-    isEditable: true,
-    editabilityReason: null,
     description: `Skill description ${index}`,
   }));
 }
