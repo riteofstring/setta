@@ -398,6 +398,240 @@ func TestRuntimeApplyWatchCodeFileUpdateSyntaxErrorPreservesProjectState(t *test
 	}
 }
 
+func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+	initialCallable := mustWatchCodeApplyCallable(
+		t,
+		"def sorted(iterable):\n    return iterable\n",
+		"pkg/watched.py",
+	)
+
+	project := callableTestProject(t)
+	project.WatchCodeEnabled = true
+	project.WatchCodeFiles = []string{"pkg/watched.py"}
+	project.CodegenTargets = []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload:  json.RawMessage(`{"language":"python"}`),
+		},
+	}
+	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+		"pkg.watched.sorted:function": {
+			CallableName:  "sorted",
+			Kind:          WatchCodeCallableKindFunction,
+			SignatureHash: initialCallable.SignatureHash,
+			BodyHash:      initialCallable.BodyHash,
+			SourcePath:    sourcePath,
+			SectionIDs:    []string{"callable-section"},
+			SectionsCount: 1,
+		},
+	}
+	project.WatchCodeBaselineByPath = map[string][]string{
+		sourcePath: {"pkg.watched.sorted:function"},
+	}
+	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
+		t.Fatalf("seed current callable: %v", err)
+	}
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	resolver := &stubCallableSignatureResolver{
+		ok: true,
+		result: CallableSignatureResult{
+			Documentation: "Sort values.",
+			Status:        SignatureHelpStatusMatched,
+			Params: []CallableParamProposal{
+				{
+					Name:           "iterable",
+					Description:    "Values to sort.",
+					PassingStyle:   "POSITIONAL_ONLY",
+					TypeAnnotation: "list[int]",
+				},
+				{
+					Name:         "reverse",
+					DefaultValue: "False",
+					Description:  "Descending order flag.",
+					PassingStyle: "KEYWORD_ONLY",
+				},
+			},
+		},
+	}
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		sourcePath,
+		"def sorted(iterable, reverse=False):\n    return iterable\n",
+		false,
+		"",
+		workspaceRoot,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code signature change: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected signature change to change project state")
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	entry := project.WatchCodeRegistry["pkg.watched.sorted:function"]
+	if entry.SignatureHash == initialCallable.SignatureHash {
+		t.Fatalf("expected signature hash to change, got %#v", entry)
+	}
+
+	payload, err := currentCallablePayloadForWatchCodeTest(project, "callable-section")
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID != "callable-2" {
+		t.Fatalf("expected current callable id callable-2, got %q", callableID)
+	}
+	callablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", callableID)
+	if err != nil {
+		t.Fatalf("resolve callable payload: %v", err)
+	}
+	children := payloadStringArrayField(callablePayload, "children")
+	if len(children) != 2 || children[0] != "param-existing" {
+		t.Fatalf("expected refetched callable params, got %#v", children)
+	}
+
+	paramPayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", "param-existing")
+	if err != nil {
+		t.Fatalf("resolve existing param payload: %v", err)
+	}
+	if got := payloadStringField(paramPayload, "typeAnnotation"); got != "list[int]" {
+		t.Fatalf("expected updated param type annotation, got %q", got)
+	}
+
+	newParamPayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", children[1])
+	if err != nil {
+		t.Fatalf("resolve new param payload: %v", err)
+	}
+	if got := payloadStringField(newParamPayload, "defaultVal"); got != "False" {
+		t.Fatalf("expected new param default False, got %q", got)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKeepsParams(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+	initialCallable := mustWatchCodeApplyCallable(
+		t,
+		"def sorted(iterable):\n    return iterable\n",
+		"pkg/watched.py",
+	)
+
+	project := callableTestProject(t)
+	project.WatchCodeEnabled = true
+	project.WatchCodeFiles = []string{"pkg/watched.py"}
+	project.CodegenTargets = []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload:  json.RawMessage(`{"language":"python"}`),
+		},
+	}
+	project.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{
+		"pkg.watched.sorted:function": {
+			CallableName:  "sorted",
+			Kind:          WatchCodeCallableKindFunction,
+			SignatureHash: initialCallable.SignatureHash,
+			BodyHash:      initialCallable.BodyHash,
+			SourcePath:    sourcePath,
+			SectionIDs:    []string{"callable-section"},
+			SectionsCount: 1,
+		},
+	}
+	project.WatchCodeBaselineByPath = map[string][]string{
+		sourcePath: {"pkg.watched.sorted:function"},
+	}
+	if err := project.setCurrentSectionField("callable-section", "callable", "callable-2"); err != nil {
+		t.Fatalf("seed current callable: %v", err)
+	}
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	resolver := &stubCallableSignatureResolver{ok: false}
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		sourcePath,
+		"def sorted(iterable, reverse=False):\n    return iterable\n",
+		false,
+		"",
+		workspaceRoot,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code signature change without signature context: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected signature change metadata to change project state")
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	entry := project.WatchCodeRegistry["pkg.watched.sorted:function"]
+	if entry.SignatureHash == initialCallable.SignatureHash {
+		t.Fatalf("expected signature hash to change, got %#v", entry)
+	}
+
+	payload, err := currentCallablePayloadForWatchCodeTest(project, "callable-section")
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID != "callable-2" {
+		t.Fatalf("expected current callable id callable-2, got %q", callableID)
+	}
+	callablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext("callable-section", callableID)
+	if err != nil {
+		t.Fatalf("resolve callable payload: %v", err)
+	}
+	if got := payloadStringArrayField(callablePayload, "children"); !reflect.DeepEqual(got, []string{"param-existing"}) {
+		t.Fatalf("expected existing params to stay unchanged, got %#v", got)
+	}
+}
+
 func TestRuntimeApplyWatchCodeFileUpdateRenamePreservesSectionIDsAndParams(t *testing.T) {
 	t.Parallel()
 

@@ -19,6 +19,7 @@ func (p *Project) applyWatchCodeScanPlan(
 	resolver CallableSignatureResolver,
 ) (bool, error) {
 	didUpdate := false
+	signatureRefetchIdentities := map[string]struct{}{}
 
 	if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
 		if p.setWatchCodeBaseline(plan.SourcePath, plan.PrunedBaseline) {
@@ -68,6 +69,7 @@ func (p *Project) applyWatchCodeScanPlan(
 		if p.applyWatchCodeMetadataChange(signatureChange.Identity, signatureChange.Callable, plan.SourcePath) {
 			didUpdate = true
 		}
+		signatureRefetchIdentities[signatureChange.Identity] = struct{}{}
 		pending, err := p.watchCodeEntryNeedsSection(signatureChange.Identity)
 		if err != nil {
 			return false, err
@@ -100,6 +102,21 @@ func (p *Project) applyWatchCodeScanPlan(
 	sort.Strings(pendingIdentities)
 	for _, identity := range pendingIdentities {
 		updated, err := p.ensureWatchCodeCallableSection(ctx, identity, pendingByIdentity[identity], resolver)
+		if err != nil {
+			return false, err
+		}
+		if updated {
+			didUpdate = true
+		}
+	}
+
+	refetchIdentities := make([]string, 0, len(signatureRefetchIdentities))
+	for identity := range signatureRefetchIdentities {
+		refetchIdentities = append(refetchIdentities, identity)
+	}
+	sort.Strings(refetchIdentities)
+	for _, identity := range refetchIdentities {
+		updated, err := p.refetchWatchCodeCallableSections(ctx, identity, resolver)
 		if err != nil {
 			return false, err
 		}
@@ -221,6 +238,58 @@ func (p *Project) ensureWatchCodeCallableSection(
 			return false, err
 		}
 		if renamed {
+			didUpdate = true
+		}
+	}
+
+	return didUpdate, nil
+}
+
+func (p *Project) refetchWatchCodeCallableSections(
+	ctx context.Context,
+	identity string,
+	resolver CallableSignatureResolver,
+) (bool, error) {
+	entry, ok := p.WatchCodeRegistry[identity]
+	if !ok {
+		return false, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	didUpdate := false
+	validSectionIDs := p.pruneWatchCodeSectionIDs(entry)
+	if !stringSlicesEqual(entry.SectionIDs, validSectionIDs) || entry.SectionsCount != len(validSectionIDs) {
+		entry.SectionIDs = validSectionIDs
+		entry.SectionsCount = len(validSectionIDs)
+		p.WatchCodeRegistry[identity] = entry
+		didUpdate = true
+	}
+	if len(validSectionIDs) == 0 {
+		return didUpdate, nil
+	}
+
+	callableName := strings.TrimSpace(entry.CallableName)
+	if callableName == "" {
+		return didUpdate, nil
+	}
+
+	for _, sectionID := range uniqueSortedTrimmedStrings(validSectionIDs) {
+		if _, ok := p.Sections[sectionID]; !ok {
+			continue
+		}
+		if _, err := p.currentCallableSectionPayload(sectionID); err != nil {
+			if errors.Is(err, ErrCallableSectionRequired) {
+				continue
+			}
+			return false, err
+		}
+		response, err := p.SetCallable(ctx, sectionID, callableName, true, resolver)
+		if err != nil {
+			return false, err
+		}
+		if response.LSPStatus != SignatureHelpStatusSkipped {
 			didUpdate = true
 		}
 	}
