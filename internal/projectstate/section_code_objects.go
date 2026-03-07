@@ -29,12 +29,6 @@ func (p Project) resolveSectionCodeObjectValueMutationContext(
 	if err != nil {
 		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
-	switch impl.Type {
-	case "PasswordParam":
-		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, ErrPasswordParamMutationUnsupported
-	case "DropzoneParam":
-		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, ErrDropzoneParamMutationUnsupported
-	}
 	if _, ok := payload["value"]; !ok {
 		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: %q (%s)", ErrCodeObjectValueMutationUnsupported, codeObjID, impl.Type)
 	}
@@ -45,8 +39,28 @@ func (p *Project) SetSectionCodeObjectValue(sectionID string, codeObjID string, 
 	if p == nil {
 		return ErrProjectNotFound
 	}
-	if _, _, _, _, err := p.resolveSectionCodeObjectValueMutationContext(sectionID, codeObjID); err != nil {
+	payload, _, _, impl, err := p.resolveSectionCodeObjectValueMutationContext(sectionID, codeObjID)
+	if err != nil {
 		return err
+	}
+	switch effectiveCodeObjType(payload, impl) {
+	case "PasswordParam":
+		if p.passwordSecrets == nil {
+			return ErrPasswordParamMutationUnsupported
+		}
+		if err := p.passwordSecrets.Set(impl.ID, value); err != nil {
+			return err
+		}
+		if err := p.setSectionCodeObjectField(sectionID, codeObjID, "hasSecret", value != ""); err != nil {
+			return err
+		}
+		value = ""
+	case "DropzoneParam":
+		if stringFieldOrDefault(payload, "mode", "STATEFUL") == "STATELESS" {
+			value = ""
+		} else {
+			value = normalizeDropzoneValue(value, optionalPositiveIntField(payload, "maxAttachments"))
+		}
 	}
 	return p.setSectionCodeObjectField(sectionID, codeObjID, "value", value)
 }

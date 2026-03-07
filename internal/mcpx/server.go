@@ -60,6 +60,7 @@ type toolDefinition struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
+	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
@@ -913,6 +914,48 @@ func newSetSectionNameHandler(sectionNames sectionNameProvider) tools.Handler {
 		}
 
 		if err := sectionNames.SetSectionName(ctx, projectConfigID, sectionID, name); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newChangeParamImplHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		paramInfoID, err := readRequiredStringArgument(arguments, "paramInfoId")
+		if err != nil {
+			return nil, err
+		}
+		selectedID, err := readRequiredStringArgument(arguments, "selectedId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped param impl invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.ChangeParamImpl(ctx, projectConfigID, sectionID, paramInfoID, selectedID); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1791,6 +1834,55 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "change_param_impl",
+				Description: "Switch the targeted parameter or meta-control to a different implementation type.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"paramInfoId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "type", "impl", "control", "write"},
+				},
+				Handler: newChangeParamImplHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose parameter implementation should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id containing the targeted parameter.",
+					},
+					"paramInfoId": map[string]any{
+						"type":        "string",
+						"description": "Code-object id for the targeted parameter.",
+					},
+					"selectedId": map[string]any{
+						"type":        "string",
+						"description": "Target impl id or code-object type name to activate.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "paramInfoId", "selectedId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "set_param_entered_value",
 				Description: "Write a new manual value for the targeted section parameter.",
 				Metadata: tools.Metadata{
@@ -2611,6 +2703,10 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrAddKwargUnsupported),
 		errors.Is(err, projectstate.ErrAddKwargCallableUnset),
 		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported),
+		errors.Is(err, projectstate.ErrChangeParamImplUnsupported),
+		errors.Is(err, projectstate.ErrChangeParamImplSelectedRequired),
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeUnknown),
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed),
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
@@ -2640,7 +2736,6 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode),
 		errors.Is(err, projectstate.ErrCodeObjectValueMutationUnsupported),
 		errors.Is(err, projectstate.ErrPasswordParamMutationUnsupported),
-		errors.Is(err, projectstate.ErrDropzoneParamMutationUnsupported),
 		errors.Is(err, projectstate.ErrInvalidTypeErrorIgnoreState),
 		errors.Is(err, projectstate.ErrTypeErrorIgnoreUnsupported):
 		return newToolError("invalid_arguments", "%s", err.Error())

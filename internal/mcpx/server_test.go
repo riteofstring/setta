@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 21 {
-		t.Fatalf("expected 21 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 22 {
+		t.Fatalf("expected 22 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -149,6 +149,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
+	var changeParamImplTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
@@ -185,6 +186,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "add_kwarg" {
 			addKwargTool = tool
 		}
+		if tool.Name == "change_param_impl" {
+			changeParamImplTool = tool
+		}
 		if tool.Name == "get_latest_project_state_summary" {
 			summaryTool = tool
 		}
@@ -219,6 +223,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	sort.Strings(names)
 	expectedNames := []string{
 		"add_kwarg",
+		"change_param_impl",
 		"create_child_sections",
 		"create_child_sections_via_incrementer",
 		"create_new_section_variant",
@@ -269,6 +274,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if addKwargTool == nil {
 		t.Fatal("expected add_kwarg tool")
+	}
+	if changeParamImplTool == nil {
+		t.Fatal("expected change_param_impl tool")
 	}
 	createChildMeta := mustStructuredMap(t, createChildSectionsTool.Meta[toolMetaNamespace])
 	if createChildMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -375,6 +383,17 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, addKwargResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
 		t.Fatalf("expected add_kwarg codeObjId result path, got %#v", got)
 	}
+	changeParamImplMeta := mustStructuredMap(t, changeParamImplTool.Meta[toolMetaNamespace])
+	if changeParamImplMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for change_param_impl, got %#v", changeParamImplMeta["accessType"])
+	}
+	changeParamImplPaths := mustStructuredMap(t, changeParamImplMeta["idPathsByType"])
+	if got := mustStringList(t, changeParamImplPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected change_param_impl sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, changeParamImplPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
+		t.Fatalf("expected change_param_impl paramInfoId target path, got %#v", got)
+	}
 	settaMeta := mustStructuredMap(t, summaryTool.Meta[toolMetaNamespace])
 	if settaMeta["resultFilter"] != string(tools.ResultFilterProjectStateSummary) {
 		t.Fatalf("expected project-state result filter, got %#v", settaMeta["resultFilter"])
@@ -456,8 +475,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 21 {
-		t.Fatalf("expected 21 registered tool names, got %#v", listNames)
+	if len(listNames) != 22 {
+		t.Fatalf("expected 22 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1104,6 +1123,77 @@ func TestServerAddKwargRespectsScopedWriteTargets(t *testing.T) {
 	}
 }
 
+func TestServerChangeParamImplRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "change_param_impl",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramInfoId":     "allowed-param",
+			"selectedId":      "PasswordParam",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call change_param_impl allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed change_param_impl success, got %#v", allowedResult.StructuredContent)
+	}
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	if allowedPayload["status"] != "ok" {
+		t.Fatalf("expected change_param_impl status ok, got %#v", allowedPayload["status"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after change_param_impl: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed param after change_param_impl: %v", err)
+	}
+	if paramImpl.Type != "PasswordParam" {
+		t.Fatalf("expected PasswordParam impl after change_param_impl, got %q", paramImpl.Type)
+	}
+	if got := payloadRawStringField(paramPayload, "value"); got != "" {
+		t.Fatalf("expected password param value to stay blank, got %q", got)
+	}
+	if !payloadBoolField(paramPayload, "hasSecret") {
+		t.Fatalf("expected password param hasSecret true, got %#v", paramPayload)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "change_param_impl",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-params-section",
+			"paramInfoId":     "blocked-param",
+			"selectedId":      "PasswordParam",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call change_param_impl blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked change_param_impl call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
 func TestServerAddKwargTranslatesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -1192,6 +1282,68 @@ func TestServerAddKwargTranslatesTemporaryIDs(t *testing.T) {
 	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "25" {
 		t.Fatalf("expected translated blockedSectionIds [25], got %#v", ids)
+	}
+}
+
+func TestServerChangeParamImplTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "26",
+		"allowed-param":          "27",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "change_param_impl",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "26",
+			"paramInfoId":     "27",
+			"selectedId":      "PasswordParam",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id change_param_impl allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id change_param_impl success, got %#v", allowedResult.StructuredContent)
+	}
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	if allowedPayload["status"] != "ok" {
+		t.Fatalf("expected temp-id change_param_impl status ok, got %#v", allowedPayload["status"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id change_param_impl: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed param after temp-id change_param_impl: %v", err)
+	}
+	if paramImpl.Type != "PasswordParam" {
+		t.Fatalf("expected PasswordParam impl after temp-id change_param_impl, got %q", paramImpl.Type)
+	}
+	if !payloadBoolField(paramPayload, "hasSecret") {
+		t.Fatalf("expected password param hasSecret true after temp-id change_param_impl, got %#v", paramPayload)
 	}
 }
 
@@ -2865,7 +3017,7 @@ func TestServerHandlerServesSSETransport(t *testing.T) {
 func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 
-	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	runtime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
@@ -3165,6 +3317,8 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 				},
 			},
 		},
+	}, projectstate.RuntimeOptions{
+		PasswordSecrets: projectstate.NewMemoryPasswordSecretStore(),
 	})
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)
@@ -3451,6 +3605,15 @@ func payloadRawStringField(object map[string]any, key string) string {
 	default:
 		return fmt.Sprint(typed)
 	}
+}
+
+func payloadBoolField(object map[string]any, key string) bool {
+	value, ok := object[key]
+	if !ok {
+		return false
+	}
+	typed, ok := value.(bool)
+	return ok && typed
 }
 
 func mustStructuredList(t *testing.T, value any) []any {

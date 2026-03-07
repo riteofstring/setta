@@ -377,6 +377,46 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 
 	response = postMCPToolRoute(t, handler, `{
+		"tool":"change_param_impl",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","selectedId":"PasswordParam"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected change_param_impl success, got %#v", payload.StructuredContent)
+	}
+	changeParamImplPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if changeParamImplPayload["status"] != "ok" {
+		t.Fatalf("expected change_param_impl status ok, got %#v", changeParamImplPayload["status"])
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route change_param_impl: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after route change_param_impl: %v", err)
+	}
+	if paramImpl.Type != "PasswordParam" {
+		t.Fatalf("expected PasswordParam impl, got %q", paramImpl.Type)
+	}
+	if got := paramPayload["value"]; got != "" {
+		t.Fatalf("expected password value to stay blank, got %#v", got)
+	}
+	if got := paramPayload["hasSecret"]; got != true {
+		t.Fatalf("expected hasSecret true after route change_param_impl, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
 		"tool":"set_callable",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","callableName":"sorted","refetchParams":false},
 		"agenticContext":{
@@ -1025,7 +1065,7 @@ func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 
-	runtime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+	runtime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
@@ -1315,6 +1355,8 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 				},
 			},
 		},
+	}, projectstate.RuntimeOptions{
+		PasswordSecrets: projectstate.NewMemoryPasswordSecretStore(),
 	})
 	if err != nil {
 		t.Fatalf("open overlay runtime: %v", err)

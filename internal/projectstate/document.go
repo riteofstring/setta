@@ -23,6 +23,8 @@ type Document struct {
 	DefaultProjectID string             `json:"defaultProjectId,omitempty"`
 	AppDefinition    *AppDefinition     `json:"appDefinition,omitempty"`
 	Projects         map[string]Project `json:"projects,omitempty"`
+
+	passwordSecrets PasswordSecretStore
 }
 
 type Project struct {
@@ -57,6 +59,8 @@ type Project struct {
 	CodeObjs                 map[string]CodeObject             `json:"codeObjs,omitempty"`
 	CodeObjVariants          map[string]CodeObjectVariant      `json:"codeObjVariants,omitempty"`
 	CodeObjImpls             map[string]CodeObjectImpl         `json:"codeObjImpls,omitempty"`
+
+	passwordSecrets PasswordSecretStore
 }
 
 func NewDocument() Document {
@@ -79,6 +83,19 @@ func (d Document) Clone() Document {
 	cloned.Projects = make(map[string]Project, len(d.Projects))
 	for projectID, project := range d.Projects {
 		cloned.Projects[projectID] = project.Clone()
+	}
+	return cloned
+}
+
+func (d Document) withPasswordSecrets(store PasswordSecretStore) Document {
+	cloned := d.Clone()
+	cloned.passwordSecrets = store
+	if cloned.Projects == nil {
+		return cloned
+	}
+	for projectID, project := range cloned.Projects {
+		project.passwordSecrets = store
+		cloned.Projects[projectID] = project
 	}
 	return cloned
 }

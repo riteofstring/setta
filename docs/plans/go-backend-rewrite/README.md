@@ -119,11 +119,14 @@ Use the docs in this order:
 53. `phase-6-add-kwarg-tool-parity.md`
    - focused slice doc for Go-owned `add_kwarg` MCP parity over the completed
      callable selection plus combined param rename/value boundaries
-54. `spike-mcp.md`
+54. `phase-6-change-param-impl-tool-parity.md`
+   - focused slice doc for Go-owned `change_param_impl` MCP parity plus the
+     bounded password-secret runtime support it requires
+55. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-55. `spike-pty.md`
+56. `spike-pty.md`
    - PTY uncertainty-reduction plan
-56. `spike-lsp.md`
+57. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

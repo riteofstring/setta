@@ -138,11 +138,9 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- implement a focused `change_param_impl` slice so newly created params can
-  switch control/value types on the completed creation plus rename/value
-  boundary
-- keep param-impl switching authoritative in `internal/projectstate` instead
-  of transport-local rewrites
+- `change_param_impl` is now complete on the Go-owned MCP boundary
+- the next bounded follow-on is `update_param_impl_config` so callers can tune a
+  newly selected impl without returning to legacy route orchestration
 - keep delete/move/reparent follow-ons deferred until their own bounded slices
 
 ## Progress Notes

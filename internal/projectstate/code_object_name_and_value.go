@@ -55,7 +55,7 @@ func (p *Project) SetParamNameAndValue(sectionID string, codeObjID string, name 
 		return err
 	}
 
-	if err := p.setSectionCodeObjectField(sectionID, trimmedCodeObjID, "value", value); err != nil {
+	if err := p.SetSectionCodeObjectValue(sectionID, trimmedCodeObjID, value); err != nil {
 		return err
 	}
 

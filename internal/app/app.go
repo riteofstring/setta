@@ -188,8 +188,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		passwordSecrets, err := projectstate.NewFilePasswordSecretStore(cfg.Paths.RuntimeRoot)
+		if err != nil {
+			return nil, err
+		}
 		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
 			MainRuntime: projectstate.RuntimeOptions{
+				PasswordSecrets: passwordSecrets,
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
 					if watchCodeService != nil {
 						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
@@ -219,6 +224,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					}
 					return pluginMaterializer.MaterializeDocument(ctx, snapshot.Document)
 				},
+			},
+			SettingsRuntime: projectstate.RuntimeOptions{
+				PasswordSecrets: passwordSecrets,
 			},
 		})
 		if err != nil {

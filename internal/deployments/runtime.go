@@ -84,8 +84,14 @@ func Open(ctx context.Context, opts RuntimeOptions) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(paths.RuntimeRoot)
+	if err != nil {
+		return nil, err
+	}
 
-	baseRuntime, err := projectstate.OpenOverlayRuntime(document)
+	baseRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(document, projectstate.RuntimeOptions{
+		PasswordSecrets: passwordSecrets,
+	})
 	if err != nil {
 		return nil, err
 	}

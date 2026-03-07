@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 21 {
-		t.Fatalf("expected 21 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 22 {
+		t.Fatalf("expected 22 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 21 {
-		t.Fatalf("expected 21 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 22 {
+		t.Fatalf("expected 22 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -455,6 +455,44 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if got := paramPayload["value"]; got != "combined" {
 		t.Fatalf("expected combined param value, got %#v", got)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "change_param_impl",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramInfoId":     "allowed-param",
+			"selectedId":      "PasswordParam",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call change_param_impl: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected change_param_impl success, got %#v", result.StructuredContent)
+	}
+	changeParamImplPayload := mustStructuredMapValue(t, result.StructuredContent)
+	if changeParamImplPayload["status"] != "ok" {
+		t.Fatalf("expected change_param_impl status ok, got %#v", changeParamImplPayload["status"])
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after change_param_impl: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after change_param_impl: %v", err)
+	}
+	if paramImpl.Type != "PasswordParam" {
+		t.Fatalf("expected PasswordParam impl after change_param_impl, got %q", paramImpl.Type)
+	}
+	if got := paramPayload["value"]; got != "" {
+		t.Fatalf("expected password param value to stay blank, got %#v", got)
+	}
+	if got := paramPayload["hasSecret"]; got != true {
+		t.Fatalf("expected hasSecret true after change_param_impl, got %#v", got)
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1631,6 +1669,46 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 		t.Fatalf("expected translated display name, got %q", got)
 	}
 
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "change_param_impl",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"paramInfoId":     "22",
+			"selectedId":      "PasswordParam",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id change_param_impl: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id change_param_impl success, got %#v", writeResult.StructuredContent)
+	}
+	changeParamImplPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
+	if changeParamImplPayload["status"] != "ok" {
+		t.Fatalf("expected temp-id change_param_impl status ok, got %#v", changeParamImplPayload["status"])
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id change_param_impl: %v", err)
+	}
+	paramPayload, _, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after temp-id change_param_impl: %v", err)
+	}
+	if paramImpl.Type != "PasswordParam" {
+		t.Fatalf("expected PasswordParam impl after temp-id change_param_impl, got %q", paramImpl.Type)
+	}
+	if got := paramPayload["hasSecret"]; got != true {
+		t.Fatalf("expected hasSecret true after temp-id change_param_impl, got %#v", got)
+	}
+
 	blockedWriteResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Meta: sdkmcp.Meta{
 			"projectConfigId": "11",
@@ -1735,8 +1813,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 21 {
-		t.Fatalf("expected tool count 21, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 22 {
+		t.Fatalf("expected tool count 22, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))

@@ -9,8 +9,6 @@ import (
 
 var (
 	ErrCodeObjectValueMutationUnsupported = errors.New("code object type does not support direct value mutation")
-	ErrPasswordParamMutationUnsupported   = errors.New("password param mutation is not supported in Go yet")
-	ErrDropzoneParamMutationUnsupported   = errors.New("dropzone param mutation is not supported in Go yet")
 	ErrInvalidTypeErrorIgnoreState        = errors.New("section ignoreTypeErrors state is invalid")
 	ErrTypeErrorIgnoreUnsupported         = errors.New("section does not support ignoreTypeErrors")
 )

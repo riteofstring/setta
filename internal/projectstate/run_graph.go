@@ -44,6 +44,7 @@ func (d Document) ProjectByID(projectID string) (Project, error) {
 	if !ok {
 		return Project{}, fmt.Errorf("%w: %q", ErrProjectNotFound, trimmedProjectID)
 	}
+	project.passwordSecrets = d.passwordSecrets
 	return project, nil
 }
 

@@ -31,7 +31,8 @@ type Mutation func(Document) (Document, error)
 type AfterSaveHook func(context.Context, Snapshot) error
 
 type RuntimeOptions struct {
-	AfterSave AfterSaveHook
+	AfterSave       AfterSaveHook
+	PasswordSecrets PasswordSecretStore
 }
 
 type Runtime struct {
@@ -83,6 +84,7 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 	if err != nil {
 		return nil, err
 	}
+	document = document.withPasswordSecrets(options.PasswordSecrets)
 
 	return openRuntime(document, saveController{
 		store:      store,
@@ -93,8 +95,14 @@ func OpenRuntimeWithOptions(ctx context.Context, store *Store, options RuntimeOp
 }
 
 func OpenOverlayRuntime(document Document) (*Runtime, error) {
+	return OpenOverlayRuntimeWithOptions(document, RuntimeOptions{})
+}
+
+func OpenOverlayRuntimeWithOptions(document Document, options RuntimeOptions) (*Runtime, error) {
+	document = document.withPasswordSecrets(options.PasswordSecrets)
 	return openRuntime(document, saveController{
 		savePolicy: SavePolicyInMemory,
+		afterSave:  options.AfterSave,
 	})
 }
 
