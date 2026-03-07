@@ -908,6 +908,7 @@ export function collectAgentNativeSlashCommandTokensFromRuns(
 
 export function collectAgentNativeSlashCommandTokensFromStorage(
   rawStorageValue: string | null,
+  engineConfigIds?: string[],
 ): string[] {
   if (!rawStorageValue) {
     return [];
@@ -921,9 +922,16 @@ export function collectAgentNativeSlashCommandTokensFromStorage(
   if (!isRecord(parsed)) {
     return [];
   }
+  const allowedEngineIds =
+    Array.isArray(engineConfigIds) && engineConfigIds.length > 0
+      ? new Set(engineConfigIds)
+      : null;
   const discoveredTokens: string[] = [];
   const seen = new Set<string>();
-  for (const entry of Object.values(parsed)) {
+  for (const [engineId, entry] of Object.entries(parsed)) {
+    if (allowedEngineIds && !allowedEngineIds.has(engineId)) {
+      continue;
+    }
     if (!isRecord(entry) || !Array.isArray(entry.commands)) {
       continue;
     }

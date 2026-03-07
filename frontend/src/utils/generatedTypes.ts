@@ -8786,6 +8786,16 @@ export type GetAppGenSkillContentRequestInput = z.input<
   typeof GetAppGenSkillContentRequestSchema
 >;
 
+const GetAppGenSkillsResponseSchema = z.object({
+  skills: z.array(AppGenSkillEntrySchema),
+  customSkillCreateRootPath: z.union([z.string(), z.null()]).default(null),
+  customSkillCreateRootError: z.union([z.string(), z.null()]).default(null),
+});
+
+export type GetAppGenSkillsResponse = z.infer<
+  typeof GetAppGenSkillsResponseSchema
+>;
+
 const UpsertAppGenCustomSkillRequestSchema = z.object({
   skillId: z.union([z.string(), z.null()]).default(null),
   relativePath: z.union([z.string(), z.null()]).default(null),

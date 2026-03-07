@@ -18,6 +18,7 @@ import {
 import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { filterRunsByProjectConfigId } from "state/actions/agentRunUtils";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -122,11 +123,6 @@ const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   command: "",
   prompt: "",
 };
-const CUSTOM_SKILL_ROOT_IDS = new Set([
-  "agents_home_skills",
-  "user_agents_skills",
-  "workspace_agents_skills",
-]);
 
 type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
   skillMarkdownDraftStateBySkillId: Record<
@@ -394,6 +390,26 @@ function areAgentNativeSlashEntriesEqual(
   return true;
 }
 
+export function areAgentNativeSlashCommandMapsEqual(
+  current: Record<string, AgentNativeSlashCommandsEntry>,
+  next: Record<string, AgentNativeSlashCommandsEntry>,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+  for (const key of currentKeys) {
+    if (!(key in next)) {
+      return false;
+    }
+    if (!areAgentNativeSlashEntriesEqual(current[key], next[key])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function extractAgentNativeSlashCommandsFromRun(
   run: AgentRun,
 ): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
@@ -441,6 +457,47 @@ function extractAgentNativeSlashCommandsFromRun(
       statusDetail,
     },
   };
+}
+
+export function filterAgentNativeSlashCommandsByEngineId({
+  entries,
+  engineConfigIds,
+}: {
+  entries: Record<string, AgentNativeSlashCommandsEntry>;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  const allowedEngineIds = new Set(engineConfigIds);
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const engineConfigId of engineConfigIds) {
+    const entry = entries[engineConfigId];
+    if (!entry || !allowedEngineIds.has(engineConfigId)) {
+      continue;
+    }
+    next[engineConfigId] = entry;
+  }
+  return next;
+}
+
+export function resolveAgentNativeSlashCommandsByEngineId({
+  runs,
+  projectConfigId,
+  engineConfigIds,
+}: {
+  runs: AgentRun[];
+  projectConfigId: string;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  const scopedRuns = filterRunsByProjectConfigId(runs, projectConfigId);
+  const allowedEngineIds = new Set(engineConfigIds);
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const run of scopedRuns) {
+    const extracted = extractAgentNativeSlashCommandsFromRun(run);
+    if (!extracted || !allowedEngineIds.has(extracted.engineConfigId)) {
+      continue;
+    }
+    next[extracted.engineConfigId] = extracted.entry;
+  }
+  return next;
 }
 
 function resolveAgentNativeSlashCommandsMessage(
@@ -664,7 +721,10 @@ export function ProjectChatSkillsMcpViewer({
   const [customSkillCreateInFlight, setCustomSkillCreateInFlight] =
     useState(false);
   const [customSkillSaveInFlight, setCustomSkillSaveInFlight] = useState(false);
-  const [customSkillRootPathHint, setCustomSkillRootPathHint] = useState<
+  const [customSkillCreateRootPath, setCustomSkillCreateRootPath] = useState<
+    string | null
+  >(null);
+  const [customSkillCreateRootError, setCustomSkillCreateRootError] = useState<
     string | null
   >(null);
   const [mcpConfigPath, setMcpConfigPath] = useState<string | null>(null);
@@ -723,6 +783,9 @@ export function ProjectChatSkillsMcpViewer({
       }
     >(),
   );
+  const showSkillsSection = viewMode === "skills";
+  const showMcpSection = viewMode === "mcp";
+  const showSlashCommandsSection = viewMode === "slash_commands";
 
   const refreshSkillsBrowser = useCallback(async () => {
     if (skillsRefreshInFlight.current) {
@@ -736,11 +799,15 @@ export function ProjectChatSkillsMcpViewer({
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         setSkillsError(detail ?? "Failed to load skills.");
+        setCustomSkillCreateRootPath(null);
+        setCustomSkillCreateRootError(null);
         return;
       }
-      const nextSkills = res.data;
+      const nextSkills = res.data.skills;
       skillContentCache.current.clear();
       setSkills(nextSkills);
+      setCustomSkillCreateRootPath(res.data.customSkillCreateRootPath);
+      setCustomSkillCreateRootError(res.data.customSkillCreateRootError);
       setSkillsRevision((value) => value + 1);
       setSelectedSkillId((current) => {
         if (nextSkills.length === 0) {
@@ -764,8 +831,11 @@ export function ProjectChatSkillsMcpViewer({
   }, []);
 
   useEffect(() => {
+    if (!showSkillsSection) {
+      return;
+    }
     void refreshSkillsBrowser();
-  }, [refreshSkillsBrowser]);
+  }, [refreshSkillsBrowser, showSkillsSection]);
 
   useEffect(() => {
     selectedSkillIdRef.current = selectedSkillId;
@@ -773,6 +843,9 @@ export function ProjectChatSkillsMcpViewer({
 
   useEffect(() => {
     async function loadSkillContent() {
+      if (!showSkillsSection) {
+        return;
+      }
       if (!selectedSkillId) {
         skillContentRequestSequence.current += 1;
         setSkillContentLoadStatus("idle");
@@ -838,12 +911,17 @@ export function ProjectChatSkillsMcpViewer({
       });
     }
     void loadSkillContent();
-  }, [isSkillMarkdownViewerOpen, selectedSkillId, skillsRevision]);
+  }, [
+    isSkillMarkdownViewerOpen,
+    selectedSkillId,
+    showSkillsSection,
+    skillsRevision,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadMcpRuntimeStatus() {
-      if (!allLLMConfigsInitialLoadComplete) {
+      if (!showMcpSection || !allLLMConfigsInitialLoadComplete) {
         return;
       }
       setMcpRuntimeStatusLoading(true);
@@ -895,6 +973,7 @@ export function ProjectChatSkillsMcpViewer({
     chatId,
     engineConfigId,
     allLLMConfigs?.mcpServers,
+    showMcpSection,
   ]);
 
   useEffect(() => {
@@ -931,35 +1010,6 @@ export function ProjectChatSkillsMcpViewer({
     }
     void loadAgentRuns();
   }, [agentRunsInitialLoadComplete]);
-
-  useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
-      return;
-    }
-    setAgentNativeSlashCommandsByEngineId((current) => {
-      let changed = false;
-      const next: Record<string, AgentNativeSlashCommandsEntry> = {
-        ...current,
-      };
-      for (const run of agentRuns) {
-        const extracted = extractAgentNativeSlashCommandsFromRun(run);
-        if (!extracted) {
-          continue;
-        }
-        if (
-          areAgentNativeSlashEntriesEqual(
-            next[extracted.engineConfigId],
-            extracted.entry,
-          )
-        ) {
-          continue;
-        }
-        next[extracted.engineConfigId] = extracted.entry;
-        changed = true;
-      }
-      return changed ? next : current;
-    });
-  }, [agentRuns, agentRunsInitialLoadComplete]);
 
   useEffect(() => {
     storageAdapter.setItem(
@@ -1011,6 +1061,30 @@ export function ProjectChatSkillsMcpViewer({
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
   ]);
+  const slashCommandEngineIds = useMemo(() => {
+    return slashCommandsByEngine.map((entry) => entry.engineId);
+  }, [slashCommandsByEngine]);
+  const runtimeAgentNativeSlashCommandsByEngineId = useMemo(() => {
+    return resolveAgentNativeSlashCommandsByEngineId({
+      runs: agentRuns,
+      projectConfigId,
+      engineConfigIds: slashCommandEngineIds,
+    });
+  }, [agentRuns, projectConfigId, slashCommandEngineIds]);
+  const visibleAgentNativeSlashCommandsByEngineId = useMemo(() => {
+    if (agentRunsInitialLoadComplete) {
+      return runtimeAgentNativeSlashCommandsByEngineId;
+    }
+    return filterAgentNativeSlashCommandsByEngineId({
+      entries: agentNativeSlashCommandsByEngineId,
+      engineConfigIds: slashCommandEngineIds,
+    });
+  }, [
+    agentNativeSlashCommandsByEngineId,
+    agentRunsInitialLoadComplete,
+    runtimeAgentNativeSlashCommandsByEngineId,
+    slashCommandEngineIds,
+  ]);
   const selectedSlashEngine = useMemo(() => {
     if (!selectedSlashEngineId) {
       return slashCommandsByEngine[0] ?? null;
@@ -1031,10 +1105,10 @@ export function ProjectChatSkillsMcpViewer({
       return EMPTY_AGENT_NATIVE_COMMANDS;
     }
     return (
-      agentNativeSlashCommandsByEngineId[selectedSlashEngine.engineId]
+      visibleAgentNativeSlashCommandsByEngineId[selectedSlashEngine.engineId]
         ?.commands ?? EMPTY_AGENT_NATIVE_COMMANDS
     );
-  }, [agentNativeSlashCommandsByEngineId, selectedSlashEngine]);
+  }, [selectedSlashEngine, visibleAgentNativeSlashCommandsByEngineId]);
   const selectedAgentNativeSlashStatus = useMemo(() => {
     if (
       !selectedSlashEngine ||
@@ -1043,10 +1117,10 @@ export function ProjectChatSkillsMcpViewer({
       return DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY;
     }
     return (
-      agentNativeSlashCommandsByEngineId[selectedSlashEngine.engineId] ??
+      visibleAgentNativeSlashCommandsByEngineId[selectedSlashEngine.engineId] ??
       DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
     );
-  }, [agentNativeSlashCommandsByEngineId, selectedSlashEngine]);
+  }, [selectedSlashEngine, visibleAgentNativeSlashCommandsByEngineId]);
   const managedSlashCommandDefinitions = useMemo(() => {
     return buildChatSlashCommands({
       model: true,
@@ -1064,10 +1138,10 @@ export function ProjectChatSkillsMcpViewer({
     return new Set(customSlashCommandDefinitions.map((entry) => entry.command));
   }, [customSlashCommandDefinitions]);
   const discoveredAgentNativeSlashCommands = useMemo(() => {
-    return Object.values(agentNativeSlashCommandsByEngineId).flatMap(
+    return Object.values(visibleAgentNativeSlashCommandsByEngineId).flatMap(
       (entry) => entry.commands,
     );
-  }, [agentNativeSlashCommandsByEngineId]);
+  }, [visibleAgentNativeSlashCommandsByEngineId]);
   const reservedSlashCommandTokens = useMemo(() => {
     return buildReservedSlashCommandTokens({
       managedCommands: managedSlashCommandDefinitions,
@@ -1104,6 +1178,27 @@ export function ProjectChatSkillsMcpViewer({
     }
     setSelectedSlashEngineId(slashCommandsByEngine[0]?.engineId ?? null);
   }, [selectedSlashEngineId, slashCommandsByEngine]);
+
+  useEffect(() => {
+    if (!showSlashCommandsSection || !agentRunsInitialLoadComplete) {
+      return;
+    }
+    setAgentNativeSlashCommandsByEngineId((current) => {
+      if (
+        areAgentNativeSlashCommandMapsEqual(
+          current,
+          runtimeAgentNativeSlashCommandsByEngineId,
+        )
+      ) {
+        return current;
+      }
+      return runtimeAgentNativeSlashCommandsByEngineId;
+    });
+  }, [
+    agentRunsInitialLoadComplete,
+    runtimeAgentNativeSlashCommandsByEngineId,
+    showSlashCommandsSection,
+  ]);
 
   useEffect(() => {
     const selectedEngineType = selectedSlashEngine?.engineType ?? null;
@@ -1147,9 +1242,6 @@ export function ProjectChatSkillsMcpViewer({
   const mcpServersLoading =
     !allLLMConfigsInitialLoadComplete || mcpRuntimeStatusLoading;
   const skillContentLoading = skillContentLoadStatus === "loading";
-  const showSkillsSection = viewMode === "skills";
-  const showMcpSection = viewMode === "mcp";
-  const showSlashCommandsSection = viewMode === "slash_commands";
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
   const skillMarkdownRawDraft = selectedSkillId
     ? skillMarkdownDraftStateBySkillId[selectedSkillId]?.draft ?? null
@@ -1224,38 +1316,9 @@ export function ProjectChatSkillsMcpViewer({
     }
     return skills.find((skill) => skill.skillId === selectedSkillId) ?? null;
   }, [selectedSkillId, skills]);
-  const selectedSkillRootId = useMemo(() => {
-    if (!selectedSkillId) {
-      return null;
-    }
-    const separatorIndex = selectedSkillId.indexOf("::");
-    if (separatorIndex < 0) {
-      return null;
-    }
-    return selectedSkillId.slice(0, separatorIndex);
-  }, [selectedSkillId]);
   const selectedSkillIsEditable = selectedSkill?.isEditable === true;
   const selectedSkillEditabilityReason =
     selectedSkill?.editabilityReason ?? null;
-  const customSkillRootPath = useMemo(() => {
-    if (
-      selectedSkill &&
-      selectedSkillRootId &&
-      CUSTOM_SKILL_ROOT_IDS.has(selectedSkillRootId)
-    ) {
-      return selectedSkill.rootPath;
-    }
-    const discoveredRoot =
-      skills.find((skill) => {
-        const separatorIndex = skill.skillId.indexOf("::");
-        if (separatorIndex < 0) {
-          return false;
-        }
-        const rootId = skill.skillId.slice(0, separatorIndex);
-        return CUSTOM_SKILL_ROOT_IDS.has(rootId);
-      }) ?? null;
-    return discoveredRoot?.rootPath ?? customSkillRootPathHint;
-  }, [customSkillRootPathHint, selectedSkill, selectedSkillRootId, skills]);
   const skillPreviewContent = useMemo(() => {
     return resolveSkillPreviewContent({
       skillContentLoading,
@@ -1499,7 +1562,8 @@ export function ProjectChatSkillsMcpViewer({
       );
       return;
     }
-    setCustomSkillRootPathHint(res.data.rootPath);
+    setCustomSkillCreateRootPath(res.data.rootPath);
+    setCustomSkillCreateRootError(null);
     setNewCustomSkillRelativePath("");
     setIsSkillMarkdownViewerOpen(true);
     setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
@@ -1572,7 +1636,6 @@ export function ProjectChatSkillsMcpViewer({
       );
       return;
     }
-    setCustomSkillRootPathHint(res.data.rootPath);
     const cacheEntry = {
       content: nextContent,
       truncated: false,
@@ -1814,22 +1877,25 @@ export function ProjectChatSkillsMcpViewer({
                 className="truncate"
                 data-testid="project-chat-custom-skill-root-path"
                 title={
-                  customSkillRootPath ??
-                  "Custom skill root will be created on first save."
+                  customSkillCreateRootPath ??
+                  customSkillCreateRootError ??
+                  "Custom skill create root unavailable."
                 }
               >
-                {customSkillRootPath
-                  ? `Custom skills root: ${customSkillRootPath}`
-                  : "Custom skills root: first writable of AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills"}
+                {customSkillCreateRootPath
+                  ? `Custom skills root: ${customSkillCreateRootPath}`
+                  : customSkillCreateRootError
+                    ? "Custom skills root unavailable."
+                    : "Loading custom skills root..."}
               </span>
               <button
                 type="button"
                 data-testid="project-chat-custom-skill-root-reveal"
                 className="shrink-0 rounded px-1 py-0.5 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-setta-800 dark:hover:text-setta-200"
                 onClick={() =>
-                  void revealPathInFileExplorer(customSkillRootPath)
+                  void revealPathInFileExplorer(customSkillCreateRootPath)
                 }
-                disabled={!isActionablePath(customSkillRootPath)}
+                disabled={!isActionablePath(customSkillCreateRootPath)}
               >
                 Open
               </button>
@@ -2150,12 +2216,100 @@ export function ProjectChatSkillsMcpViewer({
           className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
           data-testid="skills-mcp-slash-commands-content"
         >
+          <div className="grid min-w-0 gap-2 rounded bg-setta-50/60 p-2 dark:bg-setta-950/40">
+            <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+              Custom Commands
+            </div>
+            <div className="grid min-w-0 gap-2 px-1">
+              <input
+                type="text"
+                value={newCustomSlashCommand}
+                onChange={(event) =>
+                  setNewCustomSlashCommand(event.target.value)
+                }
+                placeholder="/my-command"
+                className="w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
+                data-testid="project-chat-custom-slash-command-input"
+              />
+              <textarea
+                value={newCustomSlashPrompt}
+                onChange={(event) =>
+                  setNewCustomSlashPrompt(event.target.value)
+                }
+                placeholder="Prompt text to send when this command runs."
+                className="min-h-20 w-full resize-y rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
+                data-testid="project-chat-custom-slash-prompt-input"
+              />
+              <button
+                type="button"
+                className="inline-flex w-fit cursor-pointer items-center rounded border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                data-testid="project-chat-custom-slash-add"
+                onClick={addCustomProjectChatSlashCommand}
+                disabled={!canAddCustomSlashCommand}
+              >
+                Add slash command
+              </button>
+              <div className="text-[10px] text-setta-500 dark:text-setta-400">
+                Command names must be unique and cannot collide with built-in or
+                discovered agent-native commands.
+              </div>
+            </div>
+            {customSlashCommandDefinitions.length > 0 ? (
+              <div className="grid min-w-0 gap-1">
+                {customSlashCommandDefinitions.map((command) => {
+                  const hasCollision = conflictingCustomSlashCommandTokens.has(
+                    command.command,
+                  );
+                  return (
+                    <div
+                      key={command.command}
+                      className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
+                    >
+                      <div className="min-w-0">
+                        <div
+                          className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                          data-testid="project-chat-custom-slash-command"
+                        >
+                          {command.command}
+                        </div>
+                        <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
+                          {command.promptTemplate}
+                        </div>
+                        {hasCollision ? (
+                          <div
+                            className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-300"
+                            data-testid="project-chat-custom-slash-command-conflict"
+                          >
+                            Disabled due to command collision.
+                          </div>
+                        ) : null}
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex h-6 cursor-pointer items-center rounded border border-setta-300 px-2 text-[10px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                        data-testid="project-chat-custom-slash-remove"
+                        onClick={() =>
+                          removeCustomProjectChatSlashCommand(command.command)
+                        }
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-1 text-[10px] text-setta-500 dark:text-setta-400">
+                No custom slash commands yet.
+              </div>
+            )}
+          </div>
           {!engineConfigsInitialLoadComplete ? (
             <div className="p-1 text-[11px] text-setta-500 dark:text-setta-400">
               Loading engine commands...
             </div>
           ) : slashCommandsByEngine.length === 0 ? (
-            <div className="p-1 text-[11px] text-setta-500 dark:text-setta-400">
+            <div className="rounded bg-setta-100/70 px-2 py-1 text-[10px] text-setta-600 dark:bg-setta-900/80 dark:text-setta-300">
               No engines configured.
             </div>
           ) : (
@@ -2214,97 +2368,6 @@ export function ProjectChatSkillsMcpViewer({
                         </div>
                       </div>
                     ))}
-                  </div>
-                  <div className="grid min-w-0 gap-2">
-                    <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                      Custom Commands
-                    </div>
-                    <div className="grid min-w-0 gap-2 px-1">
-                      <input
-                        type="text"
-                        value={newCustomSlashCommand}
-                        onChange={(event) =>
-                          setNewCustomSlashCommand(event.target.value)
-                        }
-                        placeholder="/my-command"
-                        className="w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
-                        data-testid="project-chat-custom-slash-command-input"
-                      />
-                      <textarea
-                        value={newCustomSlashPrompt}
-                        onChange={(event) =>
-                          setNewCustomSlashPrompt(event.target.value)
-                        }
-                        placeholder="Prompt text to send when this command runs."
-                        className="min-h-20 w-full resize-y rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
-                        data-testid="project-chat-custom-slash-prompt-input"
-                      />
-                      <button
-                        type="button"
-                        className="inline-flex w-fit cursor-pointer items-center rounded border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                        data-testid="project-chat-custom-slash-add"
-                        onClick={addCustomProjectChatSlashCommand}
-                        disabled={!canAddCustomSlashCommand}
-                      >
-                        Add slash command
-                      </button>
-                      <div className="text-[10px] text-setta-500 dark:text-setta-400">
-                        Command names must be unique and cannot collide with
-                        built-in or discovered agent-native commands.
-                      </div>
-                    </div>
-                    {customSlashCommandDefinitions.length > 0 ? (
-                      <div className="grid min-w-0 gap-1">
-                        {customSlashCommandDefinitions.map((command) => {
-                          const hasCollision =
-                            conflictingCustomSlashCommandTokens.has(
-                              command.command,
-                            );
-                          return (
-                            <div
-                              key={command.command}
-                              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
-                            >
-                              <div className="min-w-0">
-                                <div
-                                  className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
-                                  data-testid="project-chat-custom-slash-command"
-                                >
-                                  {command.command}
-                                </div>
-                                <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
-                                  {command.promptTemplate}
-                                </div>
-                                {hasCollision ? (
-                                  <div
-                                    className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-300"
-                                    data-testid="project-chat-custom-slash-command-conflict"
-                                  >
-                                    Disabled due to command collision.
-                                  </div>
-                                ) : null}
-                              </div>
-                              <button
-                                type="button"
-                                className="inline-flex h-6 cursor-pointer items-center rounded border border-setta-300 px-2 text-[10px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                                data-testid="project-chat-custom-slash-remove"
-                                onClick={() =>
-                                  removeCustomProjectChatSlashCommand(
-                                    command.command,
-                                  )
-                                }
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="px-1 text-[10px] text-setta-500 dark:text-setta-400">
-                        No custom slash commands yet.
-                      </div>
-                    )}
                   </div>
                   {selectedSlashEngine?.engineType === "external_agent" ? (
                     <div className="grid min-w-0 gap-2">

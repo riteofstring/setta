@@ -132,6 +132,29 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
       ),
     ).toBe(true);
   });
+
+  it("keeps colliding custom commands recognizable while excluding them from execution", () => {
+    const resolved = resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands: [
+        {
+          command: "/deploy",
+          prompt: "Ship the current build.",
+        },
+      ],
+      discoveredAgentNativeSlashCommands: ["/deploy"],
+      showPermissionExecutionControl: true,
+      showSearchExecutionControl: true,
+    });
+
+    expect(
+      resolved.slashCommands.some((entry) => entry.command === "/deploy"),
+    ).toBe(false);
+    expect(
+      resolved.recognizedSlashCommands.some(
+        (entry) => entry.command === "/deploy",
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("getProjectChatBlockedReasonMessage", () => {

@@ -617,6 +617,26 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(tokens).toEqual(["/deploy", "/status", "/diagnose"]);
   });
 
+  it("scopes persisted agent-native slash tokens to the active engine ids", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromStorage(
+      JSON.stringify({
+        "engine-foreign": {
+          commands: ["/deploy"],
+          status: "available",
+          statusDetail: null,
+        },
+        "engine-live": {
+          commands: ["/help"],
+          status: "available",
+          statusDetail: null,
+        },
+      }),
+      ["engine-live"],
+    );
+
+    expect(tokens).toEqual(["/help"]);
+  });
+
   it("reconciles colliding custom commands against managed and native reserved tokens", () => {
     const reservedTokens = buildReservedSlashCommandTokens({
       managedCommands: [

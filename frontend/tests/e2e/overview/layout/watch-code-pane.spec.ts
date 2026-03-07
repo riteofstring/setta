@@ -71,3 +71,49 @@ test("watch code portal does not reopen from persisted visibility state", async 
   );
   await expect(page.getByTestId("rf__watch-code-settings")).toBeVisible();
 });
+
+test("watch code portal stays clamped after content grows post-open", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await page.route("**/api/setWatchCodeInputs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+  await ensureAppReady(page);
+
+  const watchCodeSettingsButton = page.getByTestId("rf__watch-code-settings");
+  await watchCodeSettingsButton.click();
+
+  const portal = page.getByTestId("rf__watch-code-settings-portal");
+  const caret = page.getByTestId("rf__watch-code-settings-caret");
+  await expect(portal).toBeVisible();
+  await expect(caret).toBeVisible();
+
+  const addFolderButton = portal.getByRole("button", { name: "Add Folder" });
+  for (let index = 0; index < 8; index += 1) {
+    await addFolderButton.click();
+  }
+
+  const viewport = page.viewportSize();
+  expect(viewport).not.toBeNull();
+  const [portalRect, caretRect] = await Promise.all([
+    portal.boundingBox(),
+    caret.boundingBox(),
+  ]);
+  expect(portalRect).not.toBeNull();
+  expect(caretRect).not.toBeNull();
+  if (!viewport || !portalRect || !caretRect) {
+    throw new Error("Expected watch code portal geometry after growth.");
+  }
+
+  expect(portalRect.y).toBeGreaterThanOrEqual(0);
+  expect(portalRect.y + portalRect.height).toBeLessThanOrEqual(viewport.height);
+  expect(caretRect.y).toBeGreaterThanOrEqual(portalRect.y);
+  expect(caretRect.y + caretRect.height).toBeLessThanOrEqual(
+    portalRect.y + portalRect.height,
+  );
+});

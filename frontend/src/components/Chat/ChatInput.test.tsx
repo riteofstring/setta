@@ -478,6 +478,26 @@ describe("resolveSlashCommandRequest", () => {
     expect(resolved.parsed?.command).toBe("/permissions");
     expect(resolved.commandAvailable).toBe(false);
   });
+
+  it("recognizes reserved native slash commands even when they are unavailable", () => {
+    const recognizedCommands: ChatSlashCommandDefinition[] = [
+      {
+        command: "/deploy",
+        action: "custom_prompt",
+        summary: "Deploy the current build.",
+        promptTemplate: "Deploy the current build.",
+      },
+    ];
+
+    const resolved = resolveSlashCommandRequest({
+      message: "/deploy now",
+      slashCommands: [],
+      recognizedSlashCommands: recognizedCommands,
+    });
+
+    expect(resolved.parsed?.command).toBe("/deploy");
+    expect(resolved.commandAvailable).toBe(false);
+  });
 });
 
 describe("resolveCustomPromptSlashCommandSubmission", () => {

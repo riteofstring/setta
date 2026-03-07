@@ -12,6 +12,7 @@ import setta.routers.app_gen_extensions as app_gen_extensions
 from setta.routers.app_gen_extensions import (
     list_app_gen_skills,
     read_app_gen_skill_content,
+    resolve_app_gen_skills_response,
     upsert_app_gen_custom_skill,
     router as app_gen_extensions_router,
 )
@@ -578,7 +579,9 @@ class TestAppGenExtensionsRoutes:
             monkeypatch.delenv("CODEX_HOME", raising=False)
             monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
 
-            existing_skill_doc = fake_home / ".agents" / "skills" / "existing" / "SKILL.md"
+            existing_skill_doc = (
+                fake_home / ".agents" / "skills" / "existing" / "SKILL.md"
+            )
             existing_skill_doc.parent.mkdir(parents=True, exist_ok=True)
             existing_skill_doc.write_text(
                 "# existing\n\nOriginal content.\n",
@@ -639,6 +642,39 @@ class TestAppGenExtensionsRoutes:
             )
             assert expected_workspace_skill_doc.exists() is True
             assert home_skill_doc.exists() is False
+
+    def test_resolve_app_gen_skills_response_uses_authoritative_create_root(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            workspace_skill_doc = (
+                workspace_root / ".agents" / "skills" / "workspace-only" / "SKILL.md"
+            )
+            workspace_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            workspace_skill_doc.write_text(
+                "# workspace-only\n\nWorkspace custom skill.\n",
+                encoding="utf-8",
+            )
+
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            response = resolve_app_gen_skills_response(workspace_root)
+
+            assert response.customSkillCreateRootPath == str(
+                (fake_home / ".agents" / "skills").resolve(strict=False)
+            )
+            assert response.customSkillCreateRootError is None
+            assert [skill.skillId for skill in response.skills] == [
+                "workspace_agents_skills::workspace-only"
+            ]
 
     def test_updates_existing_workspace_custom_skill_by_skill_id(
         self,
@@ -733,7 +769,8 @@ class TestAppGenExtensionsRoutes:
                 )
 
             assert (
-                hidden_skill_doc.read_text(encoding="utf-8") == "# hidden\n\nOriginal.\n"
+                hidden_skill_doc.read_text(encoding="utf-8")
+                == "# hidden\n\nOriginal.\n"
             )
 
     def test_updates_skill_id_target_when_agents_home_root_is_unwritable(
@@ -1035,10 +1072,14 @@ class TestAppGenExtensionsRoutes:
             )
 
         assert response.status_code == 400
-        assert "Custom skill already exists for relativePath 'existing'." in (
-            response.json()["detail"]
+        assert (
+            "Custom skill already exists for relativePath 'existing'."
+            in (response.json()["detail"])
         )
-        assert existing_skill_doc.read_text(encoding="utf-8") == "# existing\n\nOriginal.\n"
+        assert (
+            existing_skill_doc.read_text(encoding="utf-8")
+            == "# existing\n\nOriginal.\n"
+        )
         clear_setta_paths_cache()
 
     def test_upsert_custom_skill_route_uses_workspace_root_when_agents_home_aliases_workspace(
@@ -1078,7 +1119,9 @@ class TestAppGenExtensionsRoutes:
         workspace_skill_doc = (
             workspace_root / ".agents" / "skills" / "priority-check" / "SKILL.md"
         )
-        home_skill_doc = fake_home / ".agents" / "skills" / "priority-check" / "SKILL.md"
+        home_skill_doc = (
+            fake_home / ".agents" / "skills" / "priority-check" / "SKILL.md"
+        )
         assert payload["skillId"] == "workspace_agents_skills::priority-check"
         assert payload["rootPath"] == str(
             (workspace_root / ".agents" / "skills").resolve(strict=False)
@@ -1129,7 +1172,11 @@ class TestAppGenExtensionsRoutes:
 
         assert response.status_code == 200
         payload = response.json()
-        row_by_id = {row["skillId"]: row for row in payload}
+        assert payload["customSkillCreateRootPath"] == str(
+            (fake_home / ".agents" / "skills").resolve(strict=False)
+        )
+        assert payload["customSkillCreateRootError"] is None
+        row_by_id = {row["skillId"]: row for row in payload["skills"]}
         root_row = row_by_id["workspace_agents_skills::."]
         assert root_row["isEditable"] is False
         assert (
@@ -1262,8 +1309,9 @@ class TestAppGenExtensionsRoutes:
             )
 
         assert response.status_code == 404
-        assert "Unknown or non-discoverable skillId: workspace_agents_skills::.hidden/nested" in (
-            response.json()["detail"]
+        assert (
+            "Unknown or non-discoverable skillId: workspace_agents_skills::.hidden/nested"
+            in (response.json()["detail"])
         )
         assert missing_skill_doc.exists() is False
         clear_setta_paths_cache()
@@ -1304,8 +1352,9 @@ class TestAppGenExtensionsRoutes:
             )
 
         assert response.status_code == 404
-        assert "Unknown or non-discoverable skillId: workspace_agents_skills::.git/hooks" in (
-            response.json()["detail"]
+        assert (
+            "Unknown or non-discoverable skillId: workspace_agents_skills::.git/hooks"
+            in (response.json()["detail"])
         )
         assert hidden_skill_doc.read_text(encoding="utf-8") == "# hidden\n\nOriginal.\n"
         clear_setta_paths_cache()

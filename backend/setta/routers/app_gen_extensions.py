@@ -36,6 +36,12 @@ class AppGenSkillEntry(BaseModel):
     description: str = Field(default="")
 
 
+class GetAppGenSkillsResponse(BaseModel):
+    skills: list[AppGenSkillEntry]
+    customSkillCreateRootPath: str | None = None
+    customSkillCreateRootError: str | None = None
+
+
 class GetAppGenSkillContentRequest(BaseModel):
     skillId: str
 
@@ -309,6 +315,23 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
     return rows
 
 
+def resolve_app_gen_skills_response(workspace_root: Path) -> GetAppGenSkillsResponse:
+    custom_skill_create_root_path: str | None = None
+    custom_skill_create_root_error: str | None = None
+    try:
+        _, _, custom_skill_create_root = _resolve_writable_custom_skill_root(
+            workspace_root
+        )
+        custom_skill_create_root_path = str(custom_skill_create_root)
+    except ValueError as exc:
+        custom_skill_create_root_error = str(exc)
+    return GetAppGenSkillsResponse(
+        skills=list_app_gen_skills(workspace_root),
+        customSkillCreateRootPath=custom_skill_create_root_path,
+        customSkillCreateRootError=custom_skill_create_root_error,
+    )
+
+
 def read_app_gen_skill_content(
     *,
     workspace_root: Path,
@@ -433,9 +456,9 @@ def upsert_app_gen_custom_skill(
 
 
 @router.get(Route.GET_APP_GEN_SKILLS)
-def route_get_app_gen_skills() -> list[AppGenSkillEntry]:
+def route_get_app_gen_skills() -> GetAppGenSkillsResponse:
     workspace_root = get_setta_paths().workspace_root
-    return list_app_gen_skills(workspace_root)
+    return resolve_app_gen_skills_response(workspace_root)
 
 
 @router.post(Route.GET_APP_GEN_SKILL_CONTENT)

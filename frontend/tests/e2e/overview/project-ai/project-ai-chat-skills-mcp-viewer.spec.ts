@@ -11,6 +11,20 @@ import {
 const SELECT_ALL_SHORTCUT =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
 
+function buildAppGenSkillsResponse(
+  skills: Array<Record<string, unknown>>,
+  overrides: {
+    customSkillCreateRootPath?: string | null;
+    customSkillCreateRootError?: string | null;
+  } = {},
+) {
+  return {
+    skills,
+    customSkillCreateRootPath: overrides.customSkillCreateRootPath ?? null,
+    customSkillCreateRootError: overrides.customSkillCreateRootError ?? null,
+  };
+}
+
 async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
   const styleInfo = await locator.evaluate((node) => {
@@ -65,24 +79,26 @@ test("project ai chat can open the skills side view", async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-        },
-        {
-          skillId: "user_codex_skills::frontend-design",
-          name: "frontend-design",
-          rootLabel: "User ~/.codex/skills",
-          rootPath: "/home/.codex/skills",
-          relativePath: "frontend-design",
-          description: "Create polished frontend interfaces.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+          },
+          {
+            skillId: "user_codex_skills::frontend-design",
+            name: "frontend-design",
+            rootLabel: "User ~/.codex/skills",
+            rootPath: "/home/.codex/skills",
+            relativePath: "frontend-design",
+            description: "Create polished frontend interfaces.",
+          },
+        ]),
+      ),
     });
   });
 
@@ -233,7 +249,7 @@ test("project ai chat can open slash commands in a dedicated side view", async (
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
     });
   });
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -333,6 +349,108 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   ).toHaveCount(0);
 });
 
+test("project ai chat keeps custom slash commands available without engine configs", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSlashCommandsViewer(page);
+
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command-input"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-custom-slash-prompt-input"),
+  ).toBeVisible();
+  await expect(page.getByText("No engines configured.")).toBeVisible();
+  await expect(page.getByTestId("skills-mcp-slash-tab")).toHaveCount(0);
+
+  await page
+    .getByTestId("project-chat-custom-slash-command-input")
+    .fill("/project-status");
+  await page
+    .getByTestId("project-chat-custom-slash-prompt-input")
+    .fill("Summarize project health.");
+  await page.getByTestId("project-chat-custom-slash-add").click();
+
+  await expect(
+    page.getByTestId("project-chat-custom-slash-command").filter({
+      hasText: "/project-status",
+    }),
+  ).toBeVisible();
+});
+
+test("project ai chat skills view does not fetch MCP runtime status while hidden", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await ensureAppReady(page);
+
+  let skillsRequests = 0;
+  let mcpRequests = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    skillsRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    mcpRequests += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        llmConfigPath: "",
+        activeSettaFilesLocation: "local",
+        servers: [],
+        externalServers: [],
+      }),
+    });
+  });
+
+  await openSkillsViewer(page);
+  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+  await expect.poll(() => skillsRequests).toBe(1);
+  expect(mcpRequests).toBe(0);
+});
+
 test("custom slash commands preserve attachments on submit", async ({
   page,
 }) => {
@@ -345,7 +463,7 @@ test("custom slash commands preserve attachments on submit", async ({
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
     });
   });
 
@@ -477,18 +595,20 @@ test("project ai chat keeps aux views session-local across stale storage and rel
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-          isEditable: false,
-          editabilityReason: null,
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+            isEditable: false,
+            editabilityReason: null,
+          },
+        ]),
+      ),
     });
   });
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -529,18 +649,20 @@ test("project ai chat keeps unsaved raw skill edits during same-skill refresh", 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "user_agents_skills::triage",
-          name: "triage",
-          rootLabel: "User ~/.codex/skills",
-          rootPath: "/home/.codex/skills",
-          relativePath: "triage",
-          description: "Triage open issues.",
-          isEditable: true,
-          editabilityReason: null,
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "user_agents_skills::triage",
+            name: "triage",
+            rootLabel: "User ~/.codex/skills",
+            rootPath: "/home/.codex/skills",
+            relativePath: "triage",
+            description: "Triage open issues.",
+            isEditable: true,
+            editabilityReason: null,
+          },
+        ]),
+      ),
     });
   });
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -587,7 +709,7 @@ test("project ai chat keeps MCP runtime statuses distinct across matching server
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
     });
   });
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -689,7 +811,7 @@ test("project ai chat shows custom setta_files label from runtime status endpoin
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([]),
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
     });
   });
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -805,17 +927,19 @@ test("project ai chat truncates long skill and mcp rows in narrow panes", async 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::super-long-ui-layout-skill",
-          name: "super-long-ui-layout-skill-name-that-should-be-truncated-in-a-tight-pane-width",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath:
-            "nested/deep/path/to/a/super-long-skill-relative-path-that-should-be-truncated-for-readability",
-          description: "Exercise truncation behavior for skill labels.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::super-long-ui-layout-skill",
+            name: "super-long-ui-layout-skill-name-that-should-be-truncated-in-a-tight-pane-width",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath:
+              "nested/deep/path/to/a/super-long-skill-relative-path-that-should-be-truncated-for-readability",
+            description: "Exercise truncation behavior for skill labels.",
+          },
+        ]),
+      ),
     });
   });
 
@@ -917,16 +1041,18 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+          },
+        ]),
+      ),
     });
   });
 
@@ -1061,7 +1187,7 @@ test("project ai chat keeps skills list stable during selection and ignores stal
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(skills),
+      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
     });
   });
 
@@ -1136,24 +1262,26 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::alpha-skill",
-          name: "alpha-skill",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "alpha-skill",
-          description: "Alpha skill",
-        },
-        {
-          skillId: "workspace_skills::beta-skill",
-          name: "beta-skill",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "beta-skill",
-          description: "Beta skill",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::alpha-skill",
+            name: "alpha-skill",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "alpha-skill",
+            description: "Alpha skill",
+          },
+          {
+            skillId: "workspace_skills::beta-skill",
+            name: "beta-skill",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "beta-skill",
+            description: "Beta skill",
+          },
+        ]),
+      ),
     });
   });
 
@@ -1227,16 +1355,18 @@ test("project ai chat refresh updates selected markdown content without requirin
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+          },
+        ]),
+      ),
     });
   });
 
@@ -1292,16 +1422,18 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([
-          {
-            skillId: "workspace_skills::ui-layout",
-            name: "ui-layout",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
-            relativePath: "ui-layout",
-            description: "Create dense dashboard layouts.",
-          },
-        ]),
+        body: JSON.stringify(
+          buildAppGenSkillsResponse([
+            {
+              skillId: "workspace_skills::ui-layout",
+              name: "ui-layout",
+              rootLabel: "Workspace skills",
+              rootPath: "/workspace/skills",
+              relativePath: "ui-layout",
+              description: "Create dense dashboard layouts.",
+            },
+          ]),
+        ),
       });
       return;
     }
@@ -1374,16 +1506,18 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([
-          {
-            skillId: "workspace_skills::baseline",
-            name: "baseline",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
-            relativePath: "baseline",
-            description: "Baseline skill",
-          },
-        ]),
+        body: JSON.stringify(
+          buildAppGenSkillsResponse([
+            {
+              skillId: "workspace_skills::baseline",
+              name: "baseline",
+              rootLabel: "Workspace skills",
+              rootPath: "/workspace/skills",
+              relativePath: "baseline",
+              description: "Baseline skill",
+            },
+          ]),
+        ),
       });
       return;
     }
@@ -1392,16 +1526,18 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([
-          {
-            skillId: "workspace_skills::fresh-skill",
-            name: "fresh-skill",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
-            relativePath: "fresh-skill",
-            description: "Fresh result",
-          },
-        ]),
+        body: JSON.stringify(
+          buildAppGenSkillsResponse([
+            {
+              skillId: "workspace_skills::fresh-skill",
+              name: "fresh-skill",
+              rootLabel: "Workspace skills",
+              rootPath: "/workspace/skills",
+              relativePath: "fresh-skill",
+              description: "Fresh result",
+            },
+          ]),
+        ),
       });
       return;
     }
@@ -1461,16 +1597,18 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+          },
+        ]),
+      ),
     });
   });
 
@@ -1521,6 +1659,86 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   ).toBeVisible();
 });
 
+test("project ai chat uses the backend create root for the custom skills root hint", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const createRootPath = "/home/.agents/skills";
+  let revealedPath: string | null = null;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        buildAppGenSkillsResponse(
+          [
+            {
+              skillId: "workspace_agents_skills::workspace-only",
+              name: "workspace-only",
+              rootLabel: "Workspace .agents/skills",
+              rootPath: "/workspace/.agents/skills",
+              relativePath: "workspace-only",
+              isEditable: true,
+              editabilityReason: null,
+              description: "Workspace custom skill.",
+            },
+          ],
+          {
+            customSkillCreateRootPath: createRootPath,
+          },
+        ),
+      ),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_agents_skills::workspace-only",
+        content: "# workspace-only\n\nWorkspace custom skill.",
+        truncated: false,
+        originalSizeBytes: 40,
+      }),
+    });
+  });
+  await page.route("**/api/revealPathInOsFileExplorer", async (route) => {
+    const payload = route.request().postDataJSON() as { path?: string };
+    revealedPath = payload.path ?? null;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+
+  const rootHint = page.getByTestId("project-chat-custom-skill-root-path");
+  await expect(rootHint).toContainText(createRootPath);
+  await expect(rootHint).not.toContainText("/workspace/.agents/skills");
+
+  await page.getByTestId("project-chat-custom-skill-root-reveal").click();
+  await expect.poll(() => revealedPath).toBe(createRootPath);
+});
+
 test("project ai chat can create and save custom skills from raw markdown mode", async ({
   page,
 }) => {
@@ -1558,7 +1776,7 @@ test("project ai chat can create and save custom skills from raw markdown mode",
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(skills),
+      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
     });
   });
 
@@ -1705,7 +1923,7 @@ test("project ai chat create custom skill rejects collisions without overwriting
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(skills),
+      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
     });
   });
   await page.route("**/api/llm/config", async (route) => {
@@ -1821,7 +2039,7 @@ test("project ai chat keeps selected skill content stable when another skill sav
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(skills),
+      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
     });
   });
 
@@ -1932,18 +2150,20 @@ test("project ai chat blocks saving truncated editable skill previews", async ({
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "user_agents_skills::large-custom",
-          name: "large-custom",
-          rootLabel: "User ~/.agents/skills",
-          rootPath: "/home/.agents/skills",
-          relativePath: "large-custom",
-          isEditable: true,
-          editabilityReason: null,
-          description: "Large editable custom skill.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "user_agents_skills::large-custom",
+            name: "large-custom",
+            rootLabel: "User ~/.agents/skills",
+            rootPath: "/home/.agents/skills",
+            relativePath: "large-custom",
+            isEditable: true,
+            editabilityReason: null,
+            description: "Large editable custom skill.",
+          },
+        ]),
+      ),
     });
   });
   await page.route("**/api/llm/config", async (route) => {
@@ -2012,18 +2232,20 @@ test("project ai chat disables save when skill content fetch fails", async ({
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "user_agents_skills::broken-custom",
-          name: "broken-custom",
-          rootLabel: "User ~/.agents/skills",
-          rootPath: "/home/.agents/skills",
-          relativePath: "broken-custom",
-          isEditable: true,
-          editabilityReason: null,
-          description: "Custom skill with failed fetch.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "user_agents_skills::broken-custom",
+            name: "broken-custom",
+            rootLabel: "User ~/.agents/skills",
+            rootPath: "/home/.agents/skills",
+            relativePath: "broken-custom",
+            isEditable: true,
+            editabilityReason: null,
+            description: "Custom skill with failed fetch.",
+          },
+        ]),
+      ),
     });
   });
   await page.route("**/api/llm/config", async (route) => {
@@ -2092,18 +2314,20 @@ test("project ai chat keeps root-level custom skills read-only from backend edit
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "user_agents_skills::.",
-          name: "skills",
-          rootLabel: "User ~/.agents/skills",
-          rootPath: "/home/.agents/skills",
-          relativePath: ".",
-          isEditable: false,
-          editabilityReason: "Editing root-level SKILL.md is not supported.",
-          description: "Root-level skill doc.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "user_agents_skills::.",
+            name: "skills",
+            rootLabel: "User ~/.agents/skills",
+            rootPath: "/home/.agents/skills",
+            relativePath: ".",
+            isEditable: false,
+            editabilityReason: "Editing root-level SKILL.md is not supported.",
+            description: "Root-level skill doc.",
+          },
+        ]),
+      ),
     });
   });
   await page.route("**/api/llm/config", async (route) => {
@@ -2172,18 +2396,20 @@ test("project ai chat can save intentionally empty custom skill content", async 
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "user_agents_skills::emptyable",
-          name: "emptyable",
-          rootLabel: "User ~/.agents/skills",
-          rootPath,
-          relativePath: "emptyable",
-          isEditable: true,
-          editabilityReason: null,
-          description: "Custom skill that can be emptied.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "user_agents_skills::emptyable",
+            name: "emptyable",
+            rootLabel: "User ~/.agents/skills",
+            rootPath,
+            relativePath: "emptyable",
+            isEditable: true,
+            editabilityReason: null,
+            description: "Custom skill that can be emptied.",
+          },
+        ]),
+      ),
     });
   });
   await page.route("**/api/llm/config", async (route) => {
@@ -2263,16 +2489,18 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::ui-layout",
-          name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "ui-layout",
-          description: "Create dense dashboard layouts.",
-        },
-      ]),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+          },
+        ]),
+      ),
     });
   });
 

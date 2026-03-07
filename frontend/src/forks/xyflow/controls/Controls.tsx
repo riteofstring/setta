@@ -87,10 +87,16 @@ const Controls = () => {
     width: number;
     caretTop: number;
   } | null>(null);
+  const [watchCodePortalElement, setWatchCodePortalElement] =
+    useState<HTMLDivElement | null>(null);
   const watchCodeButtonRef = useRef<HTMLButtonElement | null>(null);
   const watchCodePortalRef = useRef<HTMLDivElement | null>(null);
   const styleForActive =
     "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
+  const setWatchCodePortalNode = useCallback((node: HTMLDivElement | null) => {
+    watchCodePortalRef.current = node;
+    setWatchCodePortalElement((current) => (current === node ? current : node));
+  }, []);
 
   useEffect(() => {
     setIsVisible(true);
@@ -229,8 +235,8 @@ const Controls = () => {
       resizeObserver = new ResizeObserver(() => {
         runSettlingPasses(3);
       });
-      if (watchCodePortalRef.current) {
-        resizeObserver.observe(watchCodePortalRef.current);
+      if (watchCodePortalElement) {
+        resizeObserver.observe(watchCodePortalElement);
       }
       if (watchCodeButtonRef.current) {
         resizeObserver.observe(watchCodeButtonRef.current);
@@ -245,7 +251,7 @@ const Controls = () => {
       }
       resizeObserver?.disconnect();
     };
-  }, [watchCodePortalOpen]);
+  }, [watchCodePortalElement, watchCodePortalOpen]);
 
   if (!isVisible) {
     return null;
@@ -366,7 +372,7 @@ const Controls = () => {
       {watchCodePortalOpen && watchCodePortalPosition
         ? createPortal(
             <aside
-              ref={watchCodePortalRef}
+              ref={setWatchCodePortalNode}
               className="nodrag nopan nowheel fixed z-[70] flex max-h-[min(70vh,34rem)] flex-col overflow-visible rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-setta-700/70 dark:bg-setta-900/95"
               data-testid="rf__watch-code-settings-portal"
               aria-label="Watch code settings"

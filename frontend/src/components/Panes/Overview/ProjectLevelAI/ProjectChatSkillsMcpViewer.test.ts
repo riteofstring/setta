@@ -1,7 +1,11 @@
+import { createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
+  areAgentNativeSlashCommandMapsEqual,
+  filterAgentNativeSlashCommandsByEngineId,
   parseAgentNativeSlashCommandsStorage,
+  resolveAgentNativeSlashCommandsByEngineId,
   resolveCustomSlashDraftByProjectConfigIdUpdate,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
@@ -38,6 +42,117 @@ describe("parseAgentNativeSlashCommandsStorage", () => {
         statusDetail: "Loaded from run metadata",
       },
     });
+  });
+});
+
+describe("resolveAgentNativeSlashCommandsByEngineId", () => {
+  it("keeps only authoritative entries for the active project and engine set", () => {
+    const resolved = resolveAgentNativeSlashCommandsByEngineId({
+      runs: [
+        createAgentRun({
+          id: "run-foreign-project",
+          inputs: {
+            projectConfigId: "project-a",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-foreign",
+              agentNativeSlashCommands: ["/ship"],
+            },
+          },
+        }),
+        createAgentRun({
+          id: "run-active-engine",
+          inputs: {
+            projectConfigId: "project-b",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-live",
+              agentNativeSlashCommands: ["/help"],
+            },
+          },
+        }),
+        createAgentRun({
+          id: "run-deleted-engine",
+          inputs: {
+            projectConfigId: "project-b",
+          },
+          outputs: {
+            metadata: {
+              engineConfigId: "engine-deleted",
+              agentNativeSlashCommands: ["/deploy"],
+            },
+          },
+        }),
+      ],
+      projectConfigId: "project-b",
+      engineConfigIds: ["engine-live"],
+    });
+
+    expect(resolved).toEqual({
+      "engine-live": {
+        commands: ["/help"],
+        status: "available",
+        statusDetail: null,
+      },
+    });
+  });
+});
+
+describe("filterAgentNativeSlashCommandsByEngineId", () => {
+  it("drops cached entries for engines that are no longer configured", () => {
+    const filtered = filterAgentNativeSlashCommandsByEngineId({
+      entries: {
+        "engine-deleted": {
+          commands: ["/ship"],
+          status: "available",
+          statusDetail: null,
+        },
+        "engine-live": {
+          commands: ["/help"],
+          status: "available",
+          statusDetail: null,
+        },
+      },
+      engineConfigIds: ["engine-live"],
+    });
+
+    expect(filtered).toEqual({
+      "engine-live": {
+        commands: ["/help"],
+        status: "available",
+        statusDetail: null,
+      },
+    });
+  });
+});
+
+describe("areAgentNativeSlashCommandMapsEqual", () => {
+  it("detects when authoritative native-command maps have been pruned", () => {
+    expect(
+      areAgentNativeSlashCommandMapsEqual(
+        {
+          "engine-deleted": {
+            commands: ["/ship"],
+            status: "available",
+            statusDetail: null,
+          },
+          "engine-live": {
+            commands: ["/help"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+        {
+          "engine-live": {
+            commands: ["/help"],
+            status: "available",
+            statusDetail: null,
+          },
+        },
+      ),
+    ).toBe(false);
   });
 });
 

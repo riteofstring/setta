@@ -32,6 +32,7 @@ import {
   useState,
 } from "react";
 import {
+  filterRunsByProjectConfigId,
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
@@ -230,23 +231,45 @@ export function resolveProjectChatComposerSlashCommandSets({
     search: true,
     appGenerationModes: true,
   });
+  const customCommandDefinitions = buildCustomPromptSlashCommandDefinitions(
+    customProjectChatSlashCommands,
+  );
   const reservedCommandSet = buildReservedSlashCommandTokens({
     managedCommands: globallyReservedManagedCommands,
     engineCommandGroups: [],
     discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
   });
   const { executableCommands: customCommands } = reconcileCustomSlashCommands({
-    customCommands: buildCustomPromptSlashCommandDefinitions(
-      customProjectChatSlashCommands,
-    ),
+    customCommands: customCommandDefinitions,
     reservedTokens: reservedCommandSet,
   });
+  const recognizedCommands: ChatSlashCommandDefinition[] = [
+    ...globallyReservedManagedCommands,
+  ];
+  const recognizedCommandTokens = new Set(
+    recognizedCommands.map((entry) => entry.command),
+  );
+  for (const token of discoveredAgentNativeSlashCommands) {
+    if (recognizedCommandTokens.has(token)) {
+      continue;
+    }
+    recognizedCommandTokens.add(token);
+    recognizedCommands.push({
+      command: token,
+      action: "help",
+      summary: "Reserved native command from active engine metadata.",
+    });
+  }
+  for (const customCommand of customCommandDefinitions) {
+    if (recognizedCommandTokens.has(customCommand.command)) {
+      continue;
+    }
+    recognizedCommandTokens.add(customCommand.command);
+    recognizedCommands.push(customCommand);
+  }
   return {
     slashCommands: [...managedCommands, ...customCommands],
-    recognizedSlashCommands: [
-      ...globallyReservedManagedCommands,
-      ...customCommands,
-    ],
+    recognizedSlashCommands: recognizedCommands,
   };
 }
 
@@ -1193,6 +1216,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [filteredConversationMessages],
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const engineConfigIds = useAIStore((state) =>
+    state.engineConfigs.map((config) => config.id),
+  );
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
   const storageAdapter = useMemo(
     () => getSafeLocalStorageAdapter("project-chat-core"),
@@ -1208,8 +1234,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const persistedNativeSlashCommandTokens = useMemo(() => {
     return collectAgentNativeSlashCommandTokensFromStorage(
       storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+      engineConfigIds,
     );
-  }, [storageAdapter]);
+  }, [engineConfigIds, storageAdapter]);
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({
@@ -1290,8 +1317,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
   const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
-    return collectAgentNativeSlashCommandTokensFromRuns(agentRuns);
-  }, [agentRuns]);
+    return collectAgentNativeSlashCommandTokensFromRuns(
+      filterRunsByProjectConfigId(agentRuns, projectConfigId),
+    );
+  }, [agentRuns, projectConfigId]);
   const discoveredAgentNativeSlashCommands = useMemo(() => {
     return resolveProjectChatComposerNativeSlashCommandTokens({
       runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,

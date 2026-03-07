@@ -524,7 +524,7 @@ export async function route_get_ai_follow_snapshot(
 }
 
 export async function route_get_app_gen_skills(): Promise<
-  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
+  ResponseDataAndStatus<gt.GetAppGenSkillsResponse>
 > {
   return await get("/getAppGenSkills");
 }

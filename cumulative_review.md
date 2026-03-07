@@ -188,3 +188,54 @@
   - unsaved raw skill edits surviving same-skill refresh,
   - custom slash commands preserving attachments on submit,
   - Plugins navigation through the Overview `More` menu.
+
+## 2026-03-05 22:03:36 PST
+
+### Consolidated findings implemented
+- Fixed native slash-command reservation scope so project chat only treats active engines in the current project as authoritative sources of reserved/native tokens.
+- Restored slash-command fail-closed behavior by separating slash-command recognition from slash-command executability, preventing reserved/native tokens from falling through as plain chat.
+- Removed engine-configuration gating from custom slash-command management so custom commands remain manageable even when a project has zero engines configured.
+- Isolated Project AI `Skills`, `MCP`, and `Slash Commands` side effects so hidden tabs no longer trigger unrelated skill discovery, MCP runtime fetches, or agent-run loading.
+- Replaced frontend inference of the custom-skills root with the backend-selected writable create root, so the displayed root and reveal action share one source of truth.
+- Fixed Watch Code portal resize observation so the popover repositions after post-open content growth instead of keeping stale dimensions.
+
+### Proposed fixes applied
+- Backend `getAppGenSkills` now returns a typed object containing `skills`, `customSkillCreateRootPath`, and `customSkillCreateRootError`, and root selection is resolved once on the backend via `resolve_app_gen_skills_response`.
+- Project chat composer command resolution now builds both executable `slashCommands` and broader `recognizedSlashCommands`, including managed tokens, native tokens, and colliding custom tokens.
+- Agent-native slash-command storage/runtime reconciliation now filters by current project and current engine IDs, pruning stale engine entries instead of treating cached global data as authoritative.
+- Project AI settings viewer effects now key fetch/poll work to the active `viewMode`; slash-command polling remains limited to the external-agent slash view.
+- Skills UI now always renders the custom-command manager, while engine-specific native-command panes are shown only when engine configs exist.
+- Watch Code portal positioning now tracks the mounted portal element through a callback ref + `ResizeObserver`, so later row additions recompute clamp/alignment state.
+
+### UX/DX before and after
+- Before: Native slash commands discovered in another project, or for removed engines, could reserve tokens in the current project and block unrelated custom commands.  
+  After: Only active engines on the current project reserve slash tokens, and stale engine metadata is pruned.
+- Before: Recognized-but-unavailable slash commands such as reserved native tokens could be submitted as normal chat text.  
+  After: Recognized slash tokens are always consumed by slash-command handling and surface unavailable/collision feedback instead of failing open.
+- Before: Projects without engines lost access to custom slash-command management entirely.  
+  After: Custom command authoring remains available regardless of engine configuration.
+- Before: Opening `Skills` or `MCP` could still trigger hidden-tab work, increasing request churn and making the viewer harder to reason about.  
+  After: Each Project AI subview only loads the data it owns, which reduces hidden work and simplifies testing.
+- Before: The custom-skills root label/open action could disagree with the actual backend create target.  
+  After: The displayed path, create target, and open action all use the same backend-selected writable root.
+- Before: Adding Watch Code rows after opening the popover could leave the panel visually detached or clamped using stale dimensions.  
+  After: The portal stays aligned and on-screen as its content grows.
+
+### Validation coverage added or updated
+- Backend pytest coverage for:
+  - typed `getAppGenSkills` response shape,
+  - authoritative custom-skill create-root selection independent of discovered skill locations.
+- Frontend Vitest coverage for:
+  - project-scoped agent-run filtering,
+  - engine-scoped persisted native slash-command parsing,
+  - slash recognition vs availability for reserved/colliding commands,
+  - agent-native slash-command map equality/filter/resolve helpers.
+- Playwright E2E coverage for:
+  - custom slash-command management remaining available with zero engines,
+  - Skills view avoiding hidden MCP runtime fetches,
+  - backend-selected custom-skill root label rendering,
+  - Watch Code portal stability after post-open content growth.
+- Manual Chrome DevTools MCP verification for:
+  - authoritative custom-skill root label visibility,
+  - slash-command custom editor visibility,
+  - Watch Code portal clamping/alignment after row growth.
