@@ -3062,7 +3062,12 @@ test("project ai chat create custom skill rejects collisions without overwriting
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse(skills, {
+          customSkillCreateRootPath: rootPath,
+          customSkillCreateRootActionable: true,
+        }),
+      ),
     });
   });
   await page.route("**/api/llm/config", async (route) => {
