@@ -28,10 +28,10 @@ var (
 )
 
 type Connection struct {
-	ID             string
-	Type           ConnectionType
-	ShareSessionID string
-	CurrentAddress string
+	ID             string         `json:"id"`
+	Type           ConnectionType `json:"connectionType"`
+	ShareSessionID string         `json:"shareSessionId,omitempty"`
+	CurrentAddress string         `json:"currentAddress,omitempty"`
 }
 
 type RegisterParams struct {
