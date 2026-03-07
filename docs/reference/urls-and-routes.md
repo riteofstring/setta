@@ -136,8 +136,28 @@ The app-generation/skills viewer flow adds these backend routes:
 
 - `/api/getAppGenSkills`
   - Lists skills discovered from workspace/user/env skill roots.
+  - Response fields:
+    - `skills`: discovered skill entries.
+    - `customSkillCreateRootPath`: preferred writable custom-skill root when one
+      can be determined.
+    - `customSkillCreateRootActionable`: whether that root already exists and can
+      be revealed directly in the OS file explorer.
+  - Each skill entry now includes `isEditable` and `editabilityReason` so the
+    frontend can distinguish editable custom skills from read-only roots.
 - `/api/getAppGenSkillContent`
   - Reads `SKILL.md` preview content for a selected skill id.
+- `/api/upsertAppGenCustomSkill`
+  - Creates or replaces a custom `SKILL.md`.
+  - Method: `POST`
+  - Content type: `application/json`
+  - Request fields:
+    - `content` (required)
+    - exactly one of `skillId` (update existing discovered custom skill) or
+      `relativePath` (create new custom skill under the preferred writable root)
+  - Response fields:
+    - `skillId`, `created`, `rootPath`, `skillDocPath`
+    - refreshed `skill` metadata
+    - refreshed `skillContent`
 - `/api/streamAppSpec`
   - Streams JSONL patch ops for in-pane app-spec generation.
 - `/api/getLLMResponse` (extended payload)

@@ -163,7 +163,7 @@ export function PaneContainer({
       {vis ? (
         <button
           type="button"
-          className={`absolute z-20 inline-flex h-6 w-6 items-center justify-center rounded border border-setta-200 bg-setta-100 text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400 ${fullscreenButtonPositionClass}`}
+          className={`absolute z-20 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-setta-200 bg-transparent text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-transparent dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400 ${fullscreenButtonPositionClass}`}
           aria-label="Full screen pane"
           title="Full width"
           data-testid={`${paneName}-pane-fullscreen-button`}
