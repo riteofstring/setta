@@ -756,3 +756,118 @@ Recommended next performance target:
 - It does not materially change the main roadmap:
   - the dominant hotspot is still the production `ParamContainer` row-layout path
   - the next major optimization target after safe row-layout work is still the text/code/text-area widget family
+
+## Addendum: rejected local row-grid rewrite
+
+- Date: `2026-03-07`
+- Goal: test whether replacing the row-level `grid-cols-subgrid` wrappers with local named `key / center-gutter / value` grids could preserve visuals while reducing pan/zoom cost.
+- Change under test:
+  - keep the existing child contract (`section-key`, `section-value`, `section-center`)
+  - replace the outer row wrappers in `ParamContainer` and the benchmark placeholder row in `ParamSwitch` with local explicit named-grid templates
+- Measurement note:
+  - this addendum uses a single-run A/B replay against the live `ZoomPane` D3 objects recovered from the React fiber tree
+  - compare results only within this addendum
+
+### Visual check
+
+- Candidate row widths stayed healthy:
+  - sample min normalized row width: `514.00px`
+  - narrow sampled rows (`<250px`): `0`
+- Screenshot artifacts:
+  - candidate: `perf/artifacts/frontend/settings-all-settings/layout-regression/row-contract-rewrite-visible.png`
+  - reverted branch head: `perf/artifacts/frontend/settings-all-settings/layout-regression/row-contract-rewrite-reverted-visible.png`
+
+### `param-structure-shell` A/B
+
+- Baseline (current branch-head row layout):
+  - page DOM nodes: `4904`
+  - `.react-flow` DOM nodes: `4456`
+  - Param containers: `697`
+  - Average frame time: `42.68ms`
+  - Approx FPS: `23.43`
+  - Max frame time: `58.50ms`
+  - Slow frames:
+    - `>16.7ms`: `36`
+    - `>33.3ms`: `35`
+    - `>50ms`: `12`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-row-contract-baseline-trace.json`
+- Candidate (local named-grid row wrapper):
+  - page DOM nodes: `4904`
+  - `.react-flow` DOM nodes: `4456`
+  - Param containers: `697`
+  - Average frame time: `43.10ms`
+  - Approx FPS: `23.20`
+  - Max frame time: `66.40ms`
+  - Slow frames:
+    - `>16.7ms`: `35`
+    - `>33.3ms`: `33`
+    - `>50ms`: `11`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-row-contract-candidate-trace.json`
+- Result: `-0.23 FPS`
+
+### `param-container-shell` A/B
+
+- Baseline (current branch-head row layout):
+  - page DOM nodes: `6867`
+  - `.react-flow` DOM nodes: `6337`
+  - Param containers: `697`
+  - Average frame time: `42.86ms`
+  - Approx FPS: `23.33`
+  - Max frame time: `58.80ms`
+  - Slow frames:
+    - `>16.7ms`: `38`
+    - `>33.3ms`: `34`
+    - `>50ms`: `9`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-row-contract-baseline-trace.json`
+- Candidate (local named-grid row wrapper):
+  - page DOM nodes: `6867`
+  - `.react-flow` DOM nodes: `6337`
+  - Param containers: `697`
+  - Average frame time: `41.15ms`
+  - Approx FPS: `24.30`
+  - Max frame time: `58.30ms`
+  - Slow frames:
+    - `>16.7ms`: `37`
+    - `>33.3ms`: `33`
+    - `>50ms`: `8`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-row-contract-candidate-trace.json`
+- Result: `+0.97 FPS`
+
+### `full` A/B
+
+- Baseline (current branch-head row layout):
+  - page DOM nodes: `9633`
+  - `.react-flow` DOM nodes: `8558`
+  - Param containers: `697`
+  - Average frame time: `27.93ms`
+  - Approx FPS: `35.81`
+  - Max frame time: `42.10ms`
+  - Slow frames:
+    - `>16.7ms`: `62`
+    - `>33.3ms`: `5`
+    - `>50ms`: `0`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-row-contract-baseline-trace.json`
+- Candidate (local named-grid row wrapper):
+  - page DOM nodes: `9633`
+  - `.react-flow` DOM nodes: `8558`
+  - Param containers: `697`
+  - Average frame time: `29.75ms`
+  - Approx FPS: `33.62`
+  - Max frame time: `42.00ms`
+  - Slow frames:
+    - `>16.7ms`: `60`
+    - `>33.3ms`: `16`
+    - `>50ms`: `0`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-row-contract-candidate-trace.json`
+- Result: `-2.19 FPS`
+
+### Addendum conclusion
+
+- This candidate is not worth landing.
+- It preserved row width and visible layout, but it did not improve the real bottleneck consistently.
+- The only positive result was a modest `+0.97 FPS` in `param-container-shell`.
+- It was slightly worse in `param-structure-shell` and materially worse in `full`, especially in the `>33.3ms` tail.
+- Branch head stays on the previous row layout after reverting this experiment.
+- Updated interpretation:
+  - simply replacing `grid-cols-subgrid` with a local named-grid wrapper is not enough
+  - the remaining hotspot is likely deeper in the overall row/widget interaction, so the next worthwhile target is the text/code/text-area widget family or a different row-layout idea entirely
