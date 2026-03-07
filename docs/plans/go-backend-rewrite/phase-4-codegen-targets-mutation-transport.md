@@ -381,15 +381,9 @@ Tests:
 
 ## Next Recommended Step
 
-- Split the next slice into a dedicated focused doc before more implementation.
-- Scope that doc around first-party Python codegen runtime ownership:
-  - authoritative generated file materialization for `setta_gen.py`
-  - authoritative metadata materialization for `setta_gen_meta.py`
-  - generated section creation/update when Python target enablement or metadata
-    enablement occurs
-  - route support for Python target enablement and in-place target edits only
-    after that runtime exists
-- Keep the current clean-break boundary until that lands:
+- Continue in
+  `docs/plans/go-backend-rewrite/phase-4-python-codegen-runtime-and-enablement.md`.
+- Keep the current clean-break boundary until that work lands:
   - plugin-only mutations are supported
   - unchanged existing Python target plus plugin mutations are supported
   - Python target removal cleanup is supported
