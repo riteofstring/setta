@@ -45,7 +45,7 @@ function createRevealTarget(
   return {
     settingId: "core.watch_code.enabled",
     side: "left",
-    overviewTabKey: "Overview",
+    overviewTabKey: "WatchCode",
     uiEditorTabName: null,
     pluginId: null,
     paneId: null,
@@ -196,9 +196,7 @@ describe("receiveUISettingReveal", () => {
     useLocalStorage.setState({
       overviewVis: false,
       overviewTab: "Overview",
-      watchCodePortalOpen: false,
       uiEditorVis: false,
-      projectChatAuxViewByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
     });
@@ -242,7 +240,7 @@ describe("receiveUISettingReveal", () => {
     };
     docRef.document = {
       querySelector: vi.fn((selector: string) => {
-        if (selector === '[data-testid="rf__watch-code-settings-portal"]') {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
           return paneRoot;
         }
         return null;
@@ -253,8 +251,7 @@ describe("receiveUISettingReveal", () => {
 
     const localState = useLocalStorage.getState();
     expect(localState.overviewVis).toBe(true);
-    expect(localState.overviewTab).toBe("Overview");
-    expect(localState.watchCodePortalOpen).toBe(true);
+    expect(localState.overviewTab).toBe("WatchCode");
     expect(statuses).toEqual([
       {
         settingId: "core.watch_code.enabled",
@@ -271,36 +268,6 @@ describe("receiveUISettingReveal", () => {
     expect(anchor.classList.contains("setta-ui-setting-reveal-highlight")).toBe(
       false,
     );
-  });
-
-  it("keeps watch-code reveal visibility out of the persisted local-storage payload", async () => {
-    const anchor = createFakeAnchor("core.watch_code.enabled");
-    const paneRoot = createFakePaneRoot(anchor);
-    const docRef = globalThis as unknown as {
-      document: {
-        querySelector: (selector: string) => HTMLElement | null;
-      };
-    };
-    docRef.document = {
-      querySelector: vi.fn((selector: string) => {
-        if (selector === '[data-testid="rf__watch-code-settings-portal"]') {
-          return paneRoot;
-        }
-        return null;
-      }),
-    };
-
-    await receiveUISettingReveal(createRevealContent({}));
-
-    const partialize = useLocalStorage.persist.getOptions().partialize;
-    if (!partialize) {
-      throw new Error("Expected local-storage store to define partialize.");
-    }
-
-    const persisted = partialize(useLocalStorage.getState());
-
-    expect(useLocalStorage.getState().watchCodePortalOpen).toBe(true);
-    expect(persisted).not.toHaveProperty("watchCodePortalOpen");
   });
 
   it("returns a structured failure for right-pane reveals with no active section", async () => {
@@ -660,7 +627,7 @@ describe("receiveUISettingReveal", () => {
         reveals: [
           createRevealTarget({
             settingId: anchorId,
-            overviewTabKey: "ProjectAIChat",
+            overviewTabKey: "ProjectAISettings",
             anchorId,
             revealActivationSteps: [
               {
@@ -678,9 +645,6 @@ describe("receiveUISettingReveal", () => {
     expect(
       state.projectAiSettingsAccordionOpenValuesByProjectConfigId["project-1"],
     ).toContain("project-ai-settings-prompt-templates");
-    expect(state.projectChatAuxViewByProjectConfigId["project-1"]).toBe(
-      "ai_settings",
-    );
   });
 
   it("applies Run Instructions accordion activation steps before anchor lookup", async () => {
@@ -835,7 +799,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
   });
 
   it("rolls back a failed older reveal without clobbering a newer non-overlapping reveal", async () => {
@@ -907,7 +870,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
     expect(state.uiEditorVis).toBe(true);
     expect(state.uiEditorTab[SectionTypeEnum.Code]).toBe(
       "SectionVariantsConfig",
@@ -1092,7 +1054,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
     expect(
       state.runInstructionsAccordionOpenValuesByProjectConfigId["project-1"],
     ).toBeUndefined();
@@ -1235,7 +1196,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
   });
 
   it("keeps other-project local accordion state when rollback runs after project switch", async () => {
