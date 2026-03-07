@@ -109,17 +109,28 @@ func (r *LSPDiagnosticsRegistry) Snapshot(projectID string) LSPDiagnosticsPayloa
 }
 
 func (r *LSPDiagnosticsRegistry) UpdateCodeSection(projectID string, sectionID string, diagnostics []LSPDiagnostic) {
+	r.UpdateCodeSectionWithIgnoreState(projectID, sectionID, diagnostics, CodeSectionDiagnosticsIgnoreState{})
+}
+
+func (r *LSPDiagnosticsRegistry) UpdateCodeSectionWithIgnoreState(
+	projectID string,
+	sectionID string,
+	diagnostics []LSPDiagnostic,
+	ignoreState CodeSectionDiagnosticsIgnoreState,
+) {
 	trimmedProjectID := strings.TrimSpace(projectID)
 	trimmedSectionID := strings.TrimSpace(sectionID)
 	if r == nil || trimmedProjectID == "" || trimmedSectionID == "" {
 		return
 	}
 
+	filtered := applyCodeSectionDiagnosticsIgnore(diagnostics, ignoreState)
+
 	r.mu.Lock()
 	state := r.projectStateLocked(trimmedProjectID)
 
 	if diagnosticsEqual(state.rawCodeSections[trimmedSectionID], diagnostics) &&
-		diagnosticsEqual(state.codeSections[trimmedSectionID], diagnostics) {
+		diagnosticsEqual(state.codeSections[trimmedSectionID], filtered) {
 		r.projects[trimmedProjectID] = state
 		r.mu.Unlock()
 		return
@@ -130,7 +141,11 @@ func (r *LSPDiagnosticsRegistry) UpdateCodeSection(projectID string, sectionID s
 		delete(state.codeSections, trimmedSectionID)
 	} else {
 		state.rawCodeSections[trimmedSectionID] = cloneLSPDiagnostics(diagnostics)
-		state.codeSections[trimmedSectionID] = cloneLSPDiagnostics(diagnostics)
+		if len(filtered) == 0 {
+			delete(state.codeSections, trimmedSectionID)
+		} else {
+			state.codeSections[trimmedSectionID] = cloneLSPDiagnostics(filtered)
+		}
 	}
 
 	payload := state.snapshot()
@@ -141,6 +156,44 @@ func (r *LSPDiagnosticsRegistry) UpdateCodeSection(projectID string, sectionID s
 	if onChange != nil {
 		onChange(payload)
 	}
+}
+
+func (r *LSPDiagnosticsRegistry) ReapplyCodeSectionIgnoreState(project Project, sectionID string) error {
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	if r == nil || strings.TrimSpace(project.ID) == "" || trimmedSectionID == "" {
+		return nil
+	}
+
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection(trimmedSectionID)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	state := r.projectStateLocked(project.ID)
+	rawDiagnostics := state.rawCodeSections[trimmedSectionID]
+	filtered := applyCodeSectionDiagnosticsIgnore(rawDiagnostics, ignoreState)
+	if diagnosticsEqual(state.codeSections[trimmedSectionID], filtered) {
+		r.projects[project.ID] = state
+		r.mu.Unlock()
+		return nil
+	}
+
+	if len(filtered) == 0 {
+		delete(state.codeSections, trimmedSectionID)
+	} else {
+		state.codeSections[trimmedSectionID] = cloneLSPDiagnostics(filtered)
+	}
+
+	payload := state.snapshot()
+	onChange := r.onChange
+	r.projects[project.ID] = state
+	r.mu.Unlock()
+
+	if onChange != nil {
+		onChange(payload)
+	}
+	return nil
 }
 
 func (r *LSPDiagnosticsRegistry) PruneDocument(document Document) error {

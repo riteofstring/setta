@@ -13,13 +13,15 @@ import (
 )
 
 const (
-	RouteClearTextFieldCompletion = "/clearTextFieldCompletion"
-	RouteTextFieldCompletion      = "/textFieldCompletion"
-	RouteOutputAccessorCompletion = "/outputAccessorCompletion"
-	RouteCodeAreaCompletion       = "/codeAreaCompletion"
-	RouteGenCodePrefixCompletion  = "/genCodePrefixCompletion"
-	RouteGenCodeSuffixCompletion  = "/genCodeSuffixCompletion"
-	RouteGetLatestLSPDiagnostics  = "/getLatestLspDiagnostics"
+	RouteClearTextFieldCompletion                = "/clearTextFieldCompletion"
+	RouteTextFieldCompletion                     = "/textFieldCompletion"
+	RouteOutputAccessorCompletion                = "/outputAccessorCompletion"
+	RouteCodeAreaCompletion                      = "/codeAreaCompletion"
+	RouteGenCodePrefixCompletion                 = "/genCodePrefixCompletion"
+	RouteGenCodeSuffixCompletion                 = "/genCodeSuffixCompletion"
+	RouteGetLatestLSPDiagnostics                 = "/getLatestLspDiagnostics"
+	RouteSetCodeSectionDiagnosticsMute           = "/setCodeSectionDiagnosticsMute"
+	RouteSetCodeSectionDiagnosticCodeSuppression = "/setCodeSectionDiagnosticCodeSuppression"
 )
 
 type LSPRouteDependencies struct {
@@ -31,6 +33,19 @@ type LSPRouteDependencies struct {
 
 type GetLatestLSPDiagnosticsRequest struct {
 	ProjectID string `json:"projectConfigId"`
+}
+
+type SetCodeSectionDiagnosticsMuteRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
+	Mute      bool   `json:"mute"`
+}
+
+type SetCodeSectionDiagnosticCodeSuppressionRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
+	Code      any    `json:"code"`
+	Suppress  bool   `json:"suppress"`
 }
 
 type ClearTextFieldCompletionRequest struct {
@@ -96,6 +111,8 @@ func RegisterLSPRoutes(router chi.Router, deps LSPRouteDependencies) error {
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGenCodePrefixCompletion, genCodePrefixCompletionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGenCodeSuffixCompletion, genCodeSuffixCompletionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestLSPDiagnostics, getLatestLSPDiagnosticsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionDiagnosticsMute, setCodeSectionDiagnosticsMuteHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionDiagnosticCodeSuppression, setCodeSectionDiagnosticCodeSuppressionHandler(deps))
 	return nil
 }
 
@@ -348,6 +365,94 @@ func getLatestLSPDiagnosticsHandler(deps LSPRouteDependencies) http.HandlerFunc 
 	}
 }
 
+func setCodeSectionDiagnosticsMuteHandler(deps LSPRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeSectionDiagnosticsMuteRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.Diagnostics == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := deps.ProjectState.SetCodeSectionDiagnosticsMute(r.Context(), projectID, sectionID, payload.Mute)
+		if err != nil {
+			writeLSPDiagnosticsMutationError(w, r, err)
+			return
+		}
+		project, err := snapshot.Document.ProjectByID(projectID)
+		if err != nil {
+			writeLSPDiagnosticsMutationError(w, r, err)
+			return
+		}
+		if err := deps.Diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
+			writeLSPDiagnosticsMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setCodeSectionDiagnosticCodeSuppressionHandler(deps LSPRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeSectionDiagnosticCodeSuppressionRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.Diagnostics == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		snapshot, err := deps.ProjectState.SetCodeSectionDiagnosticCodeSuppression(
+			r.Context(),
+			projectID,
+			sectionID,
+			payload.Code,
+			payload.Suppress,
+		)
+		if err != nil {
+			writeLSPDiagnosticsMutationError(w, r, err)
+			return
+		}
+		project, err := snapshot.Document.ProjectByID(projectID)
+		if err != nil {
+			writeLSPDiagnosticsMutationError(w, r, err)
+			return
+		}
+		if err := deps.Diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
+			writeLSPDiagnosticsMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func trimOptionalString(value *string) string {
 	if value == nil {
 		return ""
@@ -362,6 +467,22 @@ func writeLSPCompletionError(w http.ResponseWriter, r *http.Request, err error) 
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeLSPDiagnosticsMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectNotFound),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeSectionRequired),
+		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode),
+		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticsIgnoreState):
+		writeError(w, r, http.StatusBadRequest, "invalid_lsp_diagnostics_request", "Invalid LSP diagnostics request.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

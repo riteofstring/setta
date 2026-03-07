@@ -48,6 +48,85 @@ func TestLSPDiagnosticsRegistryClearsCodeSectionDiagnostics(t *testing.T) {
 	}
 }
 
+// Ignore state should filter the broadcast snapshot while preserving the raw
+// diagnostics so later mute/suppression changes can reapply without a new LSP
+// publish.
+func TestLSPDiagnosticsRegistryAppliesCodeSectionIgnoreState(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 2)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+
+	registry.UpdateCodeSectionWithIgnoreState(
+		"project-alpha",
+		"section-1",
+		[]LSPDiagnostic{testLSPDiagnostic("reportFoo")},
+		CodeSectionDiagnosticsIgnoreState{
+			SuppressedCodes: []any{"reportFoo"},
+		},
+	)
+
+	if len(payloads) != 1 {
+		t.Fatalf("expected one broadcast payload, got %d", len(payloads))
+	}
+	if len(payloads[0].CodeSections) != 0 {
+		t.Fatalf("expected filtered snapshot to omit suppressed diagnostics, got %#v", payloads[0].CodeSections)
+	}
+
+	state := registry.projects["project-alpha"]
+	if len(state.rawCodeSections["section-1"]) != 1 {
+		t.Fatalf("expected raw diagnostics to stay stored, got %#v", state.rawCodeSections)
+	}
+	if _, ok := state.codeSections["section-1"]; ok {
+		t.Fatalf("expected filtered diagnostics to be removed, got %#v", state.codeSections)
+	}
+}
+
+// Reapplying ignore state should rebuild the filtered snapshot from stored raw
+// diagnostics rather than waiting for a new publish from the language server.
+func TestLSPDiagnosticsRegistryReappliesCodeSectionIgnoreState(t *testing.T) {
+	t.Parallel()
+
+	payloads := make([]LSPDiagnosticsPayload, 0, 3)
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		OnChange: func(payload LSPDiagnosticsPayload) {
+			payloads = append(payloads, payload)
+		},
+	})
+	registry.UpdateCodeSection("project-alpha", "section-1", []LSPDiagnostic{testLSPDiagnostic("reportFoo")})
+
+	project := ignoreStateTestProject(t, ignoreStateTestProjectOptions{})
+	project.ID = "project-alpha"
+	project.Name = "Alpha"
+	if err := project.SetCodeSectionDiagnosticCodeSuppression("section-1", "reportFoo", true); err != nil {
+		t.Fatalf("suppress diagnostic code: %v", err)
+	}
+	if err := registry.ReapplyCodeSectionIgnoreState(project, "section-1"); err != nil {
+		t.Fatalf("reapply ignore state: %v", err)
+	}
+
+	filtered := registry.Snapshot("project-alpha")
+	if len(filtered.CodeSections) != 0 {
+		t.Fatalf("expected suppression to clear filtered diagnostics, got %#v", filtered.CodeSections)
+	}
+
+	if err := project.SetCodeSectionDiagnosticCodeSuppression("section-1", "reportFoo", false); err != nil {
+		t.Fatalf("unsuppress diagnostic code: %v", err)
+	}
+	if err := registry.ReapplyCodeSectionIgnoreState(project, "section-1"); err != nil {
+		t.Fatalf("reapply cleared ignore state: %v", err)
+	}
+
+	restored := registry.Snapshot("project-alpha")
+	if len(restored.CodeSections["section-1"]) != 1 {
+		t.Fatalf("expected raw diagnostics to restore after unsuppress, got %#v", restored.CodeSections)
+	}
+}
+
 // Pruning should drop diagnostics for sections that no longer resolve as
 // active Python code sections in the project snapshot.
 func TestLSPDiagnosticsRegistryPrunesMissingPythonCodeSections(t *testing.T) {

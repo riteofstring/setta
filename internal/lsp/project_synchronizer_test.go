@@ -108,6 +108,82 @@ func TestProjectSynchronizerPreservesDiskBackedPythonSectionContent(t *testing.T
 	}
 }
 
+// Code-section callbacks must refresh even when the canonical file content is
+// unchanged so later publishes honor newly-muted or newly-suppressed state.
+func TestProjectSynchronizerRefreshesCodeSectionDiagnosticsCallbackWithoutContentChanges(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	pythonBinary := resolveTestPythonBinary(t)
+	session := newFixtureSession(t, pythonBinary, settaFilesRoot)
+	service := NewService(session)
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        service,
+		Diagnostics:    diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	document, sectionPath := lspCodeSectionDiagnosticsDocument(t, settaFilesRoot, false)
+	if err := synchronizer.MaterializeDocument(ctx, document); err != nil {
+		t.Fatalf("materialize code-section diagnostics document: %v", err)
+	}
+
+	sectionCode, err := os.ReadFile(sectionPath)
+	if err != nil {
+		t.Fatalf("read code section file: %v", err)
+	}
+	params := buildGeneratedPublishDiagnostics(
+		t,
+		sectionPath,
+		string(sectionCode),
+		"runner",
+		"Bad code",
+		"reportFoo",
+	)
+
+	firstCallback := service.tracked[sectionPath].Callback
+	if firstCallback == nil {
+		t.Fatal("expected code section diagnostics callback")
+	}
+	firstCallback(params)
+
+	initial := diagnostics.Snapshot("project-alpha")
+	if len(initial.CodeSections["runner"]) != 1 {
+		t.Fatalf("expected initial section diagnostics, got %#v", initial.CodeSections)
+	}
+
+	ignoredDocument, ignoredSectionPath := lspCodeSectionDiagnosticsDocument(t, settaFilesRoot, true)
+	if ignoredSectionPath != sectionPath {
+		t.Fatalf("expected stable section path, got %q then %q", sectionPath, ignoredSectionPath)
+	}
+	if err := synchronizer.MaterializeDocument(ctx, ignoredDocument); err != nil {
+		t.Fatalf("rematerialize ignored code-section diagnostics document: %v", err)
+	}
+
+	refreshedCallback := service.tracked[sectionPath].Callback
+	if refreshedCallback == nil {
+		t.Fatal("expected refreshed code section diagnostics callback")
+	}
+	refreshedCallback(params)
+
+	filtered := diagnostics.Snapshot("project-alpha")
+	if len(filtered.CodeSections) != 0 {
+		t.Fatalf("expected refreshed callback to apply section ignore policy, got %#v", filtered.CodeSections)
+	}
+}
+
 // Generated-code callbacks must refresh even when the rendered Python file is
 // unchanged so updated ignore policies take effect without forcing content
 // churn in the tracked LSP document set.
@@ -371,6 +447,73 @@ func lspDiskBackedTestDocument(t *testing.T, settaFilesRoot string) (projectstat
 
 	sectionPath := filepath.Join(settaFilesRoot, "code", "run.py")
 	return document, sectionPath
+}
+
+func lspCodeSectionDiagnosticsDocument(
+	t *testing.T,
+	settaFilesRoot string,
+	suppressDiagnostics bool,
+) (projectstate.Document, string) {
+	t.Helper()
+
+	ignoreState := `{"muted":false,"suppressedCodes":[]}`
+	if suppressDiagnostics {
+		ignoreState = `{"muted":false,"suppressedCodes":["reportFoo"]}`
+	}
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Diagnostics Project",
+				SectionVariantMap: map[string]string{
+					"runner": "runner-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"runner": {
+						ID:               "runner",
+						Name:             "Runner",
+						VariantIDs:       []string{"runner-variant"},
+						DefaultVariantID: "runner-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"runner-variant": {
+						ID:       "runner-variant",
+						ImplID:   "runner-impl",
+						Modifier: projectstate.RawJSON(`{"diagnosticsIgnoreState":` + ignoreState + `}`),
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"runner-impl": {
+						ID:   "runner-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/runner.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"runner-impl",
+							"type":"Code",
+							"code":"print('runner')\n",
+							"codeLanguage":"python",
+							"children":[]
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize code-section diagnostics document: %v", err)
+	}
+
+	return document, filepath.Join(settaFilesRoot, "code", "runner.py")
 }
 
 func lspGeneratedDiagnosticsDocument(

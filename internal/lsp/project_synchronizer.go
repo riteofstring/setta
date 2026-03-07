@@ -81,6 +81,10 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 			return nil, fmt.Errorf("lsp: project %q active python code sections: %w", projectID, err)
 		}
 		for _, sectionFile := range sectionFiles {
+			ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection(sectionFile.SectionID)
+			if err != nil {
+				return nil, err
+			}
 			path, err := statefs.ResolveWithinRoot(s.settaFilesRoot, sectionFile.Binding.Path, "python code section path")
 			if err != nil {
 				return nil, err
@@ -93,7 +97,7 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 				Path:       path,
 				LanguageID: "python",
 				Content:    content,
-				Callback:   s.codeSectionDiagnosticsCallback(project.ID, sectionFile.SectionID),
+				Callback:   s.codeSectionDiagnosticsCallback(project.ID, sectionFile.SectionID, ignoreState),
 			}
 		}
 
@@ -130,13 +134,17 @@ func (s *ProjectSynchronizer) resolveSectionContent(path string, sectionFile pro
 	return "", nil
 }
 
-func (s *ProjectSynchronizer) codeSectionDiagnosticsCallback(projectID string, sectionID string) DiagnosticsCallback {
+func (s *ProjectSynchronizer) codeSectionDiagnosticsCallback(
+	projectID string,
+	sectionID string,
+	ignoreState projectstate.CodeSectionDiagnosticsIgnoreState,
+) DiagnosticsCallback {
 	if s == nil || s.diagnostics == nil {
 		return nil
 	}
 
 	return func(params PublishDiagnosticsParams) {
-		s.diagnostics.UpdateCodeSection(projectID, sectionID, toProjectDiagnostics(params))
+		s.diagnostics.UpdateCodeSectionWithIgnoreState(projectID, sectionID, toProjectDiagnostics(params), ignoreState)
 	}
 }
 

@@ -91,6 +91,106 @@ func TestRegisterLSPRoutesRejectsShareModeRequests(t *testing.T) {
 	}
 }
 
+// Diagnostics ignore-state routes should persist the project-state mutation and
+// immediately reapply filtering against the stored raw diagnostics payload.
+func TestRegisterLSPRoutesMutatesCodeSectionDiagnosticsIgnoreState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := lspDiagnosticsMutationRouteRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	diagnostics.UpdateCodeSection("project-alpha", "section-1", []projectstate.LSPDiagnostic{
+		testHTTPAPILSPDiagnostic("reportFoo"),
+	})
+	handler := newLSPRouteTestHandler(t, config.ModeIDE, projectRuntime, diagnostics, nil)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetCodeSectionDiagnosticCodeSuppression,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1","code":"reportFoo","suppress":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response body, got %q", response.Body.String())
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("resolve project from runtime snapshot: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("section-1")
+	if err != nil {
+		t.Fatalf("resolve section ignore state: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected persisted suppression state, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	filtered := diagnostics.Snapshot("project-alpha")
+	if len(filtered.CodeSections) != 0 {
+		t.Fatalf("expected suppression route to clear filtered diagnostics, got %#v", filtered.CodeSections)
+	}
+}
+
+// Muting should behave the same way as suppression and stay IDE-only.
+func TestRegisterLSPRoutesMutesCodeSectionDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := lspDiagnosticsMutationRouteRuntime(t)
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	diagnostics.UpdateCodeSection("project-alpha", "section-1", []projectstate.LSPDiagnostic{
+		testHTTPAPILSPDiagnostic("reportFoo"),
+	})
+	handler := newLSPRouteTestHandler(t, config.ModeIDE, projectRuntime, diagnostics, nil)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetCodeSectionDiagnosticsMute,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1","mute":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("resolve project from runtime snapshot: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("section-1")
+	if err != nil {
+		t.Fatalf("resolve section ignore state: %v", err)
+	}
+	if !ignoreState.Muted {
+		t.Fatalf("expected mute state to persist, got %#v", ignoreState)
+	}
+
+	filtered := diagnostics.Snapshot("project-alpha")
+	if len(filtered.CodeSections) != 0 {
+		t.Fatalf("expected mute route to clear filtered diagnostics, got %#v", filtered.CodeSections)
+	}
+}
+
 func newLSPRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
@@ -130,6 +230,63 @@ func newLSPRouteTestHandler(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func lspDiagnosticsMutationRouteRuntime(t *testing.T) *projectstate.Runtime {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+				SectionVariantMap: map[string]string{
+					"section-1": "variant-1",
+				},
+				Sections: map[string]projectstate.Section{
+					"section-1": {
+						ID:               "section-1",
+						Name:             "Section",
+						VariantIDs:       []string{"variant-1"},
+						DefaultVariantID: "variant-1",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"variant-1": {
+						ID:     "variant-1",
+						ImplID: "impl-1",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"impl-1": {
+						ID:   "impl-1",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+						},
+						Payload: projectstate.RawJSON(`{
+							"id":"impl-1",
+							"type":"Code",
+							"code":"print('hello')\n",
+							"codeLanguage":"python",
+							"children":[]
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize lsp diagnostics mutation document: %v", err)
+	}
+
+	runtime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	return runtime
 }
 
 func testHTTPAPILSPDiagnostic(code string) projectstate.LSPDiagnostic {
