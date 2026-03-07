@@ -73,6 +73,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectStates      *projectstate.Registry
 		deploymentRuntime  *deployments.Runtime
 		projectRuntime     *projectstate.Runtime
+		settingsRuntime    *projectstate.Runtime
 		codegenValidator   projectstate.CodegenTargetValidator
 		lspDiagnostics     *projectstate.LSPDiagnosticsRegistry
 		projectLSPSyncer   *lsp.ProjectSynchronizer
@@ -211,6 +212,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		projectRuntime = projectStates.Main()
+		settingsRuntime = projectStates.Settings()
 		plannerFilesRoot = cfg.Paths.SettaFilesRoot
 		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
 		projectLSPSyncer.SetCallableAutoRefetchHandlers(
@@ -434,6 +436,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:                     modePolicy,
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
+				SettingsState:                  settingsRuntime,
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
 				CallableSignatures:             lspSignature,

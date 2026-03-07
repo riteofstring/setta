@@ -1108,6 +1108,126 @@ func TestRegisterProjectRoutesViewModeAndTopLevelLayoutMutationsPersistLatestSta
 	}
 }
 
+func TestRegisterProjectRoutesAutoLayoutTopLevelSectionsPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	before := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAutoLayoutTopLevelSections,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if autoLayoutRouteMinX(project.TopLevelSections) != autoLayoutRouteMinX(before.TopLevelSections) {
+		t.Fatalf("expected auto layout to preserve min x %v, got %v", autoLayoutRouteMinX(before.TopLevelSections), autoLayoutRouteMinX(project.TopLevelSections))
+	}
+	if autoLayoutRouteMinY(project.TopLevelSections) != autoLayoutRouteMinY(before.TopLevelSections) {
+		t.Fatalf("expected auto layout to preserve min y %v, got %v", autoLayoutRouteMinY(before.TopLevelSections), autoLayoutRouteMinY(project.TopLevelSections))
+	}
+	if project.TopLevelSections["standalone-section"] == before.TopLevelSections["standalone-section"] {
+		t.Fatal("expected auto layout to rewrite at least one top-level section position")
+	}
+	if !reflect.DeepEqual(project.TopLevelSections, project.ViewModes["focus"].TopLevelSections) {
+		t.Fatal("expected auto layout to keep the active view mode layouts aligned with project layouts")
+	}
+}
+
+func TestRegisterProjectRoutesAutoLayoutTopLevelSectionsReturns422ForInvalidMargin(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAutoLayoutTopLevelSections,
+		strings.NewReader(`{"projectConfigId":"project-alpha","margin":-1}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_auto_layout"`) {
+		t.Fatalf("expected invalid_auto_layout body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesAutoLayoutTopLevelSectionsReturns404ForMissingProject(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAutoLayoutTopLevelSections,
+		strings.NewReader(`{"projectConfigId":"missing-project"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"project_config_not_found"`) {
+		t.Fatalf("expected project_config_not_found body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesSetActiveViewModeReturnsNotFoundForUnknownViewMode(t *testing.T) {
 	t.Parallel()
 
@@ -1445,6 +1565,18 @@ func newProjectRouteTestHandler(
 			return nil
 		})
 	}
+	settingsRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects:      map[string]projectstate.Project{},
+	})
+	if err != nil {
+		t.Fatalf("open settings overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings overlay runtime: %v", err)
+		}
+	})
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -1455,6 +1587,7 @@ func newProjectRouteTestHandler(
 				ModePolicy:                     modes.NewPolicy(mode),
 				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
+				SettingsState:                  settingsRuntime,
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,
 				CallableSignatures:             callableResolver,
@@ -1502,6 +1635,30 @@ func decodeProjectRouteStringArray(value any) []string {
 		}
 	}
 	return output
+}
+
+func autoLayoutRouteMinX(layouts map[string]projectstate.TopLevelSectionLayout) float64 {
+	first := true
+	minX := 0.0
+	for _, layout := range layouts {
+		if first || layout.X < minX {
+			minX = layout.X
+		}
+		first = false
+	}
+	return minX
+}
+
+func autoLayoutRouteMinY(layouts map[string]projectstate.TopLevelSectionLayout) float64 {
+	first := true
+	minY := 0.0
+	for _, layout := range layouts {
+		if first || layout.Y < minY {
+			minY = layout.Y
+		}
+		first = false
+	}
+	return minY
 }
 
 type stubProjectRouteCallableSignatureResolver struct {

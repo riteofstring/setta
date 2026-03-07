@@ -27,6 +27,7 @@ const (
 	RouteSetViewModeSortOrder           = "/setViewModeSortOrder"
 	RouteDeleteViewMode                 = "/deleteViewMode"
 	RouteSetTopLevelSectionLayout       = "/setTopLevelSectionLayout"
+	RouteAutoLayoutTopLevelSections     = "/autoLayoutTopLevelSections"
 	RouteSetShowParamDisplayNames       = "/setShowParamDisplayNames"
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
@@ -53,6 +54,7 @@ type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
+	SettingsState                  *projectstate.Runtime
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CallableSignatures             projectstate.CallableSignatureResolver
@@ -137,6 +139,12 @@ type SetTopLevelSectionLayoutRequest struct {
 	FrontendOpID     *string                                       `json:"frontendOpId"`
 	ProjectID        string                                        `json:"projectConfigId"`
 	TopLevelSections map[string]projectstate.TopLevelSectionLayout `json:"topLevelSections"`
+}
+
+type AutoLayoutTopLevelSectionsRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	Margin       *int    `json:"margin"`
 }
 
 type SetShowParamDisplayNamesRequest struct {
@@ -243,6 +251,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		if deps.ProjectState == nil {
 			return fmt.Errorf("project runtime is required in ide mode")
 		}
+		if deps.SettingsState == nil {
+			return fmt.Errorf("settings runtime is required in ide mode")
+		}
 		if deps.CodeUpdates == nil {
 			return fmt.Errorf("project code update service is required in ide mode")
 		}
@@ -265,6 +276,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewModeSortOrder, setViewModeSortOrderHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteViewMode, deleteViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTopLevelSectionLayout, setTopLevelSectionLayoutHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAutoLayoutTopLevelSections, autoLayoutTopLevelSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
@@ -620,6 +632,41 @@ func setTopLevelSectionLayoutHandler(deps ProjectRouteDependencies) http.Handler
 
 		if _, err := deps.ProjectState.SetTopLevelSectionLayout(r.Context(), projectID, payload.TopLevelSections); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func autoLayoutTopLevelSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[AutoLayoutTopLevelSectionsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		margin := 50
+		if payload.Margin != nil {
+			margin = *payload.Margin
+		}
+		if _, err := deps.ProjectState.AutoLayoutTopLevelSections(
+			r.Context(),
+			projectID,
+			deps.SettingsState.Snapshot().Document,
+			margin,
+		); err != nil {
+			writeAutoLayoutError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -1137,6 +1184,21 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeAutoLayoutError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case projectstate.IsInvalidAutoLayoutError(err),
+		errors.Is(err, projectstate.ErrSettingsValueInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_auto_layout", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

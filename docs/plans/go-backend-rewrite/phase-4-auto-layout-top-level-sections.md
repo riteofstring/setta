@@ -29,9 +29,8 @@ Current repo status as of 2026-03-07:
     `setTopLevelSectionLayout`
   - settings-runtime storage as a separate runtime under
     `internal/projectstate.Registry`
-- Go does not yet own:
-  - the `autoLayoutTopLevelSections` route
 - Go now owns:
+  - the `autoLayoutTopLevelSections` route
   - section-sizing-policy lookup for layout fallback dimensions
   - the top-level auto-layout packing algorithm
 
@@ -184,7 +183,7 @@ Acceptance:
 
 Status:
 
-- pending
+- completed 2026-03-07
 
 ## Open Questions
 
@@ -204,6 +203,12 @@ Completed 2026-03-07:
   `internal/projectstate/auto_layout.go`
 - added focused runtime coverage in
   `internal/projectstate/auto_layout_test.go`
+- added thin IDE transport for `autoLayoutTopLevelSections` in
+  `internal/httpapi/project_routes.go`
+- threaded the settings runtime through app route registration in
+  `internal/app/app.go`
+- added focused route coverage in
+  `internal/httpapi/project_routes_test.go`
 - confirmed:
   - explicit layout `w`/`h` wins
   - impl `size.width` / `size.height` is used when present
@@ -211,13 +216,27 @@ Completed 2026-03-07:
   - rewritten layouts preserve the prior minimum `x`/`y` origin
   - active view-mode top-level layouts stay aligned through
     `setTopLevelSectionLayout`
+  - the route defaults omitted `margin` to `50`
+  - invalid auto-layout requests map to a stable `invalid_auto_layout`
+    HTTP envelope
 
 Verification:
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppServesFoundationRoutes' -count=1 -timeout 180s`
+
+Additional note:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppServesFoundationRoutes|TestAppWiresSeparateProjectStateRuntimes' -count=1 -timeout 180s`
+  still hits the existing local LSP bootstrap failure in
+  `TestAppWiresSeparateProjectStateRuntimes` (`initialize failed: EOF`), so
+  app verification for this slice stayed scoped to the route-registration
+  smoke test.
 
 ## Next Recommended Step
 
-- Implement Slice 2 next.
-- Keep transport thin by passing the settings runtime through one narrow
-  dependency into the project routes.
+- Return to `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` and
+  pick the next uncovered focused doc outside this completed auto-layout slice.
+- Keep `setSectionName` deferred until there is a separate focused doc for
+  validation and rename side effects.
