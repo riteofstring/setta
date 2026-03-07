@@ -36,6 +36,19 @@ func NewDocument() Document {
 	}
 }
 
+func (d Document) Clone() Document {
+	cloned := d
+	if d.Projects == nil {
+		return cloned
+	}
+
+	cloned.Projects = make(map[string]Project, len(d.Projects))
+	for projectID, project := range d.Projects {
+		cloned.Projects[projectID] = project
+	}
+	return cloned
+}
+
 func (d Document) Normalized() (Document, error) {
 	if d.SchemaVersion != CurrentSchemaVersion {
 		return Document{}, fmt.Errorf("%w: %d", ErrUnsupportedSchemaVersion, d.SchemaVersion)
