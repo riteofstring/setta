@@ -82,7 +82,9 @@ The active Slice 2 execution work is now narrowed in:
     - additions now materialize placeholder registry entries with empty section
       lists until section mutation lands
 - the remaining Slice 2/3 gap is now the section-mutation boundary:
-  - section create/remove/rename still needs to move behind the new apply path
+  - Step 1 there is now complete:
+    - Go owns Callable section backfill/create/remove/rename
+    - Python import-prefix updates for Watch Code now run in Go
   - watcher-triggered callable refetch and warning notifications still sit
     above that boundary
   - the active section-mutation work is now narrowed in:

@@ -30,11 +30,16 @@ Current repo status as of 2026-03-07:
 - Step 1 intentionally materialized new callables as placeholder registry
   entries with empty `sectionIds`
 - the active Watch Code gap is now narrower:
-  - new/pending callables still do not create Callable sections in Go
-  - rename/remove behavior over section IDs is still Python-owned
-  - Python target import-prefix updates are still Python-owned
-  - watcher-triggered callable refetch and warning notifications are still
-    pending after section mutation
+  - Step 1 is now complete:
+    - new and pending Watch Code registry entries now create real Callable
+      sections in Go
+    - rename/remove behavior over section IDs now runs in Go
+    - Python target import-prefix updates now run in Go
+    - the IDE Watch Code runtime now drives that section-mutation path
+  - the remaining gap is now after section mutation:
+    - watcher-triggered callable refetch still is not reused from the completed
+      Go callable runtime
+    - unresolved signature-help warning notifications still are not emitted
 
 ## Scope
 
@@ -105,6 +110,8 @@ reuse the Go callable runtime cleanly.
 
 ### Step 1: Callable Section Backfill And Import Sync
 
+Status: complete on 2026-03-07.
+
 Deliver:
 
 - Go helpers to:
@@ -124,6 +131,16 @@ Acceptance:
   scan
 - renames keep existing section IDs and update the selected callable name
 - removals delete whole sections only when no other variants remain
+
+Completed in this chunk:
+
+- `internal/projectstate/watch_code_callable_sections.go`
+- `internal/projectstate/watch_code_apply.go`
+- `internal/projectstate/python_codegen.go`
+- `internal/projectstate/watch_code_apply_test.go`
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/app -count=1 -timeout 180s`
 
 ### Step 2: Callable Refetch Reuse
 
@@ -163,9 +180,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 1 next:
+Execute Step 2 next:
 
-- land Go Callable section creation/removal/rename over the existing file apply
-  path
-- correct placeholder `callableName` values into alias-safe import references
-- defer signature-refetch reuse and warnings to the next bounded slice
+- route Watch Code signature changes through the completed Go callable binding /
+  refetch runtime
+- preserve the new section-mutation/import helpers as the only Watch Code
+  section owner
+- leave warning notifications for the final bounded step

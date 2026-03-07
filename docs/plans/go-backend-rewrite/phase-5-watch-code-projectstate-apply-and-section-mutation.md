@@ -188,9 +188,9 @@ Acceptance:
 
 Current split:
 
-- Step 1 in `phase-5-watch-code-callable-section-mutation.md`
+- Step 1 in `phase-5-watch-code-callable-section-mutation.md` is now complete
   - Callable section backfill/create/remove/rename plus Python import sync
-- later steps there
+- later steps there remain active
   - callable refetch reuse
   - warning notifications
 
@@ -222,11 +222,11 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 1 in
+Execute Step 2 in
 `phase-5-watch-code-callable-section-mutation.md` next:
 
-- land Go-owned Callable section create/remove/rename helpers over the
-  completed file apply path
-- treat empty-section placeholder registry entries as pending callable sections
-- defer callable refetch reuse and warning notifications to the next bounded
-  slice
+- route Watch Code signature changes through the completed Go callable refetch
+  runtime
+- preserve the new section-mutation/import helpers as the source-of-truth
+  section owner
+- keep warning notifications for the final bounded step
