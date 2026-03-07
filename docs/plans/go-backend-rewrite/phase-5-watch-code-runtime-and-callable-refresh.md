@@ -85,6 +85,8 @@ The active Slice 2 execution work is now narrowed in:
   - section create/remove/rename still needs to move behind the new apply path
   - watcher-triggered callable refetch and warning notifications still sit
     above that boundary
+  - the active section-mutation work is now narrowed in:
+    - `docs/plans/go-backend-rewrite/phase-5-watch-code-callable-section-mutation.md`
 - the completed runtime-owner work remains captured in:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
   - file-identity snapshots remain the chosen move-detection owner

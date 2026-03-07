@@ -165,6 +165,9 @@ Completed in this chunk:
 
 ### Step 2: Callable Section Mutation And Refetch Reuse
 
+Status: now split into the focused execution doc
+`phase-5-watch-code-callable-section-mutation.md`.
+
 Deliver:
 
 - Go-owned create/remove/rename helpers for callable sections driven by the
@@ -182,6 +185,14 @@ Acceptance:
 - removed callables delete sections only when no other variants remain
 - signature changes route through the same callable synthesis path already used
   elsewhere in Go
+
+Current split:
+
+- Step 1 in `phase-5-watch-code-callable-section-mutation.md`
+  - Callable section backfill/create/remove/rename plus Python import sync
+- later steps there
+  - callable refetch reuse
+  - warning notifications
 
 ### Step 3: App Callback Wiring, Warning Notifications, And Verification
 
@@ -211,9 +222,11 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 2 next:
+Execute Step 1 in
+`phase-5-watch-code-callable-section-mutation.md` next:
 
-- port Go-owned section create/remove/rename helpers over the completed file
-  apply path
+- land Go-owned Callable section create/remove/rename helpers over the
+  completed file apply path
 - treat empty-section placeholder registry entries as pending callable sections
-- keep warning notifications for Step 3 after callable refetch reuse lands
+- defer callable refetch reuse and warning notifications to the next bounded
+  slice
