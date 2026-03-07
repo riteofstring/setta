@@ -20,10 +20,11 @@ owner into parent/child graph mutation without opening delete/move semantics.
 
 Current repo status as of 2026-03-07:
 
-- this slice is in progress
-- Go does not yet own `create_child_sections`
-- Go does not yet have a bounded project-state owner for child section
-  construction or parent-child insertion
+- this slice is complete
+- Go MCP now exposes `create_child_sections`
+- Go now has a bounded project-state owner for child section construction and
+  ordered parent insertion in `internal/projectstate/child_section_creation.go`
+- `create_child_sections` result ids are temp-id translated through metadata
 - the IDE HTTP `createChildSections` route remains deferred
 
 ## Scope
@@ -96,8 +97,11 @@ The high-leverage move is therefore:
 - keep this slice MCP-first
   - do not migrate the IDE HTTP `createChildSections` route in the same slice
 - keep creation bounded to section types Go can create honestly right now
+  - landed support is: `Chat`, `Code`, `Dict`, `Group`, `Terminal`,
+    and `TextBlock`
+  - `MetaControl`, `ListRoot`, and other child-only/extra-default shapes stay
+    deferred
   - return explicit `invalid_arguments` errors for unsupported child impl types
-  - do not guess missing payload defaults for types Go still does not model
 - keep structural scope behavior unchanged
   - `create_child_sections` is structural
   - scoped chats without `allowUnscoped` still fail closed
@@ -113,6 +117,9 @@ The high-leverage move is therefore:
   - code parents only allow one `Terminal` child
   - attached-terminal bookkeeping stays source-of-truth owned in project-state
   - child terminal height must be concrete, not `"auto"`
+  - terminal child height resolves from settings
+    `terminalSectionDefault.size.height` when available, with the documented
+    default height used only when no settings project is present
 - keep insertion deterministic
   - `startIdx=nil` appends
   - out-of-range indexes should fail explicitly instead of relying on implicit
@@ -157,7 +164,34 @@ The high-leverage move is therefore:
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute' -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP' -count=1 -timeout 420s`
 
-## Progress Notes
+## Completed Work
 
-- 2026-03-07: doc created; implementation not started yet.
+- added `CreateChildSectionsInput` / `CreateChildSectionsResult` and the
+  bounded project-state owner on `Document`, `Runtime`, and `Project`
+- reused the existing section-construction helper for supported child impl
+  types and set explicit child `ParentSectionID`
+- landed ordered child insertion on the parent impl payload with explicit
+  `startIdx` validation
+- landed code-parent terminal rules:
+  - reject non-terminal child types
+  - reject `numChildren != 1`
+  - reject creating a second attached child
+  - sync parent `children` plus `attachedTerminalSectionId`
+  - promote code height to the embedded-terminal minimum and seed terminal
+    height concretely
+- registered the MCP `create_child_sections` tool with:
+  - `IDPathsByType.section = ["parentId"]`
+  - `ResultIDPathsByType.section = ["sectionIds"]`
+- added focused coverage in:
+  - `internal/projectstate/child_section_creation_test.go`
+  - `internal/mcpx/server_test.go`
+  - `internal/httpapi/mcp_tool_routes_test.go`
+  - `internal/app/mcp_test.go`
 
+## Next Recommended Step
+
+- keep the structural boundary moving with `create_child_sections_via_incrementer`
+- it can reuse the new child-construction owner and only needs the bounded
+  parent/insert-index resolution layer above it
+- keep delete/move semantics deferred until that smaller structural follow-on
+  lands

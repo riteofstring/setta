@@ -59,6 +59,7 @@ type toolDefinition struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
+	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
@@ -451,6 +452,65 @@ func newCreateTopLevelSectionHandler(projectState projectStateProvider, settings
 		}
 
 		_, result, err := projectState.CreateTopLevelSection(ctx, projectConfigID, input, settingsDocument)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newCreateChildSectionsHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		parentID, err := readRequiredStringArgument(arguments, "parentId")
+		if err != nil {
+			return nil, err
+		}
+		implType, err := readRequiredStringArgument(arguments, "implType")
+		if err != nil {
+			return nil, err
+		}
+		numChildren, err := readRequiredPositiveIntArgument(arguments, "numChildren")
+		if err != nil {
+			return nil, err
+		}
+		startIdx, err := readOptionalNonNegativeIntArgument(arguments, "startIdx")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural child-section invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		input := projectstate.CreateChildSectionsInput{
+			ParentID:    parentID,
+			ImplType:    implType,
+			NumChildren: numChildren,
+			StartIdx:    startIdx,
+		}
+
+		settingsDocument := projectstate.Document{}
+		if settingsState != nil {
+			settingsDocument = settingsState.Snapshot().Document
+		}
+
+		_, result, err := projectState.CreateChildSections(ctx, projectConfigID, input, settingsDocument)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -932,6 +992,64 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"sectionId"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "create_child_sections",
+				Description: "Create one or more child sections beneath the requested parent section.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"parentId"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionIds"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"create", "child", "section", "structural", "parent"},
+				},
+				Handler: newCreateChildSectionsHandler(projectState, settingsState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id where child sections should be created.",
+					},
+					"parentId": map[string]any{
+						"type":        "string",
+						"description": "Parent section id that will receive the new children.",
+					},
+					"implType": map[string]any{
+						"type":        "string",
+						"description": "Section implementation type shared by every created child.",
+					},
+					"numChildren": map[string]any{
+						"type":        "integer",
+						"description": "Number of child sections to create.",
+					},
+					"startIdx": map[string]any{
+						"type":        "integer",
+						"description": "Optional insertion index for the created child block.",
+					},
+				},
+				"required": []string{"projectConfigId", "parentId", "implType", "numChildren"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sectionIds": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"sectionIds"},
 			},
 		})
 	}
@@ -1585,6 +1703,49 @@ func readOptionalPositiveIntArgument(arguments map[string]any, key string) (*int
 	return &value, nil
 }
 
+func readRequiredPositiveIntArgument(arguments map[string]any, key string) (int, error) {
+	value, err := readOptionalPositiveIntArgument(arguments, key)
+	if err != nil {
+		return 0, err
+	}
+	if value == nil {
+		return 0, newToolError("invalid_arguments", "%s is required", key)
+	}
+	return *value, nil
+}
+
+func readOptionalNonNegativeIntArgument(arguments map[string]any, key string) (*int, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	var value int
+	switch typed := rawValue.(type) {
+	case int:
+		value = typed
+	case int8:
+		value = int(typed)
+	case int16:
+		value = int(typed)
+	case int32:
+		value = int(typed)
+	case int64:
+		value = int(typed)
+	case float64:
+		if math.Trunc(typed) != typed {
+			return nil, newToolError("invalid_arguments", "%s must be an integer", key)
+		}
+		value = int(typed)
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an integer", key)
+	}
+	if value < 0 {
+		return nil, newToolError("invalid_arguments", "%s must be at least 0", key)
+	}
+	return &value, nil
+}
+
 func decodeToolArguments(req *sdkmcp.CallToolRequest) (map[string]any, error) {
 	if req == nil || req.Params == nil || len(req.Params.Arguments) == 0 {
 		return map[string]any{}, nil
@@ -1662,6 +1823,15 @@ func normalizeProjectStateMutationError(err error) error {
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
+		errors.Is(err, projectstate.ErrChildSectionParentIDRequired),
+		errors.Is(err, projectstate.ErrChildSectionImplTypeRequired),
+		errors.Is(err, projectstate.ErrChildSectionImplTypeUnsupported),
+		errors.Is(err, projectstate.ErrChildSectionCountInvalid),
+		errors.Is(err, projectstate.ErrChildSectionStartIdxInvalid),
+		errors.Is(err, projectstate.ErrChildSectionParentUnsupported),
+		errors.Is(err, projectstate.ErrCodeSectionChildTypeInvalid),
+		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid),
+		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild),
 		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired),
 		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported),
 		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported),

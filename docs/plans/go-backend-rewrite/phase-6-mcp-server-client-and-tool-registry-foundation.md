@@ -572,14 +572,43 @@ Reference:
 
 - `phase-6-create-top-level-section-structural-tool.md`
 
+### Slice 11: Create Child Sections Structural Tool
+
+Deliver:
+
+- a Go-owned project-state owner for bounded child section construction and
+  ordered parent insertion
+- a Go MCP `create_child_sections` structural tool over that owner
+- argument/result temp-id translation for `parentId` and returned `sectionIds`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `create_child_sections`
+- structural scope remains explicit and fail-closed
+- created child result ids are temp-id translated through metadata instead of a
+  tool-name branch
+- code parents only allow one attached terminal child and keep terminal
+  bookkeeping plus concrete size rules in sync
+- the IDE HTTP `createChildSections` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-create-child-sections-structural-tool.md`
+
 ## Next Recommended Step
 
-- Slice 10 is now complete.
-- The next recommended step is `create_child_sections`.
+- Slice 11 is now complete.
+- The next recommended step is `create_child_sections_via_incrementer`.
 - It stays on the same structural-construction boundary instead of switching
   immediately into delete/move semantics.
-- It can reuse the new result-id metadata translation path and the same
-  project-state section-construction helpers.
+- It can reuse the new child-construction owner plus the existing result-id
+  metadata translation path.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice
