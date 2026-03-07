@@ -79,6 +79,28 @@ Start with a lower-risk split:
 
 This sequence should recover most of the minimap-specific regression without forcing a large rewrite up front.
 
+## Iterative Rollout
+Implement this as a ladder of commits, not a single end-state rewrite.
+
+### Stage 1
+- Preserve all current minimap features.
+- Optimize internals only.
+- Measure with the same CDP scenario.
+- Append results to a minimap perf report under `perf/`.
+- Commit.
+
+### Stage 2+
+- Remove one concrete feature or fidelity guarantee at a time to unlock a stronger optimization.
+- After each tradeoff:
+  - re-run the same measurement flow
+  - append results to the same perf report
+  - commit separately
+
+The point of the rollout is to leave a clean commit history that shows:
+- what behavior was traded away
+- how much performance each tradeoff bought
+- which commit corresponds to each stopping point
+
 ## Implementation Plan
 ### 1. Baseline and guardrails
 - Add an append-only entry under `perf/` for the 2026-03-06 baseline and future before/after reruns.
