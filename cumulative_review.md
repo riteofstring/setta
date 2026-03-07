@@ -27,12 +27,22 @@
 
 ## 2026-03-05 10:46:03 PST
 
-### Maintenance updates
-- Ran `pnpm -C frontend gcf` to regenerate/clean generated frontend/backend artifacts.
-- Removed top-level `review*.md` files and kept `cumulative_review.md` as the canonical review record.
+### Consolidated implementation updates
+- Added backend skill editability metadata (`isEditable`, `editabilityReason`) for MCP skills viewer records.
+- Updated frontend skills viewer state handling to separate loading/error state from editable draft content.
+- Scoped slash-command polling/work to slash mode and added a deterministic fallback selector helper.
+- Fixed notifications `initialTab` handling to apply once without overriding later user tab changes.
+- Added and updated backend, Vitest, and Playwright coverage for these behavior fixes.
+- Removed top-level `review*.md` files and kept `cumulative_review.md` as the canonical review log.
 
-### UX/DX impact
-- UX before: No user-facing impact from scattered review docs and stale generated artifacts.
-- UX after: No behavior change; generated assets are refreshed and aligned with current code.
-- DX before: Review context was split across multiple root-level review files.
-- DX after: Single-source review history lives in `cumulative_review.md`, reducing context drift and cleanup overhead.
+### UX/DX before and after
+- Before: Skill editability decisions were implicit and could be inconsistent between backend and UI.  
+  After: Backend sends explicit editability metadata, so UI edit controls behave predictably.
+- Before: Skills editor loading/error transitions could interfere with raw draft state.  
+  After: Draft state is preserved independently from fetch lifecycle state.
+- Before: Slash-command polling and selector checks ran more broadly than needed.  
+  After: Polling/lookup is limited to slash mode with stable fallback behavior and tests.
+- Before: Notifications `initialTab` could keep reapplying and disrupt user tab selection.  
+  After: `initialTab` is consumed once, then user tab choice is preserved.
+- Before: Review context was split across multiple root-level files.  
+  After: Review history is centralized in `cumulative_review.md`.
