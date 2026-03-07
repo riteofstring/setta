@@ -19,6 +19,11 @@ Current repo status as of 2026-03-06:
 - Phase 2 auth, mode policy, request context, and websocket auth entry points are in place
 - Phase 3 project-state persistence, runtime ownership, registry wiring, and deployment overlays are in place
 - websocket transport entry/auth exists in Go under `internal/wsapi`
+- the Go rewrite now includes `internal/realtime` with:
+  - a transport-independent connection registry
+  - server-owned frontend affinity tokens
+  - sanitized current-address tracking
+  - deterministic per-project/per-share-session sequence tracking
 - realtime sequencing, websocket connection ownership, listener fan-out, and terminal runtime still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
@@ -70,6 +75,7 @@ This phase should deliver:
 - scope realtime sequence tracking by `(project id, share session id)` from the start
 - treat deployment/share-session fan-out as a first-class boundary, not a late filter
 - keep frontend affinity tokens server-owned and session-scoped
+- use explicit conjunction-based selection filters instead of Python's older implicit broadcast matching rules
 - defer listener-specific dependency filtering until the registry and broadcast model are settled
 - treat PTY lifecycle as its own service boundary under `internal/terminals`
 - prefer temp-dir and real-subprocess tests over heavy mocking
@@ -131,7 +137,46 @@ Acceptance:
 
 Status:
 
-- planned
+- complete
+
+Completed:
+
+- added `internal/realtime/registry.go`
+- added `internal/realtime/sequencer.go`
+- introduced a transport-independent connection registry with:
+  - explicit connection metadata
+  - register/unregister lifecycle
+  - deterministic filtered snapshots for later fan-out code
+- made frontend affinity ownership explicit:
+  - tokens are minted only by the server
+  - lookup is share-session-aware
+  - disconnect removes stale affinity mappings
+- made current-address handling explicit:
+  - the `#setta-ws-affinity=` marker is stripped before storage
+  - client-provided affinity markers never rebind server-owned tokens
+- added a dedicated sequence core:
+  - scopes are `(project id, share session id)`
+  - each scope increments independently
+  - force-refresh/session-teardown style resets are explicit through `Reset` and `DropShareSession`
+
+Tests:
+
+- focused coverage in:
+  - `internal/realtime/registry_test.go`
+  - `internal/realtime/sequencer_test.go`
+- verified behaviors include:
+  - server-owned affinity token assignment and reconnect rebinding
+  - share-session-scoped affinity resolution
+  - current-address sanitation
+  - deterministic selection filters
+  - per-scope sequence increment/reset/drop behavior
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- websocket send/broadcast ownership
+- listener-facing snapshot/delta message fan-out
+- terminal session lifecycle and PTY attachment
 
 ### Slice 2: Websocket Transport Bridge
 
@@ -215,8 +260,9 @@ Phase 4 is complete when:
 
 ## Next Recommended Step
 
-Implement Slice 1:
+Implement Slice 2:
 
-- add `internal/realtime` with connection registry, affinity ownership, target filtering, and per-scope sequence tracking
-- keep it transport-independent
-- cover it with focused package tests before wiring websocket delivery
+- attach websocket transport ownership to the realtime registry
+- keep socket I/O in `internal/wsapi` or a narrow websocket runtime layer
+- add session/type-targeted send and broadcast helpers with cleanup of closed sockets
+- cover websocket lifecycle and inventory broadcast behavior with Go integration tests
