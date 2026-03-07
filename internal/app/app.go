@@ -7,20 +7,26 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/runtime"
+	"setta/internal/wsapi"
 )
 
 type App struct {
 	config        config.Config
 	logger        *slog.Logger
+	authService   *auth.Service
 	runtime       *runtime.Manager
 	projectStates *projectstate.Registry
+	websocketHub  *realtime.WebsocketHub
+	listeners     *realtime.ListenerBroadcaster
 	handler       http.Handler
 }
 
@@ -43,6 +49,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: websocketHub,
+	})
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
 		Info: infoService{
@@ -51,6 +61,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		},
 		Auth:       authService,
 		ModePolicy: modes.NewPolicy(cfg.Server.Mode),
+		RegisterRoot: func(r chi.Router) {
+			if err := wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
+				Transport: wsapi.Dependencies{
+					Auth:       authService,
+					ModePolicy: modes.NewPolicy(cfg.Server.Mode),
+				},
+				WebsocketHub:        websocketHub,
+				ListenerBroadcaster: listenerBroadcaster,
+			}); err != nil {
+				panic(err)
+			}
+		},
 	})
 	if err != nil {
 		_ = projectStates.Close()
@@ -60,8 +82,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	return &App{
 		config:        cfg,
 		logger:        logger,
+		authService:   authService,
 		runtime:       manager,
 		projectStates: projectStates,
+		websocketHub:  websocketHub,
+		listeners:     listenerBroadcaster,
 		handler:       handler,
 	}, nil
 }
@@ -78,8 +103,20 @@ func (a *App) Runtime() *runtime.Manager {
 	return a.runtime
 }
 
+func (a *App) Auth() *auth.Service {
+	return a.authService
+}
+
 func (a *App) ProjectStates() *projectstate.Registry {
 	return a.projectStates
+}
+
+func (a *App) WebsocketHub() *realtime.WebsocketHub {
+	return a.websocketHub
+}
+
+func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
+	return a.listeners
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

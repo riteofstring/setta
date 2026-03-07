@@ -56,6 +56,7 @@ type Dependencies struct {
 	Info       InfoService
 	Auth       *auth.Service
 	ModePolicy modes.Policy
+	RegisterRoot func(chi.Router)
 	Register   func(chi.Router)
 }
 
@@ -93,6 +94,10 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	router.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
+
+	if deps.RegisterRoot != nil {
+		deps.RegisterRoot(router)
+	}
 
 	if deps.Auth != nil && deps.Auth.Enabled() {
 		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth))
@@ -397,6 +402,10 @@ func buildRequestID() string {
 type statusRecorder struct {
 	http.ResponseWriter
 	status int
+}
+
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
 }
 
 func (r *statusRecorder) WriteHeader(status int) {
