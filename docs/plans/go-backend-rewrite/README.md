@@ -148,11 +148,14 @@ Use the docs in this order:
 62. `phase-6-set-show-param-display-names-tool-parity.md`
   - focused slice doc for Go-owned `set_show_param_display_names` MCP parity
     over the completed layout-presentation runtime boundary
-63. `spike-mcp.md`
+63. `phase-6-toggle-position-locks-tool-parity.md`
+  - focused slice doc for Go-owned `toggle_position_locks` MCP parity over the
+    completed layout-presentation runtime and scoped structural boundary
+64. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-64. `spike-pty.md`
+65. `spike-pty.md`
    - PTY uncertainty-reduction plan
-65. `spike-lsp.md`
+66. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
