@@ -88,11 +88,13 @@ Use the docs in this order:
    - focused current-work plan for `codeObj` target mapping, singleton fallback, and the next scoped MCP write tool
 42. `phase-6-codeobj-write-tool-parity.md`
    - focused current-work plan for code-object write mutation parity over the completed MCP targeting boundary
-43. `spike-mcp.md`
+43. `phase-6-section-name-tool-parity.md`
+   - focused current-work plan for Go-owned `set_section_name` MCP parity over the completed scoped write and rename-refactor boundaries
+44. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-44. `spike-pty.md`
+45. `spike-pty.md`
    - PTY uncertainty-reduction plan
-45. `spike-lsp.md`
+46. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

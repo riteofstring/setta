@@ -517,11 +517,11 @@ Reference:
 ## Next Recommended Step
 
 - Slice 8 is now complete.
-- The next recommended step is a bounded project-shape/name slice using
-  existing Go runtime owners where the semantics are already explicit:
-  - `set_section_name`
-  - `set_callable_name`
+- The next recommended step is a focused `set_section_name` MCP slice that
+  reuses the existing Go rename-refactor owner.
+- `set_callable_name` remains an internal rename-apply helper, not a separate
+  product-facing MCP tool boundary.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
-- Leave broader create/delete/move structural mutations after that lighter
-  name-edit slice.
+- Leave broader structural create/delete/move mutations after section-rename
+  parity is in place.
