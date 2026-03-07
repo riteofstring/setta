@@ -282,6 +282,36 @@ func TestRuntimeSavePersistsLatestQueuedMutation(t *testing.T) {
 	}
 }
 
+func TestRuntimeMutateAndSavePersistsLatestQueuedMutation(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntime(t, store)
+
+	snapshot, err := runtime.MutateAndSave(context.Background(), func(document Document) (Document, error) {
+		document.Projects["project-alpha"] = Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("mutate and save runtime: %v", err)
+	}
+
+	loaded, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document: %v", err)
+	}
+	if _, ok := loaded.Projects["project-alpha"]; !ok {
+		t.Fatal("expected persisted document to include mutate-and-save result")
+	}
+	if snapshot.Revision != 2 {
+		t.Fatalf("expected revision 2 after mutate-and-save, got %d", snapshot.Revision)
+	}
+}
+
 func TestRuntimeSaveRunsAfterSaveHookWithLatestSnapshot(t *testing.T) {
 	t.Parallel()
 

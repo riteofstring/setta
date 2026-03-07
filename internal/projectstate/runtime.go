@@ -153,18 +153,35 @@ func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 	return r.submit(operation{
 		run: func(state *runtimeState) (Snapshot, error) {
 			snapshot := snapshotFromState(*state)
-			if r.savePolicy != SavePolicyPersist || r.saveFn == nil {
-				return snapshot, nil
+			return snapshot, r.persistSnapshot(ctx, snapshot)
+		},
+	})
+}
+
+func (r *Runtime) MutateAndSave(ctx context.Context, mutate Mutation) (Snapshot, error) {
+	if mutate == nil {
+		return Snapshot{}, ErrMutationMissing
+	}
+
+	return r.submit(operation{
+		run: func(state *runtimeState) (Snapshot, error) {
+			nextDocument, err := mutate(state.current.Clone())
+			if err != nil {
+				return snapshotFromState(*state), err
 			}
-			if err := r.saveFn(ctx, snapshot.Document); err != nil {
-				return snapshot, err
+
+			normalized, err := nextDocument.Normalized()
+			if err != nil {
+				return snapshotFromState(*state), err
 			}
-			if r.savePolicy == SavePolicyPersist && r.saveFn != nil && r.afterSave != nil {
-				if err := r.afterSave(ctx, snapshot); err != nil {
-					return snapshot, err
-				}
+
+			if !reflect.DeepEqual(state.current, normalized) {
+				state.current = normalized.Clone()
+				state.revision++
 			}
-			return snapshot, nil
+
+			snapshot := snapshotFromState(*state)
+			return snapshot, r.persistSnapshot(ctx, snapshot)
 		},
 	})
 }
@@ -232,6 +249,21 @@ func snapshotFromState(state runtimeState) Snapshot {
 		Document: state.current.Clone(),
 		Revision: state.revision,
 	}
+}
+
+func (r *Runtime) persistSnapshot(ctx context.Context, snapshot Snapshot) error {
+	if r.savePolicy != SavePolicyPersist || r.saveFn == nil {
+		return nil
+	}
+	if err := r.saveFn(ctx, snapshot.Document); err != nil {
+		return err
+	}
+	if r.afterSave != nil {
+		if err := r.afterSave(ctx, snapshot); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type saveController struct {
