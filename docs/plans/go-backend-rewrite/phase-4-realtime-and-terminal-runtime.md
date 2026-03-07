@@ -24,6 +24,9 @@ Current repo status as of 2026-03-06:
   - server-owned frontend affinity tokens
   - sanitized current-address tracking
   - deterministic per-project/per-share-session sequence tracking
+  - a websocket hub with live connection ownership
+  - JSON send/broadcast helpers
+  - frontend identity and connection-inventory messages
 - realtime sequencing, websocket connection ownership, listener fan-out, and terminal runtime still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
@@ -76,6 +79,8 @@ This phase should deliver:
 - treat deployment/share-session fan-out as a first-class boundary, not a late filter
 - keep frontend affinity tokens server-owned and session-scoped
 - use explicit conjunction-based selection filters instead of Python's older implicit broadcast matching rules
+- use a minimal websocket envelope with `messageType` + `content` for Go-owned frontend-facing runtime messages
+- connection inventory broadcasts include live registered connections only; do not synthesize a fake server/main entry
 - defer listener-specific dependency filtering until the registry and broadcast model are settled
 - treat PTY lifecycle as its own service boundary under `internal/terminals`
 - prefer temp-dir and real-subprocess tests over heavy mocking
@@ -195,7 +200,55 @@ Acceptance:
 
 Status:
 
-- planned
+- complete
+
+Completed:
+
+- added `internal/realtime/messages.go`
+- added `internal/realtime/websocket_hub.go`
+- attached live websocket ownership to the existing realtime registry
+- added explicit websocket lifecycle hooks:
+  - `Connect`
+  - `Disconnect`
+  - `UpdateCurrentAddress`
+  - `SendJSON`
+  - `BroadcastJSON`
+  - `BroadcastConnections`
+  - `SendFrontendIdentity`
+- kept the transport boundary narrow:
+  - the hub owns live websocket references and write serialization
+  - message encoding is plain JSON
+  - route/auth entry remains in `internal/wsapi`
+- made the first Go-owned websocket message contracts explicit:
+  - `AllConnections`
+  - `FrontendIdentity`
+- kept inventory semantics simple and explicit:
+  - inventory is built from live registered connections
+  - broadcasts target frontend connections only
+  - current-address values are sanitized through the registry before broadcast
+- made cleanup behavior explicit:
+  - connection write failures drop the live websocket/runtime entry
+  - connect/disconnect can optionally rebroadcast inventory
+
+Tests:
+
+- focused integration-style coverage in `internal/realtime/websocket_hub_test.go`
+- verified behaviors include:
+  - session/type-targeted broadcast filtering
+  - connection inventory payloads with share-session ids
+  - current-address redaction in broadcasts
+  - server-owned frontend identity token delivery
+  - optional connect-time inventory broadcast
+  - disconnect-time inventory rebroadcast
+  - closed-connection cleanup on send
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- wiring actual websocket routes to the hub through `internal/wsapi`
+- listener snapshot/delta message fan-out
+- force-refresh message delivery
+- terminal session lifecycle and PTY attachment
 
 ### Slice 3: Listener Snapshot, Delta, And Force-Refresh Fan-Out
 
@@ -260,9 +313,8 @@ Phase 4 is complete when:
 
 ## Next Recommended Step
 
-Implement Slice 2:
+Implement Slice 3:
 
-- attach websocket transport ownership to the realtime registry
-- keep socket I/O in `internal/wsapi` or a narrow websocket runtime layer
-- add session/type-targeted send and broadcast helpers with cleanup of closed sockets
-- cover websocket lifecycle and inventory broadcast behavior with Go integration tests
+- add listener-facing snapshot, delta, and force-refresh broadcast helpers on top of the websocket hub
+- keep sequence ownership in `internal/realtime`
+- defer listener registration/dependency filtering only as long as needed to land the first deterministic snapshot + delta path
