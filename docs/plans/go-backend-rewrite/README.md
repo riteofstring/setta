@@ -141,11 +141,15 @@ Use the docs in this order:
 60. `phase-6-set-top-level-section-layout-tool-parity.md`
   - focused slice doc for Go-owned `set_top_level_section_layout` MCP parity
     over the completed top-level layout runtime and scoped MCP boundaries
-61. `spike-mcp.md`
+61. `phase-6-auto-layout-top-level-sections-tool-parity.md`
+  - focused slice doc for Go-owned `auto_layout_top_level_sections` MCP
+    parity over the completed top-level auto-layout runtime and settings-backed
+    sizing-policy boundary
+62. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-62. `spike-pty.md`
+63. `spike-pty.md`
    - PTY uncertainty-reduction plan
-63. `spike-lsp.md`
+64. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
