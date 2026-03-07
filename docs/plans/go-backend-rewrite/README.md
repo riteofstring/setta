@@ -129,11 +129,14 @@ Use the docs in this order:
 56. `phase-6-delete-selected-params-tool-parity.md`
   - focused slice doc for Go-owned `delete_selected_params` MCP parity over
     the completed param-creation, impl-switch, and config-write boundaries
-57. `spike-mcp.md`
+57. `phase-6-delete-kwarg-tool-parity.md`
+  - focused slice doc for Go-owned `delete_kwarg` MCP parity over the
+    completed selected-param cleanup boundary
+58. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-58. `spike-pty.md`
+59. `spike-pty.md`
    - PTY uncertainty-reduction plan
-59. `spike-lsp.md`
+60. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

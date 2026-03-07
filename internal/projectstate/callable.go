@@ -449,7 +449,109 @@ func (p *Project) setSectionCodeObjectVariant(sectionID string, codeObjID string
 	}
 	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
 	codeObjVariantMap[strings.TrimSpace(codeObjID)] = strings.TrimSpace(variantID)
-	return p.setCurrentSectionField(sectionID, "codeObjVariantMap", codeObjVariantMap)
+	return p.setCurrentSectionCodeObjVariantMap(sectionID, codeObjVariantMap)
+}
+
+func (p *Project) setCurrentSectionCodeObjVariantMap(sectionID string, codeObjVariantMap map[string]string) error {
+	section, variant, impl, err := p.ResolveSection(strings.TrimSpace(sectionID))
+	if err != nil {
+		return err
+	}
+
+	normalizedMap := make(map[string]string, len(codeObjVariantMap))
+	for codeObjID, variantID := range codeObjVariantMap {
+		trimmedCodeObjID := strings.TrimSpace(codeObjID)
+		trimmedVariantID := strings.TrimSpace(variantID)
+		if trimmedCodeObjID == "" || trimmedVariantID == "" {
+			continue
+		}
+		normalizedMap[trimmedCodeObjID] = trimmedVariantID
+	}
+
+	if containsString(section.UnsharedKeys, "codeObjVariantMap") {
+		if !sectionImplIsPreset(impl) {
+			payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
+			if err != nil {
+				return err
+			}
+			payload["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
+			rawPayload, err := marshalProjectObject(payload)
+			if err != nil {
+				return err
+			}
+			impl.Payload = rawPayload
+			p.SectionImpls[impl.ID] = impl
+
+			modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+			if err != nil {
+				return err
+			}
+			if _, ok := modifier["codeObjVariantMap"]; ok {
+				delete(modifier, "codeObjVariantMap")
+				rawModifier, err := marshalProjectObject(modifier)
+				if err != nil {
+					return err
+				}
+				variant.Modifier = rawModifier
+				p.SectionVariants[variant.ID] = variant
+			}
+		} else {
+			modifier, err := rawObjectFromProjectPayload(variant.Modifier)
+			if err != nil {
+				return err
+			}
+			modifier["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
+			rawModifier, err := marshalProjectObject(modifier)
+			if err != nil {
+				return err
+			}
+			variant.Modifier = rawModifier
+			p.SectionVariants[variant.ID] = variant
+		}
+	} else {
+		payload, err := rawObjectFromProjectPayload(sectionImplPayloadUnchecked(impl))
+		if err != nil {
+			return err
+		}
+		payload["codeObjVariantMap"] = cloneProjectValue(normalizedMap)
+		rawPayload, err := marshalProjectObject(payload)
+		if err != nil {
+			return err
+		}
+		impl.Payload = rawPayload
+		p.SectionImpls[impl.ID] = impl
+	}
+
+	modifier, err := rawObjectFromProjectPayload(section.SharedModifier)
+	if err != nil {
+		return err
+	}
+	if containsString(section.UnsharedKeys, "codeObjVariantMap") {
+		if _, ok := modifier["codeObjVariantMap"]; ok {
+			delete(modifier, "codeObjVariantMap")
+			rawModifier, err := marshalProjectObject(modifier)
+			if err != nil {
+				return err
+			}
+			section.SharedModifier = rawModifier
+			p.Sections[section.ID] = section
+		}
+		return nil
+	}
+
+	if modifierMap, ok := modifier["codeObjVariantMap"]; ok {
+		if existing, ok := modifierMap.(map[string]any); ok && len(existing) == 0 && len(normalizedMap) == 0 {
+			return nil
+		}
+	}
+	delete(modifier, "codeObjVariantMap")
+	rawModifier, err := marshalProjectObject(modifier)
+	if err != nil {
+		return err
+	}
+	section.SharedModifier = rawModifier
+	p.Sections[section.ID] = section
+	return nil
 }
 
 func (p *Project) setCurrentSectionField(sectionID string, fieldName string, fieldValue any) error {

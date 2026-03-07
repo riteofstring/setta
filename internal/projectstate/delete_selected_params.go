@@ -377,7 +377,7 @@ func (p *Project) removeDeletedParamsFromSectionVariantMaps(
 		if !changed {
 			continue
 		}
-		if err := p.setCurrentSectionField(affectedSectionID, "codeObjVariantMap", nextMap); err != nil {
+		if err := p.setCurrentSectionCodeObjVariantMap(affectedSectionID, nextMap); err != nil {
 			return err
 		}
 	}
