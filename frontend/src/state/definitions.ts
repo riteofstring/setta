@@ -916,6 +916,7 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
+export type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -924,6 +925,7 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
+  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -992,6 +994,7 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
+      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",

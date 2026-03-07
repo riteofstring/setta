@@ -13,6 +13,8 @@ import {
   TbArrowAutofitWidth,
   TbCircleDot,
   TbGridDots,
+  TbLayoutSidebarLeftCollapse,
+  TbLayoutSidebarRightCollapse,
   TbSparkles,
   TbZoomReset,
 } from "react-icons/tb";
@@ -20,6 +22,7 @@ import {
   toggleAgenticEdges,
   toggleArgEdges,
   toggleMiniMap,
+  toggleMiniMapSide,
   toggleSnapToGrid,
 } from "state/actions/localStorage";
 import { useLocalStorage, useSettings } from "state/definitions";
@@ -51,6 +54,7 @@ const Controls = () => {
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const showMinimap = useLocalStorage((x) => x.showMinimap);
+  const minimapSide = useLocalStorage((x) => x.minimapSide);
   const styleForActive =
     "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
 
@@ -159,6 +163,28 @@ const Controls = () => {
         })}
       >
         <IoMapOutline size={15} />
+      </button>
+      <button
+        onClick={toggleMiniMapSide}
+        className="cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
+        aria-label={
+          minimapSide === "left"
+            ? "move minimap to right"
+            : "move minimap to left"
+        }
+        data-testid="rf__toggle-minimap-side"
+        {...getFloatingBoxHandlers({
+          content:
+            minimapSide === "left"
+              ? "Move minimap to right"
+              : "Move minimap to left",
+        })}
+      >
+        {minimapSide === "left" ? (
+          <TbLayoutSidebarRightCollapse size={15} />
+        ) : (
+          <TbLayoutSidebarLeftCollapse size={15} />
+        )}
       </button>
     </div>
   );
