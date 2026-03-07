@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  createTextBlockSection,
   openIsolatedProject,
   postBackend,
   setOverviewTab,
@@ -11,16 +12,53 @@ const READY_SELECTOR = ".react-flow__pane";
 
 type ProjectCodegenTarget = {
   language: string;
+  sectionPolicy?: {
+    sectionOverrides: Record<
+      string,
+      {
+        mode: string;
+        representation: string;
+      }
+    >;
+  };
+  codeObjValuePolicy?: {
+    codeObjOverrides: Record<
+      string,
+      {
+        representation: string;
+      }
+    >;
+  };
 };
 
 type LoadedCodegenProjectState = {
   projectConfig: {
+    id: string;
+    sectionVariantMap: Record<string, string>;
     codegenTargets: ProjectCodegenTarget[];
   };
+  sectionVariants: Record<
+    string,
+    {
+      impl: string;
+    }
+  >;
+  sectionImpls: Record<
+    string,
+    {
+      type: string;
+      code?: string;
+    }
+  >;
   singletonSections: {
     GenPythonCode: string | null;
     GenPythonMetadata: string | null;
   };
+};
+
+type CreateTopLevelSectionResponse = {
+  sectionId?: string;
+  metaControlParamId?: string | null;
 };
 
 async function expandRunInstructionsAccordion(
@@ -82,6 +120,58 @@ function hasPythonTarget(state: LoadedCodegenProjectState): boolean {
   return state.projectConfig.codegenTargets.some(
     (target) => target.language === "python",
   );
+}
+
+function getPythonTarget(
+  state: LoadedCodegenProjectState,
+): ProjectCodegenTarget {
+  const pythonTarget = state.projectConfig.codegenTargets.find(
+    (target) => target.language === "python",
+  );
+  if (!pythonTarget) {
+    throw new Error("Missing python codegen target.");
+  }
+  return pythonTarget;
+}
+
+async function createMetaControlCodeParamSection(
+  page: Page,
+  projectConfigId: string,
+  sectionName: string,
+  paramName: string,
+  value: string,
+): Promise<{ sectionId: string; paramInfoId: string }> {
+  const response = await postBackend<CreateTopLevelSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "MetaControl",
+      controlCodeObjType: "CodeParam",
+    },
+  );
+  const sectionId = response?.sectionId;
+  const paramInfoId = response?.metaControlParamId;
+  if (!sectionId || !paramInfoId) {
+    throw new Error("Missing meta control section or param id.");
+  }
+  await postBackend(page, "/setSectionName", {
+    projectConfigId,
+    sectionId,
+    name: sectionName,
+  });
+  await postBackend(page, "/setCodeObjName", {
+    projectConfigId,
+    codeObjId: paramInfoId,
+    name: paramName,
+  });
+  await postBackend(page, "/setParamEnteredValue", {
+    projectConfigId,
+    sectionId,
+    paramInfoId,
+    value,
+  });
+  return { sectionId, paramInfoId };
 }
 
 test("python codegen toggle persists and reconciles the generated code section", async ({
@@ -248,6 +338,166 @@ test("python metadata toggle persists and reconciles the metadata section", asyn
     await expect(
       page.getByTestId("run-instructions-python-metadata-toggle"),
     ).toHaveAttribute("aria-checked", "false");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("python section override persists through Run Instructions edits", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await setOverviewTab(page, "RunInstructions");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const { sectionId, sectionName } = await createTextBlockSection(
+      page,
+      projectContext.projectConfigId,
+      "__pw_python_codegen_section_override__",
+    );
+
+    await openCodegenAccordions(page);
+    await page
+      .getByTestId("run-instructions-section-override-select")
+      .selectOption({ label: sectionName });
+    await page.getByTestId("run-instructions-section-override-add").click();
+    const overrideRow = page.getByTestId(
+      `run-instructions-section-override-${sectionId}`,
+    );
+    await expect(overrideRow).toBeVisible();
+    await page
+      .getByTestId(`run-instructions-section-override-mode-${sectionId}`)
+      .selectOption("exclude");
+
+    await expect
+      .poll(async () => {
+        const state = await loadCodegenProjectState(page);
+        return (
+          getPythonTarget(state).sectionPolicy?.sectionOverrides?.[sectionId]
+            ?.mode ?? null
+        );
+      })
+      .toBe("exclude");
+    await expect
+      .poll(
+        async () =>
+          (await loadCodegenProjectState(page)).singletonSections.GenPythonCode,
+      )
+      .not.toBeNull();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await openCodegenAccordions(page);
+    await expect(
+      page.getByTestId(`run-instructions-section-override-${sectionId}`),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(`run-instructions-section-override-mode-${sectionId}`),
+    ).toHaveValue("exclude");
+
+    await page
+      .getByTestId(`run-instructions-section-override-remove-${sectionId}`)
+      .click();
+    await expect(
+      page.getByTestId(`run-instructions-section-override-${sectionId}`),
+    ).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const state = await loadCodegenProjectState(page);
+        return (
+          getPythonTarget(state).sectionPolicy?.sectionOverrides?.[sectionId] ??
+          null
+        );
+      })
+      .toBeNull();
+    await expect(
+      page.getByTestId("run-instructions-section-override-select"),
+    ).toHaveValue("");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("python code obj override persists through Run Instructions edits", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await setOverviewTab(page, "RunInstructions");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const sectionName = "__pw_python_codegen_codeobj_section__";
+    const paramName = "__pw_python_codegen_codeobj_param__";
+    const paramValue = "1 + 2";
+    const { paramInfoId } = await createMetaControlCodeParamSection(
+      page,
+      projectContext.projectConfigId,
+      sectionName,
+      paramName,
+      paramValue,
+    );
+
+    await openCodegenAccordions(page);
+    await page
+      .getByTestId("run-instructions-codeobj-override-select")
+      .selectOption({ label: `${sectionName} / ${paramName}` });
+    await page.getByTestId("run-instructions-codeobj-override-add").click();
+    const overrideRow = page.getByTestId(
+      `run-instructions-codeobj-override-${paramInfoId}`,
+    );
+    await expect(overrideRow).toBeVisible();
+    await page
+      .getByTestId(
+        `run-instructions-codeobj-override-representation-${paramInfoId}`,
+      )
+      .selectOption("string");
+
+    await expect
+      .poll(async () => {
+        const state = await loadCodegenProjectState(page);
+        return (
+          getPythonTarget(state).codeObjValuePolicy?.codeObjOverrides?.[
+            paramInfoId
+          ]?.representation ?? null
+        );
+      })
+      .toBe("string");
+    await expect
+      .poll(
+        async () =>
+          (await loadCodegenProjectState(page)).singletonSections.GenPythonCode,
+      )
+      .not.toBeNull();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await openCodegenAccordions(page);
+    await expect(
+      page.getByTestId(
+        `run-instructions-codeobj-override-representation-${paramInfoId}`,
+      ),
+    ).toHaveValue("string");
+
+    await page
+      .getByTestId(`run-instructions-codeobj-override-remove-${paramInfoId}`)
+      .click();
+    await expect(
+      page.getByTestId(`run-instructions-codeobj-override-${paramInfoId}`),
+    ).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const state = await loadCodegenProjectState(page);
+        return (
+          getPythonTarget(state).codeObjValuePolicy?.codeObjOverrides?.[
+            paramInfoId
+          ] ?? null
+        );
+      })
+      .toBeNull();
+    await expect(
+      page.getByTestId("run-instructions-codeobj-override-select"),
+    ).toHaveValue("");
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
