@@ -29,7 +29,10 @@ Current repo status as of 2026-03-06:
   - frontend identity and connection-inventory messages
   - a listener registry with bootstrap and dependency subscriptions
   - listener realtime delta and force-refresh broadcasters
-- realtime sequencing, websocket connection ownership, listener fan-out, and terminal runtime still live only in Python across:
+- websocket route lifecycle wiring now exists in Go under:
+  - `internal/wsapi/routes.go`
+  - `internal/app/app.go`
+- listener registration/action-event fan-out and terminal runtime still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
   - `backend/setta/routers/websocket.py`
@@ -308,11 +311,79 @@ Tests:
 Deferred:
 
 - listener dependency/action event fan-out
-- websocket route wiring to the listener broadcaster through `internal/wsapi`
 - listener registration message parsing/ack behavior
 - terminal session lifecycle and PTY attachment
 
-### Slice 4: Terminal Runtime
+### Slice 4: Websocket Route Lifecycle Wiring
+
+Deliver:
+
+- real frontend websocket route wiring under `internal/wsapi`
+- real listener websocket route wiring under `internal/wsapi`
+- app mux integration for root websocket routes
+- frontend identity send and current-address update handling through the realtime hub
+- listener bootstrap tracking and disconnect cleanup through the listener broadcaster
+
+Acceptance:
+
+- the app serves websocket routes through the normal HTTP stack
+- websocket middleware does not break HTTP upgrade behavior
+- frontend connections receive server-owned identity tokens from the live app handler
+- listener websocket connections bootstrap the realtime registry and clean up on disconnect
+
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/wsapi/routes.go`
+- added `internal/app/websocket_test.go`
+- extended `internal/httpapi/httpapi.go` with explicit root-route registration
+- extended `internal/wsapi/wsapi.go` with request-aware authenticated websocket handlers
+- wired the realtime hub and listener broadcaster into `internal/app`
+- made the first live websocket route surfaces explicit:
+  - `GET /ws/frontend`
+  - `GET /ws/listeners/{listenerID}?projectId=...`
+- kept the route layer narrow:
+  - auth/mode resolution still lives in `internal/wsapi`
+  - realtime connection ownership still lives in `internal/realtime`
+  - `internal/app` only assembles the dependencies and root route registration
+- made frontend route behavior explicit:
+  - non-launcher-only access
+  - frontend identity delivery on connect
+  - optional connection inventory rebroadcast outside deployment mode
+  - `CurrentAddressUpdate` message handling through the realtime hub
+- made listener route behavior explicit:
+  - non-launcher-only access
+  - required `listenerID` path param and `projectId` query param
+  - bootstrap recording in the listener registry
+  - disconnect cleanup in both the realtime hub and listener broadcaster
+- fixed the HTTP transport boundary so websocket upgrades survive the normal app middleware stack:
+  - `statusRecorder` now exposes `Unwrap()`
+  - websocket accept can recover the underlying `http.Hijacker` through the access-log wrapper
+
+Tests:
+
+- focused websocket route coverage in:
+  - `internal/wsapi/routes_test.go`
+  - `internal/app/websocket_test.go`
+- verified behaviors include:
+  - frontend identity delivery from the real app handler
+  - frontend current-address rebroadcast through the realtime hub
+  - share-session touch behavior in route-level share mode tests
+  - listener bootstrap recording and disconnect cleanup
+  - websocket upgrade survival through the root HTTP middleware stack
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- listener registration message parsing and ack behavior
+- dependency/action event routing from live listener websocket connections
+- app-level share-session store wiring for deployment-mode websocket routes
+- terminal session lifecycle and PTY attachment
+
+### Slice 5: Terminal Runtime
 
 Deliver:
 
@@ -335,7 +406,7 @@ Status:
 ## Test Plan
 
 - package-level tests in `internal/realtime` for sequence, targeting, affinity, and address sanitation
-- websocket integration tests in `internal/wsapi` once transport wiring lands
+- websocket integration tests in `internal/wsapi` and `internal/app` for live route wiring
 - PTY integration tests in `internal/terminals` using disposable temp dirs and real subprocesses
 - keep the Python websocket and terminal tests as the minimum behavior map for equivalent Go coverage
 
@@ -356,8 +427,8 @@ Phase 4 is complete when:
 
 ## Next Recommended Step
 
-Implement websocket route wiring on top of the new realtime services:
+Implement live listener registration and event transport on top of the new route wiring:
 
-- wire frontend and listener websocket lifecycle into `internal/realtime` from `internal/wsapi`
-- attach bootstrap recording, frontend identity send, and disconnect cleanup to the route layer
-- then add listener dependency/action-event fan-out once the transport path is live
+- parse listener registration messages from `/ws/listeners/{listenerID}`
+- store dependency/action subscriptions in the existing listener registry
+- fan out listener dependency/action events from live websocket routes before starting terminal runtime
