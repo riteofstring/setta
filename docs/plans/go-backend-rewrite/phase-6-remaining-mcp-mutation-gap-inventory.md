@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 35 tools total
-- 32 current Go tool names overlap with Python
+- Go MCP now exposes 36 tools total
+- 33 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 30 of those overlaps are mutation or structural tools
-- Python still has 19 mutation or structural project-state MCP tools that do
+- 31 of those overlaps are mutation or structural tools
+- Python still has 18 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -56,6 +56,7 @@ MCP server:
   - `delete_child_sections_via_decrementer`
   - `create_new_section_variant`
   - `auto_layout_top_level_sections`
+  - `set_project_config_codegen_targets`
   - `set_show_param_display_names`
   - `set_watch_code_enabled`
   - `set_watch_code_inputs`
@@ -83,27 +84,24 @@ MCP server:
 
 ## Remaining Mutation Gaps
 
-### 1. Highest-Leverage Next Slice
+### 1. Highest-Leverage Next Step
 
-- `set_project_config_codegen_targets`
+- rerank the remaining mutation gaps from the actual Go-owned runtime surface
 
 Why this is next:
 
-1. Go already owns the authoritative runtime and IDE HTTP route in:
-   - `internal/projectstate/codegen_targets.go`
-   - `internal/httpapi/project_routes.go`
-2. The Watch Code pair is now complete, so the next bounded MCP gap should
-   come from the remaining surfaces that already have Go mutation owners rather
-   than staying on a stale inventory assumption.
-3. The remaining work is primarily MCP dependency wiring for the existing
-   validator/reconciler inputs plus project-scoped structural transport and
-   tests, not a fresh runtime-owner migration.
+1. `set_project_config_codegen_targets` is now complete, so the inventory
+   should stop pointing at a finished slice.
+2. The remaining gap list still contains a mix of:
+   - surfaces that need more Go runtime-owner work first
+   - surfaces that may now have enough Go ownership to open a bounded MCP slice
+3. Choosing the next slice by stale assumption would widen scope or miss the
+   best existing Go-owned leverage point.
 
-### 2. Good Follow-Ons After `set_project_config_codegen_targets`
+### 2. Good Follow-Ons After Reranking
 
-Once the codegen-target slice lands, the remaining gaps should be re-ranked
-again from the actual Go-owned runtime surface instead of assuming the next
-cluster in advance.
+Once the rerank is done, the next bounded slice should get its own focused
+Phase 6 doc before implementation.
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
@@ -139,7 +137,8 @@ priority:
 
 ## Recommended Next Step
 
-- use `set_project_config_codegen_targets` as the next bounded MCP slice
+- rerank the remaining mutation inventory from the actual Go-owned runtime
+  surface before choosing the next bounded MCP slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -150,8 +149,8 @@ priority:
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetWatchCodeInputs|TestMCPToolCallRouteSetWatchCodeInputsAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetWatchCodeInputsOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeInputsOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetWatchCodeInputs|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetProjectConfigCodegenTargets|TestMCPToolCallRouteSetProjectConfigCodegenTargetsAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetProjectConfigCodegenTargetsOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetProjectConfigCodegenTargetsOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetProjectConfigCodegenTargets|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -201,3 +200,8 @@ priority:
   structural tool over the existing Go Watch Code runtime owner.
 - 2026-03-07: the next bounded slice moved to
   `set_project_config_codegen_targets`.
+- 2026-03-07: `set_project_config_codegen_targets` MCP parity completed as an
+  unscoped structural tool over the existing Go codegen-target runtime owner,
+  validator, and Python generated-section reconciler.
+- 2026-03-07: the next highest-leverage step moved back to reranking the
+  remaining mutation gaps from the actual Go-owned runtime surface.

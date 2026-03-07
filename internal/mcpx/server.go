@@ -1,6 +1,7 @@
 package mcpx
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/statefs"
@@ -40,16 +42,18 @@ type Server struct {
 }
 
 type ServerOptions struct {
-	Logger             *slog.Logger
-	Registry           *tools.Registry
-	WorkspaceRoot      string
-	ProjectState       projectStateProvider
-	CodeUpdates        codeUpdateProvider
-	SettingsState      settingsStateProvider
-	SectionNames       sectionNameProvider
-	CallableSignatures projectstate.CallableSignatureResolver
-	LSPDiagnostics     lspDiagnosticsProvider
-	TemporaryIDMapPath string
+	Logger                         *slog.Logger
+	Registry                       *tools.Registry
+	WorkspaceRoot                  string
+	ProjectState                   projectStateProvider
+	CodegenTargetValidator         projectstate.CodegenTargetValidator
+	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
+	CodeUpdates                    codeUpdateProvider
+	SettingsState                  settingsStateProvider
+	SectionNames                   sectionNameProvider
+	CallableSignatures             projectstate.CallableSignatureResolver
+	LSPDiagnostics                 lspDiagnosticsProvider
+	TemporaryIDMapPath             string
 }
 
 type toolDefinition struct {
@@ -81,6 +85,7 @@ type projectStateProvider interface {
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+	SetProjectCodegenTargets(ctx context.Context, projectID string, targets []projectstate.ProjectCodegenTarget, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, error)
 	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
@@ -183,6 +188,8 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		workspaceRoot,
 		registry,
 		opts.ProjectState,
+		opts.CodegenTargetValidator,
+		opts.PythonCodegenSectionReconciler,
 		opts.CodeUpdates,
 		opts.SettingsState,
 		opts.SectionNames,
@@ -1067,6 +1074,44 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 	}
 }
 
+func newSetProjectConfigCodegenTargetsHandler(
+	projectState projectStateProvider,
+	validator projectstate.CodegenTargetValidator,
+	pythonReconciler projectstate.PythonCodegenSectionReconciler,
+) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		codegenTargets, err := readRequiredProjectCodegenTargetsArgument(arguments, "codegenTargets")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil || validator == nil || pythonReconciler == nil {
+			return nil, newToolError("internal_error", "Project codegen-target mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural codegen-target invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetProjectCodegenTargets(ctx, projectConfigID, codegenTargets, validator, pythonReconciler); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
 func newTogglePositionLocksHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -1709,6 +1754,8 @@ func defaultToolDefinitions(
 	workspaceRoot string,
 	registry *tools.Registry,
 	projectState projectStateProvider,
+	codegenTargetValidator projectstate.CodegenTargetValidator,
+	pythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler,
 	codeUpdates codeUpdateProvider,
 	settingsState settingsStateProvider,
 	sectionNames sectionNameProvider,
@@ -2373,6 +2420,54 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "watchCodeFolders", "watchCodeFiles"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_project_config_codegen_targets",
+				Description: "Update the ordered codegen target list for the active project config using the existing Go validator and generated-section reconciler.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"codegen", "targets", "project", "python", "plugin", "structural"},
+				},
+				Handler: newSetProjectConfigCodegenTargetsHandler(projectState, codegenTargetValidator, pythonCodegenSectionReconciler),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose ordered codegen target list should be updated.",
+					},
+					"codegenTargets": map[string]any{
+						"type":        "array",
+						"description": "Ordered codegen target objects to persist on the project config.",
+						"items": map[string]any{
+							"type":                 "object",
+							"additionalProperties": true,
+							"properties": map[string]any{
+								"language": map[string]any{
+									"type":        "string",
+									"description": "Codegen target language id, such as python or a registered plugin target id.",
+								},
+							},
+							"required": []string{"language"},
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "codegenTargets"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -3918,6 +4013,74 @@ func readWatchCodeFolderValue(rawValue any, key string, index int) (projectstate
 	}, nil
 }
 
+func readRequiredProjectCodegenTargetsArgument(arguments map[string]any, key string) ([]projectstate.ProjectCodegenTarget, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, newToolError("invalid_arguments", "%s is required", key)
+	}
+
+	switch typed := rawValue.(type) {
+	case []projectstate.ProjectCodegenTarget:
+		output := make([]projectstate.ProjectCodegenTarget, len(typed))
+		copy(output, typed)
+		return output, nil
+	case []any:
+		output := make([]projectstate.ProjectCodegenTarget, 0, len(typed))
+		for index, entry := range typed {
+			target, err := readProjectCodegenTargetValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, target)
+		}
+		return output, nil
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an array of objects", key)
+	}
+}
+
+func readProjectCodegenTargetValue(rawValue any, key string, index int) (projectstate.ProjectCodegenTarget, error) {
+	if target, ok := rawValue.(projectstate.ProjectCodegenTarget); ok {
+		return target, nil
+	}
+
+	encoded, err := json.Marshal(rawValue)
+	if err != nil {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d] must be a valid JSON object", key, index)
+	}
+	trimmed := bytes.TrimSpace(encoded)
+	if len(trimmed) == 0 || bytes.Equal(trimmed, []byte("null")) {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	}
+
+	var object map[string]json.RawMessage
+	if err := json.Unmarshal(trimmed, &object); err != nil {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	}
+	if object == nil {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d] must be an object", key, index)
+	}
+
+	languagePayload, ok := object["language"]
+	if !ok {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d].language is required", key, index)
+	}
+
+	var language string
+	if err := json.Unmarshal(languagePayload, &language); err != nil {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d].language must be a string", key, index)
+	}
+	language = strings.TrimSpace(language)
+	if language == "" {
+		return projectstate.ProjectCodegenTarget{}, newToolError("invalid_arguments", "%s[%d].language is required", key, index)
+	}
+
+	return projectstate.ProjectCodegenTarget{
+		Language: language,
+		Payload:  append(projectstate.RawJSON(nil), trimmed...),
+	}, nil
+}
+
 func readOptionalNonNegativeIntArgument(arguments map[string]any, key string) (*int, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -4030,6 +4193,22 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
 		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
+		return newToolError("invalid_arguments", "%s", err.Error())
+	case errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
+		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
+		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetPayloadInvalid),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetObjectRequired),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldUnknown),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetFieldInvalid),
+		errors.Is(err, projectstate.ErrProjectCodegenPythonTargetLanguageMismatch),
+		errors.Is(err, plugins.ErrProjectCodegenTargetResolverRequired),
+		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverTargetIDRequired),
+		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverTargetIDInvalid),
+		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverPluginNotFound),
+		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverPluginDisabled),
+		errors.Is(err, plugins.ErrFilesystemWorkerSpecResolverCodegenCapability):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),

@@ -1918,6 +1918,167 @@ func TestMCPToolCallRouteSetWatchCodeInputsAcceptsTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetProjectConfigCodegenTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+		CodegenTargetValidator: projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_project_config_codegen_targets",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"codegenTargets":[
+				{
+					"language":"setta-fixture-backend-codegen:typescript",
+					"options":{"className":"RouteState"}
+				}
+			]
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_project_config_codegen_targets success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_project_config_codegen_targets: %v", err)
+	}
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target after route mutation, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected codegen target after route mutation %#v", project.CodegenTargets[0])
+	}
+	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"RouteState"`) {
+		t.Fatalf("expected codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
+func TestMCPToolCallRouteSetProjectConfigCodegenTargetsAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+		CodegenTargetValidator: projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_project_config_codegen_targets",
+		"arguments":{
+			"projectConfigId":"11",
+			"codegenTargets":[
+				{
+					"language":"setta-fixture-backend-codegen:typescript",
+					"options":{"className":"TemporaryState"}
+				}
+			]
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_project_config_codegen_targets: %v", err)
+	}
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target after temp-id route mutation, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected codegen target after temp-id route mutation %#v", project.CodegenTargets[0])
+	}
+	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"TemporaryState"`) {
+		t.Fatalf("expected temp-id codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
 func TestMCPToolCallRouteSupportsTogglePositionLocks(t *testing.T) {
 	t.Parallel()
 

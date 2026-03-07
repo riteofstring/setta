@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 35 {
-		t.Fatalf("expected 35 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 36 {
+		t.Fatalf("expected 36 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -154,6 +154,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var setWatchCodeInputsTool *sdkmcp.Tool
+	var setProjectConfigCodegenTargetsTool *sdkmcp.Tool
 	var togglePositionLocksTool *sdkmcp.Tool
 	var toggleMinimizedTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
@@ -211,6 +212,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_watch_code_inputs" {
 			setWatchCodeInputsTool = tool
+		}
+		if tool.Name == "set_project_config_codegen_targets" {
+			setProjectConfigCodegenTargetsTool = tool
 		}
 		if tool.Name == "toggle_position_locks" {
 			togglePositionLocksTool = tool
@@ -299,6 +303,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_code_section_diagnostics_mute",
 		"set_param_entered_value",
 		"set_param_name_and_value",
+		"set_project_config_codegen_targets",
 		"set_section_name",
 		"set_section_style_color",
 		"set_section_tag_color",
@@ -352,6 +357,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setWatchCodeInputsTool == nil {
 		t.Fatal("expected set_watch_code_inputs tool")
+	}
+	if setProjectConfigCodegenTargetsTool == nil {
+		t.Fatal("expected set_project_config_codegen_targets tool")
 	}
 	if togglePositionLocksTool == nil {
 		t.Fatal("expected toggle_position_locks tool")
@@ -509,6 +517,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setWatchCodeInputsMeta := mustStructuredMap(t, setWatchCodeInputsTool.Meta[toolMetaNamespace])
 	if setWatchCodeInputsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_watch_code_inputs, got %#v", setWatchCodeInputsMeta["accessType"])
+	}
+	setProjectConfigCodegenTargetsMeta := mustStructuredMap(t, setProjectConfigCodegenTargetsTool.Meta[toolMetaNamespace])
+	if setProjectConfigCodegenTargetsMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_project_config_codegen_targets, got %#v", setProjectConfigCodegenTargetsMeta["accessType"])
 	}
 	togglePositionLocksMeta := mustStructuredMap(t, togglePositionLocksTool.Meta[toolMetaNamespace])
 	if togglePositionLocksMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -682,8 +694,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 35 {
-		t.Fatalf("expected 35 registered tool names, got %#v", listNames)
+	if len(listNames) != 36 {
+		t.Fatalf("expected 36 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2916,6 +2928,144 @@ func TestServerSetWatchCodeInputsRejectsInvalidWatchFolderPath(t *testing.T) {
 	}
 	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "watch code input path is invalid") {
 		t.Fatalf("expected invalid watch code path message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetProjectConfigCodegenTargetsRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_project_config_codegen_targets",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codegenTargets": []any{
+				map[string]any{
+					"language": "setta-fixture-backend-codegen:typescript",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_project_config_codegen_targets blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_project_config_codegen_targets call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetProjectConfigCodegenTargetsAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+		CodegenTargetValidator: projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_project_config_codegen_targets",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"codegenTargets": []any{
+				map[string]any{
+					"language": "setta-fixture-backend-codegen:typescript",
+					"options":  map[string]any{"className": "ScopedMCPState"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_project_config_codegen_targets: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_project_config_codegen_targets: %v", err)
+	}
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected codegen target language %#v", project.CodegenTargets[0])
+	}
+	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"ScopedMCPState"`) {
+		t.Fatalf("expected project codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
+func TestServerSetProjectConfigCodegenTargetsRejectsDuplicateLanguages(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot: t.TempDir(),
+		ProjectState:  projectRuntime,
+		CodegenTargetValidator: projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		}),
+		PythonCodegenSectionReconciler: projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		}),
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_project_config_codegen_targets",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codegenTargets": []any{
+				map[string]any{"language": "setta-fixture-backend-codegen:typescript"},
+				map[string]any{"language": "setta-fixture-backend-codegen:typescript"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_project_config_codegen_targets: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_project_config_codegen_targets call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "project codegen target language must be unique") {
+		t.Fatalf("expected duplicate codegen target message, got %#v", payload["message"])
 	}
 }
 
@@ -5567,6 +5717,16 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.CodeUpdates == nil && projectRuntime != nil {
 		options.CodeUpdates = testCodeUpdateService{runtime: projectRuntime}
+	}
+	if options.CodegenTargetValidator == nil && projectRuntime != nil {
+		options.CodegenTargetValidator = projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+			return nil
+		})
+	}
+	if options.PythonCodegenSectionReconciler == nil && projectRuntime != nil {
+		options.PythonCodegenSectionReconciler = projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		})
 	}
 
 	server, err := NewServer(options)

@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 35 {
-		t.Fatalf("expected 35 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 36 {
+		t.Fatalf("expected 36 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,8 +115,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 35 {
-		t.Fatalf("expected 35 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 36 {
+		t.Fatalf("expected 36 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2030,6 +2030,162 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetWatchCodeInputsOverAuthenticat
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetProjectConfigCodegenTargetsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	saveAppScopedMCPProject(t, cfg)
+	installAppBackendCodegenFixture(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_project_config_codegen_targets",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codegenTargets": []any{
+				map[string]any{
+					"language": "setta-fixture-backend-codegen:typescript",
+					"options":  map[string]any{"className": "MCPState"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_project_config_codegen_targets: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_project_config_codegen_targets success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_project_config_codegen_targets: %v", err)
+	}
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target after app mutation, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected codegen target after app mutation %#v", project.CodegenTargets[0])
+	}
+
+	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("glob plugin codegen output: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one plugin codegen output, got %v", matches)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read plugin codegen output: %v", err)
+	}
+	expected := "export class MCPState {\n  readonly projectName = 'Alpha';\n}\n"
+	if string(content) != expected {
+		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetProjectConfigCodegenTargetsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	saveAppScopedMCPProject(t, cfg)
+	installAppBackendCodegenFixture(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_project_config_codegen_targets",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"codegenTargets": []any{
+				map[string]any{
+					"language": "setta-fixture-backend-codegen:typescript",
+					"options":  map[string]any{"className": "TemporaryMCPState"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_project_config_codegen_targets: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_project_config_codegen_targets success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_project_config_codegen_targets: %v", err)
+	}
+	if len(project.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target after temp-id app mutation, got %#v", project.CodegenTargets)
+	}
+	if project.CodegenTargets[0].Language != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected codegen target after temp-id app mutation %#v", project.CodegenTargets[0])
+	}
+	if !strings.Contains(string(project.CodegenTargets[0].Payload), `"className":"TemporaryMCPState"`) {
+		t.Fatalf("expected temp-id codegen target payload to preserve options, got %q", string(project.CodegenTargets[0].Payload))
+	}
+}
+
 func TestAppIDEMCPServerSupportsTogglePositionLocksOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -3685,8 +3841,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 35 {
-		t.Fatalf("expected tool count 35, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 36 {
+		t.Fatalf("expected tool count 36, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -4897,6 +5053,92 @@ func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeInputs(t *testing.T) {
 	newBaselineKey := filepath.Clean(newFolderFile)
 	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.subdir.added.added:function"}) {
 		t.Fatalf("expected new folder baseline after route mutation, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetProjectConfigCodegenTargets(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_project_config_codegen_targets",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"codegenTargets":[{"language":"python","generateMetadata":true}]
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_project_config_codegen_targets tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_project_config_codegen_targets tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_project_config_codegen_targets success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_project_config_codegen_targets: %v", err)
+	}
+	if len(project.CodegenTargets) != 1 || project.CodegenTargets[0].Language != "python" {
+		t.Fatalf("expected python codegen target after route mutation, got %#v", project.CodegenTargets)
+	}
+	if _, ok := project.Sections[projectstate.GeneratedPythonCodeSectionID]; !ok {
+		t.Fatal("expected generated python section after route mutation")
+	}
+	if _, ok := project.Sections[projectstate.GeneratedPythonMetadataSectionID]; !ok {
+		t.Fatal("expected generated python metadata section after route mutation")
+	}
+	if project.GeneratedCodeBinding == nil {
+		t.Fatal("expected generated code binding after route mutation")
+	}
+	if project.GeneratedCodeBinding.Path != projectstate.GeneratedPythonCodeRelativePath("Alpha") {
+		t.Fatalf("unexpected generated code binding path %q", project.GeneratedCodeBinding.Path)
+	}
+	codePath := filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.GeneratedPythonCodeRelativePath("Alpha"))
+	if _, err := os.Stat(codePath); err != nil {
+		t.Fatalf("stat generated python code path: %v", err)
+	}
+	metaPath := filepath.Join(cfg.Paths.SettaFilesRoot, projectstate.GeneratedPythonMetadataRelativePath("Alpha"))
+	if _, err := os.Stat(metaPath); err != nil {
+		t.Fatalf("stat generated python metadata path: %v", err)
 	}
 }
 

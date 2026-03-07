@@ -18,7 +18,7 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_watch_code_inputs` MCP parity is complete
-- `set_project_config_codegen_targets` MCP parity is the active bounded slice
+- `set_project_config_codegen_targets` MCP parity is now complete
 - Go already owns `set_project_config_codegen_targets` in:
   - `internal/projectstate/codegen_targets.go`
   - `internal/httpapi/project_routes.go`
@@ -26,8 +26,12 @@ Current repo status as of 2026-03-07:
   - `internal/plugins`
 - Python tags `set_project_config_codegen_targets` as a structural
   project-state tool
-- the remaining Go gap is MCP transport parity plus MCP-local dependency
-  wiring for the existing validator and Python generated-section reconciler
+- Go MCP now exposes `set_project_config_codegen_targets` as an unscoped
+  structural tool over that existing owner
+- focused MCP server, authenticated HTTP bridge, and IDE SSE/route coverage
+  landed for structural denial, temporary-id translation, raw target-object
+  decoding, plugin-target validation wiring, and Python generated-section
+  reconciliation through the real app runtime
 
 ## Scope
 
@@ -148,13 +152,22 @@ The Go runtime already owns the same source-of-truth mutation through
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- rerank the remaining mutation inventory after this slice lands instead of
-  guessing the next cluster in advance
+- rerank the remaining mutation inventory now that the codegen-target slice is
+  complete instead of guessing the next cluster in advance
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `set_project_config_codegen_targets`.
+- 2026-03-07: Go MCP now exposes `set_project_config_codegen_targets` as a
+  structural tool over the existing codegen-target runtime owner.
+- 2026-03-07: the MCP handler passes ordered target objects through after
+  top-level shape validation only; duplicate-language checks, plugin
+  validation, and Python generated-section reconciliation stay runtime-owned.
+- 2026-03-07: app-level MCP coverage now exercises both real plugin target
+  validation/materialization and Python generated-section reconciliation
+  through the IDE server wiring.
