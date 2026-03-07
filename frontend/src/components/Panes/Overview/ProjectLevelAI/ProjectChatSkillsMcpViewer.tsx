@@ -1,26 +1,37 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import CodeMirror from "@uiw/react-codemirror";
+import {
+  buildChatSlashCommands,
+  buildCustomPromptSlashCommandDefinitions,
+  normalizeSlashCommandToken,
+} from "components/Chat/chatComposerControls";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { Resizable } from "re-resizable";
 import {
-  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { FiChevronDown } from "react-icons/fi";
+import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { useAIStore } from "state/definitions";
+import {
+  type ProjectChatCustomSlashCommand,
+  useAIStore,
+  useLocalStorage,
+} from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_mcp_server_runtime_status,
   route_reveal_path_in_os_file_explorer,
+  route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
   type AgentRun,
@@ -29,16 +40,21 @@ import {
   type EngineConfig,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
+import { clamp } from "utils/utils";
 import {
+  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+  buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   type McpRuntimeServerStatus,
+  reconcileCustomSlashCommands,
   resolveMcpServerStatus,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
+import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 
 type PathGroupHeaderProps = {
   title: string;
@@ -48,25 +64,26 @@ type PathGroupHeaderProps = {
 };
 
 type ProjectChatSkillsMcpViewerProps = {
+  projectConfigId: string;
   chatId: string | null | undefined;
   engineConfigId: string | null;
   engineType: EngineConfig["engineType"] | null;
   externalAgentToolType: string | null;
+  viewMode: "skills" | "mcp" | "slash_commands";
 };
 
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
-const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
-  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByEngineId";
+const SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.skillMarkdownViewMode";
 const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
-const MCP_SECTION_ACCORDION_VALUE = "mcp-servers";
-const SKILLS_SECTION_ACCORDION_VALUE = "skills";
-const SLASH_COMMANDS_SECTION_ACCORDION_VALUE = "slash-commands";
-const DEFAULT_SECTION_ACCORDION_VALUES = [
-  MCP_SECTION_ACCORDION_VALUE,
-  SKILLS_SECTION_ACCORDION_VALUE,
-  SLASH_COMMANDS_SECTION_ACCORDION_VALUE,
-];
+const SKILL_MARKDOWN_VIEW_MODE_RENDERED = "rendered";
+const SKILL_MARKDOWN_VIEW_MODE_RAW = "raw";
+const DEFAULT_SKILLS_LIST_HEIGHT_PCT = 66;
+const MIN_SKILLS_LIST_HEIGHT_PCT = 30;
+const MIN_SKILL_MARKDOWN_HEIGHT_PCT = 20;
+const SKILL_MARKDOWN_RENDERED_CLASS =
+  "prose prose-sm max-w-none dark:prose-invert prose-headings:my-2 prose-headings:font-semibold prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0";
 const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
 type AgentNativeSlashCommandsStatus =
   | "unknown"
@@ -79,90 +96,25 @@ type AgentNativeSlashCommandsEntry = {
   status: AgentNativeSlashCommandsStatus;
   statusDetail: string | null;
 };
+type SkillMarkdownViewMode =
+  | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
+  | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
+type SkillContentLoadStatus = "idle" | "loading" | "loaded" | "error";
+type ResizeListenerTarget = Pick<
+  Window,
+  "addEventListener" | "removeEventListener"
+>;
 const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
   {
     commands: EMPTY_AGENT_NATIVE_COMMANDS,
     status: "unknown",
     statusDetail: null,
   };
-const RESIZABLE_VERTICAL_HANDLE_HEIGHT_PX = 8;
-const RESIZABLE_VERTICAL_HANDLE_OFFSET_PX = 8;
-const RESIZABLE_VERTICAL_HANDLE_CLASS =
-  "flex h-full w-full cursor-row-resize items-center justify-center";
-const RESIZABLE_VERTICAL_HANDLE_BAR_CLASS =
-  "h-0.5 w-14 rounded-full bg-setta-300/80 transition-colors hover:bg-blue-500 dark:bg-setta-600/80 dark:hover:bg-blue-400";
-
-type VerticalResizablePaneProps = {
-  defaultHeightPx: number;
-  minHeightPx: number;
-  maxHeight: number | string;
-  contentClassName: string;
-  contentTestId?: string;
-  resizeHandleTestId?: string;
-  children: ReactNode;
-};
-
-function VerticalResizablePane({
-  defaultHeightPx,
-  minHeightPx,
-  maxHeight,
-  contentClassName,
-  contentTestId,
-  resizeHandleTestId,
-  children,
-}: VerticalResizablePaneProps) {
-  const [heightPx, setHeightPx] = useState(defaultHeightPx);
-  return (
-    <Resizable
-      className="min-w-0"
-      size={{ width: "100%", height: heightPx }}
-      minHeight={minHeightPx}
-      maxHeight={maxHeight}
-      enable={{
-        top: false,
-        right: false,
-        bottom: true,
-        left: false,
-        topRight: false,
-        bottomRight: false,
-        bottomLeft: false,
-        topLeft: false,
-      }}
-      handleComponent={{
-        bottom: (
-          <div
-            className={RESIZABLE_VERTICAL_HANDLE_CLASS}
-            data-testid={resizeHandleTestId}
-          >
-            <div
-              className={RESIZABLE_VERTICAL_HANDLE_BAR_CLASS}
-              aria-hidden="true"
-            />
-          </div>
-        ),
-      }}
-      handleStyles={{
-        bottom: {
-          bottom: `-${RESIZABLE_VERTICAL_HANDLE_OFFSET_PX}px`,
-          height: `${RESIZABLE_VERTICAL_HANDLE_HEIGHT_PX}px`,
-          left: "0px",
-          right: "0px",
-          width: "100%",
-        },
-      }}
-      onResize={(_event, _direction, elementRef) => {
-        setHeightPx(elementRef.offsetHeight);
-      }}
-      onResizeStop={(_event, _direction, elementRef) => {
-        setHeightPx(elementRef.offsetHeight);
-      }}
-    >
-      <div className={contentClassName} data-testid={contentTestId}>
-        {children}
-      </div>
-    </Resizable>
-  );
-}
+const CUSTOM_SKILL_ROOT_IDS = new Set([
+  "agents_home_skills",
+  "user_agents_skills",
+  "workspace_agents_skills",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -374,6 +326,38 @@ function isActionablePath(path: string | null): path is string {
   return normalizedPath !== "";
 }
 
+export function shouldPollSlashCommandAgentRuns({
+  viewMode,
+  selectedEngineType,
+}: {
+  viewMode: ProjectChatSkillsMcpViewerProps["viewMode"];
+  selectedEngineType: EngineConfig["engineType"] | null;
+}): boolean {
+  if (viewMode !== "slash_commands") {
+    return false;
+  }
+  if (selectedEngineType !== "external_agent") {
+    return false;
+  }
+  return true;
+}
+
+function attachSkillsListResizeListeners(args: {
+  target: ResizeListenerTarget;
+  onMove: (event: PointerEvent) => void;
+  onUp: (event: PointerEvent) => void;
+}): () => void {
+  const { target, onMove, onUp } = args;
+  target.addEventListener("pointermove", onMove);
+  target.addEventListener("pointerup", onUp);
+  target.addEventListener("pointercancel", onUp);
+  return () => {
+    target.removeEventListener("pointermove", onMove);
+    target.removeEventListener("pointerup", onUp);
+    target.removeEventListener("pointercancel", onUp);
+  };
+}
+
 function PathGroupHeader({
   title,
   path,
@@ -422,10 +406,12 @@ function PathGroupHeader({
 }
 
 export function ProjectChatSkillsMcpViewer({
+  projectConfigId,
   chatId,
   engineConfigId,
   engineType,
   externalAgentToolType,
+  viewMode,
 }: ProjectChatSkillsMcpViewerProps) {
   const chatMessages = useAIStore((state): BaseChatMessageUnion[] | null => {
     if (!chatId) {
@@ -465,7 +451,14 @@ export function ProjectChatSkillsMcpViewer({
     useState(false);
   const [selectedSkillOriginalSizeBytes, setSelectedSkillOriginalSizeBytes] =
     useState<number | null>(null);
-  const [skillContentLoading, setSkillContentLoading] = useState(false);
+  const [skillsListHeightPct, setSkillsListHeightPct] = useState(
+    DEFAULT_SKILLS_LIST_HEIGHT_PCT,
+  );
+  const [skillContentLoadStatus, setSkillContentLoadStatus] =
+    useState<SkillContentLoadStatus>("idle");
+  const [skillContentLoadError, setSkillContentLoadError] = useState<
+    string | null
+  >(null);
   const storageAdapter = useMemo(
     () => getSafeLocalStorageAdapter("project-chat-skills-mcp-viewer"),
     [],
@@ -477,6 +470,26 @@ export function ProjectChatSkillsMcpViewer({
       );
     },
   );
+  const [skillMarkdownViewMode, setSkillMarkdownViewMode] =
+    useState<SkillMarkdownViewMode>(() => {
+      const rawValue = storageAdapter.getItem(
+        SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY,
+      );
+      return rawValue === SKILL_MARKDOWN_VIEW_MODE_RAW
+        ? SKILL_MARKDOWN_VIEW_MODE_RAW
+        : SKILL_MARKDOWN_VIEW_MODE_RENDERED;
+    });
+  const [skillMarkdownRawDraft, setSkillMarkdownRawDraft] = useState<
+    string | null
+  >(null);
+  const [newCustomSkillRelativePath, setNewCustomSkillRelativePath] =
+    useState("");
+  const [customSkillCreateInFlight, setCustomSkillCreateInFlight] =
+    useState(false);
+  const [customSkillSaveInFlight, setCustomSkillSaveInFlight] = useState(false);
+  const [customSkillRootPathHint, setCustomSkillRootPathHint] = useState<
+    string | null
+  >(null);
   const [mcpConfigPath, setMcpConfigPath] = useState<string | null>(null);
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
@@ -498,6 +511,8 @@ export function ProjectChatSkillsMcpViewer({
   const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
     string | null
   >(null);
+  const [newCustomSlashCommand, setNewCustomSlashCommand] = useState("");
+  const [newCustomSlashPrompt, setNewCustomSlashPrompt] = useState("");
   const [
     agentNativeSlashCommandsByEngineId,
     setAgentNativeSlashCommandsByEngineId,
@@ -507,9 +522,18 @@ export function ProjectChatSkillsMcpViewer({
     );
   });
   const [skillsRevision, setSkillsRevision] = useState(0);
+  const customProjectChatSlashCommands = useLocalStorage(
+    (state): ProjectChatCustomSlashCommand[] =>
+      selectCustomProjectChatSlashCommands(
+        state.customProjectChatSlashCommandsByProjectConfigId,
+        projectConfigId,
+      ),
+  );
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
   const selectedSkillIdRef = useRef<string | null>(null);
+  const skillsSectionRef = useRef<HTMLDivElement | null>(null);
+  const skillsResizeCleanupRef = useRef<(() => void) | null>(null);
   const skillContentCache = useRef(
     new Map<
       string,
@@ -554,6 +578,13 @@ export function ProjectChatSkillsMcpViewer({
   }, []);
 
   useEffect(() => {
+    return () => {
+      skillsResizeCleanupRef.current?.();
+      skillsResizeCleanupRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     void refreshSkillsBrowser();
   }, [refreshSkillsBrowser]);
 
@@ -565,7 +596,8 @@ export function ProjectChatSkillsMcpViewer({
     async function loadSkillContent() {
       if (!selectedSkillId) {
         skillContentRequestSequence.current += 1;
-        setSkillContentLoading(false);
+        setSkillContentLoadStatus("idle");
+        setSkillContentLoadError(null);
         setSelectedSkillContent("");
         setSelectedSkillContentTruncated(false);
         setSelectedSkillOriginalSizeBytes(null);
@@ -573,7 +605,8 @@ export function ProjectChatSkillsMcpViewer({
       }
       if (!isSkillMarkdownViewerOpen) {
         skillContentRequestSequence.current += 1;
-        setSkillContentLoading(false);
+        setSkillContentLoadStatus("idle");
+        setSkillContentLoadError(null);
         setSelectedSkillContent("");
         setSelectedSkillContentTruncated(false);
         setSelectedSkillOriginalSizeBytes(null);
@@ -582,7 +615,8 @@ export function ProjectChatSkillsMcpViewer({
       const cacheKey = `${skillsRevision}:${selectedSkillId}`;
       const cached = skillContentCache.current.get(cacheKey) ?? null;
       if (cached) {
-        setSkillContentLoading(false);
+        setSkillContentLoadStatus("loaded");
+        setSkillContentLoadError(null);
         setSelectedSkillContent(cached.content);
         setSelectedSkillContentTruncated(cached.truncated);
         setSelectedSkillOriginalSizeBytes(cached.originalSizeBytes);
@@ -591,7 +625,8 @@ export function ProjectChatSkillsMcpViewer({
       const requestedSkillId = selectedSkillId;
       const requestSequence = skillContentRequestSequence.current + 1;
       skillContentRequestSequence.current = requestSequence;
-      setSkillContentLoading(true);
+      setSkillContentLoadStatus("loading");
+      setSkillContentLoadError(null);
       const res = await route_get_app_gen_skill_content({
         skillId: requestedSkillId,
       });
@@ -601,16 +636,19 @@ export function ProjectChatSkillsMcpViewer({
       ) {
         return;
       }
-      setSkillContentLoading(false);
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
-        setSelectedSkillContent(
+        setSkillContentLoadStatus("error");
+        setSkillContentLoadError(
           detail ?? "Failed to load selected skill content.",
         );
+        setSelectedSkillContent("");
         setSelectedSkillContentTruncated(false);
         setSelectedSkillOriginalSizeBytes(null);
         return;
       }
+      setSkillContentLoadStatus("loaded");
+      setSkillContentLoadError(null);
       setSelectedSkillContent(res.data.content);
       setSelectedSkillContentTruncated(res.data.truncated);
       setSelectedSkillOriginalSizeBytes(res.data.originalSizeBytes);
@@ -686,6 +724,25 @@ export function ProjectChatSkillsMcpViewer({
       isSkillMarkdownViewerOpen ? "true" : "false",
     );
   }, [isSkillMarkdownViewerOpen, storageAdapter]);
+
+  useEffect(() => {
+    storageAdapter.setItem(
+      SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY,
+      skillMarkdownViewMode,
+    );
+  }, [skillMarkdownViewMode, storageAdapter]);
+
+  useEffect(() => {
+    if (!selectedSkillId) {
+      setSkillMarkdownRawDraft(null);
+      return;
+    }
+    if (skillContentLoadStatus !== "loaded") {
+      setSkillMarkdownRawDraft(null);
+      return;
+    }
+    setSkillMarkdownRawDraft(selectedSkillContent);
+  }, [selectedSkillContent, selectedSkillId, skillContentLoadStatus]);
 
   useEffect(() => {
     if (agentRunsInitialLoadComplete) {
@@ -809,6 +866,45 @@ export function ProjectChatSkillsMcpViewer({
       DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
     );
   }, [agentNativeSlashCommandsByEngineId, selectedSlashEngine]);
+  const managedSlashCommandDefinitions = useMemo(() => {
+    return buildChatSlashCommands({
+      model: true,
+      permissions: true,
+      search: true,
+      appGenerationModes: true,
+    });
+  }, []);
+  const customSlashCommandDefinitions = useMemo(() => {
+    return buildCustomPromptSlashCommandDefinitions(
+      customProjectChatSlashCommands,
+    );
+  }, [customProjectChatSlashCommands]);
+  const customSlashCommandTokens = useMemo(() => {
+    return new Set(customSlashCommandDefinitions.map((entry) => entry.command));
+  }, [customSlashCommandDefinitions]);
+  const discoveredAgentNativeSlashCommands = useMemo(() => {
+    return Object.values(agentNativeSlashCommandsByEngineId).flatMap(
+      (entry) => entry.commands,
+    );
+  }, [agentNativeSlashCommandsByEngineId]);
+  const reservedSlashCommandTokens = useMemo(() => {
+    return buildReservedSlashCommandTokens({
+      managedCommands: managedSlashCommandDefinitions,
+      engineCommandGroups: slashCommandsByEngine,
+      discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
+    });
+  }, [
+    discoveredAgentNativeSlashCommands,
+    managedSlashCommandDefinitions,
+    slashCommandsByEngine,
+  ]);
+  const { conflictingCommandTokens: conflictingCustomSlashCommandTokens } =
+    useMemo(() => {
+      return reconcileCustomSlashCommands({
+        customCommands: customSlashCommandDefinitions,
+        reservedTokens: reservedSlashCommandTokens,
+      });
+    }, [customSlashCommandDefinitions, reservedSlashCommandTokens]);
 
   useEffect(() => {
     if (slashCommandsByEngine.length === 0) {
@@ -829,10 +925,13 @@ export function ProjectChatSkillsMcpViewer({
   }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   useEffect(() => {
-    if (!selectedSlashEngine) {
-      return;
-    }
-    if (selectedSlashEngine.engineType !== "external_agent") {
+    const selectedEngineType = selectedSlashEngine?.engineType ?? null;
+    if (
+      !shouldPollSlashCommandAgentRuns({
+        viewMode,
+        selectedEngineType,
+      })
+    ) {
       return;
     }
     void loadAgentRuns();
@@ -843,9 +942,9 @@ export function ProjectChatSkillsMcpViewer({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [selectedSlashEngine]);
+  }, [selectedSlashEngine, viewMode]);
 
-  const markdownViewerExtensions = useMemo(() => {
+  const readonlyMarkdownViewerExtensions = useMemo(() => {
     return getExtensions({
       language: "markdown",
       wrapLines: true,
@@ -854,18 +953,173 @@ export function ProjectChatSkillsMcpViewer({
       indentWithTab: false,
     });
   }, []);
+  const editableMarkdownViewerExtensions = useMemo(() => {
+    return getExtensions({
+      language: "markdown",
+      wrapLines: true,
+      isDisabled: false,
+      tabToAutocomplete: false,
+      indentWithTab: false,
+    });
+  }, []);
 
   const mcpServersLoading =
     !allLLMConfigsInitialLoadComplete || mcpRuntimeStatusLoading;
+  const skillContentLoading = skillContentLoadStatus === "loading";
+  const showSkillsSection = viewMode === "skills";
+  const showMcpSection = viewMode === "mcp";
+  const showSlashCommandsSection = viewMode === "slash_commands";
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
-  const skillPreviewContent =
-    skillContentLoading || (skillsLoading && !selectedSkillId)
-      ? "Loading skill content..."
-      : selectedSkillContent || "Select a skill to preview SKILL.md.";
+  const normalizedNewCustomSlashCommand = useMemo(() => {
+    return normalizeSlashCommandToken(newCustomSlashCommand);
+  }, [newCustomSlashCommand]);
+  const canAddCustomSlashCommand = useMemo(() => {
+    if (!normalizedNewCustomSlashCommand) {
+      return false;
+    }
+    if (!newCustomSlashPrompt.trim()) {
+      return false;
+    }
+    if (reservedSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
+      return false;
+    }
+    if (customSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
+      return false;
+    }
+    return true;
+  }, [
+    customSlashCommandTokens,
+    newCustomSlashPrompt,
+    normalizedNewCustomSlashCommand,
+    reservedSlashCommandTokens,
+  ]);
+  const selectedSkill = useMemo(() => {
+    if (!selectedSkillId) {
+      return null;
+    }
+    return skills.find((skill) => skill.skillId === selectedSkillId) ?? null;
+  }, [selectedSkillId, skills]);
+  const selectedSkillRootId = useMemo(() => {
+    if (!selectedSkillId) {
+      return null;
+    }
+    const separatorIndex = selectedSkillId.indexOf("::");
+    if (separatorIndex < 0) {
+      return null;
+    }
+    return selectedSkillId.slice(0, separatorIndex);
+  }, [selectedSkillId]);
+  const selectedSkillIsEditable = selectedSkill?.isEditable === true;
+  const selectedSkillEditabilityReason =
+    selectedSkill?.editabilityReason ?? null;
+  const customSkillRootPath = useMemo(() => {
+    if (
+      selectedSkill &&
+      selectedSkillRootId &&
+      CUSTOM_SKILL_ROOT_IDS.has(selectedSkillRootId)
+    ) {
+      return selectedSkill.rootPath;
+    }
+    const discoveredRoot =
+      skills.find((skill) => {
+        const separatorIndex = skill.skillId.indexOf("::");
+        if (separatorIndex < 0) {
+          return false;
+        }
+        const rootId = skill.skillId.slice(0, separatorIndex);
+        return CUSTOM_SKILL_ROOT_IDS.has(rootId);
+      }) ?? null;
+    return discoveredRoot?.rootPath ?? customSkillRootPathHint;
+  }, [customSkillRootPathHint, selectedSkill, selectedSkillRootId, skills]);
+  const skillPreviewContent = useMemo(() => {
+    if (skillContentLoading || (skillsLoading && !selectedSkillId)) {
+      return "Loading skill content...";
+    }
+    if (skillContentLoadStatus === "error") {
+      return "Skill content unavailable.";
+    }
+    if (selectedSkillContent) {
+      return selectedSkillContent;
+    }
+    return "Select a skill to preview SKILL.md.";
+  }, [
+    selectedSkillContent,
+    selectedSkillId,
+    skillContentLoadStatus,
+    skillContentLoading,
+    skillsLoading,
+  ]);
   const skillPreviewTruncationNotice =
     selectedSkillContentTruncated && selectedSkillOriginalSizeBytes !== null
       ? `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`
       : null;
+  const isRawMarkdownView =
+    skillMarkdownViewMode === SKILL_MARKDOWN_VIEW_MODE_RAW;
+  const rawMarkdownModeHint = useMemo(() => {
+    if (!selectedSkillId) {
+      return "Read-only preview. Select a skill to edit.";
+    }
+    if (skillContentLoadStatus === "error") {
+      return "Read-only preview. Resolve content loading errors before editing.";
+    }
+    if (skillContentLoadStatus !== "loaded") {
+      return "Read-only preview. Skill content is still loading.";
+    }
+    if (!selectedSkillIsEditable) {
+      return (
+        selectedSkillEditabilityReason ??
+        "Read-only preview. Select or create a custom skill to edit."
+      );
+    }
+    if (selectedSkillContentTruncated) {
+      return (
+        "Preview is truncated. Full content loading is required before editing " +
+        "or saving."
+      );
+    }
+    return "Editing mode for custom skills.";
+  }, [
+    selectedSkillId,
+    selectedSkillContentTruncated,
+    selectedSkillEditabilityReason,
+    selectedSkillIsEditable,
+    skillContentLoadStatus,
+  ]);
+  const saveSelectedSkillButtonTitle = useMemo(() => {
+    if (!selectedSkillId) {
+      return "Select a skill to edit.";
+    }
+    if (skillContentLoadStatus === "error") {
+      return "Cannot save while skill content failed to load.";
+    }
+    if (skillContentLoadStatus !== "loaded") {
+      return "Skill content is still loading.";
+    }
+    if (!selectedSkillIsEditable) {
+      return (
+        selectedSkillEditabilityReason ?? "Only custom skills can be edited."
+      );
+    }
+    if (selectedSkillContentTruncated) {
+      return "Cannot save a truncated preview.";
+    }
+    return "Save selected custom skill";
+  }, [
+    selectedSkillId,
+    selectedSkillContentTruncated,
+    selectedSkillEditabilityReason,
+    selectedSkillIsEditable,
+    skillContentLoadStatus,
+  ]);
+  const canSaveSelectedSkill =
+    skillContentLoadStatus === "loaded" &&
+    selectedSkillIsEditable &&
+    !!selectedSkillId &&
+    isRawMarkdownView &&
+    !selectedSkillContentTruncated &&
+    skillMarkdownRawDraft !== null &&
+    !skillContentLoading &&
+    !customSkillSaveInFlight;
 
   const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
@@ -904,315 +1158,719 @@ export function ProjectChatSkillsMcpViewer({
     }
   }, []);
 
+  const addCustomProjectChatSlashCommand = useCallback(() => {
+    const normalizedCommand = normalizeSlashCommandToken(newCustomSlashCommand);
+    if (!normalizedCommand) {
+      addTemporaryNotification(
+        "Provide a valid slash command (example: /triage-bugs).",
+      );
+      return;
+    }
+    const trimmedPrompt = newCustomSlashPrompt.trim();
+    if (!trimmedPrompt) {
+      addTemporaryNotification("Provide prompt text for the custom command.");
+      return;
+    }
+    if (
+      reservedSlashCommandTokens.has(normalizedCommand) ||
+      customSlashCommandTokens.has(normalizedCommand)
+    ) {
+      addTemporaryNotification(
+        `${normalizedCommand} collides with an existing slash command.`,
+      );
+      return;
+    }
+    useLocalStorage.setState((state) => {
+      const currentByProject =
+        state.customProjectChatSlashCommandsByProjectConfigId;
+      const currentCommands = currentByProject[projectConfigId] ?? [];
+      if (
+        currentCommands.some(
+          (entry) =>
+            normalizeSlashCommandToken(entry.command) === normalizedCommand,
+        )
+      ) {
+        return state;
+      }
+      return {
+        customProjectChatSlashCommandsByProjectConfigId: {
+          ...currentByProject,
+          [projectConfigId]: [
+            ...currentCommands,
+            {
+              command: normalizedCommand,
+              prompt: trimmedPrompt,
+            },
+          ],
+        },
+      };
+    });
+    setNewCustomSlashCommand("");
+    addTemporaryNotification(`Added ${normalizedCommand}.`);
+  }, [
+    customSlashCommandTokens,
+    newCustomSlashCommand,
+    newCustomSlashPrompt,
+    projectConfigId,
+    reservedSlashCommandTokens,
+  ]);
+
+  const removeCustomProjectChatSlashCommand = useCallback(
+    (commandToken: string) => {
+      const normalizedCommand = normalizeSlashCommandToken(commandToken);
+      if (!normalizedCommand) {
+        return;
+      }
+      useLocalStorage.setState((state) => {
+        const currentByProject =
+          state.customProjectChatSlashCommandsByProjectConfigId;
+        const currentCommands = currentByProject[projectConfigId] ?? [];
+        const nextCommands = currentCommands.filter(
+          (entry) =>
+            normalizeSlashCommandToken(entry.command) !== normalizedCommand,
+        );
+        if (nextCommands.length === currentCommands.length) {
+          return state;
+        }
+        const nextByProject = { ...currentByProject };
+        if (nextCommands.length === 0) {
+          delete nextByProject[projectConfigId];
+        } else {
+          nextByProject[projectConfigId] = nextCommands;
+        }
+        return {
+          customProjectChatSlashCommandsByProjectConfigId: nextByProject,
+        };
+      });
+      addTemporaryNotification(`Removed ${normalizedCommand}.`);
+    },
+    [projectConfigId],
+  );
+
+  const createCustomSkill = useCallback(async () => {
+    const relativePath = newCustomSkillRelativePath.trim();
+    if (!relativePath) {
+      addTemporaryNotification("Provide a custom skill name first.");
+      return;
+    }
+    setCustomSkillCreateInFlight(true);
+    const initialContent = `# ${relativePath}\n\nDescribe what this skill helps with.\n`;
+    const res = await route_upsert_app_gen_custom_skill({
+      skillId: null,
+      relativePath,
+      content: initialContent,
+    });
+    setCustomSkillCreateInFlight(false);
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      addTemporaryNotification(
+        detail
+          ? `Failed to create custom skill: ${detail}`
+          : "Failed to create custom skill.",
+      );
+      return;
+    }
+    setCustomSkillRootPathHint(res.data.rootPath);
+    setNewCustomSkillRelativePath("");
+    setIsSkillMarkdownViewerOpen(true);
+    setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
+    setSelectedSkillId(res.data.skillId);
+    setSkillContentLoadStatus("loaded");
+    setSkillContentLoadError(null);
+    setSelectedSkillContent(initialContent);
+    setSkillMarkdownRawDraft(initialContent);
+    setSelectedSkillContentTruncated(false);
+    setSelectedSkillOriginalSizeBytes(initialContent.length);
+    addTemporaryNotification(
+      res.data.created
+        ? `Created custom skill ${relativePath}.`
+        : `Updated existing custom skill ${relativePath}.`,
+    );
+    await refreshSkillsBrowser();
+  }, [newCustomSkillRelativePath, refreshSkillsBrowser]);
+
+  const saveSelectedCustomSkill = useCallback(async () => {
+    if (!selectedSkillId) {
+      return;
+    }
+    const requestSkillId = selectedSkillId;
+    if (skillContentLoadStatus === "error") {
+      addTemporaryNotification(
+        skillContentLoadError
+          ? `Cannot save while skill content failed to load: ${skillContentLoadError}`
+          : "Cannot save while skill content failed to load.",
+      );
+      return;
+    }
+    if (skillContentLoadStatus !== "loaded") {
+      addTemporaryNotification("Skill content is still loading.");
+      return;
+    }
+    if (!selectedSkillIsEditable) {
+      addTemporaryNotification(
+        selectedSkillEditabilityReason ??
+          "Selected skill is read-only. Create or pick a custom skill to edit.",
+      );
+      return;
+    }
+    if (selectedSkillContentTruncated) {
+      addTemporaryNotification(
+        "Cannot save while this skill preview is truncated.",
+      );
+      return;
+    }
+    if (skillMarkdownRawDraft === null) {
+      addTemporaryNotification("Skill content is still loading.");
+      return;
+    }
+    const nextContent = skillMarkdownRawDraft;
+    setCustomSkillSaveInFlight(true);
+    const res = await route_upsert_app_gen_custom_skill({
+      skillId: requestSkillId,
+      relativePath: null,
+      content: nextContent,
+    });
+    setCustomSkillSaveInFlight(false);
+    if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      addTemporaryNotification(
+        detail
+          ? `Failed to save custom skill: ${detail}`
+          : "Failed to save custom skill.",
+      );
+      return;
+    }
+    setCustomSkillRootPathHint(res.data.rootPath);
+    const cacheEntry = {
+      content: nextContent,
+      truncated: false,
+      originalSizeBytes: nextContent.length,
+    };
+    for (const key of skillContentCache.current.keys()) {
+      if (key.endsWith(`:${requestSkillId}`)) {
+        skillContentCache.current.set(key, cacheEntry);
+      }
+    }
+    if (selectedSkillIdRef.current === requestSkillId) {
+      setSkillContentLoadStatus("loaded");
+      setSkillContentLoadError(null);
+      setSelectedSkillContent(nextContent);
+      setSelectedSkillContentTruncated(false);
+      setSelectedSkillOriginalSizeBytes(nextContent.length);
+    }
+    addTemporaryNotification("Saved custom skill.");
+  }, [
+    selectedSkillEditabilityReason,
+    selectedSkillContentTruncated,
+    selectedSkillId,
+    selectedSkillIsEditable,
+    skillContentLoadError,
+    skillContentLoadStatus,
+    skillMarkdownRawDraft,
+  ]);
+
+  const beginSkillsListResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!isSkillMarkdownViewerOpen) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      const container = skillsSectionRef.current;
+      if (!container) {
+        return;
+      }
+      const bounds = container.getBoundingClientRect();
+      if (bounds.height <= 0) {
+        return;
+      }
+      const pointerId = event.pointerId;
+      const onMove = (moveEvent: PointerEvent) => {
+        if (moveEvent.pointerId !== pointerId) {
+          return;
+        }
+        const offsetY = moveEvent.clientY - bounds.top;
+        const rawListHeightPct = (offsetY / bounds.height) * 100;
+        setSkillsListHeightPct(
+          clamp(
+            rawListHeightPct,
+            MIN_SKILLS_LIST_HEIGHT_PCT,
+            100 - MIN_SKILL_MARKDOWN_HEIGHT_PCT,
+          ),
+        );
+      };
+      const onUp = (upEvent: PointerEvent) => {
+        if (upEvent.pointerId !== pointerId) {
+          return;
+        }
+        cleanup();
+        skillsResizeCleanupRef.current = null;
+      };
+      skillsResizeCleanupRef.current?.();
+      const cleanup = attachSkillsListResizeListeners({
+        target: window,
+        onMove,
+        onUp,
+      });
+      skillsResizeCleanupRef.current = cleanup;
+    },
+    [isSkillMarkdownViewerOpen],
+  );
+
   return (
-    <div className="-mr-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll pr-1 pt-4 text-sm text-setta-600 dark:text-setta-300">
-      <Accordion.Root
-        type="multiple"
-        defaultValue={DEFAULT_SECTION_ACCORDION_VALUES}
-        className="grid min-w-0 gap-3"
-      >
-        <Accordion.Item
-          value={MCP_SECTION_ACCORDION_VALUE}
-          className="overflow-visible rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
-          data-testid="skills-mcp-accordion-mcp"
+    <div
+      className="-mr-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll pr-1 pt-4 text-sm text-setta-600 dark:text-setta-300"
+      data-testid={
+        showSkillsSection
+          ? "project-chat-skills-view"
+          : showMcpSection
+            ? "project-chat-mcp-view"
+            : "project-chat-slash-commands-view"
+      }
+    >
+      {showMcpSection ? (
+        <section
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          data-testid="project-chat-mcp-content"
         >
-          <Accordion.Header>
-            <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1.5 text-left">
-              <span className="min-w-0 text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                MCP Servers
-              </span>
-              <FiChevronDown
-                aria-hidden="true"
-                className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
-              />
-            </Accordion.Trigger>
-          </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible">
-            <section className="grid min-w-0 gap-2 px-2">
-              <VerticalResizablePane
-                defaultHeightPx={180}
-                minHeightPx={90}
-                maxHeight="60vh"
-                contentClassName="h-full min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40"
-                resizeHandleTestId="skills-mcp-mcp-resize-handle"
-              >
-                {mcpServersLoading ? (
-                  <div className="text-setta-500 dark:text-setta-400">
-                    Loading MCP servers...
-                  </div>
-                ) : mcpServerGroups.length === 0 ? (
-                  <div className="text-setta-500 dark:text-setta-400">
-                    No MCP servers configured.
-                  </div>
-                ) : (
-                  mcpServerGroups.map((group, groupIndex) => (
-                    <div
-                      key={`${group.configLabel}:${group.configPath ?? "unavailable"}`}
-                      className={groupIndex === 0 ? "" : "pt-2"}
-                    >
-                      <PathGroupHeader
-                        title={group.configLabel}
-                        path={group.configPath}
-                        onCopyPath={copyPathToClipboard}
-                        onRevealPath={(path) =>
-                          void revealPathInFileExplorer(path)
-                        }
-                      />
-                      {mcpRuntimeStatusError ? (
-                        <div className="mt-1 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                          Runtime status check unavailable:{" "}
-                          {mcpRuntimeStatusError}
-                        </div>
-                      ) : null}
-                      <div className="mt-1 grid gap-1 border-t border-setta-200/80 px-1 pt-1 dark:border-setta-800">
-                        {group.servers.map((server) => {
-                          const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
-                          const status = resolveMcpServerStatus({
-                            serverId: server.serverId,
-                            source: server.source,
-                            endpoint: server.endpoint,
-                            runtimeStatusByServerId: mcpRuntimeStatusByServerId,
-                            runtimeStatusLoading: mcpRuntimeStatusLoading,
-                            runtimeStatusError: mcpRuntimeStatusError,
-                          });
-                          const statusDotClassName =
-                            status.color === "green"
-                              ? "bg-emerald-500"
-                              : status.color === "yellow"
-                                ? "bg-amber-500"
-                                : "bg-red-500";
-                          return (
-                            <div
-                              key={server.serverId}
-                              className="min-w-0 pb-1 last:pb-0"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`h-2 w-2 rounded-full ${statusDotClassName}`}
-                                  title={status.quickInfo}
-                                  aria-label={status.quickInfo}
-                                />
-                                <div
-                                  className="truncate font-semibold"
-                                  title={`${server.serverId} - ${status.quickInfo}`}
-                                  data-testid="skills-mcp-server-id"
-                                >
-                                  {server.serverId}
-                                </div>
-                              </div>
-                              <div
-                                className="truncate font-mono text-setta-500 dark:text-setta-400"
-                                title={serverEndpointDisplay}
-                                data-testid="skills-mcp-server-endpoint"
-                              >
-                                {serverEndpointDisplay}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </VerticalResizablePane>
-            </section>
-          </Accordion.Content>
-        </Accordion.Item>
-        <Accordion.Item
-          value={SKILLS_SECTION_ACCORDION_VALUE}
-          className="overflow-visible rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
-          data-testid="skills-mcp-accordion-skills"
-        >
-          <Accordion.Header>
-            <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1.5 text-left">
-              <span className="min-w-0 text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                Skills
-              </span>
-              <FiChevronDown
-                aria-hidden="true"
-                className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
-              />
-            </Accordion.Trigger>
-          </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible">
-            <section className="grid min-w-0 gap-2 px-2 pb-2">
-              <div className="grid gap-2">
-                <div className="flex min-w-0 items-center justify-end">
-                  <button
-                    className="cursor-pointer rounded-full bg-setta-100 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-setta-800/80 dark:text-setta-300 dark:hover:bg-setta-700"
-                    onClick={() => void refreshSkillsBrowser()}
-                    disabled={skillsLoading}
-                  >
-                    Refresh
-                  </button>
-                </div>
-                <search className="relative flex min-w-0 items-center">
-                  <div className="absolute left-0 grid select-none place-items-center pl-1">
-                    <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
-                  </div>
-                  <input
-                    aria-label="Filter skills"
-                    className="min-w-0 flex-grow cursor-text truncate rounded bg-setta-100/70 py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 focus-visible:ring-1 focus-visible:ring-blue-300 dark:bg-setta-900/80 dark:text-setta-200 dark:placeholder-setta-700 dark:focus-visible:ring-blue-500"
-                    value={skillFilter}
-                    onChange={(event) => setSkillFilter(event.target.value)}
-                    placeholder="Filter"
-                  />
-                </search>
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-md p-2 text-[11px]">
+            {mcpServersLoading ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                Loading MCP servers...
               </div>
-              <div className="grid min-w-0 gap-2">
-                <VerticalResizablePane
-                  defaultHeightPx={280}
-                  minHeightPx={140}
-                  maxHeight="70vh"
-                  contentClassName="h-full min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-xs dark:bg-setta-950/40"
-                  resizeHandleTestId="skills-mcp-skills-resize-handle"
+            ) : mcpServerGroups.length === 0 ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                No MCP servers configured.
+              </div>
+            ) : (
+              mcpServerGroups.map((group, groupIndex) => (
+                <div
+                  key={`${group.configLabel}:${group.configPath ?? "unavailable"}`}
+                  className={groupIndex === 0 ? "" : "pt-2"}
                 >
-                  {skillsError ? (
-                    <div className="mb-2 rounded bg-amber-50 px-2 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                      Skills unavailable ({skillsError}).
+                  <PathGroupHeader
+                    title={group.configLabel}
+                    path={group.configPath}
+                    onCopyPath={copyPathToClipboard}
+                    onRevealPath={(path) => void revealPathInFileExplorer(path)}
+                  />
+                  {mcpRuntimeStatusError ? (
+                    <div className="mt-1 rounded bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                      Runtime status check unavailable: {mcpRuntimeStatusError}
                     </div>
                   ) : null}
-                  {showSkillsLoadingState ? (
-                    <div className="text-setta-500 dark:text-setta-400">
-                      Loading skills...
-                    </div>
-                  ) : groupedSkills.length === 0 ? (
-                    <div className="text-setta-500 dark:text-setta-400">
-                      No skills found.
-                    </div>
-                  ) : (
-                    groupedSkills.map((group, groupIndex) => (
-                      <div
-                        key={group.rootPath}
-                        className={groupIndex === 0 ? "" : "pt-2"}
-                      >
-                        <PathGroupHeader
-                          title={group.rootLabel}
-                          path={group.rootPath}
-                          onCopyPath={copyPathToClipboard}
-                          onRevealPath={(path) =>
-                            void revealPathInFileExplorer(path)
-                          }
-                        />
-                        <div className="mt-1 grid gap-1 border-t border-setta-200/80 px-1 pt-1 dark:border-setta-800">
-                          {group.skills.map((skill) => {
-                            const selected = skill.skillId === selectedSkillId;
-                            const status = skillStatusBySkillId[skill.skillId];
-                            const isApplicable = status?.isApplicable ?? false;
-                            const isActive = status?.activityState === "active";
-                            const isActivityUnknown =
-                              status?.activityState === "unknown";
-                            return (
-                              <button
-                                key={skill.skillId}
-                                className={`flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded py-1 pl-1 pr-2 text-left transition-colors ${
-                                  selected
-                                    ? "bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
-                                    : "hover:bg-setta-100 dark:hover:bg-setta-800"
-                                }`}
-                                onClick={() =>
-                                  setSelectedSkillId(skill.skillId)
-                                }
-                              >
-                                <span
-                                  className="block w-full min-w-0 truncate font-semibold"
-                                  title={skill.name}
-                                  data-testid="skills-mcp-skill-name"
-                                >
-                                  {skill.name}
-                                </span>
-                                <span
-                                  className="block w-full min-w-0 truncate text-[11px] opacity-80"
-                                  title={skill.relativePath}
-                                  data-testid="skills-mcp-skill-path"
-                                >
-                                  {skill.relativePath}
-                                </span>
-                                {isApplicable ||
-                                isActive ||
-                                isActivityUnknown ? (
-                                  <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[10px] font-semibold">
-                                    {isApplicable ? (
-                                      <span
-                                        className="rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                        title={status.applicabilityReason}
-                                      >
-                                        Applicable
-                                      </span>
-                                    ) : null}
-                                    {isActive ? (
-                                      <span
-                                        className="rounded border border-blue-300 bg-blue-50 px-1 py-[1px] text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                        title={
-                                          status.activitySource
-                                            ? `Detected from ${status.activitySource}`
-                                            : "Skill invocation observed."
-                                        }
-                                      >
-                                        Active
-                                      </span>
-                                    ) : null}
-                                    {isActivityUnknown ? (
-                                      <span
-                                        className="rounded border border-amber-300 bg-amber-50 px-1 py-[1px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                        title="Skill activity metadata is unavailable for this thread."
-                                      >
-                                        Unknown
-                                      </span>
-                                    ) : null}
+                  <div className="mt-1 grid gap-1 border-t border-setta-200/80 px-1 pt-1 dark:border-setta-800">
+                    {group.servers.map((server) => {
+                      const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
+                      const status = resolveMcpServerStatus({
+                        serverId: server.serverId,
+                        source: server.source,
+                        endpoint: server.endpoint,
+                        runtimeStatusByServerId: mcpRuntimeStatusByServerId,
+                        runtimeStatusLoading: mcpRuntimeStatusLoading,
+                        runtimeStatusError: mcpRuntimeStatusError,
+                      });
+                      const statusDotClassName =
+                        status.color === "green"
+                          ? "bg-emerald-500"
+                          : status.color === "yellow"
+                            ? "bg-amber-500"
+                            : "bg-red-500";
+                      return (
+                        <div
+                          key={server.serverId}
+                          className="min-w-0 pb-1 last:pb-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${statusDotClassName}`}
+                              title={status.quickInfo}
+                              aria-label={status.quickInfo}
+                            />
+                            <div
+                              className="truncate font-semibold"
+                              title={`${server.serverId} - ${status.quickInfo}`}
+                              data-testid="skills-mcp-server-id"
+                            >
+                              {server.serverId}
+                            </div>
+                          </div>
+                          <div
+                            className="truncate font-mono text-setta-500 dark:text-setta-400"
+                            title={serverEndpointDisplay}
+                            data-testid="skills-mcp-server-endpoint"
+                          >
+                            {serverEndpointDisplay}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
+      {showSkillsSection ? (
+        <section
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
+          data-testid="project-chat-skills-content"
+        >
+          <div className="grid gap-2">
+            <search className="relative flex min-w-0 items-center gap-1">
+              <div className="absolute left-0 grid select-none place-items-center pl-1">
+                <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
+              </div>
+              <input
+                aria-label="Filter skills"
+                className="min-w-0 flex-grow cursor-text truncate rounded bg-setta-100/70 py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 focus-visible:ring-1 focus-visible:ring-blue-300 dark:bg-setta-900/80 dark:text-setta-200 dark:placeholder-setta-700 dark:focus-visible:ring-blue-500"
+                value={skillFilter}
+                onChange={(event) => setSkillFilter(event.target.value)}
+                placeholder="Filter"
+              />
+              <button
+                type="button"
+                data-testid="project-chat-skills-refresh"
+                aria-label="Refresh"
+                title="Refresh skills"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                onClick={() => void refreshSkillsBrowser()}
+                disabled={skillsLoading}
+              >
+                <FiRefreshCw
+                  className={`h-3.5 w-3.5 ${skillsLoading ? "animate-spin" : ""}`}
+                />
+              </button>
+            </search>
+            <div className="flex min-w-0 items-center gap-1">
+              <input
+                aria-label="New custom skill name"
+                data-testid="project-chat-custom-skill-relative-path-input"
+                className="min-w-0 flex-1 cursor-text truncate rounded bg-setta-100/70 px-2 py-1 text-xs text-setta-700 placeholder-setta-400 outline-0 focus-visible:ring-1 focus-visible:ring-blue-300 dark:bg-setta-900/80 dark:text-setta-200 dark:placeholder-setta-700 dark:focus-visible:ring-blue-500"
+                value={newCustomSkillRelativePath}
+                onChange={(event) =>
+                  setNewCustomSkillRelativePath(event.target.value)
+                }
+                placeholder="new-custom-skill"
+              />
+              <button
+                type="button"
+                data-testid="project-chat-custom-skill-create"
+                aria-label="Create custom skill"
+                title="Create custom skill"
+                className="grid h-7 w-7 shrink-0 place-items-center rounded text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                onClick={() => void createCustomSkill()}
+                disabled={
+                  customSkillCreateInFlight ||
+                  newCustomSkillRelativePath.trim() === ""
+                }
+              >
+                <FiPlus className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-2 px-1 text-[10px] text-setta-500 dark:text-setta-400">
+              <span
+                className="truncate"
+                data-testid="project-chat-custom-skill-root-path"
+                title={
+                  customSkillRootPath ??
+                  "Custom skill root will be created on first save."
+                }
+              >
+                {customSkillRootPath
+                  ? `Custom skills root: ${customSkillRootPath}`
+                  : "Custom skills root: first writable of AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills"}
+              </span>
+              <button
+                type="button"
+                data-testid="project-chat-custom-skill-root-reveal"
+                className="shrink-0 rounded px-1 py-0.5 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                onClick={() =>
+                  void revealPathInFileExplorer(customSkillRootPath)
+                }
+                disabled={!isActionablePath(customSkillRootPath)}
+              >
+                Open
+              </button>
+            </div>
+          </div>
+          <div
+            ref={skillsSectionRef}
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+          >
+            <div
+              className="min-h-0 min-w-0 overflow-auto rounded-md p-2 text-xs"
+              data-testid="project-chat-skills-list-pane"
+              style={
+                isSkillMarkdownViewerOpen
+                  ? { flexBasis: `${skillsListHeightPct}%` }
+                  : undefined
+              }
+            >
+              {skillsError ? (
+                <div className="mb-2 rounded bg-amber-50 px-2 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                  Skills unavailable ({skillsError}).
+                </div>
+              ) : null}
+              {showSkillsLoadingState ? (
+                <div className="text-setta-500 dark:text-setta-400">
+                  Loading skills...
+                </div>
+              ) : groupedSkills.length === 0 ? (
+                <div className="text-setta-500 dark:text-setta-400">
+                  No skills found.
+                </div>
+              ) : (
+                groupedSkills.map((group, groupIndex) => (
+                  <div
+                    key={group.rootPath}
+                    className={groupIndex === 0 ? "" : "pt-2"}
+                  >
+                    <PathGroupHeader
+                      title={group.rootLabel}
+                      path={group.rootPath}
+                      onCopyPath={copyPathToClipboard}
+                      onRevealPath={(path) =>
+                        void revealPathInFileExplorer(path)
+                      }
+                    />
+                    <div className="mt-1 grid gap-1 border-t border-setta-200/80 px-1 pt-1 dark:border-setta-800">
+                      {group.skills.map((skill) => {
+                        const selected = skill.skillId === selectedSkillId;
+                        const status = skillStatusBySkillId[skill.skillId];
+                        const isApplicable = status?.isApplicable ?? false;
+                        const isActive = status?.activityState === "active";
+                        const isActivityUnknown =
+                          status?.activityState === "unknown";
+                        return (
+                          <button
+                            key={skill.skillId}
+                            className={`flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded py-1 pl-1 pr-2 text-left transition-colors ${
+                              selected
+                                ? "bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
+                                : "hover:bg-setta-100 dark:hover:bg-setta-800"
+                            }`}
+                            onClick={() => setSelectedSkillId(skill.skillId)}
+                          >
+                            <span
+                              className="block w-full min-w-0 truncate font-semibold"
+                              title={skill.name}
+                              data-testid="skills-mcp-skill-name"
+                            >
+                              {skill.name}
+                            </span>
+                            <span
+                              className="block w-full min-w-0 truncate text-[11px] opacity-80"
+                              title={skill.relativePath}
+                              data-testid="skills-mcp-skill-path"
+                            >
+                              {skill.relativePath}
+                            </span>
+                            {isApplicable || isActive || isActivityUnknown ? (
+                              <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[10px] font-semibold">
+                                {isApplicable ? (
+                                  <span
+                                    className="rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                    title={status.applicabilityReason}
+                                  >
+                                    Applicable
                                   </span>
                                 ) : null}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </VerticalResizablePane>
-                <Accordion.Root
-                  type="single"
-                  collapsible
-                  value={
-                    isSkillMarkdownViewerOpen ? SKILL_MARKDOWN_VIEWER_VALUE : ""
-                  }
-                  onValueChange={(value) =>
-                    setIsSkillMarkdownViewerOpen(
-                      value === SKILL_MARKDOWN_VIEWER_VALUE,
-                    )
-                  }
+                                {isActive ? (
+                                  <span
+                                    className="rounded border border-blue-300 bg-blue-50 px-1 py-[1px] text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                    title={
+                                      status.activitySource
+                                        ? `Detected from ${status.activitySource}`
+                                        : "Skill invocation observed."
+                                    }
+                                  >
+                                    Active
+                                  </span>
+                                ) : null}
+                                {isActivityUnknown ? (
+                                  <span
+                                    className="rounded border border-amber-300 bg-amber-50 px-1 py-[1px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                    title="Skill activity metadata is unavailable for this thread."
+                                  >
+                                    Unknown
+                                  </span>
+                                ) : null}
+                              </span>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {isSkillMarkdownViewerOpen ? (
+              <div
+                data-testid="project-chat-skills-resize-handle"
+                role="separator"
+                aria-label="Resize skill list and markdown viewer"
+                className="group/resize relative flex h-3 cursor-row-resize items-center justify-center"
+                onPointerDown={beginSkillsListResize}
+                onDoubleClick={() =>
+                  setSkillsListHeightPct(DEFAULT_SKILLS_LIST_HEIGHT_PCT)
+                }
+              >
+                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
+                <div className="relative z-[1] h-1 w-10 rounded-full bg-setta-300/90 transition-colors group-hover/resize:bg-blue-400 dark:bg-setta-600 dark:group-hover/resize:bg-blue-400" />
+              </div>
+            ) : null}
+            <div
+              className={
+                isSkillMarkdownViewerOpen
+                  ? "min-h-[140px] min-w-0 flex-1 overflow-hidden"
+                  : "min-w-0"
+              }
+            >
+              <Accordion.Root
+                type="single"
+                collapsible
+                value={
+                  isSkillMarkdownViewerOpen ? SKILL_MARKDOWN_VIEWER_VALUE : ""
+                }
+                onValueChange={(value) =>
+                  setIsSkillMarkdownViewerOpen(
+                    value === SKILL_MARKDOWN_VIEWER_VALUE,
+                  )
+                }
+                className={isSkillMarkdownViewerOpen ? "h-full min-h-0" : ""}
+              >
+                <Accordion.Item
+                  value={SKILL_MARKDOWN_VIEWER_VALUE}
+                  className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${
+                    isSkillMarkdownViewerOpen
+                      ? "flex h-full min-h-0 flex-col"
+                      : ""
+                  }`}
                 >
-                  <Accordion.Item
-                    value={SKILL_MARKDOWN_VIEWER_VALUE}
-                    className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
+                  <Accordion.Header>
+                    <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1 text-left">
+                      <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                        Skill Markdown Viewer
+                      </span>
+                      <FiChevronDown
+                        aria-hidden="true"
+                        className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
+                      />
+                    </Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Content
+                    className={`overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown ${
+                      isSkillMarkdownViewerOpen ? "min-h-0 flex-1" : ""
+                    }`}
                   >
-                    <Accordion.Header>
-                      <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1 text-left">
-                        <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                          Skill Markdown Viewer
-                        </span>
-                        <FiChevronDown
-                          aria-hidden="true"
-                          className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
-                        />
-                      </Accordion.Trigger>
-                    </Accordion.Header>
-                    <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-                      {isSkillMarkdownViewerOpen ? (
-                        <div className="grid">
-                          {skillPreviewTruncationNotice ? (
-                            <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
-                              {skillPreviewTruncationNotice}
-                            </div>
-                          ) : null}
-                          <div className="h-36 min-h-[120px] resize-y overflow-hidden">
+                    {isSkillMarkdownViewerOpen ? (
+                      <div className="flex h-full min-h-0 flex-col">
+                        {skillContentLoadStatus === "error" &&
+                        skillContentLoadError ? (
+                          <div
+                            data-testid="project-chat-skill-content-error"
+                            className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                          >
+                            Failed to load skill content:{" "}
+                            {skillContentLoadError}
+                          </div>
+                        ) : null}
+                        {skillPreviewTruncationNotice ? (
+                          <div className="bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                            {skillPreviewTruncationNotice}
+                          </div>
+                        ) : null}
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-setta-200/80 px-2 py-1 dark:border-setta-700/80">
+                          <div className="inline-flex items-center gap-1 rounded bg-setta-100/70 p-0.5 dark:bg-setta-900/80">
+                            <button
+                              type="button"
+                              data-testid="project-chat-skill-markdown-view-rendered"
+                              className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                                !isRawMarkdownView
+                                  ? "bg-setta-200 text-setta-800 dark:bg-setta-700 dark:text-setta-100"
+                                  : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                              }`}
+                              onClick={() =>
+                                setSkillMarkdownViewMode(
+                                  SKILL_MARKDOWN_VIEW_MODE_RENDERED,
+                                )
+                              }
+                            >
+                              Rendered
+                            </button>
+                            <button
+                              type="button"
+                              data-testid="project-chat-skill-markdown-view-raw"
+                              className={`rounded px-2 py-1 text-[10px] font-semibold transition-colors ${
+                                isRawMarkdownView
+                                  ? "bg-setta-200 text-setta-800 dark:bg-setta-700 dark:text-setta-100"
+                                  : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                              }`}
+                              onClick={() =>
+                                setSkillMarkdownViewMode(
+                                  SKILL_MARKDOWN_VIEW_MODE_RAW,
+                                )
+                              }
+                            >
+                              Raw text
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            data-testid="project-chat-custom-skill-save"
+                            className="inline-flex h-6 items-center gap-1 rounded px-2 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                            onClick={() => void saveSelectedCustomSkill()}
+                            disabled={!canSaveSelectedSkill}
+                            title={saveSelectedSkillButtonTitle}
+                          >
+                            <FiSave className="h-3 w-3" />
+                            Save
+                          </button>
+                        </div>
+                        {isRawMarkdownView ? (
+                          <div className="px-2 py-1 text-[10px] text-setta-500 dark:text-setta-400">
+                            {rawMarkdownModeHint}
+                          </div>
+                        ) : null}
+                        {!isRawMarkdownView ? (
+                          <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
+                            <ReactMarkdown
+                              className={SKILL_MARKDOWN_RENDERED_CLASS}
+                              remarkPlugins={[remarkGfm]}
+                            >
+                              {skillPreviewContent}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="min-h-0 flex-1 overflow-hidden">
                             <CodeMirror
                               aria-label="Skill Markdown Content"
-                              className="h-full"
+                              className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
                               height="100%"
-                              value={skillPreviewContent}
+                              value={
+                                skillMarkdownRawDraft ?? skillPreviewContent
+                              }
+                              onChange={(value) => {
+                                if (
+                                  !selectedSkillIsEditable ||
+                                  selectedSkillContentTruncated ||
+                                  skillContentLoadStatus !== "loaded"
+                                ) {
+                                  return;
+                                }
+                                setSkillMarkdownRawDraft(value);
+                              }}
                               theme={codeMirrorTheme}
-                              extensions={markdownViewerExtensions}
+                              extensions={
+                                selectedSkillIsEditable &&
+                                !selectedSkillContentTruncated &&
+                                skillContentLoadStatus === "loaded"
+                                  ? editableMarkdownViewerExtensions
+                                  : readonlyMarkdownViewerExtensions
+                              }
                               basicSetup={{
                                 lineNumbers: false,
                                 foldGutter: false,
@@ -1221,153 +1879,221 @@ export function ProjectChatSkillsMcpViewer({
                               }}
                             />
                           </div>
-                        </div>
-                      ) : null}
-                    </Accordion.Content>
-                  </Accordion.Item>
-                </Accordion.Root>
-              </div>
-            </section>
-          </Accordion.Content>
-        </Accordion.Item>
-        <Accordion.Item
-          value={SLASH_COMMANDS_SECTION_ACCORDION_VALUE}
-          className="overflow-visible rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
-          data-testid="skills-mcp-accordion-slash-commands"
-        >
-          <Accordion.Header>
-            <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1.5 text-left">
-              <span className="min-w-0 text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                Slash Commands
-              </span>
-              <FiChevronDown
-                aria-hidden="true"
-                className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
-              />
-            </Accordion.Trigger>
-          </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible">
-            <section className="grid min-w-0 gap-2 px-2 pb-2">
-              {!engineConfigsInitialLoadComplete ? (
-                <div className="rounded-md bg-white/70 p-2 text-[11px] text-setta-500 dark:bg-setta-950/40 dark:text-setta-400">
-                  Loading engine commands...
-                </div>
-              ) : slashCommandsByEngine.length === 0 ? (
-                <div className="rounded-md bg-white/70 p-2 text-[11px] text-setta-500 dark:bg-setta-950/40 dark:text-setta-400">
-                  No engines configured.
-                </div>
-              ) : (
-                <>
-                  <div className="flex min-w-0 gap-1 overflow-x-auto pb-1">
-                    {slashCommandsByEngine.map((engine) => {
-                      const selected =
-                        selectedSlashEngine?.engineId === engine.engineId;
-                      return (
-                        <button
-                          key={engine.engineId}
-                          type="button"
-                          data-testid="skills-mcp-slash-tab"
-                          className={`box-border min-w-0 cursor-pointer rounded px-2 py-1 text-left transition-colors ${
-                            selected
-                              ? "bg-blue-50 text-blue-700 dark:bg-blue-950/35 dark:text-blue-300"
-                              : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
-                          }`}
-                          title={engine.engineName}
-                          onClick={() =>
-                            setSelectedSlashEngineId(engine.engineId)
-                          }
-                        >
-                          <span className="block truncate font-semibold">
-                            {engine.engineName}
-                          </span>
-                          <span className="block truncate text-[10px] uppercase tracking-wide opacity-80">
-                            {engine.engineType === "external_agent"
-                              ? "External Agent"
-                              : "Setta LLM"}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <VerticalResizablePane
-                    defaultHeightPx={220}
-                    minHeightPx={120}
-                    maxHeight="70vh"
-                    contentClassName="h-full min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40"
-                    contentTestId="skills-mcp-slash-list-pane"
-                    resizeHandleTestId="skills-mcp-slash-resize-handle"
-                  >
-                    <div className="grid min-w-0 gap-3">
-                      <div className="grid min-w-0 gap-1">
-                        <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                          Setta Chat Commands
-                        </div>
-                        {selectedSlashEngine?.commands.map((command) => (
-                          <div
-                            key={`${selectedSlashEngine.engineId}:${command.command}`}
-                            className="min-w-0 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
-                          >
-                            <div
-                              className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
-                              data-testid="skills-mcp-slash-command"
-                            >
-                              {command.command}
-                            </div>
-                            <div className="min-w-0 text-setta-600 dark:text-setta-300">
-                              {command.summary}
-                            </div>
-                          </div>
-                        ))}
+                        )}
                       </div>
-                      {selectedSlashEngine?.engineType === "external_agent" ? (
-                        <div className="grid min-w-0 gap-2">
-                          <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                            Agent-Native Commands
-                          </div>
-                          {selectedAgentNativeSlashCommands.length > 0 ? (
-                            <div className="grid min-w-0 gap-1">
-                              {selectedAgentNativeSlashCommands.map(
-                                (command) => (
+                    ) : null}
+                  </Accordion.Content>
+                </Accordion.Item>
+              </Accordion.Root>
+            </div>
+          </div>
+        </section>
+      ) : null}
+      {showSlashCommandsSection ? (
+        <section
+          className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
+          data-testid="skills-mcp-slash-commands-content"
+        >
+          {!engineConfigsInitialLoadComplete ? (
+            <div className="p-1 text-[11px] text-setta-500 dark:text-setta-400">
+              Loading engine commands...
+            </div>
+          ) : slashCommandsByEngine.length === 0 ? (
+            <div className="p-1 text-[11px] text-setta-500 dark:text-setta-400">
+              No engines configured.
+            </div>
+          ) : (
+            <>
+              <div className="flex min-w-0 gap-1 overflow-x-auto">
+                {slashCommandsByEngine.map((engine) => {
+                  const selected =
+                    selectedSlashEngine?.engineId === engine.engineId;
+                  return (
+                    <button
+                      key={engine.engineId}
+                      type="button"
+                      data-testid="skills-mcp-slash-tab"
+                      className={`box-border min-w-0 cursor-pointer rounded px-2 py-1 text-left transition-colors ${
+                        selected
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-950/35 dark:text-blue-300"
+                          : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
+                      }`}
+                      title={engine.engineName}
+                      onClick={() => setSelectedSlashEngineId(engine.engineId)}
+                    >
+                      <span className="block truncate font-semibold">
+                        {engine.engineName}
+                      </span>
+                      <span className="block truncate text-[10px] uppercase tracking-wide opacity-80">
+                        {engine.engineType === "external_agent"
+                          ? "External Agent"
+                          : "Setta LLM"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                className="min-h-0 min-w-0 flex-1 overflow-auto p-1 text-[11px]"
+                data-testid="skills-mcp-slash-list-pane"
+              >
+                <div className="grid min-w-0 gap-3">
+                  <div className="grid min-w-0 gap-1">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                      Setta Chat Commands
+                    </div>
+                    {selectedSlashEngine?.commands.map((command) => (
+                      <div
+                        key={`${selectedSlashEngine.engineId}:${command.command}`}
+                        className="min-w-0 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
+                      >
+                        <div
+                          className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                          data-testid="skills-mcp-slash-command"
+                        >
+                          {command.command}
+                        </div>
+                        <div className="min-w-0 text-setta-600 dark:text-setta-300">
+                          {command.summary}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid min-w-0 gap-2">
+                    <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                      Custom Commands
+                    </div>
+                    <div className="grid min-w-0 gap-2 px-1">
+                      <input
+                        type="text"
+                        value={newCustomSlashCommand}
+                        onChange={(event) =>
+                          setNewCustomSlashCommand(event.target.value)
+                        }
+                        placeholder="/my-command"
+                        className="w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
+                        data-testid="project-chat-custom-slash-command-input"
+                      />
+                      <textarea
+                        value={newCustomSlashPrompt}
+                        onChange={(event) =>
+                          setNewCustomSlashPrompt(event.target.value)
+                        }
+                        placeholder="Prompt text to send when this command runs."
+                        className="min-h-20 w-full resize-y rounded border border-setta-300 bg-transparent px-2 py-1 text-[11px] text-setta-700 outline-none transition-colors focus:border-blue-500 dark:border-setta-700 dark:text-setta-100 dark:focus:border-blue-400"
+                        data-testid="project-chat-custom-slash-prompt-input"
+                      />
+                      <button
+                        type="button"
+                        className="inline-flex w-fit cursor-pointer items-center rounded border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                        data-testid="project-chat-custom-slash-add"
+                        onClick={addCustomProjectChatSlashCommand}
+                        disabled={!canAddCustomSlashCommand}
+                      >
+                        Add slash command
+                      </button>
+                      <div className="text-[10px] text-setta-500 dark:text-setta-400">
+                        Command names must be unique and cannot collide with
+                        built-in or discovered agent-native commands.
+                      </div>
+                    </div>
+                    {customSlashCommandDefinitions.length > 0 ? (
+                      <div className="grid min-w-0 gap-1">
+                        {customSlashCommandDefinitions.map((command) => {
+                          const hasCollision =
+                            conflictingCustomSlashCommandTokens.has(
+                              command.command,
+                            );
+                          return (
+                            <div
+                              key={command.command}
+                              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
+                            >
+                              <div className="min-w-0">
+                                <div
+                                  className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                                  data-testid="project-chat-custom-slash-command"
+                                >
+                                  {command.command}
+                                </div>
+                                <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
+                                  {command.promptTemplate}
+                                </div>
+                                {hasCollision ? (
                                   <div
-                                    key={`${selectedSlashEngine.engineId}:agent:${command}`}
-                                    className="min-w-0 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
-                                    data-testid="skills-mcp-agent-slash-command"
+                                    className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-300"
+                                    data-testid="project-chat-custom-slash-command-conflict"
                                   >
-                                    <div className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300">
-                                      {command}
-                                    </div>
+                                    Disabled due to command collision.
                                   </div>
-                                ),
-                              )}
+                                ) : null}
+                              </div>
+                              <button
+                                type="button"
+                                className="inline-flex h-6 cursor-pointer items-center rounded border border-setta-300 px-2 text-[10px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                                data-testid="project-chat-custom-slash-remove"
+                                onClick={() =>
+                                  removeCustomProjectChatSlashCommand(
+                                    command.command,
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
                             </div>
-                          ) : (
-                            <div className="rounded bg-setta-100/70 px-2 py-1 text-[10px] text-setta-600 dark:bg-setta-900/80 dark:text-setta-300">
-                              {resolveAgentNativeSlashCommandsMessage(
-                                selectedAgentNativeSlashStatus,
-                              )}
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="px-1 text-[10px] text-setta-500 dark:text-setta-400">
+                        No custom slash commands yet.
+                      </div>
+                    )}
+                  </div>
+                  {selectedSlashEngine?.engineType === "external_agent" ? (
+                    <div className="grid min-w-0 gap-2">
+                      <div className="px-1 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                        Agent-Native Commands
+                      </div>
+                      {selectedAgentNativeSlashCommands.length > 0 ? (
+                        <div className="grid min-w-0 gap-1">
+                          {selectedAgentNativeSlashCommands.map((command) => (
+                            <div
+                              key={`${selectedSlashEngine.engineId}:agent:${command}`}
+                              className="min-w-0 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
+                              data-testid="skills-mcp-agent-slash-command"
+                            >
+                              <div className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                                {command}
+                              </div>
                             </div>
-                          )}
+                          ))}
                         </div>
                       ) : (
                         <div className="rounded bg-setta-100/70 px-2 py-1 text-[10px] text-setta-600 dark:bg-setta-900/80 dark:text-setta-300">
-                          Agent-native slash commands apply to external agents.
-                          Select an external engine tab to view discovered
-                          metadata.
+                          {resolveAgentNativeSlashCommandsMessage(
+                            selectedAgentNativeSlashStatus,
+                          )}
                         </div>
                       )}
                     </div>
-                  </VerticalResizablePane>
-                  <div className="text-[10px] text-setta-500 dark:text-setta-400">
-                    Setta command availability is defined by this app. Native
-                    agent command lists are sourced from external-agent run
-                    metadata and cached locally per engine.
-                  </div>
-                </>
-              )}
-            </section>
-          </Accordion.Content>
-        </Accordion.Item>
-      </Accordion.Root>
+                  ) : (
+                    <div className="rounded bg-setta-100/70 px-2 py-1 text-[10px] text-setta-600 dark:bg-setta-900/80 dark:text-setta-300">
+                      Agent-native slash commands apply to external agents.
+                      Select an external engine tab to view discovered metadata.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="text-[10px] text-setta-500 dark:text-setta-400">
+                Setta command availability is defined by this app. Native agent
+                command lists are sourced from external-agent run metadata and
+                cached locally per engine.
+              </div>
+            </>
+          )}
+        </section>
+      ) : null}
     </div>
   );
 }
