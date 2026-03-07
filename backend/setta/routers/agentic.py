@@ -522,7 +522,7 @@ async def route_start_state_machine_run(
 ) -> AgentRun:
     await ctx.enforce_llm_allowed()
     try:
-        return ctx.state.state_machine_runner.start_run(
+        return await ctx.state.state_machine_runner.start_run(
             project_config_id=x.projectConfigId,
             machine_group_id=x.machineGroupId,
             start_section_id=x.startSectionId,

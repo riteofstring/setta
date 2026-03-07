@@ -24,13 +24,12 @@ from setta.agentic.store import (
 )
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
+from setta.frontend_affinity_token import (
+    FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE,
+    parse_frontend_affinity_token,
+)
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
-from setta.routers.app_generation_limits import (
-    MAX_REFERENCE_IMAGE_NOTES_CHARS,
-    MAX_REFERENCE_IMAGE_URL_CHARS,
-)
-from setta.routers.frontend_affinity_token import require_frontend_affinity_token
 from setta.types.agentic import AgentProfile, AgentRun, EngineType
 from setta.types.external_agents import ExternalAgentToolType
 from setta.types.generated.chat_messages import (
@@ -54,6 +53,18 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
     "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
     "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
 )
+MAX_REFERENCE_IMAGE_URL_CHARS = 4096
+MAX_REFERENCE_IMAGE_NOTES_CHARS = 100_000
+
+
+def require_frontend_affinity_token(value: str | None) -> str | None:
+    try:
+        return parse_frontend_affinity_token(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=FRONTEND_AFFINITY_TOKEN_ERROR_MESSAGE,
+        ) from exc
 
 
 class ManagedChatDispatchRequest(BaseModel, extra="forbid"):

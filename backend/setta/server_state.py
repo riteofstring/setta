@@ -536,10 +536,6 @@ class SettaFastAPIState:
                 managed_api_keys=managed_api_keys.api_keys,
             )
             self.agent_runner.update_api_keys(runtime_api_keys)
-            self.state_machine_runner = StateMachineRunner(
-                self.dbe,
-                self.project_manager_switcher,
-            )
             self.llm_api_key_watcher = LLMApiKeyWatcher(
                 self.specific_file_watcher,
                 self.agent_runner,
@@ -592,6 +588,12 @@ class SettaFastAPIState:
                     self.plugin_manager.get_backend_external_agent_adapters()
                 ),
                 mcp_client=self.mcp_client,
+            )
+            self.state_machine_runner = StateMachineRunner(
+                self.dbe,
+                self.project_manager_switcher,
+                self.agent_runner,
+                self.external_agent_runner,
             )
 
             self.init_status.record("Starting background services")
