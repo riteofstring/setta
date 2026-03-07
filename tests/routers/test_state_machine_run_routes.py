@@ -28,7 +28,7 @@ from setta.routers.agentic import (
     route_start_state_machine_run,
     route_stop_state_machine_run,
 )
-from setta.types.agentic import AgentRunStatus, EngineConfig, EngineType
+from setta.types.agentic import AgentRun, AgentRunStatus, EngineConfig, EngineType
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
@@ -768,6 +768,92 @@ async def test_state_machine_runner_reset_thread_clears_chat_and_stops_running_r
             "start_edge_action_reset",
             "start_edge_actions_dispatched",
         ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_stop_cancels_running_child_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _, _ = await _seed_state_machine_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            target_action=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Review this branch carefully.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+        stopped_child_run_ids: list[ID] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        async def _capture_stop_run(run_id: ID):
+            stopped_child_run_ids.append(run_id)
+            child_run = child_runs[0]
+            child_run.status = AgentRunStatus.cancelled
+            save_agent_run(project_fixture.dbe, child_run)
+            return child_run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+        monkeypatch.setattr(agent_runner, "stop_run", _capture_stop_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+            stopped = await route_stop_state_machine_run(
+                StopStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+            latest = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        assert child_runs
+        assert stopped.alreadyStopped is False
+        assert stopped.stoppedRunId == started.id
+        assert stopped_child_run_ids == [child_runs[0].id]
+        assert latest.status == AgentRunStatus.cancelled
+        assert latest.events[-2].type == "child_runs_cancelled"
+        assert latest.events[-2].payload == {
+            "childRunIds": [str(child_runs[0].id)]
+        }
+        assert latest.events[-1].type == "run_cancelled"
 
 
 @pytest.mark.asyncio

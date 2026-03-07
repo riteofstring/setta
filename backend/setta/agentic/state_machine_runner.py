@@ -223,6 +223,18 @@ class StateMachineRunner:
             return None
         if run.status != AgentRunStatus.running:
             return None
+        stopped_child_run_ids = await self._stop_running_child_runs(
+            run=run,
+            project_config_id=project_config_id,
+        )
+        if stopped_child_run_ids:
+            self._record_event(
+                run,
+                "child_runs_cancelled",
+                {
+                    "childRunIds": stopped_child_run_ids,
+                },
+            )
         run.status = AgentRunStatus.cancelled
         run.finishedAt = get_now_timestamp()
         save_agent_run(self.dbe, run)
@@ -762,3 +774,49 @@ class StateMachineRunner:
         if is_external_agent_run(latest_run):
             return await self.external_agent_runner.stop_run(latest_run.id)
         return await self.agent_runner.stop_run(latest_run.id)
+
+    def _list_child_runs(
+        self,
+        *,
+        run: AgentRun,
+        project_config_id: ID,
+    ) -> list[AgentRun]:
+        runs = list_agent_runs_by_metadata(
+            self.dbe,
+            project_config_id=project_config_id,
+        )
+        child_runs: list[AgentRun] = []
+        for child_run in runs:
+            if child_run.id == run.id:
+                continue
+            if not isinstance(child_run.inputs, dict):
+                continue
+            raw_parent_run_id = child_run.inputs.get("stateMachineRunId")
+            if raw_parent_run_id != str(run.id):
+                continue
+            raw_parent_run_type = child_run.inputs.get("stateMachineParentRunType")
+            if raw_parent_run_type != STATE_MACHINE_RUN_TYPE:
+                continue
+            child_runs.append(child_run)
+        child_runs.sort(key=get_run_last_updated, reverse=True)
+        return child_runs
+
+    async def _stop_running_child_runs(
+        self,
+        *,
+        run: AgentRun,
+        project_config_id: ID,
+    ) -> list[str]:
+        stopped_child_run_ids: list[str] = []
+        for child_run in self._list_child_runs(
+            run=run,
+            project_config_id=project_config_id,
+        ):
+            if child_run.status != AgentRunStatus.running:
+                continue
+            if is_external_agent_run(child_run):
+                stopped_run = await self.external_agent_runner.stop_run(child_run.id)
+            else:
+                stopped_run = await self.agent_runner.stop_run(child_run.id)
+            stopped_child_run_ids.append(str(stopped_run.id))
+        return stopped_child_run_ids
