@@ -2,17 +2,18 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 6 slice after the completed Group
+This doc recorded the bounded Phase 6 slice that closed the remaining
+section-variant selection and ordering parity gap after the completed Group
 layout toggle work.
 
-The highest-leverage remaining section-variant mutation gaps are now:
+The slice covered:
 
 - `set_section_variant`
 - `set_default_section_variant`
 - `set_section_variant_sort_order`
 
-These three tools share the same section/variant ownership boundary and should
-land together instead of splitting active-variant selection, default-variant
+These three tools share the same section/variant ownership boundary, so they
+landed together instead of splitting active-variant selection, default-variant
 selection, and variant ordering across separate slices.
 
 ## Status
@@ -20,15 +21,15 @@ selection, and variant ordering across separate slices.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity remains the active phase
-- the Group layout toggle slice is complete across the runtime, MCP server,
-  HTTP tool bridge, and authenticated SSE transport
-- Go already owns `create_new_section_variant`, so the next missing bounded
-  section-variant work is selection and ordering rather than creation
+- this section-variant selection/order slice is complete across the runtime,
+  MCP server, HTTP tool bridge, and authenticated SSE transport
 - app-definition work remains intentionally deferred
+- the remaining highest-leverage non-app-definition gap moved on to the
+  section filter and MetaControl title cluster
 
 ## Scope
 
-This focused slice should cover:
+This focused slice covered:
 
 - a Go runtime owner for `set_section_variant`
 - a Go runtime owner for `set_default_section_variant`
@@ -87,40 +88,53 @@ Python keeps these mutations narrow:
 - keep the slice bounded to selection/order only
   - do not pull param-filter or variant-name work into this step
 
-## Implementation Outline
+## Completed Work
 
-1. Add the runtime owners.
-   - set active variant
-   - set default variant
-   - persist variant ordering with complete-list validation
+1. Added the runtime owners in `internal/projectstate`.
+   - `Runtime.SetSectionVariant`
+   - `Runtime.SetDefaultSectionVariant`
+   - `Runtime.SetSectionVariantSortOrder`
+   - active/default selection now validates section/variant membership through
+     the project graph instead of trusting raw ids
 
-2. Add MCP parity.
-   - scoped write access on `sectionId`
-   - variant-id translation on direct and array arguments
-   - project-scoped invocation
+2. Added MCP transport parity in `internal/mcpx/server.go`.
+   - `set_section_variant`
+   - `set_default_section_variant`
+   - `set_section_variant_sort_order`
+   - all three tools use scoped write access on `sectionId`
+   - direct and array variant ids translate through temporary ids
 
-3. Add focused tests.
-   - runtime selection/default/order behavior
-   - MCP server, HTTP bridge, and authenticated SSE coverage
+3. Added bridge and end-to-end coverage.
+   - runtime tests
+   - MCP server tests
+   - HTTP tool-call route tests
+   - authenticated SSE app tests
 
 ## Open Questions
 
-- none right now
+- none after implementation
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(SetSectionVariant|SetDefaultSectionVariant|SetSectionVariantSortOrder)' -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetSectionVariant|SetDefaultSectionVariant|SetSectionVariantSortOrder)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetSectionVariant|SupportsSetDefaultSectionVariant|SupportsSetSectionVariantSortOrder)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupports(SetSectionVariant|SetDefaultSectionVariant|SetSectionVariantSortOrder)|ToolCallRouteSupports(SetSectionVariant|SetDefaultSectionVariant|SetSectionVariantSortOrder)|ServerSupportsTemporaryIDsFor(SetSectionVariant|SetDefaultSectionVariant|SetSectionVariantSortOrder))' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetSectionVariant|SetSectionVariantAcceptsTemporaryIDs|SupportsSetDefaultSectionVariant|SetSectionVariantSortOrderAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetSectionVariant|ServerSupportsTemporaryIDsForSetSectionVariant|ServerSupportsSetDefaultSectionVariant|ServerSupportsTemporaryIDsForSetDefaultSectionVariant|ServerSupportsSetSectionVariantSortOrder|ServerSupportsTemporaryIDsForSetSectionVariantSortOrder|ToolCallRouteSupportsSetSectionVariant|ToolCallRouteSupportsSetDefaultSectionVariant|ToolCallRouteSupportsSetSectionVariantSortOrder|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
 
 ## Next Recommended Step
 
-- implement the runtime owners in `internal/projectstate` first
-- reuse the existing `create_new_section_variant` fixture surface in tests
-  instead of introducing a new variant-creation pathway
+- use `phase-6-section-filter-and-meta-control-title-tools-parity.md` as the
+  next bounded Phase 6 slice
+- keep the remaining non-app-definition writes separate from deferred
+  app-definition transport work
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the completed Group layout toggle slice
   reranked the remaining Phase 6 mutation gaps.
+- 2026-03-07: runtime owners landed for active/default section variant
+  selection and full variant ordering validation.
+- 2026-03-07: MCP, HTTP tool-route, and authenticated SSE parity landed for
+  all three section-variant selection/order tools.
+- 2026-03-07: temporary-id translation now covers both direct `variantId`
+  arguments and `orderedVariantIds` arrays for section-variant writes.

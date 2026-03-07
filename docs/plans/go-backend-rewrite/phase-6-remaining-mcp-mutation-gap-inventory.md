@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 47 tools total
-- 44 current Go tool names overlap with Python
+- Go MCP now exposes 50 tools total
+- 47 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 42 of those overlaps are mutation or structural tools
-- Python still has 7 mutation or structural project-state MCP tools that do
+- 45 of those overlaps are mutation or structural tools
+- Python still has 4 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -92,32 +92,34 @@ MCP server:
   - `set_code_obj_display_name`
   - `set_code_section_diagnostics_mute`
   - `set_code_section_diagnostic_code_suppression`
+  - `set_section_variant`
+  - `set_default_section_variant`
+  - `set_section_variant_sort_order`
 
 ## Remaining Mutation Gaps
 
 ### 1. Highest-Leverage Next Slice
 
-- section-variant selection and ordering parity:
-  - `set_section_variant`
-  - `set_default_section_variant`
-  - `set_section_variant_sort_order`
+- section filter and MetaControl title parity:
+  - `set_section_param_filter`
+  - `set_meta_control_show_section_title`
 
 Why this is next:
 
-1. `create_new_section_variant` is already Go-owned, so selection and ordering
-   are now the missing section-variant runtime owners with the highest MCP
-   leverage.
-2. these three tools share the same section/variant membership boundary and
-   are better landed together than as separate micro-slices.
-3. the slice stays bounded and avoids reopening the broader app-definition or
-   param-filter subsystems.
+1. after the completed section-variant slice, the remaining non-app-definition
+   MCP gaps are just two narrow section-payload writes plus the deferred
+   app-definition pair.
+2. both tools mutate active effective section-impl payload fields through the
+   same thin scoped-write transport shape.
+3. landing these two tools next clears the non-app-definition mutation backlog
+   before the final app-definition slice.
 4. the next slice is scoped in:
-   `phase-6-section-variant-selection-and-order-tools-parity.md`
+   `phase-6-section-filter-and-meta-control-title-tools-parity.md`
 
-### 2. After The Section-Variant Slice
+### 2. After The Section-Filter Slice
 
-- rerank the remaining configuration mutation gaps against the completed
-  section-variant owner layer
+- start the deferred app-definition MCP slice against the now-small remaining
+  mutation surface
 - keep app-definition work deferred until frontend-source ownership is ready
 
 ### 3. Gaps That Still Need More Go Runtime Work First
@@ -126,9 +128,6 @@ These should not be turned into MCP work until their authoritative Go mutation
 owner is clearer:
 
 - `set_section_param_filter`
-- `set_section_variant`
-- `set_default_section_variant`
-- `set_section_variant_sort_order`
 - `set_meta_control_show_section_title`
 - `set_app_definition`
 - `update_app_definition`
@@ -143,7 +142,7 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-section-variant-selection-and-order-tools-parity.md` as the next bounded
+- use `phase-6-section-filter-and-meta-control-title-tools-parity.md` as the next bounded
   Phase 6 slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
@@ -244,3 +243,9 @@ priority:
 - 2026-03-07: reranking after the Group layout toggle slice moved the next
   bounded Phase 6 step to the section-variant selection and ordering cluster in
   `phase-6-section-variant-selection-and-order-tools-parity.md`.
+- 2026-03-07: the section-variant selection and ordering slice is now
+  complete across the Go runtime owner, MCP server, HTTP tool route, and
+  authenticated SSE transport.
+- 2026-03-07: reranking after the section-variant slice moved the next bounded
+  Phase 6 step to the section filter and MetaControl title cluster in
+  `phase-6-section-filter-and-meta-control-title-tools-parity.md`.

@@ -204,11 +204,15 @@ Use the docs in this order:
     `set_default_section_variant`, and `set_section_variant_sort_order` MCP
     parity over the completed section-variant creation and project-graph
     foundations
-78. `spike-mcp.md`
+78. `phase-6-section-filter-and-meta-control-title-tools-parity.md`
+  - focused implementation-plan doc for Go-owned `set_section_param_filter`
+    and `set_meta_control_show_section_title` MCP parity over the active
+    effective section-impl payload-write boundary
+79. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-79. `spike-pty.md`
+80. `spike-pty.md`
    - PTY uncertainty-reduction plan
-80. `spike-lsp.md`
+81. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
