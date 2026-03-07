@@ -8,6 +8,8 @@ and PTY-backed terminal session management.
 
 Focused transport follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-terminal-transport-migration.md`.
+Remaining run-code follow-up work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`.
 
 This phase should rebuild the product semantics described by the Python docs and
 tests without copying the Python websocket manager or terminal manager shapes.
@@ -543,8 +545,8 @@ Resolved In Slice 6:
 
 ## Next Recommended Step
 
-Plan the remaining terminal run-code migration on top of the new runtime:
+Follow the dedicated run-code migration plan:
 
-- inventory the current Python run-code orchestration boundary and its dependencies
-- define the Go-owned service boundary for run-command execution versus terminal session ownership
-- keep producer-side run-command and frontend metadata work scoped until that plan is written down
+- `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`
+- start with the runnable project-graph minimum needed by `runCode`
+- keep producer-side run-command and frontend metadata work scoped until that dependency lands

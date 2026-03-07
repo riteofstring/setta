@@ -8,6 +8,9 @@ of the new Go-owned `internal/terminals` runtime.
 The goal is to move the terminal-facing websocket and HTTP surfaces onto the Go
 service boundary without dragging PTY/session logic back into handlers.
 
+The remaining `runCode` follow-up work is tracked separately in
+`docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`.
+
 ## Status
 
 Current repo status as of 2026-03-06:
@@ -293,8 +296,8 @@ Resolved For Slice 3:
 
 ## Next Recommended Step
 
-Start a dedicated planning pass for terminal run-code migration:
+Follow the dedicated run-code migration plan:
 
-- inventory the current Python run-code orchestration boundary and its dependencies
-- decide what stays inside `internal/terminals` versus a separate run-command service
-- keep deployment/share transport deferred until a Go `allowRun` policy source exists
+- `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`
+- keep terminal runtime ownership in `internal/terminals`
+- keep deployment/share transport deferred until Go owns the required policy and session-state dependencies

@@ -22,11 +22,13 @@ Use the docs in this order:
    - realtime ownership, websocket fan-out, and terminal runtime plan
 9. `phase-4-terminal-transport-migration.md`
    - focused current-work plan for terminal websocket and HTTP transport migration
-10. `spike-mcp.md`
+10. `phase-4-terminal-run-code-migration.md`
+   - focused current-work plan for remaining terminal run-code migration
+11. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-11. `spike-pty.md`
+12. `spike-pty.md`
    - PTY uncertainty-reduction plan
-12. `spike-lsp.md`
+13. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
