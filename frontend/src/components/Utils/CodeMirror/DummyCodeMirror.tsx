@@ -29,6 +29,7 @@ export function DummyCodeMirror({
   useJsx = false,
   singleLine = false,
   wrapLines,
+  benchmarkTextWidgetKind,
 }) {
   const shouldWrap = wrapLines ?? !singleLine;
   const resolvedStyle = shouldWrap ? lineWrapStyle : singleLineStyle;
@@ -43,6 +44,7 @@ export function DummyCodeMirror({
       language={language}
       useJsx={useJsx}
       style={resolvedStyle}
+      benchmarkTextWidgetKind={benchmarkTextWidgetKind}
     />
   ) : (
     <PlaceholderCode
@@ -52,6 +54,7 @@ export function DummyCodeMirror({
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       style={resolvedStyle}
+      benchmarkTextWidgetKind={benchmarkTextWidgetKind}
     />
   );
 }
@@ -63,6 +66,7 @@ function PlaceholderCode({
   onMouseDownCapture,
   onFocus,
   style,
+  benchmarkTextWidgetKind,
 }) {
   // returns <br/> if no placeholder, so that the div takes up space
   return (
@@ -70,6 +74,7 @@ function PlaceholderCode({
       id={divId}
       className={`${className} text-gray-600 outline-none`}
       style={style}
+      data-settings-benchmark-text-widget-kind={benchmarkTextWidgetKind}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       tabIndex={0}
@@ -89,6 +94,7 @@ function HighlightedCode({
   useJsx,
   onFocus,
   style,
+  benchmarkTextWidgetKind,
 }) {
   const parser = getCodeMirrorLanguageParser(language, useJsx);
   if (!parser) {
@@ -97,6 +103,7 @@ function HighlightedCode({
         id={divId}
         className={`${className} outline-none`}
         style={style}
+        data-settings-benchmark-text-widget-kind={benchmarkTextWidgetKind}
         onMouseDownCapture={onMouseDownCapture}
         onFocus={onFocus}
         tabIndex={0}
@@ -176,6 +183,7 @@ function HighlightedCode({
       id={divId}
       className={`${className} ${scopeClassName} outline-none`}
       style={style}
+      data-settings-benchmark-text-widget-kind={benchmarkTextWidgetKind}
       onMouseDownCapture={onMouseDownCapture}
       onFocus={onFocus}
       tabIndex={0}
