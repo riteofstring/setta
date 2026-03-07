@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 45 {
-		t.Fatalf("expected 45 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 47 {
+		t.Fatalf("expected 47 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -152,6 +152,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCodeSectionAttachedTerminalTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
 	var formatCodeTool *sdkmcp.Tool
+	var setGroupOverflowModeTool *sdkmcp.Tool
 	var setSectionSizesTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
@@ -165,6 +166,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setGenCodePrefixTool *sdkmcp.Tool
 	var setGenCodeSuffixTool *sdkmcp.Tool
 	var togglePositionLocksTool *sdkmcp.Tool
+	var toggleGroupOrientationTool *sdkmcp.Tool
 	var toggleMinimizedTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
@@ -216,6 +218,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "format_code" {
 			formatCodeTool = tool
 		}
+		if tool.Name == "set_group_overflow_mode" {
+			setGroupOverflowModeTool = tool
+		}
 		if tool.Name == "set_section_sizes" {
 			setSectionSizesTool = tool
 		}
@@ -254,6 +259,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "toggle_position_locks" {
 			togglePositionLocksTool = tool
+		}
+		if tool.Name == "toggle_group_orientation" {
+			toggleGroupOrientationTool = tool
 		}
 		if tool.Name == "toggle_minimized" {
 			toggleMinimizedTool = tool
@@ -345,6 +353,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_code_section_diagnostics_mute",
 		"set_gen_code_prefix",
 		"set_gen_code_suffix",
+		"set_group_overflow_mode",
 		"set_param_entered_value",
 		"set_param_name_and_value",
 		"set_project_config_codegen_targets",
@@ -357,6 +366,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_type_error_ignore",
 		"set_watch_code_enabled",
 		"set_watch_code_inputs",
+		"toggle_group_orientation",
 		"toggle_minimized",
 		"toggle_position_locks",
 		"update_param_impl_config",
@@ -397,6 +407,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if formatCodeTool == nil {
 		t.Fatal("expected format_code tool")
 	}
+	if setGroupOverflowModeTool == nil {
+		t.Fatal("expected set_group_overflow_mode tool")
+	}
 	if setSectionSizesTool == nil {
 		t.Fatal("expected set_section_sizes tool")
 	}
@@ -435,6 +448,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if togglePositionLocksTool == nil {
 		t.Fatal("expected toggle_position_locks tool")
+	}
+	if toggleGroupOrientationTool == nil {
+		t.Fatal("expected toggle_group_orientation tool")
 	}
 	if toggleMinimizedTool == nil {
 		t.Fatal("expected toggle_minimized tool")
@@ -574,6 +590,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, formatCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected format_code sectionId target path, got %#v", got)
 	}
+	setGroupOverflowModeMeta := mustStructuredMap(t, setGroupOverflowModeTool.Meta[toolMetaNamespace])
+	if setGroupOverflowModeMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_group_overflow_mode, got %#v", setGroupOverflowModeMeta["accessType"])
+	}
+	setGroupOverflowModePaths := mustStructuredMap(t, setGroupOverflowModeMeta["idPathsByType"])
+	if got := mustStringList(t, setGroupOverflowModePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_group_overflow_mode sectionId target path, got %#v", got)
+	}
 	setSectionSizesMeta := mustStructuredMap(t, setSectionSizesTool.Meta[toolMetaNamespace])
 	if setSectionSizesMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_section_sizes, got %#v", setSectionSizesMeta["accessType"])
@@ -655,6 +679,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	togglePositionLocksPaths := mustStructuredMap(t, togglePositionLocksMeta["idPathsByType"])
 	if got := mustStringList(t, togglePositionLocksPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
 		t.Fatalf("expected toggle_position_locks sectionIds target path, got %#v", got)
+	}
+	toggleGroupOrientationMeta := mustStructuredMap(t, toggleGroupOrientationTool.Meta[toolMetaNamespace])
+	if toggleGroupOrientationMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for toggle_group_orientation, got %#v", toggleGroupOrientationMeta["accessType"])
+	}
+	toggleGroupOrientationPaths := mustStructuredMap(t, toggleGroupOrientationMeta["idPathsByType"])
+	if got := mustStringList(t, toggleGroupOrientationPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected toggle_group_orientation sectionId target path, got %#v", got)
 	}
 	toggleMinimizedMeta := mustStructuredMap(t, toggleMinimizedTool.Meta[toolMetaNamespace])
 	if toggleMinimizedMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -820,8 +852,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 45 {
-		t.Fatalf("expected 45 registered tool names, got %#v", listNames)
+	if len(listNames) != 47 {
+		t.Fatalf("expected 47 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -4018,6 +4050,84 @@ func TestServerToggleMinimizedRejectsUnknownSection(t *testing.T) {
 	}
 }
 
+func TestServerToggleGroupOrientationRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestGroupSection(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_group_orientation",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "group-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call toggle_group_orientation blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked toggle_group_orientation call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "group-section" {
+		t.Fatalf("expected blockedSectionIds [group-section], got %#v", ids)
+	}
+}
+
+func TestServerToggleGroupOrientationAllowsUnscopedStructuralCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestGroupSection(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+		"group-section": "41",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_group_orientation",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "41",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id toggle_group_orientation: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id toggle_group_orientation success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after toggle_group_orientation: %v", err)
+	}
+	if !payloadBoolField(mustDecodedProjectPayload(t, project.Sections["group-section"].SharedModifier), "isHorizontalOrientation") {
+		t.Fatal("expected group-section isHorizontalOrientation=true after mutation")
+	}
+}
+
 func TestServerSetCodeRejectsReadOnlyCodeSections(t *testing.T) {
 	t.Parallel()
 
@@ -4570,6 +4680,120 @@ func TestServerSetSectionSizesAllowsUnscopedStructuralCallsAndTranslatesTemporar
 	size := mustStructuredMap(t, payload["size"])
 	if size["width"] != 480.0 || size["height"] != 220.0 {
 		t.Fatalf("expected normalized size {480 220}, got %#v", size)
+	}
+}
+
+func TestServerSetGroupOverflowModeRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestGroupSection(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_group_overflow_mode",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "group-section",
+			"overflowMode":    true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_group_overflow_mode blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_group_overflow_mode call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "group-section" {
+		t.Fatalf("expected blockedSectionIds [group-section], got %#v", ids)
+	}
+}
+
+func TestServerSetGroupOverflowModeAllowsUnscopedStructuralCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestGroupSection(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+		"group-section": "41",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_group_overflow_mode",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "41",
+			"overflowMode":    true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_group_overflow_mode: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_group_overflow_mode success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_group_overflow_mode: %v", err)
+	}
+	if !payloadBoolField(mustDecodedProjectPayload(t, project.Sections["group-section"].SharedModifier), "overflowMode") {
+		t.Fatal("expected group-section overflowMode=true after mutation")
+	}
+}
+
+func TestServerSetGroupOverflowModeRejectsNonGroupSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_group_overflow_mode",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"overflowMode":    true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_group_overflow_mode: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_group_overflow_mode call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(strings.ToLower(message), "group section") {
+		t.Fatalf("expected group-section requirement message, got %#v", payload["message"])
 	}
 }
 
@@ -6676,6 +6900,53 @@ func mustSeedScopedTestTopLevelTerminal(t *testing.T, runtime *projectstate.Runt
 		t.Fatalf("seed top-level terminal: %v", err)
 	}
 	return sectionID
+}
+
+func mustAddScopedTestGroupSection(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return document, err
+		}
+		if _, ok := project.Sections["group-section"]; ok {
+			return document, nil
+		}
+
+		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "group-section")
+		project.TopLevelSections["group-section"] = projectstate.TopLevelSectionLayout{X: 70, Y: 80}
+		project.SectionVariantMap["group-section"] = "group-variant"
+		project.Sections["group-section"] = projectstate.Section{
+			ID:               "group-section",
+			Name:             "Group",
+			VariantIDs:       []string{"group-variant"},
+			DefaultVariantID: "group-variant",
+		}
+		project.SectionVariants["group-variant"] = projectstate.SectionVariant{
+			ID:     "group-variant",
+			ImplID: "group-impl",
+		}
+		project.SectionImpls["group-impl"] = projectstate.SectionImpl{
+			ID:   "group-impl",
+			Kind: projectstate.SectionKind("frontend"),
+			Payload: mustRawJSON(t, map[string]any{
+				"id":                      "group-impl",
+				"type":                    "Group",
+				"isHorizontalOrientation": false,
+				"overflowMode":            false,
+			}),
+		}
+
+		normalizedProject, err := project.Normalized()
+		if err != nil {
+			return document, err
+		}
+		document.Projects[normalizedProject.ID] = normalizedProject
+		return document, nil
+	}); err != nil {
+		t.Fatalf("add scoped test group section: %v", err)
+	}
 }
 
 func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {

@@ -91,6 +91,7 @@ type projectStateProvider interface {
 	SetGenCodePrefix(ctx context.Context, projectID string, genCodePrefix string) (projectstate.Snapshot, error)
 	SetGenCodeSuffix(ctx context.Context, projectID string, genCodeSuffix string) (projectstate.Snapshot, error)
 	SetProjectCodegenTargets(ctx context.Context, projectID string, targets []projectstate.ProjectCodegenTarget, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, error)
+	SetGroupOverflowMode(ctx context.Context, projectID string, sectionID string, overflowMode bool) (projectstate.Snapshot, error)
 	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
@@ -100,6 +101,7 @@ type projectStateProvider interface {
 	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
 	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
+	ToggleGroupOrientation(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 }
@@ -1053,6 +1055,44 @@ func newSetSectionSizesHandler(projectState projectStateProvider, settingsState 
 	}
 }
 
+func newSetGroupOverflowModeHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		overflowMode, err := readRequiredBoolArgument(arguments, "overflowMode")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural group-overflow invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetGroupOverflowMode(ctx, projectConfigID, sectionID, overflowMode); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
 func newAutoLayoutTopLevelSectionsHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -1520,6 +1560,40 @@ func newToggleMinimizedHandler(projectState projectStateProvider) tools.Handler 
 		}
 
 		if _, err := projectState.ToggleMinimized(ctx, projectConfigID, sectionID); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newToggleGroupOrientationHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural group-orientation invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.ToggleGroupOrientation(ctx, projectConfigID, sectionID); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2708,6 +2782,50 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "set_group_overflow_mode",
+				Description: "Enable or disable overflow mode for a Group section without changing its size.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "group", "overflow", "section", "structural"},
+				},
+				Handler: newSetGroupOverflowModeHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Group overflow mode should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Group section id whose overflow mode should be updated.",
+					},
+					"overflowMode": map[string]any{
+						"type":        "boolean",
+						"description": "Boolean overflow-mode value to persist for the targeted Group section.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "overflowMode"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "auto_layout_top_level_sections",
 				Description: "Automatically repack top-level sections in the active view mode using the Go auto-layout runtime.",
 				Metadata: tools.Metadata{
@@ -3264,6 +3382,46 @@ func defaultToolDefinitions(
 					"sectionId": map[string]any{
 						"type":        "string",
 						"description": "Section id whose minimized state should be flipped.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "toggle_group_orientation",
+				Description: "Flip a Group section between vertical and horizontal child orientation.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "group", "orientation", "section", "structural"},
+				},
+				Handler: newToggleGroupOrientationHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Group orientation should be toggled.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Group section id whose orientation should be flipped.",
 					},
 				},
 				"required": []string{"projectConfigId", "sectionId"},
@@ -5134,6 +5292,7 @@ func normalizeProjectStateMutationError(err error) error {
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
 		errors.Is(err, projectstate.ErrCallableSectionRequired),
+		errors.Is(err, projectstate.ErrGroupSectionRequired),
 		errors.Is(err, projectstate.ErrAddKwargUnsupported),
 		errors.Is(err, projectstate.ErrAddKwargCallableUnset),
 		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported),

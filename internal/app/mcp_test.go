@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 44 {
-		t.Fatalf("expected 44 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 46 {
+		t.Fatalf("expected 46 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,8 +115,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 44 {
-		t.Fatalf("expected 44 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 46 {
+		t.Fatalf("expected 46 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "format_code") {
 		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)
@@ -126,6 +126,12 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "set_gen_code_suffix") {
 		t.Fatalf("expected set_gen_code_suffix in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "set_group_overflow_mode") {
+		t.Fatalf("expected set_group_overflow_mode in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
+		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -3269,6 +3275,261 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForToggleMinimizedOverAuthenticatedS
 	}
 }
 
+func TestAppIDEMCPServerSupportsToggleGroupOrientationOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPGroupSection(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before app toggle_group_orientation: %v", err)
+	}
+	groupPayload := mustDecodedProjectPayloadValue(t, project.SectionImpls["group-impl"].Payload)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); horizontal {
+		t.Fatal("expected group-section to start vertical")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_group_orientation",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "group-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call toggle_group_orientation: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected toggle_group_orientation success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app toggle_group_orientation: %v", err)
+	}
+	groupPayload = mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); !horizontal {
+		t.Fatal("expected group-section to be horizontal after app mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForToggleGroupOrientationOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPGroupSection(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+		"group-section": "41",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_group_orientation",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "41",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id toggle_group_orientation: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id toggle_group_orientation success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app toggle_group_orientation: %v", err)
+	}
+	groupPayload := mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); !horizontal {
+		t.Fatal("expected group-section to be horizontal after temp-id app mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetGroupOverflowModeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPGroupSection(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_group_overflow_mode",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "group-section",
+			"overflowMode":    true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_group_overflow_mode: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_group_overflow_mode success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_group_overflow_mode: %v", err)
+	}
+	groupPayload := mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
+	if overflow, _ := groupPayload["overflowMode"].(bool); !overflow {
+		t.Fatal("expected group-section overflowMode=true after app mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetGroupOverflowModeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPGroupSection(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+		"group-section": "41",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_group_overflow_mode",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "41",
+			"overflowMode":    true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_group_overflow_mode: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_group_overflow_mode success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_group_overflow_mode: %v", err)
+	}
+	groupPayload := mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
+	if overflow, _ := groupPayload["overflowMode"].(bool); !overflow {
+		t.Fatal("expected group-section overflowMode=true after temp-id app mutation")
+	}
+}
+
 func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -6006,6 +6267,83 @@ func TestAppIDEMCPToolCallRouteSupportsToggleMinimized(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsToggleGroupOrientation(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPGroupSection(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route toggle_group_orientation: %v", err)
+	}
+	groupPayload := mustDecodedProjectPayloadValue(t, project.SectionImpls["group-impl"].Payload)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); horizontal {
+		t.Fatal("expected group-section to start vertical")
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"toggle_group_orientation",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"group-section"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post toggle_group_orientation tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode toggle_group_orientation tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected toggle_group_orientation success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route toggle_group_orientation: %v", err)
+	}
+	groupPayload = mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); !horizontal {
+		t.Fatal("expected group-section to be horizontal after route mutation")
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsSetWatchCodeEnabled(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -6744,6 +7082,71 @@ func TestAppIDEMCPToolCallRouteSupportsSetSectionSizes(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsSetGroupOverflowMode(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPGroupSection(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_group_overflow_mode",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"group-section","overflowMode":true},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_group_overflow_mode tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_group_overflow_mode tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_group_overflow_mode success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_group_overflow_mode: %v", err)
+	}
+	groupPayload := mustDecodedProjectPayloadValue(t, project.Sections["group-section"].SharedModifier)
+	if overflow, _ := groupPayload["overflowMode"].(bool); !overflow {
+		t.Fatal("expected group-section overflowMode=true after route mutation")
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsIncrementerStructuralChildCreate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -7134,6 +7537,62 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 		},
 	}); err != nil {
 		t.Fatalf("save scoped MCP project: %v", err)
+	}
+}
+
+func mustAddAppScopedMCPGroupSection(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve app project paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open app project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load app project document: %v", err)
+	}
+	project, err := document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before adding group section: %v", err)
+	}
+	if _, ok := project.Sections["group-section"]; ok {
+		return
+	}
+
+	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "group-section")
+	project.SectionVariantMap["group-section"] = "group-variant"
+	project.Sections["group-section"] = projectstate.Section{
+		ID:               "group-section",
+		Name:             "Group",
+		VariantIDs:       []string{"group-variant"},
+		DefaultVariantID: "group-variant",
+	}
+	project.SectionVariants["group-variant"] = projectstate.SectionVariant{
+		ID:     "group-variant",
+		ImplID: "group-impl",
+	}
+	project.SectionImpls["group-impl"] = projectstate.SectionImpl{
+		ID:   "group-impl",
+		Kind: projectstate.SectionKind("frontend"),
+		Payload: mustRawJSONValue(t, map[string]any{
+			"id":                      "group-impl",
+			"type":                    "Group",
+			"isHorizontalOrientation": false,
+			"overflowMode":            false,
+		}),
+	}
+
+	normalizedProject, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize app group section project: %v", err)
+	}
+	document.Projects[normalizedProject.ID] = normalizedProject
+	if err := saveAppMainProjectDocument(t, cfg, document); err != nil {
+		t.Fatalf("save app project document with group section: %v", err)
 	}
 }
 

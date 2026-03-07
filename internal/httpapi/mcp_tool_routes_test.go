@@ -2995,6 +2995,149 @@ func TestMCPToolCallRouteToggleMinimizedAcceptsTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsToggleGroupOrientation(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteGroupSection(t, projectRuntime)
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route toggle_group_orientation: %v", err)
+	}
+	groupPayload := mustDecodedRouteProjectPayload(t, project.SectionImpls["group-impl"].Payload)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); horizontal {
+		t.Fatal("expected group-section to start vertical")
+	}
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"toggle_group_orientation",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"sectionId":"group-section"
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected toggle_group_orientation success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route toggle_group_orientation: %v", err)
+	}
+	groupPayload = mustDecodedRouteProjectPayload(t, project.Sections["group-section"].SharedModifier)
+	if horizontal, _ := groupPayload["isHorizontalOrientation"].(bool); !horizontal {
+		t.Fatal("expected group-section to be horizontal after route mutation")
+	}
+}
+
+func TestMCPToolCallRouteSetGroupOverflowModeAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteGroupSection(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+		"group-section": "41",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_group_overflow_mode",
+		"arguments":{
+			"projectConfigId":"11",
+			"sectionId":"41",
+			"overflowMode":true
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_group_overflow_mode success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_group_overflow_mode: %v", err)
+	}
+	groupPayload := mustDecodedRouteProjectPayload(t, project.Sections["group-section"].SharedModifier)
+	if overflow, _ := groupPayload["overflowMode"].(bool); !overflow {
+		t.Fatal("expected group-section overflowMode=true after temp-id route mutation")
+	}
+}
+
 func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
 	t.Parallel()
 
@@ -4524,6 +4667,52 @@ func containsRouteString(values []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func mustAddRouteGroupSection(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return document, err
+		}
+		if _, ok := project.Sections["group-section"]; ok {
+			return document, nil
+		}
+
+		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "group-section")
+		project.SectionVariantMap["group-section"] = "group-variant"
+		project.Sections["group-section"] = projectstate.Section{
+			ID:               "group-section",
+			Name:             "Group",
+			VariantIDs:       []string{"group-variant"},
+			DefaultVariantID: "group-variant",
+		}
+		project.SectionVariants["group-variant"] = projectstate.SectionVariant{
+			ID:     "group-variant",
+			ImplID: "group-impl",
+		}
+		project.SectionImpls["group-impl"] = projectstate.SectionImpl{
+			ID:   "group-impl",
+			Kind: projectstate.SectionKind("frontend"),
+			Payload: mustRouteRawJSON(t, map[string]any{
+				"id":                      "group-impl",
+				"type":                    "Group",
+				"isHorizontalOrientation": false,
+				"overflowMode":            false,
+			}),
+		}
+
+		normalizedProject, err := project.Normalized()
+		if err != nil {
+			return document, err
+		}
+		document.Projects[normalizedProject.ID] = normalizedProject
+		return document, nil
+	}); err != nil {
+		t.Fatalf("add route group section: %v", err)
+	}
 }
 
 func mustSetRouteWatchCodeFiles(t *testing.T, runtime *projectstate.Runtime, files []string) {
