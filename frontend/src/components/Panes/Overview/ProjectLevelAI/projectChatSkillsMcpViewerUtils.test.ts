@@ -13,7 +13,7 @@ import {
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   collectAgentNativeSlashCommandTokensFromEntries,
-  collectAgentNativeSlashCommandTokensFromStorage,
+  filterAgentNativeSlashCommandsByEngineId,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
@@ -22,13 +22,36 @@ import {
   replaceAgentNativeSlashCommandsCache,
   resolveAgentNativeSlashCommandsByEngineId,
   resolveAgentNativeSlashCommandsByProjectConfigId,
-  resolveAgentNativeSlashCommandsStorageUpdate,
   resolveMcpServerStatus,
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
   useAgentNativeSlashCommandsCache,
 } from "./projectChatSkillsMcpViewerUtils";
+
+function collectPersistedAgentNativeSlashTokens({
+  rawStorageValue,
+  projectConfigId,
+  engineConfigIds,
+}: {
+  rawStorageValue: string | null;
+  projectConfigId: string;
+  engineConfigIds?: string[];
+}): string[] {
+  if (!projectConfigId.trim()) {
+    return [];
+  }
+  const parsed = parseAgentNativeSlashCommandsStorage(rawStorageValue);
+  const projectEntries = parsed[projectConfigId] ?? {};
+  const filteredEntries =
+    Array.isArray(engineConfigIds) && engineConfigIds.length > 0
+      ? filterAgentNativeSlashCommandsByEngineId({
+          entries: projectEntries,
+          engineConfigIds,
+        })
+      : projectEntries;
+  return collectAgentNativeSlashCommandTokensFromEntries(filteredEntries);
+}
 
 describe("projectChatSkillsMcpViewerUtils", () => {
   it("publishes live native slash cache updates to subscribers", () => {
@@ -727,7 +750,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   });
 
   it("collects normalized agent-native slash tokens from persisted viewer metadata", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromStorage({
+    const tokens = collectPersistedAgentNativeSlashTokens({
       rawStorageValue: JSON.stringify({
         "project-a": {
           "engine-1": {
@@ -749,7 +772,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   });
 
   it("scopes persisted agent-native slash tokens to the active engine ids", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromStorage({
+    const tokens = collectPersistedAgentNativeSlashTokens({
       rawStorageValue: JSON.stringify({
         "project-a": {
           "engine-foreign": {
@@ -772,7 +795,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   });
 
   it("ignores cached native slash commands from other projects", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromStorage({
+    const tokens = collectPersistedAgentNativeSlashTokens({
       rawStorageValue: JSON.stringify({
         "project-a": {
           "engine-live": {
@@ -817,9 +840,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
   });
 
-  it("updates project-scoped cache entries only from ready runtime metadata", () => {
-    const next = resolveAgentNativeSlashCommandsStorageUpdate({
-      currentEntries: parseAgentNativeSlashCommandsStorage(
+  it("replaces project-scoped cache entries only through the runtime cache authority", () => {
+    replaceAgentNativeSlashCommandsCache({});
+    const next = {
+      ...parseAgentNativeSlashCommandsStorage(
         JSON.stringify({
           "project-a": {
             "engine-live": {
@@ -830,17 +854,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           },
         }),
       ),
-      projectConfigId: "project-a",
-      nextEntries: {
-        "engine-live": {
-          commands: [],
-          status: "none",
-          statusDetail: null,
-        },
-      },
-    });
-
-    expect(next).toEqual({
       "project-a": {
         "engine-live": {
           commands: [],
@@ -848,7 +861,23 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           statusDetail: null,
         },
       },
-    });
+    };
+
+    try {
+      replaceAgentNativeSlashCommandsCache(next);
+
+      expect(useAgentNativeSlashCommandsCache.getState()).toEqual({
+        "project-a": {
+          "engine-live": {
+            commands: [],
+            status: "none",
+            statusDetail: null,
+          },
+        },
+      });
+    } finally {
+      replaceAgentNativeSlashCommandsCache({});
+    }
   });
 
   it("collects newest native slash metadata for each project across the full run list", () => {

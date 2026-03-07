@@ -2609,6 +2609,7 @@ test("project ai chat keeps selected skill content stable when another skill sav
   await openRawSkillMarkdown(page);
 
   const markdown = page.getByLabel("Skill Markdown Content");
+  const betaSkillRow = page.getByRole("button", { name: /beta-custom/i });
   await expect(markdown).toContainText("Alpha initial body");
 
   const editorContent = markdown.locator(".cm-content");
@@ -2618,13 +2619,15 @@ test("project ai chat keeps selected skill content stable when another skill sav
   await page.getByTestId("project-chat-custom-skill-save").click();
 
   await expect.poll(() => alphaSaveRequestCount).toBe(1);
-  await page.getByRole("button", { name: /beta-custom/i }).click();
+  await betaSkillRow.click();
   await expect(markdown).toContainText("Beta stable body");
+  await expect(betaSkillRow).toHaveAttribute("data-selected", "true");
 
   releaseAlphaSave?.();
   await expect(page.getByText("Saved custom skill.")).toBeVisible();
   await expect(markdown).toContainText("Beta stable body");
   await expect(markdown).not.toContainText("Alpha saved update");
+  await expect(betaSkillRow).toHaveAttribute("data-selected", "true");
 });
 
 test("project ai chat blocks saving truncated editable skill previews", async ({

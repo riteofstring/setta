@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveCustomSlashDraftByProjectConfigIdUpdate,
+  resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
+  resolveSkillMarkdownRawDraftBySkillIdReplace,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
   shouldPollSlashCommandAgentRuns,
@@ -291,6 +293,94 @@ describe("upsertAppGenSkillEntry", () => {
 
     expect(next).toHaveLength(1);
     expect(next[0]?.description).toBe("Updated description");
+  });
+});
+
+describe("resolveSelectedSkillViewStateAfterUpsertedSkillResponse", () => {
+  const updatedAlphaSkill = {
+    skillId: "user_agents_skills::alpha-custom",
+    name: "alpha-custom",
+    rootLabel: "User ~/.agents/skills",
+    rootPath: "/home/.agents/skills",
+    relativePath: "alpha-custom",
+    isEditable: true,
+    editabilityReason: null,
+    description: "Alpha custom skill",
+  };
+  const updatedAlphaContent = {
+    skillId: "user_agents_skills::alpha-custom",
+    content: "# alpha-custom\n\nAlpha saved update",
+    truncated: false,
+    originalSizeBytes: "# alpha-custom\n\nAlpha saved update".length,
+  };
+
+  it("ignores stale save responses after the user switches to another skill", () => {
+    const nextSelectedState =
+      resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
+        currentSelectedSkillId: "user_agents_skills::beta-custom",
+        requestSkillId: "user_agents_skills::alpha-custom",
+        selectUpdatedSkill: false,
+        skill: updatedAlphaSkill,
+        skillContent: updatedAlphaContent,
+      });
+
+    expect(nextSelectedState).toBeNull();
+  });
+
+  it("keeps same-skill save responses authoritative for the active editor", () => {
+    const nextSelectedState =
+      resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
+        currentSelectedSkillId: "user_agents_skills::alpha-custom",
+        requestSkillId: "user_agents_skills::alpha-custom",
+        selectUpdatedSkill: false,
+        skill: updatedAlphaSkill,
+        skillContent: updatedAlphaContent,
+      });
+
+    expect(nextSelectedState).toEqual({
+      selectedSkillId: "user_agents_skills::alpha-custom",
+      selectedSkillContent: "# alpha-custom\n\nAlpha saved update",
+      selectedSkillContentTruncated: false,
+      selectedSkillOriginalSizeBytes: "# alpha-custom\n\nAlpha saved update"
+        .length,
+    });
+  });
+
+  it("lets create flows explicitly select the created skill", () => {
+    const nextSelectedState =
+      resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
+        currentSelectedSkillId: "user_agents_skills::beta-custom",
+        requestSkillId: null,
+        selectUpdatedSkill: true,
+        skill: updatedAlphaSkill,
+        skillContent: updatedAlphaContent,
+      });
+
+    expect(nextSelectedState?.selectedSkillId).toBe(
+      "user_agents_skills::alpha-custom",
+    );
+  });
+});
+
+describe("resolveSkillMarkdownRawDraftBySkillIdReplace", () => {
+  it("resets draft and loaded content together after a successful save", () => {
+    const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
+      skillMarkdownDraftStateBySkillId: {
+        "user_agents_skills::alpha-custom": {
+          draft: "# alpha-custom\n\nLocal edits still pending",
+          loadedContent: "# alpha-custom\n\nAlpha initial body",
+        },
+      },
+      skillId: "user_agents_skills::alpha-custom",
+      nextRawDraft: "# alpha-custom\n\nAlpha saved update",
+    });
+
+    expect(next).toEqual({
+      "user_agents_skills::alpha-custom": {
+        draft: "# alpha-custom\n\nAlpha saved update",
+        loadedContent: "# alpha-custom\n\nAlpha saved update",
+      },
+    });
   });
 });
 

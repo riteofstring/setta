@@ -149,6 +149,12 @@ type SkillContentCacheEntry = {
   truncated: boolean;
   originalSizeBytes: number | null;
 };
+type SelectedSkillViewState = {
+  selectedSkillId: string;
+  selectedSkillContent: string;
+  selectedSkillContentTruncated: boolean;
+  selectedSkillOriginalSizeBytes: number | null;
+};
 
 function compareAppGenSkillEntries(
   first: AppGenSkillEntry,
@@ -215,7 +221,7 @@ export function resolveSkillMarkdownRawDraftBySkillIdHydration({
   };
 }
 
-function resolveSkillMarkdownRawDraftBySkillIdReplace({
+export function resolveSkillMarkdownRawDraftBySkillIdReplace({
   skillMarkdownDraftStateBySkillId,
   skillId,
   nextRawDraft,
@@ -237,6 +243,30 @@ function resolveSkillMarkdownRawDraftBySkillIdReplace({
       draft: nextRawDraft,
       loadedContent: nextRawDraft,
     },
+  };
+}
+
+export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
+  currentSelectedSkillId,
+  requestSkillId,
+  selectUpdatedSkill,
+  skill,
+  skillContent,
+}: {
+  currentSelectedSkillId: string | null;
+  requestSkillId: string | null;
+  selectUpdatedSkill: boolean;
+  skill: AppGenSkillEntry;
+  skillContent: AppGenSkillContent;
+}): SelectedSkillViewState | null {
+  if (!selectUpdatedSkill && currentSelectedSkillId !== requestSkillId) {
+    return null;
+  }
+  return {
+    selectedSkillId: skill.skillId,
+    selectedSkillContent: skillContent.content,
+    selectedSkillContentTruncated: skillContent.truncated,
+    selectedSkillOriginalSizeBytes: skillContent.originalSizeBytes,
   };
 }
 
@@ -467,7 +497,9 @@ export function ProjectChatSkillsMcpViewer({
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [skillFilter, setSkillFilter] = useState("");
-  const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
+  const [selectedSkillId, setSelectedSkillIdState] = useState<string | null>(
+    null,
+  );
   const [selectedSkillContent, setSelectedSkillContent] = useState("");
   const [selectedSkillContentTruncated, setSelectedSkillContentTruncated] =
     useState(false);
@@ -558,6 +590,28 @@ export function ProjectChatSkillsMcpViewer({
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
   const selectedSkillIdRef = useRef<string | null>(null);
+  const setSelectedSkillId = useCallback(
+    (
+      nextSelectedSkillId:
+        | string
+        | null
+        | ((currentSelectedSkillId: string | null) => string | null),
+    ) => {
+      if (typeof nextSelectedSkillId !== "function") {
+        selectedSkillIdRef.current = nextSelectedSkillId;
+        setSelectedSkillIdState(nextSelectedSkillId);
+        return;
+      }
+      setSelectedSkillIdState((currentSelectedSkillId) => {
+        const resolvedSelectedSkillId = nextSelectedSkillId(
+          currentSelectedSkillId,
+        );
+        selectedSkillIdRef.current = resolvedSelectedSkillId;
+        return resolvedSelectedSkillId;
+      });
+    },
+    [],
+  );
   const skillsSectionRef = useRef<HTMLDivElement | null>(null);
   const skillsResizeCleanupRef = useRef<(() => void) | null>(null);
   const skillContentCache = useRef(new Map<string, SkillContentCacheEntry>());
@@ -614,10 +668,6 @@ export function ProjectChatSkillsMcpViewer({
     }
     void refreshSkillsBrowser();
   }, [refreshSkillsBrowser, showSkillsSection]);
-
-  useEffect(() => {
-    selectedSkillIdRef.current = selectedSkillId;
-  }, [selectedSkillId]);
 
   useEffect(() => {
     async function loadSkillContent() {
@@ -1282,9 +1332,13 @@ export function ProjectChatSkillsMcpViewer({
   );
   const applyUpsertedSkillResponse = useCallback(
     ({
+      requestSkillId,
+      selectUpdatedSkill,
       skill,
       skillContent,
     }: {
+      requestSkillId: string | null;
+      selectUpdatedSkill: boolean;
       skill: AppGenSkillEntry;
       skillContent: AppGenSkillContent;
     }) => {
@@ -1303,12 +1357,6 @@ export function ProjectChatSkillsMcpViewer({
         cacheEntry,
       );
       setSkills((current) => upsertAppGenSkillEntry(current, skill));
-      setSelectedSkillId(skill.skillId);
-      setSkillContentLoadStatus("loaded");
-      setSkillContentLoadError(null);
-      setSelectedSkillContent(skillContent.content);
-      setSelectedSkillContentTruncated(skillContent.truncated);
-      setSelectedSkillOriginalSizeBytes(skillContent.originalSizeBytes);
       setSkillMarkdownDraftStateBySkillId((current) => {
         const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
           skillMarkdownDraftStateBySkillId: current,
@@ -1317,6 +1365,27 @@ export function ProjectChatSkillsMcpViewer({
         });
         return next ?? current;
       });
+      const nextSelectedSkillViewState =
+        resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
+          currentSelectedSkillId: selectedSkillIdRef.current,
+          requestSkillId,
+          selectUpdatedSkill,
+          skill,
+          skillContent,
+        });
+      if (!nextSelectedSkillViewState) {
+        return;
+      }
+      setSelectedSkillId(nextSelectedSkillViewState.selectedSkillId);
+      setSkillContentLoadStatus("loaded");
+      setSkillContentLoadError(null);
+      setSelectedSkillContent(nextSelectedSkillViewState.selectedSkillContent);
+      setSelectedSkillContentTruncated(
+        nextSelectedSkillViewState.selectedSkillContentTruncated,
+      );
+      setSelectedSkillOriginalSizeBytes(
+        nextSelectedSkillViewState.selectedSkillOriginalSizeBytes,
+      );
     },
     [skillsRevision],
   );
@@ -1350,6 +1419,8 @@ export function ProjectChatSkillsMcpViewer({
     setIsSkillMarkdownViewerOpen(true);
     setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
     applyUpsertedSkillResponse({
+      requestSkillId: null,
+      selectUpdatedSkill: true,
       skill: res.data.skill,
       skillContent: res.data.skillContent,
     });
@@ -1408,6 +1479,8 @@ export function ProjectChatSkillsMcpViewer({
       return;
     }
     applyUpsertedSkillResponse({
+      requestSkillId,
+      selectUpdatedSkill: false,
       skill: res.data.skill,
       skillContent: res.data.skillContent,
     });
@@ -1712,6 +1785,7 @@ export function ProjectChatSkillsMcpViewer({
                                 ? "bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
                                 : "hover:bg-setta-100 dark:hover:bg-setta-800"
                             }`}
+                            data-selected={selected ? "true" : "false"}
                             onClick={() => setSelectedSkillId(skill.skillId)}
                           >
                             <span

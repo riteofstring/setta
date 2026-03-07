@@ -930,30 +930,6 @@ function areAgentNativeSlashCommandProjectMapsEqual(
   return true;
 }
 
-export function resolveAgentNativeSlashCommandsStorageUpdate({
-  currentEntries,
-  projectConfigId,
-  nextEntries,
-}: {
-  currentEntries: AgentNativeSlashCommandsByProjectConfigId;
-  projectConfigId: string;
-  nextEntries: Record<string, AgentNativeSlashCommandsEntry>;
-}): AgentNativeSlashCommandsByProjectConfigId | null {
-  const currentProjectEntries = currentEntries[projectConfigId] ?? {};
-  if (areAgentNativeSlashCommandMapsEqual(currentProjectEntries, nextEntries)) {
-    return null;
-  }
-  const next = {
-    ...currentEntries,
-  };
-  if (Object.keys(nextEntries).length === 0) {
-    delete next[projectConfigId];
-    return next;
-  }
-  next[projectConfigId] = nextEntries;
-  return next;
-}
-
 export function collectAgentNativeSlashCommandTokensFromEntries(
   entries: Record<string, AgentNativeSlashCommandsEntry>,
 ): string[] {
@@ -1222,45 +1198,6 @@ export function buildSlashCommandsByEngine({
       }),
     };
   });
-}
-
-export function collectAgentNativeSlashCommandTokensFromStorage({
-  rawStorageValue,
-  projectConfigId,
-  engineConfigIds,
-}: {
-  rawStorageValue: string | null;
-  projectConfigId: string;
-  engineConfigIds?: string[];
-}): string[] {
-  if (!projectConfigId.trim()) {
-    return [];
-  }
-  const parsed = parseAgentNativeSlashCommandsStorage(rawStorageValue);
-  const projectEntries = parsed[projectConfigId];
-  if (!projectEntries) {
-    return [];
-  }
-  const allowedEngineIds =
-    Array.isArray(engineConfigIds) && engineConfigIds.length > 0
-      ? new Set(engineConfigIds)
-      : null;
-  const discoveredTokens: string[] = [];
-  const seen = new Set<string>();
-  for (const [engineId, entry] of Object.entries(projectEntries)) {
-    if (allowedEngineIds && !allowedEngineIds.has(engineId)) {
-      continue;
-    }
-    for (const command of entry.commands) {
-      const normalized = normalizeSlashCommandToken(command);
-      if (!normalized || seen.has(normalized)) {
-        continue;
-      }
-      seen.add(normalized);
-      discoveredTokens.push(normalized);
-    }
-  }
-  return discoveredTokens;
 }
 
 export function parseAgentNativeSlashCommandsStorage(

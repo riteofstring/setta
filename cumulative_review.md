@@ -413,3 +413,56 @@
   - cached native slash-command visibility surviving terminal agent-run load failures,
   - custom slash-command submissions preserving attachments and raw markdown-mode content,
   - newly created custom skills remaining usable immediately without depending on follow-up reads.
+
+## 2026-03-06 07:53:12 PST
+
+### Consolidated findings implemented
+- Fixed the reopened custom-skill save race in the Project AI Skills viewer so late save responses no longer steal the active editor after the user switches to another skill.
+- Split custom-skill upsert reconciliation into two authority paths: canonical skill/cache/draft updates always apply for the saved skill, while visible selection/editor state now updates only when the response still owns the current selection or the flow explicitly requested selection.
+- Removed the two native-slash storage helpers that had become test-only production exports after the shared cache refactor, and retargeted tests to the supported parse/filter/cache pathways instead.
+
+### Proposed fixes applied
+- `ProjectChatSkillsMcpViewer.tsx` now exports narrow reconciliation helpers for:
+  - replacing a saved skill's raw-draft state with the authoritative saved content,
+  - deciding whether an upsert response is allowed to update the active selection/editor surface.
+- The viewer's `applyUpsertedSkillResponse(...)` path now:
+  - always updates the in-memory skill-content cache for the saved `skillId`,
+  - always upserts the returned skill row into the local skills list,
+  - always replaces the saved skill's draft snapshot with the authoritative returned content,
+  - only updates `selectedSkillId`, visible markdown content, truncation state, and original-size metadata when the current selected skill still matches the request context or the create flow explicitly requests selection.
+- The viewer now uses a wrapped `setSelectedSkillId(...)` setter that updates `selectedSkillIdRef.current` synchronously with selection changes, closing the narrow timing gap where a fast response could land before a `useEffect`-driven ref sync.
+- Skills list rows now expose `data-selected=\"true|false\"` so automated tests and DevTools inspection can assert the active row directly instead of inferring selection only from rendered markdown content.
+- `projectChatSkillsMcpViewerUtils.ts` no longer exports:
+  - `resolveAgentNativeSlashCommandsStorageUpdate(...)`
+  - `collectAgentNativeSlashCommandTokensFromStorage(...)`
+- Utility tests now validate the same semantics through the live authority APIs:
+  - `parseAgentNativeSlashCommandsStorage(...)`
+  - `filterAgentNativeSlashCommandsByEngineId(...)`
+  - `collectAgentNativeSlashCommandTokensFromEntries(...)`
+  - `replaceAgentNativeSlashCommandsCache(...)`
+
+### UX/DX before and after
+- Before: Saving custom skill A, switching to custom skill B, and then receiving A's delayed save response could forcibly reselect A and overwrite the editor surface the user was actively reading or editing.  
+  After: The delayed save for A updates A's cached/list/draft state in the background, while the visible editor remains on B unless the user intentionally reselects A.
+- Before: The create and save flows shared one unconditional \"apply response\" path, so async ownership was implicit and fragile.  
+  After: Create remains the only explicit \"select the returned skill\" path, while ordinary save responses are ownership-checked against the live selection.
+- Before: The utility module still advertised a second storage-update pathway and a raw-storage token collector even though the runtime had already moved to a shared cache authority model.  
+  After: The production API surface matches the actual runtime authority model, which makes future maintenance and test intent easier to reason about.
+
+### Validation coverage added or updated
+- Frontend Vitest coverage for:
+  - stale save responses being ignored when the user has already switched selection,
+  - same-skill save responses still updating the active editor state,
+  - create-style responses still selecting the returned skill explicitly,
+  - successful custom-skill saves replacing both `draft` and `loadedContent` for the saved skill,
+  - integration-level stale-save sequencing where skill A updates are retained in cache/draft/list state while skill B remains the selected editor target.
+- Frontend utility-test coverage updated to:
+  - collect persisted native slash-command tokens through the supported parse/filter/token helpers,
+  - validate project-scoped native slash-command cache replacement through the shared runtime cache authority rather than a dead test-only export.
+- Playwright E2E coverage updated to:
+  - keep the existing delayed-save regression scenario as a merge gate,
+  - assert both the visible markdown content and the selected beta skill row remain stable after the delayed alpha save resolves.
+- Manual Chrome DevTools MCP verification:
+  - opened Project AI Settings -> Skills in the headed app,
+  - injected mocked skills/network responses in-page to avoid mutating real `~/.agents/skills`,
+  - verified the beta row remained `data-selected=\"true\"` and the markdown viewer remained on `Beta stable body` after releasing the delayed alpha save.
