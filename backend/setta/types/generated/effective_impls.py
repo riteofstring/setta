@@ -68,9 +68,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
     SpreadsheetSectionImplArgsWithCallable,
-    StateMachineEndSectionImplArgsWithCallable,
-    StateMachineGateSectionImplArgsWithCallable,
-    StateMachineStartSectionImplArgsWithCallable,
     SwitchParamCodeObjImplArgsWithCallable,
     TaskBoardSectionImplArgsWithCallable,
     TerminalSectionImplArgsWithCallable,
@@ -117,9 +114,6 @@ from setta.types.section_impls import (
     PromptSectionImpl,
     SocialSectionImpl,
     SpreadsheetSectionImpl,
-    StateMachineEndSectionImpl,
-    StateMachineGateSectionImpl,
-    StateMachineStartSectionImpl,
     TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -166,27 +160,6 @@ def set_effective_impl_value(
     variant: Variant,
     args: GroupSectionImplArgsWithCallable,
 ) -> GroupSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: StateMachineStartSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: StateMachineStartSectionImplArgsWithCallable,
-) -> StateMachineStartSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: StateMachineGateSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: StateMachineGateSectionImplArgsWithCallable,
-) -> StateMachineGateSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: StateMachineEndSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: StateMachineEndSectionImplArgsWithCallable,
-) -> StateMachineEndSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: ImageSectionImpl,
