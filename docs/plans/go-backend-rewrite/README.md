@@ -132,11 +132,17 @@ Use the docs in this order:
 57. `phase-6-delete-kwarg-tool-parity.md`
   - focused slice doc for Go-owned `delete_kwarg` MCP parity over the
     completed selected-param cleanup boundary
-58. `spike-mcp.md`
+58. `phase-6-remaining-mcp-mutation-gap-inventory.md`
+  - focused inventory doc for the remaining Python-owned MCP mutation gaps
+    after the completed param-structure cluster
+59. `phase-6-set-code-tool-parity.md`
+  - focused slice doc for Go-owned `set_code` MCP parity over the completed
+    Watch Code inline-edit and scoped MCP boundaries
+60. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-59. `spike-pty.md`
+61. `spike-pty.md`
    - PTY uncertainty-reduction plan
-60. `spike-lsp.md`
+62. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

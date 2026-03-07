@@ -150,12 +150,10 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- the callable/dict param-structure cluster now covers create, single-delete,
-  multi-delete, impl switching, and impl config writes on the Go-owned MCP
-  boundary
-- the next bounded follow-on should be inventory work for the remaining
-  Python-owned MCP mutation gaps rather than inventing move/reparent behavior
-  without a concrete product driver
+- the post-`delete_kwarg` inventory step is now captured in
+  `phase-6-remaining-mcp-mutation-gap-inventory.md`
+- the next bounded implementation slice should be `set_code`; see
+  `phase-6-set-code-tool-parity.md`
 
 ## Progress Notes
 
