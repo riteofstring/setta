@@ -221,27 +221,20 @@ What they do need is the set of side effects:
 
 ## Current Go Gaps
 
-The route cannot move to Go yet because the missing pieces are below transport:
+The remaining gaps are no longer basic transport or project-graph modeling.
+The open work is now concentrated in the higher-level run semantics:
 
-- `internal/projectstate` does not yet model:
-  - `entryCodeBlockId`
-  - section graphs
-  - active variants
-  - code section implementations or languages
-  - terminal section implementations
-  - attached terminal ids
-  - code file bindings
-- Go does not yet have a run planner that can:
-  - snapshot runnable files
-  - build Python or Bash commands
-  - apply per-run overrides against a copied state
-- Go does not yet have a project-state mutation path for:
-  - `ensure_code_section_attached_terminal_for_run`
-  - `create_temporary_terminal`
+- the HTTP route still rejects `sectionVariantOverrides`
+  - the planner can already apply them against a cloned document
+  - terminal attachment selection against that overridden document is not yet explicit
+- Go does not yet have temporary-terminal fallback for non-attached/manual-non-code targets
+- Go does not yet have a backend-log event sink for run start notifications
+- Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have deployment/share run policy ownership for:
   - `allowRun`
   - `allowMultipleRuns`
   - per-session run-count reservation and rollback
+- Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported
 
 These are real dependencies, not optional refinements.
 
