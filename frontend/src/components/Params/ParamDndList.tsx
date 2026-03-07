@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
@@ -16,6 +17,10 @@ import {
   useParamDndChildrenForParent,
 } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
+import {
+  SettingsAllSettingsBenchmarkStaticParamRowItems,
+  useSettingsAllSettingsBenchmarkParamRows,
+} from "./SettingsAllSettingsBenchmarkParamRows";
 
 type ParamDndListProps = {
   sectionId: string;
@@ -36,6 +41,7 @@ export function ParamDndList({
   listKey,
   hasSectionStyleTheme,
 }: ParamDndListProps) {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const duplicateIndex = useProjectState(
     (state) => buildParamDuplicateIndex(state, sectionId),
     _.isEqual,
@@ -81,6 +87,18 @@ export function ParamDndList({
       requiredParamIdsToPaths,
     );
   }, _.isEqual);
+
+  if (benchmark.renderGroupContainerStaticRows) {
+    return (
+      <ParamDuplicateIndexProvider value={duplicateIndex}>
+        <BenchmarkStaticParamDndList
+          sectionId={sectionId}
+          paramIds={paramIds}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+        />
+      </ParamDuplicateIndexProvider>
+    );
+  }
 
   if (!tree) {
     return (
@@ -152,5 +170,34 @@ function ParamDndListBody({
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
     />
+  );
+}
+
+function BenchmarkStaticParamDndList({
+  sectionId,
+  paramIds,
+  requiredParamIdsToPaths,
+}: {
+  sectionId: string;
+  paramIds: Array<string>;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+}) {
+  const rows = useSettingsAllSettingsBenchmarkParamRows({
+    sectionId,
+    paramIds,
+    requiredParamIdsToPaths,
+  });
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="col-span-full flex min-h-0 flex-col gap-y-1"
+      data-settings-benchmark-group-container-static-list="true"
+    >
+      <SettingsAllSettingsBenchmarkStaticParamRowItems rows={rows} />
+    </div>
   );
 }
