@@ -1,5 +1,3 @@
-import type { AppGenerationMode } from "state/types/appGenerationMode";
-
 const CHAT_PERMISSION_MODES = [
   "minimal",
   "yolo",
@@ -84,32 +82,20 @@ export function resolveToggleArg(
 export type ChatSlashCommandAction =
   | "new"
   | "resume"
-  | "app_json_render"
-  | "app_json_render_with_image"
-  | "app_prompt_builder"
-  | "app_mcp_server"
   | "model"
   | "permissions"
   | "search"
-  | "help"
-  | "custom_prompt";
+  | "help";
 
 export type ChatSlashCommandDefinition = {
   command: string;
   action: ChatSlashCommandAction;
   summary: string;
-  promptTemplate?: string;
 };
-
-type ManagedChatSlashCommandAction = Exclude<
-  ChatSlashCommandAction,
-  "custom_prompt"
->;
 
 type ChatSlashCommandInput = {
   action: ChatSlashCommandAction;
   args: string[];
-  promptTemplate?: string;
 };
 
 type ChatSlashCommandExecutionResult =
@@ -124,15 +110,12 @@ type ParsedSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
   args: string[];
-  rawSuffix: string;
-  promptTemplate?: string;
 };
 
 type ChatSlashCommandCapabilities = {
   model?: boolean;
   permissions?: boolean;
   search?: boolean;
-  appGenerationModes?: boolean;
 };
 
 type ManagedChatSlashCommandArgs = {
@@ -149,12 +132,10 @@ type ManagedChatSlashCommandArgs = {
   modelFeedback?: string | null;
   searchEnabled?: boolean;
   onSetSearchEnabled?: (nextValue: boolean) => void;
-  appGenerationMode?: AppGenerationMode | null;
-  onSetAppGenerationMode?: (nextMode: AppGenerationMode) => void;
 };
 
 const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
-  ManagedChatSlashCommandAction,
+  ChatSlashCommandAction,
   ChatSlashCommandDefinition
 > = {
   new: { command: "/new", action: "new", summary: "Start a new chat thread." },
@@ -167,26 +148,6 @@ const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
     command: "/model",
     action: "model",
     summary: "Set or inspect model config.",
-  },
-  app_json_render: {
-    command: "/app-json",
-    action: "app_json_render",
-    summary: "Set app generation mode to JSON Render.",
-  },
-  app_json_render_with_image: {
-    command: "/app-image",
-    action: "app_json_render_with_image",
-    summary: "Set app generation mode to JSON + Image.",
-  },
-  app_prompt_builder: {
-    command: "/app-prompt",
-    action: "app_prompt_builder",
-    summary: "Set app generation mode to Prompt Builder.",
-  },
-  app_mcp_server: {
-    command: "/app-mcp",
-    action: "app_mcp_server",
-    summary: "Set app generation mode to MCP Server.",
   },
   permissions: {
     command: "/permissions",
@@ -211,16 +172,7 @@ export function buildChatSlashCommands(
   const includeModel = capabilities.model ?? true;
   const includePermissions = capabilities.permissions ?? true;
   const includeSearch = capabilities.search ?? true;
-  const includeAppGenerationModes = capabilities.appGenerationModes ?? false;
-  const actions: ManagedChatSlashCommandAction[] = ["new", "resume"];
-  if (includeAppGenerationModes) {
-    actions.push(
-      "app_json_render",
-      "app_json_render_with_image",
-      "app_prompt_builder",
-      "app_mcp_server",
-    );
-  }
+  const actions: ChatSlashCommandAction[] = ["new", "resume"];
   if (includeModel) {
     actions.push("model");
   }
@@ -232,37 +184,6 @@ export function buildChatSlashCommands(
   }
   actions.push("help");
   return actions.map((action) => CHAT_SLASH_COMMAND_DEFINITIONS[action]);
-}
-
-function resolveAppGenerationModeForSlashAction(
-  action: ChatSlashCommandAction,
-): AppGenerationMode | null {
-  if (action === "app_json_render") {
-    return "json_render";
-  }
-  if (action === "app_json_render_with_image") {
-    return "json_render_with_image";
-  }
-  if (action === "app_prompt_builder") {
-    return "prompt_builder";
-  }
-  if (action === "app_mcp_server") {
-    return "mcp_server";
-  }
-  return null;
-}
-
-function formatAppGenerationModeLabel(mode: AppGenerationMode): string {
-  if (mode === "json_render") {
-    return "JSON Render";
-  }
-  if (mode === "json_render_with_image") {
-    return "JSON + Image";
-  }
-  if (mode === "prompt_builder") {
-    return "Prompt Builder";
-  }
-  return "MCP Server";
 }
 
 export function formatSlashCommandHelp(
@@ -283,8 +204,6 @@ export async function executeManagedChatSlashCommand({
   modelFeedback,
   searchEnabled,
   onSetSearchEnabled,
-  appGenerationMode,
-  onSetAppGenerationMode,
 }: ManagedChatSlashCommandArgs): Promise<ChatSlashCommandExecutionResult> {
   if (command.action === "new") {
     onStartNewChat();
@@ -327,27 +246,6 @@ export async function executeManagedChatSlashCommand({
     onSetSearchEnabled(nextValue);
     return { feedback: `Search ${nextValue ? "enabled" : "disabled"}.` };
   }
-  if (
-    command.action === "app_json_render" ||
-    command.action === "app_json_render_with_image" ||
-    command.action === "app_prompt_builder" ||
-    command.action === "app_mcp_server"
-  ) {
-    const nextMode = resolveAppGenerationModeForSlashAction(command.action);
-    if (!nextMode || typeof onSetAppGenerationMode !== "function") {
-      return false;
-    }
-    const unchanged = appGenerationMode === nextMode;
-    onSetAppGenerationMode(nextMode);
-    if (unchanged) {
-      return {
-        feedback: `App mode already set to ${formatAppGenerationModeLabel(nextMode)}.`,
-      };
-    }
-    return {
-      feedback: `App mode set to ${formatAppGenerationModeLabel(nextMode)}.`,
-    };
-  }
   if (command.action === "model") {
     if (!modelFeedback) {
       return false;
@@ -371,68 +269,11 @@ export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
 const SLASH_SUGGESTION_LIMIT = 8;
 const SLASH_COMMAND_TOKEN_RE = /^\/[a-z][a-z0-9_-]*$/iu;
 
-export function normalizeSlashCommandToken(
-  rawCommandToken: string,
-): string | null {
-  const trimmed = rawCommandToken.trim().toLowerCase();
-  if (!trimmed) {
-    return null;
-  }
-  const withPrefix = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
-  if (!SLASH_COMMAND_TOKEN_RE.test(withPrefix)) {
-    return null;
-  }
-  return withPrefix;
-}
-
-function isCustomSlashCommandRecord(
-  value: unknown,
-): value is { command: unknown; prompt: unknown } {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function buildCustomPromptSlashCommandDefinitions(
-  customCommands: unknown[],
-): ChatSlashCommandDefinition[] {
-  const normalized: ChatSlashCommandDefinition[] = [];
-  const seen = new Set<string>();
-  for (const customCommand of customCommands) {
-    if (!isCustomSlashCommandRecord(customCommand)) {
-      continue;
-    }
-    if (
-      typeof customCommand.command !== "string" ||
-      typeof customCommand.prompt !== "string"
-    ) {
-      continue;
-    }
-    const normalizedCommand = normalizeSlashCommandToken(customCommand.command);
-    if (!normalizedCommand || seen.has(normalizedCommand)) {
-      continue;
-    }
-    const promptTemplate = customCommand.prompt.trim();
-    if (!promptTemplate) {
-      continue;
-    }
-    seen.add(normalizedCommand);
-    normalized.push({
-      command: normalizedCommand,
-      action: "custom_prompt",
-      summary: "Run a saved custom prompt.",
-      promptTemplate,
-    });
-  }
-  return normalized;
-}
-
 function resolveSlashCommandDefinition(
   rawCommandToken: string,
   commands: ChatSlashCommandDefinition[],
 ): ChatSlashCommandDefinition | null {
-  const commandToken = normalizeSlashCommandToken(rawCommandToken);
-  if (!commandToken) {
-    return null;
-  }
+  const commandToken = rawCommandToken.toLowerCase();
   const exactMatch = commands.find((entry) => entry.command === commandToken);
   if (exactMatch) {
     return exactMatch;
@@ -476,43 +317,28 @@ export function parseSlashCommand(
   text: string,
   commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
 ): ParsedSlashCommand | null {
-  const trimmedStart = text.trimStart();
-  if (!trimmedStart.startsWith("/")) {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("/")) {
     return null;
   }
-  const firstWhitespaceIndex = trimmedStart.search(/\s/u);
-  const rawCommand =
-    firstWhitespaceIndex < 0
-      ? trimmedStart
-      : trimmedStart.slice(0, firstWhitespaceIndex);
+  const parts = trimmed.split(/\s+/u);
+  const rawCommand = parts[0];
   if (!rawCommand) {
     return null;
   }
   if (!SLASH_COMMAND_TOKEN_RE.test(rawCommand)) {
     return null;
   }
-  const normalizedTail =
-    firstWhitespaceIndex < 0
-      ? ""
-      : trimmedStart.slice(firstWhitespaceIndex).replace(/^\s/u, "");
-  const args =
-    normalizedTail.trim().length === 0
-      ? []
-      : normalizedTail.trim().split(/\s+/u);
+  const args = parts.slice(1);
   const definition = resolveSlashCommandDefinition(rawCommand, commands);
   if (!definition) {
     return null;
   }
-  const parsedCommand: ParsedSlashCommand = {
+  return {
     command: definition.command,
     action: definition.action,
     args,
-    rawSuffix: normalizedTail,
   };
-  if (definition.promptTemplate) {
-    parsedCommand.promptTemplate = definition.promptTemplate;
-  }
-  return parsedCommand;
 }
 
 export function getSlashCommandSuggestions(
