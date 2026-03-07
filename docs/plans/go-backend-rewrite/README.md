@@ -92,11 +92,14 @@ Use the docs in this order:
    - focused current-work plan for Go-owned `set_section_name` MCP parity over the completed scoped write and rename-refactor boundaries
 44. `phase-6-create-top-level-section-structural-tool.md`
    - focused current-work plan for the first Go-owned structural MCP tool and the minimal top-level section creation owner it requires
-45. `spike-mcp.md`
+45. `phase-6-create-child-sections-structural-tool.md`
+   - focused current-work plan for Go-owned child section creation over the
+     completed structural section-construction boundary
+46. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-46. `spike-pty.md`
+47. `spike-pty.md`
    - PTY uncertainty-reduction plan
-47. `spike-lsp.md`
+48. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
