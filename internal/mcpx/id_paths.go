@@ -118,6 +118,19 @@ func rewriteIDCarrier(value any, transform func(string) (string, error)) (any, e
 	switch typed := value.(type) {
 	case string:
 		return transform(typed)
+	case map[string]any:
+		rewritten := make(map[string]any, len(typed))
+		for key, entry := range typed {
+			nextKey, err := transform(key)
+			if err != nil {
+				return nil, err
+			}
+			if _, exists := rewritten[nextKey]; exists && nextKey != key {
+				return nil, newToolError("invalid_arguments", "rewriting id carrier produced duplicate key %q", nextKey)
+			}
+			rewritten[nextKey] = entry
+		}
+		return rewritten, nil
 	case []string:
 		rewritten := make([]string, len(typed))
 		for index, entry := range typed {

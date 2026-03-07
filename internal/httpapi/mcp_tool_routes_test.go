@@ -799,6 +799,186 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetTopLevelSectionLayout(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_top_level_section_layout",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"topLevelSections":{
+				"allowed-section":{"x":412.5,"y":208.25,"zIndex":6,"w":720,"h":360}
+			}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_top_level_section_layout success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 412.5 || layout.Y != 208.25 || layout.ZIndex != 6 {
+		t.Fatalf("unexpected persisted route layout %#v", layout)
+	}
+	if layout.W == nil || *layout.W != 720 {
+		t.Fatalf("expected persisted width 720, got %#v", layout.W)
+	}
+	if layout.H == nil || *layout.H != 360 {
+		t.Fatalf("expected persisted height 360, got %#v", layout.H)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_top_level_section_layout",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"topLevelSections":{
+				"blocked-section":{"x":1,"y":2}
+			}
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatal("expected blocked set_top_level_section_layout route call to fail")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", structured["reason"])
+	}
+	if ids := mustStringListForRoute(t, structured["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
+	}
+}
+
+func TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_top_level_section_layout",
+		"arguments":{
+			"projectConfigId":"11",
+			"topLevelSections":{
+				"14":{"x":501,"y":275,"zIndex":9}
+			}
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"chatId":"12",
+			"sectionId":"13"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_top_level_section_layout success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 501 || layout.Y != 275 || layout.ZIndex != 9 {
+		t.Fatalf("expected translated route layout update, got %#v", layout)
+	}
+}
+
 func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
 	t.Parallel()
 

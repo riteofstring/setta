@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 26 tools total
-- 23 current Go tool names overlap with Python
+- Go MCP now exposes 27 tools total
+- 24 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 21 of those overlaps are mutation or structural tools
-- Python still has 28 mutation or structural project-state MCP tools that do
+- 22 of those overlaps are mutation or structural tools
+- Python still has 27 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -59,6 +59,7 @@ MCP server:
   - `set_section_name`
   - `set_callable`
   - `set_code`
+  - `set_top_level_section_layout`
   - `add_kwarg`
   - `delete_kwarg`
   - `delete_selected_params`
@@ -76,25 +77,25 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `set_top_level_section_layout`
+- `auto_layout_top_level_sections`
 
 Why this is next:
 
 1. Go already owns the authoritative runtime and IDE HTTP route in:
-   - `internal/projectstate/view_modes.go`
+   - `internal/projectstate/auto_layout.go`
    - `internal/httpapi/project_routes.go`
-2. Python marks this tool as structural and scopes it through
-   `topLevelSections`, which fits the existing MCP target-extraction model.
-3. MCP already has dict-key id extraction and temporary-id translation support
-   for section-keyed layout maps, so the remaining work is a bounded tool
-   registration + coverage slice.
+2. The completed `set_top_level_section_layout` slice already landed the
+   section-keyed layout-target extraction and dict-key temporary-id rewrite
+   support needed by the same layout cluster.
+3. `auto_layout_top_level_sections` widens into settings-backed packing policy,
+   but it still reuses the same top-level layout ownership boundary instead of
+   depending on a new subsystem.
 
-### 2. Good Follow-Ons After `set_top_level_section_layout`
+### 2. Good Follow-Ons After `auto_layout_top_level_sections`
 
 These already have Go runtime owners and existing IDE HTTP route transport, so
 their main remaining gap is MCP registration and scoped test coverage:
 
-- `auto_layout_top_level_sections`
 - `set_show_param_display_names`
 - `toggle_position_locks`
 - `toggle_minimized`
@@ -138,14 +139,13 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-set-top-level-section-layout-tool-parity.md` as the next
-  implementation target
-- keep `auto_layout_top_level_sections` separate from
-  `set_top_level_section_layout`
-  - top-level layout persistence can reuse the existing Go runtime owner
-    directly
-  - auto-layout widens into spacing and packing policy that does not need to be
-    bundled into the first top-level layout MCP slice
+- use `auto_layout_top_level_sections` as the next bounded MCP slice
+- keep it separate from the completed `set_top_level_section_layout` work
+  - top-level layout persistence is now already Go-owned on the scoped MCP
+    boundary
+  - auto-layout widens into spacing and packing policy that should remain a
+    focused follow-on instead of being bundled into the completed persistence
+    slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -155,8 +155,9 @@ priority:
 
 ## Verification
 
-- not run
-  - doc-only planning and inventory update
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetTopLevelSectionLayout|TestMCPToolCallRouteSetTopLevelSectionLayoutAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetTopLevelSectionLayoutOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetTopLevelSectionLayoutOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetTopLevelSectionLayout' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -168,3 +169,9 @@ priority:
   code-update owner.
 - 2026-03-07: `set_code` MCP parity completed; the next bounded slice moved to
   `set_top_level_section_layout`.
+- 2026-03-07: `set_top_level_section_layout` MCP parity completed as a scoped
+  write tool over the existing Go layout owner.
+- 2026-03-07: generic MCP dict-key id translation now rewrites keyed layout
+  maps at invocation time, not just during scope extraction.
+- 2026-03-07: the next bounded slice moved to
+  `auto_layout_top_level_sections`.

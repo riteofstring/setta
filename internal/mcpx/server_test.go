@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 26 {
-		t.Fatalf("expected 26 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 27 {
+		t.Fatalf("expected 27 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -149,6 +149,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
+	var setTopLevelSectionLayoutTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var deleteKwargTool *sdkmcp.Tool
 	var changeParamImplTool *sdkmcp.Tool
@@ -189,6 +190,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_code" {
 			setCodeTool = tool
+		}
+		if tool.Name == "set_top_level_section_layout" {
+			setTopLevelSectionLayoutTool = tool
 		}
 		if tool.Name == "add_kwarg" {
 			addKwargTool = tool
@@ -262,6 +266,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_param_entered_value",
 		"set_param_name_and_value",
 		"set_section_name",
+		"set_top_level_section_layout",
 		"set_type_error_ignore",
 		"update_param_impl_config",
 	}
@@ -294,6 +299,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setCodeTool == nil {
 		t.Fatal("expected set_code tool")
+	}
+	if setTopLevelSectionLayoutTool == nil {
+		t.Fatal("expected set_top_level_section_layout tool")
 	}
 	if addKwargTool == nil {
 		t.Fatal("expected add_kwarg tool")
@@ -410,6 +418,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setCodePaths := mustStructuredMap(t, setCodeMeta["idPathsByType"])
 	if got := mustStringList(t, setCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected set_code sectionId target path, got %#v", got)
+	}
+	setTopLevelSectionLayoutMeta := mustStructuredMap(t, setTopLevelSectionLayoutTool.Meta[toolMetaNamespace])
+	if setTopLevelSectionLayoutMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_top_level_section_layout, got %#v", setTopLevelSectionLayoutMeta["accessType"])
+	}
+	setTopLevelSectionLayoutPaths := mustStructuredMap(t, setTopLevelSectionLayoutMeta["idPathsByType"])
+	if got := mustStringList(t, setTopLevelSectionLayoutPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "topLevelSections" {
+		t.Fatalf("expected set_top_level_section_layout topLevelSections target path, got %#v", got)
 	}
 	addKwargMeta := mustStructuredMap(t, addKwargTool.Meta[toolMetaNamespace])
 	if addKwargMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -553,8 +569,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 26 {
-		t.Fatalf("expected 26 registered tool names, got %#v", listNames)
+	if len(listNames) != 27 {
+		t.Fatalf("expected 27 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1944,6 +1960,85 @@ func TestServerSetCodeRespectsScopedWriteTargets(t *testing.T) {
 	}
 	if !blockedResult.IsError {
 		t.Fatal("expected blocked set_code call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetTopLevelSectionLayoutRespectsScopedStructuralTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedLayout := map[string]any{
+		"x":      345.5,
+		"y":      210.25,
+		"zIndex": 7,
+		"w":      640.0,
+		"h":      320.0,
+	}
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"topLevelSections": map[string]any{
+				"allowed-section": allowedLayout,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_top_level_section_layout allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_top_level_section_layout success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 345.5 || layout.Y != 210.25 || layout.ZIndex != 7 {
+		t.Fatalf("unexpected persisted top-level layout %#v", layout)
+	}
+	if layout.W == nil || *layout.W != 640.0 {
+		t.Fatalf("expected persisted width 640, got %#v", layout.W)
+	}
+	if layout.H == nil || *layout.H != 320.0 {
+		t.Fatalf("expected persisted height 320, got %#v", layout.H)
+	}
+	viewMode := project.ViewModes[project.ActiveViewModeID]
+	activeLayout := viewMode.TopLevelSections["allowed-section"]
+	if activeLayout.X != layout.X || activeLayout.Y != layout.Y || activeLayout.ZIndex != layout.ZIndex {
+		t.Fatalf("expected active view-mode layout %#v, got %#v", layout, activeLayout)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"topLevelSections": map[string]any{
+				"blocked-section": map[string]any{"x": 1.0, "y": 2.0},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_top_level_section_layout blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_top_level_section_layout call to fail")
 	}
 	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
 	if blockedPayload["reason"] != "out_of_scope" {
@@ -3482,6 +3577,89 @@ func TestServerSetCodeTranslatesTemporaryIDs(t *testing.T) {
 	}
 	if !blockedResult.IsError {
 		t.Fatal("expected blocked temp-id set_code call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "16" {
+		t.Fatalf("expected translated blockedSectionIds [16], got %#v", ids)
+	}
+}
+
+func TestServerSetTopLevelSectionLayoutTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	if _, _, err := projectRuntime.CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"topLevelSections": map[string]any{
+				"14": map[string]any{"x": 510.0, "y": 220.0, "zIndex": 8},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_top_level_section_layout allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_top_level_section_layout success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 510.0 || layout.Y != 220.0 || layout.ZIndex != 8 {
+		t.Fatalf("expected translated top-level layout update, got %#v", layout)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"topLevelSections": map[string]any{
+				"16": map[string]any{"x": 1.0, "y": 2.0},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_top_level_section_layout blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_top_level_section_layout call to fail")
 	}
 	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
 	if blockedPayload["reason"] != "out_of_scope" {

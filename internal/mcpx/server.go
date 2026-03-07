@@ -71,6 +71,7 @@ type projectStateProvider interface {
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetCallable(ctx context.Context, projectID string, sectionID string, callableName string, refetchParams bool, resolver projectstate.CallableSignatureResolver) (projectstate.Snapshot, projectstate.SetCallableResponse, error)
+	SetTopLevelSectionLayout(ctx context.Context, projectID string, topLevelSections map[string]projectstate.TopLevelSectionLayout) (projectstate.Snapshot, error)
 	UpdateParamImplConfig(ctx context.Context, projectID string, sectionID string, paramInfoID string, newConfig map[string]any) (projectstate.Snapshot, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetParamNameAndValue(ctx context.Context, projectID string, sectionID string, codeObjID string, name string, value string) (projectstate.Snapshot, error)
@@ -871,6 +872,40 @@ func newSetCodeHandler(codeUpdates codeUpdateProvider) tools.Handler {
 		}
 
 		if err := codeUpdates.SetCode(ctx, projectConfigID, sectionID, code); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetTopLevelSectionLayoutHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		topLevelSections, err := readRequiredTopLevelSectionLayoutsArgument(arguments, "topLevelSections")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped top-level layout invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetTopLevelSectionLayout(ctx, projectConfigID, topLevelSections); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1817,6 +1852,67 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"variantId"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_top_level_section_layout",
+				Description: "Persist layout coordinates for top-level sections in the active view mode.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"topLevelSections"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "top-level", "sections", "position", "structural"},
+				},
+				Handler: newSetTopLevelSectionLayoutHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose active view-mode top-level layout should be updated.",
+					},
+					"topLevelSections": map[string]any{
+						"type":        "object",
+						"description": "Section-id keyed top-level layout map to persist for the active view mode.",
+						"additionalProperties": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"x": map[string]any{
+									"type": "number",
+								},
+								"y": map[string]any{
+									"type": "number",
+								},
+								"zIndex": map[string]any{
+									"type": "integer",
+								},
+								"w": map[string]any{
+									"type": "number",
+								},
+								"h": map[string]any{
+									"type": "number",
+								},
+							},
+							"required": []string{"x", "y"},
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "topLevelSections"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
 			},
 		})
 
@@ -2870,6 +2966,64 @@ func readOptionalPositionArgument(arguments map[string]any, key string) (*projec
 	return &projectstate.Position{X: x, Y: y}, nil
 }
 
+func readRequiredTopLevelSectionLayoutsArgument(arguments map[string]any, key string) (map[string]projectstate.TopLevelSectionLayout, error) {
+	rawLayouts, err := readRequiredObjectArgument(arguments, key)
+	if err != nil {
+		return nil, err
+	}
+
+	layouts := make(map[string]projectstate.TopLevelSectionLayout, len(rawLayouts))
+	for rawSectionID, rawLayout := range rawLayouts {
+		sectionID := strings.TrimSpace(rawSectionID)
+		if sectionID == "" {
+			return nil, newToolError("invalid_arguments", "%s contains an empty section id key", key)
+		}
+
+		layoutObject, ok := rawLayout.(map[string]any)
+		if !ok {
+			return nil, newToolError("invalid_arguments", "%s.%s must be an object", key, rawSectionID)
+		}
+
+		x, err := readRequiredFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "x")
+		if err != nil {
+			return nil, err
+		}
+		y, err := readRequiredFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "y")
+		if err != nil {
+			return nil, err
+		}
+		zIndex, err := readOptionalIntField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "zIndex")
+		if err != nil {
+			return nil, err
+		}
+		width, err := readOptionalFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "w")
+		if err != nil {
+			return nil, err
+		}
+		height, err := readOptionalFiniteNumberField(layoutObject, fmt.Sprintf("%s.%s", key, rawSectionID), "h")
+		if err != nil {
+			return nil, err
+		}
+
+		layout := projectstate.TopLevelSectionLayout{
+			X: x,
+			Y: y,
+		}
+		if zIndex != nil {
+			layout.ZIndex = *zIndex
+		}
+		if width != nil {
+			layout.W = width
+		}
+		if height != nil {
+			layout.H = height
+		}
+		layouts[sectionID] = layout
+	}
+
+	return layouts, nil
+}
+
 func readRequiredFiniteNumberField(object map[string]any, parentKey string, field string) (float64, error) {
 	rawValue, ok := object[field]
 	if !ok || rawValue == nil {
@@ -2899,6 +3053,48 @@ func readRequiredFiniteNumberField(object map[string]any, parentKey string, fiel
 		return 0, newToolError("invalid_arguments", "%s.%s must be a finite number", parentKey, field)
 	}
 	return value, nil
+}
+
+func readOptionalFiniteNumberField(object map[string]any, parentKey string, field string) (*float64, error) {
+	rawValue, ok := object[field]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	value, err := readRequiredFiniteNumberField(object, parentKey, field)
+	if err != nil {
+		return nil, err
+	}
+	return &value, nil
+}
+
+func readOptionalIntField(object map[string]any, parentKey string, field string) (*int, error) {
+	rawValue, ok := object[field]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	var value int
+	switch typed := rawValue.(type) {
+	case int:
+		value = typed
+	case int8:
+		value = int(typed)
+	case int16:
+		value = int(typed)
+	case int32:
+		value = int(typed)
+	case int64:
+		value = int(typed)
+	case float64:
+		if math.Trunc(typed) != typed {
+			return nil, newToolError("invalid_arguments", "%s.%s must be an integer", parentKey, field)
+		}
+		value = int(typed)
+	default:
+		return nil, newToolError("invalid_arguments", "%s.%s must be an integer", parentKey, field)
+	}
+	return &value, nil
 }
 
 func readOptionalPositiveIntArgument(arguments map[string]any, key string) (*int, error) {

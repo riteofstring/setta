@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 26 {
-		t.Fatalf("expected 26 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 27 {
+		t.Fatalf("expected 27 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 26 {
-		t.Fatalf("expected 26 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 27 {
+		t.Fatalf("expected 27 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -966,6 +966,189 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE(t *te
 	}
 
 	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
+}
+
+func TestAppIDEMCPServerSupportsSetTopLevelSectionLayoutOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"topLevelSections": map[string]any{
+				"allowed-section": map[string]any{
+					"x":      420.5,
+					"y":      205.25,
+					"zIndex": 5,
+					"w":      680.0,
+					"h":      340.0,
+				},
+			},
+		},
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_top_level_section_layout: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_top_level_section_layout success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 420.5 || layout.Y != 205.25 || layout.ZIndex != 5 {
+		t.Fatalf("unexpected persisted app layout %#v", layout)
+	}
+	if layout.W == nil || *layout.W != 680.0 {
+		t.Fatalf("expected persisted width 680, got %#v", layout.W)
+	}
+	if layout.H == nil || *layout.H != 340.0 {
+		t.Fatalf("expected persisted height 340, got %#v", layout.H)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"topLevelSections": map[string]any{
+				"blocked-section": map[string]any{
+					"x": 1.0,
+					"y": 2.0,
+				},
+			},
+		},
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call blocked set_top_level_section_layout: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_top_level_section_layout to fail")
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	if payload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", payload["reason"])
+	}
+	temporaryMap := readAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"))
+	if ids := mustStructuredStringListValue(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != temporaryMap["blocked-section"] {
+		t.Fatalf("expected blockedSectionIds [%q], got %#v", temporaryMap["blocked-section"], ids)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetTopLevelSectionLayoutOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_top_level_section_layout",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"topLevelSections": map[string]any{
+				"14": map[string]any{
+					"x":      515.0,
+					"y":      245.0,
+					"zIndex": 8,
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_top_level_section_layout: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_top_level_section_layout success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 515.0 || layout.Y != 245.0 || layout.ZIndex != 8 {
+		t.Fatalf("expected translated app layout update, got %#v", layout)
+	}
 }
 
 func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.T) {
@@ -2816,6 +2999,79 @@ func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {
 	}
 
 	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetTopLevelSectionLayout(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	if _, _, err := app.ProjectStates().Main().CreateViewMode(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("seed view mode: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_top_level_section_layout",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"topLevelSections":{
+					"allowed-section":{"x":438,"y":214,"zIndex":4}
+				}
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_top_level_section_layout tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_top_level_section_layout tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_top_level_section_layout success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_top_level_section_layout: %v", err)
+	}
+	layout := project.TopLevelSections["allowed-section"]
+	if layout.X != 438 || layout.Y != 214 || layout.ZIndex != 4 {
+		t.Fatalf("unexpected route-persisted app layout %#v", layout)
+	}
 }
 
 func TestAppIDEMCPToolCallRouteSupportsStructuralCreate(t *testing.T) {

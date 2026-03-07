@@ -71,6 +71,38 @@ func TestTranslateIDsAtPathsRewritesNestedStringsAndLists(t *testing.T) {
 	}
 }
 
+func TestTranslateIDsAtPathsRewritesObjectKeys(t *testing.T) {
+	t.Parallel()
+
+	payload := map[string]any{
+		"topLevelSections": map[string]any{
+			"section-1": map[string]any{"x": 10},
+			"section-2": map[string]any{"x": 20},
+		},
+	}
+
+	err := translateIDsAtPaths(payload, []string{"topLevelSections"}, func(value string) (string, error) {
+		return "tmp-" + value, nil
+	})
+	if err != nil {
+		t.Fatalf("translate object-key ids at paths: %v", err)
+	}
+
+	topLevelSections, ok := payload["topLevelSections"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected translated top-level section map, got %#v", payload["topLevelSections"])
+	}
+	if _, ok := topLevelSections["tmp-section-1"]; !ok {
+		t.Fatalf("expected translated key tmp-section-1, got %#v", topLevelSections)
+	}
+	if _, ok := topLevelSections["tmp-section-2"]; !ok {
+		t.Fatalf("expected translated key tmp-section-2, got %#v", topLevelSections)
+	}
+	if _, ok := topLevelSections["section-1"]; ok {
+		t.Fatalf("did not expect canonical key section-1 after translation, got %#v", topLevelSections)
+	}
+}
+
 func TestExtractIDsByTypeCollectsIDsFromArraysOfObjects(t *testing.T) {
 	t.Parallel()
 
