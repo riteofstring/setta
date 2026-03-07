@@ -677,6 +677,211 @@ async def _seed_state_machine_gate_chat_graph(
     )
 
 
+async def _seed_state_machine_signal_branch_graph(
+    *,
+    project_fixture,
+    project_config_id: ID,
+    engine_config_id: ID,
+) -> tuple[ID, ID, ID, ID]:
+    start_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineStart,
+            position=Position(x=0, y=0),
+        ),
+    )
+    end_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineEnd,
+            position=Position(x=840, y=0),
+        ),
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=start_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Review Flow",
+        )
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=end_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Done",
+        )
+    )
+    first_chat_id = await _create_managed_chat_section(
+        project_fixture=project_fixture,
+        project_config_id=project_config_id,
+        engine_config_id=engine_config_id,
+        position=Position(x=280, y=0),
+    )
+    second_chat_id = await _create_managed_chat_section(
+        project_fixture=project_fixture,
+        project_config_id=project_config_id,
+        engine_config_id=engine_config_id,
+        position=Position(x=560, y=0),
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=start_response.sectionId,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=first_chat_id,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            targetAction=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Initial review.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=first_chat_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=second_chat_id,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=StateMachineSourceFilter(
+                type=StateMachineSourceFilterType.signal,
+                signalName="merge_decision",
+                payloadField="decision",
+                equals="retry",
+            ),
+            targetAction=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Apply another review pass.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=first_chat_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=end_response.sectionId,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=StateMachineSourceFilter(
+                type=StateMachineSourceFilterType.signal,
+                signalName="merge_decision",
+                payloadField="decision",
+                equals="done",
+            ),
+        )
+    )
+    return (
+        start_response.sectionId,
+        first_chat_id,
+        second_chat_id,
+        end_response.sectionId,
+    )
+
+
+async def _seed_state_machine_signal_loop_graph(
+    *,
+    project_fixture,
+    project_config_id: ID,
+    engine_config_id: ID,
+) -> tuple[ID, ID, ID]:
+    start_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineStart,
+            position=Position(x=0, y=0),
+        ),
+    )
+    end_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineEnd,
+            position=Position(x=560, y=0),
+        ),
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=start_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Review Flow",
+        )
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=end_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Done",
+        )
+    )
+    loop_chat_id = await _create_managed_chat_section(
+        project_fixture=project_fixture,
+        project_config_id=project_config_id,
+        engine_config_id=engine_config_id,
+        position=Position(x=280, y=0),
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=start_response.sectionId,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=loop_chat_id,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            targetAction=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Initial review.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=loop_chat_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=loop_chat_id,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=StateMachineSourceFilter(
+                type=StateMachineSourceFilterType.signal,
+                signalName="merge_decision",
+                payloadField="decision",
+                equals="retry",
+            ),
+            targetAction=StateMachineTargetAction(
+                type=StateMachineTargetActionType.send_prompt,
+                inlinePrompt="Apply another review pass.",
+                threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+            ),
+        )
+    )
+    await project_fixture.manager.create_state_machine_edge(
+        CreateStateMachineEdgeRequest(
+            projectConfigId=project_config_id,
+            machineGroupId="workflow-main",
+            sourceSectionId=loop_chat_id,
+            sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+            targetSectionId=end_response.sectionId,
+            targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+            sourceFilter=StateMachineSourceFilter(
+                type=StateMachineSourceFilterType.signal,
+                signalName="merge_decision",
+                payloadField="decision",
+                equals="done",
+            ),
+        )
+    )
+    return start_response.sectionId, loop_chat_id, end_response.sectionId
+
+
 def _get_chat_section_impl(
     project_fixture, project_config_id: ID, section_id: ID
 ) -> ChatSectionImpl:
@@ -1141,6 +1346,243 @@ async def test_state_machine_runner_routes_failed_child_run_to_end(
         assert [event.type for event in latest.events[-4:]] == [
             "child_run_failed",
             "child_run_edges_activated",
+            "end_reached",
+            "run_completed",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_routes_signal_filtered_edges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, first_chat_id, second_chat_id, _ = (
+            await _seed_state_machine_signal_branch_graph(
+                project_fixture=project_fixture,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+            )
+        )
+
+        state, state_machine_runner, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        dispatched_inputs: list[dict[str, object]] = []
+        child_runs: list[AgentRun] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            dispatched_inputs.append(inputs)
+            child_runs.append(run)
+            return run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+            signal_report = await state_machine_runner.report_signal(
+                project_config_id=project_config_id,
+                child_run_id=child_runs[0].id,
+                machine_run_id=None,
+                section_id=None,
+                signal_name="merge_decision",
+                payload={"decision": "retry"},
+            )
+            latest = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert signal_report["status"] == "ok"
+        assert len(dispatched_inputs) == 2
+        assert latest.status == AgentRunStatus.running
+        assert latest.outputs is not None
+        assert latest.outputs["childRunIds"] == [str(run.id) for run in child_runs]
+        assert latest.outputs["processedSignalEventIds"] == [
+            signal_report["signalEventId"]
+        ]
+        assert latest.outputs["signalEvents"] == [
+            {
+                "signalEventId": signal_report["signalEventId"],
+                "signalName": "merge_decision",
+                "payload": {"decision": "retry"},
+                "machineRunId": str(latest.id),
+                "childRunId": str(child_runs[0].id),
+                "sourceSectionId": str(first_chat_id),
+                "stateMachineIteration": 1,
+                "reportedAt": latest.outputs["signalEvents"][0]["reportedAt"],
+            }
+        ]
+        assert latest.outputs["dispatchedEdgeActions"] == [
+            {
+                "edgeId": child_runs[1].inputs["stateMachineSourceEdgeId"],
+                "actionType": "send_prompt",
+                "targetSectionId": str(second_chat_id),
+                "chatId": dispatched_inputs[1]["chatId"],
+                "runId": str(child_runs[1].id),
+                "threadStrategy": "new_thread_before_send",
+                "engineType": "setta_llm",
+                "stateMachineIteration": 1,
+            }
+        ]
+        assert dispatched_inputs[1]["stateMachineIteration"] == 1
+        assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(second_chat_id)
+        assert [event.type for event in latest.events[-3:]] == [
+            "signal_reported",
+            "signal_edges_activated",
+            "edge_action_dispatched",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, loop_chat_id, end_section_id = (
+            await _seed_state_machine_signal_loop_graph(
+                project_fixture=project_fixture,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+            )
+        )
+
+        state, state_machine_runner, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        dispatched_inputs: list[dict[str, object]] = []
+        child_runs: list[AgentRun] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            dispatched_inputs.append(inputs)
+            child_runs.append(run)
+            return run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+            retry_report = await state_machine_runner.report_signal(
+                project_config_id=project_config_id,
+                child_run_id=child_runs[0].id,
+                machine_run_id=None,
+                section_id=None,
+                signal_name="merge_decision",
+                payload={"decision": "retry"},
+            )
+            latest_after_retry = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+            child_runs[0].status = AgentRunStatus.completed
+            save_agent_run(project_fixture.dbe, child_runs[0])
+
+            latest_after_first_completion = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+            done_report = await state_machine_runner.report_signal(
+                project_config_id=project_config_id,
+                child_run_id=child_runs[1].id,
+                machine_run_id=None,
+                section_id=None,
+                signal_name="merge_decision",
+                payload={"decision": "done"},
+            )
+            latest_completed = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert retry_report["status"] == "ok"
+        assert len(dispatched_inputs) == 2
+        assert latest_after_retry.outputs is not None
+        assert latest_after_retry.outputs["stateMachineIteration"] == 2
+        assert latest_after_retry.outputs["processedSignalEventIds"] == [
+            retry_report["signalEventId"]
+        ]
+        assert dispatched_inputs[1]["stateMachineTargetSectionId"] == str(loop_chat_id)
+        assert dispatched_inputs[1]["stateMachineIteration"] == 2
+        assert child_runs[1].inputs["stateMachineIteration"] == 2
+        assert [event.type for event in latest_after_retry.events[-4:]] == [
+            "signal_reported",
+            "signal_edges_activated",
+            "iteration_advanced",
+            "edge_action_dispatched",
+        ]
+
+        assert latest_after_first_completion.status == AgentRunStatus.running
+        assert latest_after_first_completion.outputs is not None
+        assert latest_after_first_completion.outputs["processedChildTerminalRunIds"] == []
+        assert latest_after_first_completion.outputs["stateMachineIteration"] == 2
+
+        assert done_report["status"] == "ok"
+        assert latest_completed.status == AgentRunStatus.completed
+        assert latest_completed.outputs is not None
+        assert latest_completed.outputs["stateMachineIteration"] == 2
+        assert latest_completed.outputs["reachedEndSectionIds"] == [str(end_section_id)]
+        assert [event.type for event in latest_completed.events[-4:]] == [
+            "signal_reported",
+            "signal_edges_activated",
             "end_reached",
             "run_completed",
         ]

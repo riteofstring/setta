@@ -26,6 +26,13 @@ def _normalize_agentic_context_id(value: str | None) -> ID | None:
     return ID(normalized)
 
 
+def _resolve_tool_agentic_context(ctx: Context) -> AgenticContext | None:
+    resolve_agentic_context = getattr(ctx.fastmcp, "_resolve_agentic_context", None)
+    if not callable(resolve_agentic_context):
+        return None
+    return resolve_agentic_context(ctx)
+
+
 @setta_init_tool
 def set_agentic_context(
     *,
@@ -94,6 +101,51 @@ def report_completion_status(
 
 attach_tool_access(
     report_completion_status,
+    ToolAccessMetadata(accessType="structural"),
+)
+
+
+@setta_tool
+async def report_state_machine_signal(
+    *,
+    signalName: str,
+    payload: dict[str, object] | None = None,
+    machineRunId: str | None = None,
+    sectionId: ID | None = None,
+    ctx: Context,
+) -> dict[str, object]:
+    """
+    Report a structured signal from the active child chat into its parent state machine.
+    """
+    normalized_signal_name = signalName.strip()
+    if normalized_signal_name == "":
+        raise InvalidToolArgumentsError("signalName must be a non-empty string.")
+    agentic_context = _resolve_tool_agentic_context(ctx)
+    if agentic_context is None:
+        raise InvalidToolArgumentsError(
+            "report_state_machine_signal requires active agentic context."
+        )
+    normalized_machine_run_id = _normalize_agentic_context_id(machineRunId)
+    if agentic_context.run_id is None and normalized_machine_run_id is None:
+        raise InvalidToolArgumentsError(
+            "report_state_machine_signal requires an active child run or machineRunId."
+        )
+    try:
+        signal_report = await ctx.fastmcp.state.state_machine_runner.report_signal(
+            project_config_id=agentic_context.project_config_id,
+            child_run_id=agentic_context.run_id,
+            machine_run_id=normalized_machine_run_id,
+            section_id=sectionId or agentic_context.section_id,
+            signal_name=normalized_signal_name,
+            payload=dict(payload or {}),
+        )
+    except (KeyError, ValueError) as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
+    return signal_report
+
+
+attach_tool_access(
+    report_state_machine_signal,
     ToolAccessMetadata(accessType="structural"),
 )
 

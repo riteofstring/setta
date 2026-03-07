@@ -57,6 +57,7 @@ from setta.agentic.agentic_scope import (
     resolve_agentic_scope,
 )
 from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
+from setta.agentic.state_machine_signals import REPORT_STATE_MACHINE_SIGNAL_TOOL_NAME
 from setta.database.db_objs import DBE
 from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.logging.tasks import spawn_background_task
@@ -102,6 +103,7 @@ MCP_UNSCOPED_TOOL_NAMES: set[str] = {
     "get_setta_docs",
     "list_mcp_tools",
     REPORT_COMPLETION_STATUS_TOOL_NAME,
+    REPORT_STATE_MACHINE_SIGNAL_TOOL_NAME,
     "search_mcp_tools",
 }
 
