@@ -35,6 +35,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SettingsAllSettingsBenchmarkSnapdomSectionBody } from "./SettingsAllSettingsBenchmarkSnapdomSectionBody";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
@@ -111,6 +112,15 @@ export function SectionContainerCoreResizable({
       benchmark.renderSectionBody);
   const shouldRenderBenchmarkShell =
     benchmark.active && !benchmark.renderFullSectionBody && !isMetaControl;
+  const sectionBody = shouldRenderAreaSwitch ? (
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
+  ) : null;
 
   return (
     <CustomResizable
@@ -171,13 +181,12 @@ export function SectionContainerCoreResizable({
         <Incrementer sectionId={sectionId} isRoot={isRoot} />
       )}
       {shouldRenderAreaSwitch ? (
-        <AreaSwitch
+        <SettingsAllSettingsBenchmarkSnapdomSectionBody
+          isActiveSection={isActiveSection}
           sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          bgColor={bgColor}
-          isMinimized={isMinimized}
-          isUserView={isUserView}
-        />
+        >
+          {sectionBody}
+        </SettingsAllSettingsBenchmarkSnapdomSectionBody>
       ) : shouldRenderBenchmarkShell ? (
         <BenchmarkSectionBodyPlaceholder stage={benchmark.stage} />
       ) : null}

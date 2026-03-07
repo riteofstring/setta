@@ -31,6 +31,7 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "non-text-widgets",
   "code-widgets",
   "full",
+  "full-section-snapdom",
 ] as const;
 
 export type SettingsAllSettingsBenchmarkStage =
@@ -63,6 +64,7 @@ type SettingsAllSettingsBenchmarkValue = {
   textFamilyWidgetScope: SettingsAllSettingsBenchmarkTextFamilyWidgetScope;
   renderParamChrome: boolean;
   renderParamSortable: boolean;
+  renderSectionBodySnapdomPreview: boolean;
 };
 
 const DEFAULT_STAGE: SettingsAllSettingsBenchmarkStage = "full";
@@ -87,6 +89,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   textFamilyWidgetScope: "all",
   renderParamChrome: true,
   renderParamSortable: true,
+  renderSectionBodySnapdomPreview: false,
 };
 
 const SettingsAllSettingsBenchmarkContext =
@@ -138,6 +141,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "header-only":
       return {
@@ -160,6 +164,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "section-body-shell":
       return {
@@ -182,6 +187,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "static-param-list":
       return {
@@ -204,6 +210,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "group-container-static-list":
       return {
@@ -226,6 +233,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-flat-shell":
       return {
@@ -248,6 +256,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-simple-grid-shell":
       return {
@@ -270,6 +279,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-top-level-flat-shell":
       return {
@@ -292,6 +302,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-top-level-simple-grid-shell":
       return {
@@ -314,6 +325,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-top-level-structure-shell":
       return {
@@ -336,6 +348,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-parent-structure-shell":
       return {
@@ -358,6 +371,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: false,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-structure-shell":
       return {
@@ -402,6 +416,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: false,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-container-shell":
       return {
@@ -424,6 +439,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
       };
     case "param-input-shell":
       return {
@@ -446,6 +462,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
       };
     case "non-text-widgets":
       return {
@@ -468,6 +485,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "none",
         renderParamChrome: true,
         renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
       };
     case "code-widgets":
       return {
@@ -490,6 +508,7 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "code-only",
         renderParamChrome: true,
         renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
       };
     case "full":
       return {
@@ -512,6 +531,30 @@ function resolveBenchmarkValue(
         textFamilyWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+      };
+    case "full-section-snapdom":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: true,
       };
     default:
       return stage satisfies never;

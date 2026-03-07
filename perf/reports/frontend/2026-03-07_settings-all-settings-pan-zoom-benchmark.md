@@ -1726,3 +1726,91 @@ New benchmark stages:
 - Practical branch conclusion:
   - do not pursue the canvas inactive-preview path
   - keep the measurements and artifacts, but revert the benchmark-only implementation
+
+## Addendum: whole-section SnapDOM previews are the first large pan/zoom win, but they are an architectural tradeoff
+
+- Date: `2026-03-07`
+- Goal: test whether replacing each inactive section body with a single SnapDOM-captured surface is materially different from replacing only the code-widget subtrees.
+- Change under test:
+  - benchmark-only stage `full-section-snapdom`
+  - keep the outer section frame, header, and chrome live
+  - render the real section body once, capture it with SnapDOM `toSvg(...)`, then replace the entire body subtree with a single `<img>` surface
+  - production behavior outside the benchmark stage was not changed
+- Code paths:
+  - `frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  - `frontend/src/components/Section/Container/SettingsAllSettingsBenchmarkSnapdomSectionBody.tsx`
+
+### Live DOM verification
+
+- The whole-section SnapDOM path was confirmed live in the headed browser:
+  - `42` section bodies render as SnapDOM wrappers
+  - `42` ready SnapDOM preview images
+  - `0` pending captures
+  - `0` failed captures
+  - `0` live param rows left in the `.react-flow` subtree
+- Screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-baseline-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-visible.png`
+
+### Repeated fixed-base rerun
+
+- Measurement note:
+  - fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+  - viewport size: `1440x1200`
+  - each stage rerun used `5` browser-side fixed-transform replay loops of `180` frames each
+  - this addendum mutates the live `.react-flow__viewport` transform directly and records `requestAnimationFrame` deltas
+  - compare these numbers only within this addendum
+
+### `full` baseline
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Code widgets: `426`
+- Section SnapDOM wrappers: `0`
+- Section SnapDOM preview images: `0`
+- Average frame time across `5` runs: `16.58ms`
+- Average FPS across `5` runs: `60.31`
+- Median FPS: `60.52`
+- Max frame time: `30.70ms`
+- Slow frames:
+  - `>16.7ms`: `341`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `58.88`, `61.03`, `60.51`, `60.52`, `60.67`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-baseline-trace.json`
+
+### `full-section-snapdom`
+
+- DOM nodes in `.react-flow`: `1149`
+- Param containers: `0`
+- Code widgets: `0`
+- Section SnapDOM wrappers: `42`
+- Section SnapDOM preview images: `42`
+- Average frame time across `5` runs: `8.31ms`
+- Average FPS across `5` runs: `120.33`
+- Median FPS: `120.01`
+- Max frame time: `11.30ms`
+- Slow frames:
+  - `>16.7ms`: `0`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Per-run FPS: `120.01`, `121.36`, `120.33`, `119.99`, `120.00`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-section-snapdom-trace.json`
+
+### Whole-section conclusion
+
+- This is the first SnapDOM experiment in this branch that produces a large pan/zoom gain.
+  - DOM nodes: `8553` -> `1149`, `-7404`
+  - average FPS: `60.31` -> `120.33`, about `+60.02 FPS`
+- That is qualitatively different from the rejected code-widget-only SnapDOM experiments. Replacing only `426` code preview subtrees was not enough; replacing the entire inactive section body is.
+- The reason is straightforward:
+  - this removes the full inactive section-body cost bucket at once
+  - row layout, widgets, code previews, and nested subtree DOM are all gone from the live pan/zoom path
+- But this is not a behavior-preserving optimization. It is an architectural mode:
+  - inactive section bodies become static preview surfaces
+  - inner text selection, hover behavior, and inline widget interaction are gone until hydration
+  - only the outer section shell remains live
+- Practical branch conclusion:
+  - if the product can accept inactive-section preview mode with explicit hydration on interaction, this direction is worth serious consideration
+  - if the product requires fully live inactive section bodies, this result should be treated as an upper-bound experiment, not a directly landable refactor

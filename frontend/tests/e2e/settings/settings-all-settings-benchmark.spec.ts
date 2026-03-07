@@ -25,6 +25,7 @@ const STAGES = [
   "non-text-widgets",
   "code-widgets",
   "full",
+  "full-section-snapdom",
 ] as const;
 
 type StageMetrics = {
@@ -64,6 +65,12 @@ type StageMetrics = {
   sampleParamRowCount: number;
   sampleParamRowMinWidth: number;
   sampleParamRowNarrowCount: number;
+  sectionSnapdomCount: number;
+  sectionSnapdomReadyCount: number;
+  sectionSnapdomPendingCount: number;
+  sectionSnapdomErrorCount: number;
+  sectionSnapdomLiveActiveCount: number;
+  sectionSnapdomPreviewCount: number;
 };
 
 test("all settings benchmark stages progressively restore section complexity", async ({
@@ -517,6 +524,33 @@ test("all settings benchmark stages progressively restore section complexity", a
     250,
   );
   expect(metricsByStage.get("full")?.sampleParamRowNarrowCount).toBe(0);
+  expect(metricsByStage.get("full")?.sectionSnapdomCount).toBe(0);
+  expect(metricsByStage.get("full")?.sectionSnapdomPreviewCount).toBe(0);
+
+  expect(metricsByStage.get("full-section-snapdom")?.staticRowCount).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sectionSnapdomCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sectionSnapdomReadyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sectionSnapdomPendingCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sectionSnapdomErrorCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sectionSnapdomPreviewCount,
+  ).toBe(
+    metricsByStage.get("full-section-snapdom")?.sectionSnapdomReadyCount ?? 0,
+  );
+  expect(metricsByStage.get("full-section-snapdom")?.textInputDummyCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sampleParamRowCount,
+  ).toBe(0);
 
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
@@ -568,6 +602,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("non-text-widgets")?.domCount).toBeLessThan(
     metricsByStage.get("full")?.domCount ?? 0,
   );
+  expect(metricsByStage.get("full-section-snapdom")?.domCount).toBeLessThan(
+    metricsByStage.get("full")?.domCount ?? 0,
+  );
 });
 
 async function openBenchmarkStage(
@@ -600,6 +637,25 @@ async function openBenchmarkStage(
   await page.waitForFunction(
     () => document.querySelectorAll(".react-flow__node").length > 0,
   );
+  if (stage === "full-section-snapdom") {
+    await page.waitForFunction(() => {
+      const roots = document.querySelectorAll(
+        "[data-settings-benchmark-section-snapdom]",
+      );
+      if (roots.length === 0) {
+        return false;
+      }
+
+      return (
+        document.querySelectorAll(
+          '[data-settings-benchmark-section-snapdom-status="pending"]',
+        ).length === 0 &&
+        document.querySelectorAll(
+          '[data-settings-benchmark-section-snapdom-status="ready"]',
+        ).length > 0
+      );
+    });
+  }
 }
 
 async function collectStageMetrics(page: Page): Promise<StageMetrics> {
@@ -723,6 +779,24 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
         sampleWidths.length > 0 ? Math.min(...sampleWidths) : 0,
       sampleParamRowNarrowCount: sampleWidths.filter((width) => width < 250)
         .length,
+      sectionSnapdomCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-snapdom]",
+      ).length,
+      sectionSnapdomReadyCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-snapdom-status="ready"]',
+      ).length,
+      sectionSnapdomPendingCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-snapdom-status="pending"]',
+      ).length,
+      sectionSnapdomErrorCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-snapdom-status="error"]',
+      ).length,
+      sectionSnapdomLiveActiveCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-section-snapdom-status="live-active"]',
+      ).length,
+      sectionSnapdomPreviewCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-snapdom-preview]",
+      ).length,
     };
   });
 }
