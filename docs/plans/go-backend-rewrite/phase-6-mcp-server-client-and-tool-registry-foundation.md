@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 7 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 10 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -41,6 +41,7 @@ Current repo status as of 2026-03-07:
   - one minimal Go-owned tool set:
     - `list_mcp_tools` as the init-like tool
     - `set_agentic_context` as the first session-scoped init tool
+    - `create_top_level_section` as the first structural MCP tool
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
     - `set_code_section_diagnostics_mute` as the first scoped write pilot tool
@@ -53,6 +54,7 @@ Current repo status as of 2026-03-07:
     session state
   - invocation-edge temporary/canonical id translation for current Go-owned MCP
     carriers and filtered results
+  - generic result-id temp-id translation from `Metadata.ResultIDPathsByType`
   - metadata-driven target extraction from `Metadata.IDPathsByType`
   - effective `codeObj -> section` target mapping from project-state view data
   - metadata-driven singleton target fallback
@@ -60,6 +62,8 @@ Current repo status as of 2026-03-07:
     `targetSectionIds`
   - targeted scope-denial payloads with explicit `unmappedCodeObjIds` when
     applicable
+  - a Go-owned project-state owner for top-level section construction, layout
+    bookkeeping, and bounded meta-control param creation
   - authenticated `/__setta__/tools/call` reusing the shared MCP invocation
     path
   - namespaced multi-server tool routing and per-server runtime status tracking
@@ -540,14 +544,43 @@ Reference:
 
 - `phase-6-section-name-tool-parity.md`
 
+### Slice 10: Create Top-Level Section Structural Tool
+
+Deliver:
+
+- a Go-owned project-state owner for bounded top-level section creation
+- a Go MCP `create_top_level_section` structural tool over that owner
+- generic result-id temp-id translation through `Metadata.ResultIDPathsByType`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `create_top_level_section`
+- structural scope remains explicit and fail-closed
+- created result ids are temp-id translated through metadata instead of a
+  tool-name branch
+- stale top-level/view-mode layout state is pruned when creation mutates the
+  project shape
+- Python-only/internal placement carriers remain omitted from the MCP schema
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-create-top-level-section-structural-tool.md`
+
 ## Next Recommended Step
 
-- Slice 9 is now complete.
-- The next recommended step is the first structural MCP slice, anchored on
-  `create_top_level_section`.
-- it is already a canonical MCP workflow anchor in the Python system prompt and
-  is the highest-leverage structural tool after section-rename parity
+- Slice 10 is now complete.
+- The next recommended step is `create_child_sections`.
+- It stays on the same structural-construction boundary instead of switching
+  immediately into delete/move semantics.
+- It can reuse the new result-id metadata translation path and the same
+  project-state section-construction helpers.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
-- Leave broader structural create/delete/move mutations after that first
-  structural slice proves the boundary.
+- Keep the IDE HTTP `createTopLevelSection` route deferred until a slice
+  actually needs viewport/reveal-specific transport semantics.

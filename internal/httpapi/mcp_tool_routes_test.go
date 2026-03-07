@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -395,6 +396,69 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
+	}
+}
+
+func TestMCPToolCallRouteSupportsStructuralCreateWithUnscopedContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"create_top_level_section",
+		"arguments":{"projectConfigId":"project-alpha","implType":"Dict"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected structural create success, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	sectionID, ok := structured["sectionId"].(string)
+	if !ok || strings.TrimSpace(sectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", structured["sectionId"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route structural create: %v", err)
+	}
+	if _, ok := project.Sections[sectionID]; !ok {
+		t.Fatalf("expected created section %q in project, got %#v", sectionID, project.Sections)
 	}
 }
 

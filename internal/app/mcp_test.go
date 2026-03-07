@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 11 {
-		t.Fatalf("expected 11 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 12 {
+		t.Fatalf("expected 12 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 11 {
-		t.Fatalf("expected 11 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 12 {
+		t.Fatalf("expected 12 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -417,6 +417,101 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before structural create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "create_top_level_section",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"implType":        "Dict",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_top_level_section: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_top_level_section success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	sectionID, ok := payload["sectionId"].(string)
+	if !ok || strings.TrimSpace(sectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", payload["sectionId"])
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after structural create: %v", err)
+	}
+	var canonicalSectionID string
+	for currentSectionID := range project.Sections {
+		if _, existed := beforeSectionIDs[currentSectionID]; !existed {
+			canonicalSectionID = currentSectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical section, got %#v", project.Sections)
+	}
+	if sectionID == canonicalSectionID {
+		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
+	}
+	if _, ok := project.Sections[sectionID]; ok {
+		t.Fatalf("did not expect translated section id %q to be a canonical project key", sectionID)
 	}
 }
 
@@ -812,8 +907,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 11 {
-		t.Fatalf("expected tool count 11, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 12 {
+		t.Fatalf("expected tool count 12, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -840,6 +935,15 @@ func TestAppIDEMCPToolCallRouteSupportsAgenticContextBody(t *testing.T) {
 	defer server.Close()
 
 	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route structural create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
 	response, err := client.Post(
 		server.URL+httpapi.RouteMCPToolCall,
 		"application/json",
@@ -905,6 +1009,15 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	defer server.Close()
 
 	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route structural create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
 	response, err := client.Post(
 		server.URL+httpapi.RouteMCPToolCall,
 		"application/json",
@@ -1151,6 +1264,96 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsStructuralCreate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route structural create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"create_top_level_section",
+			"arguments":{"projectConfigId":"project-alpha","implType":"Dict"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post structural create tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode structural create tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected structural create success, got %#v", payload.StructuredContent)
+	}
+
+	structured := mustStructuredMapValue(t, payload.StructuredContent)
+	sectionID, ok := structured["sectionId"].(string)
+	if !ok || strings.TrimSpace(sectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", structured["sectionId"])
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route structural create: %v", err)
+	}
+	var canonicalSectionID string
+	for currentSectionID := range project.Sections {
+		if _, existed := beforeSectionIDs[currentSectionID]; !existed {
+			canonicalSectionID = currentSectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical section, got %#v", project.Sections)
+	}
+	if sectionID == canonicalSectionID {
+		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
+	}
+	if _, ok := project.Sections[sectionID]; ok {
+		t.Fatalf("did not expect translated section id %q to be a canonical project key", sectionID)
 	}
 }
 

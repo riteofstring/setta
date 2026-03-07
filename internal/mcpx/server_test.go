@@ -136,11 +136,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 11 {
-		t.Fatalf("expected 11 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 12 {
+		t.Fatalf("expected 12 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
+	var createTopLevelSectionTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
@@ -151,6 +152,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var suppressionTool *sdkmcp.Tool
 	for _, tool := range toolsResult.Tools {
 		names = append(names, tool.Name)
+		if tool.Name == "create_top_level_section" {
+			createTopLevelSectionTool = tool
+		}
 		if tool.Name == "get_latest_project_state_summary" {
 			summaryTool = tool
 		}
@@ -178,6 +182,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	sort.Strings(names)
 	expectedNames := []string{
+		"create_top_level_section",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"list_mcp_tools",
@@ -196,8 +201,29 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 	}
 
+	if createTopLevelSectionTool == nil {
+		t.Fatal("expected create_top_level_section tool")
+	}
 	if summaryTool == nil {
 		t.Fatal("expected get_latest_project_state_summary tool")
+	}
+	createMeta := mustStructuredMap(t, createTopLevelSectionTool.Meta[toolMetaNamespace])
+	if createMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type, got %#v", createMeta["accessType"])
+	}
+	createResultPaths := mustStructuredMap(t, createMeta["resultIdPathsByType"])
+	if got := mustStringList(t, createResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected create_top_level_section section result path, got %#v", got)
+	}
+	if got := mustStringList(t, createResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "metaControlParamId" {
+		t.Fatalf("expected create_top_level_section metaControlParamId result path, got %#v", got)
+	}
+	createInputSchema := mustStructuredMap(t, createTopLevelSectionTool.InputSchema)
+	createInputProperties := mustStructuredMap(t, createInputSchema["properties"])
+	for _, hiddenField := range []string{"implOverrides", "topLevelSections", "viewportBounds"} {
+		if _, ok := createInputProperties[hiddenField]; ok {
+			t.Fatalf("did not expect hidden create_top_level_section field %q in MCP schema", hiddenField)
+		}
 	}
 	settaMeta := mustStructuredMap(t, summaryTool.Meta[toolMetaNamespace])
 	if settaMeta["resultFilter"] != string(tools.ResultFilterProjectStateSummary) {
@@ -261,8 +287,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 11 {
-		t.Fatalf("expected 11 registered tool names, got %#v", listNames)
+	if len(listNames) != 12 {
+		t.Fatalf("expected 12 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -675,6 +701,131 @@ func TestServerSetSectionNameRejectsInvalidNames(t *testing.T) {
 	}
 	if payload["message"] != "Section name cannot include path separators." {
 		t.Fatalf("unexpected invalid section-name message %#v", payload["message"])
+	}
+}
+
+func TestServerCreateTopLevelSectionRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "create_top_level_section",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"implType":        "Dict",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_top_level_section blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked create_top_level_section call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerCreateTopLevelSectionAllowsUnscopedStructuralCallsAndTranslatesResultIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	beforeProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before structural create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+	beforeCodeObjIDs := map[string]struct{}{}
+	for codeObjID := range beforeProject.CodeObjs {
+		beforeCodeObjIDs[codeObjID] = struct{}{}
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "create_top_level_section",
+		Arguments: map[string]any{
+			"projectConfigId":    "11",
+			"implType":           "MetaControl",
+			"controlCodeObjType": "TextParam",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_top_level_section allowed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_top_level_section success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	tempSectionID, ok := payload["sectionId"].(string)
+	if !ok || strings.TrimSpace(tempSectionID) == "" {
+		t.Fatalf("expected translated sectionId string, got %#v", payload["sectionId"])
+	}
+	tempParamID, ok := payload["metaControlParamId"].(string)
+	if !ok || strings.TrimSpace(tempParamID) == "" {
+		t.Fatalf("expected translated metaControlParamId string, got %#v", payload["metaControlParamId"])
+	}
+
+	afterProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after structural create: %v", err)
+	}
+	var canonicalSectionID string
+	for sectionID := range afterProject.Sections {
+		if _, existed := beforeSectionIDs[sectionID]; !existed {
+			canonicalSectionID = sectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical section id, got %#v", afterProject.Sections)
+	}
+	var canonicalParamID string
+	for codeObjID := range afterProject.CodeObjs {
+		if _, existed := beforeCodeObjIDs[codeObjID]; !existed {
+			canonicalParamID = codeObjID
+			break
+		}
+	}
+	if canonicalParamID == "" {
+		t.Fatalf("expected one new canonical code-object id, got %#v", afterProject.CodeObjs)
+	}
+	if tempSectionID == canonicalSectionID {
+		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
+	}
+	if tempParamID == canonicalParamID {
+		t.Fatalf("expected translated code-object id to differ from canonical %q", canonicalParamID)
+	}
+	if _, ok := afterProject.Sections[tempSectionID]; ok {
+		t.Fatalf("did not expect translated section id %q to be a canonical project key", tempSectionID)
+	}
+	if _, ok := afterProject.CodeObjs[tempParamID]; ok {
+		t.Fatalf("did not expect translated code-object id %q to be a canonical project key", tempParamID)
 	}
 }
 

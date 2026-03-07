@@ -25,14 +25,13 @@ project shape itself.
 
 Current repo status as of 2026-03-07:
 
-- this slice is now the active next step
-- Go MCP does not yet expose `create_top_level_section`
-- Go does not yet have a project-state owner for creating arbitrary top-level
-  sections
-- Go HTTP transport also does not yet own `createTopLevelSection`
-- the earlier Phase 4 route docs correctly deferred structural
-  create/delete/move transport, so this slice should stay MCP-first unless a
-  transport dependency appears during implementation
+- this slice is complete
+- Go MCP now exposes `create_top_level_section`
+- Go now has a bounded project-state owner for top-level section creation in
+  `internal/projectstate/top_level_section_creation.go`
+- Go HTTP transport still does not own `createTopLevelSection`
+- the earlier Phase 4 route docs remain accurate: structural create/delete/move
+  HTTP transport stays deferred, and this slice landed MCP-first
 
 ## Scope
 
@@ -193,16 +192,72 @@ Do not own:
 
 ## Open Questions
 
-- whether the first honest MetaControl path should default a control param type
-  or require an explicit `controlCodeObjType` when Go does not yet own the full
-  user-default settings surface
-- whether the deterministic no-viewport placement rule is sufficient for this
-  MCP-first slice, or whether route migration would be required immediately to
-  preserve UI-specific placement semantics
+- whether the next structural slice should stay on the creation path with
+  `create_child_sections` or switch to delete/move bookkeeping
+- when viewport-aware reveal and pan semantics should move out of the deferred
+  HTTP route boundary and become a Go-owned source-of-truth pathway
 
 ## Recommended Follow-On
 
-- once this slice lands, the next structural follow-on should stay bounded:
-  - either `create_child_sections`
-  - or the minimal delete/move slice that reuses the same construction/removal
-    bookkeeping boundary
+- the next recommended step is `create_child_sections`
+- rationale:
+  - it stays on the same structural-construction boundary instead of switching
+    immediately into delete/move semantics
+  - it can reuse the new result-id metadata translation path and the same
+    project-state construction helpers
+  - it keeps the HTTP route migration deferred until a slice actually needs
+    viewport/reveal-specific transport behavior
+
+## Completed
+
+- added explicit result-id metadata support to `internal/tools.Metadata`
+  and MCP `_meta.setta`
+- added generic result-id temp-id translation via
+  `Metadata.ResultIDPathsByType` instead of a `create_top_level_section`
+  special-case branch
+- added a bounded project-state owner for top-level section creation with:
+  - explicit per-type section construction
+  - stale top-level/view-mode layout pruning
+  - deterministic no-viewport placement
+  - optional meta-control param creation
+- registered `create_top_level_section` as a Go-owned structural MCP tool
+- hid Python-only/internal placement carriers from the MCP schema:
+  - `implOverrides`
+  - `topLevelSections`
+  - `viewportBounds`
+- covered the slice through:
+  - `internal/projectstate`
+  - `internal/mcpx`
+  - `internal/httpapi`
+  - `internal/app`
+
+## Decisions Made
+
+- keep this slice MCP-first
+  - do not add the IDE HTTP `createTopLevelSection` route in the same slice
+- keep structural scope behavior unchanged
+  - `create_top_level_section` remains `AccessTypeStructural`
+  - scoped chats without `allowUnscoped` still fail closed
+- support an honest bounded set of section implementations in Go:
+  - `Chat`
+  - `Code`
+  - `Dict`
+  - `Group`
+  - `MetaControl`
+  - `Terminal`
+  - `TextBlock`
+- keep placement deterministic and source-of-truth driven
+  - explicit `position` wins
+  - otherwise placement is derived from current top-level layouts plus the Go
+    auto-layout sizing policy with a fixed 24px horizontal gap
+- keep `panTo` honest
+  - it currently remains `null`
+- default `MetaControl` creation to `SliderParam` when
+  `controlCodeObjType` is omitted
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/tools ./internal/projectstate -count=1 -timeout 240s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 360s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute|TestRegisterLSPRoutesMutesCodeSectionDiagnostics' -count=1 -timeout 360s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP' -count=1 -timeout 480s`
