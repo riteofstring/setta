@@ -120,6 +120,11 @@ Current repo status as of 2026-03-06:
   - deterministic single-config projection from deployment runtime snapshots
   - effective frontend payload merging from base impl payload +
     `sharedModifier` + variant modifier
+- deployment share/app state and project-config transport is now also Go-owned
+  under:
+  - `internal/httpapi/deployment_routes.go`
+  - session-overlay-backed state loads for both share and app mode
+  - deployment-relative app-spec loading for app mode wrappers
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
@@ -614,7 +619,7 @@ Resolved In Slice 6:
 Follow the dedicated deployment state-route migration plan:
 
 - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
-- start with Slice 3: migrate the remaining share/app deployment `state` and
-  `project_config` routes onto the Go-owned deployment runtime + projector
+- continue with Slice 4: verify share/app frontend bootstrap and config
+  switching against the Go-owned deployment routes
 - keep `appDefinition` / `appSpec` as deployment-specific wrappers around the
-  projected single-config payload instead of widening `internal/projectview`
+  projected single-config payload unless verification shows a concrete mismatch

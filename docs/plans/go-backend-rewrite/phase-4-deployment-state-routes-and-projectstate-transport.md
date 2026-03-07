@@ -49,9 +49,14 @@ Current repo status as of 2026-03-06:
     `shownParamIds`, `requiredDecodedImages`, and `genCodeBinding`
   - effective frontend payload projection from base impl payload +
     `sharedModifier` + variant modifier
-- the remaining blocker is now route-local:
-  - share/app deployment state and project-config handlers still need to call
-    that projector instead of Python
+- Go now also owns the remaining deployment state/project-config HTTP routes:
+  - `GET /api/share/deployments/{deploymentName}/{version}/state`
+  - `POST /api/share/deployments/{deploymentName}/{version}/project_config`
+  - `GET /api/app/deployments/{deploymentName}/{version}/state`
+  - `POST /api/app/deployments/{deploymentName}/{version}/project_config`
+- the remaining gap is now verification-focused:
+  - confirm share/app bootstrap and config switching against the Go routes
+  - only update frontend transport if a real payload mismatch is discovered
 - route-local compatibility shims would create a dead-end transport layer with
   no Go-owned source of truth
 
@@ -370,6 +375,33 @@ Acceptance:
 - no Python route is needed for current deployment frontend bootstrap
 - transport stays thin and depends on explicit runtime + projection helpers
 
+Status:
+
+- complete
+
+Completed:
+
+- migrated share/app deployment `state` and `project_config` routes onto the
+  Go deployment runtime and `internal/projectview`
+- kept the HTTP layer thin:
+  - route handlers match only the active deployment name/version
+  - share/app state routes now require a live share session through the common
+    Go share-session middleware
+  - per-session overlay snapshots are projected to frontend single-config
+    payloads at request time
+- kept deployment-specific state outside the generic projector:
+  - share routes return the projected single-config wrapper with empty
+    completed/pending op lists
+  - app routes wrap the same projected single-config with deployment
+    `appDefinition`, deployment-relative `appSpec`, and deployment policy
+- added runtime helpers for:
+  - session snapshot reads from deployment overlays
+  - deployment-relative app-spec JSON loading
+
+Tests:
+
+- `./scripts/go.sh test -p 1 ./internal/deployments ./internal/httpapi ./internal/app -count=1`
+
 ### Slice 4: Frontend Alignment And Verification
 
 Deliver:
@@ -395,11 +427,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 3:
-  - migrate share/app deployment `state` and `project_config` handlers onto
-    `internal/projectview`
-  - keep transport thin by resolving the deployment overlay snapshot first,
-    then projecting it
-  - add route tests for default-config load, alternate config load, missing
-    session failures, unknown config failures, and app-definition/app-spec
-    response shaping
+- Implement Slice 4:
+  - run focused share/app frontend bootstrap verification against the Go-owned
+    deployment routes
+  - update frontend transport only if that verification exposes a real payload
+    mismatch
+  - keep backend follow-up scoped to any concrete mismatch instead of widening
+    route or runtime responsibilities speculatively

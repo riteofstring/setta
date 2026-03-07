@@ -60,6 +60,9 @@ Current repo status as of 2026-03-06:
     - richer frontend deployment-state source fields live in
       `internal/projectstate`
     - frontend single-config projection now lives in `internal/projectview`
+  - Slice 3 there is now also complete:
+    - share/app deployment state and project-config routes now resolve from the
+      Go deployment runtime and projector
 
 ## Scope
 
@@ -263,8 +266,8 @@ Tests:
 
 ## Next Recommended Step
 
-- Implement Slice 3 from
+- Implement Slice 4 from
   `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
-  migrate the remaining share/app deployment state and project-config routes
-  onto the new Go-owned projector and add focused route coverage around default
-  loads, alternate config selection, and session/config failures.
+  verify share/app frontend bootstrap and config switching against the new
+  Go-owned routes, and only update transport if a concrete payload mismatch is
+  discovered.

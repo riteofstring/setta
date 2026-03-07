@@ -311,6 +311,6 @@ Tests:
 - Continue with
   `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
   deployment `runCode`, current-session bootstrap, expiry cleanup, richer
-  project-state source fields, and frontend single-config projection are now
-  Go-owned; the remaining deployment gap is the share/app state and
-  project-config route migration on top of that boundary.
+  project-state source fields, frontend single-config projection, and
+  share/app state routes are now Go-owned; the remaining work there is focused
+  frontend verification rather than backend route ownership.

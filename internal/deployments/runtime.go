@@ -1,11 +1,14 @@
 package deployments
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -364,6 +367,59 @@ func (r *Runtime) Overlay(sessionID string) (*projectstate.Runtime, error) {
 	return runtime, nil
 }
 
+func (r *Runtime) SessionSnapshot(sessionID string) (projectstate.Snapshot, error) {
+	if r == nil {
+		return projectstate.Snapshot{}, ErrRuntimeRequired
+	}
+
+	runtime, err := r.Overlay(sessionID)
+	if err != nil {
+		return projectstate.Snapshot{}, err
+	}
+	return runtime.Snapshot(), nil
+}
+
+func (r *Runtime) LoadAppSpec(appDefinition *projectstate.AppDefinition) (any, error) {
+	if r == nil {
+		return nil, ErrRuntimeRequired
+	}
+	if appDefinition == nil {
+		return nil, nil
+	}
+
+	appSpecPath := strings.TrimSpace(appDefinition.AppSpecPath)
+	if appSpecPath == "" {
+		return nil, nil
+	}
+
+	resolvedPath, err := r.paths.ResolveDeploymentPath(appSpecPath)
+	if err != nil {
+		return nil, err
+	}
+
+	content, err := os.ReadFile(resolvedPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("read app spec: %w", err)
+	}
+
+	trimmedContent := bytes.TrimSpace(content)
+	if len(trimmedContent) == 0 {
+		return nil, nil
+	}
+
+	var payload any
+	if err := json.Unmarshal(trimmedContent, &payload); err != nil {
+		return nil, fmt.Errorf("decode app spec: %w", err)
+	}
+	if isEmptyJSONValue(payload) {
+		return nil, nil
+	}
+	return payload, nil
+}
+
 func (r *Runtime) SessionRunCount(sessionID string) (int, error) {
 	session, err := r.requireSession(sessionID)
 	if err != nil {
@@ -487,4 +543,23 @@ func newRandomSessionID() string {
 		return ""
 	}
 	return hex.EncodeToString(buffer)
+}
+
+func isEmptyJSONValue(value any) bool {
+	switch typed := value.(type) {
+	case nil:
+		return true
+	case bool:
+		return !typed
+	case string:
+		return strings.TrimSpace(typed) == ""
+	case []any:
+		return len(typed) == 0
+	case map[string]any:
+		return len(typed) == 0
+	case float64:
+		return typed == 0
+	default:
+		return false
+	}
 }

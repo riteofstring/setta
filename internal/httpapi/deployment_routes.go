@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -9,10 +10,16 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/deployments"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
 )
 
 const RouteShareDeploymentCurrentSession = "/share/deployments/current/session"
 const RouteAppDeploymentCurrentSession = "/app/deployments/current/session"
+const RouteShareDeploymentState = "/share/deployments/{deploymentName}/{version}/state"
+const RouteShareDeploymentProjectConfig = "/share/deployments/{deploymentName}/{version}/project_config"
+const RouteAppDeploymentState = "/app/deployments/{deploymentName}/{version}/state"
+const RouteAppDeploymentProjectConfig = "/app/deployments/{deploymentName}/{version}/project_config"
 
 type DeploymentRouteDependencies struct {
 	ModePolicy modes.Policy
@@ -46,6 +53,23 @@ type AppDeploymentSessionResponse struct {
 	Manifest               *deployments.Manifest       `json:"manifest,omitempty"`
 }
 
+type loadDeploymentProjectConfigRequest struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type deploymentProjectStateResponse struct {
+	ProjectState   projectview.SingleConfig `json:"projectState"`
+	CompletedOpIDs []string                 `json:"completedOpIds"`
+	PendingOpIDs   []string                 `json:"pendingOpIds"`
+}
+
+type appDeploymentStateResponse struct {
+	ProjectState  projectview.SingleConfig    `json:"projectState"`
+	AppDefinition *projectstate.AppDefinition `json:"appDefinition"`
+	AppSpec       any                         `json:"appSpec"`
+	AppPolicy     deployments.Policy          `json:"appPolicy"`
+}
+
 func RegisterDeploymentRoutes(router chi.Router, deps DeploymentRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -59,9 +83,25 @@ func RegisterDeploymentRoutes(router chi.Router, deps DeploymentRouteDependencie
 
 	if deps.ModePolicy.IsShare() {
 		router.Post(RouteShareDeploymentCurrentSession, currentShareDeploymentSessionHandler(deps.Deployment))
+		router.With(RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.Deployment,
+		})).Get(RouteShareDeploymentState, shareDeploymentStateHandler(deps.Deployment))
+		router.With(RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.Deployment,
+		})).Post(RouteShareDeploymentProjectConfig, shareDeploymentProjectConfigHandler(deps.Deployment))
 	}
 	if deps.ModePolicy.IsApp() {
 		router.Post(RouteAppDeploymentCurrentSession, currentAppDeploymentSessionHandler(deps.Deployment))
+		router.With(RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.Deployment,
+		})).Get(RouteAppDeploymentState, appDeploymentStateHandler(deps.Deployment))
+		router.With(RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.Deployment,
+		})).Post(RouteAppDeploymentProjectConfig, appDeploymentProjectConfigHandler(deps.Deployment))
 	}
 	return nil
 }
@@ -138,4 +178,194 @@ func deploymentProjectMetadataFromRuntime(runtime *deployments.Runtime) []deploy
 		return leftName < rightName
 	})
 	return metadata
+}
+
+func shareDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDeploymentMatch(w, r, runtime, "Share") {
+			return
+		}
+
+		projectState, err := currentDeploymentProjectState(runtime, r)
+		if err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, deploymentProjectStateResponse{
+			ProjectState:   projectState,
+			CompletedOpIDs: []string{},
+			PendingOpIDs:   []string{},
+		})
+	}
+}
+
+func shareDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDeploymentMatch(w, r, runtime, "Share") {
+			return
+		}
+
+		payload, err := decodeJSONBody[loadDeploymentProjectConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectConfigID := strings.TrimSpace(payload.ProjectConfigID)
+		if projectConfigID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+
+		projectState, err := explicitDeploymentProjectState(runtime, r, projectConfigID)
+		if err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, deploymentProjectStateResponse{
+			ProjectState:   projectState,
+			CompletedOpIDs: []string{},
+			PendingOpIDs:   []string{},
+		})
+	}
+}
+
+func appDeploymentStateHandler(runtime *deployments.Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDeploymentMatch(w, r, runtime, "App") {
+			return
+		}
+
+		snapshot, err := currentDeploymentSnapshot(runtime, r)
+		if err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+
+		projectState, err := projectview.DefaultSingleConfig(snapshot.Document)
+		if err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+		appSpec, err := runtime.LoadAppSpec(snapshot.Document.AppDefinition)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, appDeploymentStateResponse{
+			ProjectState:  projectState,
+			AppDefinition: cloneAppDefinition(snapshot.Document.AppDefinition),
+			AppSpec:       appSpec,
+			AppPolicy:     runtime.Policy(),
+		})
+	}
+}
+
+func appDeploymentProjectConfigHandler(runtime *deployments.Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !requireDeploymentMatch(w, r, runtime, "App") {
+			return
+		}
+
+		payload, err := decodeJSONBody[loadDeploymentProjectConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectConfigID := strings.TrimSpace(payload.ProjectConfigID)
+		if projectConfigID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+
+		snapshot, err := currentDeploymentSnapshot(runtime, r)
+		if err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+
+		projectState, err := projectview.SingleConfigByProjectID(snapshot.Document, projectConfigID)
+		if err != nil {
+			handleDeploymentProjectStateError(w, r, err)
+			return
+		}
+		appSpec, err := runtime.LoadAppSpec(snapshot.Document.AppDefinition)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, appDeploymentStateResponse{
+			ProjectState:  projectState,
+			AppDefinition: cloneAppDefinition(snapshot.Document.AppDefinition),
+			AppSpec:       appSpec,
+			AppPolicy:     runtime.Policy(),
+		})
+	}
+}
+
+func requireDeploymentMatch(w http.ResponseWriter, r *http.Request, runtime *deployments.Runtime, label string) bool {
+	deploymentName := strings.TrimSpace(chi.URLParam(r, "deploymentName"))
+	version := strings.TrimSpace(chi.URLParam(r, "version"))
+	manifest := runtime.Manifest()
+	if deploymentName != manifest.DeploymentName || version != manifest.DeploymentVersion {
+		writeError(
+			w,
+			r,
+			http.StatusNotFound,
+			"not_found",
+			fmt.Sprintf("%s deployment not found: %s/%s", label, deploymentName, version),
+		)
+		return false
+	}
+	return true
+}
+
+func currentDeploymentProjectState(runtime *deployments.Runtime, request *http.Request) (projectview.SingleConfig, error) {
+	snapshot, err := currentDeploymentSnapshot(runtime, request)
+	if err != nil {
+		return projectview.SingleConfig{}, err
+	}
+	return projectview.DefaultSingleConfig(snapshot.Document)
+}
+
+func explicitDeploymentProjectState(runtime *deployments.Runtime, request *http.Request, projectConfigID string) (projectview.SingleConfig, error) {
+	snapshot, err := currentDeploymentSnapshot(runtime, request)
+	if err != nil {
+		return projectview.SingleConfig{}, err
+	}
+	return projectview.SingleConfigByProjectID(snapshot.Document, projectConfigID)
+}
+
+func currentDeploymentSnapshot(runtime *deployments.Runtime, request *http.Request) (projectstate.Snapshot, error) {
+	requestInfo, ok := modes.RequestInfoFromRequest(request)
+	if !ok || strings.TrimSpace(requestInfo.ShareSessionID) == "" {
+		return projectstate.Snapshot{}, &modes.MissingShareSessionError{}
+	}
+	return runtime.SessionSnapshot(requestInfo.ShareSessionID)
+}
+
+func handleDeploymentProjectStateError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case writeModesError(w, r, err):
+		return
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func cloneAppDefinition(appDefinition *projectstate.AppDefinition) *projectstate.AppDefinition {
+	if appDefinition == nil {
+		return nil
+	}
+	cloned := appDefinition.Clone()
+	return &cloned
 }

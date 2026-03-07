@@ -584,5 +584,6 @@ Continue with the focused deployment state-route follow-up doc:
 
 Immediate target:
 
-- migrate the remaining share/app deployment `state` and `project_config`
-  routes onto the Go-owned deployment runtime and frontend projector
+- verify share/app frontend bootstrap and config switching against the new
+  Go-owned deployment routes, then only widen backend work if a concrete
+  transport mismatch appears
