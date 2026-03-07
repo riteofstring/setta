@@ -172,6 +172,133 @@ func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
 	assertAppLSPDiagnosticsPayload(t, routePayload)
 }
 
+func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFolders: []projectstate.WatchCodeFolder{
+				{Path: "pkg", Recursive: false},
+			},
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload:  json.RawMessage(`{"language":"python"}`),
+				},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed watch code project: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save watch code project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	watchFile := filepath.Join(watchDir, "missing.py")
+	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write initial watch file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.missing.MissingFunc:function"]
+		return ok && len(entry.SectionIDs) == 1 && entry.SectionsCount == 1
+	})
+
+	initialSnapshot := app.ProjectStates().Main().Snapshot()
+	initialHash := initialSnapshot.Document.Projects["project-alpha"].WatchCodeRegistry["pkg.missing.MissingFunc:function"].SignatureHash
+
+	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value, extra):\n    return value + extra\n"), 0o644); err != nil {
+		t.Fatalf("write signature-change watch file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.missing.MissingFunc:function"]
+		return ok && entry.SignatureHash != initialHash
+	})
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNotification, 4)
+	var notification realtime.NotificationContent
+	if err := json.Unmarshal(envelope.Content, &notification); err != nil {
+		t.Fatalf("decode notification content: %v", err)
+	}
+	if notification.ProjectConfigID != "project-alpha" {
+		t.Fatalf("expected project-alpha warning notification, got %#v", notification)
+	}
+	if notification.Type != realtime.NotificationTypeWarning {
+		t.Fatalf("expected warning notification type, got %#v", notification)
+	}
+	if notification.Message != "Watch Code could not resolve params for MissingFunc. Verify the module import path or add imports in gen code prefix." {
+		t.Fatalf("unexpected warning notification %#v", notification)
+	}
+	if !notification.Temporary {
+		t.Fatalf("expected temporary warning notification, got %#v", notification)
+	}
+	if notification.Timestamp == "" {
+		t.Fatalf("expected warning notification timestamp, got %#v", notification)
+	}
+
+	secondSnapshot := app.ProjectStates().Main().Snapshot()
+	secondHash := secondSnapshot.Document.Projects["project-alpha"].WatchCodeRegistry["pkg.missing.MissingFunc:function"].SignatureHash
+
+	if err := os.WriteFile(watchFile, []byte("def MissingFunc(value, extra, third):\n    return value + extra + third\n"), 0o644); err != nil {
+		t.Fatalf("write repeated signature-change watch file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.missing.MissingFunc:function"]
+		return ok && entry.SignatureHash != secondHash
+	})
+
+	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeNotification, 750*time.Millisecond)
+}
+
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -661,6 +788,36 @@ func readAppRouteEnvelopeUntilType(t *testing.T, conn *websocket.Conn, messageTy
 	}
 	t.Fatalf("did not receive app websocket message type %q within %d reads", messageType, maxReads)
 	return appRouteEnvelope{}
+}
+
+func assertNoAppRouteEnvelopeOfType(t *testing.T, conn *websocket.Conn, messageType string, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), remaining)
+		_, payload, err := conn.Read(ctx)
+		cancel()
+		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return
+			}
+			t.Fatalf("read app websocket message: %v", err)
+		}
+
+		var envelope appRouteEnvelope
+		if err := json.Unmarshal(payload, &envelope); err != nil {
+			t.Fatalf("decode app websocket message: %v", err)
+		}
+		if envelope.MessageType == messageType {
+			t.Fatalf("did not expect app websocket message type %q within %s", messageType, timeout)
+		}
+	}
 }
 
 func readAppRawFrame(t *testing.T, conn *websocket.Conn) string {

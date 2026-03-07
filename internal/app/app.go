@@ -79,6 +79,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
 		watchCodeService   *watchcode.Service
+		watchCodeWarnings  *watchCodeWarningTracker
 		plannerFilesRoot   string
 		artifactsRoot      string
 		shareSessions      modes.ShareSessionStore
@@ -177,6 +178,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 							return err
 						}
 					}
+					if watchCodeWarnings != nil {
+						watchCodeWarnings.ReconcileDocument(snapshot.Document)
+					}
 					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
 						return err
 					}
@@ -217,10 +221,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			},
 		)
 		if modePolicy.IsIDE() {
+			watchCodeWarnings = newWatchCodeWarningTracker()
 			watchCodeService, err = watchcode.NewService(watchcode.ServiceOptions{
 				WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 				OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
-					_, _, err := projectStates.Main().ApplyWatchCodeFileUpdate(
+					signatureObserver := newWatchCodeSignatureObserver(lspSignature)
+					snapshot, _, err := projectStates.Main().ApplyWatchCodeFileUpdate(
 						ctx,
 						update.ConfigID,
 						update.Path,
@@ -228,18 +234,30 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						update.BaselineOnly,
 						update.MovedFrom,
 						cfg.Paths.WorkspaceRoot,
-						lspSignature,
+						signatureObserver,
 					)
-					return err
+					if err != nil {
+						return err
+					}
+					for _, message := range watchCodeWarnings.ConsumeNotifications(snapshot.Document, update.ConfigID, signatureObserver.Attempts()) {
+						if _, err := websocketHub.BroadcastJSON(ctx, message, realtime.Selection{Type: realtime.ConnectionTypeFrontend}); err != nil {
+							return err
+						}
+					}
+					return nil
 				},
 				OnFileDelete: func(ctx context.Context, request watchcode.DeleteRequest) error {
-					_, _, err := projectStates.Main().ApplyWatchCodeFileDelete(
+					snapshot, _, err := projectStates.Main().ApplyWatchCodeFileDelete(
 						ctx,
 						request.ConfigID,
 						request.Path,
 						cfg.Paths.WorkspaceRoot,
 					)
-					return err
+					if err != nil {
+						return err
+					}
+					watchCodeWarnings.ReconcileDocument(snapshot.Document)
+					return nil
 				},
 				OnError: func(err error) {
 					logger.Error("watch code runtime failed", "error", err)
