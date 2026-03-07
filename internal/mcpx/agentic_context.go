@@ -55,10 +55,11 @@ type ToolRequestContext struct {
 }
 
 type scopeCheckResult struct {
-	Allowed           bool
-	Reason            string
-	TargetSectionIDs  []string
-	BlockedSectionIDs []string
+	Allowed            bool
+	Reason             string
+	TargetSectionIDs   []string
+	BlockedSectionIDs  []string
+	UnmappedCodeObjIDs []string
 }
 
 type toolInvocationContextKey struct{}
@@ -390,83 +391,117 @@ func cloneStringSet(values map[string]struct{}) map[string]struct{} {
 	return cloned
 }
 
-func checkAgenticScope(metadata tools.Metadata, scope AgenticScope, arguments map[string]any) scopeCheckResult {
-	targetSectionIDs := extractedTargetSectionIDs(metadata, arguments)
+func checkAgenticScope(
+	metadata tools.Metadata,
+	scope AgenticScope,
+	arguments map[string]any,
+	projectView *projectview.SingleConfig,
+) (scopeCheckResult, error) {
+	targets, err := resolveToolTargets(metadata, arguments, projectView)
+	if err != nil {
+		return scopeCheckResult{}, err
+	}
+	targetSectionIDs := targets.sectionIDs
+	unmappedCodeObjIDs := targets.unmappedCodeObjIDs
 	switch metadata.AccessType {
 	case tools.AccessTypeStructural:
 		if scope.StructuralAllowed {
 			return scopeCheckResult{
-				Allowed:          true,
-				Reason:           "structural",
-				TargetSectionIDs: targetSectionIDs,
-			}
+				Allowed:            true,
+				Reason:             "structural",
+				TargetSectionIDs:   targetSectionIDs,
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
 		}
 		return scopeCheckResult{
-			Allowed:           false,
-			Reason:            "structural_denied",
-			TargetSectionIDs:  targetSectionIDs,
-			BlockedSectionIDs: targetSectionIDs,
-		}
+			Allowed:            false,
+			Reason:             "structural_denied",
+			TargetSectionIDs:   targetSectionIDs,
+			BlockedSectionIDs:  targetSectionIDs,
+			UnmappedCodeObjIDs: unmappedCodeObjIDs,
+		}, nil
 	case tools.AccessTypeWrite:
 		if len(targetSectionIDs) == 0 {
-			if scope.StructuralAllowed {
-				return scopeCheckResult{Allowed: true, Reason: "write_without_targets_allowed"}
+			if len(unmappedCodeObjIDs) != 0 {
+				return scopeCheckResult{
+					Allowed:            false,
+					Reason:             "unmapped_code_obj",
+					UnmappedCodeObjIDs: unmappedCodeObjIDs,
+				}, nil
 			}
-			return scopeCheckResult{Allowed: false, Reason: "write_without_targets"}
+			if scope.StructuralAllowed {
+				return scopeCheckResult{
+					Allowed:            true,
+					Reason:             "write_without_targets_allowed",
+					UnmappedCodeObjIDs: unmappedCodeObjIDs,
+				}, nil
+			}
+			return scopeCheckResult{
+				Allowed:            false,
+				Reason:             "write_without_targets",
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
 		}
 		if len(scope.WriteSectionIDs) == 0 {
 			return scopeCheckResult{
-				Allowed:           false,
-				Reason:            "empty_scope",
-				TargetSectionIDs:  targetSectionIDs,
-				BlockedSectionIDs: targetSectionIDs,
-			}
+				Allowed:            false,
+				Reason:             "empty_scope",
+				TargetSectionIDs:   targetSectionIDs,
+				BlockedSectionIDs:  targetSectionIDs,
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
 		}
 		blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, scope.WriteSectionIDs)
 		return scopeCheckResult{
-			Allowed:           len(blockedSectionIDs) == 0,
-			Reason:            scopeReasonForBlockedIDs(blockedSectionIDs, "allowed"),
-			TargetSectionIDs:  targetSectionIDs,
-			BlockedSectionIDs: blockedSectionIDs,
-		}
+			Allowed:            len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0,
+			Reason:             scopeReasonForTargets(blockedSectionIDs, unmappedCodeObjIDs, "allowed"),
+			TargetSectionIDs:   targetSectionIDs,
+			BlockedSectionIDs:  blockedSectionIDs,
+			UnmappedCodeObjIDs: unmappedCodeObjIDs,
+		}, nil
 	case tools.AccessTypeRead:
 		if len(targetSectionIDs) > 0 {
 			allowedSectionIDs := scope.effectiveReadSectionIDs()
 			if len(allowedSectionIDs) == 0 {
 				return scopeCheckResult{
-					Allowed:           false,
-					Reason:            "empty_scope",
-					TargetSectionIDs:  targetSectionIDs,
-					BlockedSectionIDs: targetSectionIDs,
-				}
+					Allowed:            false,
+					Reason:             "empty_scope",
+					TargetSectionIDs:   targetSectionIDs,
+					BlockedSectionIDs:  targetSectionIDs,
+					UnmappedCodeObjIDs: unmappedCodeObjIDs,
+				}, nil
 			}
 			blockedSectionIDs := blockedTargetSectionIDs(targetSectionIDs, allowedSectionIDs)
 			return scopeCheckResult{
-				Allowed:           len(blockedSectionIDs) == 0,
-				Reason:            scopeReasonForBlockedIDs(blockedSectionIDs, "allowed"),
-				TargetSectionIDs:  targetSectionIDs,
-				BlockedSectionIDs: blockedSectionIDs,
-			}
+				Allowed:            len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0,
+				Reason:             scopeReasonForTargets(blockedSectionIDs, unmappedCodeObjIDs, "allowed"),
+				TargetSectionIDs:   targetSectionIDs,
+				BlockedSectionIDs:  blockedSectionIDs,
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
 		}
 		if len(scope.effectiveReadSectionIDs()) == 0 {
-			return scopeCheckResult{Allowed: false, Reason: "empty_scope"}
+			return scopeCheckResult{
+				Allowed:            false,
+				Reason:             "empty_scope",
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
 		}
-		return scopeCheckResult{Allowed: true, Reason: "read_without_targets"}
+		if len(unmappedCodeObjIDs) != 0 {
+			return scopeCheckResult{
+				Allowed:            false,
+				Reason:             "unmapped_code_obj",
+				UnmappedCodeObjIDs: unmappedCodeObjIDs,
+			}, nil
+		}
+		return scopeCheckResult{
+			Allowed:            true,
+			Reason:             "read_without_targets",
+			UnmappedCodeObjIDs: unmappedCodeObjIDs,
+		}, nil
 	default:
-		return scopeCheckResult{Allowed: false, Reason: "invalid_access_type"}
+		return scopeCheckResult{Allowed: false, Reason: "invalid_access_type"}, nil
 	}
-}
-
-func extractedTargetSectionIDs(metadata tools.Metadata, arguments map[string]any) []string {
-	if len(arguments) == 0 || len(metadata.IDPathsByType) == 0 {
-		return nil
-	}
-	idsByType := extractIDsByType(arguments, metadata.IDPathsByType, true)
-	sectionIDs := idsByType[tools.IDTypeSection]
-	if len(sectionIDs) == 0 {
-		return nil
-	}
-	return sortedStringSet(sectionIDs)
 }
 
 func blockedTargetSectionIDs(targetSectionIDs []string, allowedSectionIDs map[string]struct{}) []string {
@@ -483,14 +518,26 @@ func blockedTargetSectionIDs(targetSectionIDs []string, allowedSectionIDs map[st
 	return blocked
 }
 
-func scopeReasonForBlockedIDs(blockedSectionIDs []string, allowedReason string) string {
-	if len(blockedSectionIDs) == 0 {
+func scopeReasonForTargets(blockedSectionIDs []string, unmappedCodeObjIDs []string, allowedReason string) string {
+	if len(blockedSectionIDs) == 0 && len(unmappedCodeObjIDs) == 0 {
 		return allowedReason
+	}
+	if len(blockedSectionIDs) != 0 && len(unmappedCodeObjIDs) != 0 {
+		return "out_of_scope_and_unmapped_code_obj"
+	}
+	if len(unmappedCodeObjIDs) != 0 {
+		return "unmapped_code_obj"
 	}
 	return "out_of_scope"
 }
 
-func buildScopeViolationError(toolName string, reason string, blockedSectionIDs []string, targetSectionIDs []string) error {
+func buildScopeViolationError(
+	toolName string,
+	reason string,
+	blockedSectionIDs []string,
+	targetSectionIDs []string,
+	unmappedCodeObjIDs []string,
+) error {
 	payload := map[string]any{
 		"reason": reason,
 	}
@@ -499,6 +546,9 @@ func buildScopeViolationError(toolName string, reason string, blockedSectionIDs 
 	}
 	if len(targetSectionIDs) > 0 {
 		payload["targetSectionIds"] = sortedStrings(targetSectionIDs)
+	}
+	if len(unmappedCodeObjIDs) > 0 {
+		payload["unmappedCodeObjIds"] = sortedStrings(unmappedCodeObjIDs)
 	}
 
 	message := "Tool call is outside the allowed agentic scope."
@@ -512,7 +562,11 @@ func buildScopeViolationError(toolName string, reason string, blockedSectionIDs 
 	case "structural_denied":
 		message = fmt.Sprintf("Tool %q requires unscoped structural access.", toolName)
 	case "write_without_targets":
-		message = fmt.Sprintf("Tool %q requires structural access for untargeted writes.", toolName)
+		message = fmt.Sprintf("Tool %q requires explicit section/code-object targets or unscoped structural access.", toolName)
+	case "unmapped_code_obj", "out_of_scope_and_unmapped_code_obj":
+		message = fmt.Sprintf("Tool %q references unknown code objects. See structuredContent.unmappedCodeObjIds.", toolName)
+	case "out_of_scope":
+		message = fmt.Sprintf("Tool %q is outside the allowed agentic scope. See structuredContent.blockedSectionIds/targetSectionIds.", toolName)
 	}
 	return newToolErrorWithData(scopeViolationErrorCode, "%s", payload, message)
 }

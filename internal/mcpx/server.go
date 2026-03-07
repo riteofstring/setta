@@ -57,6 +57,7 @@ type toolDefinition struct {
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
+	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
 }
 
 type lspDiagnosticsProvider interface {
@@ -246,14 +247,14 @@ func (s *Server) resolveScopedInvocationContext(
 		return nil, nil, nil, err
 	}
 	if resolvedAgenticContext == nil || strings.TrimSpace(resolvedAgenticContext.ProjectConfigID) == "" {
-		return nil, nil, nil, buildScopeViolationError(toolName, "missing_context", nil, nil)
+		return nil, nil, nil, buildScopeViolationError(toolName, "missing_context", nil, nil, nil)
 	}
 	resolvedAgenticContext, err = translateAgenticContextToCanonical(resolvedAgenticContext, s.temporaryIDs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	if strings.TrimSpace(resolvedAgenticContext.SectionID) == "" && !resolvedAgenticContext.AllowUnscoped {
-		return nil, nil, nil, buildScopeViolationError(toolName, "missing_section_id", nil, nil)
+		return nil, nil, nil, buildScopeViolationError(toolName, "missing_section_id", nil, nil, nil)
 	}
 
 	projectView, err := s.loadProjectView(resolvedAgenticContext.ProjectConfigID)
@@ -264,9 +265,18 @@ func (s *Server) resolveScopedInvocationContext(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	scopeCheck := checkAgenticScope(metadata, scope, arguments)
+	scopeCheck, err := checkAgenticScope(metadata, scope, arguments, &projectView)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	if !scopeCheck.Allowed {
-		return nil, nil, nil, buildScopeViolationError(toolName, scopeCheck.Reason, scopeCheck.BlockedSectionIDs, scopeCheck.TargetSectionIDs)
+		return nil, nil, nil, buildScopeViolationError(
+			toolName,
+			scopeCheck.Reason,
+			scopeCheck.BlockedSectionIDs,
+			scopeCheck.TargetSectionIDs,
+			scopeCheck.UnmappedCodeObjIDs,
+		)
 	}
 	return resolvedAgenticContext, &scope, &projectView, nil
 }
@@ -314,7 +324,7 @@ func (s *Server) newSetAgenticContextHandler() tools.Handler {
 			return nil, newToolError("internal_error", "Unable to resolve MCP session for agentic context.")
 		}
 		if sectionID == "" && !allowUnscoped {
-			return nil, buildScopeViolationError("set_agentic_context", "missing_section_id", nil, nil)
+			return nil, buildScopeViolationError("set_agentic_context", "missing_section_id", nil, nil, nil)
 		}
 
 		s.setSessionAgenticContext(invocation.SessionKey, AgenticContext{
@@ -410,6 +420,56 @@ func newSetCodeSectionDiagnosticsMuteHandler(projectState projectStateProvider, 
 		}
 
 		snapshot, err := projectState.SetCodeSectionDiagnosticsMute(ctx, projectConfigID, sectionID, mute)
+		if err != nil {
+			return nil, err
+		}
+		project, err := snapshot.Document.ProjectByID(projectConfigID)
+		if err != nil {
+			return nil, err
+		}
+		if err := diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
+			return nil, err
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetCodeSectionDiagnosticCodeSuppressionHandler(projectState projectStateProvider, diagnostics lspDiagnosticsProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		code, err := readRequiredArgument(arguments, "code")
+		if err != nil {
+			return nil, err
+		}
+		suppress, err := readRequiredBoolArgument(arguments, "suppress")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil || diagnostics == nil {
+			return nil, newToolError("internal_error", "LSP diagnostics mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped diagnostics suppression invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		snapshot, err := projectState.SetCodeSectionDiagnosticCodeSuppression(ctx, projectConfigID, sectionID, code, suppress)
 		if err != nil {
 			return nil, err
 		}
@@ -622,6 +682,53 @@ func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tool
 					},
 				},
 				"required": []string{"projectConfigId", "sectionId", "mute"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_code_section_diagnostic_code_suppression",
+				Description: "Suppress or unsuppress a specific diagnostics code for a code section in the requested project config.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "lsp",
+					SearchTags:     []string{"lsp", "diagnostics", "suppress", "code", "section"},
+				},
+				Handler: newSetCodeSectionDiagnosticCodeSuppressionHandler(projectState, lspDiagnostics),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose code-section diagnostics should be mutated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Code section id whose diagnostics suppression should be updated.",
+					},
+					"code": map[string]any{
+						"description": "Diagnostic code to suppress or unsuppress.",
+					},
+					"suppress": map[string]any{
+						"type":        "boolean",
+						"description": "When true, hide diagnostics matching the targeted code.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "code", "suppress"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -867,6 +974,14 @@ func readRequiredBoolArgument(arguments map[string]any, key string) (bool, error
 	value, ok := rawValue.(bool)
 	if !ok {
 		return false, newToolError("invalid_arguments", "%s must be a boolean", key)
+	}
+	return value, nil
+}
+
+func readRequiredArgument(arguments map[string]any, key string) (any, error) {
+	value, ok := arguments[key]
+	if !ok || value == nil {
+		return nil, newToolError("invalid_arguments", "%s is required", key)
 	}
 	return value, nil
 }

@@ -44,7 +44,10 @@ func translateArgumentsToCanonical(toolName string, metadata tools.Metadata, arg
 	if err := translateStringArgumentField(cloned, "projectConfigId", store); err != nil {
 		return nil, err
 	}
-	if err := translateSectionIDsToCanonical(cloned, metadata, store); err != nil {
+	if err := translateIDsByTypeToCanonical(cloned, metadata, tools.IDTypeSection, store); err != nil {
+		return nil, err
+	}
+	if err := translateIDsByTypeToCanonical(cloned, metadata, tools.IDTypeCodeObject, store); err != nil {
 		return nil, err
 	}
 	switch toolName {
@@ -59,11 +62,11 @@ func translateArgumentsToCanonical(toolName string, metadata tools.Metadata, arg
 	return cloned, nil
 }
 
-func translateSectionIDsToCanonical(arguments map[string]any, metadata tools.Metadata, store *TemporaryIDStore) error {
+func translateIDsByTypeToCanonical(arguments map[string]any, metadata tools.Metadata, idType tools.IDType, store *TemporaryIDStore) error {
 	if len(arguments) == 0 || store == nil || len(metadata.IDPathsByType) == 0 {
 		return nil
 	}
-	return translateIDsAtPaths(arguments, metadata.IDPathsByType[tools.IDTypeSection], func(value string) (string, error) {
+	return translateIDsAtPaths(arguments, metadata.IDPathsByType[idType], func(value string) (string, error) {
 		return resolveCanonicalClientID(store, value)
 	})
 }
@@ -121,7 +124,7 @@ func translateToolErrorToTemporary(err error, store *TemporaryIDStore) error {
 	}
 
 	data := copyMetaMap(typed.data)
-	for _, key := range []string{"blockedSectionIds", "targetSectionIds"} {
+	for _, key := range []string{"blockedSectionIds", "targetSectionIds", "unmappedCodeObjIds"} {
 		values, ok := data[key]
 		if !ok {
 			continue

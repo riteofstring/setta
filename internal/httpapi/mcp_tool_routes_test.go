@@ -243,6 +243,36 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if !ignoreState.Muted {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_code_section_diagnostic_code_suppression",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"reportFoo","suppress":true},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected scoped suppression success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route scoped suppression: %v", err)
+	}
+	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after route scoped suppression: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
 }
 
 func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
@@ -409,10 +439,10 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 func openMCPToolRouteDiagnosticsRegistry() *projectstate.LSPDiagnosticsRegistry {
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	diagnostics.UpdateCodeSection("project-alpha", "allowed-section", []projectstate.LSPDiagnostic{
-		{Message: "error", Range: projectstate.LSPDiagnosticRange{}},
+		{Message: "error", Code: "reportFoo", Range: projectstate.LSPDiagnosticRange{}},
 	})
 	diagnostics.UpdateCodeSection("project-alpha", "blocked-section", []projectstate.LSPDiagnostic{
-		{Message: "error", Range: projectstate.LSPDiagnosticRange{}},
+		{Message: "error", Code: "reportFoo", Range: projectstate.LSPDiagnosticRange{}},
 	})
 	return diagnostics
 }

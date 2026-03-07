@@ -135,14 +135,15 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 6 {
-		t.Fatalf("expected 6 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 7 {
+		t.Fatalf("expected 7 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
+	var suppressionTool *sdkmcp.Tool
 	for _, tool := range toolsResult.Tools {
 		names = append(names, tool.Name)
 		if tool.Name == "get_latest_project_state_summary" {
@@ -154,6 +155,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "set_code_section_diagnostics_mute" {
 			muteTool = tool
 		}
+		if tool.Name == "set_code_section_diagnostic_code_suppression" {
+			suppressionTool = tool
+		}
 	}
 	sort.Strings(names)
 	expectedNames := []string{
@@ -162,6 +166,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"set_agentic_context",
+		"set_code_section_diagnostic_code_suppression",
 		"set_code_section_diagnostics_mute",
 	}
 	for index, name := range expectedNames {
@@ -187,6 +192,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if muteTool == nil {
 		t.Fatal("expected set_code_section_diagnostics_mute tool")
 	}
+	if suppressionTool == nil {
+		t.Fatal("expected set_code_section_diagnostic_code_suppression tool")
+	}
 	muteMeta := mustStructuredMap(t, muteTool.Meta[toolMetaNamespace])
 	if muteMeta["accessType"] != string(tools.AccessTypeWrite) {
 		t.Fatalf("expected write access type, got %#v", muteMeta["accessType"])
@@ -202,8 +210,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 6 {
-		t.Fatalf("expected 6 registered tool names, got %#v", listNames)
+	if len(listNames) != 7 {
+		t.Fatalf("expected 7 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -397,6 +405,77 @@ func TestServerSetCodeSectionDiagnosticsMuteRespectsScopedWriteTargets(t *testin
 	}
 	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
 		t.Fatalf("unexpected targetSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetCodeSectionDiagnosticCodeSuppressionRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	diagnostics := openScopedTestLSPDiagnosticsRegistry()
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: diagnostics,
+	})
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostic_code_suppression",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"code":            "reportFoo",
+			"suppress":        true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_diagnostic_code_suppression allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed suppression success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after suppression: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state for allowed-section after suppression: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	filteredDiagnostics := diagnostics.Snapshot("project-alpha")
+	if _, ok := filteredDiagnostics.CodeSections["allowed-section"]; ok {
+		t.Fatalf("expected allowed-section diagnostics to be filtered after suppression, got %#v", filteredDiagnostics.CodeSections)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostic_code_suppression",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+			"code":            "reportFoo",
+			"suppress":        true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_diagnostic_code_suppression blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked suppression call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["code"] != scopeViolationErrorCode {
+		t.Fatalf("expected scope_violation code, got %#v", blockedPayload["code"])
+	}
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
 	}
 }
 
@@ -616,6 +695,90 @@ func TestServerSetCodeSectionDiagnosticsMuteTranslatesTemporaryIDs(t *testing.T)
 	}
 	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "16" {
 		t.Fatalf("expected translated targetSectionIds [16], got %#v", ids)
+	}
+}
+
+func TestServerSetCodeSectionDiagnosticCodeSuppressionTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	diagnostics := openScopedTestLSPDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "18",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostic_code_suppression",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"code":            "reportFoo",
+			"suppress":        true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id suppression allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id suppression success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id suppression: %v", err)
+	}
+	ignoreState, err := project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state for allowed-section after temp-id suppression: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostic_code_suppression",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "18",
+			"code":            "reportFoo",
+			"suppress":        true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id suppression blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id suppression call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "18" {
+		t.Fatalf("expected translated blockedSectionIds [18], got %#v", ids)
 	}
 }
 
@@ -949,6 +1112,7 @@ func openScopedTestLSPDiagnosticsRegistry() *projectstate.LSPDiagnosticsRegistry
 	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	diag := projectstate.LSPDiagnostic{
 		Message: "error",
+		Code:    "reportFoo",
 		Range: projectstate.LSPDiagnosticRange{
 			Start: projectstate.LSPDiagnosticPosition{Line: 0, Character: 0},
 			End:   projectstate.LSPDiagnosticPosition{Line: 0, Character: 1},

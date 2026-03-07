@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 6 {
-		t.Fatalf("expected 6 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 7 {
+		t.Fatalf("expected 7 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 6 {
-		t.Fatalf("expected 6 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 7 {
+		t.Fatalf("expected 7 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -285,6 +285,34 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	if !ignoreState.Muted {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_diagnostic_code_suppression",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"code":            "reportFoo",
+			"suppress":        true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_diagnostic_code_suppression: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected scoped suppression success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after scoped suppression: %v", err)
+	}
+	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after scoped suppression: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
 }
 
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
@@ -412,6 +440,39 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
 	}
 
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_code_section_diagnostic_code_suppression",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"code":            "reportFoo",
+			"suppress":        true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id scoped suppression: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id scoped suppression success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id scoped suppression: %v", err)
+	}
+	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after temp-id scoped suppression: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
 	blockedWriteResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Meta: sdkmcp.Meta{
 			"projectConfigId": "11",
@@ -516,8 +577,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 6 {
-		t.Fatalf("expected tool count 6, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 7 {
+		t.Fatalf("expected tool count 7, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -650,6 +711,48 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if !ignoreState.Muted {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+
+	response, err = client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_code_section_diagnostic_code_suppression",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"reportFoo","suppress":true},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post scoped suppression tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode scoped suppression tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected scoped suppression success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route scoped suppression: %v", err)
+	}
+	ignoreState, err = project.CodeSectionDiagnosticsIgnoreStateForSection("allowed-section")
+	if err != nil {
+		t.Fatalf("ignore state after route scoped suppression: %v", err)
+	}
+	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
+		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
 }
 
