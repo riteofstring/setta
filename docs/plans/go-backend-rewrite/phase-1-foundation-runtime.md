@@ -5,6 +5,36 @@
 Phase 1 builds the minimum Go backend foundation that later phases can stand on.
 This phase is about runtime skeleton, not feature completeness.
 
+## Status
+
+Current repo status as of 2026-03-06:
+
+- the rewrite repo has planning docs only; there is still no `go.mod` or Go source tree
+- `go` was not installed in the working environment when Phase 1 status was checked
+- the repo now pins a Go toolchain in `scripts/go_version.txt`
+- the repo now includes:
+  - `scripts/install_go_toolchain.sh` for a repo-local SDK bootstrap under `.tools/go/`
+  - `scripts/go.sh` for invoking the pinned Go toolchain from either the repo-local install or an explicitly provided matching binary
+
+Phase-1 tooling decision:
+
+- require a pinned Go SDK before starting implementation
+- treat `gofmt` as included with the Go SDK
+- defer `gopls`, `golangci-lint`, code generators, and editor-specific tooling until real Go code exists and we can justify each addition
+
+Next recommended step after toolchain bootstrap:
+
+- initialize `go.mod`
+- add `cmd/setta-server`
+- add the minimum package skeleton:
+  - `internal/app`
+  - `internal/config`
+  - `internal/httpapi`
+  - `internal/runtime`
+  - `internal/observability`
+  - `internal/statefs`
+- add the first Go tests for config loading, path policy, startup/shutdown wiring, and error-envelope shaping
+
 ## Scope
 
 This phase should deliver:
