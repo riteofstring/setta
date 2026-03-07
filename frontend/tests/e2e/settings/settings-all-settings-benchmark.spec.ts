@@ -11,6 +11,8 @@ const STAGES = [
   "header-only",
   "section-body-shell",
   "static-param-list",
+  "param-structure-shell",
+  "param-chrome-shell",
   "param-container-shell",
   "param-input-shell",
   "non-text-widgets",
@@ -28,6 +30,9 @@ type StageMetrics = {
   paramUiShellCount: number;
   textWidgetShellCount: number;
   textInputDummyCount: number;
+  resizeHandleCount: number;
+  staticRowModeCount: number;
+  sortableRowModeCount: number;
 };
 
 test("all settings benchmark stages progressively restore section complexity", async ({
@@ -61,6 +66,43 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeGreaterThan(0);
   expect(metricsByStage.get("static-param-list")?.paramContainerCount).toBe(0);
 
+  expect(metricsByStage.get("param-structure-shell")?.staticRowCount).toBe(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.paramValueShellCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-structure-shell")?.resizeHandleCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("param-structure-shell")?.staticRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.sortableRowModeCount,
+  ).toBe(0);
+
+  expect(metricsByStage.get("param-chrome-shell")?.staticRowCount).toBe(0);
+  expect(
+    metricsByStage.get("param-chrome-shell")?.lightLabelCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-chrome-shell")?.paramValueShellCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-chrome-shell")?.resizeHandleCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-chrome-shell")?.staticRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-chrome-shell")?.sortableRowModeCount).toBe(
+    0,
+  );
+
   expect(metricsByStage.get("param-container-shell")?.staticRowCount).toBe(0);
   expect(
     metricsByStage.get("param-container-shell")?.paramContainerCount,
@@ -71,9 +113,18 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("param-container-shell")?.paramValueShellCount,
   ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-container-shell")?.resizeHandleCount,
+  ).toBeGreaterThan(0);
   expect(metricsByStage.get("param-container-shell")?.paramUiShellCount).toBe(
     0,
   );
+  expect(metricsByStage.get("param-container-shell")?.staticRowModeCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("param-container-shell")?.sortableRowModeCount,
+  ).toBeGreaterThan(0);
 
   expect(
     metricsByStage.get("param-input-shell")?.lightLabelCount,
@@ -110,6 +161,14 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("static-param-list")?.domCount ?? 0,
   );
   expect(metricsByStage.get("static-param-list")?.domCount).toBeLessThan(
+    metricsByStage.get("param-structure-shell")?.domCount ?? 0,
+  );
+  expect(metricsByStage.get("param-structure-shell")?.domCount).toBeLessThan(
+    metricsByStage.get("param-chrome-shell")?.domCount ?? 0,
+  );
+  expect(
+    metricsByStage.get("param-chrome-shell")?.domCount,
+  ).toBeLessThanOrEqual(
     metricsByStage.get("param-container-shell")?.domCount ?? 0,
   );
   expect(
@@ -186,6 +245,14 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       ).length,
       textInputDummyCount: flowRoot.querySelectorAll('[id$="-ParamInput"]')
         .length,
+      resizeHandleCount: flowRoot.querySelectorAll("[data-param-resize-handle]")
+        .length,
+      staticRowModeCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-param-row-mode="static"]',
+      ).length,
+      sortableRowModeCount: flowRoot.querySelectorAll(
+        '[data-settings-benchmark-param-row-mode="sortable"]',
+      ).length,
     };
   });
 }

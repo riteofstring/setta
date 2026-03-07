@@ -17,6 +17,8 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "header-only",
   "section-body-shell",
   "static-param-list",
+  "param-structure-shell",
+  "param-chrome-shell",
   "param-container-shell",
   "param-input-shell",
   "non-text-widgets",
@@ -39,6 +41,8 @@ type SettingsAllSettingsBenchmarkValue = {
   renderParamInput: boolean;
   renderParamWidgets: boolean;
   renderTextFamilyWidgets: boolean;
+  renderParamChrome: boolean;
+  renderParamSortable: boolean;
 };
 
 const DEFAULT_STAGE: SettingsAllSettingsBenchmarkStage = "full";
@@ -56,6 +60,8 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderParamInput: true,
   renderParamWidgets: true,
   renderTextFamilyWidgets: true,
+  renderParamChrome: true,
+  renderParamSortable: true,
 };
 
 const SettingsAllSettingsBenchmarkContext =
@@ -100,6 +106,8 @@ function resolveBenchmarkValue(
         renderParamInput: false,
         renderParamWidgets: false,
         renderTextFamilyWidgets: false,
+        renderParamChrome: false,
+        renderParamSortable: false,
       };
     case "header-only":
       return {
@@ -115,6 +123,8 @@ function resolveBenchmarkValue(
         renderParamInput: false,
         renderParamWidgets: false,
         renderTextFamilyWidgets: false,
+        renderParamChrome: false,
+        renderParamSortable: false,
       };
     case "section-body-shell":
       return {
@@ -130,6 +140,8 @@ function resolveBenchmarkValue(
         renderParamInput: false,
         renderParamWidgets: false,
         renderTextFamilyWidgets: false,
+        renderParamChrome: false,
+        renderParamSortable: false,
       };
     case "static-param-list":
       return {
@@ -145,6 +157,42 @@ function resolveBenchmarkValue(
         renderParamInput: false,
         renderParamWidgets: false,
         renderTextFamilyWidgets: false,
+        renderParamChrome: false,
+        renderParamSortable: false,
+      };
+    case "param-structure-shell":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
+        renderParamChrome: false,
+        renderParamSortable: false,
+      };
+    case "param-chrome-shell":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderSectionHandles: false,
+        renderLiveParamLabels: false,
+        renderParamInput: false,
+        renderParamWidgets: false,
+        renderTextFamilyWidgets: false,
+        renderParamChrome: true,
+        renderParamSortable: false,
       };
     case "param-container-shell":
       return {
@@ -160,6 +208,8 @@ function resolveBenchmarkValue(
         renderParamInput: false,
         renderParamWidgets: false,
         renderTextFamilyWidgets: false,
+        renderParamChrome: true,
+        renderParamSortable: true,
       };
     case "param-input-shell":
       return {
@@ -175,6 +225,8 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: false,
         renderTextFamilyWidgets: false,
+        renderParamChrome: true,
+        renderParamSortable: true,
       };
     case "non-text-widgets":
       return {
@@ -190,6 +242,8 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         renderTextFamilyWidgets: false,
+        renderParamChrome: true,
+        renderParamSortable: true,
       };
     case "full":
       return {
@@ -205,6 +259,8 @@ function resolveBenchmarkValue(
         renderParamInput: true,
         renderParamWidgets: true,
         renderTextFamilyWidgets: true,
+        renderParamChrome: true,
+        renderParamSortable: true,
       };
     default:
       return stage satisfies never;

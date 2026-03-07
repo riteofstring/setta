@@ -37,6 +37,7 @@ function _ParamContainer({
   dndStyle,
   dndClassName,
   listKey,
+  benchmarkParamRowMode,
 }) {
   const benchmark = useSettingsAllSettingsBenchmark();
   const { description: paramDescription, name: paramName } = useProjectState(
@@ -83,6 +84,9 @@ function _ParamContainer({
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+  const floatingBoxHandlers = benchmark.renderParamChrome
+    ? getFloatingBoxHandlers(...tooltipContentArray)
+    : {};
 
   return !isNestedParam ? (
     <>
@@ -94,7 +98,8 @@ function _ParamContainer({
           ...(dndStyle ?? {}),
         }}
         data-param-row="true"
-        {...getFloatingBoxHandlers(...tooltipContentArray)}
+        data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
+        {...floatingBoxHandlers}
         onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
         onClick={onClick}
         ref={dndRef}
@@ -122,8 +127,10 @@ function _ParamContainer({
         ) : (
           <BenchmarkParamValueShell />
         )}
-        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        {hasError && (
+        {benchmark.renderParamChrome && (
+          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+        )}
+        {benchmark.renderParamChrome && hasError && (
           <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
         )}
         {hasTempChild && (
@@ -145,12 +152,13 @@ function _ParamContainer({
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
       className={`section-args-nested section-lg-value group/arg-group section-min-rows [&>p]:section-key-value relative grid grid-cols-subgrid items-center justify-between gap-y-1 rounded-sm ${paramHoverClassName} ${bg} ${border} ${isTopLevelWithPad ? "[&>p]:!pb-0 [&>p]:!pt-2" : ""} ${dndClassName ?? ""}`}
-      {...getFloatingBoxHandlers(...tooltipContentArray)}
+      {...floatingBoxHandlers}
       style={{
         gridTemplateColumns: `[c1] 0.75rem [c2] minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
         ...(dndStyle ?? {}),
       }}
       data-param-row="true"
+      data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
       onMouseDownCapture={onMouseDown}
       onClick={onClick}
       ref={dndRef}

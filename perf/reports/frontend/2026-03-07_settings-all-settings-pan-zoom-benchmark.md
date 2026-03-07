@@ -276,3 +276,111 @@ Most likely next breakdown if we want to go one level deeper:
   - sortable / DnD hook overhead
   - tooltip + resize + error affordance overhead
   - pure nested grid / DOM structure overhead
+
+## Addendum: Row Shell Internals
+
+Date: 2026-03-07
+Baseline reference: same Settings `All Settings` scenario, viewport, fixed transform, and steady-state pan/zoom loop.
+Goal: split the `static-param-list` -> `param-container-shell` cliff into pure row structure, row chrome, and sortable wiring.
+
+New benchmark stages:
+
+- `param-structure-shell`
+  - real recursive `ParamSwitch` / `ParamContainer` tree
+  - lightweight labels and value placeholders
+  - no resize handle
+  - no tooltip/error chrome
+  - no `useSortable` row wiring
+- `param-chrome-shell`
+  - `param-structure-shell` plus resize handle + tooltip/error chrome
+  - still no `useSortable`
+- `param-container-shell`
+  - `param-chrome-shell` plus `useSortable` row wiring
+
+### `static-param-list` anchor rerun
+
+- DOM nodes in `.react-flow`: `3773`
+- Static benchmark rows: `697`
+- Average frame time: `10.80ms`
+- Approx FPS: `92.58`
+- Max frame time: `41.90ms`
+- Slow frames:
+  - `>16.7ms`: `16`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/static-param-list-row-shell-trace.json`
+
+### `param-structure-shell`
+
+- DOM nodes in `.react-flow`: `4525`
+- Param containers: `697`
+- Lightweight benchmark labels: `697`
+- Lightweight value shells: `627`
+- Resize handles: `0`
+- Static benchmark row-mode markers: `697`
+- Average frame time: `18.21ms`
+- Approx FPS: `54.91`
+- Max frame time: `58.40ms`
+- Slow frames:
+  - `>16.7ms`: `33`
+  - `>33.3ms`: `27`
+  - `>50ms`: `5`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-trace.json`
+- Observation: This is almost the entire regression. Moving from a flat static row list to the real nested param-row structure costs about `37.7 FPS` while only adding about `752` DOM nodes, which points at layout/paint complexity rather than raw node count alone.
+
+### `param-chrome-shell`
+
+- DOM nodes in `.react-flow`: `6406`
+- Param containers: `697`
+- Lightweight benchmark labels: `697`
+- Lightweight value shells: `627`
+- Resize handles: `627`
+- Static benchmark row-mode markers: `697`
+- Average frame time: `18.28ms`
+- Approx FPS: `54.69`
+- Max frame time: `59.20ms`
+- Slow frames:
+  - `>16.7ms`: `33`
+  - `>33.3ms`: `27`
+  - `>50ms`: `3`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-chrome-shell-trace.json`
+- Observation: Adding the row chrome layer contributes almost nothing in steady-state pan/zoom, even though it adds about `1881` DOM nodes and `627` resize handles.
+
+### `param-container-shell` row-shell rerun
+
+- DOM nodes in `.react-flow`: `6406`
+- Param containers: `697`
+- Lightweight benchmark labels: `697`
+- Lightweight value shells: `627`
+- Resize handles: `627`
+- Sortable benchmark row-mode markers: `697`
+- Average frame time: `18.30ms`
+- Approx FPS: `54.65`
+- Max frame time: `59.50ms`
+- Slow frames:
+  - `>16.7ms`: `33`
+  - `>33.3ms`: `29`
+  - `>50ms`: `3`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-row-breakdown-trace.json`
+- Observation: Restoring `useSortable` row wiring is also effectively noise for pan/zoom.
+
+### Row-Shell Conclusion
+
+- The dominant row-shell cost is the real nested param-row structure itself.
+  - The single biggest drop is `static-param-list` -> `param-structure-shell`.
+  - That implicates the actual `ParamSwitch` / `ParamContainer` layout tree, nested grids/subgrids, and recursive container structure.
+- Resize/tooltips/error chrome are not the main issue.
+  - `param-structure-shell` and `param-chrome-shell` perform almost identically despite a large DOM increase.
+- Sortable hook wiring is not the main issue.
+  - `param-chrome-shell` and `param-container-shell` are effectively the same in steady-state pan/zoom.
+
+Updated working hypothesis:
+
+- Primary optimization target:
+  - simplify the real param row/container layout structure and reduce nested grid/subgrid complexity
+- Secondary optimization target:
+  - reduce or defer the text-family widget cost identified in the prior addendum
+- Low-priority targets for pan/zoom specifically:
+  - tooltip handlers
+  - resize handles
+  - idle sortable row wiring
