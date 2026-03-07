@@ -35,11 +35,18 @@ Current repo status as of 2026-03-06:
 - listener registration and listener-side dependency/action fan-out now exist in Go under:
   - `internal/realtime/listener_broadcaster.go`
   - `internal/wsapi/routes.go`
-- producer-side realtime event sources and terminal runtime still live only in Python across:
+- the Go rewrite now includes `internal/terminals` with:
+  - PTY-backed terminal session ownership
+  - session-scoped create/list/delete operations
+  - attach/read/write/resize hooks
+  - buffered output history for reconnect/reattach
+  - explicit per-session input policy for deployment-mode restrictions
+- `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
+- producer-side realtime event sources and terminal transport routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
-  - `backend/setta/routers/websocket.py`
   - `backend/setta/routers/terminals.py`
+  - `backend/setta/routers/websocket.py`
 
 ## Scope
 
@@ -459,7 +466,43 @@ Acceptance:
 
 Status:
 
-- planned
+- complete
+
+Completed:
+
+- added `internal/terminals/service.go`
+- introduced an explicit Go-owned terminal session boundary around:
+  - PTY creation via `github.com/aymanbagabas/go-pty`
+  - session create/open reuse by terminal id
+  - per-project/per-share-session ownership metadata
+  - attach/detach subscriptions with buffered history replay
+  - input writes, resize updates, and explicit close/delete behavior
+- kept deployment-mode write restrictions in the terminal runtime instead of transport code:
+  - each session records whether input is allowed
+  - disallowed writes fail with an explicit runtime error
+- kept lifecycle ownership explicit:
+  - terminal sessions are runtime-only and are removed on process exit or delete
+  - `internal/app` now owns terminal-service startup and shutdown
+- chose a bounded history buffer and explicit backpressure policy:
+  - terminal output history is kept in memory for reconnect/reattach
+  - slow attachments are dropped instead of stalling PTY reads for the whole session
+
+Tests:
+
+- focused PTY integration coverage in `internal/terminals/service_test.go`
+- verified behaviors include:
+  - share-session-aware list filtering
+  - attach/write/history replay on reattach
+  - PTY-backed resize behavior using a real shell process
+  - deployment-style input rejection
+  - share-session terminal cleanup
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- websocket attach/read/write route migration onto `internal/terminals`
+- HTTP terminal delete/kill/run route migration onto `internal/terminals`
+- terminal process metadata broadcasts and run-command helpers
 
 ## Test Plan
 
@@ -483,10 +526,16 @@ Phase 4 is complete when:
 - which terminal history behaviors should be preserved exactly versus simplified?
 - whether terminal session persistence should survive backend restart in Phase 4 or remain runtime-only
 
+Resolved In Slice 6:
+
+- terminal sessions remain runtime-only in Phase 4; they do not survive backend restart
+- deployment-mode input restrictions are part of terminal session policy, not ad hoc websocket-handler checks
+- reconnect behavior uses bounded in-memory output history rather than trying to persist terminal scrollback
+
 ## Next Recommended Step
 
-Start the terminal-runtime slice:
+Start the terminal transport migration on top of the new runtime:
 
-- add `internal/terminals` with PTY session create/attach/write/resize/close on macOS/Linux
-- keep session ownership explicit by runtime/share-session scope from the start
-- cover buffered history and reconnect semantics with real subprocess integration tests
+- wire websocket terminal attach/read/write/resize handling onto `internal/terminals`
+- migrate terminal delete/kill surfaces to the Go service boundary
+- keep producer-side run-command and frontend metadata work scoped until the transport surface is live

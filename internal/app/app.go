@@ -16,6 +16,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/runtime"
+	"setta/internal/terminals"
 	"setta/internal/wsapi"
 )
 
@@ -25,6 +26,7 @@ type App struct {
 	authService   *auth.Service
 	runtime       *runtime.Manager
 	projectStates *projectstate.Registry
+	terminals     *terminals.Service
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	handler       http.Handler
@@ -47,6 +49,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	projectStates, err := projectstate.OpenRegistry(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{})
 	if err != nil {
+		return nil, err
+	}
+	terminalService, err := terminals.New(terminals.Options{
+		Logger: logger,
+	})
+	if err != nil {
+		_ = projectStates.Close()
 		return nil, err
 	}
 	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
@@ -85,6 +94,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		authService:   authService,
 		runtime:       manager,
 		projectStates: projectStates,
+		terminals:     terminalService,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		handler:       handler,
@@ -111,6 +121,10 @@ func (a *App) ProjectStates() *projectstate.Registry {
 	return a.projectStates
 }
 
+func (a *App) Terminals() *terminals.Service {
+	return a.terminals
+}
+
 func (a *App) WebsocketHub() *realtime.WebsocketHub {
 	return a.websocketHub
 }
@@ -120,7 +134,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	return errors.Join(a.projectStates.Close(), a.runtime.Shutdown(ctx))
+	return errors.Join(a.projectStates.Close(), a.terminals.Close(ctx), a.runtime.Shutdown(ctx))
 }
 
 type infoService struct {

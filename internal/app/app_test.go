@@ -118,6 +118,9 @@ func TestAppWiresSeparateProjectStateRuntimes(t *testing.T) {
 	if projectStates == nil {
 		t.Fatal("expected project state registry")
 	}
+	if app.Terminals() == nil {
+		t.Fatal("expected terminal service")
+	}
 
 	paths := projectStates.Paths()
 	if paths.Main != filepath.Join(cfg.Paths.SettaFilesRoot, "project.json") {
