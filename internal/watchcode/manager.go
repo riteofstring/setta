@@ -27,6 +27,15 @@ type ConfigSnapshot struct {
 	Folders []FolderInput
 }
 
+type EventType string
+
+const (
+	EventTypeCreated  EventType = "created"
+	EventTypeModified EventType = "modified"
+	EventTypeDeleted  EventType = "deleted"
+	EventTypeMoved    EventType = "moved"
+)
+
 type ScanRequest struct {
 	ConfigID     string
 	Path         string
@@ -57,6 +66,14 @@ type Manager struct {
 	scheduledScans   map[taskKey]bool
 	scheduledDeletes map[taskKey]struct{}
 	pendingMoves     map[taskKey]string
+}
+
+var defaultIgnoredDirNames = map[string]struct{}{
+	".venv":           {},
+	"__pycache__":     {},
+	"node_modules":    {},
+	"setta_files":     {},
+	"setta_files_dev": {},
 }
 
 func NewManager(workspaceRoot string) (*Manager, error) {
@@ -256,6 +273,68 @@ func (m *Manager) RecordPendingMove(configID string, destinationPath string, sou
 	}
 	m.pendingMoves[key] = normalizedSourcePath
 	return nil
+}
+
+func (m *Manager) HandleFileEvent(path string, eventType EventType, destinationPath string) error {
+	if m == nil {
+		return nil
+	}
+
+	switch eventType {
+	case EventTypeMoved:
+		if strings.TrimSpace(destinationPath) == "" {
+			return nil
+		}
+		sourcePath, err := statefs.ResolveWithinRoot(m.workspaceRoot, path, "watch code path")
+		if err != nil {
+			return err
+		}
+		destPath, err := statefs.ResolveWithinRoot(m.workspaceRoot, destinationPath, "watch code path")
+		if err != nil {
+			return err
+		}
+		srcIsPython := isPythonSourcePath(sourcePath) && !shouldIgnorePath(sourcePath)
+		destIsPython := isPythonSourcePath(destPath) && !shouldIgnorePath(destPath)
+		for configID, snapshot := range m.configSnapshots {
+			if !snapshot.Enabled {
+				continue
+			}
+			srcMatches := srcIsPython && pathMatchesSnapshot(sourcePath, snapshot)
+			destMatches := destIsPython && pathMatchesSnapshot(destPath, snapshot)
+			if destMatches {
+				key := taskKey{ConfigID: configID, Path: destPath}
+				m.pendingMoves[key] = sourcePath
+				m.scheduledScans[key] = false
+				continue
+			}
+			if srcMatches {
+				m.scheduledDeletes[taskKey{ConfigID: configID, Path: sourcePath}] = struct{}{}
+			}
+		}
+		return nil
+	case EventTypeCreated, EventTypeModified, EventTypeDeleted:
+		normalizedPath, err := statefs.ResolveWithinRoot(m.workspaceRoot, path, "watch code path")
+		if err != nil {
+			return err
+		}
+		if !isPythonSourcePath(normalizedPath) || shouldIgnorePath(normalizedPath) {
+			return nil
+		}
+		for configID, snapshot := range m.configSnapshots {
+			if !snapshot.Enabled || !pathMatchesSnapshot(normalizedPath, snapshot) {
+				continue
+			}
+			key := taskKey{ConfigID: configID, Path: normalizedPath}
+			if eventType == EventTypeDeleted {
+				m.scheduledDeletes[key] = struct{}{}
+				continue
+			}
+			m.scheduledScans[key] = false
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported watch code event type %q", eventType)
+	}
 }
 
 func (m *Manager) HandleDirectoryCreated(path string) error {
@@ -518,4 +597,18 @@ func strconvBool(value bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+func isPythonSourcePath(path string) bool {
+	return filepath.Ext(path) == ".py"
+}
+
+func shouldIgnorePath(path string) bool {
+	cleaned := filepath.Clean(path)
+	for _, part := range strings.Split(filepath.ToSlash(cleaned), "/") {
+		if _, ok := defaultIgnoredDirNames[part]; ok {
+			return true
+		}
+	}
+	return false
 }

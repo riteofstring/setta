@@ -68,8 +68,9 @@ The active Slice 2 execution work is now narrowed in:
     derivation, path matching, and missing-dir ancestor fallback
   - watcher-local pending move state and scheduled scan/delete bookkeeping now
     exist with stale-config cleanup
-- the remaining Slice 2 gap is the observer/manager foundation before later
-  section-mutation wiring
+  - file-event routing now owns create/modify/delete/move scheduling semantics
+- the remaining Slice 2 gap is the concrete watcher adapter and runtime
+  application before later section-mutation wiring
 
 ## Scope
 

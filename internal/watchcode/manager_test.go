@@ -330,3 +330,320 @@ func TestManagerScheduleDeleteAndMoveIgnoreUnmatchedInputs(t *testing.T) {
 		t.Fatalf("expected no pending moves for unmatched destination, got %#v", moves)
 	}
 }
+
+func TestManagerHandleFileEventSchedulesScanForMatchingPythonFiles(t *testing.T) {
+	t.Parallel()
+
+	// Create and modify events should schedule non-baseline scans for matching Python inputs only.
+	workspaceRoot := t.TempDir()
+	watchDir := filepath.Join(workspaceRoot, "pkg")
+	watchFile := filepath.Join(watchDir, "watch.py")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("pass\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Files:   []string{"pkg/watch.py"},
+		},
+		"project-disabled": {
+			Enabled: false,
+			Files:   []string{"pkg/watch.py"},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	if err := manager.HandleFileEvent(watchFile, EventTypeCreated, ""); err != nil {
+		t.Fatalf("handle created event: %v", err)
+	}
+	if err := manager.HandleFileEvent(watchFile, EventTypeModified, ""); err != nil {
+		t.Fatalf("handle modified event: %v", err)
+	}
+
+	expectedScans := []ScanRequest{{
+		ConfigID:     "project-alpha",
+		Path:         watchFile,
+		BaselineOnly: false,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
+		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.ScheduledScans())
+	}
+}
+
+func TestManagerHandleFileEventIgnoresNonPythonAndIgnoredPaths(t *testing.T) {
+	t.Parallel()
+
+	// Non-Python files and ignored directories should not schedule watcher work.
+	workspaceRoot := t.TempDir()
+	trackedDir := filepath.Join(workspaceRoot, "tracked")
+	ignoredDir := filepath.Join(workspaceRoot, "node_modules")
+	if err := os.MkdirAll(trackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir tracked dir: %v", err)
+	}
+	if err := os.MkdirAll(ignoredDir, 0o755); err != nil {
+		t.Fatalf("mkdir ignored dir: %v", err)
+	}
+	textFile := filepath.Join(trackedDir, "watch.txt")
+	ignoredPython := filepath.Join(ignoredDir, "watch.py")
+	for _, path := range []string{textFile, ignoredPython} {
+		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: ".", Recursive: true}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	if err := manager.HandleFileEvent(textFile, EventTypeModified, ""); err != nil {
+		t.Fatalf("handle non-python event: %v", err)
+	}
+	if err := manager.HandleFileEvent(ignoredPython, EventTypeModified, ""); err != nil {
+		t.Fatalf("handle ignored python event: %v", err)
+	}
+
+	if scans := manager.ScheduledScans(); len(scans) != 0 {
+		t.Fatalf("expected no scans for ignored inputs, got %#v", scans)
+	}
+	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+		t.Fatalf("expected no deletes for ignored inputs, got %#v", deletes)
+	}
+}
+
+func TestManagerHandleFileEventSchedulesDeleteForTrackedDeletes(t *testing.T) {
+	t.Parallel()
+
+	// Delete events should queue deletes for matching configs without creating scan work.
+	workspaceRoot := t.TempDir()
+	watchDir := filepath.Join(workspaceRoot, "pkg")
+	watchFile := filepath.Join(watchDir, "watch.py")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("pass\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "pkg", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	if err := manager.HandleFileEvent(watchFile, EventTypeDeleted, ""); err != nil {
+		t.Fatalf("handle delete event: %v", err)
+	}
+
+	expectedDeletes := []DeleteRequest{{
+		ConfigID: "project-alpha",
+		Path:     watchFile,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledDeletes(), expectedDeletes) {
+		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.ScheduledDeletes())
+	}
+	if scans := manager.ScheduledScans(); len(scans) != 0 {
+		t.Fatalf("expected no scans for delete event, got %#v", scans)
+	}
+}
+
+func TestManagerHandleFileEventSchedulesMoveScanForTrackedDestination(t *testing.T) {
+	t.Parallel()
+
+	// A move into a tracked destination should record the pending move and queue a scan, not a delete.
+	workspaceRoot := t.TempDir()
+	trackedDir := filepath.Join(workspaceRoot, "tracked")
+	sourceDir := filepath.Join(workspaceRoot, "source")
+	if err := os.MkdirAll(trackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir tracked dir: %v", err)
+	}
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatalf("mkdir source dir: %v", err)
+	}
+	sourceFile := filepath.Join(sourceDir, "incoming.py")
+	destinationFile := filepath.Join(trackedDir, "incoming.py")
+	if err := os.WriteFile(sourceFile, []byte("pass\n"), 0o644); err != nil {
+		t.Fatalf("write source file: %v", err)
+	}
+	if err := os.WriteFile(destinationFile, []byte("pass\n"), 0o644); err != nil {
+		t.Fatalf("write destination file: %v", err)
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "tracked", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	if err := manager.HandleFileEvent(sourceFile, EventTypeMoved, destinationFile); err != nil {
+		t.Fatalf("handle moved event: %v", err)
+	}
+
+	expectedScans := []ScanRequest{{
+		ConfigID:     "project-alpha",
+		Path:         destinationFile,
+		BaselineOnly: false,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
+		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.ScheduledScans())
+	}
+	expectedMoves := []PendingMove{{
+		ConfigID:        "project-alpha",
+		DestinationPath: destinationFile,
+		SourcePath:      sourceFile,
+	}}
+	if !reflect.DeepEqual(manager.PendingMoves(), expectedMoves) {
+		t.Fatalf("expected pending moves %#v, got %#v", expectedMoves, manager.PendingMoves())
+	}
+	if deletes := manager.ScheduledDeletes(); len(deletes) != 0 {
+		t.Fatalf("expected no deletes for tracked move destination, got %#v", deletes)
+	}
+}
+
+func TestManagerHandleFileEventSchedulesSourceDeleteWhenMoveLeavesTrackedInputs(t *testing.T) {
+	t.Parallel()
+
+	// A move out of tracked inputs should queue a delete for the tracked source config.
+	workspaceRoot := t.TempDir()
+	trackedDir := filepath.Join(workspaceRoot, "tracked")
+	untrackedDir := filepath.Join(workspaceRoot, "untracked")
+	if err := os.MkdirAll(trackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir tracked dir: %v", err)
+	}
+	if err := os.MkdirAll(untrackedDir, 0o755); err != nil {
+		t.Fatalf("mkdir untracked dir: %v", err)
+	}
+	sourceFile := filepath.Join(trackedDir, "watched.py")
+	destinationFile := filepath.Join(untrackedDir, "watched.py")
+	for _, path := range []string{sourceFile, destinationFile} {
+		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "tracked", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	if err := manager.HandleFileEvent(sourceFile, EventTypeMoved, destinationFile); err != nil {
+		t.Fatalf("handle moved event: %v", err)
+	}
+
+	expectedDeletes := []DeleteRequest{{
+		ConfigID: "project-alpha",
+		Path:     sourceFile,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledDeletes(), expectedDeletes) {
+		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.ScheduledDeletes())
+	}
+	if scans := manager.ScheduledScans(); len(scans) != 0 {
+		t.Fatalf("expected no scans for moved-away file, got %#v", scans)
+	}
+}
+
+func TestManagerHandleFileEventSplitsMoveAcrossConfigs(t *testing.T) {
+	t.Parallel()
+
+	// Cross-config moves should delete from the source config and scan in the destination config.
+	workspaceRoot := t.TempDir()
+	sourceDir := filepath.Join(workspaceRoot, "source")
+	destDir := filepath.Join(workspaceRoot, "dest")
+	if err := os.MkdirAll(sourceDir, 0o755); err != nil {
+		t.Fatalf("mkdir source dir: %v", err)
+	}
+	if err := os.MkdirAll(destDir, 0o755); err != nil {
+		t.Fatalf("mkdir dest dir: %v", err)
+	}
+	sourceFile := filepath.Join(sourceDir, "moved.py")
+	destinationFile := filepath.Join(destDir, "moved.py")
+	for _, path := range []string{sourceFile, destinationFile} {
+		if err := os.WriteFile(path, []byte("pass\n"), 0o644); err != nil {
+			t.Fatalf("write %q: %v", path, err)
+		}
+	}
+
+	manager, err := NewManager(workspaceRoot)
+	if err != nil {
+		t.Fatalf("new manager: %v", err)
+	}
+	if err := manager.SyncConfigs(map[string]ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "source", Recursive: false}},
+		},
+		"project-beta": {
+			Enabled: true,
+			Folders: []FolderInput{{Path: "dest", Recursive: false}},
+		},
+	}); err != nil {
+		t.Fatalf("sync configs: %v", err)
+	}
+
+	if err := manager.HandleFileEvent(sourceFile, EventTypeMoved, destinationFile); err != nil {
+		t.Fatalf("handle moved event: %v", err)
+	}
+
+	expectedDeletes := []DeleteRequest{{
+		ConfigID: "project-alpha",
+		Path:     sourceFile,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledDeletes(), expectedDeletes) {
+		t.Fatalf("expected deletes %#v, got %#v", expectedDeletes, manager.ScheduledDeletes())
+	}
+	expectedScans := []ScanRequest{{
+		ConfigID:     "project-beta",
+		Path:         destinationFile,
+		BaselineOnly: false,
+	}}
+	if !reflect.DeepEqual(manager.ScheduledScans(), expectedScans) {
+		t.Fatalf("expected scans %#v, got %#v", expectedScans, manager.ScheduledScans())
+	}
+	expectedMoves := []PendingMove{{
+		ConfigID:        "project-beta",
+		DestinationPath: destinationFile,
+		SourcePath:      sourceFile,
+	}}
+	if !reflect.DeepEqual(manager.PendingMoves(), expectedMoves) {
+		t.Fatalf("expected pending moves %#v, got %#v", expectedMoves, manager.PendingMoves())
+	}
+}

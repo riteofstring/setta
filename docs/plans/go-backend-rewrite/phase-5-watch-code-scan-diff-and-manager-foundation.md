@@ -39,6 +39,8 @@ Current repo status as of 2026-03-07:
     fallback
   - watcher-local pending move state and scheduled scan/delete bookkeeping now
     exist with stale-config cleanup
+  - file-event routing now owns create/modify/delete/move scheduling semantics
+    over the shared manager state
   - the new manager foundation keeps watcher state pure and testable before any
     fsnotify/observer integration
 - the remaining active Watch Code gap is the Step 2 manager/runtime owner:
@@ -158,8 +160,9 @@ Completed in this chunk:
 
 Still open in Step 2:
 
-- observer/file-event integration over the new manager state
-- event routing boundaries ahead of later section mutation wiring
+- concrete observer/file watcher integration over the new manager state
+- runtime application of scheduled scans/deletes/pending moves ahead of later
+  section mutation wiring
 
 ### Step 3: Runtime Wiring Handoff
 
@@ -202,9 +205,8 @@ For Step 2, add:
 
 Execute Step 2 next:
 
-- add observer/file-event integration over the new manager state without
-  touching section mutation yet
-- port the remaining move/delete/scan routing boundaries from the Python
-  manager onto the new scheduling state
+- add the concrete observer/file watcher adapter over the new manager state
+  without touching section mutation yet
+- wire scheduled scans/deletes/pending moves into a bounded runtime owner
 - keep later callable-refresh and section mutation wiring as the following
-  boundary after manager event routing is stable
+  boundary after the watcher adapter is stable
