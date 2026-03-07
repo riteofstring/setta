@@ -147,13 +147,14 @@ type PythonDependencyGraph struct {
 	Nodes             map[PythonDependencyKey]PythonDependencyNode
 	NodeOrder         []PythonDependencyKey
 	FullPathNameToKey map[string]PythonDependencyKey
+	PotentialRefs     map[PythonDependencyKey]map[string][]int
 }
 
 type pythonDependencyGraphBuilder struct {
 	export          projectstate.PythonCodegenExport
 	graph           *PythonDependencyGraph
 	passwordSecrets map[string]string
-	potentialRefs   map[PythonDependencyKey]map[string]struct{}
+	potentialRefs   map[PythonDependencyKey]map[string][]int
 }
 
 var pythonDependencyGraphSectionExporters = map[string]struct{}{
@@ -187,9 +188,10 @@ func BuildPythonDependencyGraph(
 			Nodes:             map[PythonDependencyKey]PythonDependencyNode{},
 			NodeOrder:         nil,
 			FullPathNameToKey: map[string]PythonDependencyKey{},
+			PotentialRefs:     map[PythonDependencyKey]map[string][]int{},
 		},
 		passwordSecrets: cloneStringMap(options.PasswordSecrets),
-		potentialRefs:   map[PythonDependencyKey]map[string]struct{}{},
+		potentialRefs:   map[PythonDependencyKey]map[string][]int{},
 	}
 	if _, _, err := builder.exportSections(export.TopLevelSectionIDs, true, nil); err != nil {
 		return nil, err
@@ -643,7 +645,7 @@ func (b *pythonDependencyGraphBuilder) recordPotentialRefs(
 	key PythonDependencyKey,
 	value string,
 ) error {
-	refs, err := findUndefinedPythonSpecialVarExpressions(value, "state", true)
+	refs, err := findUndefinedPythonSpecialVarExpressionPositions(value, "state", true)
 	if err != nil {
 		return err
 	}
@@ -651,6 +653,7 @@ func (b *pythonDependencyGraphBuilder) recordPotentialRefs(
 		return nil
 	}
 	b.potentialRefs[key] = refs
+	b.graph.PotentialRefs[key] = cloneStringSliceIntMap(refs)
 	return nil
 }
 

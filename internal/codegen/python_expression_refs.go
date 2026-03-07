@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"sort"
 	"strings"
 
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
@@ -11,7 +12,7 @@ type pythonSpecialVarExpressionFinder struct {
 	source       []byte
 	specialVar   string
 	keepAttrOnly bool
-	refs         map[string]struct{}
+	refs         map[string][]int
 	scopeStack   []map[string]struct{}
 }
 
@@ -20,6 +21,26 @@ func findUndefinedPythonSpecialVarExpressions(
 	specialVar string,
 	keepAttrOnly bool,
 ) (map[string]struct{}, error) {
+	refsByName, err := findUndefinedPythonSpecialVarExpressionPositions(code, specialVar, keepAttrOnly)
+	if err != nil {
+		return nil, err
+	}
+	if len(refsByName) == 0 {
+		return nil, nil
+	}
+
+	refs := make(map[string]struct{}, len(refsByName))
+	for ref := range refsByName {
+		refs[ref] = struct{}{}
+	}
+	return refs, nil
+}
+
+func findUndefinedPythonSpecialVarExpressionPositions(
+	code string,
+	specialVar string,
+	keepAttrOnly bool,
+) (map[string][]int, error) {
 	if strings.TrimSpace(code) == "" || strings.TrimSpace(specialVar) == "" {
 		return nil, nil
 	}
@@ -46,12 +67,15 @@ func findUndefinedPythonSpecialVarExpressions(
 		source:       source,
 		specialVar:   specialVar,
 		keepAttrOnly: keepAttrOnly,
-		refs:         map[string]struct{}{},
+		refs:         map[string][]int{},
 		scopeStack:   []map[string]struct{}{{}},
 	}
 	finder.visit(root)
 	if len(finder.refs) == 0 {
 		return nil, nil
+	}
+	for ref := range finder.refs {
+		sort.Ints(finder.refs[ref])
 	}
 	return finder.refs, nil
 }
@@ -67,6 +91,9 @@ func (f *pythonSpecialVarExpressionFinder) visit(node *tree_sitter.Node) {
 		return
 	case "function_definition":
 		f.visitFunctionDefinition(node)
+		return
+	case "lambda":
+		f.visitLambda(node)
 		return
 	case "for_statement":
 		f.visitForStatement(node)
@@ -93,10 +120,12 @@ func (f *pythonSpecialVarExpressionFinder) visitAttribute(node *tree_sitter.Node
 		attributeNode := node.ChildByFieldName("attribute")
 		if attributeNode != nil && attributeNode.Kind() == "identifier" {
 			ref := f.nodeText(attributeNode)
+			position := int(attributeNode.StartByte())
 			if !f.keepAttrOnly {
 				ref = f.specialVar + "." + ref
+				position = int(node.StartByte())
 			}
-			f.refs[ref] = struct{}{}
+			f.refs[ref] = append(f.refs[ref], position)
 		}
 	}
 	for i := uint(0); i < node.NamedChildCount(); i++ {
@@ -110,6 +139,13 @@ func (f *pythonSpecialVarExpressionFinder) visitFunctionDefinition(node *tree_si
 		f.define(f.nodeText(nameNode))
 	}
 
+	f.pushScope()
+	f.defineParameters(node.ChildByFieldName("parameters"))
+	f.visit(node.ChildByFieldName("body"))
+	f.popScope()
+}
+
+func (f *pythonSpecialVarExpressionFinder) visitLambda(node *tree_sitter.Node) {
 	f.pushScope()
 	f.defineParameters(node.ChildByFieldName("parameters"))
 	f.visit(node.ChildByFieldName("body"))

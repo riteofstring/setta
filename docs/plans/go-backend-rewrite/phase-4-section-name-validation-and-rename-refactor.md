@@ -262,7 +262,7 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
 
 Completed so far:
 
@@ -279,12 +279,23 @@ Completed so far:
 
 Remaining in this slice:
 
-- rename changed-value computation from authoritative Go graph/value data
-- focused tests for rename changed-value planning
+- none
 
 Verification so far:
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate -count=1 -timeout 180s`
+
+Completed in the graph/planner half:
+
+- Go Python dependency graphs now retain parser-backed reference positions for
+  undefined `state.*` attribute expressions instead of only a ref-name set
+- rename changed-value planning now computes replacement values from:
+  - old/new authoritative graph full-path names
+  - parser-extracted reference positions in the new graph
+- the planner updates repeated references in one value deterministically
+- lambda-shadowed `state` parameters are excluded from rename planning via the
+  scope-aware parser walk
 
 ### Slice 3: IDE Transport And Prompt Flow
 
@@ -317,9 +328,11 @@ Status:
 
 ## Next Recommended Step
 
-- Finish the remaining Slice 2 graph work next.
-- Extend the Go Python dependency graph path to retain parser-backed reference
-  positions, not just reference names.
-- Add the rename changed-value planner on top of that positioned graph data.
-- Keep transport and websocket prompt wiring out of scope until the planner is
-  proven with focused tests.
+- Implement Slice 3 next.
+- Add IDE-only `setSectionName`, `acceptRenameRefactor`, and
+  `declineRenameRefactor` routes on top of the completed projectstate and
+  planner semantics.
+- Add pending rename-result storage plus websocket
+  `ReturnRenameRefactorResults` delivery keyed by `frontendOpId`.
+- Keep the existing frontend rename modal flow and completed-op hydrate path as
+  the authoritative prompt boundary.
