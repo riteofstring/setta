@@ -14,6 +14,8 @@ const STAGES = [
   "group-container-static-list",
   "param-flat-shell",
   "param-simple-grid-shell",
+  "param-top-level-flat-shell",
+  "param-top-level-simple-grid-shell",
   "param-top-level-structure-shell",
   "param-parent-structure-shell",
   "param-structure-shell",
@@ -164,6 +166,112 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBe(0);
   expect(
     metricsByStage.get("param-simple-grid-shell")?.sortableRowModeCount,
+  ).toBe(0);
+
+  expect(metricsByStage.get("param-top-level-flat-shell")?.staticRowCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.groupContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.flatParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-top-level-flat-shell")?.flatParamChildrenCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.parentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.topLevelRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.nestedRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.nestedChildSubtreeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.suppressedParentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.sampleParamRowNarrowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.flatRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(metricsByStage.get("param-top-level-flat-shell")?.staticRowModeCount).toBe(
+    0,
+  );
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.sortableRowModeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-flat-shell")?.simpleGridRowModeCount,
+  ).toBe(0);
+
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.groupContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.paramContainerCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.simpleGridParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.simpleGridChildrenCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.parentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.topLevelRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.nestedRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.nestedChildSubtreeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.suppressedParentRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.sampleParamRowNarrowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.simpleGridRowModeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.staticRowModeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")
+      ?.sortableRowModeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.flatRowModeCount,
   ).toBe(0);
 
   expect(
@@ -387,6 +495,12 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBeLessThan(metricsByStage.get("param-flat-shell")?.domCount ?? 0);
   expect(
     metricsByStage.get("group-container-static-list")?.domCount,
+  ).toBeLessThan(metricsByStage.get("param-simple-grid-shell")?.domCount ?? 0);
+  expect(metricsByStage.get("param-top-level-flat-shell")?.domCount).toBeLessThan(
+    metricsByStage.get("param-flat-shell")?.domCount ?? 0,
+  );
+  expect(
+    metricsByStage.get("param-top-level-simple-grid-shell")?.domCount,
   ).toBeLessThan(metricsByStage.get("param-simple-grid-shell")?.domCount ?? 0);
   expect(
     metricsByStage.get("param-top-level-structure-shell")?.domCount,

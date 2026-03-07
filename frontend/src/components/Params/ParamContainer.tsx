@@ -92,6 +92,7 @@ function _ParamContainer({
     : "none";
   const shouldRenderNestedChildSubtrees =
     hasChildRows && benchmark.renderNestedChildSubtrees;
+  const useExplicitLeafGrid = !isNestedParam && !hasChildRows;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -156,6 +157,56 @@ function _ParamContainer({
       >
         {children}
       </BenchmarkSimpleGridParamContainer>
+    );
+  }
+
+  if (useExplicitLeafGrid) {
+    return (
+      <article
+        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+        className={`section-key-value group/arg-group section-min-rows relative grid min-w-0 items-center rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+        style={{
+          gridTemplateColumns: `minmax(min-content, ${columnWidth}) 0.75rem minmax(0, 1fr)`,
+          gridTemplateAreas: `"key center-gutter value"`,
+          ...(dndStyle ?? {}),
+        }}
+        data-param-row="true"
+        data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
+        data-settings-benchmark-param-row-kind={benchmarkRowKind}
+        data-settings-benchmark-param-row-depth={benchmarkRowDepth}
+        data-settings-benchmark-child-subtree-policy={childSubtreePolicy}
+        {...floatingBoxHandlers}
+        onMouseDownCapture={onMouseDown}
+        onClick={onClick}
+        ref={dndRef}
+        {...(dndAttributes ?? {})}
+        {...(dndListeners ?? {})}
+        tabIndex={-1}
+        role={undefined}
+      >
+        {!isKwarg ? (
+          <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
+            {children}
+          </div>
+        ) : (
+          children
+        )}
+        {benchmark.renderParamInput ? (
+          <ParamInput
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            maybeErrorMessage={errorMessage}
+          />
+        ) : (
+          <BenchmarkParamValueShell />
+        )}
+        {benchmark.renderParamChrome && (
+          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+        )}
+        {benchmark.renderParamChrome && hasError && (
+          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+        )}
+      </article>
     );
   }
 
@@ -292,9 +343,16 @@ function BenchmarkFlatParamContainer({
     paramChildren,
   );
   const hasChildRows = renderChildren.length > 0;
+  const benchmark = useSettingsAllSettingsBenchmark();
   const benchmarkRowKind = hasChildRows ? "parent" : "leaf";
   const benchmarkRowDepth = isNestedParam ? "nested" : "top-level";
-  const childSubtreePolicy = hasChildRows ? "enabled" : "none";
+  const childSubtreePolicy = hasChildRows
+    ? benchmark.renderNestedChildSubtrees
+      ? "enabled"
+      : "suppressed"
+    : "none";
+  const shouldRenderNestedChildSubtrees =
+    hasChildRows && benchmark.renderNestedChildSubtrees;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -338,7 +396,7 @@ function BenchmarkFlatParamContainer({
           </div>
         )}
       </div>
-      {hasChildRows && (
+      {shouldRenderNestedChildSubtrees && (
         <div
           className="ml-3 flex min-w-0 flex-col gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
           data-settings-benchmark-flat-param-children="true"
@@ -387,9 +445,16 @@ function BenchmarkSimpleGridParamContainer({
     paramChildren,
   );
   const hasChildRows = renderChildren.length > 0;
+  const benchmark = useSettingsAllSettingsBenchmark();
   const benchmarkRowKind = hasChildRows ? "parent" : "leaf";
   const benchmarkRowDepth = isNestedParam ? "nested" : "top-level";
-  const childSubtreePolicy = hasChildRows ? "enabled" : "none";
+  const childSubtreePolicy = hasChildRows
+    ? benchmark.renderNestedChildSubtrees
+      ? "enabled"
+      : "suppressed"
+    : "none";
+  const shouldRenderNestedChildSubtrees =
+    hasChildRows && benchmark.renderNestedChildSubtrees;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -397,7 +462,7 @@ function BenchmarkSimpleGridParamContainer({
   return (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-      className={`group/arg-group relative grid min-w-0 gap-x-3 gap-y-1 rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
+      className={`group/arg-group relative col-span-full grid min-w-0 gap-x-3 gap-y-1 rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
       style={{
         gridTemplateColumns: `minmax(min-content, ${columnWidth}) minmax(0, 1fr)`,
         ...(dndStyle ?? {}),
@@ -434,7 +499,7 @@ function BenchmarkSimpleGridParamContainer({
           <BenchmarkParamValueShell />
         </div>
       )}
-      {hasChildRows && (
+      {shouldRenderNestedChildSubtrees && (
         <div
           className="col-span-2 grid min-w-0 gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
           data-settings-benchmark-simple-grid-children="true"

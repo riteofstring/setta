@@ -982,3 +982,229 @@ New benchmark stages:
   - the remaining highest-value target is not parent recursion in general
   - it is the ordinary leaf-row production path in `ParamContainer` / `ParamSwitch`
   - nested subtree expansion still matters, but it is smaller than the per-leaf-row shell cost
+
+## Addendum: Leaf-row layout follow-up
+
+- Date: `2026-03-07`
+- Goal: test whether the isolated leaf-row bottleneck is primarily the current top-level row-layout path.
+- Measurement note:
+  - this addendum reuses the same top-level-only row mix as the previous addendum: `452` rows total, with `425` leaf rows, `27` parent rows, and `0` mounted nested child subtrees
+  - compare these numbers only within this addendum
+
+New benchmark stages:
+
+- `param-top-level-structure-shell`
+  - current production leaf-row shell
+  - top-level rows only
+  - nested child subtrees suppressed
+- `param-top-level-flat-shell`
+  - same top-level row mix
+  - flatter flex row shell
+  - nested child subtrees suppressed
+- `param-top-level-simple-grid-shell`
+  - same top-level row mix
+  - explicit two-column grid row shell
+  - nested child subtrees suppressed
+
+### `param-top-level-structure-shell` rerun
+
+- DOM nodes in `.react-flow`: `3315`
+- Param containers: `452`
+- Parent rows: `27`
+- Leaf rows: `425`
+- Average frame time: `35.50ms`
+- Approx FPS: `28.17`
+- Max frame time: `50.40ms`
+- Slow frames:
+  - `>16.7ms`: `115`
+  - `>33.3ms`: `80`
+  - `>50ms`: `1`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-structure-shell-leaf-layout-followup-trace.json`
+
+### `param-top-level-flat-shell`
+
+- DOM nodes in `.react-flow`: `4387`
+- Param containers: `452`
+- Parent rows: `27`
+- Leaf rows: `425`
+- Average frame time: `27.59ms`
+- Approx FPS: `36.24`
+- Max frame time: `40.70ms`
+- Slow frames:
+  - `>16.7ms`: `116`
+  - `>33.3ms`: `22`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-flat-shell-leaf-layout-followup-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-flat-shell-visible.png`
+
+### `param-top-level-simple-grid-shell`
+
+- DOM nodes in `.react-flow`: `4387`
+- Param containers: `452`
+- Parent rows: `27`
+- Leaf rows: `425`
+- Average frame time: `27.66ms`
+- Approx FPS: `36.15`
+- Max frame time: `42.00ms`
+- Slow frames:
+  - `>16.7ms`: `115`
+  - `>33.3ms`: `24`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-simple-grid-shell-leaf-layout-followup-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-simple-grid-shell-visible.png`
+
+### Addendum conclusion
+
+- Both simpler leaf-row layouts materially outperformed the current production leaf-row shell.
+  - `param-top-level-structure-shell`: `28.17 FPS`
+  - `param-top-level-flat-shell`: `36.24 FPS`
+  - `param-top-level-simple-grid-shell`: `36.15 FPS`
+- The gain is about `+8 FPS` either way.
+  - flat vs current: `+8.08 FPS`
+  - simple-grid vs current: `+7.98 FPS`
+- The win does not depend on a specific replacement layout.
+  - the flex and explicit-grid candidates are effectively tied
+  - both bypass the current `section-args-nested-key-value` / `section-key-value` / `grid-cols-subgrid` leaf-row wrapper path
+- Raw DOM count is not the main driver here.
+  - both faster candidates have `+1072` DOM nodes versus the current top-level structure shell and still perform materially better
+- Updated interpretation:
+  - the hottest remaining production path is the current leaf-row wrapper layout itself
+  - the next implementation step should be a behavior-preserving refactor of the leaf-row branch in `ParamContainer`
+  - the likely goal is a simpler outer leaf-row wrapper while preserving the existing key/value contract for `ParamInput` and row chrome inside that wrapper
+
+## Addendum: Production Leaf-row Explicit-grid Refactor
+
+- Date: `2026-03-07`
+- Goal: land a behavior-preserving production change for the isolated top-level leaf-row shell hotspot and rerun the same pan/zoom benchmark stages.
+- Implementation:
+  - top-level leaf rows in `ParamContainer` now use a local explicit `key / center-gutter / value` grid
+  - nested parent rows and nested child subtree rendering stay on the previous production path
+- Measurement note:
+  - this addendum uses the same fixed viewport transform replay described in the main Method section
+  - compare these numbers within this addendum first
+  - `param-top-level-simple-grid-shell` is included as a current benchmark control
+
+### `static-param-list` anchor rerun
+
+- DOM nodes in `.react-flow`: `3773`
+- Static benchmark rows: `697`
+- Param containers: `0`
+- Average frame time: `10.24ms`
+- Approx FPS: `97.65`
+- Max frame time: `33.40ms`
+- Slow frames:
+  - `>16.7ms`: `15`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/static-param-list-leaf-row-production-explicit-grid-trace.json`
+
+### `param-top-level-structure-shell` after the production leaf-row refactor
+
+- DOM nodes in `.react-flow`: `3483`
+- Param containers: `452`
+- Parent rows: `27`
+- Leaf rows: `425`
+- Top-level rows: `452`
+- Nested rendered rows: `0`
+- Nested child wrappers: `0`
+- Average frame time: `14.18ms`
+- Approx FPS: `70.52`
+- Max frame time: `50.50ms`
+- Slow frames:
+  - `>16.7ms`: `29`
+  - `>33.3ms`: `8`
+  - `>50ms`: `1`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-structure-shell-leaf-row-production-explicit-grid-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-structure-shell-leaf-row-production-explicit-grid-visible.png`
+
+### `param-top-level-simple-grid-shell` current control
+
+- DOM nodes in `.react-flow`: `4387`
+- Param containers: `452`
+- Parent rows: `27`
+- Leaf rows: `425`
+- Top-level rows: `452`
+- Nested rendered rows: `0`
+- Nested child wrappers: `0`
+- Average frame time: `12.30ms`
+- Approx FPS: `81.27`
+- Max frame time: `41.60ms`
+- Slow frames:
+  - `>16.7ms`: `24`
+  - `>33.3ms`: `2`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-top-level-simple-grid-shell-leaf-row-production-explicit-grid-trace.json`
+
+### `param-structure-shell` after the production leaf-row refactor
+
+- DOM nodes in `.react-flow`: `4283`
+- Param containers: `697`
+- Parent rows: `66`
+- Leaf rows: `631`
+- Top-level rows: `452`
+- Nested rendered rows: `245`
+- Nested child wrappers: `66`
+- Average frame time: `18.30ms`
+- Approx FPS: `54.64`
+- Max frame time: `174.80ms`
+- Slow frames:
+  - `>16.7ms`: `37`
+  - `>33.3ms`: `20`
+  - `>50ms`: `2`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-leaf-row-production-explicit-grid-trace.json`
+
+### `param-container-shell` after the production leaf-row refactor
+
+- DOM nodes in `.react-flow`: `6332`
+- Param containers: `697`
+- Resize handles: `627`
+- Parent rows: `66`
+- Leaf rows: `631`
+- Top-level rows: `452`
+- Nested rendered rows: `245`
+- Nested child wrappers: `66`
+- Average frame time: `16.81ms`
+- Approx FPS: `59.47`
+- Max frame time: `59.20ms`
+- Slow frames:
+  - `>16.7ms`: `32`
+  - `>33.3ms`: `19`
+  - `>50ms`: `2`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-leaf-row-production-explicit-grid-trace.json`
+
+### `full` after the production leaf-row refactor
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Text-family inputs: `426`
+- Resize handles: `627`
+- Parent rows: `66`
+- Leaf rows: `631`
+- Top-level rows: `452`
+- Nested rendered rows: `245`
+- Nested child wrappers: `66`
+- Average frame time: `24.06ms`
+- Approx FPS: `41.56`
+- Max frame time: `33.60ms`
+- Slow frames:
+  - `>16.7ms`: `101`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-leaf-row-production-explicit-grid-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/leaf-row-explicit-grid-full-visible.png`
+
+### Addendum conclusion
+
+- The production leaf-row refactor materially improved the row-shell bucket.
+  - `static-param-list` -> `param-top-level-structure-shell` now drops by `-27.13 FPS`
+  - within this rerun, the current production top-level shell is only `-10.75 FPS` behind the simple-grid control
+- The old row-shell cliff is much smaller in the full recursive path.
+  - `param-structure-shell` now runs at `54.64 FPS`
+  - `param-container-shell` now runs at `59.47 FPS`
+  - those two stages are now in the same performance band, which means the pure row-shell structure penalty is no longer the dominant drop
+- The remaining large drop is now downstream of the row shell.
+  - `param-container-shell` -> `full` still drops by `-17.91 FPS`
+  - that points the next optimization pass at the live param input/widget layer, especially the text-family path
+- The visual contract held in the live app after the production change.
+  - benchmark geometry checks passed
+  - a live full-stage width sample stayed well above the collapse threshold (`minWidth ~= 514px`, `0` narrow rows)
