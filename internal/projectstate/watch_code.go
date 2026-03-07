@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
-	tree_sitter "github.com/tree-sitter/go-tree-sitter"
-	tree_sitter_python "github.com/tree-sitter/tree-sitter-python/bindings/go"
 	"setta/internal/statefs"
+	"setta/internal/watchcode"
 )
 
 var (
@@ -555,108 +553,14 @@ func watchCodeRelativePath(workspaceRoot string, absolutePath string) (string, e
 }
 
 func parseWatchCodeBaselineIdentities(code string, relativeSourcePath string) ([]string, bool, error) {
-	if strings.TrimSpace(code) == "" {
-		return []string{}, true, nil
-	}
-
-	parser := tree_sitter.NewParser()
-	defer parser.Close()
-	if err := parser.SetLanguage(tree_sitter.NewLanguage(tree_sitter_python.Language())); err != nil {
+	callables, parsed, err := watchcode.ParsePythonCallables(code, relativeSourcePath)
+	if err != nil {
 		return nil, false, err
 	}
-
-	source := []byte(code)
-	tree := parser.Parse(source, nil)
-	if tree == nil {
-		return []string{}, true, nil
-	}
-	defer tree.Close()
-
-	root := tree.RootNode()
-	if root == nil {
-		return []string{}, true, nil
-	}
-	if root.HasError() {
+	if !parsed {
 		return nil, false, nil
 	}
-
-	modulePath := watchCodeModulePath(relativeSourcePath)
-	output := make([]string, 0, root.NamedChildCount())
-	for i := uint(0); i < root.NamedChildCount(); i++ {
-		definition := unwrapWatchCodeDefinition(root.NamedChild(i))
-		if definition == nil {
-			continue
-		}
-
-		switch definition.Kind() {
-		case "function_definition":
-			callableName := buildWatchCodeCallableName(modulePath, watchCodeNodeText(definition.ChildByFieldName("name"), source))
-			if strings.TrimSpace(callableName) == "" {
-				continue
-			}
-			kind := WatchCodeCallableKindFunction
-			if strings.HasPrefix(strings.TrimSpace(watchCodeNodeText(definition, source)), "async def ") {
-				kind = WatchCodeCallableKindAsyncFunction
-			}
-			output = append(output, buildWatchCodeIdentity(callableName, kind))
-		case "class_definition":
-			callableName := buildWatchCodeCallableName(modulePath, watchCodeNodeText(definition.ChildByFieldName("name"), source))
-			if strings.TrimSpace(callableName) == "" {
-				continue
-			}
-			output = append(output, buildWatchCodeIdentity(callableName, WatchCodeCallableKindClassInit))
-		}
-	}
-	return output, true, nil
-}
-
-func unwrapWatchCodeDefinition(node *tree_sitter.Node) *tree_sitter.Node {
-	if node == nil {
-		return nil
-	}
-	if node.Kind() != "decorated_definition" {
-		return node
-	}
-	for i := uint(0); i < node.NamedChildCount(); i++ {
-		child := node.NamedChild(i)
-		switch child.Kind() {
-		case "function_definition", "class_definition":
-			return child
-		}
-	}
-	return nil
-}
-
-func watchCodeNodeText(node *tree_sitter.Node, source []byte) string {
-	if node == nil {
-		return ""
-	}
-	return node.Utf8Text(source)
-}
-
-func watchCodeModulePath(relativeSourcePath string) string {
-	withoutExt := path.Clean(strings.TrimSpace(relativeSourcePath))
-	withoutExt = strings.TrimSuffix(withoutExt, path.Ext(withoutExt))
-	if withoutExt == "." {
-		return ""
-	}
-	return strings.ReplaceAll(withoutExt, "/", ".")
-}
-
-func buildWatchCodeCallableName(modulePath string, symbolName string) string {
-	trimmedSymbolName := strings.TrimSpace(symbolName)
-	if trimmedSymbolName == "" {
-		return ""
-	}
-	trimmedModulePath := strings.TrimSpace(modulePath)
-	if trimmedModulePath == "" {
-		return trimmedSymbolName
-	}
-	return trimmedModulePath + "." + trimmedSymbolName
-}
-
-func buildWatchCodeIdentity(callableName string, kind WatchCodeCallableKind) string {
-	return callableName + ":" + string(kind)
+	return watchcode.IdentityList(callables), true, nil
 }
 
 func cloneWatchCodeFolders(input []WatchCodeFolder) []WatchCodeFolder {

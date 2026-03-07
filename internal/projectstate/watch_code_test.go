@@ -165,3 +165,31 @@ func TestRuntimeSetWatchCodeInputsRejectsOutsideWorkspace(t *testing.T) {
 		t.Fatal("expected outside-workspace watch code input to fail")
 	}
 }
+
+func TestParseWatchCodeBaselineIdentitiesUsesSharedParserSemantics(t *testing.T) {
+	t.Parallel()
+
+	// Baseline parsing should reuse the shared watch-code parser for decorated async defs and classes.
+	identities, parsed, err := parseWatchCodeBaselineIdentities(`
+@decorator
+async def beta(flag):
+    return flag
+
+@decorator
+class Widget:
+    pass
+`, "pkg/watch_me.py")
+	if err != nil {
+		t.Fatalf("parse watch code baseline identities: %v", err)
+	}
+	if !parsed {
+		t.Fatal("expected baseline parser success")
+	}
+	expected := []string{
+		"pkg.watch_me.Widget:class_init",
+		"pkg.watch_me.beta:async_function",
+	}
+	if !reflect.DeepEqual(identities, expected) {
+		t.Fatalf("expected identities %#v, got %#v", expected, identities)
+	}
+}

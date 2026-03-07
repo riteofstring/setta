@@ -59,8 +59,12 @@ long-lived watcher/runtime owner itself.
 The active Slice 2 execution work is now narrowed in:
 
 - `docs/plans/go-backend-rewrite/phase-5-watch-code-scan-diff-and-manager-foundation.md`
-- that focused doc starts with the parser/diff foundation before the observer
-  lifecycle and later section-mutation wiring
+- Slice 2 Step 1 in that focused doc is now complete:
+  - `internal/watchcode` owns parser-backed callable discovery and
+    deterministic scan/delete/move planning
+  - Slice 1 baseline parsing now reuses that shared parser owner
+- the remaining Slice 2 gap is the observer/manager foundation before later
+  section-mutation wiring
 
 ## Scope
 

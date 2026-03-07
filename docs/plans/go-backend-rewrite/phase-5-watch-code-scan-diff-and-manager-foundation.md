@@ -27,11 +27,15 @@ Current repo status as of 2026-03-07:
   - Go exposes `setWatchCodeEnabled` / `setWatchCodeInputs`
   - Go baselines existing/new inputs without creating sections
   - frontend Watch Code controls rehydrate through `getLatestProjectState`
-- the remaining active Watch Code gap is Slice 2 runtime ownership:
-  - there is no `internal/watchcode` package yet
-  - there is no Go-owned parser-backed registry/baseline diff planner
-  - there is no Go watch manager for config snapshots, watch-dir sync, debounce,
-    or file-event routing
+- Slice 2 Step 1 is now complete:
+  - `internal/watchcode` now owns parser-backed Python callable discovery
+  - deterministic scan/delete/move plans now exist over registry + baseline
+    state
+  - Slice 1 baseline parsing in `internal/projectstate/watch_code.go` now
+    delegates to the shared parser owner instead of keeping a second parser
+- the remaining active Watch Code gap is the Step 2 manager/runtime owner:
+  - there is still no Go watch manager for config snapshots, watch-dir sync,
+    debounce, or file-event routing
 
 ## Scope
 
@@ -98,6 +102,8 @@ still does not have those runtime owners separated out.
 
 ### Step 1: Parser And Diff Foundation
 
+Status: complete on 2026-03-07.
+
 Deliver:
 
 - `internal/watchcode` callable model and `tree-sitter` parser for:
@@ -116,6 +122,8 @@ Acceptance:
 - delete/move plans are deterministic and test-covered
 
 ### Step 2: Watch Manager Foundation
+
+Status: next in progress boundary.
 
 Deliver:
 
@@ -156,6 +164,16 @@ For Step 1 implementation, require at minimum:
   scan/delete/move planning
 - regression coverage showing Slice 1 baselining reuses the shared parser
 
+Completed in this chunk:
+
+- `internal/watchcode/python_callables.go`
+- `internal/watchcode/plans.go`
+- `internal/watchcode/python_callables_test.go`
+- `internal/watchcode/plans_test.go`
+- `internal/projectstate/watch_code.go`
+- `internal/projectstate/watch_code_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/watchcode ./internal/projectstate -count=1 -timeout 180s`
+
 For Step 2, add:
 
 - manager tests for path matching, desired watch-dir computation, and pending
@@ -163,9 +181,10 @@ For Step 2, add:
 
 ## Next Recommended Step
 
-Execute Step 1 next:
+Execute Step 2 next:
 
-- add `internal/watchcode` parser + plan types
-- port deterministic scan/delete/move planning
-- switch Slice 1 baseline parsing over to that shared owner before building the
-  long-lived watch manager
+- add `internal/watchcode` manager state for persisted config snapshots,
+  normalized path matching, and desired watch-dir derivation
+- port the missing-dir ancestor fallback and recursive toggle behavior from the
+  Python manager with focused unit tests
+- keep section mutation and callable refresh out of that first manager chunk
