@@ -76,11 +76,13 @@ Use the docs in this order:
    - focused current-work plan for Go-owned inline `setCode` and bound code-file reload reuse over the completed Watch Code apply/runtime path
 36. `phase-6-mcp-server-client-and-tool-registry-foundation.md`
    - focused next-work plan for Go-owned MCP server/client foundations, namespaced tool registry, and scoped tool-call boundaries ahead of LLM/chat migration
-37. `spike-mcp.md`
+37. `phase-6-internal-mcp-client-and-runtime-status.md`
+   - focused current-work plan for the first Go-owned internal MCP client, namespaced tool routing, and runtime-status transport
+38. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-38. `spike-pty.md`
+39. `spike-pty.md`
    - PTY uncertainty-reduction plan
-39. `spike-lsp.md`
+40. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
