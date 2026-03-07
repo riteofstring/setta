@@ -1,10 +1,14 @@
 package wsapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -14,7 +18,9 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/modes"
+	"setta/internal/observability"
 	"setta/internal/realtime"
+	"setta/internal/terminals"
 )
 
 type routeMessageEnvelope struct {
@@ -257,9 +263,182 @@ func TestRegisterRoutesListenerClosesOnInvalidRegistration(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutesTerminalConnectSendsReadyHistoryAndStreamsInput(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	terminalService := newRouteTerminalService(t)
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:         terminals.BuildTerminalID("section-a", ""),
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    readyQuietCatCommand(t, "history line"),
+	})
+	seedRouteTerminalHistory(t, terminalService, terminals.BuildTerminalID("section-a", ""), "history line")
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection, authHeaderForCookie(t, authService), withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	ready := readNextRawFrame(t, conn)
+	if ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", ready)
+	}
+	history := readNextRawFrame(t, conn)
+	if !strings.Contains(history, "history line") {
+		t.Fatalf("expected terminal history replay, got %q", history)
+	}
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte("route line\n")); err != nil {
+		t.Fatalf("write terminal input: %v", err)
+	}
+	output := readUntilRawFrameContains(t, conn, "route line", 4)
+	if !strings.Contains(output, "route line") {
+		t.Fatalf("expected terminal output to include route input, got %q", output)
+	}
+}
+
+func TestRegisterRoutesTerminalResizeMessageResizesPTY(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	terminalService := newRouteTerminalService(t)
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:         terminals.BuildTerminalID("section-a", ""),
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    resizeProbeCommand(t),
+	})
+	seedRouteTerminalHistory(t, terminalService, terminals.BuildTerminalID("section-a", ""), "ready")
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection, authHeaderForCookie(t, authService), withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	_ = readNextRawFrame(t, conn)
+	_ = readNextRawFrame(t, conn)
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"terminalResize","rows":24,"cols":80}`)); err != nil {
+		t.Fatalf("write terminal resize message: %v", err)
+	}
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte("size\n")); err != nil {
+		t.Fatalf("write terminal probe input: %v", err)
+	}
+
+	output := readUntilRawFrameContains(t, conn, "24 80", 6)
+	if !strings.Contains(output, "24 80") {
+		t.Fatalf("expected resized PTY output, got %q", output)
+	}
+}
+
+func TestRegisterRoutesTerminalClosesOnInvalidResizePayload(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	terminalService := newRouteTerminalService(t)
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:         terminals.BuildTerminalID("section-a", ""),
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    quietCatCommand(t),
+	})
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection, authHeaderForCookie(t, authService), withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	_ = readNextRawFrame(t, conn)
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"terminalResize","rows":0,"cols":80}`)); err != nil {
+		t.Fatalf("write invalid terminal resize message: %v", err)
+	}
+
+	_, _, err := conn.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeBadRequest {
+		t.Fatalf("expected bad-request close code %d, got %d", CloseCodeBadRequest, status)
+	}
+}
+
+func TestRegisterRoutesTerminalRequiresFullIDE(t *testing.T) {
+	t.Parallel()
+
+	store := newTestShareSessionStore("share-a")
+	terminalService := newRouteTerminalService(t)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			ModePolicy:    modes.NewPolicy(config.ModeShare),
+			ShareSessions: store,
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection+"?shareSessionId=share-a", nil, withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	_, _, err := conn.Read(context.Background())
+	if status := websocket.CloseStatus(err); status != CloseCodeForbidden {
+		t.Fatalf("expected forbidden close code %d, got %d", CloseCodeForbidden, status)
+	}
+}
+
 func newRouteServer(t *testing.T, deps RouteDependencies) *httptest.Server {
 	t.Helper()
 
+	if deps.Terminals == nil {
+		deps.Terminals = newRouteTerminalService(t)
+	}
 	router := chi.NewRouter()
 	if err := RegisterRoutes(router, deps); err != nil {
 		t.Fatalf("register ws routes: %v", err)
@@ -272,6 +451,14 @@ type dialOption func(path string) string
 func withPathParam(listenerID string) dialOption {
 	return func(path string) string {
 		return strings.Replace(path, "{listenerID}", listenerID, 1)
+	}
+}
+
+func withTerminalPath(projectID string, sectionID string) dialOption {
+	return func(path string) string {
+		path = strings.Replace(path, "{projectID}", projectID, 1)
+		path = strings.Replace(path, "{sectionID}", sectionID, 1)
+		return path
 	}
 }
 
@@ -347,6 +534,35 @@ func readUntilMessageType(t *testing.T, conn *websocket.Conn, messageType string
 	return routeMessageEnvelope{}
 }
 
+func readNextRawFrame(t *testing.T, conn *websocket.Conn) string {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read websocket frame: %v", err)
+	}
+	return string(payload)
+}
+
+func readUntilRawFrameContains(t *testing.T, conn *websocket.Conn, needle string, maxReads int) string {
+	t.Helper()
+
+	buffer := bytes.NewBuffer(nil)
+	for range maxReads {
+		frame := readNextRawFrame(t, conn)
+		buffer.WriteString(frame)
+		if strings.Contains(buffer.String(), needle) {
+			return buffer.String()
+		}
+	}
+
+	t.Fatalf("did not receive terminal output containing %q within %d reads; collected output: %q", needle, maxReads, buffer.String())
+	return ""
+}
+
 func requireMessageType(t *testing.T, messages []routeMessageEnvelope, messageType string) routeMessageEnvelope {
 	t.Helper()
 
@@ -393,6 +609,120 @@ func waitForCondition(t *testing.T, check func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("condition did not become true before timeout")
+}
+
+func newRouteTerminalService(t *testing.T) *terminals.Service {
+	t.Helper()
+
+	service, err := terminals.New(terminals.Options{
+		Logger: observability.NewLogger(0, io.Discard),
+	})
+	if err != nil {
+		t.Fatalf("new terminal service: %v", err)
+	}
+
+	t.Cleanup(func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := service.Close(shutdownCtx); err != nil {
+			t.Fatalf("close terminal service: %v", err)
+		}
+	})
+
+	return service
+}
+
+func openRouteTerminalForTest(t *testing.T, service *terminals.Service, options terminals.OpenOptions) {
+	t.Helper()
+
+	if _, created, err := service.Open(options); err != nil {
+		t.Fatalf("open route terminal %q: %v", options.ID, err)
+	} else if !created {
+		t.Fatalf("expected terminal %q to be created", options.ID)
+	}
+}
+
+func seedRouteTerminalHistory(t *testing.T, service *terminals.Service, terminalID string, needle string) {
+	t.Helper()
+
+	attachment, err := service.Attach(terminalID)
+	if err != nil {
+		t.Fatalf("attach route terminal %q: %v", terminalID, err)
+	}
+	defer attachment.Close()
+
+	if len(attachment.History) > 0 && strings.Contains(string(attachment.History), needle) {
+		return
+	}
+
+	_ = readUntilAttachmentContains(t, attachment, needle)
+}
+
+func readUntilAttachmentContains(t *testing.T, attachment *terminals.Attachment, needle string) string {
+	t.Helper()
+
+	buffer := bytes.NewBuffer(nil)
+	buffer.Write(attachment.History)
+	if strings.Contains(buffer.String(), needle) {
+		return buffer.String()
+	}
+
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case chunk, ok := <-attachment.Output:
+			if !ok {
+				t.Fatalf("attachment closed before %q appeared; collected output: %q", needle, buffer.String())
+			}
+			buffer.Write(chunk)
+			if strings.Contains(buffer.String(), needle) {
+				return buffer.String()
+			}
+		case <-timeout.C:
+			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
+		}
+	}
+}
+
+func quietCatCommand(t *testing.T) []string {
+	t.Helper()
+
+	shell := requireCommand(t, "sh")
+	return []string{shell, "-c", "stty -echo; cat"}
+}
+
+func readyQuietCatCommand(t *testing.T, initialLine string) []string {
+	t.Helper()
+
+	shell := requireCommand(t, "sh")
+	return []string{shell, "-c", "stty -echo; printf '" + initialLine + "\\n'; cat"}
+}
+
+func resizeProbeCommand(t *testing.T) []string {
+	t.Helper()
+
+	shell := requireCommand(t, "sh")
+	return []string{shell, "-c", "stty -echo; printf 'ready\\n'; while IFS= read -r line; do if [ \"$line\" = size ]; then stty size; fi; done"}
+}
+
+func requireCommand(t *testing.T, name string) string {
+	t.Helper()
+
+	path, err := exec.LookPath(name)
+	if err != nil {
+		t.Skipf("required command %q not available: %v", name, err)
+	}
+	return path
+}
+
+func skipIfPTYUnsupported(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY integration tests currently target macOS and Linux")
+	}
 }
 
 func assertListenerRegisterAck(t *testing.T, message routeMessageEnvelope, projectID string, shareSessionID string) {

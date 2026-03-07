@@ -18,10 +18,12 @@ Current repo status as of 2026-03-06:
   - attach/detach subscriptions
   - buffered history replay
   - input and resize operations
-- terminal transport still lives only in Python under:
+- Go websocket transport now includes:
+  - `GET /ws/terminals/{projectID}/{sectionID}` in `internal/wsapi/routes.go`
+  - route-level PTY integration tests in `internal/wsapi/routes_test.go`
+  - app-level upgrade coverage in `internal/app/websocket_test.go`
+- terminal HTTP transport still lives only in Python under:
   - `backend/setta/routers/terminals.py`
-- Go websocket transport currently owns frontend and listener routes only:
-  - `internal/wsapi/routes.go`
 
 ## Scope
 
@@ -121,6 +123,35 @@ Acceptance:
 - terminal routes do not own PTY/session state directly
 - history replay and resize behavior are covered with real PTY-backed tests
 
+Status:
+
+- complete
+
+Completed:
+
+- added `GET /ws/terminals/{projectID}/{sectionID}` under `internal/wsapi`
+- kept the route boundary transport-only:
+  - route handlers resolve auth/mode/path params
+  - `internal/terminals` owns session reuse, history, input, and resize
+- chose a clean-break Go route shape:
+  - removed the Python client-id path segment
+  - kept raw text output and explicit resize control messages so the frontend transport model stays simple
+- kept deployment-mode transport explicitly out of this slice:
+  - the route requires full IDE mode
+  - share/app transport stays deferred until Go has a real `allowRun` policy source of truth
+
+Tests:
+
+- `internal/wsapi/routes_test.go`
+  - ready marker + history replay over the live websocket route
+  - PTY-backed input streaming
+  - PTY-backed resize control handling
+  - invalid resize payload close-code behavior
+  - full-IDE gating
+- `internal/app/websocket_test.go`
+  - terminal websocket upgrade through the real app middleware stack
+- full Go suite passes with `./scripts/go.sh test ./...`
+
 ### Slice 2: Delete/List HTTP Surface
 
 Deliver:
@@ -151,19 +182,19 @@ Acceptance:
 
 ## Open Questions
 
-- should the first Go terminal websocket route stay IDE-only until share-policy
-  enforcement exists, or should deployment transport land together with a narrow
-  policy implementation?
 - do we want an explicit terminal-created event/message later, or is the ready
   marker enough for the first frontend migration?
 - should the kill surface mean interrupt-first, hard-kill, or both?
 
+Resolved In Slice 1:
+
+- the first Go terminal websocket route stays IDE-only until share-policy enforcement exists in Go
+- the ready marker is sufficient for the first transport slice; there is no separate terminal-created event
+
 ## Next Recommended Step
 
-Implement Slice 1:
+Implement Slice 2:
 
-- add the IDE terminal websocket route under `internal/wsapi`
-- keep the route transport-only and reuse `internal/terminals` directly
-- cover ready/history/input/resize behavior in `internal/wsapi/routes_test.go`
-- add one app-level websocket test so upgrade handling is verified through the
-  real middleware stack
+- migrate the first Go-owned HTTP terminal delete/list surface
+- keep project/share-session scoping explicit in the handlers
+- defer kill semantics until we make an explicit interrupt vs hard-kill decision

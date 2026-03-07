@@ -78,6 +78,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				},
 				WebsocketHub:        websocketHub,
 				ListenerBroadcaster: listenerBroadcaster,
+				Terminals:           terminalService,
 			}); err != nil {
 				panic(err)
 			}

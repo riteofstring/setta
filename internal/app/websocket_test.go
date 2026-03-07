@@ -83,6 +83,48 @@ func TestAppServesFrontendWebsocketRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesTerminalWebsocketRoute(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(strings.Replace(wsapi.RouteTerminalBySection, "{projectID}", "project-a", 1), "{sectionID}", "section-a", 1), &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial terminal websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	if frame := readAppRawFrame(t, conn); frame != wsapi.TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", frame)
+	}
+}
+
 func prepareCurrentSession(t *testing.T, cfg config.Config) {
 	t.Helper()
 
@@ -137,4 +179,17 @@ func readAppRouteEnvelope(t *testing.T, conn *websocket.Conn) appRouteEnvelope {
 		t.Fatalf("decode app websocket message: %v", err)
 	}
 	return envelope
+}
+
+func readAppRawFrame(t *testing.T, conn *websocket.Conn) string {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read app websocket frame: %v", err)
+	}
+	return string(payload)
 }

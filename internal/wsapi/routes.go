@@ -14,22 +14,27 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/modes"
 	"setta/internal/realtime"
+	"setta/internal/terminals"
 )
 
 const (
 	RouteFrontend          = "/ws/frontend"
 	RouteListenerByID      = "/ws/listeners/{listenerID}"
+	RouteTerminalBySection = "/ws/terminals/{projectID}/{sectionID}"
 	listenerProjectIDQuery = "projectId"
 )
 
 const (
 	FrontendMessageTypeCurrentAddressUpdate = "CurrentAddressUpdate"
+	TerminalReadyMessage                    = "SETTA_TERMINAL_READY"
+	TerminalMessageTypeResize               = "terminalResize"
 )
 
 type RouteDependencies struct {
 	Transport           Dependencies
 	WebsocketHub        *realtime.WebsocketHub
 	ListenerBroadcaster *realtime.ListenerBroadcaster
+	Terminals           *terminals.Service
 	FrontendIDSource    func() (string, error)
 }
 
@@ -48,6 +53,17 @@ type frontendCurrentAddressUpdate struct {
 	Content     string `json:"content"`
 }
 
+type terminalResizeMessage struct {
+	MessageType string `json:"messageType"`
+	Rows        int    `json:"rows"`
+	Cols        int    `json:"cols"`
+}
+
+type terminalInboundMessage struct {
+	Payload []byte
+	Err     error
+}
+
 func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -58,6 +74,9 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 	if deps.ListenerBroadcaster == nil {
 		return fmt.Errorf("listener broadcaster is required")
 	}
+	if deps.Terminals == nil {
+		return fmt.Errorf("terminal service is required")
+	}
 	if deps.FrontendIDSource == nil {
 		deps.FrontendIDSource = generateFrontendConnectionID
 	}
@@ -67,6 +86,9 @@ func RegisterRoutes(router chi.Router, deps RouteDependencies) error {
 	}))
 	router.Get(RouteListenerByID, AuthenticatedRequestHandler(deps.Transport, func(ctx context.Context, r *http.Request, conn *websocket.Conn, info ConnectionInfo) error {
 		return serveListenerConnection(ctx, r, conn, info, deps)
+	}))
+	router.Get(RouteTerminalBySection, AuthenticatedRequestHandler(deps.Transport, func(ctx context.Context, r *http.Request, conn *websocket.Conn, info ConnectionInfo) error {
+		return serveTerminalConnection(ctx, r, conn, info, deps)
 	}))
 	return nil
 }
@@ -196,6 +218,101 @@ func serveListenerConnection(
 	}
 }
 
+func serveTerminalConnection(
+	ctx context.Context,
+	r *http.Request,
+	conn *websocket.Conn,
+	info ConnectionInfo,
+	deps RouteDependencies,
+) error {
+	if err := deps.Transport.ModePolicy.RequireFullIDE(); err != nil {
+		return mapModesError(err)
+	}
+
+	projectID := strings.TrimSpace(chi.URLParam(r, "projectID"))
+	if projectID == "" {
+		return &CloseError{Code: CloseCodeBadRequest, Reason: "Missing project id."}
+	}
+	sectionID := strings.TrimSpace(chi.URLParam(r, "sectionID"))
+	if sectionID == "" {
+		return &CloseError{Code: CloseCodeBadRequest, Reason: "Missing section id."}
+	}
+
+	routeCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	terminalID := terminals.BuildTerminalID(sectionID, info.Modes.ShareSessionID)
+	if _, ok := deps.Terminals.Session(terminalID); !ok {
+		if _, _, err := deps.Terminals.Open(terminals.OpenOptions{
+			ID:             terminalID,
+			ProjectID:      projectID,
+			ShareSessionID: info.Modes.ShareSessionID,
+			AllowInput:     true,
+		}); err != nil {
+			return err
+		}
+	}
+
+	attachment, err := deps.Terminals.Attach(terminalID)
+	if err != nil {
+		return err
+	}
+	defer attachment.Close()
+
+	if err := writeTerminalFrame(routeCtx, conn, []byte(TerminalReadyMessage)); err != nil {
+		return classifyTerminalWriteError(err)
+	}
+	if err := writeTerminalFrame(routeCtx, conn, attachment.History); err != nil {
+		return classifyTerminalWriteError(err)
+	}
+
+	incoming := startTerminalInboundLoop(routeCtx, conn)
+	for {
+		select {
+		case <-routeCtx.Done():
+			return nil
+		case message, ok := <-incoming:
+			if !ok {
+				return nil
+			}
+			if message.Err != nil {
+				if websocket.CloseStatus(message.Err) != -1 || errors.Is(message.Err, context.Canceled) {
+					return nil
+				}
+				return message.Err
+			}
+
+			resize, isControl, err := decodeTerminalControlMessage(message.Payload)
+			if err != nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: err.Error()}
+			}
+			if isControl {
+				if err := deps.Terminals.Resize(terminalID, resize.Cols, resize.Rows); err != nil {
+					return err
+				}
+				continue
+			}
+
+			if err := deps.Terminals.Write(terminalID, message.Payload); err != nil {
+				if errors.Is(err, terminals.ErrInputDisabled) {
+					return &CloseError{Code: CloseCodeForbidden, Reason: err.Error()}
+				}
+				if errors.Is(err, terminals.ErrUnknownSession) {
+					return &CloseError{Code: websocket.StatusNormalClosure, Reason: "Terminal session ended."}
+				}
+				return err
+			}
+		case output, ok := <-attachment.Output:
+			if !ok {
+				return &CloseError{Code: websocket.StatusNormalClosure, Reason: "Terminal session ended."}
+			}
+			if err := writeTerminalFrame(routeCtx, conn, output); err != nil {
+				return classifyTerminalWriteError(err)
+			}
+		}
+	}
+}
+
 func decodeFrontendEnvelope(payload []byte) (frontendCurrentAddressUpdate, error) {
 	var envelope frontendEnvelope
 	if err := json.Unmarshal(payload, &envelope); err != nil {
@@ -239,6 +356,26 @@ func decodeListenerMessage(payload []byte) (realtime.ListenerRegisterMessage, er
 			MessageType: envelope.MessageType,
 		}, nil
 	}
+}
+
+func decodeTerminalControlMessage(payload []byte) (terminalResizeMessage, bool, error) {
+	var message terminalResizeMessage
+	if err := json.Unmarshal(payload, &message); err != nil {
+		return terminalResizeMessage{}, false, nil
+	}
+
+	message.MessageType = strings.TrimSpace(message.MessageType)
+	if message.MessageType == "" {
+		return terminalResizeMessage{}, false, nil
+	}
+	if message.MessageType != TerminalMessageTypeResize {
+		return terminalResizeMessage{}, true, fmt.Errorf("unsupported terminal message type")
+	}
+	if message.Rows < 1 || message.Cols < 1 {
+		return terminalResizeMessage{}, true, fmt.Errorf("invalid terminal resize payload")
+	}
+
+	return message, true, nil
 }
 
 func handleListenerRegister(
@@ -287,6 +424,45 @@ func touchShareSession(info modes.RequestInfo, store modes.ShareSessionStore) er
 		return &modes.UnknownShareSessionError{SessionID: shareSessionID}
 	}
 	return store.TouchSession(shareSessionID)
+}
+
+func writeTerminalFrame(ctx context.Context, conn *websocket.Conn, payload []byte) error {
+	if len(payload) == 0 {
+		return nil
+	}
+	return conn.Write(ctx, websocket.MessageText, payload)
+}
+
+func startTerminalInboundLoop(ctx context.Context, conn *websocket.Conn) <-chan terminalInboundMessage {
+	ch := make(chan terminalInboundMessage, 1)
+	go func() {
+		defer close(ch)
+		for {
+			_, payload, err := conn.Read(ctx)
+			if err != nil {
+				select {
+				case ch <- terminalInboundMessage{Err: err}:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			cloned := append([]byte(nil), payload...)
+			select {
+			case ch <- terminalInboundMessage{Payload: cloned}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+	return ch
+}
+
+func classifyTerminalWriteError(err error) error {
+	if websocket.CloseStatus(err) != -1 || errors.Is(err, context.Canceled) {
+		return nil
+	}
+	return err
 }
 
 func generateFrontendConnectionID() (string, error) {
