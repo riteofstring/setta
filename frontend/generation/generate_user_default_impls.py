@@ -35,6 +35,9 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "DictSectionImpl": DEFAULT_EXCLUSIONS,
     "ListRootSectionImpl": DEFAULT_EXCLUSIONS,
     "GroupSectionImpl": DEFAULT_EXCLUSIONS,
+    "StateMachineStartSectionImpl": DEFAULT_EXCLUSIONS,
+    "StateMachineGateSectionImpl": DEFAULT_EXCLUSIONS,
+    "StateMachineEndSectionImpl": DEFAULT_EXCLUSIONS,
     "ImageSectionImpl": DEFAULT_EXCLUSIONS,
     "ChartSectionImpl": DEFAULT_EXCLUSIONS.union({"chartSettings"}),
     "DrawSectionImpl": DEFAULT_EXCLUSIONS,
@@ -225,6 +228,8 @@ def main(output_folder: Path):
 from typing import Any, Dict, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
+from setta.database.utils import create_new_id
+
 # Section type imports
 from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.edges import EdgePort
@@ -252,6 +257,8 @@ from setta.types.section_impls import (
     ChatDictationMode,
     CodeFileBinding,
     ChatSectionBranch,
+    StateMachineGateType,
+    StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
 )

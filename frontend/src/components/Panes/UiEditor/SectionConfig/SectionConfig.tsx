@@ -18,6 +18,7 @@ import { SectionStyleColorSettings } from "./SectionStyleColorSettings";
 import { SectionTagColorSettings } from "./SectionTagColorSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
+import { StateMachineSectionSettings } from "./StateMachineSectionSettings";
 import { TaskBoardSettings } from "./TaskBoardSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
@@ -211,6 +212,9 @@ export function sectionTypeSupportsAppearanceSettings(
     case SectionTypeEnum.Terminal:
     case SectionTypeEnum.TaskBoard:
     case SectionTypeEnum.Spreadsheet:
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
       return true;
   }
 }
@@ -253,6 +257,10 @@ function getSpecializedConfigurationContent(
       return <TaskBoardSettings sectionId={sectionId} />;
     case SectionTypeEnum.Spreadsheet:
       return <SpreadsheetSectionSettings sectionId={sectionId} />;
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
+      return <StateMachineSectionSettings sectionId={sectionId} />;
     case SectionTypeEnum.GenPythonCode:
     case SectionTypeEnum.GenPythonMetadata:
     case SectionTypeEnum.Terminal:
