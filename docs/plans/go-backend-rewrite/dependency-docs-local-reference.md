@@ -107,6 +107,23 @@ When both local source and locally stored notes are insufficient:
 Do not silently rely on memory or heuristics when a library-specific source of
 truth is missing and the behavior matters.
 
+## When More Online Docs Are Needed
+
+If the current work needs additional documentation from online sources:
+
+- ask the user to enable web search before retrieving it
+
+If the user does not enable web search:
+
+- note the missing documentation explicitly in the plan doc for the phase,
+  spike, or slice currently being worked on
+- state which library or API surface needs an online acquisition pass
+- continue to the next useful implementation step if the work can still proceed
+  robustly from local source, installed types, and existing notes
+
+Do not silently fill the gap from memory alone when the missing documentation
+matters to a correctness-sensitive decision.
+
 ## Maintenance Rule
 
 Refresh a dependency's local reference when:
