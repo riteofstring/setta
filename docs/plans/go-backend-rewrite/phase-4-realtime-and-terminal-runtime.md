@@ -79,12 +79,12 @@ Current repo status as of 2026-03-06:
   - `internal/app/app.go`
 - current Go `runCode` transport behavior is intentionally narrow:
   - manual Python/Bash code-section runs
-  - first-party generated-entry runs that allocate top-level temporary terminals in project state
+  - first-party generated-entry runs that reuse explicitly idle top-level terminals when possible and otherwise allocate top-level temporary terminals in project state
   - section-variant overrides are planned against cloned project-state documents without mutating the active section map
   - attached-terminal reuse and ensure flow through Go project-state + terminal services
   - IDE draw snapshot uploads and project-state artifact updates now flow through Go-owned binary + run services
   - successful run dispatch now emits a Go-owned `Started command` backend-log event to frontend websockets
-  - free-terminal reuse for non-attached runs remains deferred until Go has an explicit reusable-session signal
+  - non-attached terminal reuse is currently limited to live top-level sessions with an explicit reusable-session signal from `internal/terminals`
   - `cliId` and `paramOverrides` still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:

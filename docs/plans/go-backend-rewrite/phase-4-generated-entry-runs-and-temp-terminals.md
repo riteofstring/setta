@@ -45,11 +45,16 @@ Current repo status as of 2026-03-06:
   - non-attached generated-entry runs create a top-level temporary terminal in
     project state, open the matching PTY session, and dispatch the planned
     command there
-- free-terminal reuse remains deferred
-  - the previous Python pathway depends on child-process and elapsed-time
-    heuristics (`get_free_terminal`)
-  - the rewrite should not reintroduce that behavior without an explicit
-    reusable-session source of truth in Go
+- Go now reuses non-attached generated-entry terminals only when:
+  - project state already contains a top-level terminal section for the same
+    project/share scope
+  - the matching PTY session is still live
+  - the terminal runtime can prove the shell is idle by checking that the PTY
+    foreground process group still belongs to the shell itself
+- Go still does not reuse non-attached terminals by heuristic
+  - sessions with active foreground jobs are never reused
+  - terminal sections without a live reusable PTY still fall back to creating a
+    new top-level temporary terminal
 
 ## Scope
 
@@ -306,27 +311,32 @@ Acceptance:
 
 Status:
 
-- partial
+- complete
 
 Completed:
 
-- `internal/runs.Service` now creates a top-level temporary terminal for
-  generated-entry runs instead of trying to force an attached-terminal path
-- generated-entry run dispatch now reaches a real PTY-backed terminal session
-- focused HTTP coverage proves the temporary terminal becomes visible in project
-  state and receives command output
-
-Deferred:
-
-- project/share-scoped free-terminal reuse remains deferred until Go has an
-  explicit reusable-session signal instead of Python's heuristic child-process
-  and elapsed-time checks
+- `internal/runs.Service` now reuses an existing top-level generated-entry
+  terminal when the matching project/share-scoped PTY session is provably idle
+- generated-entry runs still create a top-level temporary terminal when there is
+  no live reusable terminal session
+- `internal/terminals.Service` now exposes an explicit reusable-session signal
+  backed by PTY foreground-process-group checks instead of Python's
+  child-process and elapsed-time heuristic
+- focused HTTP coverage proves both:
+  - generated-entry runs can reuse an existing idle top-level terminal
+  - generated-entry runs still create a top-level temporary terminal when no
+    reusable terminal exists
 
 Tests:
 
 - `internal/httpapi/terminal_routes_test.go`
+  - generated-entry `POST /api/runCode` reuses an existing idle top-level
+    terminal
   - generated-entry `POST /api/runCode` creates a top-level temporary terminal
     and runs the generated entry there
+- `internal/terminals/service_test.go`
+  - idle interactive shells are reusable
+  - terminals with active foreground jobs are not reusable
 
 ## Decisions Made
 
@@ -334,20 +344,21 @@ Tests:
   planning instead of inferring paths from filenames or section ids.
 - Treat explicit plugin-generated section selection as an unsupported domain case
   now, rather than pretending it is a generic non-runnable section.
-- Create temporary terminals directly for generated-entry runs until Go owns a
-  real reusable-terminal signal.
+- Treat PTY foreground-process-group equality with the shell process group as
+  the first Go-owned reusable-session source of truth.
+- Limit non-attached generated-entry reuse to project-state top-level terminal
+  sections whose live PTY sessions are explicitly idle.
 
 ## Open Questions
 
-- What should the Go-owned reusable-terminal source of truth be:
-  terminal-runtime lease state, explicit session idleness, or a project-state
-  ownership marker?
-- Should generated-entry temporary terminals be reusable across repeated IDE
-  runs once that source of truth exists, or should they remain one-run-per-call
-  by design?
+- Do we need an explicit project-state ownership marker if we later want to
+  reuse top-level terminal sections that no longer have a live PTY session?
+- Should broader non-attached terminal reuse ever include top-level terminals
+  that were not created by generated-entry flows, or should that remain
+  explicitly out of scope?
 
 ## Next Recommended Step
 
-- Add an explicit reusable-terminal signal in Go and then layer non-attached
-  terminal reuse on top of the generated-entry path without reintroducing the
-  Python heuristic.
+- Start Slice 4 from
+  `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`:
+  Go-owned deployment/share `runCode` policy and session-overlay behavior.

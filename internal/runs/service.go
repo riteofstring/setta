@@ -114,7 +114,7 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 		return RunCodeResult{}, err
 	}
 
-	terminalSectionID, err := s.resolveTerminalSection(ctx, request.ProjectID, plan, request.TerminalSectionID)
+	terminalSectionID, err := s.resolveTerminalSection(ctx, request.ProjectID, request.ShareSessionID, plan, request.TerminalSectionID)
 	if err != nil {
 		return RunCodeResult{}, err
 	}
@@ -158,8 +158,16 @@ func (s *Service) RunCode(ctx context.Context, request RunCodeRequest) (RunCodeR
 	}, nil
 }
 
-func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, plan Plan, explicitTerminalSectionID string) (string, error) {
+func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, shareSessionID string, plan Plan, explicitTerminalSectionID string) (string, error) {
 	if plan.TargetKind == projectstate.RunTargetKindGeneratedEntry {
+		reusableTerminalSectionID, err := s.resolveReusableGeneratedEntryTerminalSection(projectID, shareSessionID)
+		if err != nil {
+			return "", err
+		}
+		if reusableTerminalSectionID != "" {
+			return reusableTerminalSectionID, nil
+		}
+
 		_, terminalSectionID, err := s.projectState.CreateTemporaryTerminal(projectID, s.newTerminalSeed())
 		if err != nil {
 			return "", err
@@ -187,6 +195,31 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectID string, 
 		return "", err
 	}
 	return terminalSectionID, nil
+}
+
+func (s *Service) resolveReusableGeneratedEntryTerminalSection(projectID string, shareSessionID string) (string, error) {
+	document := s.projectState.Snapshot().Document
+	project, err := document.ProjectByID(projectID)
+	if err != nil {
+		return "", err
+	}
+
+	for _, sectionID := range project.TopLevelSectionIDs {
+		section, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			return "", err
+		}
+		if !impl.IsTerminal() {
+			continue
+		}
+
+		terminalID := terminals.BuildTerminalID(section.ID, shareSessionID)
+		if s.terminals.ReusableSession(terminalID) {
+			return section.ID, nil
+		}
+	}
+
+	return "", nil
 }
 
 func (s *Service) newTerminalSeed() projectstate.TerminalSectionSeed {

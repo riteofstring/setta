@@ -697,6 +697,72 @@ func TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal(t *test
 	}
 }
 
+func TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	_, existingTerminalID, err := runFixture.runtime.CreateTemporaryTerminal(
+		"project-alpha",
+		projectstate.TerminalSectionSeed{
+			SectionID: "existing-terminal",
+			VariantID: "existing-terminal-variant",
+			ImplID:    "existing-terminal-impl",
+			Name:      "Terminal",
+		},
+	)
+	if err != nil {
+		t.Fatalf("create existing top-level terminal: %v", err)
+	}
+
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:         terminals.BuildTerminalID(existingTerminalID, ""),
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveHTTPTestBashCommand(t),
+	})
+
+	attachment := attachHTTPTestTerminal(t, terminalService, terminals.BuildTerminalID(existingTerminalID, ""))
+	prepareHTTPInterruptShell(t, terminalService, terminals.BuildTerminalID(existingTerminalID, ""), attachment)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","runSnapshotMode":"never"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	if _, _, _, err := project.ResolveSection("terminal-seed-1"); err == nil {
+		t.Fatal("did not expect generated-entry run to create a new temporary terminal")
+	}
+
+	output := waitForHTTPTestOutputOccurrences(t, attachment, "ROUTE_GENERATED_OK", 1)
+	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
+		t.Fatalf("expected generated entry output in reused terminal, got %q", output)
+	}
+}
+
 func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
 	t.Parallel()
 
@@ -1170,6 +1236,34 @@ func waitForHTTPTestOutputContains(t *testing.T, attachment *terminals.Attachmen
 			}
 		case <-timeout.C:
 			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
+		}
+	}
+}
+
+func waitForHTTPTestOutputOccurrences(t *testing.T, attachment *terminals.Attachment, needle string, count int) string {
+	t.Helper()
+
+	buffer := strings.Builder{}
+	buffer.Write(attachment.History)
+	if strings.Count(buffer.String(), needle) >= count {
+		return buffer.String()
+	}
+
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case chunk, ok := <-attachment.Output:
+			if !ok {
+				t.Fatalf("attachment output closed before %q appeared %d times; collected output: %q", needle, count, buffer.String())
+			}
+			buffer.Write(chunk)
+			if strings.Count(buffer.String(), needle) >= count {
+				return buffer.String()
+			}
+		case <-timeout.C:
+			t.Fatalf("timed out waiting for %q %d times; collected output: %q", needle, count, buffer.String())
 		}
 	}
 }

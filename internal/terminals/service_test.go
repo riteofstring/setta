@@ -269,6 +269,64 @@ func TestServiceInterruptProjectLeavesIdleShellsAlone(t *testing.T) {
 	}
 }
 
+func TestServiceReusableSessionReturnsTrueForIdleInteractiveShell(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-a", "")
+	openTerminalForTest(t, service, OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveBashCommand(t),
+	})
+
+	attachment := attachTerminalForTest(t, service, sessionID)
+	prepareInterruptShell(t, service, sessionID, attachment)
+
+	if !service.ReusableSession(sessionID) {
+		t.Fatal("expected idle interactive shell to be reusable")
+	}
+}
+
+func TestServiceReusableSessionReturnsFalseForForegroundJob(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-a", "")
+	openTerminalForTest(t, service, OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveBashCommand(t),
+	})
+
+	attachment := attachTerminalForTest(t, service, sessionID)
+	prepareInterruptShell(t, service, sessionID, attachment)
+
+	scriptPath := writeInterruptibleScript(t)
+	startInterruptibleForegroundJob(t, service, sessionID, attachment, scriptPath)
+
+	if service.ReusableSession(sessionID) {
+		t.Fatal("did not expect a foreground job terminal to be reusable")
+	}
+
+	interruptedCount, err := service.InterruptProject("project-alpha", "")
+	if err != nil {
+		t.Fatalf("interrupt foreground job: %v", err)
+	}
+	if interruptedCount != 1 {
+		t.Fatalf("expected one interrupted terminal, got %d", interruptedCount)
+	}
+
+	output := waitForOutputContains(t, attachment, "CHILD_EXIT:130")
+	if !strings.Contains(output, "CHILD_INTERRUPTED") {
+		t.Fatalf("expected interrupt output, got %q", output)
+	}
+}
+
 func TestServiceInterruptProjectFiltersByShareSession(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)

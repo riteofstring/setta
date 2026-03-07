@@ -43,7 +43,8 @@ Current repo status as of 2026-03-06:
   - `sectionVariantOverrides` applied against a cloned document without mutating the active section map
   - explicit valid attached-terminal reuse
   - attached-terminal validation and creation against the planner-resolved variant when needed
-  - top-level temporary-terminal creation for non-attached generated-entry runs
+  - non-attached generated-entry reuse of existing top-level terminals when the matching PTY session is explicitly idle
+  - top-level temporary-terminal creation for non-attached generated-entry runs when no reusable session exists
   - `drawSnapshotsBySectionId` application through Go-owned binary upload, artifact writes, and draw-section state updates
   - terminal-session open/reuse plus shell-command dispatch through `internal/terminals`
   - `Started command` backend-log notifications through a Go-owned broadcaster under `internal/backendlogs`
@@ -75,10 +76,8 @@ Current repo status as of 2026-03-06:
   - `internal/projectstate/draw_snapshots.go`
 - Go now has the first IDE `runCode` route for:
   - manual code-section runs
-  - generated-entry runs with top-level temporary-terminal creation
-- free-terminal reuse for non-attached runs is still deferred and remains
-  tracked in:
-  - `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`
+  - generated-entry runs with explicit idle top-level terminal reuse plus
+    top-level temporary-terminal fallback
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
@@ -485,6 +484,10 @@ Completed:
   - terminal validation and ensure now target the planner-resolved variant instead of the active base-state variant
   - explicit valid attached terminals are reused
   - missing attached terminals are created through Go project-state mutation before dispatch
+  - generated-entry runs now reuse existing top-level terminals only when the
+    matching PTY session is provably idle
+  - generated-entry runs still create a top-level temporary terminal when there
+    is no reusable PTY session
   - terminal sessions are opened lazily through `internal/terminals`
   - planned commands use explicit executable paths resolved from the host instead of assuming `python` is on the shell PATH
   - draw snapshot payloads are uploaded through a Go-owned binary store and applied before planning the command
@@ -536,31 +539,26 @@ Blocked On:
 
 ## Open Questions
 
-- should the first Go run planner support generated Python project-entry runs immediately, or start with manual runnable code sections only?
 - does any real Go migration consumer need the `cliId` branch before detached-run work starts?
+- how much of deployment/share run policy should move with the next slice versus waiting for more share-runtime consolidation?
 
 ## Recommended Option
 
-Start with manual Python/Bash code-section runs in IDE mode before generated
-Python entry runs.
+Start Slice 4: deployment/share `runCode` policy and session-overlay behavior.
 
 Rationale:
 
-- Go currently has no codegen subsystem at all
-- manual code sections exercise the critical new boundaries without dragging in a
-  second large dependency
-- the temporary-terminal and attached-terminal behaviors can still be rebuilt
-  cleanly on top of the new run planner
+- the IDE path now covers both attached-terminal code runs and generated-entry
+  terminal selection without relying on Python heuristics
+- the remaining product gap for `runCode` is no longer terminal allocation, it
+  is deployment/share policy ownership
+- `cliId` remains lower leverage until there is a real Go-owned consumer for it
 
 ## Next Recommended Step
 
-Start the generated-entry dependency slice tracked in:
+Start Slice 4 in this doc:
 
-- `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`
-
-Immediate target:
-
-- add the minimum project-state metadata needed for first-party Python
-  generated-entry detection
-- keep plugin-codegen runs explicitly unsupported
-- defer temporary-terminal fallback until that planner path is reachable
+- add Go-owned deployment/share `allowRun` enforcement for `runCode`
+- add Go-owned `allowMultipleRuns` reservation and rollback behavior
+- plan deployment runs from session-scoped overlay state instead of the IDE
+  base-state path

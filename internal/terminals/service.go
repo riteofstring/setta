@@ -279,6 +279,27 @@ func (s *Service) Session(sessionID string) (SessionInfo, bool) {
 	return session.info(), true
 }
 
+func (s *Service) ReusableSession(sessionID string) bool {
+	if s == nil {
+		return false
+	}
+
+	session, err := s.requireSession(sessionID)
+	if err != nil {
+		return false
+	}
+
+	reusable, err := sessionIsReusable(session)
+	if err != nil {
+		s.logger.Debug("terminal reusable check failed",
+			slog.String("terminal_id", session.id),
+			slog.Any("error", err),
+		)
+		return false
+	}
+	return reusable
+}
+
 func (s *Service) List(projectID string, shareSessionID string) []SessionInfo {
 	projectID = strings.TrimSpace(projectID)
 	shareSessionID = strings.TrimSpace(shareSessionID)
