@@ -99,9 +99,12 @@ Current repo status as of 2026-03-06:
 - Go now exposes current deployment session bootstrap and expiry cleanup under:
   - `internal/httpapi/deployment_routes.go`
   - `internal/app/deployment_cleanup.go`
-- deployment share/app state + project-config transport still relies on Python,
-  because Go does not yet own a frontend-facing project-state payload for those
-  routes
+- deployment share/app state + project-config transport is now Go-owned under:
+  - `internal/httpapi/deployment_routes.go`
+  - `internal/projectview`
+  - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
+  - focused frontend verification now covers share/app bootstrap, config
+    switching, and explicit stale-session recovery against the Go routes
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
 
 ## Scope
@@ -578,12 +581,12 @@ Rationale:
 
 ## Next Recommended Step
 
-Continue with the focused deployment state-route follow-up doc:
+Return to the Phase 4 umbrella and scope the next bounded remaining gap:
 
-- `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
+- `docs/plans/go-backend-rewrite/phase-4-realtime-and-terminal-runtime.md`
 
 Immediate target:
 
-- verify share/app frontend bootstrap and config switching against the new
-  Go-owned deployment routes, then only widen backend work if a concrete
-  transport mismatch appears
+- carve a focused follow-up doc for the remaining producer-side realtime event
+  sources that still live only in Python, rather than widening `runCode`
+  further speculatively

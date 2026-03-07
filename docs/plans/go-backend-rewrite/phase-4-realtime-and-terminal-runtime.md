@@ -106,29 +106,17 @@ Current repo status as of 2026-03-06:
   - explicit session reuse/replacement in `internal/deployments`
   - PTY + realtime teardown for expired deployment sessions
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
-- deployment state/project-config transport still lives only in Python across:
-  - `backend/setta/routers/share_deployments.py`
-  - `backend/setta/routers/app_deployments.py`
-- the next dependency for that route migration is now tracked explicitly in:
-  - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
-- the first source-schema slice for that work is now in place under:
-  - `internal/projectstate`
-  - richer frontend deployment-state source fields
-  - opaque payload support for frontend-only impl/config subtrees
-- the read-projection slice for that work is now also in place under:
-  - `internal/projectview`
-  - deterministic single-config projection from deployment runtime snapshots
-  - effective frontend payload merging from base impl payload +
-    `sharedModifier` + variant modifier
-- deployment share/app state and project-config transport is now also Go-owned
-  under:
-  - `internal/httpapi/deployment_routes.go`
-  - session-overlay-backed state loads for both share and app mode
-  - deployment-relative app-spec loading for app mode wrappers
-- many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
   - `backend/setta/routers/websocket.py`
+- deployment share/app state and project-config transport is now fully Go-owned
+  under:
+  - `internal/httpapi/deployment_routes.go`
+  - `internal/projectview`
+  - session-overlay-backed state loads for both share and app mode
+  - deployment-relative app-spec loading for app mode wrappers
+  - focused frontend verification for bootstrap, config switching, and
+    stale-session recovery against the Go route error model
 
 ## Scope
 
@@ -616,10 +604,12 @@ Resolved In Slice 6:
 
 ## Next Recommended Step
 
-Follow the dedicated deployment state-route migration plan:
+Create the next focused Phase 4 follow-up plan for the remaining realtime gap:
 
-- `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
-- continue with Slice 4: verify share/app frontend bootstrap and config
-  switching against the Go-owned deployment routes
+- inventory the frontend-visible producer-side realtime event sources that are
+  still emitted only from Python
+- choose the first bounded slice that moves one concrete producer boundary into
+  `internal/realtime` / `internal/wsapi`
 - keep `appDefinition` / `appSpec` as deployment-specific wrappers around the
-  projected single-config payload unless verification shows a concrete mismatch
+  projected single-config payload; that deployment transport slice is now
+  complete

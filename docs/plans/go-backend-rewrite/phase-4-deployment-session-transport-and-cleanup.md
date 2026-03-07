@@ -44,25 +44,15 @@ Current repo status as of 2026-03-06:
   - `internal/deployments.CleanupExpiredSessions`
   - `internal/terminals.DeleteShareSession`
   - `internal/realtime.ListenerBroadcaster.DropShareSession`
-- the remaining deployment HTTP gap still depends on Python for:
-  - `GET /api/share/deployments/{deploymentName}/{version}/state`
-  - `POST /api/share/deployments/{deploymentName}/{version}/project_config`
-  - `GET /api/app/deployments/{deploymentName}/{version}/state`
-  - `POST /api/app/deployments/{deploymentName}/{version}/project_config`
-- that remaining gap is now architectural, not transport-only:
-  - the current Go project-state document is intentionally minimal and supports
-    run planning, not full frontend-facing deployment state responses
-  - faking share/app state routes from that minimal document would create a
-    dead-end compatibility layer instead of a real source of truth
-- the missing dependency is now tracked in its own focused follow-up doc:
+- Go now also owns deployment state/project-config routes under:
+  - `internal/httpapi/deployment_routes.go`
+  - session-overlay-backed share/app state loads
+  - deployment-relative app-spec loading for app mode wrappers
+- frontend verification for those Go-owned routes is now complete in the
+  focused follow-up doc:
   - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
-  - Slice 1 and Slice 2 there are now complete:
-    - richer frontend deployment-state source fields live in
-      `internal/projectstate`
-    - frontend single-config projection now lives in `internal/projectview`
-  - Slice 3 there is now also complete:
-    - share/app deployment state and project-config routes now resolve from the
-      Go deployment runtime and projector
+  - all four slices there are now complete, including the frontend transport
+    alignment work for explicit Go error envelopes
 
 ## Scope
 
@@ -266,8 +256,8 @@ Tests:
 
 ## Next Recommended Step
 
-- Implement Slice 4 from
-  `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
-  verify share/app frontend bootstrap and config switching against the new
-  Go-owned routes, and only update transport if a concrete payload mismatch is
-  discovered.
+- This focused deployment-session transport doc is complete.
+- Return to
+  `docs/plans/go-backend-rewrite/phase-4-realtime-and-terminal-runtime.md`
+  for the next bounded Phase 4 follow-up outside deployment session/state
+  transport.

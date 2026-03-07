@@ -54,9 +54,11 @@ Current repo status as of 2026-03-06:
   - `POST /api/share/deployments/{deploymentName}/{version}/project_config`
   - `GET /api/app/deployments/{deploymentName}/{version}/state`
   - `POST /api/app/deployments/{deploymentName}/{version}/project_config`
-- the remaining gap is now verification-focused:
-  - confirm share/app bootstrap and config switching against the Go routes
-  - only update frontend transport if a real payload mismatch is discovered
+- frontend verification against those Go-owned routes is now also complete:
+  - share/app current-session bootstrap and config switching are covered in the
+    frontend action layer
+  - frontend deployment retry behavior now keys off explicit Go error codes
+    instead of any `404`
 - route-local compatibility shims would create a dead-end transport layer with
   no Go-owned source of truth
 
@@ -416,6 +418,34 @@ Acceptance:
 - frontend bootstrap works against Go-owned share/app state routes
 - there is no intentional backend/frontend payload mismatch left behind
 
+Status:
+
+- complete
+
+Completed:
+
+- added focused frontend verification for:
+  - share current-session bootstrap reuse
+  - share project-config loading
+  - share stale-session recovery vs unknown-config failure handling
+  - app current-session bootstrap reuse
+  - app default deployment-state bootstrap
+  - app config switching with stale-session recovery
+- updated frontend transport to match the Go route error model:
+  - `frontend/src/utils/endpointUtils.ts` now reads Go `error.message` and
+    `error.code` envelopes
+  - deployment share/app loaders now retry only for explicit
+    `missing_share_session` / `unknown_share_session` errors instead of any
+    `404`
+- kept the adjustment thin:
+  - no backend route widening was needed
+  - Go deployment state/project-config payloads already matched the current
+    frontend bootstrap requirements once the error envelope was consumed
+
+Tests:
+
+- `pnpm -C frontend exec vitest run src/state/actions/share.test.ts src/state/actions/app.test.ts src/utils/endpointUtils.test.ts`
+
 ## Open Questions
 
 - whether the first richer `projectstate.Project` expansion should live in one
@@ -427,10 +457,8 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 4:
-  - run focused share/app frontend bootstrap verification against the Go-owned
-    deployment routes
-  - update frontend transport only if that verification exposes a real payload
-    mismatch
-  - keep backend follow-up scoped to any concrete mismatch instead of widening
-    route or runtime responsibilities speculatively
+- This focused deployment-state transport doc is complete.
+- Return to
+  `docs/plans/go-backend-rewrite/phase-4-realtime-and-terminal-runtime.md`
+  and carve the next focused Phase 4 plan around the remaining producer-side
+  realtime event sources that still live only in Python.
