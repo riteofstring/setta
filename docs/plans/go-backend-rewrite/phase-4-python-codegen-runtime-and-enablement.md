@@ -267,6 +267,12 @@ Completed Slice 3 chunk on 2026-03-06:
 - resolved extracted Python reference edges against the graph's authoritative
   full-path index in a second pass so forward references land after structural
   export completes
+- added a Go-owned Python value codec for the graph value kinds Go currently
+  emits, including live-runtime vs packaged-runtime modes, helper import
+  tracking, callable/dict/list formatting, section/param representation
+  handling, and dropzone payload parsing
+- tightened the Go graph with explicit node/dependency order slices so wrapper
+  rendering can stay deterministic instead of depending on Go map iteration
 - added focused Go coverage for:
   - callable param path generation
   - global-variables top-level param export
@@ -275,6 +281,9 @@ Completed Slice 3 chunk on 2026-03-06:
   - forward reference resolution to later-exported nodes
   - function/comprehension shadowing for `state`
   - syntax-invalid Python snippets producing no reference edges
+  - Python value codec formatting for callable args, param representations,
+    password/file helpers, section representations, dropzone payloads, and
+    multiline collections
   - MetaControl allowlist resolution from the derived control param type
 
 Recommended Slice 3 structure:
@@ -312,11 +321,12 @@ Current open gap inside Slice 3:
 
 - the Go dependency graph now owns both structural dependencies and
   parser-backed `state.<name>` reference edges
-- Go still lacks the packaged-runtime Python value codec and helper-import
-  tracker that turn dependency nodes into `setta_gen.py` expressions
-- wrapper-class rendering, metadata rendering, and composed save-hook
-  materialization should stay blocked on that codec layer instead of
-  reintroducing ad-hoc formatting paths
+- Go now owns the value codec and helper-import layer for the graph value kinds
+  it emits
+- Go still lacks the wrapper-class renderer that turns ordered dependency nodes
+  into authoritative `setta_gen.py` assignments
+- metadata rendering and composed save-hook materialization should stay blocked
+  on that renderer instead of reintroducing ad-hoc formatting paths
 
 ### Slice 4: Generated Section Sync + Route Enablement
 

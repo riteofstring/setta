@@ -74,6 +74,7 @@ type PythonDependencyNodeBase struct {
 	IsTopLevel       bool
 	Value            PythonDependencyValue
 	Deps             map[PythonDependencyKey]bool
+	DepOrder         []PythonDependencyKey
 	IncludeInCodegen bool
 }
 
@@ -143,6 +144,7 @@ func (n *PythonParamNode) TypeName() string {
 
 type PythonDependencyGraph struct {
 	Nodes             map[PythonDependencyKey]PythonDependencyNode
+	NodeOrder         []PythonDependencyKey
 	FullPathNameToKey map[string]PythonDependencyKey
 }
 
@@ -182,12 +184,13 @@ func BuildPythonDependencyGraph(
 		export: export,
 		graph: &PythonDependencyGraph{
 			Nodes:             map[PythonDependencyKey]PythonDependencyNode{},
+			NodeOrder:         nil,
 			FullPathNameToKey: map[string]PythonDependencyKey{},
 		},
 		passwordSecrets: cloneStringMap(options.PasswordSecrets),
 		potentialRefs:   map[PythonDependencyKey]map[string]struct{}{},
 	}
-	if _, err := builder.exportSections(export.TopLevelSectionIDs, true, nil); err != nil {
+	if _, _, err := builder.exportSections(export.TopLevelSectionIDs, true, nil); err != nil {
 		return nil, err
 	}
 	builder.resolvePotentialRefs()
@@ -206,19 +209,21 @@ func (b *pythonDependencyGraphBuilder) exportSections(
 	sectionIDs []string,
 	isTopLevel bool,
 	parent PythonDependencyNode,
-) (map[PythonDependencyKey]bool, error) {
+) (map[PythonDependencyKey]bool, []PythonDependencyKey, error) {
 	deps := make(map[PythonDependencyKey]bool)
+	order := make([]PythonDependencyKey, 0, len(sectionIDs))
 	for index, sectionID := range sectionIDs {
 		key, node, err := b.exportSection(sectionID, isTopLevel, parent, index)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if node == nil {
 			continue
 		}
 		deps[key] = node.HasNameAndValue()
+		order = append(order, key)
 	}
-	return deps, nil
+	return deps, order, nil
 }
 
 func (b *pythonDependencyGraphBuilder) exportSection(
@@ -255,16 +260,18 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 				IsTopLevel:       isTopLevel,
 				Value:            value,
 				Deps:             map[PythonDependencyKey]bool{},
+				DepOrder:         nil,
 				IncludeInCodegen: section.Policy.IncludeInCodegen,
 			},
 			SectionType:    section.Type,
 			Representation: section.Policy.Representation,
 		}
-		deps, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
+		deps, depOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
 		if err != nil {
 			return PythonDependencyKey{}, nil, err
 		}
 		node.Deps = deps
+		node.DepOrder = depOrder
 		b.addNode(key, node)
 		if literal, ok := value.(LiteralDependencyValue); ok {
 			if err := b.recordPotentialRefs(key, literal.Payload); err != nil {
@@ -280,20 +287,22 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 				FullPathName:     fullPathName,
 				IsTopLevel:       isTopLevel,
 				Deps:             map[PythonDependencyKey]bool{},
+				DepOrder:         nil,
 				IncludeInCodegen: section.Policy.IncludeInCodegen,
 			},
 			SectionType:    section.Type,
 			Representation: section.Policy.Representation,
 		}
-		deps, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
+		deps, depOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
 		if err != nil {
 			return PythonDependencyKey{}, nil, err
 		}
 		node.Deps = deps
+		node.DepOrder = depOrder
 		b.addNode(key, node)
 		return key, node, nil
 	case "GlobalVariables":
-		if _, err := b.exportSectionParams(section, nil, true, section.Policy.IncludeInCodegen); err != nil {
+		if _, _, err := b.exportSectionParams(section, nil, true, section.Policy.IncludeInCodegen); err != nil {
 			return PythonDependencyKey{}, nil, err
 		}
 		return key, nil, nil
@@ -316,16 +325,18 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 				FullPathName:     fullPathName,
 				IsTopLevel:       isTopLevel,
 				Deps:             map[PythonDependencyKey]bool{},
+				DepOrder:         nil,
 				IncludeInCodegen: section.Policy.IncludeInCodegen,
 			},
 			SectionType:    section.Type,
 			Representation: section.Policy.Representation,
 		}
-		deps, err := b.exportSections(children, false, node)
+		deps, depOrder, err := b.exportSections(children, false, node)
 		if err != nil {
 			return PythonDependencyKey{}, nil, err
 		}
 		node.Deps = deps
+		node.DepOrder = depOrder
 		b.addNode(key, node)
 		return key, node, nil
 	case "TextBlock":
@@ -529,10 +540,10 @@ func (b *pythonDependencyGraphBuilder) exportSectionParams(
 	parent PythonDependencyNode,
 	isTopLevel bool,
 	includeInCodegen bool,
-) (map[PythonDependencyKey]bool, error) {
+) (map[PythonDependencyKey]bool, []PythonDependencyKey, error) {
 	paramIDs, err := topLevelPythonParamIDs(section)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return b.exportParams(section, paramIDs, parent, isTopLevel, includeInCodegen)
 }
@@ -543,18 +554,20 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 	parent PythonDependencyNode,
 	isTopLevel bool,
 	includeInCodegen bool,
-) (map[PythonDependencyKey]bool, error) {
+) (map[PythonDependencyKey]bool, []PythonDependencyKey, error) {
 	deps := make(map[PythonDependencyKey]bool)
+	order := make([]PythonDependencyKey, 0, len(paramIDs))
 	for index, paramID := range paramIDs {
 		key := PythonCodeObjectDependencyKey(section.ID, paramID)
 		if existing, ok := b.graph.Nodes[key]; ok {
 			deps[key] = existing.HasNameAndValue()
+			order = append(order, key)
 			continue
 		}
 
 		codeObject, err := section.ResolveCodeObject(paramID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		node := &PythonParamNode{
 			PythonDependencyNodeBase: PythonDependencyNodeBase{
@@ -563,6 +576,7 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 				FullPathName:     b.createFullPathName(parent, index, codeObject.Name),
 				IsTopLevel:       isTopLevel,
 				Deps:             map[PythonDependencyKey]bool{},
+				DepOrder:         nil,
 				IncludeInCodegen: includeInCodegen,
 			},
 			CodeObjectType:      codeObject.Type,
@@ -574,7 +588,7 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 			node.Value = LiteralDependencyValue{Payload: codeObject.StringField("value")}
 			if literal, ok := node.Value.(LiteralDependencyValue); ok {
 				if err := b.recordPotentialRefs(key, literal.Payload); err != nil {
-					return nil, err
+					return nil, nil, err
 				}
 			}
 		}
@@ -582,20 +596,23 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 			node.HasSecret = strings.TrimSpace(b.passwordSecrets[codeObject.ImplID]) != ""
 		}
 		if len(codeObject.Children()) > 0 {
-			children, err := b.exportParams(section, codeObject.Children(), node, false, includeInCodegen)
+			children, childOrder, err := b.exportParams(section, codeObject.Children(), node, false, includeInCodegen)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			node.Deps = children
+			node.DepOrder = childOrder
 		}
 		b.addNode(key, node)
 		deps[key] = node.HasNameAndValue()
+		order = append(order, key)
 	}
-	return deps, nil
+	return deps, order, nil
 }
 
 func (b *pythonDependencyGraphBuilder) addNode(key PythonDependencyKey, node PythonDependencyNode) {
 	b.graph.Nodes[key] = node
+	b.graph.NodeOrder = append(b.graph.NodeOrder, key)
 	b.graph.FullPathNameToKey[node.Base().FullPathName] = key
 }
 
@@ -620,7 +637,7 @@ func (b *pythonDependencyGraphBuilder) resolvePotentialRefs() {
 		if !ok {
 			continue
 		}
-		for ref := range refs {
+		for _, ref := range sortedStringKeys(refs) {
 			targetKey, ok := b.graph.FullPathNameToKey[ref]
 			if !ok {
 				continue
@@ -628,6 +645,9 @@ func (b *pythonDependencyGraphBuilder) resolvePotentialRefs() {
 			targetNode, ok := b.graph.Nodes[targetKey]
 			if !ok {
 				continue
+			}
+			if _, exists := node.Base().Deps[targetKey]; !exists {
+				node.Base().DepOrder = append(node.Base().DepOrder, targetKey)
 			}
 			node.Base().Deps[targetKey] = targetNode.HasNameAndValue()
 		}

@@ -129,6 +129,15 @@ func TestBuildPythonDependencyGraphCallableSectionExportsParamsAndUniquePaths(t 
 	if len(sectionNode.Deps) != 2 {
 		t.Fatalf("expected two callable deps, got %#v", sectionNode.Deps)
 	}
+	if len(sectionNode.DepOrder) != 2 {
+		t.Fatalf("expected two ordered callable deps, got %#v", sectionNode.DepOrder)
+	}
+	if sectionNode.DepOrder[0] != PythonCodeObjectDependencyKey("section-1", "param-1") {
+		t.Fatalf("unexpected first callable dep order %#v", sectionNode.DepOrder)
+	}
+	if sectionNode.DepOrder[1] != PythonCodeObjectDependencyKey("section-1", "param-2") {
+		t.Fatalf("unexpected second callable dep order %#v", sectionNode.DepOrder)
+	}
 
 	param1 := mustParamNode(t, graph, PythonCodeObjectDependencyKey("section-1", "param-1"))
 	if param1.FullPathName != "Run_Section__value" {
@@ -151,6 +160,18 @@ func TestBuildPythonDependencyGraphCallableSectionExportsParamsAndUniquePaths(t 
 	}
 	if _, ok := graph.FullPathNameToKey["Run_Section__value_2"]; !ok {
 		t.Fatal("expected second param path to be indexed")
+	}
+	if len(graph.NodeOrder) != 3 {
+		t.Fatalf("expected deterministic node order for section and params, got %#v", graph.NodeOrder)
+	}
+	if graph.NodeOrder[0] != PythonCodeObjectDependencyKey("section-1", "param-1") {
+		t.Fatalf("unexpected first node order %#v", graph.NodeOrder)
+	}
+	if graph.NodeOrder[1] != PythonCodeObjectDependencyKey("section-1", "param-2") {
+		t.Fatalf("unexpected second node order %#v", graph.NodeOrder)
+	}
+	if graph.NodeOrder[2] != PythonSectionDependencyKey("section-1") {
+		t.Fatalf("unexpected third node order %#v", graph.NodeOrder)
 	}
 }
 
