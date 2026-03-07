@@ -26,11 +26,13 @@ Use the docs in this order:
    - focused current-work plan for remaining terminal run-code migration
 11. `phase-4-generated-entry-runs-and-temp-terminals.md`
    - focused current-work plan for generated-entry run support and temporary-terminal fallback
-12. `spike-mcp.md`
+12. `phase-4-deployment-run-code-policy-and-session-overlays.md`
+   - focused current-work plan for deployment/share run-code policy and session runtime foundations
+13. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-13. `spike-pty.md`
+14. `spike-pty.md`
    - PTY uncertainty-reduction plan
-14. `spike-lsp.md`
+15. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

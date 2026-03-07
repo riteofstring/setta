@@ -12,6 +12,8 @@ Remaining run-code follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`.
 Generated-entry and temporary-terminal follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-generated-entry-runs-and-temp-terminals.md`.
+Deployment/share run-code follow-up work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-deployment-run-code-policy-and-session-overlays.md`.
 
 This phase should rebuild the product semantics described by the Python docs and
 tests without copying the Python websocket manager or terminal manager shapes.

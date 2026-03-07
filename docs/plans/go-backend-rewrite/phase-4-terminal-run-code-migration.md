@@ -78,8 +78,15 @@ Current repo status as of 2026-03-06:
   - manual code-section runs
   - generated-entry runs with explicit idle top-level terminal reuse plus
     top-level temporary-terminal fallback
+- Go now includes deployment `runCode` groundwork under:
+  - `internal/deployments`
+  - deployment manifest/policy loading
+  - deployment-mode base runtime loading from deployment `project.json`
+  - session overlay ownership
+  - share-session run-count reservation and rollback primitives
 - Go does not yet have a `cliId` output transport equivalent
-- Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
+- Go does not yet wire that deployment source of truth into app startup,
+  session transport, or the `runCode` route
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
 
 ## Scope
@@ -556,9 +563,11 @@ Rationale:
 
 ## Next Recommended Step
 
-Start Slice 4 in this doc:
+Start the focused deployment/share follow-up doc:
 
-- add Go-owned deployment/share `allowRun` enforcement for `runCode`
-- add Go-owned `allowMultipleRuns` reservation and rollback behavior
-- plan deployment runs from session-scoped overlay state instead of the IDE
-  base-state path
+- `docs/plans/go-backend-rewrite/phase-4-deployment-run-code-policy-and-session-overlays.md`
+
+Immediate target:
+
+- wire the deployment runtime foundation into share/app startup and request
+  handling
