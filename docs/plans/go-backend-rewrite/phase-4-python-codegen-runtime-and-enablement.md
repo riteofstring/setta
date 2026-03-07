@@ -226,6 +226,55 @@ Acceptance:
 - persisted project-state saves regenerate authoritative first-party Python
   outputs in Go
 
+Status:
+
+- pending
+
+Slice 3 inventory as of 2026-03-06:
+
+- Python currently layers codegen as:
+  - dependency graph export
+  - value codec / helper import tracking
+  - wrapper-class code renderer
+  - metadata renderer
+  - project-manager file writes and generated-section sync
+- The new Go export surface replaces only the first raw-project-state boundary.
+  It does not yet provide the dependency-node graph that the current Python
+  renderer and metadata builder consume.
+- The save hook in Go is already the correct integration point, but it is
+  currently wired only to plugin materialization in `internal/app/app.go`.
+
+Recommended Slice 3 structure:
+
+- keep the renderer/materializer under `internal/codegen`
+- add a Go dependency-node layer derived from
+  `projectstate.PythonCodegenExport`
+- port the packaged-runtime value codec semantics next
+  - helper import tracking
+  - callable arg formatting
+  - dict/list multiline formatting
+  - section/code-object representation handling
+  - password/file/binary helper expression generation
+- port the wrapper-class renderer and metadata assignment block after the value
+  codec exists
+- port metadata rendering as a sibling renderer over the same dependency-node
+  graph
+- add a composed after-save materialization hook so plugin and first-party
+  Python outputs run from one authoritative save path
+
+Recommended option:
+
+- do not render directly from the export surface
+
+Rationale:
+
+- the Python runtime already separates dependency-node construction from string
+  rendering
+- metadata generation and code generation both depend on the same node graph
+- direct rendering from section payloads would duplicate traversal and naming
+  logic, then force a second rewrite when metadata and temp-edit position
+  tracking land
+
 ### Slice 4: Generated Section Sync + Route Enablement
 
 Deliver:
@@ -266,8 +315,11 @@ Acceptance:
 ## Next Recommended Step
 
 - Start Slice 3 from this doc:
-  - build the Go-native renderer/materializer for `setta_gen.py`
-  - build the Go-native renderer/materializer for `setta_gen_meta.py`
-  - integrate that materializer into the authoritative save hook
+  - add the Go dependency-node graph over `projectstate.PythonCodegenExport`
+  - port the packaged-runtime Python value codec and wrapper-class renderer for
+    `setta_gen.py`
+  - port the metadata renderer for `setta_gen_meta.py`
+  - integrate the resulting Python materializer into the authoritative save
+    hook alongside plugin materialization
 - Keep Python target enablement/edit support blocked until at least Slice 3
   exists.
