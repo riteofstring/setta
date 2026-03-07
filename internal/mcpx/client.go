@@ -866,6 +866,7 @@ func parseToolMetadata(toolName string, meta sdkmcp.Meta) (*tools.Metadata, erro
 		Kind:                          tools.Kind(readOptionalString(payload, "toolKind")),
 		AccessType:                    tools.AccessType(readOptionalString(payload, "accessType")),
 		DefaultTargetSingletonSection: readOptionalString(payload, "defaultTargetSingletonSection"),
+		ResultFilter:                  tools.ResultFilter(readOptionalString(payload, "resultFilter")),
 		SearchTags:                    parseStringList(payload["searchTags"]),
 		SearchCategory:                readOptionalString(payload, "searchCategory"),
 		IDPathsByType:                 parseIDPathsByType(payload["idPathsByType"]),
@@ -1049,6 +1050,7 @@ func cloneMetadataPtr(metadata *tools.Metadata) *tools.Metadata {
 		AccessType:                    metadata.AccessType,
 		IDPathsByType:                 clonedPaths,
 		DefaultTargetSingletonSection: metadata.DefaultTargetSingletonSection,
+		ResultFilter:                  metadata.ResultFilter,
 		SearchTags:                    append([]string(nil), metadata.SearchTags...),
 		SearchCategory:                metadata.SearchCategory,
 	}

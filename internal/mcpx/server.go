@@ -3,6 +3,7 @@ package mcpx
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -10,9 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/statefs"
 	"setta/internal/tools"
 )
@@ -24,16 +28,20 @@ const (
 )
 
 type Server struct {
-	logger   *slog.Logger
-	registry *tools.Registry
-	server   *sdkmcp.Server
-	handler  http.Handler
+	logger               *slog.Logger
+	registry             *tools.Registry
+	projectState         projectStateSnapshotProvider
+	server               *sdkmcp.Server
+	handler              http.Handler
+	agenticContextMu     sync.RWMutex
+	agenticContextBySess map[string]AgenticContext
 }
 
 type ServerOptions struct {
 	Logger        *slog.Logger
 	Registry      *tools.Registry
 	WorkspaceRoot string
+	ProjectState  projectStateSnapshotProvider
 }
 
 type toolDefinition struct {
@@ -42,8 +50,16 @@ type toolDefinition struct {
 	OutputSchema map[string]any
 }
 
+type projectStateSnapshotProvider interface {
+	Snapshot() projectstate.Snapshot
+}
+
 type listMCPToolsResult struct {
 	Tools []string `json:"tools"`
+}
+
+type setAgenticContextResult struct {
+	Status string `json:"status"`
 }
 
 type readFileRangeResult struct {
@@ -56,13 +72,20 @@ type readFileRangeResult struct {
 }
 
 type toolErrorResult struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Data    map[string]any `json:"data,omitempty"`
 }
 
 type toolError struct {
 	code    string
 	message string
+	data    map[string]any
+}
+
+var unscopedToolNames = map[string]struct{}{
+	"list_mcp_tools":      {},
+	"set_agentic_context": {},
 }
 
 func (e *toolError) Error() string {
@@ -87,12 +110,14 @@ func NewServer(opts ServerOptions) (*Server, error) {
 	})
 
 	instance := &Server{
-		logger:   opts.Logger,
-		registry: registry,
-		server:   server,
+		logger:               opts.Logger,
+		registry:             registry,
+		projectState:         opts.ProjectState,
+		server:               server,
+		agenticContextBySess: map[string]AgenticContext{},
 	}
 
-	for _, definition := range defaultToolDefinitions(workspaceRoot, registry) {
+	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
 			return nil, err
@@ -133,22 +158,230 @@ func (s *Server) addTool(registered tools.Registered, inputSchema map[string]any
 		if err != nil {
 			return buildToolErrorResult(err), nil
 		}
-
-		result, err := registered.Handler(ctx, arguments)
-		if err != nil {
-			return buildToolErrorResult(err), nil
-		}
-
-		callResult, err := buildToolSuccessResult(result)
-		if err != nil {
-			return buildToolErrorResult(err), nil
-		}
-		return callResult, nil
+		return s.invokeRegisteredTool(ctx, registered, arguments, requestContextFromSDK(req)), nil
 	})
 }
 
-func defaultToolDefinitions(workspaceRoot string, registry *tools.Registry) []toolDefinition {
-	return []toolDefinition{
+func (s *Server) InvokeTool(ctx context.Context, toolName string, arguments map[string]any, requestContext ToolRequestContext) (*sdkmcp.CallToolResult, error) {
+	if s == nil {
+		return nil, fmt.Errorf("mcpx: server is required")
+	}
+	registered, ok := s.registry.Lookup(toolName)
+	if !ok {
+		return nil, fmt.Errorf("mcpx: unknown tool %q", toolName)
+	}
+	return s.invokeRegisteredTool(ctx, registered, arguments, requestContext), nil
+}
+
+func (s *Server) invokeRegisteredTool(ctx context.Context, registered tools.Registered, arguments map[string]any, requestContext ToolRequestContext) *sdkmcp.CallToolResult {
+	if arguments == nil {
+		arguments = map[string]any{}
+	}
+
+	invocation := ToolInvocationContext{
+		SessionKey: requestContext.SessionKey,
+	}
+	if !isUnscopedToolName(registered.Name) {
+		resolvedAgenticContext, scope, projectView, err := s.resolveScopedInvocationContext(registered.Name, registered.Metadata, requestContext)
+		if err != nil {
+			return buildToolErrorResult(err)
+		}
+		invocation.AgenticContext = resolvedAgenticContext
+		invocation.Scope = scope
+		invocation.ProjectView = projectView
+	}
+
+	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), arguments)
+	if err != nil {
+		return buildToolErrorResult(err)
+	}
+
+	callResult, err := buildToolSuccessResult(result)
+	if err != nil {
+		return buildToolErrorResult(err)
+	}
+	return callResult
+}
+
+func (s *Server) resolveScopedInvocationContext(toolName string, metadata tools.Metadata, requestContext ToolRequestContext) (*AgenticContext, *AgenticScope, *projectview.SingleConfig, error) {
+	sessionAgenticContext := s.sessionAgenticContext(requestContext.SessionKey)
+	resolvedAgenticContext, err := resolveAgenticContext(requestContext, sessionAgenticContext)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if resolvedAgenticContext == nil || strings.TrimSpace(resolvedAgenticContext.ProjectConfigID) == "" {
+		return nil, nil, nil, buildScopeViolationError(toolName, "missing_context", nil, nil)
+	}
+	if strings.TrimSpace(resolvedAgenticContext.SectionID) == "" && !resolvedAgenticContext.AllowUnscoped {
+		return nil, nil, nil, buildScopeViolationError(toolName, "missing_section_id", nil, nil)
+	}
+
+	projectView, err := s.loadProjectView(resolvedAgenticContext.ProjectConfigID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	scope, err := resolveAgenticScope(projectView, resolvedAgenticContext.SectionID, resolvedAgenticContext.AllowUnscoped)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	scopeCheck := checkAgenticScope(metadata, scope)
+	if !scopeCheck.Allowed {
+		return nil, nil, nil, buildScopeViolationError(toolName, scopeCheck.Reason, scopeCheck.BlockedSectionIDs, scopeCheck.TargetSectionIDs)
+	}
+	return resolvedAgenticContext, &scope, &projectView, nil
+}
+
+func (s *Server) loadProjectView(projectConfigID string) (projectview.SingleConfig, error) {
+	if s == nil || s.projectState == nil {
+		return projectview.SingleConfig{}, newToolError("internal_error", "Project state runtime is unavailable.")
+	}
+	snapshot := s.projectState.Snapshot()
+	projectView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectConfigID)
+	if err != nil {
+		if errors.Is(err, projectstate.ErrProjectNotFound) {
+			return projectview.SingleConfig{}, newToolError(projectNotFoundErrorCode, "Project config %q was not found.", projectConfigID)
+		}
+		return projectview.SingleConfig{}, err
+	}
+	return projectView, nil
+}
+
+func (s *Server) newSetAgenticContextHandler() tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		chatID, err := readOptionalStringArgument(arguments, "chatId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readOptionalStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		frontendAffinityToken, err := readOptionalNonBlankStringArgument(arguments, "frontendAffinityToken")
+		if err != nil {
+			return nil, err
+		}
+		allowUnscoped, err := readOptionalBoolArgument(arguments, "allowUnscoped")
+		if err != nil {
+			return nil, err
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || strings.TrimSpace(invocation.SessionKey) == "" {
+			return nil, newToolError("internal_error", "Unable to resolve MCP session for agentic context.")
+		}
+		if sectionID == "" && !allowUnscoped {
+			return nil, buildScopeViolationError("set_agentic_context", "missing_section_id", nil, nil)
+		}
+
+		s.setSessionAgenticContext(invocation.SessionKey, AgenticContext{
+			ProjectConfigID:       projectConfigID,
+			ChatID:                chatID,
+			SectionID:             sectionID,
+			FrontendAffinityToken: frontendAffinityToken,
+			AllowUnscoped:         allowUnscoped,
+		})
+		return setAgenticContextResult{Status: "ok"}, nil
+	}
+}
+
+func newProjectStateSummaryHandler() tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped project summary invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+		return buildProjectStateSummary(*invocation.ProjectView, invocation.Scope.effectiveReadSectionIDs()), nil
+	}
+}
+
+func (s *Server) sessionAgenticContext(sessionKey string) *AgenticContext {
+	if s == nil || strings.TrimSpace(sessionKey) == "" {
+		return nil
+	}
+	s.agenticContextMu.RLock()
+	defer s.agenticContextMu.RUnlock()
+	value, ok := s.agenticContextBySess[sessionKey]
+	if !ok {
+		return nil
+	}
+	cloned := value
+	return &cloned
+}
+
+func (s *Server) setSessionAgenticContext(sessionKey string, value AgenticContext) {
+	if s == nil || strings.TrimSpace(sessionKey) == "" {
+		return
+	}
+	s.agenticContextMu.Lock()
+	defer s.agenticContextMu.Unlock()
+	s.agenticContextBySess[sessionKey] = value
+}
+
+func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tools.Registry, projectState projectStateSnapshotProvider) []toolDefinition {
+	definitions := []toolDefinition{
+		{
+			Spec: tools.Spec{
+				Name:        "set_agentic_context",
+				Description: "Persist agentic context for the current MCP session.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindInit,
+					AccessType: tools.AccessTypeRead,
+				},
+				Handler: server.newSetAgenticContextHandler(),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Canonical project config id for the scoped tool session.",
+					},
+					"chatId": map[string]any{
+						"type":        "string",
+						"description": "Optional chat id associated with the scoped tool session.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Chat section id for scoped tool access.",
+					},
+					"frontendAffinityToken": map[string]any{
+						"type":        "string",
+						"description": "Optional frontend-affinity token for reveal-capable tools.",
+					},
+					"allowUnscoped": map[string]any{
+						"type":        "boolean",
+						"description": "Allow project-level unscoped access when true.",
+					},
+				},
+				"required": []string{"projectConfigId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		},
 		{
 			Spec: tools.Spec{
 				Name:        "list_mcp_tools",
@@ -183,69 +416,102 @@ func defaultToolDefinitions(workspaceRoot string, registry *tools.Registry) []to
 				"required": []string{"tools"},
 			},
 		},
-		{
+	}
+
+	if projectState != nil {
+		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
-				Name:        "read_file_range",
-				Description: "Return the requested line range from a UTF-8 text file.",
+				Name:        "get_latest_project_state_summary",
+				Description: "Return a filtered project-state summary for the requested project config.",
 				Metadata: tools.Metadata{
-					Kind:           tools.KindDiscoverable,
+					Kind:           tools.KindInit,
 					AccessType:     tools.AccessTypeRead,
-					SearchCategory: "files",
-					SearchTags:     []string{"file", "read", "lines", "workspace"},
+					ResultFilter:   tools.ResultFilterProjectStateSummary,
+					SearchCategory: "project",
+					SearchTags:     []string{"project", "summary", "state", "sections"},
 				},
-				Handler: newReadFileRangeHandler(workspaceRoot),
+				Handler: newProjectStateSummaryHandler(),
 			},
 			InputSchema: map[string]any{
 				"type": "object",
 				"properties": map[string]any{
-					"path": map[string]any{
+					"projectConfigId": map[string]any{
 						"type":        "string",
-						"description": "Workspace-relative file path to read.",
-					},
-					"start_line": map[string]any{
-						"type":        "integer",
-						"description": "First line number to include.",
-					},
-					"end_line": map[string]any{
-						"type":        "integer",
-						"description": "Last line number to include.",
+						"description": "Canonical project config id to summarize.",
 					},
 				},
-				"required": []string{"path"},
+				"required": []string{"projectConfigId"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
-				"properties": map[string]any{
-					"path": map[string]any{
-						"type": "string",
-					},
-					"absolute_path": map[string]any{
-						"type": "string",
-					},
-					"start_line": map[string]any{
-						"type": "integer",
-					},
-					"end_line": map[string]any{
-						"type": "integer",
-					},
-					"encoding": map[string]any{
-						"type": "string",
-					},
-					"content": map[string]any{
-						"type": "string",
-					},
+			},
+		})
+	}
+
+	definitions = append(definitions, toolDefinition{
+		Spec: tools.Spec{
+			Name:        "read_file_range",
+			Description: "Return the requested line range from a UTF-8 text file.",
+			Metadata: tools.Metadata{
+				Kind:           tools.KindDiscoverable,
+				AccessType:     tools.AccessTypeRead,
+				SearchCategory: "files",
+				SearchTags:     []string{"file", "read", "lines", "workspace"},
+			},
+			Handler: newReadFileRangeHandler(workspaceRoot),
+		},
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path": map[string]any{
+					"type":        "string",
+					"description": "Workspace-relative file path to read.",
 				},
-				"required": []string{
-					"path",
-					"absolute_path",
-					"start_line",
-					"end_line",
-					"encoding",
-					"content",
+				"start_line": map[string]any{
+					"type":        "integer",
+					"description": "First line number to include.",
+				},
+				"end_line": map[string]any{
+					"type":        "integer",
+					"description": "Last line number to include.",
 				},
 			},
+			"required": []string{"path"},
 		},
-	}
+		OutputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"path": map[string]any{
+					"type": "string",
+				},
+				"absolute_path": map[string]any{
+					"type": "string",
+				},
+				"start_line": map[string]any{
+					"type": "integer",
+				},
+				"end_line": map[string]any{
+					"type": "integer",
+				},
+				"encoding": map[string]any{
+					"type": "string",
+				},
+				"content": map[string]any{
+					"type": "string",
+				},
+			},
+			"required": []string{
+				"path",
+				"absolute_path",
+				"start_line",
+				"end_line",
+				"encoding",
+				"content",
+			},
+		},
+	})
+
+	return definitions
 }
 
 func newReadFileRangeHandler(workspaceRoot string) tools.Handler {
@@ -351,6 +617,41 @@ func readRequiredStringArgument(arguments map[string]any, key string) (string, e
 	return value, nil
 }
 
+func readOptionalStringArgument(arguments map[string]any, key string) (string, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return "", nil
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return "", newToolError("invalid_arguments", "%s must be a string", key)
+	}
+	return strings.TrimSpace(value), nil
+}
+
+func readOptionalNonBlankStringArgument(arguments map[string]any, key string) (string, error) {
+	value, err := readOptionalStringArgument(arguments, key)
+	if err != nil {
+		return "", err
+	}
+	if _, ok := arguments[key]; ok && strings.TrimSpace(value) == "" {
+		return "", newToolError("invalid_arguments", "%s must be a non-empty string when provided", key)
+	}
+	return value, nil
+}
+
+func readOptionalBoolArgument(arguments map[string]any, key string) (bool, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return false, nil
+	}
+	value, ok := rawValue.(bool)
+	if !ok {
+		return false, newToolError("invalid_arguments", "%s must be a boolean", key)
+	}
+	return value, nil
+}
+
 func readOptionalPositiveIntArgument(arguments map[string]any, key string) (*int, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -424,8 +725,17 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 	if ok := asToolError(err, &typed); ok {
 		result.Code = typed.code
 		result.Message = typed.message
+		result.Data = copyMetaMap(typed.data)
 	} else if err != nil {
 		result.Message = err.Error()
+	}
+
+	structuredContent := map[string]any{
+		"code":    result.Code,
+		"message": result.Message,
+	}
+	for key, value := range result.Data {
+		structuredContent[key] = value
 	}
 
 	return &sdkmcp.CallToolResult{
@@ -433,10 +743,7 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 		Content: []sdkmcp.Content{
 			&sdkmcp.TextContent{Text: result.Message},
 		},
-		StructuredContent: map[string]any{
-			"code":    result.Code,
-			"message": result.Message,
-		},
+		StructuredContent: structuredContent,
 	}
 }
 
@@ -469,6 +776,9 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 	if metadata.DefaultTargetSingletonSection != "" {
 		payload["defaultTargetSingletonSection"] = metadata.DefaultTargetSingletonSection
 	}
+	if metadata.ResultFilter != "" {
+		payload["resultFilter"] = string(metadata.ResultFilter)
+	}
 
 	return sdkmcp.Meta{
 		toolMetaNamespace: payload,
@@ -476,9 +786,14 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 }
 
 func newToolError(code string, format string, args ...any) error {
+	return newToolErrorWithData(code, format, nil, args...)
+}
+
+func newToolErrorWithData(code string, format string, data map[string]any, args ...any) error {
 	return &toolError{
 		code:    code,
 		message: fmt.Sprintf(format, args...),
+		data:    data,
 	}
 }
 
@@ -492,4 +807,9 @@ func asToolError(err error, target **toolError) bool {
 	}
 	*target = typed
 	return true
+}
+
+func isUnscopedToolName(toolName string) bool {
+	_, ok := unscopedToolNames[toolName]
+	return ok
 }

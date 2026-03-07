@@ -141,6 +141,7 @@ func cloneMetadata(metadata Metadata) Metadata {
 		AccessType:                    metadata.AccessType,
 		IDPathsByType:                 clonedPaths,
 		DefaultTargetSingletonSection: metadata.DefaultTargetSingletonSection,
+		ResultFilter:                  metadata.ResultFilter,
 		SearchTags:                    append([]string(nil), metadata.SearchTags...),
 		SearchCategory:                metadata.SearchCategory,
 	}

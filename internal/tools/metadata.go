@@ -29,20 +29,29 @@ const (
 	IDTypeCodeObject IDType = "codeObj"
 )
 
+type ResultFilter string
+
+const (
+	ResultFilterProjectStateSummary ResultFilter = "project_state_summary"
+	ResultFilterLSPDiagnostics      ResultFilter = "lsp_diagnostics"
+)
+
 type Metadata struct {
 	Kind                          Kind
 	AccessType                    AccessType
 	IDPathsByType                 map[IDType][]string
 	DefaultTargetSingletonSection string
+	ResultFilter                  ResultFilter
 	SearchTags                    []string
 	SearchCategory                string
 }
 
 var (
-	ErrToolKindRequired      = fmt.Errorf("tools: tool kind is required")
-	ErrToolKindInvalid       = fmt.Errorf("tools: tool kind is invalid")
-	ErrToolAccessTypeInvalid = fmt.Errorf("tools: tool access type is invalid")
-	ErrToolIDTypeInvalid     = fmt.Errorf("tools: tool id type is invalid")
+	ErrToolKindRequired        = fmt.Errorf("tools: tool kind is required")
+	ErrToolKindInvalid         = fmt.Errorf("tools: tool kind is invalid")
+	ErrToolAccessTypeInvalid   = fmt.Errorf("tools: tool access type is invalid")
+	ErrToolIDTypeInvalid       = fmt.Errorf("tools: tool id type is invalid")
+	ErrToolResultFilterInvalid = fmt.Errorf("tools: tool result filter is invalid")
 )
 
 var camelSplitPattern = regexp.MustCompile(`([a-z0-9])([A-Z])`)
@@ -135,6 +144,10 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 	if err != nil {
 		return Metadata{}, err
 	}
+	normalizedResultFilter, err := normalizeResultFilter(m.ResultFilter)
+	if err != nil {
+		return Metadata{}, err
+	}
 
 	idPathsByType := make(map[IDType][]string, len(m.IDPathsByType))
 	for rawIDType, paths := range m.IDPathsByType {
@@ -156,6 +169,7 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		AccessType:                    normalizedAccessType,
 		IDPathsByType:                 idPathsByType,
 		DefaultTargetSingletonSection: strings.TrimSpace(m.DefaultTargetSingletonSection),
+		ResultFilter:                  normalizedResultFilter,
 		SearchTags:                    searchTags,
 		SearchCategory:                searchCategory,
 	}, nil
@@ -254,6 +268,19 @@ func normalizeIDType(idType IDType) (IDType, error) {
 		return IDTypeCodeObject, nil
 	default:
 		return "", fmt.Errorf("%w: %q", ErrToolIDTypeInvalid, idType)
+	}
+}
+
+func normalizeResultFilter(resultFilter ResultFilter) (ResultFilter, error) {
+	switch ResultFilter(strings.ToLower(strings.TrimSpace(string(resultFilter)))) {
+	case "":
+		return "", nil
+	case ResultFilterProjectStateSummary:
+		return ResultFilterProjectStateSummary, nil
+	case ResultFilterLSPDiagnostics:
+		return ResultFilterLSPDiagnostics, nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrToolResultFilterInvalid, resultFilter)
 	}
 }
 

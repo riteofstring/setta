@@ -114,9 +114,10 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 	if _, err := registry.Register(Spec{
 		Name: "getProjectStateSummary",
 		Metadata: Metadata{
-			Kind:       KindDiscoverable,
-			AccessType: AccessTypeRead,
-			SearchTags: []string{"project"},
+			Kind:         KindDiscoverable,
+			AccessType:   AccessTypeRead,
+			ResultFilter: ResultFilterProjectStateSummary,
+			SearchTags:   []string{"project"},
 		},
 		Handler: func(context.Context, map[string]any) (any, error) {
 			return nil, nil
@@ -137,5 +138,8 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 	}
 	if second.Metadata.SearchTags[0] != "project" {
 		t.Fatalf("expected cloned search tags, got %#v", second.Metadata.SearchTags)
+	}
+	if second.Metadata.ResultFilter != ResultFilterProjectStateSummary {
+		t.Fatalf("expected cloned result filter, got %q", second.Metadata.ResultFilter)
 	}
 }
