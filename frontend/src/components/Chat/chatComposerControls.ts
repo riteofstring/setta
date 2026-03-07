@@ -385,22 +385,11 @@ export function normalizeSlashCommandToken(
 }
 
 export function buildCustomPromptSlashCommandDefinitions(
-  customCommands: Array<
-    { command: unknown; prompt: unknown } | null | undefined
-  >,
+  customCommands: Array<{ command: string; prompt: string }>,
 ): ChatSlashCommandDefinition[] {
   const normalized: ChatSlashCommandDefinition[] = [];
   const seen = new Set<string>();
   for (const customCommand of customCommands) {
-    if (!customCommand || typeof customCommand !== "object") {
-      continue;
-    }
-    if (typeof customCommand.command !== "string") {
-      continue;
-    }
-    if (typeof customCommand.prompt !== "string") {
-      continue;
-    }
     const normalizedCommand = normalizeSlashCommandToken(customCommand.command);
     if (!normalizedCommand || seen.has(normalizedCommand)) {
       continue;

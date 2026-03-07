@@ -160,7 +160,7 @@ function TabsVisible({
       data-testid="ui-editor-tab-content-shell"
       className="mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
     >
-      <h2 className="mb-1 cursor-pointer select-none pl-4 text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+      <h2 className="mb-1 pl-4 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
       <TabContent sectionId={sectionId} selectedTabName={selectedTabName} />

@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
 import {
@@ -30,6 +30,7 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -43,7 +44,6 @@ import { useTabScope } from "utils/focusManager";
 import {
   onOverviewResizeStop,
   onOverviewTabClick,
-  openOverviewTab,
   TabButton,
 } from "../paneFns";
 import { getPaneMinimumWidth } from "../paneLayout";
@@ -53,6 +53,7 @@ import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
+import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
@@ -92,6 +93,7 @@ export function Overview() {
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
+  const showMoreAppTab = showAppTab;
   let effectiveTabName = selectedTabName;
   const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
   const selectedTabIsPluginPane =
@@ -100,9 +102,18 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Plugins;
   }
   if (!showLLMTabs) {
-    if (selectedTabName === OverviewTabNameEnum.ProjectAIChat) {
+    if (
+      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
+      selectedTabName === OverviewTabNameEnum.ProjectAISettings
+    ) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
+  }
+  if (
+    showLLMTabs &&
+    selectedTabName === OverviewTabNameEnum.ProjectAISettings
+  ) {
+    effectiveTabName = OverviewTabNameEnum.ProjectAIChat;
   }
   if (
     !showFileBrowserTab &&
@@ -204,15 +215,6 @@ export function Overview() {
             icon={<IoMdGitBranch size={18} />}
           />
         )}
-        {showWatchCodeTab && (
-          <TabButton<OverviewTabKey>
-            tabName={OverviewTabNameEnum.WatchCode}
-            {...commonProps}
-            data-testid="overview-tab-watch-code"
-            {...getFloatingBoxHandlers({ content: "Watch Code" })}
-            icon={<RiRadarLine size={18} />}
-          />
-        )}
         <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
@@ -250,19 +252,17 @@ export function Overview() {
           >
             <MenuItem
               className={moreMenuItemClasses}
-              onClick={() =>
-                openOverviewTab(OverviewTabNameEnum.RunInstructions)
-              }
+              onClick={() => onOverviewTabClick(OverviewTabNameEnum.RunInstructions)}
             >
               <i className="w-3 opacity-80">
                 <RiPlayList2Fill />
               </i>
               <span className="ml-0.5">Custom Runs</span>
             </MenuItem>
-            {showAppTab ? (
+            {showMoreAppTab ? (
               <MenuItem
                 className={moreMenuItemClasses}
-                onClick={() => openOverviewTab(OverviewTabNameEnum.App)}
+                onClick={() => onOverviewTabClick(OverviewTabNameEnum.App)}
               >
                 <i className="w-3 opacity-80">
                   <TbLayoutDashboard />
@@ -272,7 +272,7 @@ export function Overview() {
             ) : null}
             <MenuItem
               className={moreMenuItemClasses}
-              onClick={() => openOverviewTab(OverviewTabNameEnum.Plugins)}
+              onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
             >
               <i className="w-3 opacity-80">
                 <MdExtension />
@@ -441,8 +441,16 @@ function TabContent({
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
+    case OverviewTabNameEnum.BackendLogs:
+      return (
+        <NotificationsArea
+          initialTab={OverviewNotificationsPaneTabEnum.BackendLogs}
+        />
+      );
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
+    case OverviewTabNameEnum.ProjectAISettings:
+      return <ProjectAISettings />;
     default:
       return <ProjectOverview />;
   }

@@ -1,7 +1,7 @@
 import codecs
 import os
-import re
 from pathlib import Path
+import re
 
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -32,8 +32,6 @@ class AppGenSkillEntry(BaseModel):
     rootPath: str
     relativePath: str
     description: str = Field(default="")
-    editable: bool = False
-    editBlockedReason: str | None = None
 
 
 class GetAppGenSkillContentRequest(BaseModel):
@@ -58,8 +56,6 @@ class UpsertAppGenCustomSkillResponse(BaseModel):
     created: bool
     rootPath: str
     skillDocPath: str
-    editable: bool
-    editBlockedReason: str | None
 
 
 def _extract_skill_description(skill_doc: Path) -> str:
@@ -111,13 +107,12 @@ def _resolve_skill_doc_path_from_id(
     relative = relative_path.strip()
     if relative in ("", "."):
         skill_dir = resolved_root_path
+        normalized_relative_path = "."
     else:
         skill_dir = (resolved_root_path / relative).resolve(strict=False)
+        normalized_relative_path = relative
     if not skill_dir.is_relative_to(resolved_root_path):
         raise ValueError("Invalid skill path.")
-    normalized_relative_path = skill_dir.relative_to(resolved_root_path).as_posix()
-    if normalized_relative_path == "":
-        normalized_relative_path = "."
     return (
         root_id,
         root_label,
@@ -127,109 +122,29 @@ def _resolve_skill_doc_path_from_id(
     )
 
 
-def _validate_custom_skill_root_for_writes(root_path: Path) -> str | None:
-    try:
-        root_path.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        return str(exc)
-    try:
-        root_is_dir = root_path.is_dir()
-    except OSError as exc:
-        return str(exc)
-    if not root_is_dir:
-        return f"Not a directory: {root_path}"
-    if not os.access(root_path, os.W_OK | os.X_OK):
-        return f"Permission denied: {root_path}"
-    return None
-
-
-def _resolve_custom_skill_root_candidates(
+def _resolve_default_custom_skill_root(
     workspace_root: Path,
-) -> dict[str, tuple[str, Path]]:
+) -> tuple[str, str, Path]:
     roots = list(iter_skill_roots(workspace_root))
     roots_by_id: dict[str, tuple[str, Path]] = {}
     for root_id, root_label, root_path in roots:
         roots_by_id[root_id] = (root_label, root_path.resolve(strict=False))
-    return roots_by_id
-
-
-def _resolve_default_custom_skill_root(
-    workspace_root: Path,
-) -> tuple[str, str, Path]:
-    roots_by_id = _resolve_custom_skill_root_candidates(workspace_root)
-    candidate_errors: list[str] = []
     for root_id in _CUSTOM_SKILL_ROOT_PRIORITY:
-        if root_id not in roots_by_id:
-            candidate_errors.append(f"{root_id}: root is not configured")
-            continue
-        root_label, root_path = roots_by_id[root_id]
-        root_error = _validate_custom_skill_root_for_writes(root_path)
-        if root_error is None:
+        if root_id in roots_by_id:
+            root_label, root_path = roots_by_id[root_id]
             return root_id, root_label, root_path
-        candidate_errors.append(f"{root_id} ({root_path.as_posix()}): {root_error}")
-    error_details = "; ".join(candidate_errors)
-    raise ValueError(
-        "No writable custom skill root is available. "
-        f"Attempted candidates: {error_details}"
-    )
+    fallback_root = (Path.home() / ".agents" / "skills").resolve(strict=False)
+    return "user_agents_skills", "User ~/.agents/skills", fallback_root
 
 
-def _normalize_custom_skill_relative_path(
-    relative_path: str,
-    *,
-    field_name: str = "relativePath",
-) -> str:
+def _normalize_custom_skill_relative_path(relative_path: str) -> str:
     normalized = relative_path.strip()
     if not _CUSTOM_SKILL_RELATIVE_PATH_PATTERN.fullmatch(normalized):
         raise ValueError(
-            f"{field_name} must start with an alphanumeric character and only "
+            "relativePath must start with an alphanumeric character and only "
             "contain letters, numbers, underscores, or hyphens."
         )
     return normalized
-
-
-def _validate_custom_skill_id_editability(
-    *,
-    root_id: str,
-    relative_path: str,
-) -> str:
-    if root_id not in _CUSTOM_SKILL_EDITABLE_ROOT_IDS:
-        raise ValueError(
-            "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or "
-            "workspace .agents/skills are editable."
-        )
-    if relative_path == ".":
-        raise ValueError("Editing root-level SKILL.md is not supported.")
-    return _normalize_custom_skill_relative_path(
-        relative_path,
-        field_name="skillId",
-    )
-
-
-def _validate_canonical_custom_skill_id_for_write(
-    *,
-    skill_id: str,
-    root_id: str,
-    relative_path: str,
-) -> None:
-    skill_root_id, skill_relative_path = _split_skill_id(skill_id)
-    if skill_root_id != root_id or skill_relative_path.strip() != relative_path:
-        raise ValueError(f"skillId must use canonical path: {root_id}::{relative_path}")
-
-
-def _resolve_skill_editability(
-    *,
-    root_id: str,
-    relative_path: str,
-) -> tuple[bool, str | None]:
-    try:
-        _validate_custom_skill_id_editability(
-            root_id=root_id,
-            relative_path=relative_path,
-        )
-    except ValueError as exc:
-        return False, str(exc)
-    return True, None
 
 
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
@@ -252,10 +167,6 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
                 except ValueError:
                     continue
                 relative_path = relative if relative else "."
-                editable, edit_blocked_reason = _resolve_skill_editability(
-                    root_id=root_id,
-                    relative_path=relative_path,
-                )
                 rows.append(
                     AppGenSkillEntry(
                         skillId=f"{root_id}::{relative_path}",
@@ -264,8 +175,6 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
                         rootPath=str(root_path),
                         relativePath=relative_path,
                         description=_extract_skill_description(skill_doc),
-                        editable=editable,
-                        editBlockedReason=edit_blocked_reason,
                     )
                 )
         except OSError:
@@ -333,10 +242,10 @@ def upsert_app_gen_custom_skill(
     if not selected_skill_id and not selected_relative_path:
         raise ValueError("relativePath is required when skillId is not provided.")
 
-    target_root_id: str
-    target_root_path: Path
-    target_relative_path: str
-    skill_doc: Path
+    target_root_id, _, target_root_path = _resolve_default_custom_skill_root(
+        workspace_root
+    )
+    target_root_path.mkdir(parents=True, exist_ok=True)
 
     if selected_skill_id:
         (
@@ -349,28 +258,18 @@ def upsert_app_gen_custom_skill(
             workspace_root=workspace_root,
             skill_id=selected_skill_id,
         )
+        if existing_root_id not in _CUSTOM_SKILL_EDITABLE_ROOT_IDS:
+            raise ValueError(
+                "Only skills under AGENTS_HOME/skills, ~/.agents/skills, or "
+                "workspace .agents/skills are editable."
+            )
         target_root_id = existing_root_id
         target_root_path = existing_root_path
-        target_relative_path = _validate_custom_skill_id_editability(
-            root_id=existing_root_id,
-            relative_path=existing_relative_path,
-        )
-        _validate_canonical_custom_skill_id_for_write(
-            skill_id=selected_skill_id,
-            root_id=existing_root_id,
-            relative_path=target_relative_path,
-        )
+        if existing_relative_path in ("", "."):
+            raise ValueError("Editing root-level SKILL.md is not supported.")
+        target_relative_path = existing_relative_path
         skill_doc = existing_skill_doc
-        try:
-            skill_doc_exists = skill_doc.exists()
-        except OSError as exc:
-            raise ValueError(str(exc)) from exc
-        if not skill_doc_exists:
-            raise KeyError(f"Missing SKILL.md for {selected_skill_id}")
     else:
-        target_root_id, _, target_root_path = _resolve_default_custom_skill_root(
-            workspace_root
-        )
         target_relative_path = _normalize_custom_skill_relative_path(
             selected_relative_path
         )
@@ -380,16 +279,9 @@ def upsert_app_gen_custom_skill(
         if not skill_doc.is_relative_to(target_root_path):
             raise ValueError("Invalid skill path.")
 
-    editable, edit_blocked_reason = _resolve_skill_editability(
-        root_id=target_root_id,
-        relative_path=target_relative_path,
-    )
-    if not editable:
-        raise ValueError(edit_blocked_reason or "Selected skill is read-only.")
-
     created = False
     try:
-        created = not selected_skill_id and not skill_doc.exists()
+        created = not skill_doc.exists()
         skill_doc.parent.mkdir(parents=True, exist_ok=True)
         with skill_doc.open("w", encoding="utf-8") as handle:
             handle.write(content)
@@ -401,8 +293,6 @@ def upsert_app_gen_custom_skill(
         created=created,
         rootPath=str(target_root_path),
         skillDocPath=str(skill_doc),
-        editable=editable,
-        editBlockedReason=edit_blocked_reason,
     )
 
 

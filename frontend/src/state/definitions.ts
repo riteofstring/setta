@@ -1,4 +1,3 @@
-import { buildCustomPromptSlashCommandDefinitions } from "components/Chat/chatComposerControls";
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
@@ -858,7 +857,7 @@ export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "off",
+        mode: "all",
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
@@ -994,36 +993,6 @@ type ZustandLocalStorage = {
   trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
 };
 
-function normalizeCustomProjectChatSlashCommandsByProjectConfigId(
-  rawValue: unknown,
-): Record<string, Array<ProjectChatCustomSlashCommand>> {
-  if (!rawValue || typeof rawValue !== "object" || Array.isArray(rawValue)) {
-    return {};
-  }
-  const normalizedByProjectConfigId: Record<
-    string,
-    Array<ProjectChatCustomSlashCommand>
-  > = {};
-  for (const [projectConfigId, rawCommands] of Object.entries(rawValue)) {
-    if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
-      continue;
-    }
-    const commandDefinitions = buildCustomPromptSlashCommandDefinitions(
-      Array.isArray(rawCommands) ? rawCommands : [],
-    );
-    if (commandDefinitions.length === 0) {
-      continue;
-    }
-    normalizedByProjectConfigId[projectConfigId] = commandDefinitions.map(
-      (entry) => ({
-        command: entry.command,
-        prompt: entry.promptTemplate ?? "",
-      }),
-    );
-  }
-  return normalizedByProjectConfigId;
-}
-
 export const useLocalStorage = createWithEqualityFn(
   persist<ZustandLocalStorage>(
     () => ({
@@ -1123,6 +1092,11 @@ export const useLocalStorage = createWithEqualityFn(
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
         }
+        if (merged.overviewTab === OverviewTabNameEnum.BackendLogs) {
+          merged.overviewTab = OverviewTabNameEnum.Notifications;
+          merged.overviewNotificationsPaneTab =
+            OverviewNotificationsPaneTabEnum.BackendLogs;
+        }
         if (
           merged.overviewNotificationsPaneTab !==
             OverviewNotificationsPaneTabEnum.Notifications &&
@@ -1132,10 +1106,14 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.Notifications;
         }
-        merged.customProjectChatSlashCommandsByProjectConfigId =
-          normalizeCustomProjectChatSlashCommandsByProjectConfigId(
-            merged.customProjectChatSlashCommandsByProjectConfigId,
-          );
+        if (
+          !merged.customProjectChatSlashCommandsByProjectConfigId ||
+          typeof merged.customProjectChatSlashCommandsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.customProjectChatSlashCommandsByProjectConfigId)
+        ) {
+          merged.customProjectChatSlashCommandsByProjectConfigId = {};
+        }
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
           typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==

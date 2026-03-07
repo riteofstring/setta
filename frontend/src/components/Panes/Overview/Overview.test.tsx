@@ -171,17 +171,6 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain('aria-label="Open settings"');
   });
 
-  it("renders Watch Code as a rail tab and removes the controls trigger path", () => {
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).toContain('data-testid="overview-tab-watch-code"');
-    expect(markup).not.toContain('data-testid="rf__watch-code-settings"');
-  });
-
   it("renders the View Modes pane content when the view modes tab is selected", () => {
     const viewId = "view-1";
     const projectConfig = createProjectConfig({
@@ -320,18 +309,13 @@ describe("Overview rail offsets", () => {
 
     expect(markup).toContain('data-testid="overview-tab-content-shell"');
     expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
-    expect(markup).not.toContain('data-testid="overview-tab-watch-code"');
     expect(markup).toContain(">Overview<");
   });
 
-  it("falls back to overview content for deprecated project ai settings tab keys", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-    const merged = merge(
-      { overviewTab: "ProjectAISettings" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-    useLocalStorage.setState(merged);
+  it("maps deprecated project ai settings tab selection to project ai chat", () => {
+    useLocalStorage.setState({
+      overviewTab: OverviewTabNameEnum.ProjectAISettings,
+    });
     syncStoreInitialState(useLocalStorage);
 
     const markup = renderToStaticMarkup(
@@ -340,9 +324,7 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).not.toContain(
-      'data-testid="project-ai-settings-scroll-region"',
-    );
-    expect(markup).toContain(">Overview<");
+    expect(markup).toContain(">Project AI Chat<");
+    expect(markup).not.toContain('data-testid="project-ai-settings-scroll-region"');
   });
 });

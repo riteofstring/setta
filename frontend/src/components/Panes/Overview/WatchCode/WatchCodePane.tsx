@@ -14,7 +14,12 @@ type WatchInputs = {
   watchCodeFiles: string[];
 };
 
-export function WatchCodePane() {
+type WatchCodePaneProps = {
+  inPopover?: boolean;
+};
+
+export function WatchCodePane(props: WatchCodePaneProps) {
+  const inPopover = props.inPopover ?? false;
   const { canEditLayout } = useShareCapabilities();
   const { watchCodeFolders, watchCodeFiles, projectConfigId } = useProjectState(
     (
@@ -137,9 +142,12 @@ export function WatchCodePane() {
     "nodrag nopan nowheel w-full box-border truncate rounded-full bg-white py-1.5 pl-4 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
   const addInputButtonClasses =
     "nodrag nopan nowheel relative inline-flex h-6 shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:text-setta-400 disabled:opacity-60 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent dark:disabled:text-setta-500";
+  const rootClasses = inPopover
+    ? "flex min-w-0 flex-col gap-4 pb-2"
+    : "setta-pane-scroll flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto";
 
   return (
-    <div className="setta-pane-scroll flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-y-auto">
+    <div className={rootClasses}>
       <header className="flex flex-col gap-2">
         <WatchCodeToggleButton />
         <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">

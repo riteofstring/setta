@@ -788,8 +788,8 @@ export function ProjectChatHistory({
     [],
   );
 
-  const placeholderState = useMemo(() => {
-    return getProjectChatPlaceholderState(
+  const placeholderText = useMemo(() => {
+    return getPlaceholderText(
       agentRunsInitialLoadComplete,
       agentRunsLoadError,
       sortedEntries.length,
@@ -1186,12 +1186,9 @@ export function ProjectChatHistory({
     searchableGroupSections.length > 0 || ungroupedEntries.length > 0;
   const emptyStateText = hasMasterSearch
     ? "No conversations match this filter."
-    : placeholderState.text;
-  const showNoThreadsPlaceholder = shouldShowProjectChatNoThreadsPlaceholder({
-    hasAnyContent,
-    hasMasterSearch,
-    placeholderKind: placeholderState.kind,
-  });
+    : placeholderText;
+  const showNoThreadsPlaceholder =
+    !hasAnyContent && emptyStateText === "No threads yet";
   const newGroupTooltipHandlers = useMemo(
     () =>
       getFloatingBoxHandlers({
@@ -3253,50 +3250,21 @@ function ThreadDropZone({
   );
 }
 
-type ProjectChatPlaceholderKind =
-  | "load_error"
-  | "loading"
-  | "no_threads"
-  | "none";
-
-type ProjectChatPlaceholderState = {
-  kind: ProjectChatPlaceholderKind;
-  text: string;
-};
-
-export function getProjectChatPlaceholderState(
+function getPlaceholderText(
   initialLoadComplete: boolean,
   loadError: string | null,
   entryCount: number,
-): ProjectChatPlaceholderState {
+): string {
   if (loadError) {
-    return { kind: "load_error", text: loadError };
+    return loadError;
   }
   if (!initialLoadComplete) {
-    return { kind: "loading", text: "Loading threads..." };
+    return "Loading threads...";
   }
   if (entryCount === 0) {
-    return { kind: "no_threads", text: "No threads yet" };
+    return "No threads yet";
   }
-  return { kind: "none", text: "" };
-}
-
-export function shouldShowProjectChatNoThreadsPlaceholder({
-  hasAnyContent,
-  hasMasterSearch,
-  placeholderKind,
-}: {
-  hasAnyContent: boolean;
-  hasMasterSearch: boolean;
-  placeholderKind: ProjectChatPlaceholderKind;
-}): boolean {
-  if (hasAnyContent) {
-    return false;
-  }
-  if (hasMasterSearch) {
-    return false;
-  }
-  return placeholderKind === "no_threads";
+  return "";
 }
 
 function normalizeThreadGroupNameForEditing(name: string): string | null {

@@ -89,23 +89,17 @@ function visToggle(
   }
 }
 
-export function openOverviewTab(tabValue: OverviewTabKey) {
-  const { overviewVis, overviewTab } = useLocalStorage.getState();
-  if (overviewTab !== tabValue) {
+export function onOverviewTabClick(tabValue: OverviewTabKey) {
+  const vis = useLocalStorage.getState().overviewVis;
+  const tab = useLocalStorage.getState().overviewTab;
+  if (tab !== tabValue) {
     useLocalStorage.setState({ overviewTab: tabValue });
-  }
-  if (!overviewVis) {
+    if (!vis) {
+      visToggle(PaneNameEnum.overview, onOverviewResizeStop);
+    }
+  } else {
     visToggle(PaneNameEnum.overview, onOverviewResizeStop);
   }
-}
-
-export function onOverviewTabClick(tabValue: OverviewTabKey) {
-  const { overviewTab } = useLocalStorage.getState();
-  if (overviewTab !== tabValue) {
-    openOverviewTab(tabValue);
-    return;
-  }
-  visToggle(PaneNameEnum.overview, onOverviewResizeStop);
 }
 
 export function onOverviewResizeStop(widthDiff) {

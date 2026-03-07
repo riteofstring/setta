@@ -1,6 +1,7 @@
 import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
+  buildCustomPromptSlashCommandDefinitions,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
@@ -55,10 +56,10 @@ import {
   type ChatRunType,
 } from "state/actions/chatHistory";
 import {
+  type ProjectChatCustomSlashCommand,
   useAIStore,
   useLocalStorage,
   useProjectState,
-  type ProjectChatCustomSlashCommand,
 } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
@@ -89,15 +90,7 @@ import {
   type ProjectChatHydrationAuthority,
   type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
-import { buildSlashCommandsByEngine } from "./projectChatSkillsMcpViewerUtils";
-import {
-  buildAgentNativeSlashCommandsByEngineId,
-  buildReservedSlashCommandTokens,
-  filterAgentNativeSlashCommandsByEngineId,
-  resolveExecutableProjectChatCustomSlashCommands,
-} from "./projectChatSlashCommandResolver";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
-import { useProjectChatCustomSlashCommandSanitizer } from "./useProjectChatCustomSlashCommandSanitizer";
 import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
@@ -363,6 +356,11 @@ type ProjectChatRuntimeActivityEntry =
 
 type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
 
+const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
+  {
+    activeBackgroundTerminals: 0,
+    activeSubagents: 0,
+  };
 const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
   {
     activeBackgroundTerminals: [],
@@ -421,17 +419,16 @@ function resolveRuntimeActivityEntryLabel(
   }
   if (ACTIVE_SUBAGENT_TOOL_IDS.has(normalizedName)) {
     const profileIdValue = argumentsByName?.profileId;
-    if (
-      typeof profileIdValue === "string" &&
-      profileIdValue.trim().length > 0
-    ) {
+    if (typeof profileIdValue === "string" && profileIdValue.trim().length > 0) {
       return profileIdValue.trim();
     }
   }
   return `${normalizedToolName} (${toolCall.id})`;
 }
 
-function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
+function resolveProjectChatRuntimeActivityEntry(
+  toolCall: ToolCall,
+): {
   category: "background_terminal" | "subagent";
   entry: ProjectChatRuntimeActivityEntry;
 } | null {
@@ -1102,23 +1099,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const agentRunsInitialLoadComplete = useAIStore(
     (state) => state.agentRunsInitialLoadComplete,
   );
-  const {
-    apiKeys,
-    allLLMConfigs,
-    engineConfigs,
-    externalAgentHealth,
-    externalAgentHealthInitialLoadComplete,
-  } = useAIStore(
-    (state) => ({
-      apiKeys: state.apiKeys,
-      allLLMConfigs: state.allLLMConfigs,
-      engineConfigs: state.engineConfigs,
-      externalAgentHealth: state.externalAgentHealth,
-      externalAgentHealthInitialLoadComplete:
-        state.externalAgentHealthInitialLoadComplete,
-    }),
-    shallow,
-  );
   const interruptedAssistantMessageIds = useAIStore((state) => {
     if (typeof chatId !== "string") {
       return {};
@@ -1238,77 +1218,28 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
-  const managedSlashCommands = useMemo(() => {
-    return buildChatSlashCommands({
-      model: true,
-      permissions: showPermissionExecutionControl,
-      search: showSearchExecutionControl,
-      appGenerationModes: true,
-    });
-  }, [showPermissionExecutionControl, showSearchExecutionControl]);
-  const slashCommandsByEngine = useMemo(() => {
-    return buildSlashCommandsByEngine({
-      engineConfigs,
-      allLLMConfigs,
-      apiKeys,
-      externalAgentHealth,
-      externalAgentHealthInitialLoadComplete,
-    });
-  }, [
-    allLLMConfigs,
-    apiKeys,
-    engineConfigs,
-    externalAgentHealth,
-    externalAgentHealthInitialLoadComplete,
-  ]);
-  const activeExternalSlashEngineIds = useMemo(() => {
-    return slashCommandsByEngine
-      .filter((entry) => entry.engineType === EngineTypeEnum.external_agent)
-      .map((entry) => entry.engineId);
-  }, [slashCommandsByEngine]);
-  const activeAgentNativeSlashCommandsByEngineId = useMemo(() => {
-    return filterAgentNativeSlashCommandsByEngineId({
-      agentNativeSlashCommandsByEngineId:
-        buildAgentNativeSlashCommandsByEngineId(agentRuns),
-      allowedEngineIds: activeExternalSlashEngineIds,
-    });
-  }, [activeExternalSlashEngineIds, agentRuns]);
-  const reservedSlashCommandTokens = useMemo(() => {
-    return buildReservedSlashCommandTokens({
-      managedSlashCommands: buildChatSlashCommands({
+  const slashCommands = useMemo(
+    () => {
+      const managedCommands = buildChatSlashCommands({
         model: true,
-        permissions: true,
-        search: true,
+        permissions: showPermissionExecutionControl,
+        search: showSearchExecutionControl,
         appGenerationModes: true,
-      }),
-      slashCommandsByEngine,
-      agentNativeSlashCommandsByEngineId:
-        activeAgentNativeSlashCommandsByEngineId,
-    });
-  }, [activeAgentNativeSlashCommandsByEngineId, slashCommandsByEngine]);
-  const resolvedCustomProjectChatSlashCommands = useMemo(() => {
-    return resolveExecutableProjectChatCustomSlashCommands({
-      customSlashCommands: customProjectChatSlashCommands,
-      reservedSlashCommandTokens,
-    });
-  }, [customProjectChatSlashCommands, reservedSlashCommandTokens]);
-  const slashCommands = useMemo(() => {
-    return [
-      ...managedSlashCommands,
-      ...resolvedCustomProjectChatSlashCommands.executableCustomSlashCommandDefinitions,
-    ];
-  }, [
-    managedSlashCommands,
-    resolvedCustomProjectChatSlashCommands.executableCustomSlashCommandDefinitions,
-  ]);
-  useProjectChatCustomSlashCommandSanitizer({
-    projectConfigId,
-    customProjectChatSlashCommands,
-    sanitizedCustomSlashCommands:
-      resolvedCustomProjectChatSlashCommands.sanitizedCustomSlashCommands,
-    conflictedCustomSlashCommands:
-      resolvedCustomProjectChatSlashCommands.conflictedCustomSlashCommands,
-  });
+      });
+      const managedCommandSet = new Set(
+        managedCommands.map((entry) => entry.command),
+      );
+      const customCommands = buildCustomPromptSlashCommandDefinitions(
+        customProjectChatSlashCommands,
+      ).filter((entry) => !managedCommandSet.has(entry.command));
+      return [...managedCommands, ...customCommands];
+    },
+    [
+      customProjectChatSlashCommands,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
+    ],
+  );
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
     Record<string, ProjectChatHydrationRetryEntry>
@@ -1840,12 +1771,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [messages, waitingForResponse],
   );
   const runtimeActivityCounts = useMemo(
-    () =>
-      resolveProjectChatRuntimeActivityCounts({
-        messages,
-        waitingForResponse,
-      }),
-    [messages, waitingForResponse],
+    () => ({
+      activeBackgroundTerminals:
+        runtimeActivityDetails.activeBackgroundTerminals.length,
+      activeSubagents: runtimeActivityDetails.activeSubagents.length,
+    }),
+    [runtimeActivityDetails],
   );
   const showThinkingExecutionControl =
     engineType === EngineTypeEnum.setta_llm ||

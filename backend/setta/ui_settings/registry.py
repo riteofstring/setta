@@ -704,7 +704,7 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 description="Count of configured API keys used by Project AI settings.",
                 location=UISettingLocation(
                     side="left",
-                    overviewTabKey="ProjectAIChat",
+                    overviewTabKey="ProjectAISettings",
                 ),
                 highlight=UISettingHighlight(
                     strategy="dom_anchor",
@@ -734,7 +734,7 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 description="Count of agent profiles available to Project AI settings.",
                 location=UISettingLocation(
                     side="left",
-                    overviewTabKey="ProjectAIChat",
+                    overviewTabKey="ProjectAISettings",
                 ),
                 highlight=UISettingHighlight(
                     strategy="dom_anchor",
@@ -764,7 +764,7 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 description="Count of prompt templates available to Project AI settings.",
                 location=UISettingLocation(
                     side="left",
-                    overviewTabKey="ProjectAIChat",
+                    overviewTabKey="ProjectAISettings",
                 ),
                 highlight=UISettingHighlight(
                     strategy="dom_anchor",
@@ -794,7 +794,7 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 description="Count of external agent configs available to Project AI settings.",
                 location=UISettingLocation(
                     side="left",
-                    overviewTabKey="ProjectAIChat",
+                    overviewTabKey="ProjectAISettings",
                 ),
                 highlight=UISettingHighlight(
                     strategy="dom_anchor",

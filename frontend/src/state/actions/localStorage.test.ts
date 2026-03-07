@@ -71,28 +71,22 @@ describe("local storage merge", () => {
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("falls back to Overview for deprecated BackendLogs overview tab values", () => {
+  it("migrates persisted BackendLogs overview tab to Notifications pane logs tab", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { overviewTab: "BackendLogs" } as Record<string, unknown>,
+      { overviewTab: OverviewTabNameEnum.BackendLogs } as Record<
+        string,
+        unknown
+      >,
       current,
     ) as typeof current;
 
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
-  });
-
-  it("falls back to Overview for deprecated ProjectAISettings overview tab values", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      { overviewTab: "ProjectAISettings" } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Notifications);
+    expect(merged.overviewNotificationsPaneTab).toBe(
+      OverviewNotificationsPaneTabEnum.BackendLogs,
+    );
   });
 
   it("sanitizes invalid notifications pane tab values", () => {
@@ -134,36 +128,6 @@ describe("local storage merge", () => {
     expect(merged.homeSelectedProjectPaneVis).toBe(true);
     expect(merged.homeSelectedProjectPaneWidth).toBe(280);
     expect(merged.homeSelectedProjectPaneTrueWidth).toBe(280);
-  });
-
-  it("normalizes persisted custom slash command rows by project config", () => {
-    const merge = useLocalStorage.persist.getOptions().merge;
-    const current = useLocalStorage.getState();
-
-    const merged = merge(
-      {
-        customProjectChatSlashCommandsByProjectConfigId: {
-          "project-a": [
-            { command: " /deploy ", prompt: "  Deploy the project.  " },
-            {
-              command: "deploy",
-              prompt: "Duplicate command should be dropped.",
-            },
-            { command: "/empty", prompt: "   " },
-            { command: 42, prompt: "Invalid command type." },
-            "invalid entry",
-          ],
-          "project-b": "invalid-project-value",
-          "project-c": [{ command: "/triage", prompt: "Summarize incidents." }],
-        },
-      } as Record<string, unknown>,
-      current,
-    ) as typeof current;
-
-    expect(merged.customProjectChatSlashCommandsByProjectConfigId).toEqual({
-      "project-a": [{ command: "/deploy", prompt: "Deploy the project." }],
-      "project-c": [{ command: "/triage", prompt: "Summarize incidents." }],
-    });
   });
 
   it("keeps canonical home pane values when persisted values are valid", () => {

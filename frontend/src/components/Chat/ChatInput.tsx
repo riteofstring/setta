@@ -230,29 +230,6 @@ export function resolveEscapeComposerAction({
   return "none";
 }
 
-export function buildCustomPromptSlashCommandSubmission({
-  promptTemplate,
-  args,
-  submittedAttachments,
-}: {
-  promptTemplate: string;
-  args: string[];
-  submittedAttachments: ChatFileAttachment[];
-}): {
-  message: string;
-  attachments: ChatFileAttachment[];
-} {
-  const trimmedPromptTemplate = promptTemplate.trim();
-  const promptArgs = args.join(" ").trim();
-  const message = promptArgs
-    ? `${trimmedPromptTemplate}\n\n${promptArgs}`
-    : trimmedPromptTemplate;
-  return {
-    message,
-    attachments: submittedAttachments,
-  };
-}
-
 type QueuedChatDraft = {
   id: string;
   message: string;
@@ -751,10 +728,7 @@ export const ChatInput = memo(function ChatInput({
   ]);
 
   const runSlashCommand = useCallback(
-    async (
-      message: string,
-      submittedAttachments: ChatFileAttachment[],
-    ): Promise<boolean> => {
+    async (message: string): Promise<boolean> => {
       const parsed = parseSlashCommand(message, slashCommands);
       if (!parsed) {
         return false;
@@ -772,13 +746,11 @@ export const ChatInput = memo(function ChatInput({
           setSlashFeedback("Custom slash command has no prompt content.");
           return true;
         }
-        const submission = buildCustomPromptSlashCommandSubmission({
-          promptTemplate,
-          args: parsed.args,
-          submittedAttachments,
-        });
-        const submitted =
-          (await onSubmit(submission.message, submission.attachments)) === true;
+        const promptArgs = parsed.args.join(" ").trim();
+        const promptMessage = promptArgs
+          ? `${promptTemplate}\n\n${promptArgs}`
+          : promptTemplate;
+        const submitted = (await onSubmit(promptMessage, [])) === true;
         if (!submitted) {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
           return true;
@@ -839,7 +811,7 @@ export const ChatInput = memo(function ChatInput({
       if (isSubmitDisabled) {
         return;
       }
-      if (await runSlashCommand(submittedValue, submittedAttachments)) {
+      if (await runSlashCommand(submittedValue)) {
         return;
       }
       const trimmedInput = submittedValue.trim();

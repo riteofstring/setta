@@ -1,5 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { openOverviewTab } from "components/Panes/paneFns";
+import { onOverviewTabClick } from "components/Panes/paneFns";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
@@ -112,11 +112,7 @@ export function RunButton() {
               ? activeButtonClasses
               : "text-setta-700 dark:text-setta-200 hover:bg-setta-100 dark:hover:bg-setta-800 active:bg-blue-100 active:dark:bg-blue-950"
           }`}
-          trigger={
-            <span data-testid="run-button-menu-trigger">
-              <RiArrowDownSLine />
-            </span>
-          }
+          trigger={<RiArrowDownSLine />}
         >
           {/*
           We don't use a checkmark indicator; the active mode is shown via blue text/icon.
@@ -184,7 +180,7 @@ export function RunButton() {
           <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
           <MenuItem
             className={menuItemClasses}
-            onClick={() => openOverviewTab(OverviewTabNameEnum.RunInstructions)}
+            onClick={() => onOverviewTabClick(OverviewTabNameEnum.RunInstructions)}
           >
             <i className="w-3 opacity-80">
               <RiPlayList2Fill />
