@@ -238,6 +238,50 @@
 - Manual Chrome DevTools MCP verification for:
   - authoritative custom-skill root label visibility,
   - slash-command custom editor visibility,
+
+## 2026-03-06 08:38:06 PST
+
+### Consolidated findings implemented
+- Fixed native slash-command execution so a first submit can refresh external-agent authority and still execute the discovered native command on that same submit path.
+- Added explicit executable `native_prompt` slash-command handling so authoritative native commands no longer stay trapped in a recognized-but-unavailable state.
+- Restored authoritative custom-skill affordance gating so `Create`, `Open`, and raw-save controls only stay enabled while the current backend/root contract supports them.
+- Fixed backend custom-skill editability metadata so `isEditable` and `editabilityReason` now reflect actual `SKILL.md` writability instead of only root kind and relative path shape.
+- Corrected skill activity ambiguity handling so same-named skills in inapplicable roots no longer poison `Active` status for the current engine.
+- Removed the reviewed branch-local TypeScript regressions in the touched slash/skills files.
+
+### Proposed fixes applied
+- `ChatInput` now supports refreshed slash-command authority handoff from `onUnknownSlashCommand`, re-runs slash resolution against refreshed command sets, and executes native commands through the same canonical submit flow as other slash commands.
+- `ProjectChatCore` now emits executable native slash-command definitions in `resolveProjectChatComposerSlashCommandSets` and returns refreshed command sets from the forced reload path instead of swallowing the first submit with placeholder feedback.
+- `ProjectChatSkillsMcpViewer` now clears cached custom-skill root state at refresh start/failure, disables custom-skill creation unless the current backend response exposes a usable root path, and fail-closes custom slash creation until native namespace authority is ready for external-agent projects.
+- `app_gen_extensions.py` now derives custom-skill editability from the actual `SKILL.md` path write authority and re-validates that authority on update before writing.
+- `projectChatSkillsMcpViewerUtils` now filters active-skill ambiguity to applicable roots before marking skills `unknown`, and narrows touched map/index access to satisfy the current TypeScript contract.
+
+### UX/DX before and after
+- Before: A real native slash command discovered during the first submit could still stop at generic feedback and require a second Enter.  
+  After: Refresh and execution now share one authoritative path, so the first confirmed submit executes immediately.
+- Before: Custom-skill `Create` and `Open` could remain enabled after stale or failed root loads, and read-only custom skills could still offer Save until the write failed late.  
+  After: The current backend/root authority disables those actions up front and surfaces accurate read-only reasons.
+- Before: Cross-ecosystem duplicate skill names could mark the applicable skill `Unknown`, making activity badges look unreliable.  
+  After: Only duplicates in roots applicable to the active engine remain ambiguous; cross-root irrelevant duplicates stay inactive.
+- Before: Touched slash/skills files added fresh TS noise on top of the repo’s already noisy full typecheck surface.  
+  After: The reviewed files stay clean under targeted typecheck filtering, which preserves local editor signal for follow-up work.
+
+### Validation coverage added or updated
+- Frontend Vitest coverage for:
+  - native slash-command availability and executable action resolution,
+  - custom-skill create gating from authoritative root state,
+  - external-agent custom slash namespace fail-closed behavior,
+  - cross-root skill activity resolution for Codex and OpenCode duplicates.
+- Backend pytest coverage for:
+  - read-only custom-skill listing metadata,
+  - update rejection when an existing custom skill is no longer writable.
+- Playwright E2E coverage for:
+  - disabled custom-skill create with no current backend root,
+  - stale root affordances clearing after refresh failure,
+  - external-agent custom slash add remaining disabled until namespace authority is settled.
+- Manual Chrome DevTools MCP verification for:
+  - disabled custom-skill create/save affordances in the Skills view,
+  - Slash Commands view rendering/gating for external-agent tabs and custom-command add state.
   - Watch Code portal clamping/alignment after row growth.
 
 ## 2026-03-05 22:32:42 PST

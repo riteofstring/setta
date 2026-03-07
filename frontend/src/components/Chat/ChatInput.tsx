@@ -147,6 +147,8 @@ export type ChatSlashCommandResult =
       handled?: boolean;
       feedback?: string;
       keepInput?: boolean;
+      refreshedSlashCommands?: ChatSlashCommandDefinition[];
+      refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
     };
 
 function formatCompactTokenCount(value: number): string {
@@ -287,6 +289,10 @@ export function resolveCustomPromptSlashCommandSubmission({
       : trimmedPromptTemplate,
     attachments: attachments.map((attachment) => ({ ...attachment })),
   };
+}
+
+function buildUnavailableSlashCommandFeedback(command: string): string {
+  return `${command} is unavailable in the current context. Use /help.`;
 }
 
 type ProviderDictationTranscriptionResult =
@@ -787,46 +793,30 @@ export const ChatInput = memo(function ChatInput({
     waitingForResponse,
   ]);
 
-  const runSlashCommand = useCallback(
-    async (message: string): Promise<boolean> => {
-      const { parsed, commandAvailable } = resolveSlashCommandRequest({
-        message,
-        slashCommands,
-        recognizedSlashCommands: slashCommandRecognitionSet,
-      });
-      if (!parsed) {
-        if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
-          return false;
-        }
-        const result = await onUnknownSlashCommand(message, attachments);
-        if (result === false) {
-          return false;
-        }
-        const slashResult =
-          result && typeof result === "object" ? result : undefined;
-        if (slashResult?.handled === false) {
-          return false;
-        }
-        setSlashFeedback(
-          slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK,
-        );
-        if (slashResult?.keepInput === false) {
-          escClearedComposerDraftRef.current = null;
-          clearInput();
-          clearAttachments();
-        }
-        return true;
-      }
+  const executeResolvedSlashCommand = useCallback(
+    async ({
+      message,
+      submittedAttachments,
+      parsed,
+      commandAvailable,
+    }: {
+      message: string;
+      submittedAttachments: ChatFileAttachment[];
+      parsed: ChatSlashCommand;
+      commandAvailable: boolean;
+    }): Promise<boolean> => {
       if (!commandAvailable) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed.command));
         return true;
       }
       if (parsed.action === "custom_prompt") {
         const submission = resolveCustomPromptSlashCommandSubmission({
           promptTemplate: parsed.promptTemplate,
           args: parsed.args,
-          rawSuffix: parsed.rawSuffix,
-          attachments,
+          ...(parsed.rawSuffix === undefined
+            ? {}
+            : { rawSuffix: parsed.rawSuffix }),
+          attachments: submittedAttachments,
         });
         if (!submission) {
           setSlashFeedback("Custom slash command has no prompt content.");
@@ -834,6 +824,19 @@ export const ChatInput = memo(function ChatInput({
         }
         const submitted =
           (await onSubmit(submission.message, submission.attachments)) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(`Submitted ${parsed.command}`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+        return true;
+      }
+      if (parsed.action === "native_prompt") {
+        const submitted =
+          (await onSubmit(message, submittedAttachments)) === true;
         if (!submitted) {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
           return true;
@@ -867,12 +870,70 @@ export const ChatInput = memo(function ChatInput({
       }
       return true;
     },
+    [clearAttachments, clearInput, onSlashCommand, onSubmit],
+  );
+
+  const runSlashCommand = useCallback(
+    async (
+      message: string,
+      submittedAttachments: ChatFileAttachment[],
+    ): Promise<boolean> => {
+      const resolvedRequest = resolveSlashCommandRequest({
+        message,
+        slashCommands,
+        recognizedSlashCommands: slashCommandRecognitionSet,
+      });
+      if (resolvedRequest.parsed) {
+        return executeResolvedSlashCommand({
+          message,
+          submittedAttachments,
+          parsed: resolvedRequest.parsed,
+          commandAvailable: resolvedRequest.commandAvailable,
+        });
+      }
+      if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
+        return false;
+      }
+      const result = await onUnknownSlashCommand(message, submittedAttachments);
+      if (result === false) {
+        return false;
+      }
+      const slashResult =
+        result && typeof result === "object" ? result : undefined;
+      if (slashResult?.handled === false) {
+        return false;
+      }
+      const refreshedSlashCommands =
+        slashResult?.refreshedSlashCommands ?? null;
+      const refreshedRecognizedSlashCommands =
+        slashResult?.refreshedRecognizedSlashCommands ?? null;
+      if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
+        const refreshedRequest = resolveSlashCommandRequest({
+          message,
+          slashCommands: refreshedSlashCommands,
+          recognizedSlashCommands: refreshedRecognizedSlashCommands,
+        });
+        if (refreshedRequest.parsed) {
+          return executeResolvedSlashCommand({
+            message,
+            submittedAttachments,
+            parsed: refreshedRequest.parsed,
+            commandAvailable: refreshedRequest.commandAvailable,
+          });
+        }
+      }
+      setSlashFeedback(slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK);
+      if (slashResult?.keepInput === false) {
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+      }
+      return true;
+    },
     [
-      attachments,
       clearAttachments,
       clearInput,
-      onSlashCommand,
-      onSubmit,
+      executeResolvedSlashCommand,
       onUnknownSlashCommand,
       slashCommandRecognitionSet,
       slashCommands,
@@ -903,7 +964,7 @@ export const ChatInput = memo(function ChatInput({
       if (isSubmitDisabled) {
         return;
       }
-      if (await runSlashCommand(submittedValue)) {
+      if (await runSlashCommand(submittedValue, submittedAttachments)) {
         return;
       }
       const trimmedInput = submittedValue.trim();

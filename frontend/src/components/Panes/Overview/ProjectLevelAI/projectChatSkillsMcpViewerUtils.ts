@@ -373,9 +373,11 @@ function buildSkillIdentifierIndex(
 }
 
 function mapActiveSkillNamesToSkillIds({
+  applicableRootIds,
   skills,
   activeSkillNames,
 }: {
+  applicableRootIds: string[];
   skills: AppGenSkillEntry[];
   activeSkillNames: Map<string, string>;
 }): {
@@ -391,18 +393,26 @@ function mapActiveSkillNamesToSkillIds({
     };
   }
   const skillIdentifierIndex = buildSkillIdentifierIndex(skills);
+  const applicableRootIdSet = new Set(applicableRootIds);
   for (const [activeSkillName, source] of activeSkillNames.entries()) {
     const candidates = skillIdentifierIndex.get(activeSkillName) ?? [];
-    if (candidates.length === 0) {
+    const applicableCandidates = candidates.filter((candidate) =>
+      applicableRootIdSet.has(getSkillRootId(candidate.skillId)),
+    );
+    if (applicableCandidates.length === 0) {
       continue;
     }
-    if (candidates.length > 1) {
-      for (const candidate of candidates) {
+    if (applicableCandidates.length > 1) {
+      for (const candidate of applicableCandidates) {
         ambiguousSkillIds.add(candidate.skillId);
       }
       continue;
     }
-    activeSkillSourcesBySkillId.set(candidates[0].skillId, source);
+    const [matchedCandidate] = applicableCandidates;
+    if (!matchedCandidate) {
+      continue;
+    }
+    activeSkillSourcesBySkillId.set(matchedCandidate.skillId, source);
   }
   return {
     activeSkillSourcesBySkillId,
@@ -438,6 +448,7 @@ export function buildSkillStatusBySkillId({
     });
   const { activeSkillSourcesBySkillId, ambiguousSkillIds } =
     mapActiveSkillNamesToSkillIds({
+      applicableRootIds,
       skills,
       activeSkillNames,
     });
@@ -903,7 +914,11 @@ export function areAgentNativeSlashCommandMapsEqual(
     if (!(key in next)) {
       return false;
     }
-    if (!areAgentNativeSlashEntriesEqual(current[key], next[key])) {
+    const nextEntry = next[key];
+    if (!nextEntry) {
+      return false;
+    }
+    if (!areAgentNativeSlashEntriesEqual(current[key], nextEntry)) {
       return false;
     }
   }
@@ -923,7 +938,16 @@ function areAgentNativeSlashCommandProjectMapsEqual(
     if (!(key in next)) {
       return false;
     }
-    if (!areAgentNativeSlashCommandMapsEqual(current[key] ?? {}, next[key])) {
+    const nextProjectEntries = next[key];
+    if (!nextProjectEntries) {
+      return false;
+    }
+    if (
+      !areAgentNativeSlashCommandMapsEqual(
+        current[key] ?? {},
+        nextProjectEntries,
+      )
+    ) {
       return false;
     }
   }

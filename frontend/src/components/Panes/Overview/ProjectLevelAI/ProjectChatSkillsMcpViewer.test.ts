@@ -2,6 +2,9 @@ import { createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 import {
+  canCreateCustomSkill,
+  isCustomSlashNamespaceAuthorityReady,
+  resolveCanAddCustomSlashCommand,
   resolveCustomSlashDraftByProjectConfigIdUpdate,
   resolveSelectedSkillViewStateAfterUpsertedSkillResponse,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
@@ -448,6 +451,79 @@ describe("shouldPollSlashCommandAgentRuns", () => {
       shouldPollSlashCommandAgentRuns({
         viewMode: "slash_commands",
         selectedEngineType: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("canCreateCustomSkill", () => {
+  it("requires a current backend root before enabling create", () => {
+    expect(
+      canCreateCustomSkill({
+        customSkillCreateInFlight: false,
+        customSkillCreateRootPath: null,
+        newCustomSkillRelativePath: "new-skill",
+      }),
+    ).toBe(false);
+
+    expect(
+      canCreateCustomSkill({
+        customSkillCreateInFlight: false,
+        customSkillCreateRootPath: "/home/.agents/skills",
+        newCustomSkillRelativePath: "new-skill",
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("isCustomSlashNamespaceAuthorityReady", () => {
+  it("fails closed until engine configs finish loading", () => {
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "ready",
+        engineConfigsInitialLoadComplete: false,
+        slashCommandsByEngine: [],
+      }),
+    ).toBe(false);
+  });
+
+  it("fails closed for external-agent projects until native authority is ready", () => {
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "loading",
+        engineConfigsInitialLoadComplete: true,
+        slashCommandsByEngine: [{ engineType: "external_agent" }],
+      }),
+    ).toBe(false);
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "ready",
+        engineConfigsInitialLoadComplete: true,
+        slashCommandsByEngine: [{ engineType: "external_agent" }],
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps custom slash creation available when no external agent engines exist", () => {
+    expect(
+      isCustomSlashNamespaceAuthorityReady({
+        agentRunsAuthorityState: "loading",
+        engineConfigsInitialLoadComplete: true,
+        slashCommandsByEngine: [{ engineType: "setta_llm" }],
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("resolveCanAddCustomSlashCommand", () => {
+  it("blocks add even for unique commands while namespace authority is unresolved", () => {
+    expect(
+      resolveCanAddCustomSlashCommand({
+        customSlashCommandTokens: new Set<string>(),
+        namespaceAuthorityReady: false,
+        newCustomSlashPrompt: "Summarize project status.",
+        normalizedNewCustomSlashCommand: "/project-status",
+        reservedSlashCommandTokens: new Set<string>(),
       }),
     ).toBe(false);
   });

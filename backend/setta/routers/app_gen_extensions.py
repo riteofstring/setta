@@ -345,6 +345,7 @@ def _resolve_skill_editability(
     *,
     root_id: str,
     relative_path: str,
+    skill_doc: Path,
 ) -> tuple[bool, str | None]:
     if root_id not in _CUSTOM_SKILL_EDITABLE_ROOT_IDS:
         return (
@@ -354,7 +355,24 @@ def _resolve_skill_editability(
     normalized_relative_path = relative_path.strip()
     if normalized_relative_path in ("", "."):
         return False, "Editing root-level SKILL.md is not supported."
-    return True, None
+    resolved_skill_doc = skill_doc.resolve(strict=False)
+    try:
+        skill_doc_exists = resolved_skill_doc.exists()
+    except OSError as exc:
+        return False, str(exc)
+    if not skill_doc_exists:
+        return False, "Missing SKILL.md."
+    try:
+        skill_parent = resolved_skill_doc.parent
+        if not skill_parent.is_dir():
+            return False, "Skill directory is missing."
+    except OSError as exc:
+        return False, str(exc)
+    if not os.access(skill_parent, os.X_OK):
+        return False, "Skill directory is not accessible."
+    if os.access(resolved_skill_doc, os.W_OK):
+        return True, None
+    return False, "SKILL.md is not writable."
 
 
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
@@ -380,6 +398,7 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
                 is_editable, editability_reason = _resolve_skill_editability(
                     root_id=root_id,
                     relative_path=relative_path,
+                    skill_doc=skill_doc,
                 )
                 rows.append(
                     AppGenSkillEntry(
@@ -517,10 +536,15 @@ def upsert_app_gen_custom_skill(
             raise ValueError(str(exc)) from exc
         if not existing_skill_doc_exists:
             raise KeyError(f"Missing SKILL.md for {selected_skill.skillId}")
-        if not selected_skill.isEditable:
-            if selected_skill.editabilityReason is None:
+        is_editable, editability_reason = _resolve_skill_editability(
+            root_id=existing_root_id,
+            relative_path=existing_relative_path,
+            skill_doc=existing_skill_doc,
+        )
+        if not is_editable:
+            if editability_reason is None:
                 raise ValueError("Selected skill is not editable.")
-            raise ValueError(selected_skill.editabilityReason)
+            raise ValueError(editability_reason)
         target_root_id = existing_root_id
         target_root_path = existing_root_path
         target_relative_path = existing_relative_path

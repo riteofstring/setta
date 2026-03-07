@@ -230,6 +230,7 @@ export function resolveProjectChatComposerSlashCommandSets({
     customCommands: customCommandDefinitions,
     reservedTokens: reservedCommandSet,
   });
+  const nativeCommands: ChatSlashCommandDefinition[] = [];
   const recognizedCommands: ChatSlashCommandDefinition[] = [
     ...globallyReservedManagedCommands,
   ];
@@ -241,10 +242,15 @@ export function resolveProjectChatComposerSlashCommandSets({
       continue;
     }
     recognizedCommandTokens.add(token);
+    nativeCommands.push({
+      command: token,
+      action: "native_prompt",
+      summary: "Submit this native external-agent command verbatim.",
+    });
     recognizedCommands.push({
       command: token,
-      action: "help",
-      summary: "Reserved native command from active engine metadata.",
+      action: "native_prompt",
+      summary: "Submit this native external-agent command verbatim.",
     });
   }
   for (const customCommand of customCommandDefinitions) {
@@ -255,7 +261,7 @@ export function resolveProjectChatComposerSlashCommandSets({
     recognizedCommands.push(customCommand);
   }
   return {
-    slashCommands: [...managedCommands, ...customCommands],
+    slashCommands: [...managedCommands, ...nativeCommands, ...customCommands],
     recognizedSlashCommands: recognizedCommands,
   };
 }
@@ -1700,19 +1706,19 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         recognizedSlashCommands:
           refreshedSlashCommandSets.recognizedSlashCommands,
       });
-      if (refreshedRequest.parsed) {
-        return {
-          handled: true,
-          feedback: "Unknown or unavailable command. Use /help.",
-          keepInput: true,
-        };
-      }
       if (!isAgentRunsAuthorityReady(refreshedState.agentRunsAuthorityState)) {
         return {
           handled: true,
           feedback:
             "Native slash commands are unavailable until agent metadata reloads.",
           keepInput: true,
+        };
+      }
+      if (refreshedRequest.parsed) {
+        return {
+          refreshedSlashCommands: refreshedSlashCommandSets.slashCommands,
+          refreshedRecognizedSlashCommands:
+            refreshedSlashCommandSets.recognizedSlashCommands,
         };
       }
       return false;

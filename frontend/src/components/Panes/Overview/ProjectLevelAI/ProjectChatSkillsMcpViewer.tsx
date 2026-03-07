@@ -38,12 +38,14 @@ import {
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
+  EngineTypeEnum,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import { shallow } from "zustand/shallow";
 import {
   type AgentNativeSlashCommandsEntry,
+  type AgentRunsAuthorityState,
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
@@ -53,6 +55,7 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  isAgentRunsAuthorityReady,
   type McpRuntimeServerStatus,
   reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
@@ -353,6 +356,76 @@ function isActionablePath(path: string | null): path is string {
   return normalizedPath !== "";
 }
 
+export function canCreateCustomSkill({
+  customSkillCreateInFlight,
+  customSkillCreateRootPath,
+  newCustomSkillRelativePath,
+}: {
+  customSkillCreateInFlight: boolean;
+  customSkillCreateRootPath: string | null;
+  newCustomSkillRelativePath: string;
+}): boolean {
+  if (customSkillCreateInFlight) {
+    return false;
+  }
+  if (!isActionablePath(customSkillCreateRootPath)) {
+    return false;
+  }
+  return newCustomSkillRelativePath.trim() !== "";
+}
+
+export function isCustomSlashNamespaceAuthorityReady({
+  agentRunsAuthorityState,
+  engineConfigsInitialLoadComplete,
+  slashCommandsByEngine,
+}: {
+  agentRunsAuthorityState: AgentRunsAuthorityState;
+  engineConfigsInitialLoadComplete: boolean;
+  slashCommandsByEngine: Array<{ engineType: EngineConfig["engineType"] }>;
+}): boolean {
+  if (!engineConfigsInitialLoadComplete) {
+    return false;
+  }
+  const hasExternalAgentEngine = slashCommandsByEngine.some(
+    (entry) => entry.engineType === EngineTypeEnum.external_agent,
+  );
+  if (!hasExternalAgentEngine) {
+    return true;
+  }
+  return isAgentRunsAuthorityReady(agentRunsAuthorityState);
+}
+
+export function resolveCanAddCustomSlashCommand({
+  customSlashCommandTokens,
+  namespaceAuthorityReady,
+  newCustomSlashPrompt,
+  normalizedNewCustomSlashCommand,
+  reservedSlashCommandTokens,
+}: {
+  customSlashCommandTokens: Set<string>;
+  namespaceAuthorityReady: boolean;
+  newCustomSlashPrompt: string;
+  normalizedNewCustomSlashCommand: string | null;
+  reservedSlashCommandTokens: Set<string>;
+}): boolean {
+  if (!namespaceAuthorityReady) {
+    return false;
+  }
+  if (!normalizedNewCustomSlashCommand) {
+    return false;
+  }
+  if (!newCustomSlashPrompt.trim()) {
+    return false;
+  }
+  if (reservedSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
+    return false;
+  }
+  if (customSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
+    return false;
+  }
+  return true;
+}
+
 export function shouldPollSlashCommandAgentRuns({
   viewMode,
   selectedEngineType,
@@ -626,6 +699,8 @@ export function ProjectChatSkillsMcpViewer({
     skillsRefreshInFlight.current = true;
     setSkillsLoading(true);
     setSkillsError(null);
+    setCustomSkillCreateRootPath(null);
+    setCustomSkillCreateRootActionable(false);
     try {
       const res = await route_get_app_gen_skills();
       if (!res200(res)) {
@@ -1082,25 +1157,42 @@ export function ProjectChatSkillsMcpViewer({
   const normalizedNewCustomSlashCommand = useMemo(() => {
     return normalizeSlashCommandToken(newCustomSlashCommand);
   }, [newCustomSlashCommand]);
-  const canAddCustomSlashCommand = useMemo(() => {
-    if (!normalizedNewCustomSlashCommand) {
-      return false;
-    }
-    if (!newCustomSlashPrompt.trim()) {
-      return false;
-    }
-    if (reservedSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
-      return false;
-    }
-    if (customSlashCommandTokens.has(normalizedNewCustomSlashCommand)) {
-      return false;
-    }
-    return true;
+  const customSlashNamespaceAuthorityReady = useMemo(() => {
+    return isCustomSlashNamespaceAuthorityReady({
+      agentRunsAuthorityState,
+      engineConfigsInitialLoadComplete,
+      slashCommandsByEngine,
+    });
   }, [
+    agentRunsAuthorityState,
+    engineConfigsInitialLoadComplete,
+    slashCommandsByEngine,
+  ]);
+  const canAddCustomSlashCommand = useMemo(() => {
+    return resolveCanAddCustomSlashCommand({
+      customSlashCommandTokens,
+      namespaceAuthorityReady: customSlashNamespaceAuthorityReady,
+      newCustomSlashPrompt,
+      normalizedNewCustomSlashCommand,
+      reservedSlashCommandTokens,
+    });
+  }, [
+    customSlashNamespaceAuthorityReady,
     customSlashCommandTokens,
     newCustomSlashPrompt,
     normalizedNewCustomSlashCommand,
     reservedSlashCommandTokens,
+  ]);
+  const canCreateCustomSkillButton = useMemo(() => {
+    return canCreateCustomSkill({
+      customSkillCreateInFlight,
+      customSkillCreateRootPath,
+      newCustomSkillRelativePath,
+    });
+  }, [
+    customSkillCreateInFlight,
+    customSkillCreateRootPath,
+    newCustomSkillRelativePath,
   ]);
   const selectedSkill = useMemo(() => {
     if (!selectedSkillId) {
@@ -1688,10 +1780,7 @@ export function ProjectChatSkillsMcpViewer({
                 title="Create custom skill"
                 className="grid h-7 w-7 shrink-0 place-items-center rounded text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
                 onClick={() => void createCustomSkill()}
-                disabled={
-                  customSkillCreateInFlight ||
-                  newCustomSkillRelativePath.trim() === ""
-                }
+                disabled={!canCreateCustomSkillButton}
               >
                 <FiPlus className="h-3.5 w-3.5" />
               </button>
@@ -2079,8 +2168,9 @@ export function ProjectChatSkillsMcpViewer({
                 Add slash command
               </button>
               <div className="text-[10px] text-setta-500 dark:text-setta-400">
-                Command names must be unique and cannot collide with built-in or
-                discovered agent-native commands.
+                {customSlashNamespaceAuthorityReady
+                  ? "Command names must be unique and cannot collide with built-in or discovered agent-native commands."
+                  : "Command names stay disabled until native command authority is loaded for this project."}
               </div>
             </div>
             {customSlashCommandDefinitions.length > 0 ? (

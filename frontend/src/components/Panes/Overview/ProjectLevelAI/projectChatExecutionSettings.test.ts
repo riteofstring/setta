@@ -232,12 +232,35 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
 
     expect(
       resolved.slashCommands.some((entry) => entry.command === "/deploy"),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       resolved.recognizedSlashCommands.some(
         (entry) => entry.command === "/deploy",
       ),
     ).toBe(true);
+    expect(
+      resolved.slashCommands.find((entry) => entry.command === "/deploy")
+        ?.action,
+    ).toBe("native_prompt");
+  });
+
+  it("makes discovered native slash commands executable once authority is ready", () => {
+    const resolved = resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands: [],
+      discoveredAgentNativeSlashCommands: ["/deploy"],
+      showPermissionExecutionControl: true,
+      showSearchExecutionControl: true,
+    });
+
+    expect(
+      resolved.slashCommands.find((entry) => entry.command === "/deploy")
+        ?.action,
+    ).toBe("native_prompt");
+    expect(
+      resolved.recognizedSlashCommands.find(
+        (entry) => entry.command === "/deploy",
+      )?.action,
+    ).toBe("native_prompt");
   });
 });
 

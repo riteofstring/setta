@@ -499,6 +499,26 @@ describe("resolveSlashCommandRequest", () => {
     expect(resolved.commandAvailable).toBe(false);
     expect(resolved.parsed?.rawSuffix).toBe("now");
   });
+
+  it("treats native slash commands as available once the executable command set includes them", () => {
+    const nativeCommands: ChatSlashCommandDefinition[] = [
+      {
+        command: "/deploy",
+        action: "native_prompt",
+        summary: "Submit the native deploy command verbatim.",
+      },
+    ];
+
+    const resolved = resolveSlashCommandRequest({
+      message: "/deploy now",
+      slashCommands: nativeCommands,
+      recognizedSlashCommands: nativeCommands,
+    });
+
+    expect(resolved.parsed?.command).toBe("/deploy");
+    expect(resolved.parsed?.action).toBe("native_prompt");
+    expect(resolved.commandAvailable).toBe(true);
+  });
 });
 
 describe("resolveCustomPromptSlashCommandSubmission", () => {

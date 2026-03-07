@@ -351,7 +351,9 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   const customAddButton = page.getByTestId("project-chat-custom-slash-add");
   await customCommandInput.fill("/project-status");
   await customPromptInput.fill("Summarize project health and open risks.");
-  await expect(customAddButton).toBeEnabled();
+  await expect
+    .poll(async () => await customAddButton.isEnabled(), { timeout: 10_000 })
+    .toBe(true);
   await customAddButton.click();
   await expect(
     page.getByTestId("project-chat-custom-slash-command").filter({
@@ -655,7 +657,9 @@ test("project ai chat ignores cached native slash commands from other projects",
 
     await customCommandInput.fill("/ship");
     await customPromptInput.fill("Summarize project health.");
-    await expect(customAddButton).toBeEnabled();
+    await expect
+      .poll(async () => await customAddButton.isEnabled(), { timeout: 10_000 })
+      .toBe(true);
     await customAddButton.click();
     await expect(
       page.getByTestId("project-chat-custom-slash-command").filter({
@@ -782,6 +786,133 @@ test("project ai chat keeps cached native slash commands visible after terminal 
   }
 });
 
+test("project ai chat blocks custom slash creation until native command authority is ready", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(buildAppGenSkillsResponse([])),
+    });
+  });
+
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+    const engineConfigsResponse = await page.request.get(
+      `${backendOrigin}/api/getEngineConfigs`,
+    );
+    expect(engineConfigsResponse.ok()).toBe(true);
+    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+      id: string;
+      name: string;
+      engineType: string;
+    }>;
+    const externalEngine = engineConfigs.find(
+      (engine) => engine.engineType === "external_agent",
+    );
+    if (!externalEngine) {
+      throw new Error(
+        "Missing external agent engine for slash-command authority test.",
+      );
+    }
+
+    await page.route("**/api/getAgentRuns", async (route) => {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 2500);
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-native-commands",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-02-02T00:00:00Z",
+            finishedAt: "2026-02-02T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "external_agent",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "native-chat",
+              engineConfigId: externalEngine.id,
+              messages: [],
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: externalEngine.id,
+                agentNativeSlashCommands: ["/deploy"],
+              },
+            },
+          },
+        ]),
+      });
+    });
+
+    await page.evaluate(
+      ({ externalEngineId, projectConfigId }) => {
+        window.localStorage.setItem(
+          "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId",
+          JSON.stringify({
+            [projectConfigId]: {
+              [externalEngineId]: {
+                commands: ["/deploy"],
+                status: "available",
+                statusDetail: null,
+              },
+            },
+          }),
+        );
+      },
+      {
+        externalEngineId: externalEngine.id,
+        projectConfigId: projectContext.projectConfigId,
+      },
+    );
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    await openSlashCommandsViewer(page);
+    const externalEngineTab = page
+      .getByTestId("skills-mcp-slash-tab")
+      .filter({ hasText: externalEngine.name })
+      .first();
+    await expect(externalEngineTab).toBeVisible();
+    await externalEngineTab.click();
+
+    await page
+      .getByTestId("project-chat-custom-slash-command-input")
+      .fill("/deploy");
+    await page
+      .getByTestId("project-chat-custom-slash-prompt-input")
+      .fill("Deploy the current build.");
+
+    await expect(
+      page.getByText(
+        "Command names stay disabled until native command authority is loaded for this project.",
+      ),
+    ).toBeVisible();
+    const addButton = page.getByTestId("project-chat-custom-slash-add");
+    await expect(addButton).toBeDisabled();
+
+    await expect
+      .poll(async () => await addButton.isDisabled(), { timeout: 10_000 })
+      .toBe(true);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("custom slash commands preserve attachments on submit", async ({
   page,
 }) => {
@@ -812,6 +943,13 @@ test("custom slash commands preserve attachments on submit", async ({
     await page
       .getByTestId("project-chat-custom-slash-prompt-input")
       .fill("Summarize the attached file.");
+    await expect
+      .poll(
+        async () =>
+          await page.getByTestId("project-chat-custom-slash-add").isEnabled(),
+        { timeout: 10_000 },
+      )
+      .toBe(true);
     await page.getByTestId("project-chat-custom-slash-add").click();
 
     await closeSkillsMcpViewer(page);
@@ -2077,6 +2215,107 @@ test("project ai chat uses the backend create root for the custom skills root hi
     page.getByTestId("project-chat-custom-skill-root-reveal"),
   ).toBeDisabled();
   expect(revealedPath).toBeNull();
+});
+
+test("project ai chat disables custom skill creation when the backend has no current create root", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([], {
+          customSkillCreateRootPath: null,
+          customSkillCreateRootActionable: false,
+        }),
+      ),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+
+  await page
+    .getByTestId("project-chat-custom-skill-relative-path-input")
+    .fill("new-custom-skill");
+  await expect(
+    page.getByTestId("project-chat-custom-skill-create"),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-path"),
+  ).toContainText("Custom skills root unavailable.");
+});
+
+test("project ai chat clears stale custom skill root actions after a refresh failure", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  let skillsRequestCount = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    skillsRequestCount += 1;
+    if (skillsRequestCount === 1) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(
+          buildAppGenSkillsResponse([], {
+            customSkillCreateRootPath: rootPath,
+            customSkillCreateRootActionable: true,
+          }),
+        ),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "forced refresh failure" }),
+    });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/getAppGenSkills",
+    statuses: [500],
+    ttlMs: 20_000,
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+
+  await page
+    .getByTestId("project-chat-custom-skill-relative-path-input")
+    .fill("new-custom-skill");
+  await expect(
+    page.getByTestId("project-chat-custom-skill-create"),
+  ).toBeEnabled();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-reveal"),
+  ).toBeEnabled();
+
+  await page.getByTestId("project-chat-skills-refresh").click();
+
+  await expect(
+    page.getByText("Skills unavailable (forced refresh failure)."),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-path"),
+  ).toContainText("Custom skills root unavailable.");
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-reveal"),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-create"),
+  ).toBeDisabled();
 });
 
 test("project ai chat keeps created custom skills usable without follow-up reads", async ({

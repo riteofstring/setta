@@ -92,7 +92,8 @@ export type ChatSlashCommandAction =
   | "permissions"
   | "search"
   | "help"
-  | "custom_prompt";
+  | "custom_prompt"
+  | "native_prompt";
 
 export type ChatSlashCommandDefinition = {
   command: string;
@@ -103,7 +104,7 @@ export type ChatSlashCommandDefinition = {
 
 type ManagedChatSlashCommandAction = Exclude<
   ChatSlashCommandAction,
-  "custom_prompt"
+  "custom_prompt" | "native_prompt"
 >;
 
 type ChatSlashCommandInput = {
