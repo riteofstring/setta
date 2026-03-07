@@ -36,8 +36,8 @@ Current repo status as of 2026-03-06:
   source of truth is Go
 - Remaining follow-up after this slice is frontend/browser verification of the
   reopened Python target flow, not more backend ownership inside this slice
-- Automated frontend verification for that follow-up is now in place; headed
-  CDP confirmation is still pending local DevTools availability
+- Automated frontend verification and headed CDP confirmation for that
+  follow-up are now in place
 
 ## Scope
 
@@ -232,12 +232,22 @@ Completed 2026-03-07:
 - verified that the frontend now observes the authoritative backend response
   rather than leaving stale generated-section nodes on the canvas after target
   edits
+- completed headed chrome-devtools-mcp verification for the same Run
+  Instructions flow using a temporary project with seeded TextBlock and
+  MetaControl/CodeParam sections
+  - confirmed section override add -> `exclude` -> remove updates the visible
+    policy controls and the rendered generated Python body in the generated
+    section editor
+  - confirmed code-object override add -> `string` -> remove updates the visible
+    policy controls and the rendered generated Python body in the generated
+    section editor
 
 Verification run:
 
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/codegen/python-codegen-target.spec.ts`
+- headed `chrome-devtools-mcp` pass against `http://127.0.0.1:3000/<temp-project>`
 
 ## Next Recommended Step
 
-Run the same Python target enable/edit and policy-edit flows through
-chrome-devtools-mcp once a headed DevTools session is available.
+This follow-up is complete. Return to the rewrite roadmap and select the next
+Phase 4 or later work item that is not blocked on external verification.

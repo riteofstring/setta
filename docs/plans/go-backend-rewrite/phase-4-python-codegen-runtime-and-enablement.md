@@ -389,8 +389,6 @@ Completed 2026-03-06:
 ## Open Questions
 
 - none inside the Go runtime itself
-- local headed CDP verification of the reopened frontend flow is still pending
-  tool availability
 
 ## Decisions Made In Slice 1
 
@@ -425,6 +423,6 @@ Completed 2026-03-06:
 
 ## Next Recommended Step
 
-- finish headed CDP verification of the reopened Run Instructions Python target
-  flow, including the section-policy and code-object-policy editor paths that
-  now have focused Playwright coverage
+- the Python codegen runtime / enablement follow-up is complete through backend,
+  Playwright, and headed CDP verification
+- select the next rewrite roadmap item rather than broadening this slice
