@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
@@ -112,6 +112,9 @@ test.describe.serial("state machine sections", () => {
 
       await expect(gateNode).toContainText("Review Gate");
       await expect(gateNode).toContainText("workflow-main");
+      // The edited workflow metadata must stay inside the visible node shell.
+      await expectNodeTextWithinBounds(gateNode, "Review Gate");
+      await expectNodeTextWithinBounds(gateNode, "workflow-main");
 
       await expect
         .poll(
@@ -262,4 +265,38 @@ async function readStateMachineImpl(
       sectionImpl?.label ??
       null,
   };
+}
+
+async function expectNodeTextWithinBounds(
+  node: Locator,
+  expectedText: string,
+): Promise<void> {
+  const bounds = await node.evaluate((element, text) => {
+    const nodeRect = element.getBoundingClientRect();
+    const target = Array.from(element.querySelectorAll("*")).find(
+      (candidate) => candidate.textContent?.trim() === text,
+    );
+    if (!target) {
+      return null;
+    }
+    const targetRect = target.getBoundingClientRect();
+    return {
+      nodeTop: nodeRect.top,
+      nodeBottom: nodeRect.bottom,
+      nodeLeft: nodeRect.left,
+      nodeRight: nodeRect.right,
+      targetTop: targetRect.top,
+      targetBottom: targetRect.bottom,
+      targetLeft: targetRect.left,
+      targetRight: targetRect.right,
+    };
+  }, expectedText);
+  expect(bounds).not.toBeNull();
+  if (bounds === null) {
+    return;
+  }
+  expect(bounds.targetTop).toBeGreaterThanOrEqual(bounds.nodeTop);
+  expect(bounds.targetBottom).toBeLessThanOrEqual(bounds.nodeBottom);
+  expect(bounds.targetLeft).toBeGreaterThanOrEqual(bounds.nodeLeft);
+  expect(bounds.targetRight).toBeLessThanOrEqual(bounds.nodeRight);
 }

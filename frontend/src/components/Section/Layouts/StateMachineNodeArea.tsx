@@ -84,11 +84,11 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
   const kindLabel = getNodeKindLabel(snapshot);
 
   return (
-    <div className="flex h-full w-full items-stretch px-3 pb-3">
+    <div className="section-main-full-w flex h-full min-h-0 w-full items-stretch px-2 pb-2">
       <section
-        className={`flex min-h-[84px] w-full flex-col justify-between rounded-xl border px-4 py-3 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.7)] ${getNodeThemeClasses(snapshot.type)}`}
+        className={`flex h-full min-h-0 w-full flex-col overflow-hidden rounded-xl border px-3 py-2 shadow-[0_10px_30px_-20px_rgba(15,23,42,0.7)] ${getNodeThemeClasses(snapshot.type)}`}
       >
-        <header className="flex items-center justify-between gap-3">
+        <header className="flex shrink-0 items-center justify-between gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.22em] opacity-70">
             Workflow
           </span>
@@ -96,9 +96,11 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
             {kindLabel}
           </span>
         </header>
-        <div className="space-y-1">
-          <p className="truncate text-base font-semibold">{title}</p>
-          <p className="truncate font-mono text-[11px] opacity-75">
+        <div className="mt-1 min-h-0 space-y-0.5">
+          <p className="truncate text-sm font-semibold leading-tight">
+            {title}
+          </p>
+          <p className="truncate font-mono text-[10px] leading-tight opacity-75">
             {machineGroupId !== "" ? machineGroupId : "machine-group-unset"}
           </p>
         </div>
