@@ -10,7 +10,6 @@ import {
   createCodeSectionImpl,
   createCore,
   createProjectConfig,
-  createStateMachineStartSectionImpl,
   createTerminalSectionImpl,
   createUserDefaultChatSectionImpl,
   type BaseSectionImplUnion,
@@ -117,19 +116,6 @@ function buildImpl(spec: SectionSpec): BaseSectionImplUnion {
 
   if (spec.type === SectionTypeEnum.GenPythonCode) {
     return buildGenPythonImpl(spec.id, spec.children ?? []);
-  }
-
-  if (spec.type === SectionTypeEnum.StateMachineStart) {
-    return createStateMachineStartSectionImpl(
-      {
-        machineGroupId: "workflow-main",
-      },
-      {
-        id: spec.id,
-        type: SectionTypeEnum.StateMachineStart,
-        machineGroupId: "workflow-main",
-      },
-    );
   }
 
   throw new Error(`Unsupported test section type: ${spec.type}`);
@@ -300,20 +286,6 @@ describe("getBehaviorDropType", () => {
     });
 
     expect(getBehaviorDropType("global-like", "list-root")).toBe(
-      BehaviorDropTypeEnum.INVALID,
-    );
-  });
-
-  it("rejects nesting top-level-only workflow sections into parent containers", () => {
-    // Validates the state-machine shell restriction before edge editing lands.
-    seedProjectState({
-      sections: [
-        { id: "list-root", type: SectionTypeEnum.ListRoot },
-        { id: "workflow-start", type: SectionTypeEnum.StateMachineStart },
-      ],
-    });
-
-    expect(getBehaviorDropType("workflow-start", "list-root")).toBe(
       BehaviorDropTypeEnum.INVALID,
     );
   });
