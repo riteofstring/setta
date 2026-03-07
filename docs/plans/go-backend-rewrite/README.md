@@ -16,11 +16,13 @@ Use the docs in this order:
    - first implementation phase
 6. `phase-2-auth-modes-request-context.md`
    - auth, mode-policy, and request-context implementation plan
-7. `spike-mcp.md`
+7. `phase-3-project-state-core.md`
+   - project-state persistence, runtime ownership, and revision plan
+8. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-8. `spike-pty.md`
+9. `spike-pty.md`
    - PTY uncertainty-reduction plan
-9. `spike-lsp.md`
+10. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -218,6 +218,7 @@ Deferred:
 Deliver:
 
 - websocket auth helpers for bootstrap token or auth cookie
+- deployment websocket handshake helpers that resolve share-session identity without cookie/bootstrap auth
 - close-code behavior for unauthorized sockets
 - request/websocket auth policy alignment
 
@@ -225,6 +226,43 @@ Acceptance:
 
 - unauthorized websocket connections close with the chosen auth code
 - bootstrap token and cookie auth both work for websocket setup in IDE mode
+- deployment websocket setup requires a share session and returns explicit close codes for missing/unknown sessions
+
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/wsapi` around `github.com/coder/websocket` for:
+  - authenticated websocket accepts
+  - pre-handler mode/share-session resolution
+  - websocket-context injection for `internal/modes` and `internal/auth`
+- aligned websocket auth with the settled HTTP contracts:
+  - non-deployment websocket setup accepts either the session-scoped auth cookie or a bootstrap bearer token
+  - deployment websocket setup does not use cookie/bootstrap auth and instead requires share-session identity
+- reused `internal/auth.Service` for websocket token/cookie validation so HTTP and websocket auth share the same session-secret source of truth
+- chose explicit websocket close-code contracts:
+  - `4400` for missing deployment share session
+  - `4401` for unauthorized session-auth websocket setup
+  - `4403` for mode-forbidden websocket setup
+  - `4404` for unknown deployment share session
+
+Tests:
+
+- websocket auth and mode integration in `internal/wsapi/wsapi_test.go`:
+  - unauthorized close code
+  - bootstrap bearer token auth
+  - auth-cookie auth
+  - deployment share-session resolution
+  - missing vs unknown deployment share-session close codes
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- concrete websocket route migration and registration
+- share-session keepalive touches during long-lived websocket message loops
+- launcher-specific websocket route gating once concrete launcher websocket endpoints exist
 
 ## First Recommended Work Item
 
@@ -252,7 +290,8 @@ contract that later request context, websocket auth, and share-mode policy can b
 
 - cookie refresh tests
 - share-session extraction tests
-- websocket auth tests
+- websocket route-loop keepalive tests
+- concrete frontend/CLI websocket route integration tests
 
 ## Exit Criteria
 
@@ -267,10 +306,10 @@ contract that later request context, websocket auth, and share-mode policy can b
 
 ## Next Recommended Step
 
-Move to Slice 4.
+Move to Phase 3 planning.
 
 Specifically:
 
-- add websocket auth helpers aligned with the HTTP auth/session contracts
-- choose the unauthorized websocket close/error behavior explicitly
-- keep trusted-origin and bootstrap-page parity deferred unless a real client path forces them in
+- write a `phase-3-project-state-core.md` implementation plan before broad state work starts
+- define the first project-state slice around load/save/revision behavior without pulling in LSP, MCP, or websocket fan-out yet
+- keep realtime route migration, websocket loop behavior, and trusted-origin/bootstrap-page parity deferred unless a real client path forces them in
