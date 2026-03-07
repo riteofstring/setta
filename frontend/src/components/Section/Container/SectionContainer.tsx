@@ -15,7 +15,6 @@ import {
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
@@ -85,7 +84,7 @@ function _SectionContainer({
       isJoinedAttachedTerminalGroup,
       isJoinedGroupActive,
     };
-  }, shallow);
+  }, _.isEqual);
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
