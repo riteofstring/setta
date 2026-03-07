@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 25 tools total
-- 22 current Go tool names overlap with Python
+- Go MCP now exposes 26 tools total
+- 23 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 20 of those overlaps are mutation or structural tools
-- Python still has 29 mutation or structural project-state MCP tools that do
+- 21 of those overlaps are mutation or structural tools
+- Python still has 28 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -58,6 +58,7 @@ MCP server:
 - writes:
   - `set_section_name`
   - `set_callable`
+  - `set_code`
   - `add_kwarg`
   - `delete_kwarg`
   - `delete_selected_params`
@@ -75,26 +76,24 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `set_code`
+- `set_top_level_section_layout`
 
 Why this is next:
 
-1. `backend/setta/mcp/system_prompt.md` explicitly teaches agents to use
-   `set_code` as the standard code-edit path.
-2. Go already owns the authoritative `/setCode` transport plus the Watch Code
-   and LSP-sensitive update path in:
-   - `internal/app/code_updates.go`
+1. Go already owns the authoritative runtime and IDE HTTP route in:
+   - `internal/projectstate/view_modes.go`
    - `internal/httpapi/project_routes.go`
-   - `internal/projectstate/code_updates.go`
-3. The remaining gap is primarily MCP parity plus a clean service boundary for
-   reusing that existing Go code-update owner.
+2. Python marks this tool as structural and scopes it through
+   `topLevelSections`, which fits the existing MCP target-extraction model.
+3. MCP already has dict-key id extraction and temporary-id translation support
+   for section-keyed layout maps, so the remaining work is a bounded tool
+   registration + coverage slice.
 
-### 2. Good Follow-Ons After `set_code`
+### 2. Good Follow-Ons After `set_top_level_section_layout`
 
 These already have Go runtime owners and existing IDE HTTP route transport, so
 their main remaining gap is MCP registration and scoped test coverage:
 
-- `set_top_level_section_layout`
 - `auto_layout_top_level_sections`
 - `set_show_param_display_names`
 - `toggle_position_locks`
@@ -139,13 +138,14 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-set-code-tool-parity.md` as the next implementation target
-- keep `format_code` and the gen-code prefix/suffix tools separate from
-  `set_code`
-  - `set_code` can reuse the existing Go code-update owner directly
-  - `format_code` and gen-code prefix/suffix widen into formatting and Python
-    codegen-target semantics that do not need to be bundled into the first code
-    editing MCP slice
+- use `phase-6-set-top-level-section-layout-tool-parity.md` as the next
+  implementation target
+- keep `auto_layout_top_level_sections` separate from
+  `set_top_level_section_layout`
+  - top-level layout persistence can reuse the existing Go runtime owner
+    directly
+  - auto-layout widens into spacing and packing policy that does not need to be
+    bundled into the first top-level layout MCP slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -166,3 +166,5 @@ priority:
 - 2026-03-07: next bounded implementation step identified as `set_code`
   because it has the highest MCP leverage and can reuse an already-landed Go
   code-update owner.
+- 2026-03-07: `set_code` MCP parity completed; the next bounded slice moved to
+  `set_top_level_section_layout`.

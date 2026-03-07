@@ -152,8 +152,10 @@ The highest-leverage move is therefore:
 
 - the post-`delete_kwarg` inventory step is now captured in
   `phase-6-remaining-mcp-mutation-gap-inventory.md`
-- the next bounded implementation slice should be `set_code`; see
-  `phase-6-set-code-tool-parity.md`
+- the follow-on `set_code` slice is now complete
+- the next bounded implementation slice should be
+  `set_top_level_section_layout`; see
+  `phase-6-set-top-level-section-layout-tool-parity.md`
 
 ## Progress Notes
 

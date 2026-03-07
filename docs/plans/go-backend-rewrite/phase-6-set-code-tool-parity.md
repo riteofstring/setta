@@ -15,10 +15,11 @@ Watch Code and LSP-aware update path behind `/setCode`.
 
 Current repo status as of 2026-03-07:
 
-- this slice is planned
-- the main missing piece is MCP parity over the completed Go code-update owner
-- the highest-risk mistake would be routing MCP `set_code` directly to raw
-  project-state writes and skipping the existing Watch Code / LSP update path
+- this slice is complete
+- Go MCP now reuses the completed Go code-update owner instead of writing raw
+  project state directly
+- the app-level verification uses the existing bound Watch Code fixture so the
+  authoritative LSP-before-apply path stays under test
 
 ## Scope
 
@@ -122,7 +123,10 @@ through `internal/app/code_updates.go`. MCP should reuse that same owner.
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE|TestAppIDEMCPServerSupportsSetCodeOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE|TestAppIDEMCPServerRejectsReadOnlySetCodeOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient|TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation|TestAppIDEMCPToolCallRouteSupportsSetCode' -count=1 -timeout 420s`
 
 ## Open Questions
 
@@ -130,10 +134,18 @@ through `internal/app/code_updates.go`. MCP should reuse that same owner.
 
 ## Next Recommended Step
 
-- implement this slice before widening into `format_code` or gen-code prefix /
-  suffix MCP work
+- use `phase-6-set-top-level-section-layout-tool-parity.md` for the next
+  bounded MCP mutation slice
+- keep `auto_layout_top_level_sections` separate from top-level layout
+  persistence so packing-policy work does not get bundled into the next MCP
+  transport slice
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the post-`delete_kwarg` inventory identified
   `set_code` as the highest-leverage remaining MCP mutation gap.
+- 2026-03-07: MCP parity landed through the existing Go code-update service,
+  including scoped section targeting, temp-id translation, read-only rejection,
+  authenticated HTTP bridge coverage, and IDE-mode app coverage over the bound
+  Watch Code fixture.
+- 2026-03-07: next bounded slice moved to `set_top_level_section_layout`.

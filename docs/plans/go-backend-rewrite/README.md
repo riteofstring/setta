@@ -138,11 +138,14 @@ Use the docs in this order:
 59. `phase-6-set-code-tool-parity.md`
   - focused slice doc for Go-owned `set_code` MCP parity over the completed
     Watch Code inline-edit and scoped MCP boundaries
-60. `spike-mcp.md`
+60. `phase-6-set-top-level-section-layout-tool-parity.md`
+  - focused slice doc for Go-owned `set_top_level_section_layout` MCP parity
+    over the completed top-level layout runtime and scoped MCP boundaries
+61. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-61. `spike-pty.md`
+62. `spike-pty.md`
    - PTY uncertainty-reduction plan
-62. `spike-lsp.md`
+63. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
