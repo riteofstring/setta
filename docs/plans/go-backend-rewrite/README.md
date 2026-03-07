@@ -8,35 +8,37 @@ Use the docs in this order:
    - master roadmap and sequencing
 2. `go-backend-rewrite-stack-recommendations.md`
    - stack and library research input
-3. `testing-strategy.md`
+3. `dependency-docs-local-reference.md`
+   - safe acquisition and local-reference strategy for external dependency docs
+4. `testing-strategy.md`
    - rewrite-wide testing expectations, harness model, and coverage rules
-4. `phase-0-capability-inventory-and-harness.md`
+5. `phase-0-capability-inventory-and-harness.md`
    - immediate planning work before implementation
-5. `phase-1-foundation-runtime.md`
+6. `phase-1-foundation-runtime.md`
    - first implementation phase
-6. `phase-2-auth-modes-request-context.md`
+7. `phase-2-auth-modes-request-context.md`
    - auth, mode-policy, and request-context implementation plan
-7. `phase-3-project-state-core.md`
+8. `phase-3-project-state-core.md`
    - project-state persistence, runtime ownership, and revision plan
-8. `phase-4-realtime-and-terminal-runtime.md`
+9. `phase-4-realtime-and-terminal-runtime.md`
    - realtime ownership, websocket fan-out, and terminal runtime plan
-9. `phase-4-terminal-transport-migration.md`
+10. `phase-4-terminal-transport-migration.md`
    - focused current-work plan for terminal websocket and HTTP transport migration
-10. `phase-4-terminal-run-code-migration.md`
+11. `phase-4-terminal-run-code-migration.md`
    - focused current-work plan for remaining terminal run-code migration
-11. `phase-4-generated-entry-runs-and-temp-terminals.md`
+12. `phase-4-generated-entry-runs-and-temp-terminals.md`
    - focused current-work plan for generated-entry run support and temporary-terminal fallback
-12. `phase-4-deployment-run-code-policy-and-session-overlays.md`
+13. `phase-4-deployment-run-code-policy-and-session-overlays.md`
    - focused current-work plan for deployment/share run-code policy and session runtime foundations
-13. `phase-4-deployment-session-transport-and-cleanup.md`
+14. `phase-4-deployment-session-transport-and-cleanup.md`
    - focused current-work plan for deployment session bootstrap/state transport and session cleanup ownership
-14. `phase-4-deployment-state-routes-and-projectstate-transport.md`
+15. `phase-4-deployment-state-routes-and-projectstate-transport.md`
    - focused current-work plan for frontend-facing Go project-state transport and deployment state/project-config route migration
-15. `spike-mcp.md`
+16. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-16. `spike-pty.md`
+17. `spike-pty.md`
    - PTY uncertainty-reduction plan
-17. `spike-lsp.md`
+18. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
