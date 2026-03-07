@@ -52,11 +52,13 @@ Use the docs in this order:
    - focused current-work plan for the first Go-owned LSP runtime, diagnostics, and completion transport
 24. `phase-5-snapshot-completion-transport.md`
    - focused current-work plan for Go-owned read-only LSP completion transport over canonical and generated Python snapshot documents
-25. `spike-mcp.md`
+25. `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
+   - focused current-work plan for Go-owned callable binding, signature-help parsing, and param synthesis
+26. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-26. `spike-pty.md`
+27. `spike-pty.md`
    - PTY uncertainty-reduction plan
-27. `spike-lsp.md`
+28. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

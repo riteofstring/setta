@@ -222,12 +222,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-Slice 3 is complete. Execute Slice 4 next:
+Slice 3 is complete. Slice 4 is also complete.
 
-- add Go-owned diagnostics ignore-state routes for
-  `setCodeSectionDiagnosticsMute` and
-  `setCodeSectionDiagnosticCodeSuppression`
-- keep the filtering source of truth inside the existing
-  `internal/projectstate` diagnostics registry
-- add focused route and registry tests before widening to frontend
-  verification
+Continue with:
+
+- `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
+- execute its Slice 1 manual `setCallable` signature-help runtime before
+  widening back out to auto-refetch and watch-code behavior

@@ -61,6 +61,10 @@ Current repo status as of 2026-03-07:
   - the frontend `lspDiagnostics` action now mirrors successful ignore-state
     mutations into local effective project state so existing header badges and
     menus update immediately without a broader project-state websocket push
+- the next active LSP gap is now tracked in:
+  - `docs/plans/go-backend-rewrite/phase-5-signature-help-callable-refetch-and-param-synthesis.md`
+  - this follow-up covers Go-owned `setCallable`, signature-help parsing,
+    callable param synthesis, and later auto-refetch/watch-code integration
 - Python still owns the current LSP runtime under:
   - `backend/setta/lsp/managers.py`
   - `backend/setta/lsp/server.py`
@@ -483,8 +487,7 @@ The bounded Phase 5 LSP runtime plan is now complete through Slice 4.
 
 Next recommended step:
 
-- start a focused follow-up plan doc for the next still-Python-owned LSP
-  behavior, with signature-help-driven callable refetch/parameter synthesis as
-  the recommended next slice
-- keep watch-code/file-watcher parity explicitly deferred until that
-  signature-help boundary is stable
+- execute Slice 1 from
+  `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
+- keep watch-code/file-watcher parity explicitly deferred until the manual
+  `setCallable` slice is stable
