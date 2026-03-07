@@ -1,6 +1,9 @@
 package projectstate
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 func (p Project) ResolveSectionCodeObject(
 	sectionID string,
@@ -19,5 +22,21 @@ func (p Project) ResolveSectionCodeObject(
 }
 
 func (p *Project) SetSectionCodeObjectValue(sectionID string, codeObjID string, value string) error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+	payload, _, _, impl, err := p.ResolveSectionCodeObject(sectionID, codeObjID)
+	if err != nil {
+		return err
+	}
+	switch impl.Type {
+	case "PasswordParam":
+		return ErrPasswordParamMutationUnsupported
+	case "DropzoneParam":
+		return ErrDropzoneParamMutationUnsupported
+	}
+	if _, ok := payload["value"]; !ok {
+		return fmt.Errorf("%w: %q (%s)", ErrCodeObjectValueMutationUnsupported, codeObjID, impl.Type)
+	}
 	return p.setSectionCodeObjectField(sectionID, codeObjID, "value", value)
 }

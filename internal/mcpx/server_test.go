@@ -3,6 +3,7 @@ package mcpx
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -135,14 +136,17 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 7 {
-		t.Fatalf("expected 7 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 10 {
+		t.Fatalf("expected 10 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
+	var setParamTool *sdkmcp.Tool
+	var setTypeErrorIgnoreTool *sdkmcp.Tool
+	var setCodeObjDisplayNameTool *sdkmcp.Tool
 	var suppressionTool *sdkmcp.Tool
 	for _, tool := range toolsResult.Tools {
 		names = append(names, tool.Name)
@@ -155,6 +159,15 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "set_code_section_diagnostics_mute" {
 			muteTool = tool
 		}
+		if tool.Name == "set_param_entered_value" {
+			setParamTool = tool
+		}
+		if tool.Name == "set_type_error_ignore" {
+			setTypeErrorIgnoreTool = tool
+		}
+		if tool.Name == "set_code_obj_display_name" {
+			setCodeObjDisplayNameTool = tool
+		}
 		if tool.Name == "set_code_section_diagnostic_code_suppression" {
 			suppressionTool = tool
 		}
@@ -166,8 +179,11 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"set_agentic_context",
+		"set_code_obj_display_name",
 		"set_code_section_diagnostic_code_suppression",
 		"set_code_section_diagnostics_mute",
+		"set_param_entered_value",
+		"set_type_error_ignore",
 	}
 	for index, name := range expectedNames {
 		if names[index] != name {
@@ -192,6 +208,15 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if muteTool == nil {
 		t.Fatal("expected set_code_section_diagnostics_mute tool")
 	}
+	if setParamTool == nil {
+		t.Fatal("expected set_param_entered_value tool")
+	}
+	if setTypeErrorIgnoreTool == nil {
+		t.Fatal("expected set_type_error_ignore tool")
+	}
+	if setCodeObjDisplayNameTool == nil {
+		t.Fatal("expected set_code_obj_display_name tool")
+	}
 	if suppressionTool == nil {
 		t.Fatal("expected set_code_section_diagnostic_code_suppression tool")
 	}
@@ -203,6 +228,19 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, mutePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected sectionId target path, got %#v", got)
 	}
+	setParamMeta := mustStructuredMap(t, setParamTool.Meta[toolMetaNamespace])
+	setParamPaths := mustStructuredMap(t, setParamMeta["idPathsByType"])
+	if got := mustStringList(t, setParamPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_param_entered_value sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, setParamPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
+		t.Fatalf("expected set_param_entered_value paramInfoId target path, got %#v", got)
+	}
+	setCodeObjDisplayNameMeta := mustStructuredMap(t, setCodeObjDisplayNameTool.Meta[toolMetaNamespace])
+	setCodeObjDisplayNamePaths := mustStructuredMap(t, setCodeObjDisplayNameMeta["idPathsByType"])
+	if got := mustStringList(t, setCodeObjDisplayNamePaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
+		t.Fatalf("expected set_code_obj_display_name codeObjId target path, got %#v", got)
+	}
 
 	listResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{Name: "list_mcp_tools"})
 	if err != nil {
@@ -210,8 +248,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 7 {
-		t.Fatalf("expected 7 registered tool names, got %#v", listNames)
+	if len(listNames) != 10 {
+		t.Fatalf("expected 10 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -479,6 +517,180 @@ func TestServerSetCodeSectionDiagnosticCodeSuppressionRespectsScopedWriteTargets
 	}
 }
 
+func TestServerSetParamEnteredValueRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_entered_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramInfoId":     "allowed-param",
+			"value":           "updated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_param_entered_value allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_param_entered_value success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_param_entered_value: %v", err)
+	}
+	payload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after update: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "updated" {
+		t.Fatalf("expected updated param value, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_entered_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-params-section",
+			"paramInfoId":     "blocked-param",
+			"value":           "blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_param_entered_value blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_param_entered_value call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetTypeErrorIgnoreRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_type_error_ignore",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "allowed-params-section",
+			"paramInfoId":      "allowed-param",
+			"ignoreTypeErrors": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_type_error_ignore allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_type_error_ignore success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_type_error_ignore: %v", err)
+	}
+	ignoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
+	if err != nil {
+		t.Fatalf("type error ignore state after update: %v", err)
+	}
+	if !ignoreState.Params["allowed-param"] {
+		t.Fatalf("expected allowed-param ignore state, got %#v", ignoreState)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_type_error_ignore",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "blocked-params-section",
+			"paramInfoId":      "blocked-param",
+			"ignoreTypeErrors": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_type_error_ignore blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_type_error_ignore call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+}
+
+func TestServerSetCodeObjectDisplayNameRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_obj_display_name",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codeObjId":       "allowed-param",
+			"displayName":     "Height",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_obj_display_name allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_code_obj_display_name success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_code_obj_display_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
+		t.Fatalf("expected display name Height, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_obj_display_name",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codeObjId":       "blocked-param",
+			"displayName":     "Blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_obj_display_name blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_code_obj_display_name call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
 func TestServerProjectStateSummaryCanUsePerCallMeta(t *testing.T) {
 	t.Parallel()
 
@@ -510,17 +722,19 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	projectRuntime := openScopedTestProjectRuntime(t)
 	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
 	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
-		"project-alpha":     "11",
-		"chat-1":            "12",
-		"chat-section":      "13",
-		"allowed-section":   "14",
-		"peer-chat-section": "15",
-		"blocked-section":   "16",
-		"allowed-variant":   "17",
-		"peer-chat-variant": "18",
-		"blocked-variant":   "19",
-		"edge-context":      "20",
-		"edge-peer":         "21",
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-section":        "14",
+		"peer-chat-section":      "15",
+		"blocked-section":        "16",
+		"allowed-variant":        "17",
+		"peer-chat-variant":      "18",
+		"blocked-variant":        "19",
+		"allowed-params-section": "20",
+		"allowed-params-variant": "21",
+		"edge-context":           "22",
+		"edge-peer":              "23",
 	})
 
 	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
@@ -558,6 +772,9 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 	if _, ok := sectionVariantMap["15"]; !ok {
 		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
 	}
+	if _, ok := sectionVariantMap["20"]; !ok {
+		t.Fatalf("expected translated allowed-params-section key 20, got %#v", sectionVariantMap)
+	}
 	if _, ok := sectionVariantMap["16"]; ok {
 		t.Fatalf("did not expect blocked-section key 16 in scoped summary, got %#v", sectionVariantMap)
 	}
@@ -573,7 +790,7 @@ func TestServerTranslatesTemporaryIDsAtInvocationEdge(t *testing.T) {
 		sectionIDs = append(sectionIDs, sectionID)
 	}
 	sort.Strings(sectionIDs)
-	if len(sectionIDs) != 2 || sectionIDs[0] != "14" || sectionIDs[1] != "15" {
+	if len(sectionIDs) != 3 || sectionIDs[0] != "14" || sectionIDs[1] != "15" || sectionIDs[2] != "20" {
 		t.Fatalf("unexpected translated section ids %#v", sectionIDs)
 	}
 
@@ -782,6 +999,164 @@ func TestServerSetCodeSectionDiagnosticCodeSuppressionTranslatesTemporaryIDs(t *
 	}
 }
 
+func TestServerSetParamEnteredValueTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "20",
+		"blocked-params-section": "21",
+		"allowed-param":          "22",
+		"blocked-param":          "23",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_entered_value",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"paramInfoId":     "22",
+			"value":           "translated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_param_entered_value allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_param_entered_value success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_param_entered_value: %v", err)
+	}
+	payload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after temp-id update: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "translated" {
+		t.Fatalf("expected translated param value, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_entered_value",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "21",
+			"paramInfoId":     "23",
+			"value":           "blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_param_entered_value blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_param_entered_value call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "21" {
+		t.Fatalf("expected translated blockedSectionIds [21], got %#v", ids)
+	}
+}
+
+func TestServerSetCodeObjectDisplayNameTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "20",
+		"blocked-params-section": "21",
+		"allowed-param":          "22",
+		"blocked-param":          "23",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_obj_display_name",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"codeObjId":       "22",
+			"displayName":     "Translated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code_obj_display_name allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_code_obj_display_name success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id display-name update: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Translated" {
+		t.Fatalf("expected translated display name, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_obj_display_name",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"codeObjId":       "23",
+			"displayName":     "Blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code_obj_display_name blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_code_obj_display_name call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "21" {
+		t.Fatalf("expected translated blockedSectionIds [21], got %#v", ids)
+	}
+}
+
 func TestServerHandlerServesSSETransport(t *testing.T) {
 	t.Parallel()
 
@@ -830,18 +1205,24 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 					"peer-chat-section",
 					"allowed-section",
 					"blocked-section",
+					"allowed-params-section",
+					"blocked-params-section",
 				},
 				TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
-					"chat-section":      {X: 10, Y: 20},
-					"peer-chat-section": {X: 20, Y: 30},
-					"allowed-section":   {X: 30, Y: 40},
-					"blocked-section":   {X: 40, Y: 50},
+					"chat-section":           {X: 10, Y: 20},
+					"peer-chat-section":      {X: 20, Y: 30},
+					"allowed-section":        {X: 30, Y: 40},
+					"blocked-section":        {X: 40, Y: 50},
+					"allowed-params-section": {X: 50, Y: 60},
+					"blocked-params-section": {X: 60, Y: 70},
 				},
 				SectionVariantMap: map[string]string{
-					"chat-section":      "chat-variant",
-					"peer-chat-section": "peer-chat-variant",
-					"allowed-section":   "allowed-variant",
-					"blocked-section":   "blocked-variant",
+					"chat-section":           "chat-variant",
+					"peer-chat-section":      "peer-chat-variant",
+					"allowed-section":        "allowed-variant",
+					"blocked-section":        "blocked-variant",
+					"allowed-params-section": "allowed-params-variant",
+					"blocked-params-section": "blocked-params-variant",
 				},
 				AgenticEdges: []projectstate.AgenticEdge{
 					{
@@ -860,6 +1241,18 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 						ID:              "edge-write",
 						SourceSectionID: "chat-section",
 						TargetSectionID: "allowed-section",
+						Kind:            agenticEdgeKindChatSection,
+					},
+					{
+						ID:              "edge-params-context",
+						SourceSectionID: "allowed-params-section",
+						TargetSectionID: "chat-section",
+						Kind:            agenticEdgeKindSectionChat,
+					},
+					{
+						ID:              "edge-params-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-params-section",
 						Kind:            agenticEdgeKindChatSection,
 					},
 				},
@@ -888,12 +1281,26 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 						VariantIDs:       []string{"blocked-variant"},
 						DefaultVariantID: "blocked-variant",
 					},
+					"allowed-params-section": {
+						ID:               "allowed-params-section",
+						Name:             "Allowed Params",
+						VariantIDs:       []string{"allowed-params-variant"},
+						DefaultVariantID: "allowed-params-variant",
+					},
+					"blocked-params-section": {
+						ID:               "blocked-params-section",
+						Name:             "Blocked Params",
+						VariantIDs:       []string{"blocked-params-variant"},
+						DefaultVariantID: "blocked-params-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
-					"chat-variant":      {ID: "chat-variant", ImplID: "chat-impl"},
-					"peer-chat-variant": {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
-					"allowed-variant":   {ID: "allowed-variant", ImplID: "allowed-impl"},
-					"blocked-variant":   {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"chat-variant":           {ID: "chat-variant", ImplID: "chat-impl"},
+					"peer-chat-variant":      {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
+					"allowed-variant":        {ID: "allowed-variant", ImplID: "allowed-impl"},
+					"blocked-variant":        {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"allowed-params-variant": {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
+					"blocked-params-variant": {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
 					"chat-impl": {
@@ -933,6 +1340,52 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 							"code":         "print('blocked')\n",
 							"children":     []any{},
 						}),
+					},
+					"allowed-params-impl": {
+						ID:      "allowed-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: mustRawJSON(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+					},
+					"blocked-params-impl": {
+						ID:      "blocked-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: mustRawJSON(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"allowed-param": {
+						ID:               "allowed-param",
+						Name:             "allowed_param",
+						VariantIDs:       []string{"allowed-param-variant"},
+						DefaultVariantID: "allowed-param-variant",
+					},
+					"blocked-param": {
+						ID:               "blocked-param",
+						Name:             "blocked_param",
+						VariantIDs:       []string{"blocked-param-variant"},
+						DefaultVariantID: "blocked-param-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"allowed-param-variant": {
+						ID:     "allowed-param-variant",
+						ImplID: "allowed-param-impl",
+					},
+					"blocked-param-variant": {
+						ID:     "blocked-param-variant",
+						ImplID: "blocked-param-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"allowed-param-impl": {
+						ID:      "allowed-param-impl",
+						Type:    "TextParam",
+						Payload: mustRawJSON(t, map[string]any{"id": "allowed-param-impl", "type": "TextParam", "value": "1"}),
+					},
+					"blocked-param-impl": {
+						ID:      "blocked-param-impl",
+						Type:    "TextParam",
+						Payload: mustRawJSON(t, map[string]any{"id": "blocked-param-impl", "type": "TextParam", "value": "2"}),
 					},
 				},
 			},
@@ -1050,17 +1503,23 @@ func assertSummaryPayload(t *testing.T, payload any) {
 	summary := mustStructuredMap(t, payload)
 	projectConfig := mustStructuredMap(t, summary["projectConfig"])
 	sectionVariantMap := mustStructuredMap(t, projectConfig["sectionVariantMap"])
-	if len(sectionVariantMap) != 2 {
-		t.Fatalf("expected two allowed section variants, got %#v", sectionVariantMap)
+	if len(sectionVariantMap) != 3 {
+		t.Fatalf("expected three allowed section variants, got %#v", sectionVariantMap)
 	}
 	if _, ok := sectionVariantMap["allowed-section"]; !ok {
 		t.Fatalf("expected allowed-section in summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["allowed-params-section"]; !ok {
+		t.Fatalf("expected allowed-params-section in summary, got %#v", sectionVariantMap)
 	}
 	if _, ok := sectionVariantMap["peer-chat-section"]; !ok {
 		t.Fatalf("expected peer-chat-section in summary, got %#v", sectionVariantMap)
 	}
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect blocked-section in summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
+		t.Fatalf("did not expect blocked-params-section in summary, got %#v", sectionVariantMap)
 	}
 
 	parentSectionMap := mustStructuredMap(t, summary["parentSectionMap"])
@@ -1079,7 +1538,7 @@ func assertSummaryPayload(t *testing.T, payload any) {
 		sectionIDs = append(sectionIDs, sectionID)
 	}
 	sort.Strings(sectionIDs)
-	if len(sectionIDs) != 2 || sectionIDs[0] != "allowed-section" || sectionIDs[1] != "peer-chat-section" {
+	if len(sectionIDs) != 3 || sectionIDs[0] != "allowed-params-section" || sectionIDs[1] != "allowed-section" || sectionIDs[2] != "peer-chat-section" {
 		t.Fatalf("unexpected filtered section ids %#v", sectionIDs)
 	}
 }
@@ -1151,6 +1610,19 @@ func mustStructuredMap(t *testing.T, value any) map[string]any {
 		t.Fatalf("decode structured map value: %v", err)
 	}
 	return decoded
+}
+
+func payloadRawStringField(object map[string]any, key string) string {
+	value, ok := object[key]
+	if !ok || value == nil {
+		return ""
+	}
+	switch typed := value.(type) {
+	case string:
+		return typed
+	default:
+		return fmt.Sprint(typed)
+	}
 }
 
 func mustStructuredList(t *testing.T, value any) []any {

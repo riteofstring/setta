@@ -97,6 +97,9 @@ func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 		if _, ok := sectionVariantMap["blocked-section"]; ok {
 			t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
 		}
+		if _, ok := sectionVariantMap["blocked-params-section"]; ok {
+			t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
+		}
 	})
 
 	t.Run("namespaced tool names are rejected", func(t *testing.T) {
@@ -115,14 +118,16 @@ func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
 	diagnostics := openMCPToolRouteDiagnosticsRegistry()
 	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
 	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
-		"project-alpha":     "11",
-		"chat-1":            "12",
-		"chat-section":      "13",
-		"allowed-section":   "14",
-		"blocked-section":   "18",
-		"peer-chat-section": "15",
-		"allowed-variant":   "16",
-		"peer-chat-variant": "17",
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-section":        "14",
+		"peer-chat-section":      "15",
+		"allowed-variant":        "16",
+		"peer-chat-variant":      "17",
+		"blocked-section":        "18",
+		"allowed-params-section": "20",
+		"allowed-params-variant": "21",
 	})
 
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
@@ -180,6 +185,9 @@ func TestMCPToolCallRouteAcceptsTemporaryIDsInBodyAgenticContext(t *testing.T) {
 	}
 	if _, ok := sectionVariantMap["15"]; !ok {
 		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["20"]; !ok {
+		t.Fatalf("expected translated allowed-params-section key 20, got %#v", sectionVariantMap)
 	}
 }
 
@@ -273,6 +281,92 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_param_entered_value",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","value":"updated"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_param_entered_value success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_param_entered_value: %v", err)
+	}
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after route set_param_entered_value: %v", err)
+	}
+	if got := paramPayload["value"]; got != "updated" {
+		t.Fatalf("expected updated param value, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_type_error_ignore",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_type_error_ignore success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_type_error_ignore: %v", err)
+	}
+	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
+	if err != nil {
+		t.Fatalf("type error ignore state after route set_type_error_ignore: %v", err)
+	}
+	if !typeErrorIgnoreState.Params["allowed-param"] {
+		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_code_obj_display_name",
+		"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","displayName":"Height"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_code_obj_display_name success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code_obj_display_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
+		t.Fatalf("expected display name Height, got %q", got)
+	}
 }
 
 func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
@@ -323,12 +417,16 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					"peer-chat-section",
 					"allowed-section",
 					"blocked-section",
+					"allowed-params-section",
+					"blocked-params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"chat-section":      "chat-variant",
-					"peer-chat-section": "peer-chat-variant",
-					"allowed-section":   "allowed-variant",
-					"blocked-section":   "blocked-variant",
+					"chat-section":           "chat-variant",
+					"peer-chat-section":      "peer-chat-variant",
+					"allowed-section":        "allowed-variant",
+					"blocked-section":        "blocked-variant",
+					"allowed-params-section": "allowed-params-variant",
+					"blocked-params-section": "blocked-params-variant",
 				},
 				AgenticEdges: []projectstate.AgenticEdge{
 					{
@@ -347,6 +445,18 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 						ID:              "edge-write",
 						SourceSectionID: "chat-section",
 						TargetSectionID: "allowed-section",
+						Kind:            "chat_section",
+					},
+					{
+						ID:              "edge-params-context",
+						SourceSectionID: "allowed-params-section",
+						TargetSectionID: "chat-section",
+						Kind:            "section_chat",
+					},
+					{
+						ID:              "edge-params-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-params-section",
 						Kind:            "chat_section",
 					},
 				},
@@ -375,12 +485,26 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 						VariantIDs:       []string{"blocked-variant"},
 						DefaultVariantID: "blocked-variant",
 					},
+					"allowed-params-section": {
+						ID:               "allowed-params-section",
+						Name:             "Allowed Params",
+						VariantIDs:       []string{"allowed-params-variant"},
+						DefaultVariantID: "allowed-params-variant",
+					},
+					"blocked-params-section": {
+						ID:               "blocked-params-section",
+						Name:             "Blocked Params",
+						VariantIDs:       []string{"blocked-params-variant"},
+						DefaultVariantID: "blocked-params-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
-					"chat-variant":      {ID: "chat-variant", ImplID: "chat-impl"},
-					"peer-chat-variant": {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
-					"allowed-variant":   {ID: "allowed-variant", ImplID: "allowed-impl"},
-					"blocked-variant":   {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"chat-variant":           {ID: "chat-variant", ImplID: "chat-impl"},
+					"peer-chat-variant":      {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
+					"allowed-variant":        {ID: "allowed-variant", ImplID: "allowed-impl"},
+					"blocked-variant":        {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"allowed-params-variant": {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
+					"blocked-params-variant": {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
 					"chat-impl": {
@@ -420,6 +544,52 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 							"code":         "print('blocked')\n",
 							"children":     []any{},
 						}),
+					},
+					"allowed-params-impl": {
+						ID:      "allowed-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+					},
+					"blocked-params-impl": {
+						ID:      "blocked-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"allowed-param": {
+						ID:               "allowed-param",
+						Name:             "allowed_param",
+						VariantIDs:       []string{"allowed-param-variant"},
+						DefaultVariantID: "allowed-param-variant",
+					},
+					"blocked-param": {
+						ID:               "blocked-param",
+						Name:             "blocked_param",
+						VariantIDs:       []string{"blocked-param-variant"},
+						DefaultVariantID: "blocked-param-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"allowed-param-variant": {
+						ID:     "allowed-param-variant",
+						ImplID: "allowed-param-impl",
+					},
+					"blocked-param-variant": {
+						ID:     "blocked-param-variant",
+						ImplID: "blocked-param-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"allowed-param-impl": {
+						ID:      "allowed-param-impl",
+						Type:    "TextParam",
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-param-impl", "type": "TextParam", "value": "1"}),
+					},
+					"blocked-param-impl": {
+						ID:      "blocked-param-impl",
+						Type:    "TextParam",
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "blocked-param-impl", "type": "TextParam", "value": "2"}),
 					},
 				},
 			},
@@ -498,6 +668,11 @@ func mustRouteRawJSON(t *testing.T, value any) projectstate.RawJSON {
 		t.Fatalf("marshal route raw json: %v", err)
 	}
 	return encoded
+}
+
+func mustRawJSONForRoute(t *testing.T, value any) projectstate.RawJSON {
+	t.Helper()
+	return mustRouteRawJSON(t, value)
 }
 
 func writeRouteTemporaryIDMap(t *testing.T, path string, payload map[string]string) {

@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 7 {
-		t.Fatalf("expected 7 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 10 {
+		t.Fatalf("expected 10 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 7 {
-		t.Fatalf("expected 7 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 10 {
+		t.Fatalf("expected 10 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -188,13 +188,16 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	summaryPayload := mustStructuredMapValue(t, summaryResult.StructuredContent)
 	sections := mustStructuredListValue(t, summaryPayload["sections"])
-	if len(sections) != 2 {
-		t.Fatalf("expected two scoped sections in summary, got %#v", sections)
+	if len(sections) != 3 {
+		t.Fatalf("expected three scoped sections in summary, got %#v", sections)
 	}
 	projectConfig := mustStructuredMapValue(t, summaryPayload["projectConfig"])
 	sectionVariantMap := mustStructuredMapValue(t, projectConfig["sectionVariantMap"])
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
+		t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
 	}
 
 	diagnosticsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -313,6 +316,85 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_entered_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramInfoId":     "allowed-param",
+			"value":           "updated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_param_entered_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_param_entered_value success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_param_entered_value: %v", err)
+	}
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after set_param_entered_value: %v", err)
+	}
+	if got := paramPayload["value"]; got != "updated" {
+		t.Fatalf("expected updated param value, got %#v", got)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_type_error_ignore",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "allowed-params-section",
+			"paramInfoId":      "allowed-param",
+			"ignoreTypeErrors": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_type_error_ignore: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_type_error_ignore success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_type_error_ignore: %v", err)
+	}
+	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
+	if err != nil {
+		t.Fatalf("type error ignore state after set_type_error_ignore: %v", err)
+	}
+	if !typeErrorIgnoreState.Params["allowed-param"] {
+		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_obj_display_name",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codeObjId":       "allowed-param",
+			"displayName":     "Height",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_obj_display_name: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_code_obj_display_name success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_code_obj_display_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
+		t.Fatalf("expected display name Height, got %q", got)
+	}
 }
 
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
@@ -322,15 +404,20 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	prepareAppCurrentSession(t, cfg)
 	saveAppScopedMCPProject(t, cfg)
 	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
-		"project-alpha":     "11",
-		"chat-1":            "12",
-		"chat-section":      "13",
-		"allowed-section":   "14",
-		"blocked-section":   "18",
-		"peer-chat-section": "15",
-		"allowed-variant":   "16",
-		"peer-chat-variant": "17",
-		"blocked-variant":   "19",
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-section":        "14",
+		"peer-chat-section":      "15",
+		"allowed-variant":        "16",
+		"peer-chat-variant":      "17",
+		"blocked-section":        "18",
+		"blocked-variant":        "19",
+		"allowed-params-section": "20",
+		"allowed-params-variant": "21",
+		"allowed-param":          "22",
+		"blocked-params-section": "23",
+		"blocked-param":          "24",
 	})
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
@@ -383,6 +470,9 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	}
 	if _, ok := sectionVariantMap["15"]; !ok {
 		t.Fatalf("expected translated peer-chat-section key 15, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["20"]; !ok {
+		t.Fatalf("expected translated allowed-params-section key 20, got %#v", sectionVariantMap)
 	}
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect canonical blocked-section key, got %#v", sectionVariantMap)
@@ -471,6 +561,100 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	}
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_param_entered_value",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"paramInfoId":     "22",
+			"value":           "translated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_param_entered_value: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id set_param_entered_value success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_param_entered_value: %v", err)
+	}
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after temp-id set_param_entered_value: %v", err)
+	}
+	if got := paramPayload["value"]; got != "translated" {
+		t.Fatalf("expected translated param value, got %#v", got)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_type_error_ignore",
+		Arguments: map[string]any{
+			"projectConfigId":  "11",
+			"sectionId":        "20",
+			"paramInfoId":      "22",
+			"ignoreTypeErrors": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_type_error_ignore: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id set_type_error_ignore success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_type_error_ignore: %v", err)
+	}
+	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
+	if err != nil {
+		t.Fatalf("type error ignore state after temp-id set_type_error_ignore: %v", err)
+	}
+	if !typeErrorIgnoreState.Params["allowed-param"] {
+		t.Fatalf("expected translated allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_code_obj_display_name",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"codeObjId":       "22",
+			"displayName":     "Translated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code_obj_display_name: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id set_code_obj_display_name success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_code_obj_display_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Translated" {
+		t.Fatalf("expected translated display name, got %q", got)
 	}
 
 	blockedWriteResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -577,8 +761,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 7 {
-		t.Fatalf("expected tool count 7, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 10 {
+		t.Fatalf("expected tool count 10, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -643,6 +827,9 @@ func TestAppIDEMCPToolCallRouteSupportsAgenticContextBody(t *testing.T) {
 	sectionVariantMap := mustStructuredMapValue(t, projectConfig["sectionVariantMap"])
 	if _, ok := sectionVariantMap["blocked-section"]; ok {
 		t.Fatalf("did not expect blocked-section in scoped summary, got %#v", sectionVariantMap)
+	}
+	if _, ok := sectionVariantMap["blocked-params-section"]; ok {
+		t.Fatalf("did not expect blocked-params-section in scoped summary, got %#v", sectionVariantMap)
 	}
 }
 
@@ -754,6 +941,128 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if len(ignoreState.SuppressedCodes) != 1 || ignoreState.SuppressedCodes[0] != "reportFoo" {
 		t.Fatalf("expected reportFoo suppression, got %#v", ignoreState.SuppressedCodes)
 	}
+
+	response, err = client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_param_entered_value",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","value":"updated"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_param_entered_value tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_param_entered_value tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_param_entered_value success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_param_entered_value: %v", err)
+	}
+	paramPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after route set_param_entered_value: %v", err)
+	}
+	if got := paramPayload["value"]; got != "updated" {
+		t.Fatalf("expected updated param value, got %#v", got)
+	}
+
+	response, err = client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_type_error_ignore",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_type_error_ignore tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_type_error_ignore tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_type_error_ignore success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_type_error_ignore: %v", err)
+	}
+	typeErrorIgnoreState, err := project.TypeErrorIgnoreStateForSection("allowed-params-section")
+	if err != nil {
+		t.Fatalf("type error ignore state after route set_type_error_ignore: %v", err)
+	}
+	if !typeErrorIgnoreState.Params["allowed-param"] {
+		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
+	}
+
+	response, err = client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_code_obj_display_name",
+			"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","displayName":"Height"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_code_obj_display_name tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_code_obj_display_name tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_code_obj_display_name success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code_obj_display_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
+		t.Fatalf("expected display name Height, got %q", got)
+	}
 }
 
 func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
@@ -771,12 +1080,16 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					"peer-chat-section",
 					"allowed-section",
 					"blocked-section",
+					"allowed-params-section",
+					"blocked-params-section",
 				},
 				SectionVariantMap: map[string]string{
-					"chat-section":      "chat-variant",
-					"peer-chat-section": "peer-chat-variant",
-					"allowed-section":   "allowed-variant",
-					"blocked-section":   "blocked-variant",
+					"chat-section":           "chat-variant",
+					"peer-chat-section":      "peer-chat-variant",
+					"allowed-section":        "allowed-variant",
+					"blocked-section":        "blocked-variant",
+					"allowed-params-section": "allowed-params-variant",
+					"blocked-params-section": "blocked-params-variant",
 				},
 				AgenticEdges: []projectstate.AgenticEdge{
 					{
@@ -795,6 +1108,18 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 						ID:              "edge-write",
 						SourceSectionID: "chat-section",
 						TargetSectionID: "allowed-section",
+						Kind:            "chat_section",
+					},
+					{
+						ID:              "edge-params-context",
+						SourceSectionID: "allowed-params-section",
+						TargetSectionID: "chat-section",
+						Kind:            "section_chat",
+					},
+					{
+						ID:              "edge-params-write",
+						SourceSectionID: "chat-section",
+						TargetSectionID: "allowed-params-section",
 						Kind:            "chat_section",
 					},
 				},
@@ -823,12 +1148,26 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 						VariantIDs:       []string{"blocked-variant"},
 						DefaultVariantID: "blocked-variant",
 					},
+					"allowed-params-section": {
+						ID:               "allowed-params-section",
+						Name:             "Allowed Params",
+						VariantIDs:       []string{"allowed-params-variant"},
+						DefaultVariantID: "allowed-params-variant",
+					},
+					"blocked-params-section": {
+						ID:               "blocked-params-section",
+						Name:             "Blocked Params",
+						VariantIDs:       []string{"blocked-params-variant"},
+						DefaultVariantID: "blocked-params-variant",
+					},
 				},
 				SectionVariants: map[string]projectstate.SectionVariant{
-					"chat-variant":      {ID: "chat-variant", ImplID: "chat-impl"},
-					"peer-chat-variant": {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
-					"allowed-variant":   {ID: "allowed-variant", ImplID: "allowed-impl"},
-					"blocked-variant":   {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"chat-variant":           {ID: "chat-variant", ImplID: "chat-impl"},
+					"peer-chat-variant":      {ID: "peer-chat-variant", ImplID: "peer-chat-impl"},
+					"allowed-variant":        {ID: "allowed-variant", ImplID: "allowed-impl"},
+					"blocked-variant":        {ID: "blocked-variant", ImplID: "blocked-impl"},
+					"allowed-params-variant": {ID: "allowed-params-variant", ImplID: "allowed-params-impl"},
+					"blocked-params-variant": {ID: "blocked-params-variant", ImplID: "blocked-params-impl"},
 				},
 				SectionImpls: map[string]projectstate.SectionImpl{
 					"chat-impl": {
@@ -868,6 +1207,52 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 							"code":         "print('blocked')\n",
 							"children":     []any{},
 						}),
+					},
+					"allowed-params-impl": {
+						ID:      "allowed-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+					},
+					"blocked-params-impl": {
+						ID:      "blocked-params-impl",
+						Kind:    projectstate.SectionKind("dict"),
+						Payload: mustRawJSONValue(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"allowed-param": {
+						ID:               "allowed-param",
+						Name:             "allowed_param",
+						VariantIDs:       []string{"allowed-param-variant"},
+						DefaultVariantID: "allowed-param-variant",
+					},
+					"blocked-param": {
+						ID:               "blocked-param",
+						Name:             "blocked_param",
+						VariantIDs:       []string{"blocked-param-variant"},
+						DefaultVariantID: "blocked-param-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"allowed-param-variant": {
+						ID:     "allowed-param-variant",
+						ImplID: "allowed-param-impl",
+					},
+					"blocked-param-variant": {
+						ID:     "blocked-param-variant",
+						ImplID: "blocked-param-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"allowed-param-impl": {
+						ID:      "allowed-param-impl",
+						Type:    "TextParam",
+						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-param-impl", "type": "TextParam", "value": "1"}),
+					},
+					"blocked-param-impl": {
+						ID:      "blocked-param-impl",
+						Type:    "TextParam",
+						Payload: mustRawJSONValue(t, map[string]any{"id": "blocked-param-impl", "type": "TextParam", "value": "2"}),
 					},
 				},
 			},

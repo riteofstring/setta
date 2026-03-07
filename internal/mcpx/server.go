@@ -56,6 +56,9 @@ type toolDefinition struct {
 
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
+	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
+	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
+	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
 }
@@ -421,11 +424,11 @@ func newSetCodeSectionDiagnosticsMuteHandler(projectState projectStateProvider, 
 
 		snapshot, err := projectState.SetCodeSectionDiagnosticsMute(ctx, projectConfigID, sectionID, mute)
 		if err != nil {
-			return nil, err
+			return nil, normalizeProjectStateMutationError(err)
 		}
 		project, err := snapshot.Document.ProjectByID(projectConfigID)
 		if err != nil {
-			return nil, err
+			return nil, normalizeProjectStateMutationError(err)
 		}
 		if err := diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
 			return nil, err
@@ -471,14 +474,140 @@ func newSetCodeSectionDiagnosticCodeSuppressionHandler(projectState projectState
 
 		snapshot, err := projectState.SetCodeSectionDiagnosticCodeSuppression(ctx, projectConfigID, sectionID, code, suppress)
 		if err != nil {
-			return nil, err
+			return nil, normalizeProjectStateMutationError(err)
 		}
 		project, err := snapshot.Document.ProjectByID(projectConfigID)
 		if err != nil {
-			return nil, err
+			return nil, normalizeProjectStateMutationError(err)
 		}
 		if err := diagnostics.ReapplyCodeSectionIgnoreState(project, sectionID); err != nil {
 			return nil, err
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetParamEnteredValueHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		paramInfoID, err := readRequiredStringArgument(arguments, "paramInfoId")
+		if err != nil {
+			return nil, err
+		}
+		value, err := readRequiredRawStringArgument(arguments, "value")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped parameter-value invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetSectionCodeObjectValue(ctx, projectConfigID, sectionID, paramInfoID, value); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetTypeErrorIgnoreHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		paramInfoID, err := readOptionalStringArgument(arguments, "paramInfoId")
+		if err != nil {
+			return nil, err
+		}
+		ignoreTypeErrors, err := readRequiredBoolArgument(arguments, "ignoreTypeErrors")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped type-error ignore invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		var paramInfoIDPtr *string
+		if strings.TrimSpace(paramInfoID) != "" {
+			paramInfoIDPtr = &paramInfoID
+		}
+		if _, err := projectState.SetTypeErrorIgnore(ctx, projectConfigID, sectionID, paramInfoIDPtr, ignoreTypeErrors); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetCodeObjectDisplayNameHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		codeObjID, err := readRequiredStringArgument(arguments, "codeObjId")
+		if err != nil {
+			return nil, err
+		}
+		displayName, err := readRequiredRawStringArgument(arguments, "displayName")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped code-object display-name invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetCodeObjectDisplayName(ctx, projectConfigID, codeObjID, displayName); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
 	}
@@ -647,6 +776,148 @@ func defaultToolDefinitions(server *Server, workspaceRoot string, registry *tool
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_param_entered_value",
+				Description: "Write a new manual value for the targeted section parameter.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"paramInfoId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "value", "input", "write"},
+				},
+				Handler: newSetParamEnteredValueHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose parameter value should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id containing the targeted parameter.",
+					},
+					"paramInfoId": map[string]any{
+						"type":        "string",
+						"description": "Code-object id for the targeted parameter.",
+					},
+					"value": map[string]any{
+						"type":        "string",
+						"description": "Raw parameter value to persist.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "paramInfoId", "value"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_type_error_ignore",
+				Description: "Toggle ignoring type errors for the targeted section entry.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"paramInfoId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "type", "error", "ignore"},
+				},
+				Handler: newSetTypeErrorIgnoreHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose type-error ignore state should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose type-error ignore state should be updated.",
+					},
+					"paramInfoId": map[string]any{
+						"type":        "string",
+						"description": "Optional parameter code-object id to target; omit to target callable-level errors.",
+					},
+					"ignoreTypeErrors": map[string]any{
+						"type":        "boolean",
+						"description": "When true, ignore type errors for the targeted entry.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "ignoreTypeErrors"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_code_obj_display_name",
+				Description: "Update the user-facing display name for the requested code object.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeCodeObject: {"codeObjId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"code", "object", "display", "name", "param"},
+				},
+				Handler: newSetCodeObjectDisplayNameHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose code-object display name should be updated.",
+					},
+					"codeObjId": map[string]any{
+						"type":        "string",
+						"description": "Code-object id whose display name should be updated.",
+					},
+					"displayName": map[string]any{
+						"type":        "string",
+						"description": "User-facing display name to store for the code object.",
+					},
+				},
+				"required": []string{"projectConfigId", "codeObjId", "displayName"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
 			},
 		})
 
@@ -931,6 +1202,18 @@ func readRequiredStringArgument(arguments map[string]any, key string) (string, e
 	return value, nil
 }
 
+func readRequiredRawStringArgument(arguments map[string]any, key string) (string, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return "", newToolError("invalid_arguments", "%s is required", key)
+	}
+	value, ok := rawValue.(string)
+	if !ok {
+		return "", newToolError("invalid_arguments", "%s must be a string", key)
+	}
+	return value, nil
+}
+
 func readOptionalStringArgument(arguments map[string]any, key string) (string, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -1078,6 +1361,28 @@ func buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 			&sdkmcp.TextContent{Text: result.Message},
 		},
 		StructuredContent: structuredContent,
+	}
+}
+
+func normalizeProjectStateMutationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
+	case errors.Is(err, projectstate.ErrSectionNotFound),
+		errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrCodeSectionRequired),
+		errors.Is(err, projectstate.ErrInvalidCodeSectionDiagnosticCode),
+		errors.Is(err, projectstate.ErrCodeObjectValueMutationUnsupported),
+		errors.Is(err, projectstate.ErrPasswordParamMutationUnsupported),
+		errors.Is(err, projectstate.ErrDropzoneParamMutationUnsupported),
+		errors.Is(err, projectstate.ErrInvalidTypeErrorIgnoreState),
+		errors.Is(err, projectstate.ErrTypeErrorIgnoreUnsupported):
+		return newToolError("invalid_arguments", "%s", err.Error())
+	default:
+		return err
 	}
 }
 
