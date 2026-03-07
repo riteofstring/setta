@@ -35,6 +35,7 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shortcutPrettified } from "utils/utils";
+import { shallow } from "zustand/shallow";
 
 type KwargsControlsProps = {
   sectionId: string;
@@ -96,7 +97,7 @@ export function KwargsControls({ sectionId }: KwargsControlsProps) {
         styleColor: impl.styleColor ?? null,
       };
     },
-    _.isEqual,
+    shallow,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
@@ -474,17 +475,20 @@ function ParamFilter({
   includeCallablePadding: boolean;
   hasSectionStyleTheme: boolean;
 }) {
-  const { paramFilterValue, sectionIsActive } = useProjectState((x) => {
+  const paramFilterValue = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    return {
-      paramFilterValue: impl.paramFilter,
-      sectionIsActive: _.isEqual(x.projectConfig.activeIds, [sectionId]),
-    };
-  }, _.isEqual);
+    return impl.paramFilter;
+  });
+  const sectionIsActive = useProjectState((x) => {
+    return (
+      x.projectConfig.activeIds.length === 1 &&
+      x.projectConfig.activeIds[0] === sectionId
+    );
+  });
 
   const searchShortcut = useSettings((x) =>
     shortcutPrettified(x.shortcuts.searchShortcut),

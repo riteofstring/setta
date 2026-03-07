@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -16,11 +17,9 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
-import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import {
   getOnSectionClick,
   getOutlineColor,
@@ -44,6 +43,7 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     isActiveSection,
     sectionTypeName,
@@ -178,9 +178,9 @@ function _SectionContainerCore({
     ? ""
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
-  const shouldRenderSharedChatHandles =
-    shouldRenderAgenticEdgeHandles && sectionTypeName === SectionTypeEnum.Chat;
+    !hideAgenticEdgeHandles &&
+    !isAttachedTerminalChild &&
+    benchmark.renderSectionHandles;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
@@ -193,16 +193,12 @@ function _SectionContainerCore({
       data-section-type={sectionTypeName}
       style={sectionStyleVars}
     >
-      {shouldRenderSharedChatHandles ? (
-        <ChatSharedEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderAgenticEdgeHandles && !shouldRenderSharedChatHandles && (
+      {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
       )}
-      {shouldRenderAgenticEdgeHandles && !shouldRenderSharedChatHandles && (
-        <StateMachineEdgeHandles isUserView={isUserView} />
+      {benchmark.renderSectionHandles && (
+        <MinimizedDataEdgeHandles sectionId={sectionId} />
       )}
-      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
