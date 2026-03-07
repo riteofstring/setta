@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -11,14 +12,16 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/observability"
+	"setta/internal/projectstate"
 	"setta/internal/runtime"
 )
 
 type App struct {
-	config  config.Config
-	logger  *slog.Logger
-	runtime *runtime.Manager
-	handler http.Handler
+	config        config.Config
+	logger        *slog.Logger
+	runtime       *runtime.Manager
+	projectStates *projectstate.Registry
+	handler       http.Handler
 }
 
 func New(cfg config.Config, logger *slog.Logger) (*App, error) {
@@ -36,6 +39,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	projectStates, err := projectstate.OpenRegistry(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{})
+	if err != nil {
+		return nil, err
+	}
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
 		Info: infoService{
@@ -46,14 +53,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ModePolicy: modes.NewPolicy(cfg.Server.Mode),
 	})
 	if err != nil {
+		_ = projectStates.Close()
 		return nil, err
 	}
 
 	return &App{
-		config:  cfg,
-		logger:  logger,
-		runtime: manager,
-		handler: handler,
+		config:        cfg,
+		logger:        logger,
+		runtime:       manager,
+		projectStates: projectStates,
+		handler:       handler,
 	}, nil
 }
 
@@ -69,8 +78,12 @@ func (a *App) Runtime() *runtime.Manager {
 	return a.runtime
 }
 
+func (a *App) ProjectStates() *projectstate.Registry {
+	return a.projectStates
+}
+
 func (a *App) Shutdown(ctx context.Context) error {
-	return a.runtime.Shutdown(ctx)
+	return errors.Join(a.projectStates.Close(), a.runtime.Shutdown(ctx))
 }
 
 type infoService struct {
