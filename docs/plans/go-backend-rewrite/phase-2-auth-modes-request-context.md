@@ -129,6 +129,36 @@ Acceptance:
 - near-expiry cookies are refreshed on API responses
 - handlers can read current session/auth state from request context without knowing middleware internals
 
+Status:
+
+- complete
+
+Completed:
+
+- extended request auth context with:
+  - auth source
+  - session metadata
+  - auth expiry timestamp
+- added request-level auth helpers:
+  - `RequestInfoFromRequest`
+  - `RequireRequestInfo`
+- moved refresh policy into `internal/auth` so handlers and middleware do not need to know cookie timing rules
+- refreshes near-expiry auth cookies on `/api/*` responses only
+- keeps fresh cookies untouched
+- keeps route policy explicit by mounting IDE auth middleware at the `/api/*` boundary instead of adding path-condition exceptions inside handlers
+
+Tests:
+
+- unit coverage for refresh decision behavior and request-auth accessor failure in `internal/auth/service_test.go`
+- integration coverage for refreshed-vs-fresh cookie behavior in `internal/httpapi/httpapi_test.go`
+
+Deferred:
+
+- `GET /api/authRefreshStatus`
+- trusted frontend origin expiry refresh
+- non-API auth refresh behavior
+- share-mode request-context helpers
+
 ### Slice 3: Mode Policy And Share Session Extraction
 
 Deliver:
@@ -197,10 +227,10 @@ contract that later request context, websocket auth, and share-mode policy can b
 
 ## Next Recommended Step
 
-Move to Slice 2.
+Move to Slice 3.
 
 Specifically:
 
-- refresh near-expiry auth cookies on `/api/*` responses only
-- expose the request auth context as a stable dependency for later services and handlers
-- add a small auth status route only if a concrete frontend caller needs it during this phase
+- add mode-policy helpers for IDE/share/app/launcher
+- introduce share-session extraction from header/cookie/query through a typed request-context contract
+- keep auth refresh/status endpoints deferred unless a real frontend caller forces them into scope
