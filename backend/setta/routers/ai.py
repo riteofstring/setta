@@ -22,7 +22,7 @@ from setta.agentic.context_usage import (
 from setta.agentic.managed_chat_dispatch import (
     AppGenerationMode,
     ManagedChatDispatcher,
-    ManagedChatDispatchRequest,
+    ManagedChatDispatchRequestBase,
     ManagedChatDispatchResponse,
 )
 from setta.agentic.store import (
@@ -542,7 +542,7 @@ def _normalize_reference_image_inputs(
     )
 
 
-class GetLLMResponseRequest(ManagedChatDispatchRequest):
+class GetLLMResponseRequest(ManagedChatDispatchRequestBase):
     pass
 
 

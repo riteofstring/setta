@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -43,6 +44,7 @@ from setta.types.state_machine_edges import (
 from setta.utils.timestamps import get_now_timestamp
 
 STATE_MACHINE_RUN_TYPE = "state_machine"
+INITIAL_STATE_MACHINE_ITERATION = 1
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +115,7 @@ class StateMachineRunner:
         run.outputs = {
             "machineGroupId": graph.machine_group_id,
             "machineName": graph.machine_name,
+            "stateMachineIteration": INITIAL_STATE_MACHINE_ITERATION,
             "startSectionId": str(graph.start_section_id),
             "startSectionIds": [
                 str(section_id) for section_id in graph.start_section_ids
@@ -128,6 +131,7 @@ class StateMachineRunner:
             "startOutgoingTargetSectionIds": [
                 str(edge.targetSectionId) for edge in graph.start_outgoing_edges
             ],
+            "childRunIds": [],
         }
         save_agent_run(self.dbe, run)
         self._record_event(
@@ -188,6 +192,12 @@ class StateMachineRunner:
         if run.outputs is None:
             raise KeyError("State machine run outputs were not initialized.")
         run.outputs["dispatchedStartEdgeActions"] = dispatched_actions
+        run.outputs["childRunIds"] = [
+            raw_run_id
+            for action in dispatched_actions
+            for raw_run_id in [action.get("runId")]
+            if isinstance(raw_run_id, str)
+        ]
         save_agent_run(self.dbe, run)
         if dispatched_actions:
             self._record_event(
@@ -377,8 +387,50 @@ class StateMachineRunner:
         project_config_id: ID,
         share_session_id: str | None,
     ) -> list[dict[str, object]]:
+        return await self._activate_ready_edges(
+            run=run,
+            edges=graph.start_outgoing_edges,
+            project_config_id=project_config_id,
+            share_session_id=share_session_id,
+        )
+
+    async def _activate_ready_edges(
+        self,
+        *,
+        run: AgentRun,
+        edges: list[StateMachineEdge],
+        project_config_id: ID,
+        share_session_id: str | None,
+    ) -> list[dict[str, object]]:
+        edge_groups = self._group_edges_by_target_section(edges)
+        if not edge_groups:
+            return []
+        grouped_results = await asyncio.gather(
+            *[
+                self._activate_edge_group(
+                    run=run,
+                    edges=edge_group,
+                    project_config_id=project_config_id,
+                    share_session_id=share_session_id,
+                )
+                for edge_group in edge_groups
+            ]
+        )
         action_results: list[dict[str, object]] = []
-        for edge in graph.start_outgoing_edges:
+        for group_results in grouped_results:
+            action_results.extend(group_results)
+        return action_results
+
+    async def _activate_edge_group(
+        self,
+        *,
+        run: AgentRun,
+        edges: list[StateMachineEdge],
+        project_config_id: ID,
+        share_session_id: str | None,
+    ) -> list[dict[str, object]]:
+        action_results: list[dict[str, object]] = []
+        for edge in edges:
             action_result = await self._activate_edge_action(
                 run=run,
                 edge=edge,
@@ -389,6 +441,21 @@ class StateMachineRunner:
                 continue
             action_results.append(action_result)
         return action_results
+
+    def _group_edges_by_target_section(
+        self, edges: list[StateMachineEdge]
+    ) -> list[list[StateMachineEdge]]:
+        ordered_target_section_ids: list[ID] = []
+        edges_by_target_section_id: dict[ID, list[StateMachineEdge]] = {}
+        for edge in edges:
+            if edge.targetSectionId not in edges_by_target_section_id:
+                ordered_target_section_ids.append(edge.targetSectionId)
+                edges_by_target_section_id[edge.targetSectionId] = []
+            edges_by_target_section_id[edge.targetSectionId].append(edge)
+        return [
+            edges_by_target_section_id[target_section_id]
+            for target_section_id in ordered_target_section_ids
+        ]
 
     async def _activate_edge_action(
         self,
@@ -531,6 +598,7 @@ class StateMachineRunner:
                     if target_action.searchEnabled is not None
                     else target_impl.searchEnabled
                 ),
+                extraRunInputs=self._build_child_run_inputs(run, edge),
             )
         )
         if chat_id != dispatch_response.chatId:
@@ -548,6 +616,7 @@ class StateMachineRunner:
             "runId": str(dispatch_response.runId),
             "threadStrategy": target_action.threadStrategy.value,
             "engineType": dispatch_response.engineType.value,
+            "stateMachineIteration": self._get_state_machine_iteration(run),
         }
         self._record_event(
             run,
@@ -555,6 +624,36 @@ class StateMachineRunner:
             action_result,
         )
         return action_result
+
+    def _build_child_run_inputs(
+        self,
+        run: AgentRun,
+        edge: StateMachineEdge,
+    ) -> dict[str, object]:
+        return {
+            "stateMachineRunId": str(run.id),
+            "machineGroupId": self._get_machine_group_id(run),
+            "stateMachineSourceEdgeId": str(edge.id),
+            "stateMachineTargetSectionId": str(edge.targetSectionId),
+            "stateMachineIteration": self._get_state_machine_iteration(run),
+            "stateMachineParentRunType": STATE_MACHINE_RUN_TYPE,
+        }
+
+    def _get_machine_group_id(self, run: AgentRun) -> str:
+        if not isinstance(run.inputs, dict):
+            raise KeyError("State machine run inputs are missing.")
+        raw_machine_group_id = run.inputs.get("machineGroupId")
+        if not isinstance(raw_machine_group_id, str) or raw_machine_group_id == "":
+            raise KeyError("State machine run machineGroupId is missing.")
+        return raw_machine_group_id
+
+    def _get_state_machine_iteration(self, run: AgentRun) -> int:
+        if not isinstance(run.outputs, dict):
+            raise KeyError("State machine run outputs are missing.")
+        raw_iteration = run.outputs.get("stateMachineIteration")
+        if not isinstance(raw_iteration, int):
+            raise KeyError("State machine run iteration is missing.")
+        return raw_iteration
 
     def _resolve_prompt_text(
         self,

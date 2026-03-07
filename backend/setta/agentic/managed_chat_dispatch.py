@@ -67,7 +67,7 @@ def require_frontend_affinity_token(value: str | None) -> str | None:
         ) from exc
 
 
-class ManagedChatDispatchRequest(BaseModel, extra="forbid"):
+class ManagedChatDispatchRequestBase(BaseModel, extra="forbid"):
     chatId: ID | None
     continueFromChatId: ID | None = None
     message: BaseChatMessageUnionWithDiscriminator
@@ -102,11 +102,25 @@ class ManagedChatDispatchRequest(BaseModel, extra="forbid"):
     )
 
 
+class ManagedChatDispatchRequest(ManagedChatDispatchRequestBase):
+    extraRunInputs: dict[str, object] = Field(
+        default_factory=dict,
+        description="Internal-only additional run input fields appended to the child run.",
+    )
+
+
 class ManagedChatDispatchResponse(BaseModel, extra="forbid"):
     chatId: ID
     runId: ID
     engineType: EngineType
     sectionId: ID | None = None
+
+
+def _get_extra_run_inputs(x: ManagedChatDispatchRequestBase) -> dict[str, object]:
+    raw_extra_run_inputs = getattr(x, "extraRunInputs", {})
+    if not isinstance(raw_extra_run_inputs, dict):
+        raise TypeError("Managed chat dispatch extraRunInputs must be a dict.")
+    return raw_extra_run_inputs
 
 
 def _combine_prompt_sections(*sections: str | None) -> str:
@@ -189,6 +203,23 @@ def _apply_external_reasoning_defaults(
         inputs["effort"] = "high" if thinking else "low"
     if "summary" not in inputs:
         inputs["summary"] = "auto" if thinking else "none"
+
+
+def _merge_extra_run_inputs(
+    inputs: dict[str, object],
+    extra_run_inputs: dict[str, object],
+) -> dict[str, object]:
+    if not extra_run_inputs:
+        return inputs
+    collisions = sorted(key for key in extra_run_inputs if key in inputs)
+    if collisions:
+        raise ValueError(
+            "Managed chat dispatch extraRunInputs collided with reserved inputs: "
+            + ", ".join(collisions)
+        )
+    merged = dict(inputs)
+    merged.update(extra_run_inputs)
+    return merged
 
 
 def _get_llm_chat_runs(
@@ -560,8 +591,9 @@ class ManagedChatDispatcher:
 
     def dispatch(
         self,
-        x: ManagedChatDispatchRequest,
+        x: ManagedChatDispatchRequestBase,
     ) -> ManagedChatDispatchResponse:
+        extra_run_inputs = _get_extra_run_inputs(x)
         if x.sectionId is None and not x.allowUnscoped:
             raise HTTPException(
                 status_code=400,
@@ -755,6 +787,7 @@ class ManagedChatDispatcher:
                 inputs["allowUnscoped"] = True
             if normalized_frontend_affinity_token is not None:
                 inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
+            inputs = _merge_extra_run_inputs(inputs, extra_run_inputs)
             run = self.agent_runner.start_run(profile, inputs)
             return ManagedChatDispatchResponse(
                 chatId=chat_id,
@@ -850,6 +883,7 @@ class ManagedChatDispatcher:
                 inputs["allowUnscoped"] = True
             if normalized_frontend_affinity_token is not None:
                 inputs["frontendAffinityToken"] = normalized_frontend_affinity_token
+            inputs = _merge_extra_run_inputs(inputs, extra_run_inputs)
             try:
                 run = runner.start_run(
                     x.engineConfigId, external_config, profile, inputs

@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -272,6 +273,88 @@ async def _seed_state_machine_chat_graph(
     )
 
 
+async def _seed_state_machine_multi_chat_graph(
+    *,
+    project_fixture,
+    project_config_id,
+    engine_config_id: ID,
+) -> tuple[str, list[str]]:
+    start_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineStart,
+            position=Position(x=0, y=0),
+        ),
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=start_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Review Flow",
+        )
+    )
+    end_response = await project_fixture.manager.create_top_level_section(
+        CreateTopLevelSectionRequest(
+            projectConfigId=project_config_id,
+            implType=SectionType.StateMachineEnd,
+            position=Position(x=560, y=0),
+        ),
+    )
+    await project_fixture.manager.set_state_machine_section_settings(
+        SetStateMachineSectionSettingsRequest(
+            projectConfigId=project_config_id,
+            sectionId=end_response.sectionId,
+            machineGroupId="workflow-main",
+            label="Done",
+        )
+    )
+
+    chat_section_ids: list[str] = []
+    for idx, prompt_text in enumerate(
+        ["Review branch A.", "Review branch B."],
+        start=1,
+    ):
+        chat_response = await project_fixture.manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Chat,
+                position=Position(x=280, y=(idx - 1) * 160),
+            ),
+        )
+        chat_section_ids.append(chat_response.sectionId)
+        await project_fixture.manager.set_chat_section_settings(
+            SetChatSectionSettingsRequest(
+                projectConfigId=project_config_id,
+                sectionId=chat_response.sectionId,
+                managed=True,
+                engineConfigId=engine_config_id,
+                transcriptionProfileId=None,
+                agentProfileId=None,
+                thinking=False,
+                permissionMode=ChatPermissionMode.minimal,
+                searchEnabled=True,
+                dictationMode=ChatDictationMode.auto,
+            )
+        )
+        await project_fixture.manager.create_state_machine_edge(
+            CreateStateMachineEdgeRequest(
+                projectConfigId=project_config_id,
+                machineGroupId="workflow-main",
+                sourceSectionId=start_response.sectionId,
+                sourcePortId=STATE_MACHINE_EDGE_SOURCE_PORT_ID,
+                targetSectionId=chat_response.sectionId,
+                targetPortId=STATE_MACHINE_EDGE_TARGET_PORT_ID,
+                targetAction=StateMachineTargetAction(
+                    type=StateMachineTargetActionType.send_prompt,
+                    inlinePrompt=prompt_text,
+                    threadStrategy=StateMachineThreadStrategy.new_thread_before_send,
+                ),
+            )
+        )
+    return start_response.sectionId, chat_section_ids
+
+
 def _get_chat_section_impl(project_fixture, project_config_id: ID, section_id: ID) -> ChatSectionImpl:
     project_state = convert_backend_to_single_config(
         project_fixture.manager.project_state_backend,
@@ -483,6 +566,15 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
         assert isinstance(raw_messages, list)
         assert raw_messages[-1]["role"] == "user"
         assert raw_messages[-1]["content"][0]["text"] == "Review this branch carefully."
+        assert captured_inputs["stateMachineRunId"] == str(started.id)
+        assert captured_inputs["machineGroupId"] == "workflow-main"
+        assert (
+            captured_inputs["stateMachineSourceEdgeId"]
+            == started.outputs["startOutgoingEdgeIds"][0]
+        )
+        assert captured_inputs["stateMachineTargetSectionId"] == str(chat_section_id)
+        assert captured_inputs["stateMachineIteration"] == 1
+        assert captured_inputs["stateMachineParentRunType"] == STATE_MACHINE_RUN_TYPE
 
         chat_impl = _get_chat_section_impl(
             project_fixture,
@@ -500,8 +592,10 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
                 "runId": str(captured["run"].id),
                 "threadStrategy": "new_thread_before_send",
                 "engineType": "setta_llm",
+                "stateMachineIteration": 1,
             }
         ]
+        assert started.outputs["childRunIds"] == [str(captured["run"].id)]
         assert [event.type for event in started.events] == [
             "run_started",
             "graph_resolved",
@@ -509,6 +603,73 @@ async def test_state_machine_runner_dispatches_send_prompt_from_start_edges(
             "start_edge_action_dispatched",
             "start_edge_actions_dispatched",
         ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_fans_out_start_edges_in_parallel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _ = await _seed_state_machine_multi_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+        )
+
+        state, state_machine_runner, _, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        started_edge_ids: list[str] = []
+        both_edges_started = asyncio.Event()
+        release_edges = asyncio.Event()
+
+        async def _capture_edge_action(*, edge, **_kwargs):
+            started_edge_ids.append(str(edge.id))
+            if len(started_edge_ids) == 2:
+                both_edges_started.set()
+            await release_edges.wait()
+            return {
+                "edgeId": str(edge.id),
+                "actionType": "send_prompt",
+                "targetSectionId": str(edge.targetSectionId),
+            }
+
+        monkeypatch.setattr(
+            state_machine_runner,
+            "_activate_edge_action",
+            _capture_edge_action,
+        )
+
+        with runtime_context(state) as ctx:
+            started_task = asyncio.create_task(
+                route_start_state_machine_run(
+                    StartStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                        startSectionId=start_section_id,
+                    ),
+                    ctx,
+                )
+            )
+            await asyncio.wait_for(both_edges_started.wait(), timeout=2.0)
+            release_edges.set()
+            started = await asyncio.wait_for(started_task, timeout=2.0)
+
+        assert len(started_edge_ids) == 2
+        assert started.outputs is not None
+        assert len(started.outputs["dispatchedStartEdgeActions"]) == 2
 
 
 @pytest.mark.asyncio
