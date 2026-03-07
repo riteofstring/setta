@@ -109,8 +109,6 @@ class Route(str, Enum):
     DELETE_AGENT_PROFILE = "/deleteAgentProfile"
     START_AGENT_RUN = "/startAgentRun"
     STOP_AGENT_RUN = "/stopAgentRun"
-    START_RUN_CHAIN = "/startRunChain"
-    STOP_RUN_CHAIN = "/stopRunChain"
     GET_AGENT_RUN = "/getAgentRun"
     GET_AGENT_RUNS = "/getAgentRuns"
     GET_PROMPT_TEMPLATES = "/getPromptTemplates"

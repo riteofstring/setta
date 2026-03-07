@@ -48,7 +48,6 @@ from setta.types.agentic import (
     EngineConfig,
     EngineConfigDefaults,
     EngineType,
-    RunChainSpec,
     TranscriptionProfile,
     TranscriptionTransportMode,
 )
@@ -102,15 +101,6 @@ class StartAgentRunRequest(BaseModel):
 
 
 class StopAgentRunRequest(BaseModel):
-    runId: ID
-
-
-class StartRunChainRequest(BaseModel):
-    spec: RunChainSpec
-    inputs: dict[str, Any] | None = None
-
-
-class StopRunChainRequest(BaseModel):
     runId: ID
 
 
@@ -495,33 +485,6 @@ async def route_stop_agent_run(
         raise HTTPException(status_code=503, detail="Agent runner is not available")
     try:
         return await ctx.state.agent_runner.stop_run(x.runId)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.post(Route.START_RUN_CHAIN)
-async def route_start_run_chain(
-    x: StartRunChainRequest,
-    ctx: RuntimeContextFromRequest,
-) -> AgentRun:
-    await ctx.enforce_llm_allowed()
-    runner = ctx.state.run_chain_runner
-    if runner.disabled:
-        raise HTTPException(status_code=503, detail="Run chain runner is not available")
-    return runner.start_run(x.spec, x.inputs)
-
-
-@router.post(Route.STOP_RUN_CHAIN)
-async def route_stop_run_chain(
-    x: StopRunChainRequest,
-    ctx: RuntimeContextFromRequest,
-) -> AgentRun:
-    await ctx.enforce_llm_allowed()
-    runner = ctx.state.run_chain_runner
-    if runner.disabled:
-        raise HTTPException(status_code=503, detail="Run chain runner is not available")
-    try:
-        return await runner.stop_run(x.runId)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
