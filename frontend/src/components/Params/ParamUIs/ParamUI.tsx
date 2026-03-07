@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
@@ -149,7 +148,6 @@ export function ParamUI({
   isPasswordRevealPending,
   maybeErrorMessage,
 }: ParamUIProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
@@ -252,17 +250,6 @@ export function ParamUI({
 
   function onEscape() {
     focusOnSection(null, sectionId, false);
-  }
-
-  if (!benchmark.renderParamWidgets) {
-    return <BenchmarkParamWidgetShell kind="param-ui-shell" />;
-  }
-
-  if (
-    !benchmark.renderTextFamilyWidgets &&
-    isTextFamilyBenchmarkWidget(codeObjType)
-  ) {
-    return <BenchmarkParamWidgetShell kind="text-family" />;
   }
 
   // need to put the group/textinput in a higher div
@@ -425,32 +412,6 @@ export function ParamUI({
     default:
       return codeObjType satisfies never;
   }
-}
-
-function isTextFamilyBenchmarkWidget(codeObjType: CodeObjTypeEnum) {
-  return (
-    codeObjType === CodeObjTypeEnum.CodeParam ||
-    codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.TextAreaParam
-  );
-}
-
-function BenchmarkParamWidgetShell({
-  kind,
-}: {
-  kind: "param-ui-shell" | "text-family";
-}) {
-  const label =
-    kind === "param-ui-shell" ? "Input shell" : "Text widget disabled";
-
-  return (
-    <div
-      className="section-key-value flex min-w-0 items-center rounded-sm border border-dashed border-setta-200/80 px-2 py-[0.2rem] text-[0.58rem] uppercase tracking-[0.14em] text-setta-400 dark:border-setta-700 dark:text-setta-500"
-      data-settings-benchmark-widget-shell={kind}
-    >
-      {label}
-    </div>
-  );
 }
 
 function TextParamConfigured({
