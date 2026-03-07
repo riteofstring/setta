@@ -53,11 +53,14 @@ Current repo status as of 2026-03-07:
   - stable file identity collection now exists for Unix and Windows builds
   - snapshot diffing now emits create/modify/delete/move events from file
     identity, not watcher heuristics
+- runtime-owner Step 2 is now complete:
+  - the long-lived polling service now exists in `internal/watchcode`
+  - diffed file events now flow through the shared manager before callbacks
+  - scheduled scans/deletes now drain into explicit update/delete callbacks
 - the remaining active Watch Code gap is now the runtime owner itself:
-  - no concrete watcher adapter is running in Go
-  - no Go service currently converts real filesystem activity into manager work
-  - no Go service currently drains scheduled scans/deletes into later apply
-    callbacks
+  - app wiring still does not start/shutdown the polling runtime
+  - saved project-state snapshots still do not sync configs into the runtime
+  - callback wiring into Go project-state apply helpers still does not exist
 
 ## Recommended Option
 
@@ -158,7 +161,7 @@ Completed in this chunk:
 
 ### Step 2: Polling Runtime Owner
 
-Status: next in progress boundary.
+Status: complete on 2026-03-07.
 
 Deliver:
 
@@ -172,7 +175,15 @@ Acceptance:
 - real filesystem edits trigger manager work with deterministic ordering
 - runtime shutdown is explicit and test-covered
 
+Completed in this chunk:
+
+- `internal/watchcode/service.go`
+- `internal/watchcode/service_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/watchcode -count=1 -timeout 180s`
+
 ### Step 3: App Wiring Handoff
+
+Status: next in progress boundary.
 
 Deliver:
 
@@ -195,9 +206,8 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 2 next:
+Execute Step 3 next:
 
-- add the long-lived polling runtime owner over the tracked file snapshot
-- feed diffed file events through the existing manager
-- drain scheduled scans/deletes into explicit callbacks without touching app
-  wiring yet
+- start and stop the polling runtime from the IDE app
+- sync saved main project-state snapshots into the runtime config owner
+- leave the callback bodies bounded to the first Go project-state apply helpers

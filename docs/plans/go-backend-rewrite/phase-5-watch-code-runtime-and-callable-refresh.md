@@ -79,6 +79,9 @@ The active Slice 2 execution work is now narrowed in:
     - tracked file snapshots and stable file identities exist in Go
     - move detection is now derived from file identity instead of watcher
       heuristics
+  - Step 2 there is now complete:
+    - the long-lived polling runtime owner exists in `internal/watchcode`
+    - diffed file events now route through the shared manager into callbacks
 
 ## Scope
 

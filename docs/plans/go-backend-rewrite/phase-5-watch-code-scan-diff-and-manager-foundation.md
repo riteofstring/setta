@@ -173,6 +173,9 @@ That remaining runtime-owner step is now narrowed in:
   - tracked file snapshots and stable file identities now exist
   - move detection is now proven from file identity instead of watcher
     heuristics
+- Step 2 in that runtime-owner doc is now complete:
+  - the long-lived polling runtime owner now exists
+  - diffed file events now drain through the shared manager into callbacks
 
 ### Step 3: Runtime Wiring Handoff
 
@@ -216,6 +219,6 @@ For Step 2, add:
 Execute Step 2 next:
 
 - start Step 1 from the new runtime-owner doc:
-  - add the long-lived polling runtime owner
-  - route diffed file events through the manager
-  - keep app wiring out of that next slice
+  - start Step 3 from the new runtime-owner doc
+  - wire the polling runtime into the IDE app lifecycle
+  - keep project-state apply helpers as the next bounded boundary

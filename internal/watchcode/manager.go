@@ -42,6 +42,13 @@ type ScanRequest struct {
 	BaselineOnly bool
 }
 
+type PendingScan struct {
+	ConfigID     string
+	Path         string
+	BaselineOnly bool
+	MovedFrom    string
+}
+
 type DeleteRequest struct {
 	ConfigID string
 	Path     string
@@ -213,6 +220,50 @@ func (m *Manager) PendingMoves() []PendingMove {
 		return output[i].ConfigID < output[j].ConfigID
 	})
 	return output
+}
+
+func (m *Manager) DrainScheduledWork() ([]PendingScan, []DeleteRequest) {
+	if m == nil {
+		return []PendingScan{}, []DeleteRequest{}
+	}
+
+	scans := make([]PendingScan, 0, len(m.scheduledScans))
+	for key, baselineOnly := range m.scheduledScans {
+		scan := PendingScan{
+			ConfigID:     key.ConfigID,
+			Path:         key.Path,
+			BaselineOnly: baselineOnly,
+		}
+		if movedFrom, ok := m.pendingMoves[key]; ok {
+			scan.MovedFrom = movedFrom
+			delete(m.pendingMoves, key)
+		}
+		scans = append(scans, scan)
+	}
+	sort.Slice(scans, func(i int, j int) bool {
+		if scans[i].ConfigID == scans[j].ConfigID {
+			return scans[i].Path < scans[j].Path
+		}
+		return scans[i].ConfigID < scans[j].ConfigID
+	})
+	clear(m.scheduledScans)
+
+	deletes := make([]DeleteRequest, 0, len(m.scheduledDeletes))
+	for key := range m.scheduledDeletes {
+		deletes = append(deletes, DeleteRequest{
+			ConfigID: key.ConfigID,
+			Path:     key.Path,
+		})
+	}
+	sort.Slice(deletes, func(i int, j int) bool {
+		if deletes[i].ConfigID == deletes[j].ConfigID {
+			return deletes[i].Path < deletes[j].Path
+		}
+		return deletes[i].ConfigID < deletes[j].ConfigID
+	})
+	clear(m.scheduledDeletes)
+
+	return scans, deletes
 }
 
 func (m *Manager) PathMatchesWatchInputs(configID string, path string) bool {
