@@ -143,6 +143,16 @@ Current repo status as of 2026-03-06:
   - source-of-truth project-state payload projection through
     `internal/projectview`
   - deterministic per-target output roots under the Go code tree
+- Go now also includes the first lazy app-owned worker runtime input boundary
+  for plugin codegen under:
+  - `internal/plugins/worker_runtime.go`
+  - explicit interpreter selection from `SETTA_PLUGIN_WORKER_PYTHON` or the
+    active virtualenv
+- Go now also owns the first persistent save-triggered plugin codegen refresh
+  path under:
+  - `internal/app/app.go`
+  - `internal/runs/service.go`
+  - non-deployment run-save hooks for attached terminals and draw snapshots
 - broader plugin worker discovery/load/runtime ownership still lives only in
   Python under:
   - `backend/setta/plugins/manager.py`

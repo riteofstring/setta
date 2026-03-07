@@ -391,6 +391,117 @@ func TestAppServesRunCodeRoute(t *testing.T) {
 	}
 }
 
+func TestAppRunCodeSaveMaterializesPluginCodegenOutputs(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	installAppBackendCodegenFixture(t, cfg)
+	seedAppRunCodeProject(t, app, cfg, "print('APP_PLUGIN_RUN_OK')\n")
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		project := document.Projects["project-alpha"]
+		project.CodegenTargets = []projectstate.ProjectCodegenTarget{
+			{
+				Language: "setta-fixture-backend-codegen:typescript",
+				Payload: mustAppJSON(t, map[string]any{
+					"language": "setta-fixture-backend-codegen:typescript",
+					"options": map[string]any{
+						"className": "AppPluginState",
+					},
+				}),
+			},
+		}
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
+	}
+
+	outputRoot := filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen")
+	if _, err := os.Stat(outputRoot); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no plugin codegen output before run save, got %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","runSnapshotMode":"never"}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post run code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	matches, err := filepath.Glob(filepath.Join(outputRoot, "*", "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("glob plugin codegen output: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one plugin codegen output, got %v", matches)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read plugin codegen output: %v", err)
+	}
+	expected := "export class AppPluginState {\n  readonly projectName = 'Alpha';\n}\n"
+	if string(content) != expected {
+		t.Fatalf("unexpected plugin codegen output: %q", string(content))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, impl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if impl.Code == nil || impl.Code.AttachedTerminalSectionID == "" {
+		t.Fatal("expected run route to ensure an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(impl.Code.AttachedTerminalSectionID, "")
+	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
+	output := waitForAppTestOutputContains(t, attachment, "APP_PLUGIN_RUN_OK")
+	if !strings.Contains(output, "APP_PLUGIN_RUN_OK") {
+		t.Fatalf("expected run output in attached terminal, got %q", output)
+	}
+}
+
 func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 
@@ -874,6 +985,16 @@ func buildAppBinaryUploadBody(t *testing.T, payload []byte, durable string) (*by
 	return body, writer.FormDataContentType()
 }
 
+func mustAppJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+
+	payload, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal app test json: %v", err)
+	}
+	return payload
+}
+
 func quietAppTestCatCommand(t *testing.T) []string {
 	t.Helper()
 
@@ -981,6 +1102,84 @@ func requireAppTestCommand(t *testing.T, name string) string {
 		t.Skipf("required command %q not available: %v", name, err)
 	}
 	return path
+}
+
+func prepareAppPluginWorkerRuntime(t *testing.T) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv("SETTA_PLUGIN_WORKER_PYTHON", appTestWorkerPython(t, repoRoot))
+	t.Setenv("SETTA_PLUGIN_WORKER_PYTHONPATH", filepath.Join(repoRoot, "backend"))
+}
+
+func installAppBackendCodegenFixture(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-codegen")
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend-codegen")
+	copyAppTestDir(t, sourceRoot, targetRoot)
+}
+
+func appTestRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve app test file")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+}
+
+func appTestWorkerPython(t *testing.T, repoRoot string) string {
+	t.Helper()
+
+	candidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	t.Fatalf("python interpreter not found under %s/.venv", repoRoot)
+	return ""
+}
+
+func copyAppTestDir(t *testing.T, sourceRoot string, targetRoot string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(sourceRoot)
+	if err != nil {
+		t.Fatalf("read fixture directory %s: %v", sourceRoot, err)
+	}
+	if err := os.MkdirAll(targetRoot, 0o755); err != nil {
+		t.Fatalf("mkdir fixture target %s: %v", targetRoot, err)
+	}
+
+	for _, entry := range entries {
+		sourcePath := filepath.Join(sourceRoot, entry.Name())
+		targetPath := filepath.Join(targetRoot, entry.Name())
+
+		if entry.IsDir() {
+			copyAppTestDir(t, sourcePath, targetPath)
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			t.Fatalf("stat fixture entry %s: %v", sourcePath, err)
+		}
+		payload, err := os.ReadFile(sourcePath)
+		if err != nil {
+			t.Fatalf("read fixture file %s: %v", sourcePath, err)
+		}
+		if err := os.WriteFile(targetPath, payload, info.Mode().Perm()); err != nil {
+			t.Fatalf("write fixture file %s: %v", targetPath, err)
+		}
+	}
 }
 
 func skipIfAppTerminalPTYUnsupported(t *testing.T) {

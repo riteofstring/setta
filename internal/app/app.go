@@ -12,11 +12,13 @@ import (
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
+	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/modes"
 	"setta/internal/observability"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/runs"
@@ -59,12 +61,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	var (
-		projectStates     *projectstate.Registry
-		deploymentRuntime *deployments.Runtime
-		projectRuntime    *projectstate.Runtime
-		plannerFilesRoot  string
-		artifactsRoot     string
-		shareSessions     modes.ShareSessionStore
+		projectStates      *projectstate.Registry
+		deploymentRuntime  *deployments.Runtime
+		projectRuntime     *projectstate.Runtime
+		pluginMaterializer *codegen.PluginMaterializer
+		plannerFilesRoot   string
+		artifactsRoot      string
+		shareSessions      modes.ShareSessionStore
 	)
 	if modePolicy.IsDeployment() {
 		deploymentRuntime, err = deployments.Open(context.Background(), deployments.RuntimeOptions{
@@ -86,6 +89,31 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectRuntime = projectStates.Main()
 		plannerFilesRoot = cfg.Paths.SettaFilesRoot
 		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
+
+		workerRuntimeProvider, err := plugins.NewCurrentProcessWorkerRuntimeProvider(plugins.CurrentProcessWorkerRuntimeProviderOptions{})
+		if err != nil {
+			_ = closeProjectResources(projectStates, deploymentRuntime)
+			return nil, err
+		}
+		workerSpecs, err := plugins.NewFilesystemWorkerSpecResolver(plugins.FilesystemWorkerSpecResolverOptions{
+			WorkspaceRoot:   cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot:  cfg.Paths.SettaFilesRoot,
+			SettaHome:       cfg.Paths.SettaHome,
+			RuntimeProvider: workerRuntimeProvider,
+			ServerMode:      cfg.Server.Mode,
+		})
+		if err != nil {
+			_ = closeProjectResources(projectStates, deploymentRuntime)
+			return nil, err
+		}
+		pluginMaterializer, err = codegen.NewPluginMaterializer(codegen.PluginMaterializerOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			WorkerSpecs:    workerSpecs,
+		})
+		if err != nil {
+			_ = closeProjectResources(projectStates, deploymentRuntime)
+			return nil, err
+		}
 	}
 
 	terminalService, err := terminals.New(terminals.Options{
@@ -128,14 +156,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
-		Planner:           runPlanner,
-		ProjectState:      projectRuntime,
-		DeploymentRuntime: deploymentRuntime,
-		Terminals:         terminalService,
-		BackendLogs:       backendLogService,
-		BinaryStore:       binaryStore,
-		ListenerProducer:  listenerProducer,
-		ArtifactsRoot:     artifactsRoot,
+		Planner:            runPlanner,
+		ProjectState:       projectRuntime,
+		DeploymentRuntime:  deploymentRuntime,
+		Terminals:          terminalService,
+		BackendLogs:        backendLogService,
+		BinaryStore:        binaryStore,
+		ListenerProducer:   listenerProducer,
+		PluginMaterializer: pluginMaterializer,
+		ArtifactsRoot:      artifactsRoot,
 	})
 	if err != nil {
 		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))

@@ -49,6 +49,19 @@ Current repo status as of 2026-03-06:
     `setta_home`
   - read-only enablement state from `plugins_state.json` and
     `plugins_global_state.json`
+- Go now also owns the first explicit app/runtime worker input boundary for
+  plugin codegen under:
+  - `internal/plugins/worker_runtime.go`
+  - lazy current-process worker runtime resolution from explicit env or the
+    active virtualenv
+  - explicit optional `SETTA_PLUGIN_WORKER_PYTHONPATH` injection instead of a
+    hidden Python manager singleton
+- Go now also owns the first persistent save-triggered plugin codegen refresh
+  path under:
+  - `internal/app/app.go`
+  - `internal/runs/service.go`
+  - non-deployment main-runtime save hooks for attached-terminal and draw
+    snapshot persistence
 
 ## Scope
 
@@ -217,18 +230,48 @@ Completed:
   - mode-blocked codegen capability rejection
   - missing codegen capability rejection
   - invalid target id rejection
+- added `internal/plugins/worker_runtime.go` as a lazy worker runtime provider
+  boundary for app-owned plugin codegen refresh wiring
+- kept worker runtime resolution explicit instead of silently guessing from
+  `PATH`:
+  - use `SETTA_PLUGIN_WORKER_PYTHON` when provided
+  - otherwise use the active `VIRTUAL_ENV`
+  - validate that the chosen interpreter can import
+    `setta.plugins.worker`
+  - optionally prepend `SETTA_PLUGIN_WORKER_PYTHONPATH` to `PYTHONPATH`
+- rewired `internal/plugins/filesystem_worker_spec_resolver.go` to resolve
+  runtime inputs lazily through that provider so app startup does not need to
+  hard-fail just because plugin codegen is unused
+- wired the non-deployment app path in `internal/app/app.go` to own:
+  - current-process worker runtime resolution
+  - filesystem worker-spec resolution
+  - plugin codegen materializer construction
+- added a narrow `saveProjectState(...)` refresh hook in
+  `internal/runs/service.go` so the first persistent save-triggering run paths
+  now refresh plugin codegen outputs from the saved document snapshot
+- covered the adoption slice with focused Go tests for:
+  - explicit runtime provider resolution and `PYTHONPATH` wiring in
+    `internal/plugins/worker_runtime_test.go`
+  - real app-level run-triggered plugin codegen output materialization in
+    `internal/app/app_test.go`
+
+Tests:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/codegen ./internal/runs ./internal/app -count=1`
 
 ## Open Questions
 
-- whether the first refresh adopter should live inside `internal/projectstate`
-  or a future dedicated Go codegen subsystem
 - whether plugin codegen output caching should remain entirely absent until
   refresh ownership exists, or whether a minimal content fingerprint is worth
-  adding during Slice 2
+  adding before broader refresh ownership leaves the current run-triggered
+  boundary
+- which Go-owned mutation/save owner should take over next so plugin codegen
+  refresh is no longer limited to run-triggered persistent saves
 
 ## Next Recommended Step
 
-- Start Slice 2.
-- Keep it narrow: adopt the materializer from the first Go-owned project-state
-  save/refresh boundary, starting with the existing persistent main-runtime save
-  paths before widening into broader Python refresh/cache parity.
+- Continue Slice 2.
+- Widen refresh ownership from `internal/runs/service.go` into the first
+  central Go-owned main project-state mutation/save boundary so plugin codegen
+  outputs stay current after ordinary IDE state edits, not only after
+  run-triggered persistent saves.
