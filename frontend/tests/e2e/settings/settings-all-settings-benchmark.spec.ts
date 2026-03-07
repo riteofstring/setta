@@ -44,6 +44,9 @@ type StageMetrics = {
   simpleGridRowModeCount: number;
   staticRowModeCount: number;
   sortableRowModeCount: number;
+  sampleParamRowCount: number;
+  sampleParamRowMinWidth: number;
+  sampleParamRowNarrowCount: number;
 };
 
 test("all settings benchmark stages progressively restore section complexity", async ({
@@ -175,6 +178,15 @@ test("all settings benchmark stages progressively restore section complexity", a
     0,
   );
   expect(
+    metricsByStage.get("param-structure-shell")?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-structure-shell")?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("param-structure-shell")?.sampleParamRowNarrowCount,
+  ).toBe(0);
+  expect(
     metricsByStage.get("param-structure-shell")?.staticRowModeCount,
   ).toBeGreaterThan(0);
   expect(
@@ -211,6 +223,15 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("param-container-shell")?.resizeHandleCount,
   ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-container-shell")?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("param-container-shell")?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("param-container-shell")?.sampleParamRowNarrowCount,
+  ).toBe(0);
   expect(metricsByStage.get("param-container-shell")?.paramUiShellCount).toBe(
     0,
   );
@@ -245,6 +266,11 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("full")?.paramUiShellCount).toBe(0);
   expect(metricsByStage.get("full")?.textWidgetShellCount).toBe(0);
   expect(metricsByStage.get("full")?.textInputDummyCount).toBeGreaterThan(0);
+  expect(metricsByStage.get("full")?.sampleParamRowCount).toBeGreaterThan(0);
+  expect(metricsByStage.get("full")?.sampleParamRowMinWidth).toBeGreaterThan(
+    250,
+  );
+  expect(metricsByStage.get("full")?.sampleParamRowNarrowCount).toBe(0);
 
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
@@ -321,6 +347,21 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
     if (!flowRoot) {
       throw new Error("Missing react flow root.");
     }
+    const viewport = flowRoot.querySelector(".react-flow__viewport");
+    const viewportTransform =
+      viewport instanceof HTMLElement
+        ? window.getComputedStyle(viewport).transform
+        : "none";
+    const viewportScale =
+      viewportTransform !== "none"
+        ? new DOMMatrixReadOnly(viewportTransform).m11 || 1
+        : 1;
+    const sampleWidths = Array.from(
+      flowRoot.querySelectorAll('[data-param-row="true"]'),
+    )
+      .slice(0, 16)
+      .map((row) => row.getBoundingClientRect().width / viewportScale)
+      .filter((width) => Number.isFinite(width) && width > 0);
 
     return {
       domCount: flowRoot.querySelectorAll("*").length,
@@ -378,6 +419,11 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
       sortableRowModeCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-param-row-mode="sortable"]',
       ).length,
+      sampleParamRowCount: sampleWidths.length,
+      sampleParamRowMinWidth:
+        sampleWidths.length > 0 ? Math.min(...sampleWidths) : 0,
+      sampleParamRowNarrowCount: sampleWidths.filter((width) => width < 250)
+        .length,
     };
   });
 }

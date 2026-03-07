@@ -1,7 +1,6 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { isTempParam } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
@@ -14,6 +13,9 @@ import { useProjectState } from "state/definitions";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
+
+const NESTED_CHILD_ROWS_CLASS_NAME =
+  "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
 
 function _ParamContainer({
   sectionId,
@@ -80,7 +82,7 @@ function _ParamContainer({
     paramInfoId,
     paramChildren,
   );
-  const hasTempChild = renderChildren.some((childId) => isTempParam(childId));
+  const hasChildRows = renderChildren.length > 0;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -149,65 +151,59 @@ function _ParamContainer({
   }
 
   return !isNestedParam ? (
-    <>
-      <article
-        id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
-        className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
-        style={{
-          gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
-          ...(dndStyle ?? {}),
-        }}
-        data-param-row="true"
-        data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
-        {...floatingBoxHandlers}
-        onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
-        onClick={onClick}
-        ref={dndRef}
-        {...(dndAttributes ?? {})}
-        {...(dndListeners ?? {})}
-        tabIndex={-1}
-        role={undefined}
-      >
-        {!isKwarg ? (
-          <div
-            className="section-key overflow-hidden"
-            style={{ width: columnWidth }}
-          >
-            {children}
-          </div>
-        ) : (
-          <>{children}</>
-        )}
-        {benchmark.renderParamInput ? (
-          <ParamInput
+    <article
+      id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
+      className={`section-args-nested-key-value section-key-value group/arg-group section-min-rows relative grid grid-cols-subgrid items-center justify-between rounded-sm px-[2px] ${paramHoverClassName} ${bg} ${border} ${dndClassName ?? ""} `}
+      style={{
+        gridTemplateColumns: `minmax(min-content, ${columnWidth}) [c3] 0.75rem [c4] 1fr [c5]`,
+        ...(dndStyle ?? {}),
+      }}
+      data-param-row="true"
+      data-settings-benchmark-param-row-mode={benchmarkParamRowMode}
+      {...floatingBoxHandlers}
+      onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
+      onClick={onClick}
+      ref={dndRef}
+      {...(dndAttributes ?? {})}
+      {...(dndListeners ?? {})}
+      tabIndex={-1}
+      role={undefined}
+    >
+      {!isKwarg ? (
+        <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
+          {children}
+        </div>
+      ) : (
+        <>{children}</>
+      )}
+      {benchmark.renderParamInput ? (
+        <ParamInput
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          maybeErrorMessage={errorMessage}
+        />
+      ) : (
+        <BenchmarkParamValueShell />
+      )}
+      {benchmark.renderParamChrome && (
+        <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+      )}
+      {benchmark.renderParamChrome && hasError && (
+        <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+      )}
+      {hasChildRows && (
+        <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
+          <GetParamSwitch
             sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            maybeErrorMessage={errorMessage}
+            paramIds={renderChildren}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
           />
-        ) : (
-          <BenchmarkParamValueShell />
-        )}
-        {benchmark.renderParamChrome && (
-          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-        )}
-        {benchmark.renderParamChrome && hasError && (
-          <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
-        )}
-        {hasTempChild && (
-          <div className="section-args-nested section-key-value relative grid gap-y-1">
-            <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
-            <GetParamSwitch
-              sectionId={sectionId}
-              paramIds={renderChildren}
-              requiredParamIdsToPaths={requiredParamIdsToPaths}
-              onResizeStart={onResizeStart}
-              listKey={listKey}
-              hasSectionStyleTheme={hasSectionStyleTheme}
-            />
-          </div>
-        )}
-      </article>
-    </>
+        </div>
+      )}
+    </article>
   ) : (
     <article
       id={`ParamContainer-${sectionId}-${paramInfoId}`} // used for project-level search results
@@ -228,8 +224,7 @@ function _ParamContainer({
       role={undefined}
     >
       {children}
-      <div className="section-args-nested section-key-value relative grid gap-y-1">
-        <div className="absolute bottom-0 h-[calc(100%_-_0.1rem)] w-[0.4rem] rounded-full bg-setta-200/20 dark:bg-setta-400/20" />
+      <div className={NESTED_CHILD_ROWS_CLASS_NAME}>
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={renderChildren}
@@ -273,6 +268,7 @@ function BenchmarkFlatParamContainer({
     paramInfoId,
     paramChildren,
   );
+  const hasChildRows = renderChildren.length > 0;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -313,7 +309,7 @@ function BenchmarkFlatParamContainer({
           </div>
         )}
       </div>
-      {renderChildren.length > 0 && (
+      {hasChildRows && (
         <div
           className="ml-3 flex min-w-0 flex-col gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
           data-settings-benchmark-flat-param-children="true"
@@ -360,6 +356,7 @@ function BenchmarkSimpleGridParamContainer({
     paramInfoId,
     paramChildren,
   );
+  const hasChildRows = renderChildren.length > 0;
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -401,7 +398,7 @@ function BenchmarkSimpleGridParamContainer({
           <BenchmarkParamValueShell />
         </div>
       )}
-      {renderChildren.length > 0 && (
+      {hasChildRows && (
         <div
           className="col-span-2 grid min-w-0 gap-y-1 border-l border-setta-200/40 pl-3 dark:border-setta-700/40"
           data-settings-benchmark-simple-grid-children="true"

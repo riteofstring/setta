@@ -593,3 +593,166 @@ New benchmark stage:
 Recommended next implementation target:
 
 - replace the current production `ParamContainer` row layout with a flatter explicit-column layout closer to `param-simple-grid-shell`, then remeasure against this same benchmark
+
+## Addendum: Production ParamContainer Layout Refactor
+
+Date: 2026-03-07
+
+Implementation summary:
+
+- Replaced the live `ParamContainer` row shell with a simpler explicit two-column grid that matches the successful benchmark direction much more closely.
+- Kept the real child tree, DnD hooks, tooltips, resize handles, and real widget path intact, but moved the chrome/input layout into a small local value-cell grid instead of a row-wide named-grid/subgrid structure.
+- Replaced the row-level nested child wrapper grid with a lighter child column wrapper and left rail.
+- Fixed child-row rendering to key off `renderChildren.length > 0` instead of only rendering when a temporary DnD child was present, so the post-refactor runs stayed comparable to the original `697`-row benchmark baseline.
+
+Reference points:
+
+- Best simple-grid control in this benchmark branch:
+  - `param-simple-grid-shell`: `68.33 FPS`
+  - DOM nodes: `5845`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-simple-grid-shell-after-production-refactor-trace.json`
+- Pre-refactor production references:
+  - `param-structure-shell`: `50.36 FPS`
+  - `param-container-shell`: `54.65 FPS`
+  - `full`: `44.84 FPS`
+
+### `param-structure-shell` after production refactor
+
+- DOM nodes in `.react-flow`: `6426`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Static row-mode markers: `697`
+- Average frame time: `14.97ms`
+- Approx FPS: `66.81`
+- Max frame time: `25.00ms`
+- Slow frames:
+  - `>16.7ms`: `39`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-after-production-refactor-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-after-production-refactor.png`
+- Result vs pre-refactor production reference: `+16.45 FPS`
+- Observation: the production structure shell is now effectively at the simple-grid control level while keeping the real recursive tree intact.
+
+### `param-container-shell` after production refactor
+
+- DOM nodes in `.react-flow`: `9643`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Lightweight labels: `697`
+- Lightweight value shells: `627`
+- Sortable row-mode markers: `697`
+- Average frame time: `15.12ms`
+- Approx FPS: `66.14`
+- Max frame time: `25.70ms`
+- Slow frames:
+  - `>16.7ms`: `42`
+  - `>33.3ms`: `0`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-container-shell-after-production-refactor-trace.json`
+- Result vs pre-refactor production reference: `+11.49 FPS`
+- Observation: restoring real sortable wiring and chrome no longer causes the earlier row-shell collapse. The dominant layout penalty inside the row shell is largely gone.
+
+### `full` after production refactor
+
+- DOM nodes in `.react-flow`: `12409`
+- Real group-container markers: `42`
+- Param containers: `697`
+- Sortable row-mode markers: `697`
+- Average frame time: `19.44ms`
+- Approx FPS: `51.43`
+- Max frame time: `41.60ms`
+- Slow frames:
+  - `>16.7ms`: `68`
+  - `>33.3ms`: `1`
+  - `>50ms`: `0`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-after-production-refactor-trace.json`
+- Screenshot artifact: `perf/artifacts/frontend/settings-all-settings/full-after-production-refactor.png`
+- Result vs pre-refactor production reference: `+6.59 FPS`
+- Observation: the full page benefits materially even though the final DOM is larger than the original full-stage baseline. That confirms the old bottleneck was layout strategy, not node count.
+
+### Refactor Conclusion
+
+- The production `ParamContainer` row-layout hotspot is now pinpointed and addressed.
+  - The refactored production structure shell moved from `50.36 FPS` to `66.81 FPS`.
+  - The refactored production sortable/container shell moved from `54.65 FPS` to `66.14 FPS`.
+- The new live row shell is effectively at parity with the simple-grid control.
+  - `param-simple-grid-shell`: `68.33 FPS`
+  - production `param-structure-shell` after refactor: `66.81 FPS`
+- The biggest previously identified drop has been removed.
+  - The old production layout path inside `ParamContainer` was the dominant row-shell cliff.
+  - After replacing it, the remaining gap to the full page is much more likely to come from the real widget layer, especially the text/code/text-area family already identified in the earlier addenda.
+
+Recommended next performance target:
+
+- focus the next optimization pass on the text/code/text-area widget family now that the production row-layout path is no longer the main limiter
+
+## Correction: production layout refactor reverted after visual regression
+
+- Date: `2026-03-07`
+- The production `ParamContainer` row-layout refactor from the previous addendum was reverted from branch head after CDP before/after comparison showed a severe visual regression in the real `All Settings` view.
+- The regression was not subtle. The refactored layout collapsed many param rows into narrow vertical strips because child param controls still depended on the original named `key/value` grid contract (`.section-key`, `.section-value`, `.section-key-value`), which the experiment had removed.
+- Before/after screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/layout-regression/before-refactor-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/layout-regression/after-refactor-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/layout-regression/repaired-visible.png`
+- Branch-head status after repair:
+  - production rendering is back on the original row-layout contract
+  - the `renderChildren.length > 0` child-row visibility fix remains
+  - benchmark-only isolation stages remain available for future work
+- Interpretation guidance:
+  - keep the previous addendum as a useful experimental data point about layout cost
+  - do not treat its post-refactor production FPS numbers as representative of the current branch head
+
+## Addendum: contract-preserving nested-rail cleanup
+
+- Date: `2026-03-07`
+- Goal: test whether a behavior-preserving cleanup inside the original `ParamContainer` grid contract can recover any pan/zoom performance without changing row layout semantics.
+- Change under test:
+  - replace the decorative nested-child rail `<div>` with a `before:` pseudo-element on the existing nested-child wrapper
+  - keep the original named `key/value` grid contract and all row structure intact
+- Measurement note:
+  - this addendum uses a browser-side D3 zoom transform loop (`ZoomPane`'s `d3Selection.call(d3Zoom.transform, ...)`) because the earlier `__REACT_FLOW_DEVTOOLS__` store path was not available on the current page instance
+  - compare results only within this addendum
+
+### `param-structure-shell` A/B
+
+- Baseline (`div` rail):
+  - DOM nodes in `.react-flow`: `4974`
+  - Param containers: `697`
+  - Average frame time: `14.24ms`
+  - Approx FPS: `70.20`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-div-rail-trace.json`
+- Candidate (`before:` pseudo-element rail):
+  - DOM nodes in `.react-flow`: `4904`
+  - Param containers: `697`
+  - Average frame time: `13.98ms`
+  - Approx FPS: `71.51`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/param-structure-shell-pseudo-rail-d3-trace.json`
+- Result: `+1.30 FPS` with `-70` DOM nodes
+
+### `full` A/B
+
+- Baseline (`div` rail):
+  - DOM nodes in `.react-flow`: `9703`
+  - Param containers: `697`
+  - Average frame time: `21.23ms`
+  - Approx FPS: `47.10`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-contract-div-rail-trace.json`
+- Candidate (`before:` pseudo-element rail):
+  - DOM nodes in `.react-flow`: `9633`
+  - Param containers: `697`
+  - Average frame time: `20.70ms`
+  - Approx FPS: `48.31`
+  - Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-contract-pseudo-rail-trace.json`
+- Result: `+1.21 FPS` with `-70` DOM nodes
+
+### Addendum conclusion
+
+- This is a small but consistent win, not a major breakthrough.
+- The nested-child rail cleanup is worth keeping because it preserves behavior, reduces DOM, and improved both comparable A/B runs.
+- It does not materially change the main roadmap:
+  - the dominant hotspot is still the production `ParamContainer` row-layout path
+  - the next major optimization target after safe row-layout work is still the text/code/text-area widget family
