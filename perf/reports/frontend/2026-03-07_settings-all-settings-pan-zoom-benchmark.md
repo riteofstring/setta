@@ -2285,3 +2285,118 @@ New benchmark stages:
 - The strongest remaining interpretation is:
   - the dominant steady-state cost in the fully live `All Settings` view is heavily tied to painting/compositing visible section-body content during pan/zoom
   - simply keeping the same DOM mounted is not enough to preserve the original cost if that content is no longer visibly painted
+
+## Addendum: corrected SnapDOM wrapper now renders faithfully, but it still loses to plain hidden live bodies
+
+- Date: `2026-03-07`
+- Goal: repair the whole-section SnapDOM harness so it benchmarks a faithful preview instead of a broken collapsed wrapper, then rerun the comparison.
+- Important harness correction:
+  - the benchmark wrapper now preserves the original section-body direct children with `display: contents`
+  - SnapDOM captures from the real `CustomResizable` root
+  - the preview is rendered as an absolute crop overlay inside the real section container
+  - for layout stability, both corrected SnapDOM benchmark stages keep the live body mounted underneath:
+    - `full-section-snapdom`: live body hidden with `visibility: hidden`
+    - `full-section-snapdom-hidden-live`: live body hidden with `opacity: 0`
+- Compare these numbers only within this addendum. They are not directly comparable to the invalid earlier SnapDOM addenda.
+
+### Visual confirmation
+
+- Reference live stage:
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-baseline-visible.png`
+- Corrected plain SnapDOM stage:
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-section-snapdom-fixed-visible.png`
+- Corrected SnapDOM + hidden-live stage:
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-section-snapdom-hidden-live-fixed-visible.png`
+- Corrected opacity-hidden stage:
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-section-opacity-hidden-fixed-visible.png`
+- Structural validation after the wrapper fix:
+  - live hidden body children keep their real width, about `279px` visible at the benchmark zoom for the sampled section instead of collapsing to `12px`
+  - the sampled preview overlay width is about `547px` in unscaled section coordinates, matching the real section-body crop rather than the earlier tiny capture
+  - Playwright now has an explicit fidelity guard for this:
+    - it checks that sampled SnapDOM roots keep real live-child widths and non-collapsed preview overlays
+
+### Measurement note
+
+- Fixed viewport transform replay:
+  - base transform: `translate(779.9px, -55.7px) scale(0.1)`
+  - per measured loop:
+    - `36` pan down/right frames
+    - `36` pan back up/left frames
+    - `18` zoom-in frames
+    - `18` zoom-out frames
+- `5` repeated loops per stage after a `500ms` settle
+- Representative pan traces saved for:
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-section-opacity-hidden-fixed-pan-trace.json`
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-section-snapdom-fixed-pan-trace.json`
+
+### `full`
+
+- DOM nodes in `.react-flow`: `8595`
+- Average frame time across `5` runs: `17.81ms`
+- Average FPS across `5` runs: `56.16`
+- Max frame time: `42.00ms`
+- Per-run FPS: `56.10`, `55.86`, `56.85`, `56.11`, `55.86`
+
+### `full-section-opacity-hidden`
+
+- DOM nodes in `.react-flow`: `8595`
+- SnapDOM preview images: `0`
+- Hidden inactive section bodies: `42`
+- Average frame time across `5` runs: `8.67ms`
+- Average FPS across `5` runs: `115.32`
+- Max frame time: `25.10ms`
+- Per-run FPS: `114.70`, `114.69`, `116.76`, `114.66`, `115.79`
+
+### `full-section-snapdom`
+
+- DOM nodes in `.react-flow`: `8679`
+- SnapDOM preview images: `42`
+- Hidden inactive section bodies: `0`
+- Average frame time across `5` runs: `12.98ms`
+- Average FPS across `5` runs: `77.06`
+- Max frame time: `17.80ms`
+- Per-run FPS: `76.24`, `77.61`, `75.29`, `78.55`, `77.60`
+
+### `full-section-snapdom-hidden-live`
+
+- DOM nodes in `.react-flow`: `8679`
+- SnapDOM preview images: `42`
+- Hidden inactive section bodies: `42`
+- Average frame time across `5` runs: `10.31ms`
+- Average FPS across `5` runs: `97.30`
+- Max frame time: `50.00ms`
+- Per-run FPS: `88.17`, `96.00`, `102.04`, `102.03`, `98.25`
+
+### Activation rerun
+
+- Corrected plain SnapDOM activation:
+  - repeated alternating clicks between two preview sections
+  - average `liveMs`: `285.16ms`
+  - average `usableMs`: `285.16ms`
+  - average `focusableMs`: `412.44ms`
+  - max `liveMs`: `505.50ms`
+- Corrected SnapDOM + hidden-live activation:
+  - repeated alternating clicks between two preview sections
+  - average `liveMs`: `307.10ms`
+  - average `usableMs`: `307.12ms`
+  - average `focusableMs`: `461.30ms`
+  - max `liveMs`: `536.80ms`
+- Representative activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/snapdom-fidelity-2026-03-07/full-section-snapdom-fixed-activation-trace.json`
+  - single traced activation sample: about `589.7ms` to a live usable section
+
+### Corrected takeaway
+
+- SnapDOM can now be made visually faithful in this benchmark harness.
+- But once the preview is faithful, it is still not the best performance path here:
+  - `full`: `56.16 FPS`
+  - `full-section-snapdom`: `77.06 FPS`
+  - `full-section-snapdom-hidden-live`: `97.30 FPS`
+  - `full-section-opacity-hidden`: `115.32 FPS`
+- So the current branch conclusion is:
+  - corrected whole-section SnapDOM is a real improvement over fully live section bodies
+  - but it is materially worse than simply hiding inactive live bodies
+  - and its activation path is still expensive, around `285-307ms` average in this corrected rerun
+- Practical implication:
+  - if the goal is maximum pan/zoom gain in `All Settings`, `opacity: 0` on inactive section bodies is still the strongest result on this branch
+  - if the goal is a visually faithful inactive surrogate, SnapDOM is now workable, but it does not currently justify itself on performance or activation latency

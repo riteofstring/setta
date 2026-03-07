@@ -553,12 +553,18 @@ test("all settings benchmark stages progressively restore section complexity", a
   ).toBe(
     metricsByStage.get("full-section-snapdom")?.sectionSnapdomReadyCount ?? 0,
   );
-  expect(metricsByStage.get("full-section-snapdom")?.textInputDummyCount).toBe(
-    0,
-  );
-  expect(metricsByStage.get("full-section-snapdom")?.sampleParamRowCount).toBe(
-    0,
-  );
+  expect(
+    metricsByStage.get("full-section-snapdom")?.textInputDummyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("full-section-snapdom")?.sampleParamRowNarrowCount,
+  ).toBe(0);
 
   expect(
     metricsByStage.get("full-section-opacity-hidden")?.staticRowCount,
@@ -630,6 +636,14 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("full-section-snapdom-hidden-live")?.sampleParamRowCount,
   ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sampleParamRowMinWidth,
+  ).toBeGreaterThan(250);
+  expect(
+    metricsByStage.get("full-section-snapdom-hidden-live")
+      ?.sampleParamRowNarrowCount,
+  ).toBe(0);
 
   expect(metricsByStage.get("frame-only")?.domCount).toBeLessThan(
     metricsByStage.get("header-only")?.domCount ?? 0,
@@ -681,7 +695,7 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("non-text-widgets")?.domCount).toBeLessThan(
     metricsByStage.get("full")?.domCount ?? 0,
   );
-  expect(metricsByStage.get("full-section-snapdom")?.domCount).toBeLessThan(
+  expect(metricsByStage.get("full-section-snapdom")?.domCount).toBeGreaterThan(
     metricsByStage.get("full")?.domCount ?? 0,
   );
   expect(
@@ -808,51 +822,110 @@ async function waitForSectionSnapdomStage(
 
 async function assertSectionSnapdomPreviewFidelity(page: Page): Promise<void> {
   const fidelity = await page.evaluate(() => {
+    const flowRoot = document.querySelector(".react-flow");
+    if (!(flowRoot instanceof HTMLElement)) {
+      return {
+        rootCount: 0,
+        previewCount: 0,
+        sampleCount: 0,
+        undersizedCount: 0,
+        collapsedCount: 0,
+        sample: [],
+      };
+    }
+
+    const viewport = flowRoot.querySelector(".react-flow__viewport");
+    const viewportTransform =
+      viewport instanceof HTMLElement
+        ? window.getComputedStyle(viewport).transform
+        : "none";
+    const viewportScale =
+      viewportTransform !== "none"
+        ? new DOMMatrixReadOnly(viewportTransform).m11 || 1
+        : 1;
+    const roots = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-settings-benchmark-section-snapdom]",
+      ),
+    );
     const previews = Array.from(
       document.querySelectorAll<HTMLImageElement>(
         "[data-settings-benchmark-section-snapdom-preview]",
       ),
     );
-    const sample = previews.slice(0, 8).map((preview) => {
-      const rect = preview.getBoundingClientRect();
-      const root = preview.closest<HTMLElement>(
-        "[data-settings-benchmark-section-snapdom]",
+    const sample = roots
+      .map((root) => {
+      const sectionId =
+        root.getAttribute("data-settings-benchmark-section-snapdom") ?? "";
+      const overlay = document.querySelector<HTMLElement>(
+        `[data-settings-benchmark-section-snapdom-preview-overlay="${sectionId}"]`,
+      );
+      const preview = overlay?.querySelector<HTMLImageElement>(
+        "[data-settings-benchmark-section-snapdom-preview]",
       );
       const captureWidth = Number(
-        root?.getAttribute("data-settings-benchmark-section-snapdom-capture-width") ??
+        root.getAttribute("data-settings-benchmark-section-snapdom-capture-width") ??
           "0",
       );
       const captureHeight = Number(
-        root?.getAttribute("data-settings-benchmark-section-snapdom-capture-height") ??
+        root.getAttribute("data-settings-benchmark-section-snapdom-capture-height") ??
           "0",
       );
+      const overlayRect = overlay?.getBoundingClientRect();
+      const liveChildWidths = Array.from(root.children)
+        .filter((child): child is HTMLElement => child instanceof HTMLElement)
+        .map((child) => child.getBoundingClientRect().width / viewportScale)
+        .filter((width) => Number.isFinite(width) && width > 0);
+      const minLiveChildWidth =
+        liveChildWidths.length > 0 ? Math.min(...liveChildWidths) : 0;
+      const overlayWidth =
+        overlayRect !== undefined
+          ? overlayRect.width / viewportScale
+          : 0;
+      const overlayHeight =
+        overlayRect !== undefined
+          ? overlayRect.height / viewportScale
+          : 0;
 
       return {
-        naturalWidth: preview.naturalWidth,
-        naturalHeight: preview.naturalHeight,
-        displayWidth: rect.width,
-        displayHeight: rect.height,
+        naturalWidth: preview?.naturalWidth ?? 0,
+        naturalHeight: preview?.naturalHeight ?? 0,
+        overlayWidth,
+        overlayHeight,
         captureWidth,
         captureHeight,
+        minLiveChildWidth,
+        liveChildCount: liveChildWidths.length,
         isUndersized:
-          preview.naturalWidth <
-            Math.max(100, rect.width * 5, captureWidth * 0.5) ||
-          preview.naturalHeight <
-            Math.max(100, rect.height * 2, captureHeight * 0.5),
+          (preview?.naturalWidth ?? 0) <
+            Math.max(100, captureWidth * 0.5) ||
+          (preview?.naturalHeight ?? 0) <
+            Math.max(100, captureHeight * 0.5),
+        isCollapsed:
+          liveChildWidths.length === 0 ||
+          minLiveChildWidth < 250 ||
+          overlayWidth < 250 ||
+          overlayHeight < 40,
       };
-    });
+      })
+      .filter((preview) => preview.naturalWidth > 0 && preview.overlayWidth > 0)
+      .slice(0, 8);
 
     return {
+      rootCount: roots.length,
       previewCount: previews.length,
       sampleCount: sample.length,
       undersizedCount: sample.filter((preview) => preview.isUndersized).length,
+      collapsedCount: sample.filter((preview) => preview.isCollapsed).length,
       sample,
     };
   });
 
+  expect(fidelity.rootCount).toBeGreaterThan(0);
   expect(fidelity.previewCount).toBeGreaterThan(0);
   expect(fidelity.sampleCount).toBeGreaterThan(0);
   expect(fidelity.undersizedCount).toBe(0);
+  expect(fidelity.collapsedCount).toBe(0);
 }
 
 async function assertSectionStageActivatesToLiveControls(
@@ -873,9 +946,7 @@ async function assertSectionStageActivatesToLiveControls(
       return false;
     }
 
-    const liveBody = liveSections[0]?.querySelector(
-      "[data-settings-benchmark-section-snapdom-live]",
-    );
+    const liveBody = liveSections[0];
     if (!(liveBody instanceof HTMLElement)) {
       return false;
     }
@@ -893,9 +964,7 @@ async function assertSectionStageActivatesToLiveControls(
         '[data-settings-benchmark-section-snapdom-status="live-active"]',
       ),
     );
-    const liveBody = liveSections[0]?.querySelector<HTMLElement>(
-      "[data-settings-benchmark-section-snapdom-live]",
-    );
+    const liveBody = liveSections[0] ?? null;
     return {
       liveSectionCount: liveSections.length,
       readyPreviewCount: document.querySelectorAll(
