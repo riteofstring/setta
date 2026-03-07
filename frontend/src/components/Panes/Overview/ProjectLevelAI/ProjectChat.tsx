@@ -193,6 +193,12 @@ type ShouldProjectChatSkipEngineSyncForContinuationInput = {
   chatId: string | null | undefined;
 };
 
+type ResolveProjectChatAuxViewByProjectConfigIdUpdateInput = {
+  projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
+  projectConfigId: string;
+  nextAuxView: ProjectChatAuxView;
+};
+
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
   wasLargeEnoughForInlineThreads,
@@ -351,6 +357,51 @@ export function shouldProjectChatSkipEngineSyncForContinuation({
   return resolvedChatId !== "" && resolvedChatId === continuation.sourceChatId;
 }
 
+export function resolveProjectChatAuxViewByProjectConfigIdUpdate({
+  projectChatAuxViewByProjectConfigId,
+  projectConfigId,
+  nextAuxView,
+}: ResolveProjectChatAuxViewByProjectConfigIdUpdateInput): Record<
+  string,
+  ProjectChatAuxView
+> | null {
+  const currentAuxView =
+    projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
+  if (currentAuxView === nextAuxView) {
+    return null;
+  }
+  const nextByProjectConfigId = {
+    ...projectChatAuxViewByProjectConfigId,
+  };
+  if (nextAuxView === "none") {
+    delete nextByProjectConfigId[projectConfigId];
+  } else {
+    nextByProjectConfigId[projectConfigId] = nextAuxView;
+  }
+  return nextByProjectConfigId;
+}
+
+export function setProjectChatAuxViewForActiveProject(
+  nextAuxView: ProjectChatAuxView,
+): void {
+  useLocalStorage.setState((state) => {
+    const activeProjectConfigId = useProjectState.getState().projectConfig.id;
+    const nextByProjectConfigId =
+      resolveProjectChatAuxViewByProjectConfigIdUpdate({
+        projectChatAuxViewByProjectConfigId:
+          state.projectChatAuxViewByProjectConfigId,
+        projectConfigId: activeProjectConfigId,
+        nextAuxView,
+      });
+    if (!nextByProjectConfigId) {
+      return state;
+    }
+    return {
+      projectChatAuxViewByProjectConfigId: nextByProjectConfigId,
+    };
+  });
+}
+
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
@@ -477,26 +528,9 @@ export function ProjectChat() {
   });
   const setProjectChatAuxView = useCallback(
     (nextAuxView: ProjectChatAuxView) => {
-      useLocalStorage.setState((state) => {
-        const currentAuxView =
-          state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
-        if (currentAuxView === nextAuxView) {
-          return state;
-        }
-        const nextByProject = {
-          ...state.projectChatAuxViewByProjectConfigId,
-        };
-        if (nextAuxView === "none") {
-          delete nextByProject[projectConfigId];
-        } else {
-          nextByProject[projectConfigId] = nextAuxView;
-        }
-        return {
-          projectChatAuxViewByProjectConfigId: nextByProject,
-        };
-      });
+      setProjectChatAuxViewForActiveProject(nextAuxView);
     },
-    [projectConfigId],
+    [],
   );
   const inlineThreadsWidthStorage = useMemo(
     () => getSafeLocalStorageAdapter("project-chat-inline-threads"),
@@ -1028,6 +1062,7 @@ export function ProjectChat() {
       chatId,
       selectedEngineId,
       setChatId,
+      setProjectChatAuxView,
       setSelectedEngineId,
     ],
   );
@@ -1353,7 +1388,7 @@ export function ProjectChat() {
       return;
     }
     useAIStore.setState({ viewThreads: false });
-  }, [projectChatAuxView]);
+  }, [projectChatAuxView, setProjectChatAuxView]);
   const handleToggleThreads = useCallback(() => {
     setProjectChatAuxView("none");
     const isLargeEnoughForInlineThreads =
@@ -1368,19 +1403,19 @@ export function ProjectChat() {
         projectChatThreadsExplicitlyClosedAtLargeWidth: !nextViewThreads,
       };
     });
-  }, [overviewPaneWidth]);
+  }, [overviewPaneWidth, setProjectChatAuxView]);
   const handleOpenProjectSettingsAuxView = useCallback(() => {
     setProjectChatAuxView("ai_settings");
-  }, []);
+  }, [setProjectChatAuxView]);
   const handleOpenSkillsAuxView = useCallback(() => {
     setProjectChatAuxView("skills");
-  }, []);
+  }, [setProjectChatAuxView]);
   const handleOpenMcpAuxView = useCallback(() => {
     setProjectChatAuxView("mcp");
-  }, []);
+  }, [setProjectChatAuxView]);
   const handleOpenSlashCommandsAuxView = useCallback(() => {
     setProjectChatAuxView("slash_commands");
-  }, []);
+  }, [setProjectChatAuxView]);
   const startNewChatDraft = useCallback(
     ({
       targetGroupId,
@@ -1403,7 +1438,7 @@ export function ProjectChat() {
       }
       setProjectChatAuxView("none");
     },
-    [setChatId, showInlineThreads],
+    [setChatId, setProjectChatAuxView, showInlineThreads],
   );
   const handleNewChatClick = useCallback(() => {
     startNewChatDraft({
@@ -1450,6 +1485,7 @@ export function ProjectChat() {
     engineSwitchContinuation,
     selectedThreadGroupId,
     setChatId,
+    setProjectChatAuxView,
     showInlineThreads,
   ]);
   const returnToChatTooltipHandlers = useMemo(

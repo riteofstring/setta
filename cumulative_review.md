@@ -79,3 +79,27 @@
 - Backend tests: skill-id target-missing rejection at unit and route levels.
 - Frontend unit/integration tests: startup slash-command reconciliation, persisted-state normalization, reveal state/rollback ownership, notifications/backend-logs routing behavior.
 - Playwright tests: skill-save race regression and notifications->backend-logs route transition determinism.
+
+## 2026-03-05 19:42:14 PST
+
+### Consolidated findings implemented
+- Eliminated stale project-scoped aux-view writes in `ProjectChat` that could mutate the wrong project after a project switch.
+- Fixed branch-local TypeScript drift in notifications by restoring explicit `OverviewNotificationsPaneTab` type import.
+- Added focused regression coverage for per-project aux-view isolation at unit, integration, and E2E levels.
+
+### Proposed fixes applied
+- Introduced `resolveProjectChatAuxViewByProjectConfigIdUpdate` as a deterministic aux-view map mutation helper.
+- Introduced `setProjectChatAuxViewForActiveProject` so aux-view writes resolve active project scope at call time via `useProjectState.getState()`.
+- Routed existing aux-view mutation paths (`engine change`, `return to chat`, `toggle threads`, `open skills/mcp/slash/ai settings`, and new-thread clears) through that active-project mutation path.
+- Added missing notifications tab type import (`OverviewNotificationsPaneTab`) in `NotificationsArea`.
+
+### UX/DX before and after
+- Before: Aux-view actions could write to a previous project key when handlers outlived project switches, causing no-op/open-wrong-pane symptoms and cross-project persisted state bleed.  
+  After: Aux-view state mutations always target the active project at invocation time, so project switching preserves strict per-project isolation.
+- Before: Notifications pane compiled with unresolved type reference (`TS2304`) and reduced editor/CI confidence.  
+  After: Type contract is explicit and stable.
+
+### Validation coverage added or updated
+- Frontend unit tests: pure aux-view map mutation helper behavior (`no-op`, `targeted set`, `targeted clear`).
+- Frontend integration tests: active-project aux-view writes and clears remain scoped correctly across project ID switches.
+- Playwright E2E: cross-project aux-view persistence/isolation (`Project A -> skills`, `Project B -> mcp`, clear `B`, restore `A`).

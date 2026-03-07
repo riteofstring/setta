@@ -19,7 +19,10 @@ import {
   useNotifications,
   useProjectState,
 } from "state/definitions";
-import { OverviewNotificationsPaneTabEnum } from "utils/constants";
+import {
+  type OverviewNotificationsPaneTab,
+  OverviewNotificationsPaneTabEnum,
+} from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_notification,

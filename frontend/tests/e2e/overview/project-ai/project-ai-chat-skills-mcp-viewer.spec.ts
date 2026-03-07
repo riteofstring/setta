@@ -2,7 +2,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   allowExpectedApiError,
+  cleanupIsolatedProject,
   ensureAppReady,
+  openIsolatedProject,
   seedLocalStorage,
 } from "../../helpers";
 
@@ -51,6 +53,43 @@ async function closeSkillsMcpViewer(page: Page): Promise<void> {
 async function openRawSkillMarkdown(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
   await page.getByTestId("project-chat-skill-markdown-view-raw").click();
+}
+
+function getActiveProjectNameFromUrl(page: Page): string {
+  const activeProjectName = new URL(page.url()).pathname
+    .split("/")
+    .filter(Boolean)[0];
+  if (!activeProjectName) {
+    throw new Error("Expected a project-scoped URL while running this test.");
+  }
+  return decodeURIComponent(activeProjectName);
+}
+
+async function readProjectChatAuxViewByProject(
+  page: Page,
+): Promise<Record<string, string>> {
+  return page.evaluate(() => {
+    const raw = window.localStorage.getItem("setta_data");
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as {
+      state?: {
+        projectChatAuxViewByProjectConfigId?: Record<string, unknown>;
+      };
+    };
+    const rawByProject = parsed.state?.projectChatAuxViewByProjectConfigId;
+    if (!rawByProject || typeof rawByProject !== "object") {
+      return {};
+    }
+    const normalized: Record<string, string> = {};
+    for (const [projectConfigId, value] of Object.entries(rawByProject)) {
+      if (typeof value === "string") {
+        normalized[projectConfigId] = value;
+      }
+    }
+    return normalized;
+  });
 }
 
 test("project ai chat can open the skills side view", async ({ page }) => {
@@ -388,6 +427,65 @@ test("project ai chat can open the project ai settings pane from tools", async (
   await expect(
     page.getByTestId("project-chat-aux-tab-ai-settings"),
   ).toHaveAttribute("aria-current", "page");
+});
+
+test("project ai chat keeps aux view persistence scoped to each project", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+  await ensureAppReady(page);
+
+  let firstProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  let secondProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+
+  try {
+    // Project A keeps its own aux-view entry.
+    firstProjectContext = await openIsolatedProject(page);
+    const firstProjectName = getActiveProjectNameFromUrl(page);
+    await openSkillsViewer(page);
+    await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+    await expect
+      .poll(() => readProjectChatAuxViewByProject(page))
+      .toMatchObject({
+        [firstProjectContext.projectConfigId]: "skills",
+      });
+
+    // Project B must receive its own entry without mutating project A.
+    secondProjectContext = await openIsolatedProject(page);
+    await openMcpViewer(page);
+    await expect(page.getByTestId("project-chat-mcp-view")).toBeVisible();
+    await expect
+      .poll(() => readProjectChatAuxViewByProject(page))
+      .toMatchObject({
+        [firstProjectContext.projectConfigId]: "skills",
+        [secondProjectContext.projectConfigId]: "mcp",
+      });
+
+    await closeSkillsMcpViewer(page);
+    await expect(page.getByTestId("project-chat-mcp-view")).toHaveCount(0);
+    await expect
+      .poll(() => readProjectChatAuxViewByProject(page))
+      .toEqual({
+        [firstProjectContext.projectConfigId]: "skills",
+      });
+
+    // Switching back to A should restore A's persisted aux view.
+    await page.goto(`/${encodeURIComponent(firstProjectName)}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await page.waitForSelector(".react-flow__pane");
+    await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, secondProjectContext);
+    await cleanupIsolatedProject(page, firstProjectContext);
+  }
 });
 
 test("project ai chat keeps MCP runtime statuses distinct across matching server ids", async ({
