@@ -482,13 +482,46 @@ Reference:
 
 - `phase-6-codeobj-target-mapping-singleton-fallback-and-suppression.md`
 
-## Next Recommended Step
+### Slice 8: CodeObj Write Tool Parity
 
-- Slice 7 is now complete.
-- The next recommended step is a focused code-object write slice that uses the
-  completed targeting boundary for real mutation parity:
+Deliver:
+
+- Go-owned runtime save/mutation owners for:
+  - parameter entered values
+  - section `ignoreTypeErrors`
+  - code-object display names
+- the next code-object write tools through Go MCP:
   - `set_param_entered_value`
   - `set_type_error_ignore`
-  - `set_code_obj_display_name` if it falls out cleanly from the same owner
-- Keep the first structural/project-shape pilot after those code-object writes
-  are proven over real Go runtime owners.
+  - `set_code_obj_display_name`
+- focused scope, temp-id, HTTP route, and IDE-mode app coverage for those
+  tools
+
+Acceptance:
+
+- Go owns runtime save/mutation helpers for the selected code-object writes
+- metadata-driven temp-id translation rewrites `paramInfoId`/`codeObjId`
+- scope checks enforce the new tools through the shared target-resolution
+  boundary
+- unsupported password/dropzone param writes fail explicitly rather than
+  broadening semantics heuristically
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-codeobj-write-tool-parity.md`
+
+## Next Recommended Step
+
+- Slice 8 is now complete.
+- The next recommended step is a bounded project-shape/name slice using
+  existing Go runtime owners where the semantics are already explicit:
+  - `set_section_name`
+  - `set_callable_name`
+- Keep `set_code_obj_name` deferred until rename validation/refactor behavior
+  is ready to move as one coherent boundary.
+- Leave broader create/delete/move structural mutations after that lighter
+  name-edit slice.

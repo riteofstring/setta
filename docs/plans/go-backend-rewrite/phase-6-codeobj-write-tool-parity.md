@@ -18,20 +18,24 @@ mutation owners.
 
 ## Status
 
+This slice is now complete.
+
 Current repo status as of 2026-03-07:
 
 - `internal/mcpx` can already scope tools that target:
   - `sectionId`
   - `codeObjId`
   - `paramInfoId`
-- `internal/projectstate` does not yet expose Go runtime owners for:
+- `internal/projectstate` now exposes Go runtime owners for:
   - parameter value mutation through document/runtime save boundaries
   - section-level `ignoreTypeErrors` mutation
   - code-object display-name mutation
-- Go MCP does not yet expose the next code-object write tools:
+- Go MCP now exposes the next code-object write tools:
   - `set_param_entered_value`
   - `set_type_error_ignore`
   - `set_code_obj_display_name`
+- unsupported password/dropzone param value semantics now fail explicitly in Go
+  rather than falling through to incorrect generic mutation behavior
 
 ## Scope
 
@@ -170,8 +174,68 @@ Do not own:
 - `set_param_entered_value`, `set_type_error_ignore`, and
   `set_code_obj_display_name` are callable through Go MCP transports
 
+## Completed
+
+- added `internal/projectstate/code_object_writes.go`
+  - document/runtime save owners for:
+    - `SetSectionCodeObjectValue`
+    - `SetTypeErrorIgnore`
+    - `SetCodeObjectDisplayName`
+  - source-of-truth section-level `ignoreTypeErrors` parsing and persistence
+  - explicit unsupported errors for password/dropzone value mutation
+- updated `internal/projectstate/section_code_objects.go`
+  - direct value mutation now resolves the effective code-object payload first
+  - mutation fails explicitly for:
+    - password params
+    - dropzone params
+    - code objects without a mutable `value` field
+- updated `internal/mcpx/server.go`
+  - registered:
+    - `set_param_entered_value`
+    - `set_type_error_ignore`
+    - `set_code_obj_display_name`
+  - added raw-string argument reading for value/display-name mutations
+  - normalized project-state mutation failures into structured MCP tool errors
+- expanded focused coverage in:
+  - `internal/projectstate/code_object_writes_test.go`
+  - `internal/mcpx/server_test.go`
+  - `internal/httpapi/mcp_tool_routes_test.go`
+  - `internal/app/mcp_test.go`
+
+## Decisions
+
+- keep code-object write semantics owned by `internal/projectstate`
+  - MCP handlers call runtime owners directly
+  - no REST indirection or MCP-local mutation logic was added
+- keep unsupported param types explicit
+  - password/dropzone writes return Go-owned unsupported errors
+  - no heuristic stand-ins or partial parity were added
+- keep string write semantics raw
+  - `value` and `displayName` are read without trim/coercion so intentional
+    empty-string writes remain representable
+- keep `ignoreTypeErrors` source-of-truth driven
+  - the section must actually expose `codeObjVariantMap`
+  - no keyword or section-kind heuristics were added
+
+## Open Questions
+
+- none at this slice boundary
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 240s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute|TestRegisterLSPRoutesMutesCodeSectionDiagnostics' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP' -count=1 -timeout 420s`
+
 ## Recommended Follow-On
 
-- the next structural/project-shape slice after code-object writes are proven
-- `set_code_obj_name` only once rename validation/refactor behavior is ready to
-  move as a coherent boundary
+- Slice 8 is complete.
+- The next recommended step is a bounded project-shape/name slice using
+  existing Go runtime owners where the semantics are already explicit:
+  - `set_section_name`
+  - `set_callable_name`
+- Keep `set_code_obj_name` deferred until rename validation/refactor behavior
+  is ready to move as a coherent boundary.
+- Leave create/delete/move structural mutations after that lighter name-edit
+  slice proves the next section-targeted write cluster.
