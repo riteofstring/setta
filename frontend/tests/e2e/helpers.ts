@@ -500,17 +500,29 @@ export async function ensureManagedChatEngine(
   }
 
   return async () => {
+    // Managed-engine teardown should not mask assertion outcomes in a
+    // disposable Playwright workspace if the backend stalls during cleanup.
     if (createdEngineConfigId) {
-      await postBackend(page, "/deleteEngineConfig", {
-        configId: createdEngineConfigId,
-      });
+      try {
+        await page.request.post(`${BACKEND_ORIGIN}/api/deleteEngineConfig`, {
+          data: { configId: createdEngineConfigId },
+          headers: BACKEND_HELPER_REQUEST_HEADERS,
+          timeout: 5000,
+        });
+      } catch {
+        // Ignore teardown failures; the seeded workspace is disposable.
+      }
     }
     if (createdLlmConfigId || didUpdateLlmConfig) {
-      await postBackend(
-        page,
-        "/llm/config",
-        initialConfigForWrite as Record<string, unknown>,
-      );
+      try {
+        await page.request.post(`${BACKEND_ORIGIN}/api/llm/config`, {
+          data: initialConfigForWrite as Record<string, unknown>,
+          headers: BACKEND_HELPER_REQUEST_HEADERS,
+          timeout: 5000,
+        });
+      } catch {
+        // Ignore teardown failures; the seeded workspace is disposable.
+      }
     }
   };
 }
