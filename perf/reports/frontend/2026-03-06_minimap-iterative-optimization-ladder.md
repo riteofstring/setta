@@ -103,3 +103,157 @@ Raw artifact:
 - Playwright:
   - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
   - Added a minimap click-to-center assertion and made node counting renderer-agnostic.
+
+## Stage 2: Clamp Minimap Bounds To Content
+
+Commit:
+- `dc3677a00`
+
+Change:
+- Stop expanding the minimap world bounds to include the live viewport.
+- Compute minimap scale from the visible node bounds only, then draw the live viewport mask inside that fixed content-bounds coordinate system.
+
+Behavior removed:
+- When the viewport drifts outside the actual section layout, the minimap no longer preserves that extra whitespace in its own coordinate system.
+- In practice, the viewport mask can pin against the minimap edge or clip away once the canvas is panned far enough beyond the nodes.
+
+Behavior kept:
+- click-to-center still works
+- minimap nodes still stay live after layout changes
+- viewport mask still updates live during pan/zoom
+
+Scenario medians from the iterative harness (`with minimap + grid`):
+- Median scenario: `2725.1ms`
+- Avg frame gap: `18.81ms`
+- P95 frame gap: `25.10ms`
+- Frames `>33ms`: `0`
+- Estimated dropped frames: `13`
+- Max frame gap: `26.4ms`
+
+Trace sample for `with minimap + grid`:
+- Main renderer thread `RunTask`: `3284.91ms`
+- Main renderer thread paint + layout: `59.82ms`
+- Main renderer thread pre-paint: `8.73ms`
+- Main renderer thread style recalc (`UpdateLayoutTree`): `15.02ms`
+
+Delta vs stage 1:
+- Scenario median: `-66.5ms` (`-2.4%`)
+- Avg frame gap: `-0.46ms` (`-2.4%`)
+- Main renderer `RunTask`: `-542.12ms` (`-14.2%`)
+
+Takeaway:
+- This is the first feature tradeoff that clearly reduces main-thread work without changing the visible minimap at rest.
+- Most of the gain comes from making pan-only movement stop invalidating the node projection math.
+
+Raw artifact:
+- `perf/artifacts/2026-03-06_minimap-iterative/stage2-content-bounds-only.trace.json`
+
+## Stage 3: Static Thumbnail, No Viewport Mask
+
+Commit:
+- `c225cc8ec`
+
+Change:
+- Remove the viewport mask entirely.
+- Keep the minimap node thumbnail and click-to-center interaction, but stop subscribing the minimap to live viewport changes.
+
+Behavior removed:
+- No live viewport box or mask is shown.
+- The minimap becomes a static thumbnail plus click target rather than a live viewport preview.
+
+Behavior kept:
+- minimap stays visible
+- click-to-center still works
+- node geometry still refreshes after layout changes
+
+Scenario medians from the iterative harness (`with minimap + grid`):
+- Median scenario: `2674.9ms`
+- Avg frame gap: `18.46ms`
+- P95 frame gap: `25.00ms`
+- Frames `>33ms`: `0`
+- Estimated dropped frames: `9`
+- Max frame gap: `25.8ms`
+
+Trace sample for `with minimap + grid`:
+- Main renderer thread `RunTask`: `3197.65ms`
+- Main renderer thread paint + layout: `53.87ms`
+- Main renderer thread pre-paint: `7.57ms`
+- Main renderer thread style recalc (`UpdateLayoutTree`): `9.30ms`
+
+Delta vs stage 2:
+- Scenario median: `-50.2ms` (`-1.8%`)
+- Avg frame gap: `-0.35ms` (`-1.8%`)
+- Main renderer `RunTask`: `-87.26ms` (`-2.7%`)
+
+Delta vs the stage-1 no-minimap reference:
+- Compared to `no minimap + grid` (`2683.3ms`), this stage is within noise at `-8.4ms` (`-0.3%`).
+- Compared to `no minimap + no grid` (`2589.6ms`), the remaining gap is basically the grid itself plus normal trace variance.
+
+Takeaway:
+- Removing the viewport mask is the first tradeoff stage that effectively erases the remaining minimap tax in this harness.
+- If live viewport context is important, stage 2 is the better stopping point.
+- If performance parity with `showMinimap=false` matters more than live viewport feedback, this stage is the strongest minimap-on option.
+
+Raw artifact:
+- `perf/artifacts/2026-03-06_minimap-iterative/stage3-static-thumbnail-no-mask.trace.json`
+
+## Appendix: 2026-03-07 Stage 1 Grid Settings Sweep
+
+Context:
+- Code under test: stage 1 commit `388af6b12`
+- Page: `/settings` -> `All Settings`
+- Viewport: `1600x1000`
+- Theme: dark mode
+- Local UI toggles during measurement:
+  - `showMinimap=false`
+  - `snapToGrid=true`
+- Sampling:
+  - one warm-up run, then five measured runs per configuration
+  - in-page `requestAnimationFrame` tracking during the scripted interaction
+  - no CPU throttling
+  - no network throttling
+
+Interaction note:
+- In this CDP session, synthetic `WheelEvent` dispatch did not move the canvas viewport.
+- To keep the run repeatable, this sweep used the app's real scroll-driven pan path plus the built-in `zoom in` and `zoom out` controls.
+- That means these absolute numbers should be compared against each other within this appendix, not against the earlier wheel-driven iterative harness sections above.
+
+Sequence:
+1. `fit view`
+2. two cycles of:
+   - `18` pan steps via the canvas scroll path (`scrollLeft += 64`, `scrollTop += 20`)
+   - `8` `zoom in` button clicks
+   - `14` pan steps (`scrollLeft += -56`, `scrollTop += 28`)
+   - `8` `zoom out` button clicks
+   - `14` pan steps (`scrollLeft += 56`, `scrollTop += -28`)
+
+Color note:
+- For the color sweep, `gridColor` and `gridColorDarkMode` were set to the same value so the rendered grid color changed without changing theme.
+
+| Config | Median scenario ms | Delta vs no-grid |
+| --- | ---: | ---: |
+| `no grid` | `2462.9` | `0.0%` |
+| `dots`, size `2`, dark | `2455.5` | `-0.3%` |
+| `lines`, size `2`, dark | `2433.9` | `-1.2%` |
+| `cross`, size `2`, dark | `2457.1` | `-0.2%` |
+| `dots`, size `1`, dark | `2459.6` | `-0.1%` |
+| `dots`, size `4`, dark | `2464.1` | `+0.0%` |
+| `dots`, size `8`, dark | `2467.3` | `+0.2%` |
+| `cross`, size `1`, dark | `2459.7` | `-0.1%` |
+| `cross`, size `4`, dark | `2456.6` | `-0.3%` |
+| `cross`, size `8`, dark | `2464.2` | `+0.1%` |
+| `dots`, size `2`, light slate | `2463.2` | `+0.0%` |
+| `dots`, size `2`, white | `2456.1` | `-0.3%` |
+| `dots`, size `2`, red | `2472.4` | `+0.4%` |
+
+Additional medians:
+- Avg frame gap stayed between `7.96ms` and `8.36ms` across the measured configurations.
+- P95 frame gap stayed between `9.0ms` and `9.2ms`.
+- Median `frames >33ms` was `0` for every configuration.
+- Median `estimated dropped frames` was `0` for every configuration.
+- Median `longTaskCount` was `0` for every configuration.
+
+Takeaway:
+- In this stage-1 sweep, `gridPattern`, `gridPatternSize`, and `gridColor` did not produce a meaningful pan/zoom performance difference in the All Settings scenario.
+- The full spread from fastest to slowest median scenario time was about `38.5ms` (`1.6%`), and some grid-on cases measured slightly faster than `no grid`, which indicates the variation here is effectively noise-level for this scenario.
+- If grid rendering is optimized later, it should be treated as a small incremental win, not a minimap-sized win.
