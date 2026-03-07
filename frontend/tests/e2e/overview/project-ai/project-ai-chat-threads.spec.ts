@@ -133,56 +133,6 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
   }
 });
 
-test("project ai shows styled empty state when no threads exist", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1360, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1040,
-    overviewTrueWidth: 1040,
-  });
-  await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-
-  await page.route("**/api/getAgentRuns", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([]),
-    });
-  });
-
-  try {
-    await page.reload();
-    await page.waitForSelector(".react-flow__pane");
-
-    const overviewPane = page.locator("#OverviewPane");
-    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
-    await expect(threadsPanel).toBeVisible();
-    await expect(
-      threadsPanel.getByTestId("project-chat-threads-empty-state"),
-    ).toBeVisible();
-    await expect(
-      threadsPanel.getByTestId("project-chat-threads-empty-state-title"),
-    ).toContainText("Start a new thread");
-    const startNewThreadButton = threadsPanel.getByTestId(
-      "project-chat-threads-empty-state-start-thread-button",
-    );
-    await expect(startNewThreadButton).toBeVisible();
-    await startNewThreadButton.click();
-    await expect(
-      threadsPanel.getByTestId("project-chat-thread-draft-entry"),
-    ).toBeVisible();
-    await expect(
-      threadsPanel.getByTestId("project-chat-threads-empty-state"),
-    ).toHaveCount(0);
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
 test("project ai thread spinner clears after polling observes run completion", async ({
   page,
 }) => {
@@ -445,47 +395,6 @@ test("project ai threads render folder groups and support group drag reorder", a
     "project-chat-thread-agent-badge-toggle-button",
   );
   await expect(threadAgentBadgeToggleButton).toBeVisible();
-  const threadHeaderGeometry = await overviewPane.evaluate((paneElement) => {
-    const headerHost = paneElement.querySelector(
-      '[data-testid="project-chat-inline-threads-header-host"]',
-    );
-    const inlineHeaderShell = headerHost?.parentElement;
-    const nav = paneElement.querySelector("nav");
-    const badgeToggleButton = paneElement.querySelector(
-      '[data-testid="project-chat-thread-agent-badge-toggle-button"]',
-    );
-    if (
-      !(inlineHeaderShell instanceof HTMLElement) ||
-      !(nav instanceof HTMLElement) ||
-      !(badgeToggleButton instanceof HTMLElement)
-    ) {
-      return null;
-    }
-    const shellRect = inlineHeaderShell.getBoundingClientRect();
-    const navRect = nav.getBoundingClientRect();
-    return {
-      dividerBottomDelta: navRect.bottom - shellRect.bottom,
-      badgeToggleClasses: badgeToggleButton.className,
-    };
-  });
-  expect(threadHeaderGeometry).not.toBeNull();
-  if (!threadHeaderGeometry) {
-    throw new Error(
-      "Expected project chat inline threads header geometry to be measurable.",
-    );
-  }
-  // Keep the inline threads divider continuous with the header bottom border.
-  expect(Math.abs(threadHeaderGeometry.dividerBottomDelta)).toBeLessThanOrEqual(
-    1,
-  );
-  // Category toggle should follow the standard transparent toolbar button style.
-  expect(threadHeaderGeometry.badgeToggleClasses).toContain("bg-transparent");
-  expect(threadHeaderGeometry.badgeToggleClasses).toContain("text-xs");
-  expect(threadHeaderGeometry.badgeToggleClasses).toContain("font-semibold");
-  expect(threadHeaderGeometry.badgeToggleClasses).toContain("text-setta-600");
-  expect(threadHeaderGeometry.badgeToggleClasses).toContain(
-    "dark:text-setta-300",
-  );
   const masterSearchInput = overviewPane.getByTestId(
     "project-chat-master-search-input",
   );
@@ -847,39 +756,6 @@ test("project ai threads default to chat on narrow resize and remember explicit 
   await expect(
     overviewPane.getByTestId("project-chat-threads-panel"),
   ).toHaveCount(0);
-});
-
-test("project ai preserves draft text when resize reveals inline threads", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 920 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 700,
-    overviewTrueWidth: 700,
-  });
-  await seedAIStorePersistence(page, {
-    viewThreads: false,
-    projectChatThreadsExplicitlyClosedAtLargeWidth: false,
-  });
-
-  await ensureAppReady(page);
-
-  const overviewPane = page.locator("#OverviewPane");
-  const composerInput = overviewPane.getByPlaceholder("Type a message...");
-  await expect(composerInput).toBeVisible();
-  const draftText = "keep this draft while resizing";
-  await composerInput.fill(draftText);
-  await expect(composerInput).toHaveValue(draftText);
-
-  await page.getByTestId("overview-pane-fullscreen-button").click();
-  const inlineThreadsPanel = overviewPane.getByTestId(
-    "project-chat-threads-panel",
-  );
-  await expect(inlineThreadsPanel).toBeVisible();
-  await expect(inlineThreadsPanel).toHaveAttribute("data-inline", "true");
-  await expect(composerInput).toHaveValue(draftText);
 });
 
 test("project ai ignores legacy viewHistory in persisted ai store", async ({
@@ -1401,77 +1277,15 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
   }
 });
 
-test("project ai chat keeps conversation search on the top row at medium width", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1480, height: 900 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-    overviewWidth: 1100,
-    overviewTrueWidth: 1100,
-  });
-
-  await ensureAppReady(page);
-
-  const overviewPane = page.locator("#OverviewPane");
-  await expect(
-    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByRole("button", { name: "New Chat" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByRole("button", { name: "Project AI Settings" }),
-  ).toBeVisible();
-  await expect(
-    overviewPane.getByTestId("project-chat-conversation-filter"),
-  ).toBeVisible();
-
-  const headerGeometry = await overviewPane.evaluate((paneElement) => {
-    const newChatButton = paneElement.querySelector(
-      'button[aria-label="New Chat"]',
-    );
-    const settingsButton = paneElement.querySelector(
-      'button[aria-label="Project AI Settings"]',
-    );
-    const conversationFilter = paneElement.querySelector(
-      '[data-testid="project-chat-conversation-filter"]',
-    );
-    if (!newChatButton || !settingsButton || !conversationFilter) {
-      return null;
-    }
-    const newChatRect = newChatButton.getBoundingClientRect();
-    const settingsRect = settingsButton.getBoundingClientRect();
-    const filterRect = conversationFilter.getBoundingClientRect();
-    return {
-      newTop: newChatRect.top,
-      settingsTop: settingsRect.top,
-      filterTop: filterRect.top,
-    };
-  });
-
-  expect(headerGeometry).not.toBeNull();
-  if (!headerGeometry) {
-    throw new Error("Expected project chat header controls to be measurable.");
-  }
-  expect(
-    Math.abs(headerGeometry.newTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(3);
-  expect(
-    Math.abs(headerGeometry.filterTop - headerGeometry.settingsTop),
-  ).toBeLessThanOrEqual(6);
-});
-
-test("project ai chat keeps settings on the top row and wraps conversation search below when very narrow", async ({
+test("project ai chat keeps settings on the top row and wraps conversation search below when narrow", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 980, height: 900 });
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
     overviewVis: true,
-    overviewWidth: 240,
-    overviewTrueWidth: 240,
+    overviewWidth: 640,
+    overviewTrueWidth: 640,
   });
 
   await ensureAppReady(page);

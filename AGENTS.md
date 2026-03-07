@@ -40,7 +40,6 @@
 ## UI Style Consistency
 
 - Use `docs/reference/ui-style-consistency.md` as the canonical style anchor map for UI work (component references, icon guidance, panes to ignore).
-- Do not default to adding borders around every UI container or row. Add borders only when they convey clear structure, hierarchy, or interaction affordance.
 
 ## Testing Guidelines
 
@@ -73,7 +72,6 @@
 ## Commit & Pull Request Guidelines
 
 - Commit messages should explain clearly, succinctly, and in detail, the main purposes of the commit.
-- Commit frequently in small, logical increments. Commit messages must be understandable later without additional context.
 
 ## Memory Logging
 
