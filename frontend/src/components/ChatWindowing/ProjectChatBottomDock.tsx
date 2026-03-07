@@ -9,6 +9,7 @@ import {
   useState,
   type PointerEvent,
 } from "react";
+import { BiHide, BiShow } from "react-icons/bi";
 import {
   MdAdd,
   MdChevronLeft,
@@ -2483,7 +2484,11 @@ export function ProjectChatBottomDock() {
       {showCanvasVisibilityToggle ? (
         <button
           type="button"
-          className="fixed z-[20] inline-flex h-7 shrink-0 items-center rounded-md border border-setta-300 bg-setta-50 px-2 text-[11px] font-semibold text-setta-700 shadow-sm transition-colors hover:bg-setta-100 hover:text-setta-900 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800 dark:hover:text-setta-50"
+          className={`fixed z-[20] inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-[0_6px_14px_rgba(0,0,0,0.18)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            isCanvasVisibilitySuppressed
+              ? "border-blue-500 bg-blue-500 text-white hover:bg-blue-600 dark:border-blue-500 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
+              : "border-setta-300 bg-setta-50 text-setta-700 hover:bg-setta-100 hover:text-setta-900 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800 dark:hover:text-setta-50"
+          }`}
           style={{
             left: 6,
             bottom: dockBottomOffsetPx + 136,
@@ -2494,9 +2499,15 @@ export function ProjectChatBottomDock() {
           aria-label={
             isCanvasVisibilitySuppressed ? "Show chats" : "Show canvas"
           }
+          aria-pressed={isCanvasVisibilitySuppressed}
           data-testid="project-chat-canvas-visibility-toggle"
+          title={isCanvasVisibilitySuppressed ? "Show chats" : "Show canvas"}
         >
-          {isCanvasVisibilitySuppressed ? "Show chats" : "Show canvas"}
+          {isCanvasVisibilitySuppressed ? (
+            <BiShow size={18} />
+          ) : (
+            <BiHide size={18} />
+          )}
         </button>
       ) : null}
     </>

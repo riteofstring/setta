@@ -390,17 +390,17 @@ test("project chat canvas visibility toggle hides and restores overlay windows",
 
     const toggle = page.getByTestId("project-chat-canvas-visibility-toggle");
     await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveText("Show canvas");
+    await expect(toggle).toHaveAttribute("aria-label", "Show canvas");
     await expect(maximizedWindow).toBeVisible();
 
     await toggle.click();
-    await expect(toggle).toHaveText("Show chats");
+    await expect(toggle).toHaveAttribute("aria-label", "Show chats");
     await expect(page.getByTestId("project-chat-maximized-window")).toHaveCount(
       0,
     );
 
     await toggle.click();
-    await expect(toggle).toHaveText("Show canvas");
+    await expect(toggle).toHaveAttribute("aria-label", "Show canvas");
     await expect(maximizedWindow).toBeVisible();
   } finally {
     await cleanupIsolatedProject(page, projectContext);
@@ -432,7 +432,7 @@ test("project chat keyboard shortcuts toggle canvas and control focused windows"
     ).toHaveCount(0);
     await expect(
       page.getByTestId("project-chat-canvas-visibility-toggle"),
-    ).toHaveText("Show chats");
+    ).toHaveAttribute("aria-label", "Show chats");
 
     await page.keyboard.press("Shift+Escape");
     await expect(
@@ -451,7 +451,7 @@ test("project chat keyboard shortcuts toggle canvas and control focused windows"
     await expect(maximizedWindow).toBeVisible();
     await expect(
       page.getByTestId("project-chat-canvas-visibility-toggle"),
-    ).toHaveText("Show canvas");
+    ).toHaveAttribute("aria-label", "Show canvas");
     await maximizedWindow.locator("header button").first().click();
     await page.evaluate(() => {
       if (document.activeElement instanceof HTMLElement) {
