@@ -2,6 +2,7 @@ package runs
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -36,7 +37,14 @@ func TestPlannerPlanUsesDirectEntryPathForNeverMode(t *testing.T) {
 	if plan.EntryPath != fixture.pythonPath {
 		t.Fatalf("expected entry path %q, got %q", fixture.pythonPath, plan.EntryPath)
 	}
-	expectedCommand := "python " + shellQuote(fixture.pythonPath)
+	pythonPath, err := exec.LookPath("python3")
+	if err != nil {
+		pythonPath, err = exec.LookPath("python")
+	}
+	if err != nil {
+		t.Fatalf("resolve python executable: %v", err)
+	}
+	expectedCommand := shellQuote(pythonPath) + " " + shellQuote(fixture.pythonPath)
 	if plan.Command != expectedCommand {
 		t.Fatalf("expected command %q, got %q", expectedCommand, plan.Command)
 	}
@@ -107,8 +115,12 @@ func TestPlannerPlanAppliesSectionVariantOverridesWithoutMutatingBaseState(t *te
 	if plan.Language != projectstate.CodeLanguageBash {
 		t.Fatalf("expected bash language, got %q", plan.Language)
 	}
-	if !strings.HasPrefix(plan.Command, "bash ") {
-		t.Fatalf("expected bash command, got %q", plan.Command)
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Fatalf("resolve bash executable: %v", err)
+	}
+	if !strings.HasPrefix(plan.Command, shellQuote(bashPath)+" ") {
+		t.Fatalf("expected bash command using %q, got %q", bashPath, plan.Command)
 	}
 
 	snapshot := fixture.runtime.Snapshot()

@@ -20,6 +20,8 @@ import (
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/observability"
+	"setta/internal/projectstate"
+	"setta/internal/runs"
 	"setta/internal/terminals"
 )
 
@@ -48,12 +50,7 @@ func TestRegisterTerminalRoutesDeletesRequestedTerminalSessions(t *testing.T) {
 		Auth:       authService,
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -93,12 +90,7 @@ func TestRegisterTerminalRoutesIgnoresUnknownTerminalSections(t *testing.T) {
 		Auth:       authService,
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -128,12 +120,7 @@ func TestRegisterTerminalRoutesRejectsBlankSectionID(t *testing.T) {
 		Auth:       authService,
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -164,12 +151,7 @@ func TestRegisterTerminalRoutesBlocksDeploymentMode(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: policy,
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: policy,
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, policy, terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -227,12 +209,7 @@ func TestRegisterTerminalRoutesInterruptsOnlyMatchingProjectSessions(t *testing.
 		Auth:       authService,
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -277,12 +254,7 @@ func TestRegisterTerminalRoutesRejectsBlankInterruptProjectID(t *testing.T) {
 		Auth:       authService,
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: modes.NewPolicy(config.ModeIDE),
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -313,12 +285,7 @@ func TestRegisterTerminalRoutesBlocksInterruptInDeploymentMode(t *testing.T) {
 		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
 		ModePolicy: policy,
 		Register: func(r chi.Router) {
-			if err := RegisterTerminalRoutes(r, TerminalRouteDependencies{
-				ModePolicy: policy,
-				Terminals:  terminalService,
-			}); err != nil {
-				t.Fatalf("register terminal routes: %v", err)
-			}
+			registerHTTPTestTerminalRoutes(t, r, policy, terminalService, newHTTPTestRunCodeService(t, terminalService))
 		},
 	})
 	if err != nil {
@@ -335,6 +302,184 @@ func TestRegisterTerminalRoutesBlocksInterruptInDeploymentMode(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
 		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterTerminalRoutesRunsCodeAndEnsuresAttachedTerminal(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","runSnapshotMode":"never"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response payload, got %q", response.Body.String())
+	}
+
+	snapshot := runFixture.runtime.Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, impl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if impl.Code == nil {
+		t.Fatal("expected code impl")
+	}
+	attachedTerminalID := impl.Code.AttachedTerminalSectionID
+	if attachedTerminalID == "" {
+		t.Fatal("expected run route to ensure an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(attachedTerminalID, "")
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_RUN_OK")
+	if !strings.Contains(output, "ROUTE_RUN_OK") {
+		t.Fatalf("expected run output in attached terminal, got %q", output)
+	}
+}
+
+func TestRegisterTerminalRoutesReusesExplicitAttachedTerminal(t *testing.T) {
+	t.Parallel()
+	skipIfTerminalPTYUnsupported(t)
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	_, attachedTerminalID, err := runFixture.runtime.EnsureCodeSectionAttachedTerminal(
+		"project-alpha",
+		"code-section",
+		projectstate.TerminalSectionSeed{
+			SectionID: "explicit-terminal",
+			VariantID: "explicit-terminal-variant",
+			ImplID:    "explicit-terminal-impl",
+			Name:      "Terminal",
+		},
+	)
+	if err != nil {
+		t.Fatalf("ensure attached terminal: %v", err)
+	}
+
+	terminalID := terminals.BuildTerminalID(attachedTerminalID, "")
+	openHTTPTestTerminal(t, terminalService, terminals.OpenOptions{
+		ID:         terminalID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    interactiveHTTPTestBashCommand(t),
+	})
+	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	prepareHTTPInterruptShell(t, terminalService, terminalID, attachment)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":"explicit-terminal","runSnapshotMode":"never"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	output := waitForHTTPTestOutputContains(t, attachment, "ROUTE_RUN_OK")
+	if !strings.Contains(output, "ROUTE_RUN_OK") {
+		t.Fatalf("expected run output in explicit terminal, got %q", output)
+	}
+}
+
+func TestRegisterTerminalRoutesRejectsUnsupportedRunCodePayloads(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	terminalService := newHTTPTestTerminalService(t)
+	runFixture := newHTTPTestRunCodeFixture(t, terminalService)
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			registerHTTPTestTerminalRoutes(t, r, modes.NewPolicy(config.ModeIDE), terminalService, runFixture.service)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	testCases := []struct {
+		name         string
+		payload      string
+		expectedCode string
+	}{
+		{
+			name:         "cli id",
+			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","cliId":"cli-1"}`,
+			expectedCode: `"code":"unsupported_run_code_cli"`,
+		},
+		{
+			name:         "draw snapshots",
+			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","drawSnapshotsBySectionId":{"draw-1":{"kind":"png"}}}`,
+			expectedCode: `"code":"unsupported_run_code_draw_snapshots"`,
+		},
+		{
+			name:         "section overrides",
+			payload:      `{"projectConfigId":"project-alpha","sectionId":"code-section","sectionVariantOverrides":{"code-section":"other"}}`,
+			expectedCode: `"code":"unsupported_run_code_overrides"`,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/api"+RouteRunCode, strings.NewReader(testCase.payload))
+			request.Header.Set("Content-Type", "application/json")
+			addHTTPTestAuthCookie(t, request, authService)
+
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), testCase.expectedCode) {
+				t.Fatalf("expected response to contain %s, got %q", testCase.expectedCode, response.Body.String())
+			}
+		})
 	}
 }
 
@@ -357,6 +502,153 @@ func newHTTPTestTerminalService(t *testing.T) *terminals.Service {
 	})
 
 	return service
+}
+
+func registerHTTPTestTerminalRoutes(t *testing.T, router chi.Router, modePolicy modes.Policy, terminalService *terminals.Service, runCodeService *runs.Service) {
+	t.Helper()
+
+	if err := RegisterTerminalRoutes(router, TerminalRouteDependencies{
+		ModePolicy: modePolicy,
+		Terminals:  terminalService,
+		RunCode:    runCodeService,
+	}); err != nil {
+		t.Fatalf("register terminal routes: %v", err)
+	}
+}
+
+type httpTestRunCodeFixture struct {
+	runtime *projectstate.Runtime
+	service *runs.Service
+}
+
+func newHTTPTestRunCodeService(t *testing.T, terminalService *terminals.Service) *runs.Service {
+	t.Helper()
+
+	return newHTTPTestRunCodeFixture(t, terminalService).service
+}
+
+func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service) httpTestRunCodeFixture {
+	t.Helper()
+
+	root := t.TempDir()
+	settaFilesRoot := filepath.Join(root, "setta_files")
+	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	codeRoot := filepath.Join(settaFilesRoot, "code")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.MkdirAll(codeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir code root: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.py"), []byte("print('ROUTE_RUN_OK')\n"), 0o644); err != nil {
+		t.Fatalf("write run.py: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "helper.py"), []byte("print('helper')\n"), 0o644); err != nil {
+		t.Fatalf("write helper.py: %v", err)
+	}
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				EntryCodeBlockID: "code-section",
+				TopLevelSectionIDs: []string{
+					"code-section",
+					"helper-section",
+				},
+				SectionVariantMap: map[string]string{
+					"code-section":   "code-variant",
+					"helper-section": "helper-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"code-section": {
+						ID:               "code-section",
+						Name:             "Runner",
+						VariantIDs:       []string{"code-variant"},
+						DefaultVariantID: "code-variant",
+					},
+					"helper-section": {
+						ID:               "helper-section",
+						Name:             "Helper",
+						VariantIDs:       []string{"helper-variant"},
+						DefaultVariantID: "helper-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"code-variant": {
+						ID:     "code-variant",
+						ImplID: "code-impl",
+					},
+					"helper-variant": {
+						ID:     "helper-variant",
+						ImplID: "helper-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"code-impl": {
+						ID:   "code-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/run.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+					"helper-impl": {
+						ID:   "helper-impl",
+						Kind: projectstate.SectionKindCode,
+						Code: &projectstate.CodeSectionImpl{
+							Language: projectstate.CodeLanguagePython,
+							Binding: &projectstate.CodeFileBinding{
+								Path:       "code/helper.py",
+								AccessMode: projectstate.CodeFileAccessModeReadWrite,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(document)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = projectRuntime.Close()
+	})
+
+	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
+		ProjectState:   projectRuntime,
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new planner: %v", err)
+	}
+
+	runService, err := runs.NewService(runs.ServiceOptions{
+		Planner:      runPlanner,
+		ProjectState: projectRuntime,
+		Terminals:    terminalService,
+		IDGenerator: func() string {
+			return "seed-1"
+		},
+	})
+	if err != nil {
+		t.Fatalf("new run service: %v", err)
+	}
+
+	return httpTestRunCodeFixture{
+		runtime: projectRuntime,
+		service: runService,
+	}
 }
 
 func openHTTPTestTerminal(t *testing.T, service *terminals.Service, options terminals.OpenOptions) {

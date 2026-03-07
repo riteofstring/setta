@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,15 +9,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
+	"setta/internal/runs"
 	"setta/internal/terminals"
 )
 
 const RouteDeleteTerminals = "/deleteTerminals"
 const RouteInterruptTerminalProcesses = "/interruptTerminalProcesses"
+const RouteRunCode = "/runCode"
 
 type TerminalRouteDependencies struct {
 	ModePolicy modes.Policy
 	Terminals  *terminals.Service
+	RunCode    *runs.Service
 }
 
 type DeleteTerminalsRequest struct {
@@ -31,6 +36,17 @@ type InterruptTerminalProcessesResponse struct {
 	InterruptedSessionCount int `json:"interruptedSessionCount"`
 }
 
+type RunCodeRequest struct {
+	ProjectID                string                     `json:"projectConfigId"`
+	SectionID                string                     `json:"sectionId"`
+	TerminalSectionID        string                     `json:"terminalSectionId"`
+	CLIID                    string                     `json:"cliId"`
+	RunSnapshotMode          runs.RunSnapshotMode       `json:"runSnapshotMode"`
+	DrawSnapshotsBySectionID map[string]json.RawMessage `json:"drawSnapshotsBySectionId"`
+	SectionVariantOverrides  map[string]string          `json:"sectionVariantOverrides"`
+	ParamOverrides           map[string]string          `json:"paramOverrides"`
+}
+
 func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -38,9 +54,13 @@ func RegisterTerminalRoutes(router chi.Router, deps TerminalRouteDependencies) e
 	if deps.Terminals == nil {
 		return fmt.Errorf("terminal service is required")
 	}
+	if deps.RunCode == nil {
+		return fmt.Errorf("run-code service is required")
+	}
 
 	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteDeleteTerminals, deleteTerminalsHandler(deps.Terminals))
 	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteInterruptTerminalProcesses, interruptTerminalProcessesHandler(deps.Terminals))
+	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteRunCode, runCodeHandler(deps.RunCode))
 	return nil
 }
 
@@ -112,5 +132,65 @@ func interruptTerminalProcessesHandler(terminalService *terminals.Service) http.
 		writeJSON(w, http.StatusOK, InterruptTerminalProcessesResponse{
 			InterruptedSessionCount: interruptedCount,
 		})
+	}
+}
+
+func runCodeHandler(runCodeService *runs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[RunCodeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		requestInfo, ok := modes.RequestInfoFromRequest(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if strings.TrimSpace(payload.CLIID) != "" {
+			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_cli", "Run code CLI output is not supported in Go yet.")
+			return
+		}
+		if len(payload.DrawSnapshotsBySectionID) > 0 {
+			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_draw_snapshots", "Run code draw snapshots are not supported in Go yet.")
+			return
+		}
+		if len(payload.SectionVariantOverrides) > 0 {
+			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_overrides", "Run code section variant overrides are not supported on the Go HTTP route yet.")
+			return
+		}
+		if len(payload.ParamOverrides) > 0 {
+			writeError(w, r, http.StatusBadRequest, "unsupported_run_code_overrides", "Run code parameter overrides are not supported on the Go HTTP route yet.")
+			return
+		}
+
+		if _, err := runCodeService.RunCode(r.Context(), runs.RunCodeRequest{
+			ProjectID:         payload.ProjectID,
+			SectionID:         payload.SectionID,
+			TerminalSectionID: payload.TerminalSectionID,
+			RunSnapshotMode:   payload.RunSnapshotMode,
+			ShareSessionID:    requestInfo.ShareSessionID,
+		}); err != nil {
+			switch {
+			case errors.Is(err, runs.ErrRunTargetRequired),
+				errors.Is(err, runs.ErrRunTargetNotRunnable),
+				errors.Is(err, runs.ErrRunSnapshotModeInvalid),
+				errors.Is(err, runs.ErrCodeBindingRequired),
+				errors.Is(err, runs.ErrInvalidParamOverrideKey),
+				errors.Is(err, runs.ErrParamOverridesUnsupported),
+				errors.Is(err, projectstate.ErrProjectNotFound),
+				errors.Is(err, projectstate.ErrSectionNotFound),
+				errors.Is(err, projectstate.ErrSectionActiveVariantNotFound),
+				errors.Is(err, projectstate.ErrCodeSectionRequired):
+				writeError(w, r, http.StatusBadRequest, "invalid_run_code_request", err.Error())
+			default:
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			}
+			return
+		}
+
+		writeJSON(w, http.StatusOK, nil)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
+	"setta/internal/runs"
 	"setta/internal/runtime"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
@@ -27,6 +28,7 @@ type App struct {
 	runtime       *runtime.Manager
 	projectStates *projectstate.Registry
 	terminals     *terminals.Service
+	runCode       *runs.Service
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	handler       http.Handler
@@ -58,6 +60,24 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = projectStates.Close()
 		return nil, err
 	}
+	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
+		ProjectState:   projectStates.Main(),
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		RuntimeRoot:    cfg.Paths.RuntimeRoot,
+	})
+	if err != nil {
+		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
+		return nil, err
+	}
+	runCodeService, err := runs.NewService(runs.ServiceOptions{
+		Planner:      runPlanner,
+		ProjectState: projectStates.Main(),
+		Terminals:    terminalService,
+	})
+	if err != nil {
+		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
@@ -87,6 +107,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
 				ModePolicy: modes.NewPolicy(cfg.Server.Mode),
 				Terminals:  terminalService,
+				RunCode:    runCodeService,
 			}); err != nil {
 				panic(err)
 			}
@@ -104,6 +125,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		runtime:       manager,
 		projectStates: projectStates,
 		terminals:     terminalService,
+		runCode:       runCodeService,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		handler:       handler,
@@ -132,6 +154,10 @@ func (a *App) ProjectStates() *projectstate.Registry {
 
 func (a *App) Terminals() *terminals.Service {
 	return a.terminals
+}
+
+func (a *App) RunCode() *runs.Service {
+	return a.runCode
 }
 
 func (a *App) WebsocketHub() *realtime.WebsocketHub {

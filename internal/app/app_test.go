@@ -318,6 +318,132 @@ func TestAppServesInterruptTerminalProcessesRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesRunCodeRoute(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","runSnapshotMode":"never"}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post run code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	snapshot := app.ProjectStates().Main().Snapshot()
+	project := snapshot.Document.Projects["project-alpha"]
+	_, _, impl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	if impl.Code == nil || impl.Code.AttachedTerminalSectionID == "" {
+		t.Fatal("expected run route to ensure an attached terminal")
+	}
+
+	terminalID := terminals.BuildTerminalID(impl.Code.AttachedTerminalSectionID, "")
+	attachment := attachAppTestTerminal(t, app.Terminals(), terminalID)
+	output := waitForAppTestOutputContains(t, attachment, "APP_RUN_OK")
+	if !strings.Contains(output, "APP_RUN_OK") {
+		t.Fatalf("expected run output in attached terminal, got %q", output)
+	}
+}
+
+func TestAppRunCodeRouteRejectsUnsupportedCLIID(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppRunCodeProject(t, app, cfg, "print('APP_RUN_OK')\n")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteRunCode, strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"code-section","cliId":"cli-1"}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post run code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 400, got %d with body %q", response.StatusCode, string(body))
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	if !strings.Contains(string(body), `"code":"unsupported_run_code_cli"`) {
+		t.Fatalf("expected unsupported_run_code_cli error, got %q", string(body))
+	}
+}
+
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
 
@@ -343,6 +469,92 @@ func testConfig(t *testing.T) config.Config {
 			GlobalSettaFilesBase: filepath.Join(settaHome, "setta_files"),
 			AutoMode:             config.AutoModeCreateLocal,
 		},
+	}
+}
+
+func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source string) {
+	t.Helper()
+
+	codeRoot := filepath.Join(cfg.Paths.SettaFilesRoot, "code")
+	if err := os.MkdirAll(codeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir code root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "run.py"), []byte(source), 0o644); err != nil {
+		t.Fatalf("write run.py: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(codeRoot, "helper.py"), []byte("print('helper')\n"), 0o644); err != nil {
+		t.Fatalf("write helper.py: %v", err)
+	}
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			EntryCodeBlockID: "code-section",
+			TopLevelSectionIDs: []string{
+				"code-section",
+				"helper-section",
+			},
+			SectionVariantMap: map[string]string{
+				"code-section":   "code-variant",
+				"helper-section": "helper-variant",
+			},
+			Sections: map[string]projectstate.Section{
+				"code-section": {
+					ID:               "code-section",
+					Name:             "Runner",
+					VariantIDs:       []string{"code-variant"},
+					DefaultVariantID: "code-variant",
+				},
+				"helper-section": {
+					ID:               "helper-section",
+					Name:             "Helper",
+					VariantIDs:       []string{"helper-variant"},
+					DefaultVariantID: "helper-variant",
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"code-variant": {
+					ID:     "code-variant",
+					ImplID: "code-impl",
+				},
+				"helper-variant": {
+					ID:     "helper-variant",
+					ImplID: "helper-impl",
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"code-impl": {
+					ID:   "code-impl",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguagePython,
+						Binding: &projectstate.CodeFileBinding{
+							Path:       "code/run.py",
+							AccessMode: projectstate.CodeFileAccessModeReadWrite,
+						},
+					},
+				},
+				"helper-impl": {
+					ID:   "helper-impl",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguagePython,
+						Binding: &projectstate.CodeFileBinding{
+							Path:       "code/helper.py",
+							AccessMode: projectstate.CodeFileAccessModeReadWrite,
+						},
+					},
+				},
+			},
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save project runtime: %v", err)
 	}
 }
 

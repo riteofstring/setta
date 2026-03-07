@@ -3,6 +3,7 @@ package runs
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -72,6 +73,7 @@ type Planner struct {
 	runtimeRoot    string
 	defaultMode    RunSnapshotMode
 	now            func() time.Time
+	lookPath       func(string) (string, error)
 }
 
 type codeSectionInput struct {
@@ -107,6 +109,7 @@ func NewPlanner(options PlannerOptions) (*Planner, error) {
 	if now == nil {
 		now = time.Now
 	}
+	lookPath := exec.LookPath
 
 	return &Planner{
 		projectState:   options.ProjectState,
@@ -114,6 +117,7 @@ func NewPlanner(options PlannerOptions) (*Planner, error) {
 		runtimeRoot:    runtimeRoot,
 		defaultMode:    defaultMode,
 		now:            now,
+		lookPath:       lookPath,
 	}, nil
 }
 
@@ -160,7 +164,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 			return Plan{}, fmt.Errorf("stat entry code file: %w", err)
 		}
 
-		command, err := buildCommand(target.Impl.Code.Language, entryPath)
+		command, err := p.buildCommand(target.Impl.Code.Language, entryPath)
 		if err != nil {
 			return Plan{}, err
 		}
@@ -190,7 +194,7 @@ func (p *Planner) Plan(request PlanRequest) (Plan, error) {
 		return Plan{}, fmt.Errorf("snapshot entry path missing for section %q", target.Section.ID)
 	}
 
-	command, err := buildCommand(target.Impl.Code.Language, entryPath)
+	command, err := p.buildCommand(target.Impl.Code.Language, entryPath)
 	if err != nil {
 		return Plan{}, err
 	}
@@ -356,15 +360,37 @@ func validateRunSnapshotMode(mode RunSnapshotMode) error {
 	}
 }
 
-func buildCommand(language projectstate.CodeLanguage, entryPath string) (string, error) {
+func (p *Planner) buildCommand(language projectstate.CodeLanguage, entryPath string) (string, error) {
 	switch language {
 	case projectstate.CodeLanguagePython:
-		return "python " + shellQuote(entryPath), nil
+		executable, err := p.resolveExecutable("python3", "python")
+		if err != nil {
+			return "", err
+		}
+		return shellQuote(executable) + " " + shellQuote(entryPath), nil
 	case projectstate.CodeLanguageBash:
-		return "bash " + shellQuote(entryPath), nil
+		executable, err := p.resolveExecutable("bash")
+		if err != nil {
+			return "", err
+		}
+		return shellQuote(executable) + " " + shellQuote(entryPath), nil
 	default:
 		return "", ErrRunTargetNotRunnable
 	}
+}
+
+func (p *Planner) resolveExecutable(names ...string) (string, error) {
+	lookPath := p.lookPath
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	for _, name := range names {
+		path, err := lookPath(name)
+		if err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("runs: required executable not found: %s", strings.Join(names, ", "))
 }
 
 func hasOverrides(request PlanRequest) bool {
