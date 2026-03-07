@@ -458,7 +458,6 @@ function TabContent({
     case OverviewTabNameEnum.ViewModes:
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
-    case OverviewTabNameEnum.BackendLogs:
       return <NotificationsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;

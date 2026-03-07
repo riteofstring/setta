@@ -13,7 +13,9 @@ import {
   isRestoreClearedDraftKey,
   isStopEscapeKey,
   resolveEscapeComposerAction,
+  resolveSlashCommandRequest,
 } from "./ChatInput";
+import { type ChatSlashCommandDefinition } from "./chatComposerControls";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
@@ -440,6 +442,40 @@ describe("ChatInput composer controls", () => {
     expect(subagentTrigger).toContain("select-none");
     expect(terminalTrigger).toContain('aria-haspopup="menu"');
     expect(subagentTrigger).toContain('aria-haspopup="menu"');
+  });
+});
+
+describe("resolveSlashCommandRequest", () => {
+  it("recognizes unavailable managed slash commands without treating them as chat text", () => {
+    const availableCommands: ChatSlashCommandDefinition[] = [
+      {
+        command: "/new",
+        action: "new",
+        summary: "Start a new chat thread.",
+      },
+      {
+        command: "/help",
+        action: "help",
+        summary: "Show slash command help.",
+      },
+    ];
+    const recognizedCommands: ChatSlashCommandDefinition[] = [
+      ...availableCommands,
+      {
+        command: "/permissions",
+        action: "permissions",
+        summary: "Set permissions mode: minimal, yolo, or config_toml_custom.",
+      },
+    ];
+
+    const resolved = resolveSlashCommandRequest({
+      message: "/permissions yolo",
+      slashCommands: availableCommands,
+      recognizedSlashCommands: recognizedCommands,
+    });
+
+    expect(resolved.parsed?.command).toBe("/permissions");
+    expect(resolved.commandAvailable).toBe(false);
   });
 });
 

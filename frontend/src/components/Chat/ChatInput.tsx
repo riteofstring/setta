@@ -237,6 +237,33 @@ type QueuedChatDraft = {
   queuedAtMs: number;
 };
 
+export function resolveSlashCommandRequest({
+  message,
+  slashCommands,
+  recognizedSlashCommands,
+}: {
+  message: string;
+  slashCommands: ChatSlashCommandDefinition[];
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+}): {
+  parsed: ChatSlashCommand | null;
+  commandAvailable: boolean;
+} {
+  const parsed = parseSlashCommand(message, recognizedSlashCommands);
+  if (!parsed) {
+    return {
+      parsed: null,
+      commandAvailable: false,
+    };
+  }
+  return {
+    parsed,
+    commandAvailable: slashCommands.some(
+      (entry) => entry.command === parsed.command,
+    ),
+  };
+}
+
 type ProviderDictationTranscriptionResult =
   | {
       kind: "ok";
@@ -312,6 +339,7 @@ type ChatInputProps = {
   executionControls?: ChatExecutionControls;
   executionControlVisibility?: ChatExecutionControlVisibility;
   slashCommands?: ChatSlashCommandDefinition[];
+  recognizedSlashCommands?: ChatSlashCommandDefinition[];
   onSlashCommand?: (
     command: ChatSlashCommand,
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
@@ -351,6 +379,7 @@ export const ChatInput = memo(function ChatInput({
     search: true,
   },
   slashCommands = CHAT_SLASH_COMMANDS,
+  recognizedSlashCommands,
   onSlashCommand,
   slashSuggestionsPlacement = "auto",
   dictationMode = "auto",
@@ -390,6 +419,7 @@ export const ChatInput = memo(function ChatInput({
   const submittedHistoryDraftBeforeSelectionRef = useRef<string | null>(null);
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
+  const slashCommandRecognitionSet = recognizedSlashCommands ?? slashCommands;
   const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -729,13 +759,14 @@ export const ChatInput = memo(function ChatInput({
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
-      const parsed = parseSlashCommand(message, slashCommands);
+      const { parsed, commandAvailable } = resolveSlashCommandRequest({
+        message,
+        slashCommands,
+        recognizedSlashCommands: slashCommandRecognitionSet,
+      });
       if (!parsed) {
         return false;
       }
-      const commandAvailable = slashCommands.some(
-        (entry) => entry.command === parsed.command,
-      );
       if (!commandAvailable) {
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
         return true;
@@ -784,7 +815,14 @@ export const ChatInput = memo(function ChatInput({
       }
       return true;
     },
-    [clearAttachments, clearInput, onSlashCommand, onSubmit, slashCommands],
+    [
+      clearAttachments,
+      clearInput,
+      onSlashCommand,
+      onSubmit,
+      slashCommandRecognitionSet,
+      slashCommands,
+    ],
   );
 
   const submitMessage = useCallback(

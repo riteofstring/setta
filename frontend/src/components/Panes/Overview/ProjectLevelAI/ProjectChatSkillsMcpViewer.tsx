@@ -342,6 +342,31 @@ export function shouldPollSlashCommandAgentRuns({
   return true;
 }
 
+export function resolveSkillPreviewContent({
+  skillContentLoading,
+  skillsLoading,
+  selectedSkillId,
+  skillContentLoadStatus,
+  selectedSkillContent,
+}: {
+  skillContentLoading: boolean;
+  skillsLoading: boolean;
+  selectedSkillId: string | null;
+  skillContentLoadStatus: SkillContentLoadStatus;
+  selectedSkillContent: string;
+}): string {
+  if (skillContentLoading || (skillsLoading && !selectedSkillId)) {
+    return "Loading skill content...";
+  }
+  if (skillContentLoadStatus === "error") {
+    return "Skill content unavailable.";
+  }
+  if (selectedSkillId && skillContentLoadStatus === "loaded") {
+    return selectedSkillContent;
+  }
+  return "Select a skill to preview SKILL.md.";
+}
+
 function attachSkillsListResizeListeners(args: {
   target: ResizeListenerTarget;
   onMove: (event: PointerEvent) => void;
@@ -1032,16 +1057,13 @@ export function ProjectChatSkillsMcpViewer({
     return discoveredRoot?.rootPath ?? customSkillRootPathHint;
   }, [customSkillRootPathHint, selectedSkill, selectedSkillRootId, skills]);
   const skillPreviewContent = useMemo(() => {
-    if (skillContentLoading || (skillsLoading && !selectedSkillId)) {
-      return "Loading skill content...";
-    }
-    if (skillContentLoadStatus === "error") {
-      return "Skill content unavailable.";
-    }
-    if (selectedSkillContent) {
-      return selectedSkillContent;
-    }
-    return "Select a skill to preview SKILL.md.";
+    return resolveSkillPreviewContent({
+      skillContentLoading,
+      skillsLoading,
+      selectedSkillId,
+      skillContentLoadStatus,
+      selectedSkillContent,
+    });
   }, [
     selectedSkillContent,
     selectedSkillId,
@@ -1281,11 +1303,7 @@ export function ProjectChatSkillsMcpViewer({
     setSkillMarkdownRawDraft(initialContent);
     setSelectedSkillContentTruncated(false);
     setSelectedSkillOriginalSizeBytes(initialContent.length);
-    addTemporaryNotification(
-      res.data.created
-        ? `Created custom skill ${relativePath}.`
-        : `Updated existing custom skill ${relativePath}.`,
-    );
+    addTemporaryNotification(`Created custom skill ${relativePath}.`);
     await refreshSkillsBrowser();
   }, [newCustomSkillRelativePath, refreshSkillsBrowser]);
 

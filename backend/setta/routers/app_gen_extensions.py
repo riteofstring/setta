@@ -127,21 +127,73 @@ def _resolve_skill_doc_path_from_id(
 def _iter_prioritized_custom_skill_roots(
     workspace_root: Path,
 ) -> list[tuple[str, str, Path]]:
-    roots = list(iter_skill_roots(workspace_root))
-    roots_by_id: dict[str, tuple[str, Path]] = {}
-    for root_id, root_label, root_path in roots:
-        roots_by_id[root_id] = (root_label, root_path.resolve(strict=False))
+    env_agents_home = os.environ.get("AGENTS_HOME")
+    candidates: list[tuple[str, str, Path]] = []
+    if env_agents_home:
+        agents_home_root = Path(env_agents_home).expanduser().resolve(strict=False)
+        agents_home_skills = (
+            agents_home_root
+            if agents_home_root.name == "skills"
+            else agents_home_root / "skills"
+        )
+        candidates.append(
+            ("agents_home_skills", "AGENTS_HOME skills", agents_home_skills)
+        )
+    candidates.extend(
+        [
+            (
+                "user_agents_skills",
+                "User ~/.agents/skills",
+                Path.home() / ".agents" / "skills",
+            ),
+            (
+                "workspace_agents_skills",
+                "Workspace .agents/skills",
+                workspace_root / ".agents" / "skills",
+            ),
+        ]
+    )
+
+    deduped_candidates: list[tuple[str, str, Path]] = []
+    seen_paths: set[Path] = set()
+    for root_id, root_label, root_path in candidates:
+        resolved_root_path = root_path.expanduser().resolve(strict=False)
+        if resolved_root_path in seen_paths:
+            continue
+        seen_paths.add(resolved_root_path)
+        deduped_candidates.append((root_id, root_label, resolved_root_path))
+
     prioritized_roots: list[tuple[str, str, Path]] = []
     for root_id in _CUSTOM_SKILL_ROOT_PRIORITY:
-        root_info = roots_by_id.get(root_id)
-        if root_info is None:
-            continue
-        root_label, root_path = root_info
-        prioritized_roots.append((root_id, root_label, root_path))
+        for candidate_root_id, root_label, root_path in deduped_candidates:
+            if candidate_root_id != root_id:
+                continue
+            prioritized_roots.append((candidate_root_id, root_label, root_path))
+            break
     if prioritized_roots:
         return prioritized_roots
     fallback_root = (Path.home() / ".agents" / "skills").resolve(strict=False)
     return [("user_agents_skills", "User ~/.agents/skills", fallback_root)]
+
+
+def _resolve_discoverable_root_id_for_path(
+    *,
+    workspace_root: Path,
+    root_path: Path,
+    fallback_root_id: str,
+) -> str:
+    resolved_target_root = root_path.resolve(strict=False)
+    for root_id, _, discovered_root_path in iter_skill_roots(workspace_root):
+        if discovered_root_path.resolve(strict=False) == resolved_target_root:
+            return root_id
+    return fallback_root_id
+
+
+def _build_skill_index_by_id(workspace_root: Path) -> dict[str, AppGenSkillEntry]:
+    skill_index: dict[str, AppGenSkillEntry] = {}
+    for row in list_app_gen_skills(workspace_root):
+        skill_index[row.skillId] = row
+    return skill_index
 
 
 def _probe_custom_skill_root_writable(root_path: Path) -> tuple[bool, str | None]:
@@ -310,6 +362,10 @@ def upsert_app_gen_custom_skill(
         raise ValueError("relativePath is required when skillId is not provided.")
 
     if selected_skill_id:
+        skill_index = _build_skill_index_by_id(workspace_root)
+        selected_skill = skill_index.get(selected_skill_id)
+        if selected_skill is None:
+            raise KeyError(f"Unknown or non-discoverable skillId: {selected_skill_id}")
         (
             existing_root_id,
             _,
@@ -318,29 +374,31 @@ def upsert_app_gen_custom_skill(
             existing_skill_doc,
         ) = _resolve_skill_doc_path_from_id(
             workspace_root=workspace_root,
-            skill_id=selected_skill_id,
+            skill_id=selected_skill.skillId,
         )
         try:
             existing_skill_doc_exists = existing_skill_doc.exists()
         except OSError as exc:
             raise ValueError(str(exc)) from exc
         if not existing_skill_doc_exists:
-            raise KeyError(f"Missing SKILL.md for {selected_skill_id}")
-        is_editable, editability_reason = _resolve_skill_editability(
-            root_id=existing_root_id,
-            relative_path=existing_relative_path,
-        )
-        if not is_editable:
-            if editability_reason is None:
+            raise KeyError(f"Missing SKILL.md for {selected_skill.skillId}")
+        if not selected_skill.isEditable:
+            if selected_skill.editabilityReason is None:
                 raise ValueError("Selected skill is not editable.")
-            raise ValueError(editability_reason)
+            raise ValueError(selected_skill.editabilityReason)
         target_root_id = existing_root_id
         target_root_path = existing_root_path
         target_relative_path = existing_relative_path
         skill_doc = existing_skill_doc
+        created = False
     else:
         target_root_id, _, target_root_path = _resolve_writable_custom_skill_root(
             workspace_root
+        )
+        target_root_id = _resolve_discoverable_root_id_for_path(
+            workspace_root=workspace_root,
+            root_path=target_root_path,
+            fallback_root_id=target_root_id,
         )
         target_relative_path = _normalize_custom_skill_relative_path(
             selected_relative_path
@@ -350,10 +408,16 @@ def upsert_app_gen_custom_skill(
         )
         if not skill_doc.is_relative_to(target_root_path):
             raise ValueError("Invalid skill path.")
+        try:
+            if skill_doc.exists():
+                raise ValueError(
+                    f"Custom skill already exists for relativePath '{target_relative_path}'."
+                )
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+        created = True
 
-    created = False
     try:
-        created = not skill_doc.exists()
         skill_doc.parent.mkdir(parents=True, exist_ok=True)
         with skill_doc.open("w", encoding="utf-8") as handle:
             handle.write(content)

@@ -564,6 +564,82 @@ class TestAppGenExtensionsRoutes:
                 == "# my-custom-skill\n\nBody.\n"
             )
 
+    def test_create_custom_skill_rejects_name_collisions_without_overwrite(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            existing_skill_doc = fake_home / ".agents" / "skills" / "existing" / "SKILL.md"
+            existing_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            existing_skill_doc.write_text(
+                "# existing\n\nOriginal content.\n",
+                encoding="utf-8",
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="Custom skill already exists for relativePath 'existing'.",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=None,
+                    relative_path="existing",
+                    content="# existing\n\nOverwritten unexpectedly.\n",
+                )
+
+            assert (
+                existing_skill_doc.read_text(encoding="utf-8")
+                == "# existing\n\nOriginal content.\n"
+            )
+
+    def test_create_custom_skill_uses_prioritized_root_even_when_agents_home_aliases_workspace(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            agents_home = workspace_root / ".agents"
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            response = upsert_app_gen_custom_skill(
+                workspace_root=workspace_root,
+                skill_id=None,
+                relative_path="priority-check",
+                content="# priority-check\n\nBody.\n",
+            )
+
+            expected_workspace_skill_doc = (
+                workspace_root / ".agents" / "skills" / "priority-check" / "SKILL.md"
+            )
+            home_skill_doc = (
+                fake_home / ".agents" / "skills" / "priority-check" / "SKILL.md"
+            )
+            assert response.skillId == "workspace_agents_skills::priority-check"
+            assert response.rootPath == str(
+                (workspace_root / ".agents" / "skills").resolve(strict=False)
+            )
+            assert response.skillDocPath == str(
+                expected_workspace_skill_doc.resolve(strict=False)
+            )
+            assert expected_workspace_skill_doc.exists() is True
+            assert home_skill_doc.exists() is False
+
     def test_updates_existing_workspace_custom_skill_by_skill_id(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -593,7 +669,7 @@ class TestAppGenExtensionsRoutes:
             assert response.created is False
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
-    def test_rejects_skill_id_target_when_skill_doc_is_missing(
+    def test_rejects_skill_id_target_when_skill_is_not_discoverable(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -612,7 +688,7 @@ class TestAppGenExtensionsRoutes:
             target_skill_doc = workspace_skills / ".hidden" / "nested" / "SKILL.md"
             with pytest.raises(
                 KeyError,
-                match="Missing SKILL.md for workspace_agents_skills::.hidden/nested",
+                match="Unknown or non-discoverable skillId: workspace_agents_skills::.hidden/nested",
             ):
                 upsert_app_gen_custom_skill(
                     workspace_root=workspace_root,
@@ -622,6 +698,43 @@ class TestAppGenExtensionsRoutes:
                 )
 
             assert target_skill_doc.exists() is False
+
+    def test_rejects_hidden_skill_id_targets_even_when_skill_doc_exists(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            hidden_skill_doc = (
+                workspace_root / ".agents" / "skills" / ".git" / "hooks" / "SKILL.md"
+            )
+            hidden_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+            hidden_skill_doc.write_text("# hidden\n\nOriginal.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            skill_ids = {row.skillId for row in list_app_gen_skills(workspace_root)}
+            assert "workspace_agents_skills::.git/hooks" not in skill_ids
+
+            with pytest.raises(
+                KeyError,
+                match="Unknown or non-discoverable skillId: workspace_agents_skills::.git/hooks",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::.git/hooks",
+                    relative_path=None,
+                    content="# hidden\n\nUnexpected overwrite.\n",
+                )
+
+            assert (
+                hidden_skill_doc.read_text(encoding="utf-8") == "# hidden\n\nOriginal.\n"
+            )
 
     def test_updates_skill_id_target_when_agents_home_root_is_unwritable(
         self,
@@ -887,6 +1000,94 @@ class TestAppGenExtensionsRoutes:
         )
         clear_setta_paths_cache()
 
+    def test_upsert_custom_skill_route_rejects_create_collisions_without_overwrite(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        existing_skill_doc = fake_home / ".agents" / "skills" / "existing" / "SKILL.md"
+        existing_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+        existing_skill_doc.write_text("# existing\n\nOriginal.\n", encoding="utf-8")
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": None,
+                    "relativePath": "existing",
+                    "content": "# existing\n\nUnexpected overwrite.\n",
+                },
+            )
+
+        assert response.status_code == 400
+        assert "Custom skill already exists for relativePath 'existing'." in (
+            response.json()["detail"]
+        )
+        assert existing_skill_doc.read_text(encoding="utf-8") == "# existing\n\nOriginal.\n"
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_uses_workspace_root_when_agents_home_aliases_workspace(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        agents_home = workspace_root / ".agents"
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": None,
+                    "relativePath": "priority-check",
+                    "content": "# priority-check\n\nBody.\n",
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        workspace_skill_doc = (
+            workspace_root / ".agents" / "skills" / "priority-check" / "SKILL.md"
+        )
+        home_skill_doc = fake_home / ".agents" / "skills" / "priority-check" / "SKILL.md"
+        assert payload["skillId"] == "workspace_agents_skills::priority-check"
+        assert payload["rootPath"] == str(
+            (workspace_root / ".agents" / "skills").resolve(strict=False)
+        )
+        assert payload["skillDocPath"] == str(workspace_skill_doc.resolve(strict=False))
+        assert workspace_skill_doc.exists() is True
+        assert home_skill_doc.exists() is False
+        clear_setta_paths_cache()
+
     def test_get_app_gen_skills_route_exposes_editability_flags(
         self,
         tmp_path: Path,
@@ -1027,7 +1228,7 @@ class TestAppGenExtensionsRoutes:
         assert response.json()["skillId"] == "workspace_agents_skills::editable"
         assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
-    def test_upsert_custom_skill_route_rejects_missing_skill_id_target(
+    def test_upsert_custom_skill_route_rejects_non_discoverable_skill_id_target(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -1061,10 +1262,52 @@ class TestAppGenExtensionsRoutes:
             )
 
         assert response.status_code == 404
-        assert "Missing SKILL.md for workspace_agents_skills::.hidden/nested" in (
+        assert "Unknown or non-discoverable skillId: workspace_agents_skills::.hidden/nested" in (
             response.json()["detail"]
         )
         assert missing_skill_doc.exists() is False
+        clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_rejects_hidden_skill_id_target_even_when_file_exists(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        hidden_skill_doc = (
+            workspace_root / ".agents" / "skills" / ".git" / "hooks" / "SKILL.md"
+        )
+        hidden_skill_doc.parent.mkdir(parents=True, exist_ok=True)
+        hidden_skill_doc.write_text("# hidden\n\nOriginal.\n", encoding="utf-8")
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "workspace_agents_skills::.git/hooks",
+                    "relativePath": None,
+                    "content": "# hidden\n\nUnexpected overwrite.\n",
+                },
+            )
+
+        assert response.status_code == 404
+        assert "Unknown or non-discoverable skillId: workspace_agents_skills::.git/hooks" in (
+            response.json()["detail"]
+        )
+        assert hidden_skill_doc.read_text(encoding="utf-8") == "# hidden\n\nOriginal.\n"
         clear_setta_paths_cache()
 
     def test_upsert_custom_skill_route_returns_400_when_no_writable_roots(

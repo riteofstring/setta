@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseAgentNativeSlashCommandsStorage,
+  resolveSkillPreviewContent,
   shouldPollSlashCommandAgentRuns,
 } from "./ProjectChatSkillsMcpViewer";
 
@@ -75,5 +76,31 @@ describe("shouldPollSlashCommandAgentRuns", () => {
         selectedEngineType: null,
       }),
     ).toBe(false);
+  });
+});
+
+describe("resolveSkillPreviewContent", () => {
+  it("renders loaded empty content verbatim when a skill is selected", () => {
+    const preview = resolveSkillPreviewContent({
+      skillContentLoading: false,
+      skillsLoading: false,
+      selectedSkillId: "user_agents_skills::empty-skill",
+      skillContentLoadStatus: "loaded",
+      selectedSkillContent: "",
+    });
+
+    expect(preview).toBe("");
+  });
+
+  it("shows the selection placeholder when no skill is selected", () => {
+    const preview = resolveSkillPreviewContent({
+      skillContentLoading: false,
+      skillsLoading: false,
+      selectedSkillId: null,
+      skillContentLoadStatus: "idle",
+      selectedSkillContent: "",
+    });
+
+    expect(preview).toBe("Select a skill to preview SKILL.md.");
   });
 });

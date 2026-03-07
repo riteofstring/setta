@@ -22,6 +22,7 @@ import {
   getProjectChatBlockedReasonMessage,
   PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
   resolveProjectChatComposerNativeSlashCommandTokens,
+  resolveProjectChatComposerSlashCommandSets,
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
   resolveProjectChatHydrationRetryDelayMs,
@@ -110,6 +111,26 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
     expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
       ["/project-status"],
     );
+  });
+});
+
+describe("resolveProjectChatComposerSlashCommandSets", () => {
+  it("keeps managed commands recognizable when execution controls are unavailable", () => {
+    const resolved = resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands: [],
+      discoveredAgentNativeSlashCommands: [],
+      showPermissionExecutionControl: false,
+      showSearchExecutionControl: false,
+    });
+
+    expect(
+      resolved.slashCommands.some((entry) => entry.command === "/permissions"),
+    ).toBe(false);
+    expect(
+      resolved.recognizedSlashCommands.some(
+        (entry) => entry.command === "/permissions",
+      ),
+    ).toBe(true);
   });
 });
 

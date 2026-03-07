@@ -103,3 +103,46 @@
 - Frontend unit tests: pure aux-view map mutation helper behavior (`no-op`, `targeted set`, `targeted clear`).
 - Frontend integration tests: active-project aux-view writes and clears remain scoped correctly across project ID switches.
 - Playwright E2E: cross-project aux-view persistence/isolation (`Project A -> skills`, `Project B -> mcp`, clear `B`, restore `A`).
+
+## 2026-03-05 20:21:44 PST
+
+### Consolidated findings implemented
+- Enforced canonical custom-skill mutation invariants: update-by-`skillId` now accepts only discoverable skill IDs and rejects hidden/unlisted path targets.
+- Made custom-skill create mode non-destructive: `relativePath` collisions fail fast instead of overwriting existing `SKILL.md`.
+- Fixed custom-skill root-priority selection under path aliasing so documented order remains deterministic (`AGENTS_HOME/skills` -> `~/.agents/skills` -> workspace `.agents/skills`).
+- Restored slash-command fail-closed behavior by separating command recognition from command availability in project chat composer flow.
+- Fixed skills viewer content fidelity so loaded empty `SKILL.md` renders as empty content rather than a no-selection placeholder.
+- Removed unreachable legacy `BackendLogs` tab-content switch branch while preserving legacy remap behavior at tab normalization.
+
+### Proposed fixes applied
+- Backend `upsert_app_gen_custom_skill` now builds a discoverable-skill index from listing output and rejects unknown/non-discoverable `skillId` updates.
+- Backend create path now checks target `SKILL.md` existence before write and raises deterministic collision errors for existing paths.
+- Backend writable-root resolver now uses explicit prioritized root candidates independent of deduped listing IDs and normalizes returned root IDs against discoverable roots.
+- Frontend `ChatInput` now accepts `recognizedSlashCommands` and resolves slash requests through a recognition set plus explicit availability gate.
+- Frontend `ProjectChatCore` now computes `{ slashCommands, recognizedSlashCommands }` from one source helper and passes both to composer.
+- Frontend skills viewer now derives preview fallback from load-state + selection (not content truthiness) and keeps create notifications strictly create-oriented.
+- Frontend Overview tab content removed redundant `BackendLogs` switch case.
+
+### UX/DX before and after
+- Before: Crafted/unlisted `skillId` values could mutate hidden paths (for example under skipped `.git` segments).  
+  After: Only discoverable skill IDs are writable; hidden/unlisted IDs return deterministic 404-class errors.
+- Before: Creating a custom skill with an existing name could silently overwrite existing content.  
+  After: Create-on-collision fails with explicit error feedback and leaves existing content unchanged.
+- Before: Root selection could drift to user scope when `AGENTS_HOME` aliased workspace paths.  
+  After: Creates consistently land in the highest-priority writable root per documented order.
+- Before: Recognized managed commands excluded by temporary availability could fall through as normal chat text.  
+  After: Recognized commands are consumed as slash commands with explicit unavailable feedback and are not submitted as plain chat payload.
+- Before: Empty loaded `SKILL.md` could appear as “Select a skill to preview SKILL.md.” in rendered mode.  
+  After: Loaded empty documents display as empty content, matching source-of-truth file state.
+
+### Validation coverage added or updated
+- Backend unit + route tests for:
+  - hidden/non-discoverable `skillId` rejection (including existing hidden `SKILL.md` files),
+  - create collision non-overwrite behavior,
+  - root-priority correctness when `AGENTS_HOME` aliases workspace paths.
+- Frontend Vitest coverage for:
+  - slash recognition vs availability split in `ChatInput`,
+  - project chat command-set construction (`slashCommands` vs `recognizedSlashCommands`),
+  - empty-skill preview fidelity in skills viewer,
+  - legacy `BackendLogs` -> notifications remap behavior after dead-branch cleanup.
+- Playwright E2E coverage for custom-skill create collision behavior ensuring error surfacing and current editor content stability.

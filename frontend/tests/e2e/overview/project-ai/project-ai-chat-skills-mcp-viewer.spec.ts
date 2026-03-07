@@ -1590,6 +1590,115 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   );
 });
 
+test("project ai chat create custom skill rejects collisions without overwriting selected skill content", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  const skills = [
+    {
+      skillId: "user_agents_skills::existing",
+      name: "existing",
+      rootLabel: "User ~/.agents/skills",
+      rootPath,
+      relativePath: "existing",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Existing custom skill",
+    },
+  ];
+  const contentBySkillId: Record<string, string> = {
+    "user_agents_skills::existing": "# existing\n\nOriginal body",
+  };
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(skills),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    const skillId = payload.skillId ?? "user_agents_skills::existing";
+    const content = contentBySkillId[skillId] ?? "# unknown";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        content,
+        truncated: false,
+        originalSizeBytes: content.length,
+      }),
+    });
+  });
+
+  const upsertPayloads: Array<{
+    skillId: string | null;
+    relativePath: string | null;
+  }> = [];
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      skillId?: string | null;
+      relativePath?: string | null;
+    };
+    upsertPayloads.push({
+      skillId: payload.skillId ?? null,
+      relativePath: payload.relativePath ?? null,
+    });
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "Custom skill already exists for relativePath 'existing'.",
+      }),
+    });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/upsertAppGenCustomSkill",
+    statuses: [400],
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  const markdown = page.getByLabel("Skill Markdown Content");
+  await expect(markdown).toContainText("Original body");
+  await page
+    .getByTestId("project-chat-custom-skill-relative-path-input")
+    .fill("existing");
+  await page.getByTestId("project-chat-custom-skill-create").click();
+
+  await expect.poll(() => upsertPayloads.length).toBe(1);
+  expect(upsertPayloads[0]).toEqual({
+    skillId: null,
+    relativePath: "existing",
+  });
+  await expect(
+    page.getByText(
+      "Failed to create custom skill: Custom skill already exists for relativePath 'existing'.",
+    ),
+  ).toBeVisible();
+  await expect(markdown).toContainText("Original body");
+});
+
 test("project ai chat keeps selected skill content stable when another skill save resolves", async ({
   page,
 }) => {
@@ -1675,7 +1784,8 @@ test("project ai chat keeps selected skill content stable when another skill sav
     if (payload.skillId === "user_agents_skills::alpha-custom") {
       alphaSaveRequestCount += 1;
       await alphaSaveBlock;
-      contentBySkillId["user_agents_skills::alpha-custom"] = payload.content ?? "";
+      contentBySkillId["user_agents_skills::alpha-custom"] =
+        payload.content ?? "";
       await route.fulfill({
         status: 200,
         contentType: "application/json",

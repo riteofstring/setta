@@ -329,4 +329,24 @@ describe("Overview rail offsets", () => {
       'data-testid="project-ai-settings-scroll-region"',
     );
   });
+
+  it("maps legacy backend logs tab selection to notifications content", () => {
+    useLocalStorage.setState({
+      overviewTab: OverviewTabNameEnum.BackendLogs,
+    });
+    syncStoreInitialState(useLocalStorage);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain(">Notifications<");
+    expect(markup).toContain('data-testid="notifications-pane-shell"');
+    expect(markup).toContain(
+      'data-testid="notifications-pane-tab-backend-logs"',
+    );
+    expect(markup).not.toContain('data-testid="overview-tab-backend-logs"');
+  });
 });

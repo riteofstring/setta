@@ -5,6 +5,7 @@ import {
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
+  type ChatSlashCommandDefinition,
   type ChatStarterPrompt,
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
@@ -201,6 +202,52 @@ export function resolveProjectChatComposerNativeSlashCommandTokens({
     mergedTokens.push(token);
   }
   return mergedTokens;
+}
+
+export function resolveProjectChatComposerSlashCommandSets({
+  customProjectChatSlashCommands,
+  discoveredAgentNativeSlashCommands,
+  showPermissionExecutionControl,
+  showSearchExecutionControl,
+}: {
+  customProjectChatSlashCommands: ProjectChatCustomSlashCommand[];
+  discoveredAgentNativeSlashCommands: string[];
+  showPermissionExecutionControl: boolean;
+  showSearchExecutionControl: boolean;
+}): {
+  slashCommands: ChatSlashCommandDefinition[];
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+} {
+  const managedCommands = buildChatSlashCommands({
+    model: true,
+    permissions: showPermissionExecutionControl,
+    search: showSearchExecutionControl,
+    appGenerationModes: true,
+  });
+  const globallyReservedManagedCommands = buildChatSlashCommands({
+    model: true,
+    permissions: true,
+    search: true,
+    appGenerationModes: true,
+  });
+  const reservedCommandSet = buildReservedSlashCommandTokens({
+    managedCommands: globallyReservedManagedCommands,
+    engineCommandGroups: [],
+    discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
+  });
+  const { executableCommands: customCommands } = reconcileCustomSlashCommands({
+    customCommands: buildCustomPromptSlashCommandDefinitions(
+      customProjectChatSlashCommands,
+    ),
+    reservedTokens: reservedCommandSet,
+  });
+  return {
+    slashCommands: [...managedCommands, ...customCommands],
+    recognizedSlashCommands: [
+      ...globallyReservedManagedCommands,
+      ...customCommands,
+    ],
+  };
 }
 
 type ProjectChatHydrationRetryStatus =
@@ -1256,33 +1303,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     persistedNativeSlashCommandTokens,
     runtimeAgentNativeSlashCommandTokens,
   ]);
-  const slashCommands = useMemo(() => {
-    const managedCommands = buildChatSlashCommands({
-      model: true,
-      permissions: showPermissionExecutionControl,
-      search: showSearchExecutionControl,
-      appGenerationModes: true,
+  const { slashCommands, recognizedSlashCommands } = useMemo(() => {
+    return resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands,
+      discoveredAgentNativeSlashCommands,
+      showPermissionExecutionControl,
+      showSearchExecutionControl,
     });
-    const globallyReservedManagedCommands = buildChatSlashCommands({
-      model: true,
-      permissions: true,
-      search: true,
-      appGenerationModes: true,
-    });
-    const reservedCommandSet = buildReservedSlashCommandTokens({
-      managedCommands: globallyReservedManagedCommands,
-      engineCommandGroups: [],
-      discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
-    });
-    const { executableCommands: customCommands } = reconcileCustomSlashCommands(
-      {
-        customCommands: buildCustomPromptSlashCommandDefinitions(
-          customProjectChatSlashCommands,
-        ),
-        reservedTokens: reservedCommandSet,
-      },
-    );
-    return [...managedCommands, ...customCommands];
   }, [
     customProjectChatSlashCommands,
     discoveredAgentNativeSlashCommands,
@@ -1926,6 +1953,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           onSubmit={handleSubmit}
           onStop={handleStop}
           slashCommands={slashCommands}
+          recognizedSlashCommands={recognizedSlashCommands}
           onSlashCommand={handleSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
