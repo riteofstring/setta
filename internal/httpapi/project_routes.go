@@ -29,6 +29,9 @@ const (
 	RouteSetTopLevelSectionLayout       = "/setTopLevelSectionLayout"
 	RouteAutoLayoutTopLevelSections     = "/autoLayoutTopLevelSections"
 	RouteSetShowParamDisplayNames       = "/setShowParamDisplayNames"
+	RouteSetSectionName                 = "/setSectionName"
+	RouteAcceptRenameRefactor           = "/acceptRenameRefactor"
+	RouteDeclineRenameRefactor          = "/declineRenameRefactor"
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
 	RouteSetCode                        = "/setCode"
@@ -59,10 +62,17 @@ type ProjectRouteDependencies struct {
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CallableSignatures             projectstate.CallableSignatureResolver
 	CodeUpdates                    ProjectCodeUpdateService
+	RenameRefactors                ProjectRenameRefactorService
 }
 
 type ProjectCodeUpdateService interface {
 	SetCode(ctx context.Context, projectID string, sectionID string, code string) error
+}
+
+type ProjectRenameRefactorService interface {
+	SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error
+	AcceptRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error
+	DeclineRenameRefactor(ctx context.Context, projectID string, frontendOpID string) error
 }
 
 type ProjectStateSingleConfigWithCompletedOpIDs struct {
@@ -151,6 +161,23 @@ type SetShowParamDisplayNamesRequest struct {
 	FrontendOpID          *string `json:"frontendOpId"`
 	ProjectID             string  `json:"projectConfigId"`
 	ShowParamDisplayNames bool    `json:"showParamDisplayNames"`
+}
+
+type SetSectionNameRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	Name         string  `json:"name"`
+}
+
+type AcceptRenameRefactorRequest struct {
+	ProjectID    string `json:"projectConfigId"`
+	FrontendOpID string `json:"frontendOpId"`
+}
+
+type DeclineRenameRefactorRequest struct {
+	ProjectID    string `json:"projectConfigId"`
+	FrontendOpID string `json:"frontendOpId"`
 }
 
 type TogglePositionLocksRequest struct {
@@ -264,6 +291,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		if deps.CodeUpdates == nil {
 			return fmt.Errorf("project code update service is required in ide mode")
 		}
+		if deps.RenameRefactors == nil {
+			return fmt.Errorf("project rename refactor service is required in ide mode")
+		}
 		if deps.CodegenTargetValidator == nil {
 			return fmt.Errorf("project codegen target validator is required in ide mode")
 		}
@@ -285,6 +315,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTopLevelSectionLayout, setTopLevelSectionLayoutHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAutoLayoutTopLevelSections, autoLayoutTopLevelSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionName, setSectionNameHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAcceptRenameRefactor, acceptRenameRefactorHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeclineRenameRefactor, declineRenameRefactorHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCode, setCodeHandler(deps))
@@ -362,6 +395,77 @@ func setShowParamDisplayNamesHandler(deps ProjectRouteDependencies) http.Handler
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		if deps.RenameRefactors == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.RenameRefactors.SetSectionName(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			payload.ProjectID,
+			payload.SectionID,
+			payload.Name,
+		); err != nil {
+			writeSectionNameMutationError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+func acceptRenameRefactorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[AcceptRenameRefactorRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		if deps.RenameRefactors == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.RenameRefactors.AcceptRenameRefactor(r.Context(), payload.ProjectID, payload.FrontendOpID); err != nil {
+			writeRenameRefactorMutationError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	}
+}
+
+func declineRenameRefactorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeclineRenameRefactorRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		if deps.RenameRefactors == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.RenameRefactors.DeclineRenameRefactor(r.Context(), payload.ProjectID, payload.FrontendOpID); err != nil {
+			writeRenameRefactorMutationError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	}
 }
 
@@ -1197,6 +1301,42 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSectionNameMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case projectstate.IsInvalidSectionNameError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_section_name", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeRenameRefactorMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrRenameRefactorFrontendOpRequired):
+		writeError(w, r, http.StatusBadRequest, "frontend_op_id_required", "Frontend op id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrRenameRefactorPendingNotFound):
+		writeError(w, r, http.StatusNotFound, "rename_refactor_not_found", "Pending rename refactor not found.")
+	case errors.Is(err, projectstate.ErrRenameRefactorProjectMismatch):
+		writeError(w, r, http.StatusConflict, "rename_refactor_project_mismatch", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

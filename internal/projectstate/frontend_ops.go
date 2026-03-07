@@ -21,6 +21,10 @@ func ContextWithFrontendOpID(ctx context.Context, frontendOpID string) context.C
 	return context.WithValue(ctx, frontendOpContextKey{}, normalized)
 }
 
+func FrontendOpIDFromContext(ctx context.Context) string {
+	return frontendOpIDFromContext(ctx)
+}
+
 func frontendOpIDFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""

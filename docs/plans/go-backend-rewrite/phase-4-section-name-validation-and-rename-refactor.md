@@ -318,21 +318,59 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- `internal/app` now owns rename-refactor pending state keyed by
+  `frontendOpId`, rename mode policy lookup, immediate-apply vs pending-prompt
+  branching, and accept/decline mutation handling
+- `internal/httpapi` now exposes IDE-only `setSectionName`,
+  `acceptRenameRefactor`, and `declineRenameRefactor` routes with focused
+  invalid-name and missing-pending error mapping
+- `internal/realtime` now owns websocket transport messages for:
+  - `UpdateFrontendProjectState`
+  - `ReturnRenameRefactorResults`
+- section-root callable renames now use an explicit projectstate helper instead
+  of overloading broader callable mutation APIs
+- focused route tests cover invalid-name and missing-pending responses
+- focused app tests cover the `ALWAYS_ASK` flow end to end:
+  - section rename route succeeds
+  - completed op id appears in the websocket project-state update
+  - rename prompt websocket payload carries the planned changed value
+
+Decisions Made:
+
+- keep pending rename prompt storage in the app-owned rename service
+  - it is runtime-scoped frontend interaction state, not persisted project
+    state
+- reuse the existing frontend websocket flow by broadcasting:
+  - authoritative project-state update first
+  - rename prompt second when `ALWAYS_ASK` and planned changes exist
+- keep rename error sentinels in `internal/projectstate`
+  - both app and transport layers need them without creating a package cycle
+- treat the real app rename websocket test as a save-backed Python project flow
+  - it must prepare the app LSP fixture the same way other Python save tests do
+
+Verification:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate ./internal/httpapi ./internal/realtime -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestRenameRefactorService|TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate' -count=1 -timeout 180s`
+
+Notes:
+
+- a broad `./internal/app` run still has unrelated existing failures caused by
+  package-wide tests that save Python projects without preparing the app LSP
+  fixture first (`lsp: initialize failed (0): EOF`). The rename slice is
+  covered by the focused app tests above.
 
 ## Open Questions
 
-- whether rename changed-value computation can reuse the current Go
-  `PythonDependencyGraph` directly, or whether one small additional projection
-  layer is needed for writable node values
+- none for this slice
 
 ## Next Recommended Step
 
-- Implement Slice 3 next.
-- Add IDE-only `setSectionName`, `acceptRenameRefactor`, and
-  `declineRenameRefactor` routes on top of the completed projectstate and
-  planner semantics.
-- Add pending rename-result storage plus websocket
-  `ReturnRenameRefactorResults` delivery keyed by `frontendOpId`.
-- Keep the existing frontend rename modal flow and completed-op hydrate path as
-  the authoritative prompt boundary.
+- Return to `go-backend-rewrite-plan.md` and pick the next uncovered focused
+  Phase 4 backend slice outside section rename.
+- Keep this doc closed unless later frontend integration finds a concrete gap
+  in rename prompt behavior.

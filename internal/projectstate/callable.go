@@ -79,6 +79,18 @@ func (d *Document) SetCallable(
 	return response, nil
 }
 
+func (d *Document) SetCallableName(projectID string, sectionID string, callableName string) error {
+	project, err := d.ProjectByID(projectID)
+	if err != nil {
+		return err
+	}
+	if err := project.SetCallableName(sectionID, callableName); err != nil {
+		return err
+	}
+	d.Projects[project.ID] = project
+	return nil
+}
+
 func (r *Runtime) SetCallable(
 	ctx context.Context,
 	projectID string,
@@ -104,6 +116,15 @@ func (r *Runtime) SetCallable(
 		return Snapshot{}, SetCallableResponse{}, err
 	}
 	return snapshot, response, nil
+}
+
+func (r *Runtime) SetCallableName(ctx context.Context, projectID string, sectionID string, callableName string) (Snapshot, error) {
+	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
+		if err := document.SetCallableName(projectID, sectionID, callableName); err != nil {
+			return Document{}, err
+		}
+		return document, nil
+	})
 }
 
 func (p *Project) SetCallable(
@@ -185,6 +206,35 @@ func (p *Project) SetCallable(
 		return SetCallableResponse{}, err
 	}
 	return p.buildSetCallableResponse(trimmedSectionID, callableID, signatureResult.Status)
+}
+
+func (p *Project) SetCallableName(sectionID string, callableName string) error {
+	if p == nil {
+		return ErrProjectNotFound
+	}
+
+	trimmedSectionID := strings.TrimSpace(sectionID)
+	trimmedCallableName := strings.TrimSpace(callableName)
+	if trimmedCallableName == "" {
+		return ErrCodeObjNameRequired
+	}
+
+	_, _, _, sectionPayload, err := p.resolveCallableSectionContext(trimmedSectionID)
+	if err != nil {
+		return err
+	}
+	callableID := payloadStringField(sectionPayload, "callable")
+	if callableID == "" {
+		return fmt.Errorf("%w: section=%q", ErrCodeObjNotFound, trimmedSectionID)
+	}
+
+	callableCodeObj, ok := p.CodeObjs[callableID]
+	if !ok {
+		return fmt.Errorf("%w: %q", ErrCodeObjNotFound, callableID)
+	}
+	callableCodeObj.Name = trimmedCallableName
+	p.CodeObjs[callableID] = callableCodeObj
+	return nil
 }
 
 func resolveCallableSignature(

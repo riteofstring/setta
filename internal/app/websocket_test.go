@@ -299,6 +299,143 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeNotification, 750*time.Millisecond)
 }
 
+func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = renameRefactorServiceTestProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed rename refactor project: %v", err)
+	}
+	if _, err := app.ProjectStates().Settings().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		return renameRefactorSettingsDocument(t, projectstate.RenameRefactorModeAlwaysAsk), nil
+	}); err != nil {
+		t.Fatalf("seed rename refactor settings: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetSectionName,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"source","name":"Renamed Section","frontendOpId":"rename-op-1"}`),
+	)
+	if err != nil {
+		t.Fatalf("new set section name request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set section name: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var (
+		foundProjectUpdate bool
+		foundRenamePrompt  bool
+	)
+	for range 6 {
+		envelope := readAppRouteEnvelope(t, conn)
+		switch envelope.MessageType {
+		case realtime.MessageTypeUpdateFrontendProjectState:
+			var content realtime.ProjectStateUpdateContent
+			if err := json.Unmarshal(envelope.Content, &content); err != nil {
+				t.Fatalf("decode project state update content: %v", err)
+			}
+			if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+				t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+			}
+			completedRenameOp := false
+			for _, completedOpID := range content.CompletedOpIDs {
+				if completedOpID == "rename-op-1" {
+					completedRenameOp = true
+					break
+				}
+			}
+			if !completedRenameOp {
+				t.Fatalf("expected completed rename op in websocket project update, got %#v", content.CompletedOpIDs)
+			}
+			foundProjectUpdate = true
+		case realtime.MessageTypeReturnRenameRefactorResults:
+			var content realtime.RenameRefactorBroadcastContent
+			if err := json.Unmarshal(envelope.Content, &content); err != nil {
+				t.Fatalf("decode rename refactor content: %v", err)
+			}
+			if content.ProjectConfigID != "project-alpha" {
+				t.Fatalf("expected project-alpha rename prompt, got %q", content.ProjectConfigID)
+			}
+			if content.FrontendOpID != "rename-op-1" {
+				t.Fatalf("expected rename-op-1 prompt, got %q", content.FrontendOpID)
+			}
+			if content.RenameMode != projectstate.RenameRefactorModeAlwaysAsk {
+				t.Fatalf("expected ALWAYS_ASK rename mode, got %q", content.RenameMode)
+			}
+			if len(content.ChangedNodeValues) != 1 {
+				t.Fatalf("expected one changed node value, got %#v", content.ChangedNodeValues)
+			}
+			if content.ChangedNodeValues[0].NewValue != "state.Renamed_Section + state.Renamed_Section" {
+				t.Fatalf("unexpected rename prompt new value %q", content.ChangedNodeValues[0].NewValue)
+			}
+			foundRenamePrompt = true
+		}
+		if foundProjectUpdate && foundRenamePrompt {
+			break
+		}
+	}
+	if !foundProjectUpdate {
+		t.Fatal("expected websocket project state update after section rename")
+	}
+	if !foundRenamePrompt {
+		t.Fatal("expected websocket rename prompt after section rename")
+	}
+}
+
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

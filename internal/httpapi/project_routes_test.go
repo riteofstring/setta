@@ -279,6 +279,102 @@ func TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesSetSectionNameReturns422ForInvalidName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandlerWithRenameService(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		&stubProjectRouteRenameRefactorService{
+			setSectionNameErr: &projectstate.InvalidSectionNameError{
+				Message: "Section name cannot include path separators.",
+			},
+		},
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetSectionName,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-1","name":"bad/name","frontendOpId":"frontend-op-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_section_name"`) {
+		t.Fatalf("expected invalid_section_name response, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesAcceptRenameRefactorReturns404WhenPendingMissing(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandlerWithRenameService(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		t.TempDir(),
+		nil,
+		nil,
+		nil,
+		&stubProjectRouteRenameRefactorService{
+			acceptErr: fmt.Errorf("%w: rename-op-1", projectstate.ErrRenameRefactorPendingNotFound),
+		},
+	)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteAcceptRenameRefactor,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"rename-op-1"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"rename_refactor_not_found"`) {
+		t.Fatalf("expected rename_refactor_not_found response, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesSetCodeReturnsForbiddenForReadOnlyBinding(t *testing.T) {
 	t.Parallel()
 
@@ -1627,6 +1723,30 @@ func newProjectRouteTestHandler(
 	callableResolver projectstate.CallableSignatureResolver,
 	codeUpdates ...ProjectCodeUpdateService,
 ) http.Handler {
+	return newProjectRouteTestHandlerWithRenameService(
+		t,
+		mode,
+		projectRuntime,
+		workspaceRoot,
+		validator,
+		pythonReconciler,
+		callableResolver,
+		nil,
+		codeUpdates...,
+	)
+}
+
+func newProjectRouteTestHandlerWithRenameService(
+	t *testing.T,
+	mode config.Mode,
+	projectRuntime *projectstate.Runtime,
+	workspaceRoot string,
+	validator projectstate.CodegenTargetValidator,
+	pythonReconciler projectstate.PythonCodegenSectionReconciler,
+	callableResolver projectstate.CallableSignatureResolver,
+	renameRefactors ProjectRenameRefactorService,
+	codeUpdates ...ProjectCodeUpdateService,
+) http.Handler {
 	t.Helper()
 	if validator == nil {
 		validator = projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
@@ -1644,6 +1764,11 @@ func newProjectRouteTestHandler(
 	}
 	if codeUpdateService == nil {
 		codeUpdateService = projectRouteCodeUpdateServiceFunc(func(context.Context, string, string, string) error {
+			return nil
+		})
+	}
+	if renameRefactors == nil {
+		renameRefactors = projectRouteRenameRefactorServiceFunc(func(context.Context, string, string, string) error {
 			return nil
 		})
 	}
@@ -1674,6 +1799,7 @@ func newProjectRouteTestHandler(
 				PythonCodegenSectionReconciler: pythonReconciler,
 				CallableSignatures:             callableResolver,
 				CodeUpdates:                    codeUpdateService,
+				RenameRefactors:                renameRefactors,
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
 			}
@@ -1759,6 +1885,38 @@ type projectRouteCodeUpdateServiceFunc func(ctx context.Context, projectID strin
 
 func (f projectRouteCodeUpdateServiceFunc) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
 	return f(ctx, projectID, sectionID, code)
+}
+
+type projectRouteRenameRefactorServiceFunc func(ctx context.Context, projectID string, sectionID string, name string) error
+
+func (f projectRouteRenameRefactorServiceFunc) SetSectionName(ctx context.Context, projectID string, sectionID string, name string) error {
+	return f(ctx, projectID, sectionID, name)
+}
+
+func (f projectRouteRenameRefactorServiceFunc) AcceptRenameRefactor(context.Context, string, string) error {
+	return nil
+}
+
+func (f projectRouteRenameRefactorServiceFunc) DeclineRenameRefactor(context.Context, string, string) error {
+	return nil
+}
+
+type stubProjectRouteRenameRefactorService struct {
+	setSectionNameErr error
+	acceptErr         error
+	declineErr        error
+}
+
+func (s *stubProjectRouteRenameRefactorService) SetSectionName(context.Context, string, string, string) error {
+	return s.setSectionNameErr
+}
+
+func (s *stubProjectRouteRenameRefactorService) AcceptRenameRefactor(context.Context, string, string) error {
+	return s.acceptErr
+}
+
+func (s *stubProjectRouteRenameRefactorService) DeclineRenameRefactor(context.Context, string, string) error {
+	return s.declineErr
 }
 
 func (s *stubProjectRouteCallableSignatureResolver) ResolveCallableSignature(

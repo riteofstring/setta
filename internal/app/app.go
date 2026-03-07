@@ -85,6 +85,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		boundCodeService   *boundcode.Service
 		watchCodeWarnings  *watchCodeWarningTracker
 		codeUpdates        *codeUpdateService
+		renameRefactors    *renameRefactorService
 		plannerFilesRoot   string
 		artifactsRoot      string
 		shareSessions      modes.ShareSessionStore
@@ -298,6 +299,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
 				return nil, err
 			}
+			renameRefactors, err = newRenameRefactorService(renameRefactorServiceOptions{
+				ProjectState: projectRuntime,
+				Settings:     settingsRuntime,
+				WebsocketHub: websocketHub,
+			})
+			if err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+				return nil, err
+			}
 			boundCodeService, err = boundcode.NewService(boundcode.ServiceOptions{
 				OnFileUpdate: func(ctx context.Context, update boundcode.FileUpdate) error {
 					return codeUpdates.ReloadBoundCodeFile(ctx, update.Raw, update.Bindings)
@@ -441,6 +451,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				PythonCodegenSectionReconciler: pythonMaterializer,
 				CallableSignatures:             lspSignature,
 				CodeUpdates:                    codeUpdates,
+				RenameRefactors:                renameRefactors,
 			}); err != nil {
 				panic(err)
 			}

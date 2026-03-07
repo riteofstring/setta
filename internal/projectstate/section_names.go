@@ -9,6 +9,12 @@ import (
 	"unicode/utf8"
 )
 
+var (
+	ErrRenameRefactorFrontendOpRequired = errors.New("rename refactor frontend op id is required")
+	ErrRenameRefactorPendingNotFound    = errors.New("rename refactor pending result not found")
+	ErrRenameRefactorProjectMismatch    = errors.New("rename refactor pending result project mismatch")
+)
+
 type InvalidSectionNameError struct {
 	Message string
 }
