@@ -14,6 +14,7 @@ import (
 var (
 	ErrPythonDependencyGraphExportRequired = errors.New("codegen: python codegen export is required")
 	ErrPythonDependencyGraphSectionType    = errors.New("codegen: python dependency graph section type is unsupported")
+	ErrPythonDependencyNodeNotFound        = errors.New("codegen: python dependency node not found")
 )
 
 type PythonDependencyGraphOptions struct {
@@ -203,6 +204,28 @@ func (g *PythonDependencyGraph) Node(key PythonDependencyKey) (PythonDependencyN
 	}
 	node, ok := g.Nodes[key]
 	return node, ok
+}
+
+func SetPythonDependencyValue(
+	graph *PythonDependencyGraph,
+	key PythonDependencyKey,
+	value string,
+) error {
+	if graph == nil {
+		return ErrPythonDependencyNodeNotFound
+	}
+	node, ok := graph.Node(key)
+	if !ok {
+		return fmt.Errorf("%w: %+v", ErrPythonDependencyNodeNotFound, key)
+	}
+	node.Base().Value = LiteralDependencyValue{Payload: value}
+	isUsed := node.HasNameAndValue()
+	for _, otherNode := range graph.Nodes {
+		if _, exists := otherNode.Base().Deps[key]; exists {
+			otherNode.Base().Deps[key] = isUsed
+		}
+	}
+	return nil
 }
 
 func (b *pythonDependencyGraphBuilder) exportSections(
