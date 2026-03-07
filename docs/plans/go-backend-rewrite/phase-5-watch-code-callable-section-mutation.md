@@ -6,8 +6,8 @@ This doc narrows Step 2 from
 `phase-5-watch-code-projectstate-apply-and-section-mutation.md`.
 
 Go now owns Watch Code file apply helpers and runtime callback wiring into
-persisted project state. What is still missing at the current boundary is the
-authoritative layer above those helpers:
+persisted project state. This focused doc tracks the authoritative layer above
+those helpers:
 
 - backfilling placeholder registry entries into real Callable sections
 - rename/remove behavior over existing Callable sections
@@ -196,8 +196,6 @@ Acceptance:
   - remove-vs-keep behavior with multiple variants
 
 ## Next Recommended Step
-
-Execute Step 2 next:
 
 Execute Step 3 next:
 
