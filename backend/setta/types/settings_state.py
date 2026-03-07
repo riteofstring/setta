@@ -349,30 +349,6 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
-    StateMachineStart: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=96,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=240,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
-    StateMachineGate: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=120,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=240,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
-    StateMachineEnd: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=96,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=240,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
     Image: SectionSizingPolicyTypeEntry = Field(
         default_factory=lambda: SectionSizingPolicyTypeEntry(
             minHeight=100,
