@@ -12,6 +12,7 @@ import {
   enqueueQueuedDraft,
   isRestoreClearedDraftKey,
   isStopEscapeKey,
+  resolveCustomPromptSlashCommandSubmission,
   resolveEscapeComposerAction,
   resolveSlashCommandRequest,
 } from "./ChatInput";
@@ -476,6 +477,47 @@ describe("resolveSlashCommandRequest", () => {
 
     expect(resolved.parsed?.command).toBe("/permissions");
     expect(resolved.commandAvailable).toBe(false);
+  });
+});
+
+describe("resolveCustomPromptSlashCommandSubmission", () => {
+  it("preserves attachments for custom prompt submissions", () => {
+    const attachments = [
+      {
+        id: "artifact-1",
+        name: "release-notes.md",
+        mimeType: "text/markdown",
+        size: 128,
+      },
+    ];
+    const submission = resolveCustomPromptSlashCommandSubmission({
+      promptTemplate: "Summarize the attached artifact.",
+      args: ["for", "release"],
+      attachments,
+    });
+
+    expect(submission).toEqual({
+      message: "Summarize the attached artifact.\n\nfor release",
+      attachments: [
+        {
+          id: "artifact-1",
+          name: "release-notes.md",
+          mimeType: "text/markdown",
+          size: 128,
+        },
+      ],
+    });
+    expect(submission?.attachments).not.toBe(attachments);
+  });
+
+  it("returns null when the custom prompt template is empty", () => {
+    const submission = resolveCustomPromptSlashCommandSubmission({
+      promptTemplate: "   ",
+      args: [],
+      attachments: [],
+    });
+
+    expect(submission).toBeNull();
   });
 });
 

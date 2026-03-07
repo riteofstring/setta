@@ -118,12 +118,12 @@ describe("local storage merge", () => {
     );
   });
 
-  it("sanitizes invalid persisted watch-code portal visibility values", () => {
+  it("ignores persisted watch-code portal visibility because it is session-local", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { watchCodePortalOpen: "open" } as Record<string, unknown>,
+      { watchCodePortalOpen: true } as Record<string, unknown>,
       current,
     ) as typeof current;
 
@@ -163,7 +163,7 @@ describe("local storage merge", () => {
     });
   });
 
-  it("sanitizes malformed persisted project chat aux view mappings", () => {
+  it("ignores persisted project chat aux view mappings because aux view is session-local", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
@@ -171,16 +171,12 @@ describe("local storage merge", () => {
       {
         projectChatAuxViewByProjectConfigId: {
           "project-a": "skills",
-          "project-b": "invalid",
-          " ": "ai_settings",
         },
       } as Record<string, unknown>,
       current,
     ) as typeof current;
 
-    expect(merged.projectChatAuxViewByProjectConfigId).toEqual({
-      "project-a": "skills",
-    });
+    expect(merged.projectChatAuxViewByProjectConfigId).toEqual({});
   });
 
   it("falls back to canonical home pane defaults when persisted values are invalid", () => {

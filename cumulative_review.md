@@ -146,3 +146,45 @@
   - empty-skill preview fidelity in skills viewer,
   - legacy `BackendLogs` -> notifications remap behavior after dead-branch cleanup.
 - Playwright E2E coverage for custom-skill create collision behavior ensuring error surfacing and current editor content stability.
+
+## 2026-03-05 21:19:15 PST
+
+### Consolidated findings implemented
+- Stopped persisting transient startup/UI visibility state for Watch Code and Project AI aux views so stale local storage cannot reopen those surfaces in later sessions.
+- Scoped Project AI composer drafts and new custom slash-command form drafts by `projectConfigId` to prevent cross-project draft bleed.
+- Fixed custom slash-command submission so prompt expansion preserves attachments and uses the same submit contract as normal chat sends.
+- Reworked raw skill-markdown draft handling to preserve dirty local edits across skill refresh/reload while still updating clean drafts when server content changes.
+- Updated Playwright navigation helpers/specs to follow the real Overview `More` menu flow for relocated destinations such as Plugins.
+
+### Proposed fixes applied
+- `useLocalStorage` persistence now force-resets `watchCodePortalOpen` and `projectChatAuxViewByProjectConfigId` during hydration and omits both from `partialize`, keeping them session-local even though surrounding store state remains persisted.
+- `ProjectChat` now uses `resolveProjectChatDraftMessageByProjectConfigIdUpdate` and a `draftMessageByProjectConfigId` map so composer text belongs to the active project only.
+- `ProjectChatSkillsMcpViewer` now stores custom slash drafts per project and stores skill markdown draft state per skill as `{ draft, loadedContent }`, which distinguishes clean refreshable drafts from dirty locally edited drafts.
+- `ChatInput` now routes custom prompt slash commands through `resolveCustomPromptSlashCommandSubmission`, clones current attachments into the expanded submission payload, and exposes a stable textarea test id for E2E coverage.
+- Overview Playwright helpers now centralize relocated-tab access behind `openOverviewMoreDestination`, and stale rail-button selectors were removed from the affected specs.
+
+### UX/DX before and after
+- Before: Reopening the app could resurrect old Watch Code or Project AI aux panes from persisted visibility flags.
+  After: Those panes open only from current-session actions or explicit reveal flows.
+- Before: Draft text composed in one project could appear in another project, including half-authored custom slash commands.
+  After: Draft state is isolated by project and clears only for the targeted project.
+- Before: Sending a custom prompt slash command with attachments silently dropped the files from the request payload.
+  After: Slash-command sends preserve attachments exactly like normal chat submissions.
+- Before: Refreshing or transiently reloading a selected custom skill could wipe unsaved raw markdown edits, or force users to reselect a skill to see refreshed clean content.
+  After: Dirty drafts survive refresh, while clean drafts still update immediately from refreshed server content.
+- Before: Playwright still targeted removed Overview rail buttons, so coverage no longer matched the shipped navigation path.
+  After: E2E tests use the real `More` menu path and are less brittle.
+
+### Validation coverage added or updated
+- Frontend Vitest coverage for:
+  - per-project Project AI composer draft isolation,
+  - per-project custom slash draft isolation,
+  - transient local-storage hydration/partialization behavior for Watch Code and aux views,
+  - attachment-preserving custom slash-command submission,
+  - clean-vs-dirty skill markdown draft refresh behavior.
+- Playwright E2E coverage for:
+  - Watch Code remaining closed on startup despite persisted visibility state,
+  - session-local Project AI aux views across reloads,
+  - unsaved raw skill edits surviving same-skill refresh,
+  - custom slash commands preserving attachments on submit,
+  - Plugins navigation through the Overview `More` menu.

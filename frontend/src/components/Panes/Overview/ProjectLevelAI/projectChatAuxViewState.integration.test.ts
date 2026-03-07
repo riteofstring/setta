@@ -66,4 +66,22 @@ describe("setProjectChatAuxViewForActiveProject", () => {
       "project-a": "skills",
     });
   });
+
+  it("keeps aux-view state out of the persisted local-storage payload", () => {
+    setProjectChatAuxViewForActiveProject("skills");
+
+    const partialize = useLocalStorage.persist.getOptions().partialize;
+    if (!partialize) {
+      throw new Error("Expected local-storage store to define partialize.");
+    }
+
+    const persisted = partialize(useLocalStorage.getState());
+
+    expect(
+      useLocalStorage.getState().projectChatAuxViewByProjectConfigId,
+    ).toEqual({
+      "project-a": "skills",
+    });
+    expect(persisted).not.toHaveProperty("projectChatAuxViewByProjectConfigId");
+  });
 });

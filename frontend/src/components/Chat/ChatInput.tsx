@@ -264,6 +264,28 @@ export function resolveSlashCommandRequest({
   };
 }
 
+export function resolveCustomPromptSlashCommandSubmission({
+  promptTemplate,
+  args,
+  attachments,
+}: {
+  promptTemplate: string | null | undefined;
+  args: string[];
+  attachments: ChatFileAttachment[];
+}): { message: string; attachments: ChatFileAttachment[] } | null {
+  const trimmedPromptTemplate = promptTemplate?.trim() ?? "";
+  if (!trimmedPromptTemplate) {
+    return null;
+  }
+  const promptArgs = args.join(" ").trim();
+  return {
+    message: promptArgs
+      ? `${trimmedPromptTemplate}\n\n${promptArgs}`
+      : trimmedPromptTemplate,
+    attachments: attachments.map((attachment) => ({ ...attachment })),
+  };
+}
+
 type ProviderDictationTranscriptionResult =
   | {
       kind: "ok";
@@ -772,16 +794,17 @@ export const ChatInput = memo(function ChatInput({
         return true;
       }
       if (parsed.action === "custom_prompt") {
-        const promptTemplate = parsed.promptTemplate?.trim() ?? "";
-        if (!promptTemplate) {
+        const submission = resolveCustomPromptSlashCommandSubmission({
+          promptTemplate: parsed.promptTemplate,
+          args: parsed.args,
+          attachments,
+        });
+        if (!submission) {
           setSlashFeedback("Custom slash command has no prompt content.");
           return true;
         }
-        const promptArgs = parsed.args.join(" ").trim();
-        const promptMessage = promptArgs
-          ? `${promptTemplate}\n\n${promptArgs}`
-          : promptTemplate;
-        const submitted = (await onSubmit(promptMessage, [])) === true;
+        const submitted =
+          (await onSubmit(submission.message, submission.attachments)) === true;
         if (!submitted) {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
           return true;
@@ -816,6 +839,7 @@ export const ChatInput = memo(function ChatInput({
       return true;
     },
     [
+      attachments,
       clearAttachments,
       clearInput,
       onSlashCommand,
@@ -2257,6 +2281,7 @@ export const ChatInput = memo(function ChatInput({
             ) : null}
             <textarea
               ref={textareaRef}
+              data-testid="chat-input-textarea"
               value={inputValue}
               onChange={handleChange}
               onKeyDown={handleKeyDown}

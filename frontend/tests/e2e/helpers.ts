@@ -316,6 +316,14 @@ export async function setOverviewTab(
   await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
 }
 
+export async function openOverviewMoreDestination(
+  page: Page,
+  destination: "Plugins" | "Custom Runs" | "App Gen",
+): Promise<void> {
+  await page.getByTestId("overview-tab-more").click();
+  await page.getByRole("menuitem", { name: destination, exact: true }).click();
+}
+
 export async function openIsolatedProject(
   page: Page,
 ): Promise<IsolatedProjectContext> {

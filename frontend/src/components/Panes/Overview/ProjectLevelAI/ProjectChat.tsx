@@ -199,6 +199,12 @@ type ResolveProjectChatAuxViewByProjectConfigIdUpdateInput = {
   nextAuxView: ProjectChatAuxView;
 };
 
+type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
+  draftMessageByProjectConfigId: Record<string, string>;
+  projectConfigId: string;
+  nextDraftMessage: string;
+};
+
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
   wasLargeEnoughForInlineThreads,
@@ -381,6 +387,30 @@ export function resolveProjectChatAuxViewByProjectConfigIdUpdate({
   return nextByProjectConfigId;
 }
 
+export function resolveProjectChatDraftMessageByProjectConfigIdUpdate({
+  draftMessageByProjectConfigId,
+  projectConfigId,
+  nextDraftMessage,
+}: ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput): Record<
+  string,
+  string
+> | null {
+  const currentDraftMessage =
+    draftMessageByProjectConfigId[projectConfigId] ?? "";
+  if (currentDraftMessage === nextDraftMessage) {
+    return null;
+  }
+  const nextByProjectConfigId = {
+    ...draftMessageByProjectConfigId,
+  };
+  if (nextDraftMessage === "") {
+    delete nextByProjectConfigId[projectConfigId];
+  } else {
+    nextByProjectConfigId[projectConfigId] = nextDraftMessage;
+  }
+  return nextByProjectConfigId;
+}
+
 export function setProjectChatAuxViewForActiveProject(
   nextAuxView: ProjectChatAuxView,
 ): void {
@@ -424,7 +454,8 @@ export function ProjectChat() {
     string | null
   >(null);
   const [thinking, setThinking] = useState(true);
-  const [draftMessage, setDraftMessage] = useState("");
+  const [draftMessageByProjectConfigId, setDraftMessageByProjectConfigId] =
+    useState<Record<string, string>>({});
   const [conversationFilterText, setConversationFilterText] = useState("");
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
@@ -531,6 +562,24 @@ export function ProjectChat() {
       setProjectChatAuxViewForActiveProject(nextAuxView);
     },
     [],
+  );
+  const draftMessage = draftMessageByProjectConfigId[projectConfigId] ?? "";
+  const setDraftMessage = useCallback(
+    (next: SetStateAction<string>) => {
+      setDraftMessageByProjectConfigId((current) => {
+        const currentDraftMessage = current[projectConfigId] ?? "";
+        const nextDraftMessage =
+          typeof next === "function" ? next(currentDraftMessage) : next;
+        const nextByProjectConfigId =
+          resolveProjectChatDraftMessageByProjectConfigIdUpdate({
+            draftMessageByProjectConfigId: current,
+            projectConfigId,
+            nextDraftMessage,
+          });
+        return nextByProjectConfigId ?? current;
+      });
+    },
+    [projectConfigId],
   );
   const inlineThreadsWidthStorage = useMemo(
     () => getSafeLocalStorageAdapter("project-chat-inline-threads"),

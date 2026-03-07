@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveProjectChatAuxViewByProjectConfigIdUpdate } from "./ProjectChat";
+import {
+  resolveProjectChatAuxViewByProjectConfigIdUpdate,
+  resolveProjectChatDraftMessageByProjectConfigIdUpdate,
+} from "./ProjectChat";
 
 describe("resolveProjectChatAuxViewByProjectConfigIdUpdate", () => {
   it("returns null when the active project aux view does not change", () => {
@@ -45,6 +48,38 @@ describe("resolveProjectChatAuxViewByProjectConfigIdUpdate", () => {
 
     expect(next).toEqual({
       "project-a": "skills",
+    });
+  });
+});
+
+describe("resolveProjectChatDraftMessageByProjectConfigIdUpdate", () => {
+  it("stores composer drafts per project id", () => {
+    const next = resolveProjectChatDraftMessageByProjectConfigIdUpdate({
+      draftMessageByProjectConfigId: {
+        "project-a": "alpha",
+      },
+      projectConfigId: "project-b",
+      nextDraftMessage: "beta",
+    });
+
+    expect(next).toEqual({
+      "project-a": "alpha",
+      "project-b": "beta",
+    });
+  });
+
+  it("removes only the targeted project draft when that composer is cleared", () => {
+    const next = resolveProjectChatDraftMessageByProjectConfigIdUpdate({
+      draftMessageByProjectConfigId: {
+        "project-a": "alpha",
+        "project-b": "beta",
+      },
+      projectConfigId: "project-b",
+      nextDraftMessage: "",
+    });
+
+    expect(next).toEqual({
+      "project-a": "alpha",
     });
   });
 });

@@ -55,43 +55,6 @@ async function openRawSkillMarkdown(page: Page): Promise<void> {
   await page.getByTestId("project-chat-skill-markdown-view-raw").click();
 }
 
-function getActiveProjectNameFromUrl(page: Page): string {
-  const activeProjectName = new URL(page.url()).pathname
-    .split("/")
-    .filter(Boolean)[0];
-  if (!activeProjectName) {
-    throw new Error("Expected a project-scoped URL while running this test.");
-  }
-  return decodeURIComponent(activeProjectName);
-}
-
-async function readProjectChatAuxViewByProject(
-  page: Page,
-): Promise<Record<string, string>> {
-  return page.evaluate(() => {
-    const raw = window.localStorage.getItem("setta_data");
-    if (!raw) {
-      return {};
-    }
-    const parsed = JSON.parse(raw) as {
-      state?: {
-        projectChatAuxViewByProjectConfigId?: Record<string, unknown>;
-      };
-    };
-    const rawByProject = parsed.state?.projectChatAuxViewByProjectConfigId;
-    if (!rawByProject || typeof rawByProject !== "object") {
-      return {};
-    }
-    const normalized: Record<string, string> = {};
-    for (const [projectConfigId, value] of Object.entries(rawByProject)) {
-      if (typeof value === "string") {
-        normalized[projectConfigId] = value;
-      }
-    }
-    return normalized;
-  });
-}
-
 test("project ai chat can open the skills side view", async ({ page }) => {
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
@@ -370,6 +333,76 @@ test("project ai chat can open slash commands in a dedicated side view", async (
   ).toHaveCount(0);
 });
 
+test("custom slash commands preserve attachments on submit", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  await ensureAppReady(page);
+  let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
+
+  try {
+    projectContext = await openIsolatedProject(page);
+    await openSlashCommandsViewer(page);
+
+    await page
+      .getByTestId("project-chat-custom-slash-command-input")
+      .fill("/attach-summary");
+    await page
+      .getByTestId("project-chat-custom-slash-prompt-input")
+      .fill("Summarize the attached file.");
+    await page.getByTestId("project-chat-custom-slash-add").click();
+
+    await closeSkillsMcpViewer(page);
+
+    await page
+      .locator('#OverviewPane input[type="file"]')
+      .first()
+      .setInputFiles({
+        name: "notes.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("release notes"),
+      });
+    await expect(page.getByText("notes.txt")).toBeVisible();
+
+    const requestPromise = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        request.url().includes("/api/getLLMResponse"),
+    );
+    await page
+      .getByTestId("chat-input-textarea")
+      .fill("/attach-summary focus on release risks");
+    await page.getByLabel("Send message").click();
+
+    const request = await requestPromise;
+    const payload = request.postDataJSON() as {
+      message?: {
+        attachments?: Array<{
+          name?: string;
+        }>;
+      };
+    };
+
+    expect(payload.message?.attachments).toHaveLength(1);
+    expect(payload.message?.attachments?.[0]?.name).toBe("notes.txt");
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai chat can open the project ai settings pane from tools", async ({
   page,
 }) => {
@@ -429,63 +462,117 @@ test("project ai chat can open the project ai settings pane from tools", async (
   ).toHaveAttribute("aria-current", "page");
 });
 
-test("project ai chat keeps aux view persistence scoped to each project", async ({
+test("project ai chat keeps aux views session-local across stale storage and reloads", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    projectChatAuxViewByProjectConfigId: {
+      stale: "skills",
+    },
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "ui-layout",
+          description: "Create dense dashboard layouts.",
+          isEditable: false,
+          editabilityReason: null,
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::ui-layout",
+        content: "# UI Layout\n\nCreate dense dashboard layouts.",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+
+  await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
+  await expect(page.getByTestId("chat-input-textarea")).toBeVisible();
+
+  await openSkillsViewer(page);
+  await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
+  await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
+  await expect(page.getByTestId("chat-input-textarea")).toBeVisible();
+});
+
+test("project ai chat keeps unsaved raw skill edits during same-skill refresh", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
     overviewTab: "ProjectAIChat",
     overviewVis: true,
   });
-  await ensureAppReady(page);
 
-  let firstProjectContext: Awaited<
-    ReturnType<typeof openIsolatedProject>
-  > | null = null;
-  let secondProjectContext: Awaited<
-    ReturnType<typeof openIsolatedProject>
-  > | null = null;
-
-  try {
-    // Project A keeps its own aux-view entry.
-    firstProjectContext = await openIsolatedProject(page);
-    const firstProjectName = getActiveProjectNameFromUrl(page);
-    await openSkillsViewer(page);
-    await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
-    await expect
-      .poll(() => readProjectChatAuxViewByProject(page))
-      .toMatchObject({
-        [firstProjectContext.projectConfigId]: "skills",
-      });
-
-    // Project B must receive its own entry without mutating project A.
-    secondProjectContext = await openIsolatedProject(page);
-    await openMcpViewer(page);
-    await expect(page.getByTestId("project-chat-mcp-view")).toBeVisible();
-    await expect
-      .poll(() => readProjectChatAuxViewByProject(page))
-      .toMatchObject({
-        [firstProjectContext.projectConfigId]: "skills",
-        [secondProjectContext.projectConfigId]: "mcp",
-      });
-
-    await closeSkillsMcpViewer(page);
-    await expect(page.getByTestId("project-chat-mcp-view")).toHaveCount(0);
-    await expect
-      .poll(() => readProjectChatAuxViewByProject(page))
-      .toEqual({
-        [firstProjectContext.projectConfigId]: "skills",
-      });
-
-    // Switching back to A should restore A's persisted aux view.
-    await page.goto(`/${encodeURIComponent(firstProjectName)}`, {
-      waitUntil: "domcontentloaded",
+  let skillContentRequestCount = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "user_agents_skills::triage",
+          name: "triage",
+          rootLabel: "User ~/.codex/skills",
+          rootPath: "/home/.codex/skills",
+          relativePath: "triage",
+          description: "Triage open issues.",
+          isEditable: true,
+          editabilityReason: null,
+        },
+      ]),
     });
-    await page.waitForSelector(".react-flow__pane");
-    await expect(page.getByTestId("project-chat-skills-view")).toBeVisible();
-  } finally {
-    await cleanupIsolatedProject(page, secondProjectContext);
-    await cleanupIsolatedProject(page, firstProjectContext);
-  }
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    skillContentRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::triage",
+        content:
+          skillContentRequestCount === 1
+            ? "# Triage\n\nOriginal server copy."
+            : "# Triage\n\nRefreshed server copy.",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  const editor = page.getByLabel("Skill Markdown Content");
+  const editorContent = editor.locator(".cm-content");
+  await editorContent.click();
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.insertText("# Triage\n\nUnsaved local draft.");
+  await expect(editorContent).toContainText("Unsaved local draft.");
+
+  await page.getByTestId("project-chat-skills-refresh").click();
+  await expect.poll(() => skillContentRequestCount).toBe(2);
+  await expect(editorContent).toContainText("Unsaved local draft.");
+  await expect(editorContent).not.toContainText("Refreshed server copy.");
 });
 
 test("project ai chat keeps MCP runtime statuses distinct across matching server ids", async ({

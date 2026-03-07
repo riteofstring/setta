@@ -104,20 +104,171 @@ type ResizeListenerTarget = Pick<
   Window,
   "addEventListener" | "removeEventListener"
 >;
+type SkillMarkdownDraftStateEntry = {
+  draft: string;
+  loadedContent: string;
+};
+type CustomSlashCommandDraft = {
+  command: string;
+  prompt: string;
+};
 const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
   {
     commands: EMPTY_AGENT_NATIVE_COMMANDS,
     status: "unknown",
     statusDetail: null,
   };
+const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
+  command: "",
+  prompt: "",
+};
 const CUSTOM_SKILL_ROOT_IDS = new Set([
   "agents_home_skills",
   "user_agents_skills",
   "workspace_agents_skills",
 ]);
 
+type ResolveSkillMarkdownRawDraftBySkillIdHydrationInput = {
+  skillMarkdownDraftStateBySkillId: Record<
+    string,
+    SkillMarkdownDraftStateEntry
+  >;
+  skillId: string;
+  skillContent: string;
+};
+
+type ResolveSkillMarkdownRawDraftBySkillIdUpdateInput = {
+  skillMarkdownDraftStateBySkillId: Record<
+    string,
+    SkillMarkdownDraftStateEntry
+  >;
+  skillId: string;
+  nextRawDraft: string;
+};
+
+type ResolveSkillMarkdownRawDraftBySkillIdReplaceInput = {
+  skillMarkdownDraftStateBySkillId: Record<
+    string,
+    SkillMarkdownDraftStateEntry
+  >;
+  skillId: string;
+  nextRawDraft: string;
+};
+
+type ResolveCustomSlashDraftByProjectConfigIdUpdateInput = {
+  customSlashDraftByProjectConfigId: Record<string, CustomSlashCommandDraft>;
+  projectConfigId: string;
+  nextDraft: CustomSlashCommandDraft;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+export function resolveSkillMarkdownRawDraftBySkillIdHydration({
+  skillMarkdownDraftStateBySkillId,
+  skillId,
+  skillContent,
+}: ResolveSkillMarkdownRawDraftBySkillIdHydrationInput): Record<
+  string,
+  SkillMarkdownDraftStateEntry
+> | null {
+  const currentEntry = skillMarkdownDraftStateBySkillId[skillId];
+  if (currentEntry) {
+    if (currentEntry.loadedContent === skillContent) {
+      return null;
+    }
+    if (currentEntry.draft !== currentEntry.loadedContent) {
+      return {
+        ...skillMarkdownDraftStateBySkillId,
+        [skillId]: {
+          ...currentEntry,
+          loadedContent: skillContent,
+        },
+      };
+    }
+  }
+  return {
+    ...skillMarkdownDraftStateBySkillId,
+    [skillId]: {
+      draft: skillContent,
+      loadedContent: skillContent,
+    },
+  };
+}
+
+function resolveSkillMarkdownRawDraftBySkillIdReplace({
+  skillMarkdownDraftStateBySkillId,
+  skillId,
+  nextRawDraft,
+}: ResolveSkillMarkdownRawDraftBySkillIdReplaceInput): Record<
+  string,
+  SkillMarkdownDraftStateEntry
+> | null {
+  const currentEntry = skillMarkdownDraftStateBySkillId[skillId];
+  if (
+    currentEntry &&
+    currentEntry.draft === nextRawDraft &&
+    currentEntry.loadedContent === nextRawDraft
+  ) {
+    return null;
+  }
+  return {
+    ...skillMarkdownDraftStateBySkillId,
+    [skillId]: {
+      draft: nextRawDraft,
+      loadedContent: nextRawDraft,
+    },
+  };
+}
+
+export function resolveSkillMarkdownRawDraftBySkillIdUpdate({
+  skillMarkdownDraftStateBySkillId,
+  skillId,
+  nextRawDraft,
+}: ResolveSkillMarkdownRawDraftBySkillIdUpdateInput): Record<
+  string,
+  SkillMarkdownDraftStateEntry
+> | null {
+  const currentEntry = skillMarkdownDraftStateBySkillId[skillId];
+  if (currentEntry?.draft === nextRawDraft) {
+    return null;
+  }
+  return {
+    ...skillMarkdownDraftStateBySkillId,
+    [skillId]: {
+      draft: nextRawDraft,
+      loadedContent: currentEntry?.loadedContent ?? nextRawDraft,
+    },
+  };
+}
+
+export function resolveCustomSlashDraftByProjectConfigIdUpdate({
+  customSlashDraftByProjectConfigId,
+  projectConfigId,
+  nextDraft,
+}: ResolveCustomSlashDraftByProjectConfigIdUpdateInput): Record<
+  string,
+  CustomSlashCommandDraft
+> | null {
+  const currentDraft =
+    customSlashDraftByProjectConfigId[projectConfigId] ??
+    EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
+  if (
+    currentDraft.command === nextDraft.command &&
+    currentDraft.prompt === nextDraft.prompt
+  ) {
+    return null;
+  }
+  const nextByProjectConfigId = {
+    ...customSlashDraftByProjectConfigId,
+  };
+  if (nextDraft.command === "" && nextDraft.prompt === "") {
+    delete nextByProjectConfigId[projectConfigId];
+  } else {
+    nextByProjectConfigId[projectConfigId] = nextDraft;
+  }
+  return nextByProjectConfigId;
 }
 
 function normalizeOptionalString(value: unknown): string | null {
@@ -504,9 +655,10 @@ export function ProjectChatSkillsMcpViewer({
         ? SKILL_MARKDOWN_VIEW_MODE_RAW
         : SKILL_MARKDOWN_VIEW_MODE_RENDERED;
     });
-  const [skillMarkdownRawDraft, setSkillMarkdownRawDraft] = useState<
-    string | null
-  >(null);
+  const [
+    skillMarkdownDraftStateBySkillId,
+    setSkillMarkdownDraftStateBySkillId,
+  ] = useState<Record<string, SkillMarkdownDraftStateEntry>>({});
   const [newCustomSkillRelativePath, setNewCustomSkillRelativePath] =
     useState("");
   const [customSkillCreateInFlight, setCustomSkillCreateInFlight] =
@@ -536,8 +688,10 @@ export function ProjectChatSkillsMcpViewer({
   const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
     string | null
   >(null);
-  const [newCustomSlashCommand, setNewCustomSlashCommand] = useState("");
-  const [newCustomSlashPrompt, setNewCustomSlashPrompt] = useState("");
+  const [
+    customSlashDraftByProjectConfigId,
+    setCustomSlashDraftByProjectConfigId,
+  ] = useState<Record<string, CustomSlashCommandDraft>>({});
   const [
     agentNativeSlashCommandsByEngineId,
     setAgentNativeSlashCommandsByEngineId,
@@ -758,15 +912,17 @@ export function ProjectChatSkillsMcpViewer({
   }, [skillMarkdownViewMode, storageAdapter]);
 
   useEffect(() => {
-    if (!selectedSkillId) {
-      setSkillMarkdownRawDraft(null);
+    if (!selectedSkillId || skillContentLoadStatus !== "loaded") {
       return;
     }
-    if (skillContentLoadStatus !== "loaded") {
-      setSkillMarkdownRawDraft(null);
-      return;
-    }
-    setSkillMarkdownRawDraft(selectedSkillContent);
+    setSkillMarkdownDraftStateBySkillId((current) => {
+      const next = resolveSkillMarkdownRawDraftBySkillIdHydration({
+        skillMarkdownDraftStateBySkillId: current,
+        skillId: selectedSkillId,
+        skillContent: selectedSkillContent,
+      });
+      return next ?? current;
+    });
   }, [selectedSkillContent, selectedSkillId, skillContentLoadStatus]);
 
   useEffect(() => {
@@ -995,6 +1151,50 @@ export function ProjectChatSkillsMcpViewer({
   const showMcpSection = viewMode === "mcp";
   const showSlashCommandsSection = viewMode === "slash_commands";
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
+  const skillMarkdownRawDraft = selectedSkillId
+    ? skillMarkdownDraftStateBySkillId[selectedSkillId]?.draft ?? null
+    : null;
+  const currentCustomSlashDraft =
+    customSlashDraftByProjectConfigId[projectConfigId] ??
+    EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
+  const newCustomSlashCommand = currentCustomSlashDraft.command;
+  const newCustomSlashPrompt = currentCustomSlashDraft.prompt;
+  const setNewCustomSlashCommand = useCallback(
+    (nextCommand: string) => {
+      setCustomSlashDraftByProjectConfigId((current) => {
+        const currentDraft =
+          current[projectConfigId] ?? EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
+        const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+          customSlashDraftByProjectConfigId: current,
+          projectConfigId,
+          nextDraft: {
+            ...currentDraft,
+            command: nextCommand,
+          },
+        });
+        return next ?? current;
+      });
+    },
+    [projectConfigId],
+  );
+  const setNewCustomSlashPrompt = useCallback(
+    (nextPrompt: string) => {
+      setCustomSlashDraftByProjectConfigId((current) => {
+        const currentDraft =
+          current[projectConfigId] ?? EMPTY_CUSTOM_SLASH_COMMAND_DRAFT;
+        const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+          customSlashDraftByProjectConfigId: current,
+          projectConfigId,
+          nextDraft: {
+            ...currentDraft,
+            prompt: nextPrompt,
+          },
+        });
+        return next ?? current;
+      });
+    },
+    [projectConfigId],
+  );
   const normalizedNewCustomSlashCommand = useMemo(() => {
     return normalizeSlashCommandToken(newCustomSlashCommand);
   }, [newCustomSlashCommand]);
@@ -1227,7 +1427,14 @@ export function ProjectChatSkillsMcpViewer({
         },
       };
     });
-    setNewCustomSlashCommand("");
+    setCustomSlashDraftByProjectConfigId((current) => {
+      const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+        customSlashDraftByProjectConfigId: current,
+        projectConfigId,
+        nextDraft: EMPTY_CUSTOM_SLASH_COMMAND_DRAFT,
+      });
+      return next ?? current;
+    });
     addTemporaryNotification(`Added ${normalizedCommand}.`);
   }, [
     customSlashCommandTokens,
@@ -1300,7 +1507,14 @@ export function ProjectChatSkillsMcpViewer({
     setSkillContentLoadStatus("loaded");
     setSkillContentLoadError(null);
     setSelectedSkillContent(initialContent);
-    setSkillMarkdownRawDraft(initialContent);
+    setSkillMarkdownDraftStateBySkillId((current) => {
+      const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
+        skillMarkdownDraftStateBySkillId: current,
+        skillId: res.data.skillId,
+        nextRawDraft: initialContent,
+      });
+      return next ?? current;
+    });
     setSelectedSkillContentTruncated(false);
     setSelectedSkillOriginalSizeBytes(initialContent.length);
     addTemporaryNotification(`Created custom skill ${relativePath}.`);
@@ -1376,6 +1590,14 @@ export function ProjectChatSkillsMcpViewer({
       setSelectedSkillContentTruncated(false);
       setSelectedSkillOriginalSizeBytes(nextContent.length);
     }
+    setSkillMarkdownDraftStateBySkillId((current) => {
+      const next = resolveSkillMarkdownRawDraftBySkillIdReplace({
+        skillMarkdownDraftStateBySkillId: current,
+        skillId: requestSkillId,
+        nextRawDraft: nextContent,
+      });
+      return next ?? current;
+    });
     addTemporaryNotification("Saved custom skill.");
   }, [
     selectedSkillEditabilityReason,
@@ -1879,7 +2101,23 @@ export function ProjectChatSkillsMcpViewer({
                                 ) {
                                   return;
                                 }
-                                setSkillMarkdownRawDraft(value);
+                                if (!selectedSkillId) {
+                                  return;
+                                }
+                                setSkillMarkdownDraftStateBySkillId(
+                                  (current) => {
+                                    const next =
+                                      resolveSkillMarkdownRawDraftBySkillIdUpdate(
+                                        {
+                                          skillMarkdownDraftStateBySkillId:
+                                            current,
+                                          skillId: selectedSkillId,
+                                          nextRawDraft: value,
+                                        },
+                                      );
+                                    return next ?? current;
+                                  },
+                                );
                               }}
                               theme={codeMirrorTheme}
                               extensions={

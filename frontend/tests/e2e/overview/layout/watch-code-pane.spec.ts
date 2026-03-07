@@ -15,7 +15,9 @@ test("watch code settings open from controls portal with all options", async ({
 
   const portal = page.getByTestId("rf__watch-code-settings-portal");
   await expect(portal).toBeVisible();
-  await expect(portal.getByRole("heading", { name: "Watch Code" })).toBeVisible();
+  await expect(
+    portal.getByRole("heading", { name: "Watch Code" }),
+  ).toBeVisible();
   const caret = page.getByTestId("rf__watch-code-settings-caret");
   await expect(caret).toBeVisible();
 
@@ -52,4 +54,20 @@ test("watch code settings open from controls portal with all options", async ({
   await expect(
     portal.locator('[data-setting-anchor="core.watch_code.files"]'),
   ).toBeVisible();
+});
+
+test("watch code portal does not reopen from persisted visibility state", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "Overview",
+    overviewVis: true,
+    watchCodePortalOpen: true,
+  });
+  await ensureAppReady(page);
+
+  await expect(page.getByTestId("rf__watch-code-settings-portal")).toHaveCount(
+    0,
+  );
+  await expect(page.getByTestId("rf__watch-code-settings")).toBeVisible();
 });

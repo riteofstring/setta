@@ -273,6 +273,36 @@ describe("receiveUISettingReveal", () => {
     );
   });
 
+  it("keeps watch-code reveal visibility out of the persisted local-storage payload", async () => {
+    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const paneRoot = createFakePaneRoot(anchor);
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="rf__watch-code-settings-portal"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+
+    await receiveUISettingReveal(createRevealContent({}));
+
+    const partialize = useLocalStorage.persist.getOptions().partialize;
+    if (!partialize) {
+      throw new Error("Expected local-storage store to define partialize.");
+    }
+
+    const persisted = partialize(useLocalStorage.getState());
+
+    expect(useLocalStorage.getState().watchCodePortalOpen).toBe(true);
+    expect(persisted).not.toHaveProperty("watchCodePortalOpen");
+  });
+
   it("returns a structured failure for right-pane reveals with no active section", async () => {
     const statuses = await receiveUISettingReveal(
       createRevealContent({

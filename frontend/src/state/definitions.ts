@@ -458,14 +458,6 @@ export type ProjectChatAuxView =
   | "slash_commands"
   | "ai_settings";
 
-const PROJECT_CHAT_AUX_VIEW_VALUES = new Set<ProjectChatAuxView>([
-  "none",
-  "skills",
-  "mcp",
-  "slash_commands",
-  "ai_settings",
-]);
-
 function isPersistedRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -506,26 +498,6 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       continue;
     }
     normalized[normalizedProjectConfigId] = normalizedCommands;
-  }
-  return normalized;
-}
-
-function normalizePersistedProjectChatAuxViewByProjectConfigId(
-  value: unknown,
-): Record<string, ProjectChatAuxView> {
-  if (!isPersistedRecord(value)) {
-    return {};
-  }
-  const normalized: Record<string, ProjectChatAuxView> = {};
-  for (const [projectConfigId, rawAuxView] of Object.entries(value)) {
-    const normalizedProjectConfigId = projectConfigId.trim();
-    if (!normalizedProjectConfigId || typeof rawAuxView !== "string") {
-      continue;
-    }
-    if (!PROJECT_CHAT_AUX_VIEW_VALUES.has(rawAuxView as ProjectChatAuxView)) {
-      continue;
-    }
-    normalized[normalizedProjectConfigId] = rawAuxView as ProjectChatAuxView;
   }
   return normalized;
 }
@@ -1192,17 +1164,14 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.Notifications;
         }
-        if (typeof merged.watchCodePortalOpen !== "boolean") {
-          merged.watchCodePortalOpen = false;
-        }
+        // Keep transient visibility session-local even though the store itself
+        // is persisted for durable preferences.
+        merged.watchCodePortalOpen = false;
         merged.customProjectChatSlashCommandsByProjectConfigId =
           normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
             merged.customProjectChatSlashCommandsByProjectConfigId,
           );
-        merged.projectChatAuxViewByProjectConfigId =
-          normalizePersistedProjectChatAuxViewByProjectConfigId(
-            merged.projectChatAuxViewByProjectConfigId,
-          );
+        merged.projectChatAuxViewByProjectConfigId = {};
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
           typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
@@ -1252,6 +1221,68 @@ export const useLocalStorage = createWithEqualityFn(
 
         return merged;
       },
+      partialize: (state) => ({
+        snapToGrid: state.snapToGrid,
+        showAgenticEdges: state.showAgenticEdges,
+        showArgEdges: state.showArgEdges,
+        darkMode: state.darkMode,
+        colorMode: state.colorMode,
+        showMinimap: state.showMinimap,
+        projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
+        appSpecStreamingEnabled: state.appSpecStreamingEnabled,
+        homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,
+        favoriteProjectConfigIds: state.favoriteProjectConfigIds,
+        overviewProjectConfigOrder: state.overviewProjectConfigOrder,
+        homeWorkspacePaneVis: state.homeWorkspacePaneVis,
+        homeWorkspacePaneWidth: state.homeWorkspacePaneWidth,
+        homeWorkspacePaneTrueWidth: state.homeWorkspacePaneTrueWidth,
+        homeSelectedProjectPaneVis: state.homeSelectedProjectPaneVis,
+        homeSelectedProjectPaneWidth: state.homeSelectedProjectPaneWidth,
+        homeSelectedProjectPaneTrueWidth:
+          state.homeSelectedProjectPaneTrueWidth,
+        appGenerationMode: state.appGenerationMode,
+        appGenerationPrompt: state.appGenerationPrompt,
+        appGenerationReferenceImageUrl: state.appGenerationReferenceImageUrl,
+        appGenerationReferenceImageNotes:
+          state.appGenerationReferenceImageNotes,
+        overviewVis: state.overviewVis,
+        overviewWidth: state.overviewWidth,
+        overviewTrueWidth: state.overviewTrueWidth,
+        overviewTab: state.overviewTab,
+        overviewNotificationsPaneTab: state.overviewNotificationsPaneTab,
+        gitGraphSplitPct: state.gitGraphSplitPct,
+        gitGraphColWidthPx: state.gitGraphColWidthPx,
+        gitGraphAuthorWidthPx: state.gitGraphAuthorWidthPx,
+        gitGraphDateWidthPx: state.gitGraphDateWidthPx,
+        gitGraphHashWidthPx: state.gitGraphHashWidthPx,
+        uiEditorVis: state.uiEditorVis,
+        uiEditorWidth: state.uiEditorWidth,
+        uiEditorTrueWidth: state.uiEditorTrueWidth,
+        uiEditorTab: state.uiEditorTab,
+        showNavBarHelpMessage: state.showNavBarHelpMessage,
+        tooltipWidth: state.tooltipWidth,
+        customRunsByProjectConfigId: state.customRunsByProjectConfigId,
+        customProjectChatSlashCommandsByProjectConfigId:
+          state.customProjectChatSlashCommandsByProjectConfigId,
+        runSnapshotModeByProjectConfigId:
+          state.runSnapshotModeByProjectConfigId,
+        runInstructionsAccordionOpenValuesByProjectConfigId:
+          state.runInstructionsAccordionOpenValuesByProjectConfigId,
+        projectAiSettingsAccordionOpenValuesByProjectConfigId:
+          state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+        viewedProjectChatThreadIdsByProjectConfigId:
+          state.viewedProjectChatThreadIdsByProjectConfigId,
+        projectChatThreadGroupsByProjectConfigId:
+          state.projectChatThreadGroupsByProjectConfigId,
+        projectChatThreadAssignmentsByProjectConfigId:
+          state.projectChatThreadAssignmentsByProjectConfigId,
+        projectChatThreadOrderByProjectConfigId:
+          state.projectChatThreadOrderByProjectConfigId,
+        pinnedProjectChatThreadIdsByProjectConfigId:
+          state.pinnedProjectChatThreadIdsByProjectConfigId,
+        trashedProjectChatThreadIdsByProjectConfigId:
+          state.trashedProjectChatThreadIdsByProjectConfigId,
+      }),
       storage: getPersistStorage(),
     },
   ),

@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseAgentNativeSlashCommandsStorage,
+  resolveCustomSlashDraftByProjectConfigIdUpdate,
+  resolveSkillMarkdownRawDraftBySkillIdHydration,
+  resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
   shouldPollSlashCommandAgentRuns,
 } from "./ProjectChatSkillsMcpViewer";
@@ -102,5 +105,142 @@ describe("resolveSkillPreviewContent", () => {
     });
 
     expect(preview).toBe("Select a skill to preview SKILL.md.");
+  });
+});
+
+describe("resolveSkillMarkdownRawDraftBySkillIdHydration", () => {
+  it("hydrates a draft for a newly loaded skill", () => {
+    const hydrated = resolveSkillMarkdownRawDraftBySkillIdHydration({
+      skillMarkdownDraftStateBySkillId: {},
+      skillId: "user_agents_skills::triage",
+      skillContent: "# Triage",
+    });
+
+    expect(hydrated).toEqual({
+      "user_agents_skills::triage": {
+        draft: "# Triage",
+        loadedContent: "# Triage",
+      },
+    });
+  });
+
+  it("updates clean drafts on refresh but preserves dirty drafts", () => {
+    const refreshedClean = resolveSkillMarkdownRawDraftBySkillIdHydration({
+      skillMarkdownDraftStateBySkillId: {
+        "user_agents_skills::triage": {
+          draft: "# Triage",
+          loadedContent: "# Triage",
+        },
+      },
+      skillId: "user_agents_skills::triage",
+      skillContent: "# Server copy",
+    });
+
+    expect(refreshedClean).toEqual({
+      "user_agents_skills::triage": {
+        draft: "# Server copy",
+        loadedContent: "# Server copy",
+      },
+    });
+
+    expect(
+      resolveSkillMarkdownRawDraftBySkillIdHydration({
+        skillMarkdownDraftStateBySkillId: {
+          "user_agents_skills::triage": {
+            draft: "# Local edits",
+            loadedContent: "# Triage",
+          },
+        },
+        skillId: "user_agents_skills::triage",
+        skillContent: "# Server copy",
+      }),
+    ).toEqual({
+      "user_agents_skills::triage": {
+        draft: "# Local edits",
+        loadedContent: "# Server copy",
+      },
+    });
+  });
+});
+
+describe("resolveSkillMarkdownRawDraftBySkillIdUpdate", () => {
+  it("keeps independent drafts for each skill id", () => {
+    const next = resolveSkillMarkdownRawDraftBySkillIdUpdate({
+      skillMarkdownDraftStateBySkillId: {
+        "user_agents_skills::triage": {
+          draft: "# local edits",
+          loadedContent: "# Triage",
+        },
+      },
+      skillId: "workspace_agents_skills::release",
+      nextRawDraft: "# release notes",
+    });
+
+    expect(next).toEqual({
+      "user_agents_skills::triage": {
+        draft: "# local edits",
+        loadedContent: "# Triage",
+      },
+      "workspace_agents_skills::release": {
+        draft: "# release notes",
+        loadedContent: "# release notes",
+      },
+    });
+  });
+});
+
+describe("resolveCustomSlashDraftByProjectConfigIdUpdate", () => {
+  it("isolates new custom slash-command drafts by project id", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/triage",
+          prompt: "Summarize open bugs.",
+        },
+      },
+      projectConfigId: "project-b",
+      nextDraft: {
+        command: "/ship",
+        prompt: "Prepare release notes.",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/triage",
+        prompt: "Summarize open bugs.",
+      },
+      "project-b": {
+        command: "/ship",
+        prompt: "Prepare release notes.",
+      },
+    });
+  });
+
+  it("clears only the active project draft when both fields are emptied", () => {
+    const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+      customSlashDraftByProjectConfigId: {
+        "project-a": {
+          command: "/triage",
+          prompt: "Summarize open bugs.",
+        },
+        "project-b": {
+          command: "/ship",
+          prompt: "Prepare release notes.",
+        },
+      },
+      projectConfigId: "project-b",
+      nextDraft: {
+        command: "",
+        prompt: "",
+      },
+    });
+
+    expect(next).toEqual({
+      "project-a": {
+        command: "/triage",
+        prompt: "Summarize open bugs.",
+      },
+    });
   });
 });
