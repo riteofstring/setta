@@ -31,8 +31,8 @@ Current repo status as of 2026-03-07:
   - `backend/setta/project_state/watch_code.py`
   - `backend/setta/project_state/base_project_manager.py`
 - the current active Go gap is now:
-  - runtime callbacks do not yet apply file updates/deletes into persisted
-    project state
+  - Go now owns file update/delete apply helpers and runtime callback wiring
+    into persisted project state
   - Watch Code section create/remove/rename behavior is still Python-owned
   - watcher-triggered callable refetch still is not routed through the Go
     Watch Code apply path
@@ -119,10 +119,17 @@ The remaining hard boundary is authoritative project-state mutation.
   - reuse the existing frontend warning pathway instead of adding ad hoc state
 - preserve persisted project-state as the product source of truth
   - runtime-local caches remain runtime bookkeeping only
+- allow placeholder registry entries before section mutation lands
+  - Step 1 now records additions in `watchCodeRegistry` with empty
+    `sectionIds` / `sectionsCount`
+  - Step 2 should treat those entries as pending callable sections instead of
+    assuming every registry entry is already section-backed
 
 ## Implementation Steps
 
 ### Step 1: Projectstate File Apply Helpers
+
+Status: complete on 2026-03-07.
 
 Deliver:
 
@@ -146,6 +153,15 @@ Acceptance:
 - runtime callbacks can apply file updates/deletes without hidden watcher state
 - move handling uses `moved_from`, not heuristics
 - syntax errors preserve the last good registry state
+
+Completed in this chunk:
+
+- `internal/projectstate/watch_code_apply.go`
+- `internal/projectstate/watch_code_apply_test.go`
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+- `internal/watchcode/service_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/watchcode ./internal/app -count=1 -timeout 180s`
 
 ### Step 2: Callable Section Mutation And Refetch Reuse
 
@@ -195,9 +211,9 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 1 first:
+Execute Step 2 next:
 
-- port move-aware `apply_scan_update` / `apply_delete_update` ownership into Go
-- keep the initial callback wiring bounded to those helpers
-- leave section mutation and warning notifications for the later steps in this
-  focused doc
+- port Go-owned section create/remove/rename helpers over the completed file
+  apply path
+- treat empty-section placeholder registry entries as pending callable sections
+- keep warning notifications for Step 3 after callable refetch reuse lands

@@ -72,13 +72,19 @@ The active Slice 2 execution work is now narrowed in:
   - `internal/watchcode` owns config snapshot normalization, desired watch-dir
     derivation, path matching, missing-dir ancestor fallback, file-event
     routing, file-identity snapshots, and the polling runtime owner
-- the remaining Slice 2/3 gap is now the project-state mutation boundary:
-  - file update/delete callbacks still need Go-owned registry/baseline apply
-    helpers
-  - section create/remove/rename and callable-refresh reuse still need to move
-    behind those apply helpers
-- that next mutation boundary is now narrowed in:
+- the next focused apply/mutation doc is now in progress:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
+  - Step 1 there is now complete:
+    - Go-owned file update/delete apply helpers now own move-aware
+      registry/baseline rewrites
+    - IDE app callbacks now route polling runtime updates/deletes into those
+      helpers
+    - additions now materialize placeholder registry entries with empty section
+      lists until section mutation lands
+- the remaining Slice 2/3 gap is now the section-mutation boundary:
+  - section create/remove/rename still needs to move behind the new apply path
+  - watcher-triggered callable refetch and warning notifications still sit
+    above that boundary
 - the completed runtime-owner work remains captured in:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
   - file-identity snapshots remain the chosen move-detection owner

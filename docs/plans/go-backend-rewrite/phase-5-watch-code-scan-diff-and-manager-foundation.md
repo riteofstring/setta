@@ -44,8 +44,7 @@ Current repo status as of 2026-03-07:
   - the new manager foundation keeps watcher state pure and testable before any
     fsnotify/observer integration
 - the remaining active Watch Code gap is now beyond the manager/runtime owner:
-  - file update/delete callbacks still need Go-owned project-state apply
-    helpers
+  - Go now owns file update/delete callbacks into project-state apply helpers
   - section create/remove/rename and callable-refresh reuse still sit above the
     completed manager/runtime foundation
 
@@ -231,12 +230,10 @@ For Step 2, add:
 Execute the next focused doc:
 
 - `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
-- port Go-owned file update/delete apply helpers over the completed runtime
-  callbacks
-- leave notification and inline-edit integration for the later slices in that
-  doc
-
-- start Step 1 from the new runtime-owner doc:
-  - start Step 3 from the new runtime-owner doc
-  - wire the polling runtime into the IDE app lifecycle
-  - keep project-state apply helpers as the next bounded boundary
+- Step 1 there is now complete:
+  - Go-owned file update/delete apply helpers now sit behind the completed
+    runtime callbacks
+- execute Step 2 next:
+  - port callable section create/remove/rename over that apply path
+  - keep warning notification and inline-edit integration for later slices in
+    that doc

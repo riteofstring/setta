@@ -64,8 +64,7 @@ Current repo status as of 2026-03-07:
   - focused `internal/app` coverage now proves startup, save-time sync, and
     IDE-only startup policy
 - the remaining active Watch Code gap is now beyond the runtime owner:
-  - file update/delete callbacks still do not apply registry/baseline mutations
-    in Go project state
+  - Go now owns file update/delete callbacks into project-state apply helpers
   - section create/remove/rename and callable-refresh reuse are still Python-
     owned
 
