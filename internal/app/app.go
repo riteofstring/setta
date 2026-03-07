@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/riteofstring/setta/internal/auth"
 	"github.com/riteofstring/setta/internal/config"
 	"github.com/riteofstring/setta/internal/httpapi"
 	"github.com/riteofstring/setta/internal/observability"
@@ -25,9 +26,22 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	manager := runtime.New(context.Background(), logger)
+	authService, err := auth.NewService(auth.Options{
+		Mode:              cfg.Server.Mode,
+		RuntimeRoot:       cfg.Paths.RuntimeRoot,
+		ProfileCookieName: cfg.Paths.AuthCookieName,
+		EnvLookup:         os.LookupEnv,
+	})
+	if err != nil {
+		return nil, err
+	}
 	handler, err := httpapi.NewHandler(httpapi.Dependencies{
 		Logger: logger,
-		Info:   infoService{config: cfg},
+		Info: infoService{
+			config:         cfg,
+			authCookieName: authService.AuthCookieBaseName(),
+		},
+		Auth: authService,
 	})
 	if err != nil {
 		return nil, err
@@ -58,7 +72,8 @@ func (a *App) Shutdown(ctx context.Context) error {
 }
 
 type infoService struct {
-	config config.Config
+	config         config.Config
+	authCookieName string
 }
 
 func (s infoService) ServerMode(context.Context) string {
@@ -82,7 +97,7 @@ func (s infoService) RuntimeInfo(context.Context) httpapi.RuntimeInfo {
 			AutoMode:             string(s.config.User.AutoMode),
 		},
 		Auth: httpapi.RuntimeAuth{
-			AuthCookieName: s.config.Paths.AuthCookieName,
+			AuthCookieName: s.authCookieName,
 		},
 	}
 }

@@ -1,21 +1,34 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/riteofstring/setta/internal/auth"
+	"github.com/riteofstring/setta/internal/config"
 )
 
 type stubInfoService struct {
 	mode string
 	info RuntimeInfo
+}
+
+type testEnv map[string]string
+
+func (e testEnv) lookup(key string) (string, bool) {
+	value, ok := e[key]
+	return value, ok
 }
 
 func (s stubInfoService) ServerMode(context.Context) string {
@@ -129,4 +142,222 @@ func TestHandlerRecoversPanics(t *testing.T) {
 	if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
 		t.Fatalf("expected internal error envelope, got %q", response.Body.String())
 	}
+}
+
+func TestHandlerProtectsIDEAPIUntilBootstrapConsume(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info: stubInfoService{
+			mode: "ide",
+			info: RuntimeInfo{Mode: "ide"},
+		},
+		Auth: authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	unauthorizedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unauthorizedResponse, httptest.NewRequest(http.MethodGet, "/api/runtimeInfo", nil))
+	if unauthorizedResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", unauthorizedResponse.Code)
+	}
+	if !strings.Contains(unauthorizedResponse.Body.String(), `"code":"unauthorized"`) {
+		t.Fatalf("expected unauthorized envelope, got %q", unauthorizedResponse.Body.String())
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	consumeRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/__setta__/bootstrap/consume",
+		bytes.NewBufferString(`{"token":"`+token+`"}`),
+	)
+	consumeRequest.Header.Set("Content-Type", "application/json")
+	consumeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(consumeResponse, consumeRequest)
+	if consumeResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", consumeResponse.Code, consumeResponse.Body.String())
+	}
+	if strings.TrimSpace(consumeResponse.Body.String()) != `{"status":"ok"}` {
+		t.Fatalf("unexpected bootstrap consume payload %q", consumeResponse.Body.String())
+	}
+
+	setCookieHeader := consumeResponse.Header().Get("Set-Cookie")
+	if !strings.Contains(setCookieHeader, "setta_auth_abc123=") {
+		t.Fatalf("expected session-scoped auth cookie, got %q", setCookieHeader)
+	}
+	responseCookies := consumeResponse.Result().Cookies()
+	if len(responseCookies) != 1 {
+		t.Fatalf("expected one auth cookie, got %d", len(responseCookies))
+	}
+
+	protectedRequest := httptest.NewRequest(http.MethodGet, "/api/runtimeInfo", nil)
+	protectedRequest.AddCookie(responseCookies[0])
+	protectedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(protectedResponse, protectedRequest)
+	if protectedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", protectedResponse.Code, protectedResponse.Body.String())
+	}
+}
+
+func TestHandlerRejectsReplayedBootstrapToken(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	requestBody := []byte(`{"token":"` + token + `"}`)
+	firstResponse := httptest.NewRecorder()
+	firstRequest := httptest.NewRequest(http.MethodPost, "/__setta__/bootstrap/consume", bytes.NewReader(requestBody))
+	firstRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(firstResponse, firstRequest)
+	if firstResponse.Code != http.StatusOK {
+		t.Fatalf("expected first consume to succeed, got %d", firstResponse.Code)
+	}
+
+	secondRequest := httptest.NewRequest(http.MethodPost, "/__setta__/bootstrap/consume", bytes.NewReader(requestBody))
+	secondRequest.Header.Set("Content-Type", "application/json")
+	secondResponse := httptest.NewRecorder()
+	handler.ServeHTTP(secondResponse, secondRequest)
+	if secondResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("expected replay to fail with 401, got %d", secondResponse.Code)
+	}
+	if !strings.Contains(secondResponse.Body.String(), `"code":"invalid_token"`) {
+		t.Fatalf("expected invalid token envelope, got %q", secondResponse.Body.String())
+	}
+}
+
+func TestHandlerInjectsRequestAuthContext(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+		Register: func(r chi.Router) {
+			r.Get("/authContext", func(w http.ResponseWriter, r *http.Request) {
+				requestInfo, ok := auth.RequestInfoFromContext(r.Context())
+				if !ok {
+					t.Fatal("expected request auth context")
+				}
+				writeJSON(w, http.StatusOK, map[string]string{
+					"sessionId": requestInfo.SessionID,
+					"source":    string(requestInfo.Source),
+				})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	consumeRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/__setta__/bootstrap/consume",
+		bytes.NewBufferString(`{"token":"`+token+`"}`),
+	)
+	consumeRequest.Header.Set("Content-Type", "application/json")
+	consumeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(consumeResponse, consumeRequest)
+	if consumeResponse.Code != http.StatusOK {
+		t.Fatalf("bootstrap consume failed with %d", consumeResponse.Code)
+	}
+
+	responseCookies := consumeResponse.Result().Cookies()
+	if len(responseCookies) != 1 {
+		t.Fatalf("expected one auth cookie, got %d", len(responseCookies))
+	}
+
+	protectedRequest := httptest.NewRequest(http.MethodGet, "/api/authContext", nil)
+	protectedRequest.AddCookie(responseCookies[0])
+	protectedResponse := httptest.NewRecorder()
+	handler.ServeHTTP(protectedResponse, protectedRequest)
+	if protectedResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", protectedResponse.Code, protectedResponse.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(protectedResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode auth context payload: %v", err)
+	}
+	if payload["sessionId"] != "abc123" {
+		t.Fatalf("expected session id abc123, got %q", payload["sessionId"])
+	}
+	if payload["source"] != "cookie" {
+		t.Fatalf("expected source cookie, got %q", payload["source"])
+	}
+}
+
+func newTestAuthService(t *testing.T) *auth.Service {
+	t.Helper()
+
+	tmpDir := t.TempDir()
+	runtimeRoot := filepath.Join(tmpDir, "runtime")
+	sessionID := "abc123"
+	sessionDir := filepath.Join(runtimeRoot, "sessions", sessionID)
+	secretPath := filepath.Join(sessionDir, "secret")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+	if err := os.WriteFile(secretPath, []byte("test-secret"), 0o600); err != nil {
+		t.Fatalf("write secret: %v", err)
+	}
+
+	metadata := auth.SessionMetadata{
+		ID:                     sessionID,
+		WorkspacePath:          filepath.Join(tmpDir, "workspace"),
+		WorkspacePathCanonical: filepath.Join(tmpDir, "workspace"),
+		Host:                   "127.0.0.1",
+		Port:                   61234,
+		PID:                    os.Getpid(),
+		StartedAt:              time.Unix(1_700_000_000, 0).UTC(),
+		SecretPath:             secretPath,
+		RuntimeRoot:            runtimeRoot,
+		ServerMode:             "ide",
+	}
+	metadataBytes, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal metadata: %v", err)
+	}
+	metadataBytes = append(metadataBytes, '\n')
+	if err := os.WriteFile(filepath.Join(sessionDir, "session.json"), metadataBytes, 0o644); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+
+	service, err := auth.NewService(auth.Options{
+		Mode:        config.ModeIDE,
+		RuntimeRoot: runtimeRoot,
+		EnvLookup: testEnv{
+			"SETTA_SESSION_ID": sessionID,
+		}.lookup,
+	})
+	if err != nil {
+		t.Fatalf("new auth service: %v", err)
+	}
+	return service
 }

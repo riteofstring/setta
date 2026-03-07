@@ -5,12 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/riteofstring/setta/internal/auth"
 )
 
 const apiPrefix = "/api"
@@ -49,6 +53,7 @@ type RuntimeAuth struct {
 type Dependencies struct {
 	Logger   *slog.Logger
 	Info     InfoService
+	Auth     *auth.Service
 	Register func(chi.Router)
 }
 
@@ -86,7 +91,14 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	})
 
+	if deps.Auth != nil && deps.Auth.Enabled() {
+		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth))
+	}
+
 	router.Route(apiPrefix, func(r chi.Router) {
+		if deps.Auth != nil && deps.Auth.Enabled() {
+			r.Use(authMiddleware(deps.Auth))
+		}
 		r.Get("/serverMode", func(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, map[string]string{
 				"mode": deps.Info.ServerMode(r.Context()),
@@ -101,6 +113,79 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	})
 
 	return router, nil
+}
+
+func bootstrapConsumeHandler(authService *auth.Service) http.HandlerFunc {
+	type requestPayload struct {
+		Token string `json:"token"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[requestPayload](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		token := strings.TrimSpace(payload.Token)
+		if token == "" {
+			token = auth.ExtractBearerToken(r.Header)
+		}
+
+		_, err = authService.ConsumeBootstrapToken(token, time.Now().UTC())
+		if err != nil {
+			switch {
+			case errors.Is(err, auth.ErrMissingToken):
+				writeError(w, r, http.StatusUnauthorized, "missing_token", "Missing token.")
+			case errors.Is(err, auth.ErrMissingCurrentSession):
+				writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+			default:
+				writeError(w, r, http.StatusUnauthorized, "invalid_token", "Invalid token.")
+			}
+			return
+		}
+
+		cookieToken, _, err := authService.MintAuthCookie(time.Now().UTC())
+		if err != nil {
+			writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+			return
+		}
+		if err := authService.SetAuthCookie(w, r, cookieToken); err != nil {
+			if errors.Is(err, auth.ErrMissingCurrentSession) {
+				writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func authMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			cookieValue, ok := authService.ReadAuthCookie(r)
+			if !ok {
+				writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
+				return
+			}
+
+			requestInfo, err := authService.ValidateAuthCookie(cookieValue, time.Now().UTC())
+			if err != nil {
+				writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
+				return
+			}
+
+			next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
+		})
+	}
 }
 
 func requestIDMiddleware(next http.Handler) http.Handler {
@@ -166,6 +251,22 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 			RequestID: requestIDFromContext(r.Context()),
 		},
 	})
+}
+
+func decodeJSONBody[T any](r *http.Request) (T, error) {
+	var payload T
+	if r.Body == nil {
+		return payload, nil
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&payload); err != nil {
+		if errors.Is(err, io.EOF) {
+			return payload, nil
+		}
+		return payload, err
+	}
+	return payload, nil
 }
 
 type requestIDContextKey struct{}

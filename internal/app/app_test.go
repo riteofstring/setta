@@ -19,7 +19,7 @@ func TestAppServesFoundationRoutes(t *testing.T) {
 
 	cfg := config.Config{
 		Server: config.Server{
-			Mode:     config.ModeIDE,
+			Mode:     config.ModeLauncher,
 			LogLevel: 0,
 		},
 		Paths: config.Paths{
@@ -57,8 +57,8 @@ func TestAppServesFoundationRoutes(t *testing.T) {
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode runtime info: %v", err)
 	}
-	if payload.Mode != "ide" {
-		t.Fatalf("expected mode ide, got %q", payload.Mode)
+	if payload.Mode != "launcher" {
+		t.Fatalf("expected mode launcher, got %q", payload.Mode)
 	}
 	if payload.Paths.SettaFilesLocation != "local" {
 		t.Fatalf("expected local files location, got %q", payload.Paths.SettaFilesLocation)
@@ -69,7 +69,7 @@ func TestAppShutdownStopsRuntime(t *testing.T) {
 	t.Parallel()
 
 	app, err := New(config.Config{
-		Server: config.Server{Mode: config.ModeIDE},
+		Server: config.Server{Mode: config.ModeLauncher},
 		Paths: config.Paths{
 			WorkspaceRoot:         "/tmp/workspace",
 			SettaHome:             "/tmp/.setta",
