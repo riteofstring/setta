@@ -1299,6 +1299,179 @@ func TestMCPToolCallRouteSetShowParamDisplayNamesAcceptsTemporaryIDs(t *testing.
 	}
 }
 
+func TestMCPToolCallRouteSupportsTogglePositionLocks(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route toggle_position_locks: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 {
+		allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+		if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected allowed-section to start unlocked")
+		}
+	}
+	if len(project.Sections["blocked-section"].SharedModifier) != 0 {
+		blockedPayload := mustDecodedRouteProjectPayload(t, project.Sections["blocked-section"].SharedModifier)
+		if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected blocked-section to start unlocked")
+		}
+	}
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"toggle_position_locks",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"sectionIds":["allowed-section","blocked-section"]
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected toggle_position_locks success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route toggle_position_locks: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	blockedPayload := mustDecodedRouteProjectPayload(t, project.Sections["blocked-section"].SharedModifier)
+	if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected allowed-section to be locked after route mutation")
+	}
+	if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected blocked-section to be locked after route mutation")
+	}
+}
+
+func TestMCPToolCallRouteTogglePositionLocksAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before temp-id route toggle_position_locks: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 {
+		allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+		if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected allowed-section to start unlocked")
+		}
+	}
+	if len(project.Sections["blocked-section"].SharedModifier) != 0 {
+		blockedPayload := mustDecodedRouteProjectPayload(t, project.Sections["blocked-section"].SharedModifier)
+		if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected blocked-section to start unlocked")
+		}
+	}
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"toggle_position_locks",
+		"arguments":{
+			"projectConfigId":"11",
+			"sectionIds":["14","16"]
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id toggle_position_locks success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route toggle_position_locks: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	blockedPayload := mustDecodedRouteProjectPayload(t, project.Sections["blocked-section"].SharedModifier)
+	if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected allowed-section to be locked after temp-id route mutation")
+	}
+	if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected blocked-section to be locked after temp-id route mutation")
+	}
+}
+
 func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
 	t.Parallel()
 

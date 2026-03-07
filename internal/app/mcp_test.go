@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 29 {
-		t.Fatalf("expected 29 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 30 {
+		t.Fatalf("expected 30 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 29 {
-		t.Fatalf("expected 29 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 30 {
+		t.Fatalf("expected 30 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1448,6 +1448,169 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetShowParamDisplayNamesOverAuthe
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true after temp-id app mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsTogglePositionLocksOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before app toggle_position_locks: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 {
+		allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+		if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected allowed-section to start unlocked")
+		}
+	}
+	if len(project.Sections["blocked-section"].SharedModifier) != 0 {
+		blockedPayload := mustDecodedProjectPayloadValue(t, project.Sections["blocked-section"].SharedModifier)
+		if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected blocked-section to start unlocked")
+		}
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_position_locks",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionIds":      []string{"allowed-section", "blocked-section"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call toggle_position_locks: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected toggle_position_locks success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app toggle_position_locks: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+	blockedPayload := mustDecodedProjectPayloadValue(t, project.Sections["blocked-section"].SharedModifier)
+	if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected allowed-section to be locked after app mutation")
+	}
+	if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected blocked-section to be locked after app mutation")
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForTogglePositionLocksOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before temp-id app toggle_position_locks: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 {
+		allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+		if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected allowed-section to start unlocked")
+		}
+	}
+	if len(project.Sections["blocked-section"].SharedModifier) != 0 {
+		blockedPayload := mustDecodedProjectPayloadValue(t, project.Sections["blocked-section"].SharedModifier)
+		if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected blocked-section to start unlocked")
+		}
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_position_locks",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionIds":      []string{"14", "16"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id toggle_position_locks: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id toggle_position_locks success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app toggle_position_locks: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+	blockedPayload := mustDecodedProjectPayloadValue(t, project.Sections["blocked-section"].SharedModifier)
+	if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected allowed-section to be locked after temp-id app mutation")
+	}
+	if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected blocked-section to be locked after temp-id app mutation")
 	}
 }
 
@@ -3536,6 +3699,94 @@ func TestAppIDEMCPToolCallRouteSupportsSetShowParamDisplayNames(t *testing.T) {
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true after route mutation")
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsTogglePositionLocks(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route toggle_position_locks: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 {
+		allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+		if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected allowed-section to start unlocked")
+		}
+	}
+	if len(project.Sections["blocked-section"].SharedModifier) != 0 {
+		blockedPayload := mustDecodedProjectPayloadValue(t, project.Sections["blocked-section"].SharedModifier)
+		if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); locked {
+			t.Fatal("expected blocked-section to start unlocked")
+		}
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"toggle_position_locks",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionIds":["allowed-section","blocked-section"]
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post toggle_position_locks tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode toggle_position_locks tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected toggle_position_locks success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route toggle_position_locks: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-section"].SharedModifier)
+	blockedPayload := mustDecodedProjectPayloadValue(t, project.Sections["blocked-section"].SharedModifier)
+	if locked, _ := allowedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected allowed-section to be locked after route mutation")
+	}
+	if locked, _ := blockedPayload["positionAndSizeLocked"].(bool); !locked {
+		t.Fatal("expected blocked-section to be locked after route mutation")
 	}
 }
 

@@ -82,6 +82,7 @@ type projectStateProvider interface {
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
+	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 }
 
 type codeUpdateProvider interface {
@@ -983,6 +984,40 @@ func newSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools
 		}
 
 		if _, err := projectState.SetShowParamDisplayNames(ctx, projectConfigID, showParamDisplayNames); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newTogglePositionLocksHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionIDs, err := readRequiredStringArrayArgument(arguments, "sectionIds")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural toggle-position-locks invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.TogglePositionLocks(ctx, projectConfigID, sectionIDs); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2056,6 +2091,49 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "showParamDisplayNames"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "toggle_position_locks",
+				Description: "Flip whether one or more sections have locked positions and sizes.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionIds"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "presentation", "lock", "position", "sections", "structural"},
+				},
+				Handler: newTogglePositionLocksHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section layout locks should be toggled.",
+					},
+					"sectionIds": map[string]any{
+						"type":        "array",
+						"description": "Section ids whose position-and-size lock flag should be flipped.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "sectionIds"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",

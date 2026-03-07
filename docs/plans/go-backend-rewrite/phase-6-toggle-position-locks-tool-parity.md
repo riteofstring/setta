@@ -18,13 +18,14 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `set_show_param_display_names` MCP parity is complete
+- `toggle_position_locks` MCP parity is now complete
 - Go already owns `toggle_position_locks` in:
   - `internal/projectstate/layout_presentation.go`
   - `internal/httpapi/project_routes.go`
 - Python tags `toggle_position_locks` as a structural project-state tool with
   explicit `sectionIds` argument targeting metadata
-- the remaining work is MCP registration plus structural-scope and authenticated
-  transport coverage
+- structural-scope, unknown-section, temporary-id, authenticated HTTP bridge,
+  and IDE SSE coverage landed in the completed slice
 
 ## Scope
 
@@ -120,21 +121,30 @@ The Go runtime already mirrors the same validate-before-apply semantics through
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsTogglePositionLocks|TestMCPToolCallRouteTogglePositionLocksAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsTogglePositionLocksOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForTogglePositionLocksOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsTogglePositionLocks' -count=1 -timeout 420s`
 
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- implement this slice before widening into the adjacent section-targeted
-  layout-presentation MCP tools
-- after this slice, the next likely bounded work is:
-  - `toggle_minimized`
-  - `set_section_tag_color`
+- move to `toggle_minimized` as the next bounded Phase 6
+  layout-presentation MCP slice
+- keep `set_section_tag_color` as the nearby follow-on after that
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `toggle_position_locks`.
+- 2026-03-07: MCP now exposes `toggle_position_locks` as an unscoped
+  structural tool over the existing Go layout-presentation runtime owner.
+- 2026-03-07: the slice preserved Python-style `sectionIds` target metadata so
+  structural denials and temporary-id translation stay source-of-truth driven
+  at the MCP invocation edge.
+- 2026-03-07: runtime-owned validate-before-apply behavior stayed intact;
+  unknown sections still fail through the existing Go owner rather than through
+  MCP-local prechecks.

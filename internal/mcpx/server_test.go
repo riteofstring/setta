@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 29 {
-		t.Fatalf("expected 29 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 30 {
+		t.Fatalf("expected 30 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -151,6 +151,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCodeTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
+	var togglePositionLocksTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var deleteKwargTool *sdkmcp.Tool
@@ -198,6 +199,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_show_param_display_names" {
 			setShowParamDisplayNamesTool = tool
+		}
+		if tool.Name == "toggle_position_locks" {
+			togglePositionLocksTool = tool
 		}
 		if tool.Name == "set_top_level_section_layout" {
 			setTopLevelSectionLayoutTool = tool
@@ -278,6 +282,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
+		"toggle_position_locks",
 		"update_param_impl_config",
 	}
 	for index, name := range expectedNames {
@@ -315,6 +320,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setShowParamDisplayNamesTool == nil {
 		t.Fatal("expected set_show_param_display_names tool")
+	}
+	if togglePositionLocksTool == nil {
+		t.Fatal("expected toggle_position_locks tool")
 	}
 	if setTopLevelSectionLayoutTool == nil {
 		t.Fatal("expected set_top_level_section_layout tool")
@@ -442,6 +450,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setShowParamDisplayNamesMeta := mustStructuredMap(t, setShowParamDisplayNamesTool.Meta[toolMetaNamespace])
 	if setShowParamDisplayNamesMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_show_param_display_names, got %#v", setShowParamDisplayNamesMeta["accessType"])
+	}
+	togglePositionLocksMeta := mustStructuredMap(t, togglePositionLocksTool.Meta[toolMetaNamespace])
+	if togglePositionLocksMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for toggle_position_locks, got %#v", togglePositionLocksMeta["accessType"])
+	}
+	togglePositionLocksPaths := mustStructuredMap(t, togglePositionLocksMeta["idPathsByType"])
+	if got := mustStringList(t, togglePositionLocksPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
+		t.Fatalf("expected toggle_position_locks sectionIds target path, got %#v", got)
 	}
 	setTopLevelSectionLayoutMeta := mustStructuredMap(t, setTopLevelSectionLayoutTool.Meta[toolMetaNamespace])
 	if setTopLevelSectionLayoutMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -593,8 +609,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 29 {
-		t.Fatalf("expected 29 registered tool names, got %#v", listNames)
+	if len(listNames) != 30 {
+		t.Fatalf("expected 30 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2279,6 +2295,135 @@ func TestServerSetShowParamDisplayNamesAllowsUnscopedStructuralCallsAndTranslate
 	}
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true after mutation")
+	}
+}
+
+func TestServerTogglePositionLocksRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_position_locks",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionIds":      []string{"blocked-section"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call toggle_position_locks blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked toggle_position_locks call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected targetSectionIds [blocked-section], got %#v", ids)
+	}
+	if ids := mustStringList(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
+	}
+}
+
+func TestServerTogglePositionLocksAllowsUnscopedStructuralCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before toggle_position_locks: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 &&
+		payloadBoolField(mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier), "positionAndSizeLocked") {
+		t.Fatal("expected allowed-section to start unlocked")
+	}
+	if len(project.Sections["blocked-section"].SharedModifier) != 0 &&
+		payloadBoolField(mustDecodedProjectPayload(t, project.Sections["blocked-section"].SharedModifier), "positionAndSizeLocked") {
+		t.Fatal("expected blocked-section to start unlocked")
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_position_locks",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionIds":      []string{"14", "16"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id toggle_position_locks: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id toggle_position_locks success, got %#v", result.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after toggle_position_locks: %v", err)
+	}
+	if !payloadBoolField(mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier), "positionAndSizeLocked") {
+		t.Fatal("expected allowed-section to be locked after mutation")
+	}
+	if !payloadBoolField(mustDecodedProjectPayload(t, project.Sections["blocked-section"].SharedModifier), "positionAndSizeLocked") {
+		t.Fatal("expected blocked-section to be locked after mutation")
+	}
+}
+
+func TestServerTogglePositionLocksRejectsUnknownSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_position_locks",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionIds":      []string{"missing-section"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid toggle_position_locks: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid toggle_position_locks call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "missing-section") {
+		t.Fatalf("expected missing-section message, got %#v", payload["message"])
 	}
 }
 
