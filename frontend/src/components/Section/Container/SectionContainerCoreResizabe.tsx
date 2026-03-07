@@ -1,3 +1,5 @@
+import type { SettingsAllSettingsBenchmarkStage } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import {
@@ -33,6 +35,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SettingsAllSettingsBenchmarkSnapdomSectionBody } from "./SettingsAllSettingsBenchmarkSnapdomSectionBody";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
@@ -57,6 +60,7 @@ export function SectionContainerCoreResizable({
   hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     isMinimized,
     isYouTube,
@@ -96,6 +100,27 @@ export function SectionContainerCoreResizable({
   const metaControlLayoutClassName = isMetaControl
     ? "grid-cols-1 grid-rows-1"
     : undefined;
+  const shouldRenderFullSectionBody = benchmark.renderFullSectionBody;
+  const shouldRenderHeader =
+    !hideHeader && (!benchmark.active || benchmark.renderSectionHeader);
+  const shouldRenderIncrementer =
+    isRoot && (!benchmark.active || benchmark.renderFullSectionBody);
+  const shouldRenderAreaSwitch =
+    !isMinimized &&
+    (!benchmark.active ||
+      benchmark.renderFullSectionBody ||
+      benchmark.renderSectionBody);
+  const shouldRenderBenchmarkShell =
+    benchmark.active && !benchmark.renderFullSectionBody && !isMetaControl;
+  const sectionBody = shouldRenderAreaSwitch ? (
+    <AreaSwitch
+      sectionId={sectionId}
+      sectionTypeName={sectionTypeName}
+      bgColor={bgColor}
+      isMinimized={isMinimized}
+      isUserView={isUserView}
+    />
+  ) : null;
 
   return (
     <CustomResizable
@@ -141,7 +166,7 @@ export function SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : hideHeader ? null : (
+      ) : shouldRenderHeader ? (
         <SectionHeader
           sectionId={sectionId}
           isActiveSection={isActiveSection}
@@ -151,16 +176,36 @@ export function SectionContainerCoreResizable({
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
+      ) : null}
+      {shouldRenderIncrementer && (
+        <Incrementer sectionId={sectionId} isRoot={isRoot} />
       )}
-      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      <AreaSwitch
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        bgColor={bgColor}
-        isMinimized={isMinimized}
-        isUserView={isUserView}
-      />
+      {shouldRenderAreaSwitch ? (
+        <SettingsAllSettingsBenchmarkSnapdomSectionBody
+          isActiveSection={isActiveSection}
+          sectionId={sectionId}
+        >
+          {sectionBody}
+        </SettingsAllSettingsBenchmarkSnapdomSectionBody>
+      ) : shouldRenderBenchmarkShell ? (
+        <BenchmarkSectionBodyPlaceholder stage={benchmark.stage} />
+      ) : null}
     </CustomResizable>
+  );
+}
+
+function BenchmarkSectionBodyPlaceholder({
+  stage,
+}: {
+  stage: SettingsAllSettingsBenchmarkStage;
+}) {
+  return (
+    <div
+      className="section-row-pin-main flex min-h-12 w-full items-center justify-center px-3 py-3 text-[0.6rem] uppercase tracking-[0.18em] text-setta-300 dark:text-setta-600"
+      data-settings-benchmark-placeholder={stage}
+    >
+      {stage === "frame-only" ? "Frame only" : "Header only"}
+    </div>
   );
 }
 
