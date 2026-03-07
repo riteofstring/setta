@@ -28,6 +28,8 @@ const STAGES = [
   "other-non-text-widgets",
   "non-text-widgets-no-dropdown",
   "code-widgets",
+  "full-ui-editor-shell",
+  "full-no-zindex",
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",

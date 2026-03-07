@@ -34,6 +34,8 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "other-non-text-widgets",
   "non-text-widgets-no-dropdown",
   "code-widgets",
+  "full-ui-editor-shell",
+  "full-no-zindex",
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",
@@ -79,6 +81,8 @@ type SettingsAllSettingsBenchmarkValue = {
   nonTextWidgetScope?: SettingsAllSettingsBenchmarkNonTextWidgetScope;
   renderParamChrome: boolean;
   renderParamSortable: boolean;
+  renderUiEditorContent?: boolean;
+  skipActivationZIndexReorder?: boolean;
   renderSectionBodySnapdomPreview: boolean;
   sectionBodyHiddenOpacity?: number | null;
   keepSectionBodyMountedWithSnapdomPreview?: boolean;
@@ -107,6 +111,8 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   nonTextWidgetScope: "all",
   renderParamChrome: true,
   renderParamSortable: true,
+  renderUiEditorContent: true,
+  skipActivationZIndexReorder: false,
   renderSectionBodySnapdomPreview: false,
   sectionBodyHiddenOpacity: null,
   keepSectionBodyMountedWithSnapdomPreview: false,
@@ -124,6 +130,15 @@ function isSettingsAllSettingsBenchmarkStage(
   return SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES.includes(
     value as SettingsAllSettingsBenchmarkStage,
   );
+}
+
+export function getRequestedSettingsAllSettingsBenchmarkStageFromWindow(): SettingsAllSettingsBenchmarkStage | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const params = new URLSearchParams(window.location.search);
+  const value = params.get(SETTINGS_ALL_SETTINGS_BENCHMARK_QUERY_PARAM);
+  return isSettingsAllSettingsBenchmarkStage(value) ? value : null;
 }
 
 function resolveBenchmarkValue(
@@ -632,6 +647,60 @@ function resolveBenchmarkValue(
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
       };
+    case "full-ui-editor-shell":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderUiEditorContent: false,
+        skipActivationZIndexReorder: false,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
+      };
+    case "full-no-zindex":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderUiEditorContent: true,
+        skipActivationZIndexReorder: true,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
+      };
     case "full":
       return {
         active: true,
@@ -783,9 +852,7 @@ export function SettingsAllSettingsBenchmarkProvider({
   }, _.isEqual);
 
   const requestedStage = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    const value = params.get(SETTINGS_ALL_SETTINGS_BENCHMARK_QUERY_PARAM);
-    return isSettingsAllSettingsBenchmarkStage(value) ? value : null;
+    return getRequestedSettingsAllSettingsBenchmarkStageFromWindow();
   }, [location.search]);
 
   const value = useMemo(

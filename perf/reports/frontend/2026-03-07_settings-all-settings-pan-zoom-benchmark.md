@@ -2712,3 +2712,99 @@ New benchmark stages:
   - the fresh-object `useProjectState` selector in `ParamInput` was the trigger
 - Splitting that subscription into primitive selectors collapses the activation cliff across the whole benchmark.
 - There may still be smaller activation costs left in the live widget layer, but the previous dropdown bottleneck is no longer the dominant issue.
+
+## Addendum: post-dropdown activation follow-up shows the next hotspots are selector equality churn and UI editor section config
+
+- Date: `2026-03-07`
+- Goal: figure out what remains in activation latency after the dropdown `ParamInput` fix.
+- Method:
+  - same alternating `shortcuts` / `gui` click loop
+  - measured `click -> active outline class flips`
+  - same-session comparisons only
+
+### Visual validation
+
+- `full` after selector tightening:
+  - `perf/artifacts/frontend/settings-all-settings/activation-next-hotspot-2026-03-07/full-visible-after-selector-tightening.png`
+- `full-ui-editor-shell`:
+  - `perf/artifacts/frontend/settings-all-settings/activation-next-hotspot-2026-03-07/full-ui-editor-shell-visible.png`
+
+### Targeted controls before the production change
+
+- `full`
+  - average `67.18ms`
+  - runs `100.80`, `101.50`, `176.10`, `49.60`, `27.10`, `29.70`, `27.30`, `25.30`
+- `full-ui-editor-shell`
+  - average `56.29ms`
+  - runs `80.90`, `95.30`, `79.10`, `77.20`, `52.40`, `21.70`, `21.70`, `22.00`
+- `full-no-zindex`
+  - average `91.90ms`
+  - runs `340.10`, `111.70`, `123.00`, `53.00`, `28.40`, `26.40`, `27.10`, `25.50`
+
+### What those controls isolated
+
+- Replacing the UI editor content with a shell does help, but only as a secondary win.
+  - `full`: `67.18ms`
+  - `full-ui-editor-shell`: `56.29ms`
+  - delta: `-10.89ms`
+- Skipping the z-index reorder path did not help.
+  - `full-no-zindex` was noisier and worse than the baseline in this pass
+  - so `setZIndices` is not the next high-value target
+
+### Trace read before the production change
+
+- Representative trace:
+  - `perf/artifacts/frontend/settings-all-settings/activation-next-hotspot-2026-03-07/full-activation-trace-next-hotspot.json`
+- The remaining hot names were not dominated by widgets anymore.
+- The strongest concrete signals were:
+  - `UiEditor`
+  - `SectionConfig/EdgePortsSettings`
+  - `KwargsControls/ParamFilter`
+  - repeated `zustand` `memoizedSelector` + `lodash isEqual` frames
+- So the next fix target was not another widget implementation. It was selector/equality churn in shared activation subscribers.
+
+### Production selector tightening
+
+- `frontend/src/components/Panes/UiEditor/UiEditor.tsx`
+  - subscribe to the primitive active section id instead of the whole `activeIds` array
+- `frontend/src/state/hooks/uiTypes.ts`
+  - stop returning `{ selectedTabName, requiredTabs, sectionType }` from a `useProjectState(..., _.isEqual)` selector
+  - derive the tab info outside the store selector, so `requiredTabs` no longer creates a fresh `Set` inside the selector on every store update
+- `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - replace `_.isEqual` with `shallow` for a selector that only returns primitives / booleans
+- `frontend/src/components/Section/Container/ContainerCore.tsx`
+  - replace `_.isEqual` with `shallow` for the group container selector
+- `frontend/src/components/Section/SectionParts/KwargsControls.tsx`
+  - replace the primitive style/callable selector `_.isEqual` with `shallow`
+  - split `ParamFilter` into primitive subscriptions for `paramFilterValue` and `sectionIsActive`
+
+### Same-session rerun after selector tightening
+
+- `full`
+  - average `63.58ms`
+  - runs `86.60`, `97.90`, `169.70`, `48.20`, `26.50`, `29.40`, `25.90`, `24.40`
+- `full-ui-editor-shell`
+  - average `54.99ms`
+  - runs `72.00`, `88.40`, `82.60`, `79.70`, `51.60`, `21.40`, `23.00`, `21.20`
+
+### Before / after summary
+
+- `full`: `67.18ms` -> `63.58ms`
+  - delta: `-3.60ms`
+- `full-ui-editor-shell`: `56.29ms` -> `54.99ms`
+  - delta: `-1.30ms`
+- Remaining `full -> full-ui-editor-shell` gap after the fix:
+  - `63.58ms` -> `54.99ms`
+  - delta: `-8.59ms`
+
+### Corrected activation conclusion
+
+- The next hotspot is now concrete enough that another broad pass is unnecessary.
+- The remaining activation latency is split between:
+  - UI editor content for the selected section, especially `SectionConfig/EdgePortsSettings`
+  - canvas-side section chrome / filter subscribers such as `KwargsControls/ParamFilter`
+- The z-index reorder path is not the next meaningful win.
+- The low-risk selector tightening pass was worth landing, but it only recovered a small part of the remaining latency.
+- So the next high-value direction is:
+  - either defer / lighten UI editor section-config work on active-section change
+  - or continue tightening section-level active-state subscribers if we want a fully behavior-preserving path first

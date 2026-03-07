@@ -1,3 +1,4 @@
+import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useMisc, useProjectState } from "state/definitions";
@@ -150,7 +151,11 @@ export function applyActiveSectionChange(
     setActiveSectionIds(decision.nextActiveIds);
   }
 
-  if (decision.updateZIndex) {
+  const skipBenchmarkZIndexReorder =
+    getRequestedSettingsAllSettingsBenchmarkStageFromWindow() ===
+    "full-no-zindex";
+
+  if (decision.updateZIndex && !skipBenchmarkZIndexReorder) {
     const zIndexTargets = getZIndexTargets(intent);
     if (zIndexTargets.length > 0) {
       setZIndices(zIndexTargets, false);
