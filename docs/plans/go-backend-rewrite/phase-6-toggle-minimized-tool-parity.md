@@ -18,13 +18,14 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `toggle_position_locks` MCP parity is complete
+- `toggle_minimized` MCP parity is now complete
 - Go already owns `toggle_minimized` in:
   - `internal/projectstate/layout_presentation.go`
   - `internal/httpapi/project_routes.go`
 - Python tags `toggle_minimized` as a structural project-state tool with
   explicit `sectionId` argument targeting metadata
-- the remaining work is MCP registration plus structural-scope and authenticated
-  transport coverage
+- structural-scope, unknown-section, temporary-id, authenticated HTTP bridge,
+  and IDE SSE coverage landed in the completed slice
 
 ## Scope
 
@@ -121,21 +122,30 @@ The Go runtime already owns the same section-field mutation through
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsToggleMinimized|TestMCPToolCallRouteToggleMinimizedAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsToggleMinimizedOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForToggleMinimizedOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsToggleMinimized' -count=1 -timeout 420s`
 
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- implement this slice before widening into the remaining section-targeted
-  layout-presentation MCP tools
-- after this slice, the next likely bounded work is:
-  - `set_section_tag_color`
-  - `set_section_style_color`
+- move to `set_section_tag_color` as the next bounded Phase 6
+  layout-presentation MCP slice
+- keep `set_section_style_color` as the nearby follow-on after that
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `toggle_minimized`.
+- 2026-03-07: MCP now exposes `toggle_minimized` as an unscoped structural
+  tool over the existing Go layout-presentation runtime owner.
+- 2026-03-07: the slice preserved Python-style `sectionId` target metadata so
+  structural denials and temporary-id translation stay source-of-truth driven
+  at the MCP invocation edge.
+- 2026-03-07: runtime-owned section validation stayed intact; unknown sections
+  still fail through the existing Go owner rather than through MCP-local
+  prechecks.

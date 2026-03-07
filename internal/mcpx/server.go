@@ -83,6 +83,7 @@ type projectStateProvider interface {
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
+	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 }
 
 type codeUpdateProvider interface {
@@ -1018,6 +1019,40 @@ func newTogglePositionLocksHandler(projectState projectStateProvider) tools.Hand
 		}
 
 		if _, err := projectState.TogglePositionLocks(ctx, projectConfigID, sectionIDs); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newToggleMinimizedHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural toggle-minimized invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.ToggleMinimized(ctx, projectConfigID, sectionID); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2134,6 +2169,46 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "sectionIds"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "toggle_minimized",
+				Description: "Expand or collapse a section panel within the project workspace.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "presentation", "minimize", "collapse", "section", "structural"},
+				},
+				Handler: newToggleMinimizedHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section minimized state should be toggled.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose minimized state should be flipped.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",

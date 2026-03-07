@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 30 {
-		t.Fatalf("expected 30 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 31 {
+		t.Fatalf("expected 31 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -152,6 +152,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var togglePositionLocksTool *sdkmcp.Tool
+	var toggleMinimizedTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var deleteKwargTool *sdkmcp.Tool
@@ -202,6 +203,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "toggle_position_locks" {
 			togglePositionLocksTool = tool
+		}
+		if tool.Name == "toggle_minimized" {
+			toggleMinimizedTool = tool
 		}
 		if tool.Name == "set_top_level_section_layout" {
 			setTopLevelSectionLayoutTool = tool
@@ -282,6 +286,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
+		"toggle_minimized",
 		"toggle_position_locks",
 		"update_param_impl_config",
 	}
@@ -323,6 +328,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if togglePositionLocksTool == nil {
 		t.Fatal("expected toggle_position_locks tool")
+	}
+	if toggleMinimizedTool == nil {
+		t.Fatal("expected toggle_minimized tool")
 	}
 	if setTopLevelSectionLayoutTool == nil {
 		t.Fatal("expected set_top_level_section_layout tool")
@@ -458,6 +466,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	togglePositionLocksPaths := mustStructuredMap(t, togglePositionLocksMeta["idPathsByType"])
 	if got := mustStringList(t, togglePositionLocksPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
 		t.Fatalf("expected toggle_position_locks sectionIds target path, got %#v", got)
+	}
+	toggleMinimizedMeta := mustStructuredMap(t, toggleMinimizedTool.Meta[toolMetaNamespace])
+	if toggleMinimizedMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for toggle_minimized, got %#v", toggleMinimizedMeta["accessType"])
+	}
+	toggleMinimizedPaths := mustStructuredMap(t, toggleMinimizedMeta["idPathsByType"])
+	if got := mustStringList(t, toggleMinimizedPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected toggle_minimized sectionId target path, got %#v", got)
 	}
 	setTopLevelSectionLayoutMeta := mustStructuredMap(t, setTopLevelSectionLayoutTool.Meta[toolMetaNamespace])
 	if setTopLevelSectionLayoutMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -609,8 +625,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 30 {
-		t.Fatalf("expected 30 registered tool names, got %#v", listNames)
+	if len(listNames) != 31 {
+		t.Fatalf("expected 31 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2417,6 +2433,127 @@ func TestServerTogglePositionLocksRejectsUnknownSection(t *testing.T) {
 	}
 	if !result.IsError {
 		t.Fatal("expected invalid toggle_position_locks call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "missing-section") {
+		t.Fatalf("expected missing-section message, got %#v", payload["message"])
+	}
+}
+
+func TestServerToggleMinimizedRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_minimized",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call toggle_minimized blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked toggle_minimized call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected targetSectionIds [blocked-section], got %#v", ids)
+	}
+	if ids := mustStringList(t, payload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
+	}
+}
+
+func TestServerToggleMinimizedAllowsUnscopedStructuralCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before toggle_minimized: %v", err)
+	}
+	if len(project.Sections["allowed-section"].SharedModifier) != 0 &&
+		payloadBoolField(mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier), "isMinimized") {
+		t.Fatal("expected allowed-section to start unminimized")
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_minimized",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id toggle_minimized: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id toggle_minimized success, got %#v", result.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after toggle_minimized: %v", err)
+	}
+	if !payloadBoolField(mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier), "isMinimized") {
+		t.Fatal("expected allowed-section to be minimized after mutation")
+	}
+}
+
+func TestServerToggleMinimizedRejectsUnknownSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "toggle_minimized",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "missing-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid toggle_minimized: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid toggle_minimized call to fail")
 	}
 	payload := mustStructuredMap(t, result.StructuredContent)
 	if payload["code"] != "invalid_arguments" {

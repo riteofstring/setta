@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 30 tools total
-- 27 current Go tool names overlap with Python
+- Go MCP now exposes 31 tools total
+- 28 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 25 of those overlaps are mutation or structural tools
-- Python still has 24 mutation or structural project-state MCP tools that do
+- 26 of those overlaps are mutation or structural tools
+- Python still has 23 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -58,6 +58,7 @@ MCP server:
   - `auto_layout_top_level_sections`
   - `set_show_param_display_names`
   - `toggle_position_locks`
+  - `toggle_minimized`
 - writes:
   - `set_section_name`
   - `set_callable`
@@ -80,24 +81,24 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `toggle_minimized`
+- `set_section_tag_color`
 
 Why this is next:
 
 1. Go already owns the authoritative runtime and IDE HTTP route in:
    - `internal/projectstate/layout_presentation.go`
    - `internal/httpapi/project_routes.go`
-2. It reuses the completed scoped structural-tool boundary without widening
-   back out to section arrays or project-wide presentation state.
+2. It reuses the completed scoped structural-tool boundary plus the existing
+   section-id invocation-edge translation already exercised by the two previous
+   section-targeted presentation slices.
 3. It is the next bounded section-targeted presentation mutation after the
-   now-completed `toggle_position_locks` slice.
+   now-completed `toggle_minimized` slice.
 
-### 2. Good Follow-Ons After `toggle_minimized`
+### 2. Good Follow-Ons After `set_section_tag_color`
 
 These already have Go runtime owners and existing IDE HTTP route transport, so
 their main remaining gap is MCP registration and scoped test coverage:
 
-- `set_section_tag_color`
 - `set_section_style_color`
 - `set_watch_code_enabled`
 - `set_watch_code_inputs`
@@ -137,8 +138,8 @@ priority:
 
 ## Recommended Next Step
 
-- use `toggle_minimized` as the next bounded MCP slice
-- keep `set_section_tag_color` as the follow-on section-targeted presentation
+- use `set_section_tag_color` as the next bounded MCP slice
+- keep `set_section_style_color` as the follow-on section-targeted presentation
   mutation after that
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
@@ -150,8 +151,8 @@ priority:
 ## Verification
 
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsTogglePositionLocks|TestMCPToolCallRouteTogglePositionLocksAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsTogglePositionLocksOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForTogglePositionLocksOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsTogglePositionLocks' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsToggleMinimized|TestMCPToolCallRouteToggleMinimizedAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsToggleMinimizedOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForToggleMinimizedOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsToggleMinimized' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -181,3 +182,7 @@ priority:
   structural tool over the existing Go layout-presentation owner.
 - 2026-03-07: the next bounded slice moved to
   `toggle_minimized`.
+- 2026-03-07: `toggle_minimized` MCP parity completed as an unscoped
+  structural tool over the existing Go layout-presentation owner.
+- 2026-03-07: the next bounded slice moved to
+  `set_section_tag_color`.
