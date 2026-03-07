@@ -21,7 +21,8 @@ Current repo status as of 2026-03-06:
   - an in-memory project runtime
   - monotonic runtime revision tracking
   - serialized mutation execution
-- registry wiring and deployment overlays still live only in Python across:
+- a main/settings runtime registry now exists and is wired into `internal/app`
+- deployment overlays still live only in Python across:
   - `backend/setta/project_state/session_project_manager.py`
   - `backend/setta/project_state/project_manager_switcher.py`
 
@@ -254,6 +255,44 @@ Acceptance:
 - settings persistence does not share files or revisions with the main project runtime
 - Phase 4 can depend on a registry instead of a giant app-state singleton
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/projectstate/registry.go`
+- chose explicit main/settings persistence targets under the resolved `setta_files` root:
+  - main runtime: `project.json`
+  - settings runtime: `setta-settings-project.json`
+- added a narrow registry interface around:
+  - path resolution
+  - runtime lookup by logical target
+  - lifecycle ownership for both runtimes
+- wired the registry into `internal/app` so the app now owns:
+  - the runtime supervisor
+  - the project-state registry
+  - coordinated shutdown for both
+- kept the app boundary explicit instead of smuggling project state through HTTP handlers or a giant mutable app-state singleton
+
+Tests:
+
+- focused coverage in `internal/projectstate/registry_test.go` for:
+  - main/settings runtime creation
+  - target lookup errors
+  - separate persistence and revision behavior
+- added app-level coverage in `internal/app/app_test.go` for:
+  - registry wiring at startup
+  - separate main/settings runtime paths and saves
+  - coordinated shutdown behavior staying intact
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- deployment/share session runtime overlays
+- route-level runtime resolution helpers
+- settings-project seeding logic beyond the current empty Go document bootstrap
+
 ### Slice 4: Deployment Session Overlays And Path Policy Hooks
 
 Deliver:
@@ -270,18 +309,18 @@ Acceptance:
 
 ## First Recommended Work Item
 
-Start with Slice 3 only.
+Start with Slice 4 only.
 
-That is the highest-leverage step because the runtime/store boundary now exists,
-and the next architectural gap is explicit ownership of main vs settings
-project-state runtimes.
+That is the highest-leverage step because the persistent/runtime/registry
+layers now exist, and the remaining missing Phase 3 boundary is deployment
+session overlay ownership.
 
 Specifically:
 
-- add a narrow runtime registry
-- keep main and settings stores/runtimes separate
-- wire the registry into `internal/app` without creating a giant singleton
-- avoid route migration until registry ownership is explicit
+- define how share/app sessions derive isolated runtime state from a base runtime
+- keep overlay save policy explicit so deployment sessions never overwrite persistent IDE state
+- add only the minimum path-policy hooks needed for later websocket/runtime work
+- avoid broad route migration until the overlay boundary is settled
 
 ## Test Plan
 
@@ -330,14 +369,18 @@ Resolved In Slice 2:
 - mutation serialization is owned by the runtime queue, not scattered across handlers or filesystem helpers
 - save is an explicit runtime operation that runs after earlier queued mutations, not a direct store call from callers
 
+Resolved In Slice 3:
+
+- main and settings project state are separate runtimes with separate backing files from the start
+- `internal/app` owns project-state registry lifecycle directly instead of leaving runtime lookup to transport code
+- later phases can depend on runtime lookup by logical target rather than reconstructing file paths ad hoc
+
 ## Next Recommended Step
 
-Implement Slice 3.
+Implement Slice 4.
 
 Specifically:
 
-- add a runtime registry that owns:
-  - main project runtime
-  - settings project runtime
-- decide the minimum config/app wiring needed so later HTTP and websocket work can resolve runtimes through one narrow boundary
-- keep deployment overlays and route migration deferred until registry ownership is in place
+- add a deployment/session overlay layer on top of the current registry/runtime model
+- decide whether overlays should wrap a base runtime snapshot or hydrate a session runtime directly from persisted state
+- keep route migration deferred until deployment overlay ownership and save rules are explicit
