@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 39 tools total
-- 36 current Go tool names overlap with Python
+- Go MCP now exposes 43 tools total
+- 40 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 34 of those overlaps are mutation or structural tools
-- Python still has 15 mutation or structural project-state MCP tools that do
+- 38 of those overlaps are mutation or structural tools
+- Python still has 11 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -60,6 +60,10 @@ MCP server:
   - `set_show_param_display_names`
   - `set_watch_code_enabled`
   - `set_watch_code_inputs`
+  - `compare_and_set_show_param_display_names`
+  - `compare_and_set_watch_code_enabled`
+  - `compare_and_set_watch_code_folders`
+  - `compare_and_set_watch_code_files`
   - `toggle_position_locks`
   - `toggle_minimized`
 - writes:
@@ -89,24 +93,22 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- compare-and-set UI-setting parity over existing Go owners:
-  - `compare_and_set_show_param_display_names`
-  - `compare_and_set_watch_code_enabled`
-  - `compare_and_set_watch_code_folders`
-  - `compare_and_set_watch_code_files`
+- attached-terminal structural parity over existing Go run-graph owners:
+  - `set_code_section_attached_terminal`
 
 Why this is next:
 
-1. `format_code` is now complete on the Go-owned route and MCP boundaries.
-2. The compare-and-set tools reuse already-landed Go runtime owners instead of
-   requiring a brand-new subsystem.
-3. They preserve important product semantics around side-effect-free no-ops and
-   stale-precondition writes without broadening Phase 6 into section-variant or
-   app-definition runtime work.
+1. the compare-and-set UI-setting cluster is now complete.
+2. Go already owns the attached-terminal validation/ensure foundations in the
+   run-graph runtime plus the sizing behavior that attached terminals depend on.
+3. the remaining gap is a bounded explicit attach/detach owner and MCP
+   transport, not a brand-new subsystem.
+4. this unlocks the attached-terminal toggle UX without broadening Phase 6 into
+   section-variant ordering or app-definition ownership.
 
-### 2. After The Compare-And-Set Cluster
+### 2. After The Attached-Terminal Slice
 
-- rerank the remaining mutation gaps against the completed compare-and-set
+- rerank the remaining mutation gaps against the completed attached-terminal
   owner layer
 - do not guess the post-formatting order in advance
 
@@ -123,7 +125,6 @@ owner is clearer:
 - `set_default_section_variant`
 - `set_section_variant_sort_order`
 - `set_meta_control_show_section_title`
-- `set_code_section_attached_terminal`
 - `set_app_definition`
 - `update_app_definition`
 
@@ -137,8 +138,8 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-compare-and-set-ui-setting-tools-parity.md` as the next bounded
-  Phase 6 slice
+- use `phase-6-set-code-section-attached-terminal-tool-parity.md` as the next
+  bounded Phase 6 slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -148,12 +149,10 @@ priority:
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codeformat -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestCodeUpdateServiceFormatCode|TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeSetGenCode(Suffix|Prefix)(PersistsPythonTargetField|RequiresPythonTarget)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerListsToolsAndScopesToolCalls|TestServer(SetCodeRespectsScopedWriteTargets|FormatCodeRespectsScopedWriteTargets|SetCodeRejectsReadOnlyCodeSections|FormatCodeRejectsReadOnlyCodeSections|SetCodeTranslatesTemporaryIDs|FormatCodeTranslatesTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutes(SetCode|FormatCode)|TestMCPToolCallRoute(SupportsFormatCode|FormatCodeAcceptsTemporaryIDs|RejectsReadOnlyFormatCode|RejectsReadOnlySetCode)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestApp(SetCodeRouteAppliesWatchCodeBoundSectionUpdate|FormatCodeRouteAppliesWatchCodeBoundSectionUpdate)|TestAppIDEMCPServer(SupportsAuthenticatedSSECalls|RejectsReadOnlySetCodeOverAuthenticatedSSE|SupportsSetCodeOverAuthenticatedSSE|SupportsTemporaryIDsForSetCodeOverAuthenticatedSSE|SupportsFormatCodeOverAuthenticatedSSE|SupportsTemporaryIDsForFormatCodeOverAuthenticatedSSE|SupportsGeneratedFormatCodeOverAuthenticatedSSE)|TestAppIDEMCPToolCallRouteSupports(SetCode|FormatCode)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(CompareAndSet|SetShowParamDisplayNames|SetWatchCode)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|CompareAndSet)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteCompareAndSet' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupports(AuthenticatedSSECalls|CompareAndSet)|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -218,7 +217,9 @@ priority:
   singleton-target scope boundary.
 - 2026-03-07: the next bounded slice moved to `format_code`.
 - 2026-03-07: `format_code` is now complete across the Go owner, IDE
-  `/formatCode` route, MCP server, MCP HTTP bridge, and authenticated IDE app
-  SSE boundary.
-- 2026-03-07: the next bounded slice moved to the compare-and-set UI-setting
-  and Watch Code tools cluster.
+  route, and MCP boundaries.
+- 2026-03-07: the compare-and-set UI-setting cluster is now complete across
+  the Go owner, MCP server, MCP HTTP bridge, and authenticated SSE transport.
+- 2026-03-07: reranking the remaining gaps moved the next bounded slice to
+  `set_code_section_attached_terminal` because the Go run-graph runtime already
+  owns most of the hard attached-terminal invariants.

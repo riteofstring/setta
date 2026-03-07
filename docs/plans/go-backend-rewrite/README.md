@@ -187,11 +187,15 @@ Use the docs in this order:
 73. `phase-6-compare-and-set-ui-setting-tools-parity.md`
   - focused slice doc for Go-owned compare-and-set UI-setting and Watch Code
     MCP parity over the completed presentation and Watch Code runtime owners
-74. `spike-mcp.md`
+74. `phase-6-set-code-section-attached-terminal-tool-parity.md`
+  - focused slice doc for Go-owned `set_code_section_attached_terminal` MCP
+    parity over the completed run-graph attached-terminal and section-sizing
+    foundations
+75. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-75. `spike-pty.md`
+76. `spike-pty.md`
    - PTY uncertainty-reduction plan
-76. `spike-lsp.md`
+77. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -126,7 +126,7 @@ func (d *Document) CompareAndSetWatchCodeFolders(
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
 	}
 
-	oldFolders := cloneWatchCodeFolders(project.WatchCodeFolders)
+	oldFolders := canonicalWatchCodeFolders(project.WatchCodeFolders)
 	nextFolders, err := normalizeWatchCodeFolders(workspaceRoot, folders)
 	if err != nil {
 		return CompareAndSetResult[[]WatchCodeFolder]{}, err
@@ -178,7 +178,7 @@ func (d *Document) CompareAndSetWatchCodeFiles(
 		return CompareAndSetResult[[]string]{}, err
 	}
 
-	oldFiles := append([]string(nil), project.WatchCodeFiles...)
+	oldFiles := canonicalStringSlice(project.WatchCodeFiles)
 	nextFiles, err := normalizeWatchCodeFiles(workspaceRoot, files)
 	if err != nil {
 		return CompareAndSetResult[[]string]{}, err
@@ -296,12 +296,26 @@ func optionalStringSliceAny(value []string) any {
 	if value == nil {
 		return nil
 	}
-	return append([]string(nil), value...)
+	return canonicalStringSlice(value)
 }
 
 func optionalWatchCodeFoldersAny(value []WatchCodeFolder) any {
 	if value == nil {
 		return nil
+	}
+	return canonicalWatchCodeFolders(value)
+}
+
+func canonicalStringSlice(value []string) []string {
+	if len(value) == 0 {
+		return []string{}
+	}
+	return append([]string(nil), value...)
+}
+
+func canonicalWatchCodeFolders(value []WatchCodeFolder) []WatchCodeFolder {
+	if len(value) == 0 {
+		return []WatchCodeFolder{}
 	}
 	return cloneWatchCodeFolders(value)
 }

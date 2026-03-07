@@ -93,6 +93,10 @@ type projectStateProvider interface {
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
 	SetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string) (projectstate.Snapshot, error)
 	SetWatchCodeInputs(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, files []string, workspaceRoot string) (projectstate.Snapshot, error)
+	CompareAndSetShowParamDisplayNames(ctx context.Context, projectID string, show bool, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
+	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 }
@@ -1105,6 +1109,158 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 		}
 
 		if _, err := projectState.SetWatchCodeInputs(ctx, projectConfigID, watchCodeFolders, watchCodeFiles, workspaceRoot); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		showParamDisplayNames, err := readRequiredBoolArgument(arguments, "showParamDisplayNames")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalBoolPointerArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set show-param-display-names invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetShowParamDisplayNames(ctx, projectConfigID, showParamDisplayNames, expectedOldValue); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetWatchCodeEnabledHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		enabled, err := readRequiredBoolArgument(arguments, "enabled")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalBoolPointerArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set watch-code invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetWatchCodeEnabled(ctx, projectConfigID, enabled, workspaceRoot, expectedOldValue); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetWatchCodeFoldersHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFolders, err := readRequiredWatchCodeFoldersArgument(arguments, "watchCodeFolders")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalWatchCodeFoldersArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set watch-code folders invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetWatchCodeFolders(ctx, projectConfigID, watchCodeFolders, workspaceRoot, expectedOldValue); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newCompareAndSetWatchCodeFilesHandler(projectState projectStateProvider, workspaceRoot string) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		watchCodeFiles, err := readRequiredStringArrayArgument(arguments, "watchCodeFiles")
+		if err != nil {
+			return nil, err
+		}
+		expectedOldValue, err := readOptionalStringArrayArgument(arguments, "expectedOldValue")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural compare-and-set watch-code files invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, _, err := projectState.CompareAndSetWatchCodeFiles(ctx, projectConfigID, watchCodeFiles, workspaceRoot, expectedOldValue); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2539,6 +2695,202 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "compare_and_set_show_param_display_names",
+				Description: "Update parameter display-name visibility only if the caller's optional expectedOldValue still matches the current project setting.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "presentation", "params", "display", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetShowParamDisplayNamesHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose parameter display-name visibility should be compare-and-set updated.",
+					},
+					"showParamDisplayNames": map[string]any{
+						"type":        "boolean",
+						"description": "True to show parameter display names, false to show canonical parameter names.",
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "boolean",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored value still matches this boolean.",
+					},
+				},
+				"required": []string{"projectConfigId", "showParamDisplayNames"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "compare_and_set_watch_code_enabled",
+				Description: "Enable or disable Watch Code only if the caller's optional expectedOldValue still matches the current project setting.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "project", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetWatchCodeEnabledHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code enabled setting should be compare-and-set updated.",
+					},
+					"enabled": map[string]any{
+						"type":        "boolean",
+						"description": "True to enable Watch Code and baseline existing watched inputs; false to disable it.",
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "boolean",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored value still matches this boolean.",
+					},
+				},
+				"required": []string{"projectConfigId", "enabled"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "compare_and_set_watch_code_folders",
+				Description: "Update Watch Code folders only if the caller's optional expectedOldValue still matches the current stored folder list.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "folders", "project", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetWatchCodeFoldersHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code folder inputs should be compare-and-set updated.",
+					},
+					"watchCodeFolders": map[string]any{
+						"type":        "array",
+						"description": "Folder inputs for Watch Code, each with a repo-relative path and recursive flag.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type":        "string",
+									"description": "Repo-relative folder path to watch.",
+								},
+								"recursive": map[string]any{
+									"type":        "boolean",
+									"description": "Whether Watch Code should scan this folder recursively.",
+								},
+							},
+							"required": []string{"path", "recursive"},
+						},
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "array",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored folder list still matches this array exactly.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type": "string",
+								},
+								"recursive": map[string]any{
+									"type": "boolean",
+								},
+							},
+							"required": []string{"path", "recursive"},
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "watchCodeFolders"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "compare_and_set_watch_code_files",
+				Description: "Update Watch Code files only if the caller's optional expectedOldValue still matches the current stored file list.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"watch", "code", "files", "project", "structural", "compare-and-set"},
+				},
+				Handler: newCompareAndSetWatchCodeFilesHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose Watch Code file inputs should be compare-and-set updated.",
+					},
+					"watchCodeFiles": map[string]any{
+						"type":        "array",
+						"description": "Repo-relative file paths for Watch Code inputs.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+					"expectedOldValue": map[string]any{
+						"type":        "array",
+						"description": "Optional precondition. When provided, the mutation fails with mutation_failed unless the current stored file list still matches this array exactly.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"projectConfigId", "watchCodeFiles"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "set_project_config_codegen_targets",
 				Description: "Update the ordered codegen target list for the active project config using the existing Go validator and generated-section reconciler.",
 				Metadata: tools.Metadata{
@@ -3882,6 +4234,18 @@ func readOptionalBoolArgument(arguments map[string]any, key string) (bool, error
 	return value, nil
 }
 
+func readOptionalBoolPointerArgument(arguments map[string]any, key string) (*bool, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	value, ok := rawValue.(bool)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be a boolean", key)
+	}
+	return &value, nil
+}
+
 func readRequiredBoolArgument(arguments map[string]any, key string) (bool, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -4164,10 +4528,72 @@ func readRequiredStringArrayArgument(arguments map[string]any, key string) ([]st
 	}
 }
 
+func readOptionalStringArrayArgument(arguments map[string]any, key string) ([]string, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+
+	switch typed := rawValue.(type) {
+	case []string:
+		output := make([]string, len(typed))
+		copy(output, typed)
+		return output, nil
+	case []any:
+		output := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			rawString, ok := entry.(string)
+			if !ok {
+				return nil, newToolError("invalid_arguments", "%s must be an array of strings", key)
+			}
+			output = append(output, strings.TrimSpace(rawString))
+		}
+		return output, nil
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an array of strings", key)
+	}
+}
+
 func readRequiredWatchCodeFoldersArgument(arguments map[string]any, key string) ([]projectstate.WatchCodeFolder, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
 		return nil, newToolError("invalid_arguments", "%s is required", key)
+	}
+
+	switch typed := rawValue.(type) {
+	case []projectstate.WatchCodeFolder:
+		output := make([]projectstate.WatchCodeFolder, len(typed))
+		copy(output, typed)
+		return output, nil
+	case []map[string]any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	case []any:
+		output := make([]projectstate.WatchCodeFolder, 0, len(typed))
+		for index, entry := range typed {
+			folder, err := readWatchCodeFolderValue(entry, key, index)
+			if err != nil {
+				return nil, err
+			}
+			output = append(output, folder)
+		}
+		return output, nil
+	default:
+		return nil, newToolError("invalid_arguments", "%s must be an array of objects", key)
+	}
+}
+
+func readOptionalWatchCodeFoldersArgument(arguments map[string]any, key string) ([]projectstate.WatchCodeFolder, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
 	}
 
 	switch typed := rawValue.(type) {
@@ -4414,6 +4840,8 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSettingsValueInvalid):
 		return newToolError("invalid_arguments", "%s", err.Error())
+	case projectstate.IsExpectedOldValueMismatchError(err):
+		return newToolError("mutation_failed", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
 		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
 		return newToolError("invalid_arguments", "%s", err.Error())

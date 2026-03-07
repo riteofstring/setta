@@ -20,17 +20,20 @@ caller-supplied precondition is stale.
 
 ## Status
 
-Current repo status as of 2026-03-07:
+Current repo status as of 2026-03-07 after implementation:
 
 - Phase 6 MCP parity remains the active phase
-- `format_code` is now complete
-- Go already owns the underlying non-CAS mutations that this slice should
-  reuse:
-  - `set_show_param_display_names`
-  - `set_watch_code_enabled`
-  - `set_watch_code_inputs`
-- Go does not yet own the compare-and-set UI-setting mutations or their MCP
-  transport
+- this compare-and-set slice is now complete
+- Go now owns:
+  - compare-and-set runtime owners for `showParamDisplayNames`
+  - compare-and-set runtime owners for Watch Code enabled, folders, and files
+  - MCP parity for:
+    - `compare_and_set_show_param_display_names`
+    - `compare_and_set_watch_code_enabled`
+    - `compare_and_set_watch_code_folders`
+    - `compare_and_set_watch_code_files`
+- stale-precondition failures now normalize to MCP/UI-setting error code
+  `mutation_failed`
 
 ## Scope
 
@@ -139,22 +142,29 @@ no broadcast, and no Watch Code baseline churn.
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteCompareAndSet' -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsCompareAndSet' -count=1 -timeout 420s`
 
-## Open Questions
-
-- whether the stale-precondition path should map to a dedicated MCP error code
-  or reuse `mutation_failed`
-  - recommendation: use a dedicated code if multiple compare-and-set tools land
-    in the same slice; otherwise normalize to one stable product error code and
-    keep the text explicit
-
 ## Next Recommended Step
 
-- implement the compare-and-set owner layer first
-- commit the owner plus focused side-effect-free/no-clobber tests before adding
-  MCP transport
+- move to `phase-6-set-code-section-attached-terminal-tool-parity.md`
+- keep the next slice bounded to explicit attached-terminal attach/detach
+  transport over the existing Go run-graph and section-sizing foundations
 
 ## Progress Notes
 
 - 2026-03-07: doc created immediately after the completed `format_code` slice
   moved the next bounded Phase 6 step to the compare-and-set UI-setting and
   Watch Code tools cluster.
+- 2026-03-07: completed the compare-and-set owner layer in
+  `internal/projectstate` with:
+  - side-effect-free no-op behavior that skips persistence when normalized state
+    is unchanged
+  - explicit `ExpectedOldValueMismatchError` stale-precondition failures
+  - canonical empty-list handling for Watch Code folders/files so empty reads
+    and empty caller preconditions compare consistently
+- 2026-03-07: completed MCP/server, HTTP tool-route, and authenticated SSE
+  parity for:
+  - `compare_and_set_show_param_display_names`
+  - `compare_and_set_watch_code_enabled`
+  - `compare_and_set_watch_code_folders`
+  - `compare_and_set_watch_code_files`
+- 2026-03-07: normalized stale-precondition failures to MCP error code
+  `mutation_failed` to match the existing UI-setting product contract.
