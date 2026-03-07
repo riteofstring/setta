@@ -1,7 +1,5 @@
-import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import { getProjectChatWindowModeForSectionInState } from "state/actions/projectChatWindowing";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -13,6 +11,7 @@ import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
+import { ChatArea } from "../Layouts/ChatArea";
 import {
   CodeArea,
   GenPythonCodeArea,
@@ -219,7 +218,7 @@ function AreaSwitch({
     case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
-      return <ChatSectionArea sectionId={sectionId} />;
+      return <ChatArea sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
     case SectionTypeEnum.Plugin:
@@ -234,20 +233,4 @@ function AreaSwitch({
     default:
       return sectionTypeName satisfies never;
   }
-}
-
-function ChatSectionArea({ sectionId }: { sectionId: string }) {
-  const mode = useProjectState((state) =>
-    getProjectChatWindowModeForSectionInState(
-      state.projectChatWindowing,
-      sectionId,
-    ),
-  );
-  return (
-    <UnifiedChatSurface
-      mode={mode}
-      host="section_layout"
-      sectionId={sectionId}
-    />
-  );
 }

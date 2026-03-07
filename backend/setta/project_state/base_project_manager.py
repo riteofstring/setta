@@ -187,7 +187,6 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetParentDefaultChildSectionTypeRequest,
-    SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
@@ -334,7 +333,6 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_parent_default_child_section_type,
-    set_project_chat_windowing_state,
     set_project_config_name,
     set_prompt_section_format,
     set_prompt_section_inputs,
@@ -4814,14 +4812,6 @@ class BaseProjectManager(ABC):
     async def set_chat_section_state(self, x: SetChatSectionStateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_chat_section_state(project_state, x.sectionId, x.state)
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_project_chat_windowing_state(
-        self, x: SetProjectChatWindowingStateRequest
-    ):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_project_chat_windowing_state(project_state, x.state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

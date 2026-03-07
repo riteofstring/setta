@@ -75,15 +75,23 @@ def resolve_agentic_scope(
     peer_chat_section_ids: set[ID] = set()
 
     for edge in project_state.projectConfig.agenticEdges:
-        if edge.sourceSectionId != chat_section_id:
+        if edge.kind == AgenticEdgeKind.section_chat:
+            if edge.targetSectionId != chat_section_id:
+                continue
+            read_section_ids.add(edge.sourceSectionId)
+            context_section_ids.add(edge.sourceSectionId)
             continue
         if edge.kind == AgenticEdgeKind.chat_section:
+            if edge.sourceSectionId != chat_section_id:
+                continue
             read_section_ids.add(edge.targetSectionId)
             write_section_ids.add(edge.targetSectionId)
-            context_section_ids.add(edge.targetSectionId)
             continue
         if edge.kind == AgenticEdgeKind.chat_chat:
-            peer_chat_section_ids.add(edge.targetSectionId)
+            if edge.sourceSectionId == chat_section_id:
+                peer_chat_section_ids.add(edge.targetSectionId)
+            elif edge.targetSectionId == chat_section_id:
+                peer_chat_section_ids.add(edge.sourceSectionId)
 
     return AgenticScope(
         read_section_ids=read_section_ids,
@@ -100,11 +108,11 @@ def resolve_context_edges(
 ) -> list[tuple[ID, AgenticEdgeContextMode]]:
     edges: list[tuple[ID, AgenticEdgeContextMode]] = []
     for edge in project_state.projectConfig.agenticEdges:
-        if edge.kind != AgenticEdgeKind.chat_section:
+        if edge.kind != AgenticEdgeKind.section_chat:
             continue
-        if edge.sourceSectionId != chat_section_id:
+        if edge.targetSectionId != chat_section_id:
             continue
-        edges.append((edge.targetSectionId, edge.contextMode))
+        edges.append((edge.sourceSectionId, edge.contextMode))
     edges.sort(key=lambda entry: (str(entry[0]), entry[1].value))
     return edges
 
@@ -396,7 +404,9 @@ def _resolve_missing_edge_kind(
         return None
     if _is_chat_section(project_state, section_id) and access_type == "read":
         return AgenticEdgeKind.chat_chat
-    return AgenticEdgeKind.chat_section
+    if access_type == "write":
+        return AgenticEdgeKind.chat_section
+    return AgenticEdgeKind.section_chat
 
 
 def _collect_chat_section_ids(project_state: ProjectStateSingleConfig) -> set[ID]:

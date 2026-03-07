@@ -137,9 +137,9 @@ def _write_project_state_with_agentic_context(
         single,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.inline_text,
         ),
     )

@@ -157,6 +157,7 @@ export function ProjectChatHistory({
   draftThread = null,
   selectedGroupId = null,
   onSelectedGroupChange,
+  onStartNewThread,
   onStartNewThreadInGroup,
   headerPortalTarget = null,
 }: {
@@ -169,6 +170,7 @@ export function ProjectChatHistory({
   draftThread?: { chatId: string | null; groupId: string | null } | null;
   selectedGroupId?: string | null;
   onSelectedGroupChange?: (groupId: string | null) => void;
+  onStartNewThread?: () => void;
   onStartNewThreadInGroup?: (groupId: string) => void;
   headerPortalTarget?: HTMLDivElement | null;
 }) {
@@ -839,6 +841,28 @@ export function ProjectChatHistory({
     },
     [closeOnSelect, onSelectedGroupChange, onStartNewThreadInGroup, setChatId],
   );
+  const handleStartNewThread = useCallback(() => {
+    if (onStartNewThread) {
+      onStartNewThread();
+      return;
+    }
+    if (selectedGroupId && onStartNewThreadInGroup) {
+      handleStartThreadInGroup(selectedGroupId);
+      return;
+    }
+    setChatId(undefined);
+    if (!closeOnSelect) {
+      return;
+    }
+    useAIStore.setState({ viewThreads: false });
+  }, [
+    closeOnSelect,
+    handleStartThreadInGroup,
+    onStartNewThread,
+    onStartNewThreadInGroup,
+    selectedGroupId,
+    setChatId,
+  ]);
 
   const handleRenameGroup = useCallback(
     (groupId: string, nextName: string) => {
@@ -1163,6 +1187,8 @@ export function ProjectChatHistory({
   const emptyStateText = hasMasterSearch
     ? "No conversations match this filter."
     : placeholderText;
+  const showNoThreadsPlaceholder =
+    !hasAnyContent && emptyStateText === "No threads yet";
   const newGroupTooltipHandlers = useMemo(
     () =>
       getFloatingBoxHandlers({
@@ -1251,11 +1277,7 @@ export function ProjectChatHistory({
       </search>
       <button
         type="button"
-        className={`nodrag relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors focus-visible:ring-2 ${
-          showThreadAgentBadges
-            ? "bg-setta-200/80 text-setta-700 hover:bg-setta-300/80 dark:bg-setta-700/90 dark:text-setta-100 dark:hover:bg-setta-600/90"
-            : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-        }`}
+        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
         onClick={() => {
           setShowThreadAgentBadges((prev) => !prev);
         }}
@@ -1320,7 +1342,38 @@ export function ProjectChatHistory({
         className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 py-2"
       >
         {!hasAnyContent ? (
-          <p className="text-center text-xs text-setta-400">{emptyStateText}</p>
+          showNoThreadsPlaceholder ? (
+            <aside
+              className="grid h-full min-h-[10rem] w-full place-items-center px-2 py-3"
+              data-testid="project-chat-threads-empty-state"
+            >
+              <div className="flex w-full max-w-[18rem] flex-col items-center gap-2 rounded-xl border border-setta-200 bg-white/70 px-4 py-5 text-center dark:border-setta-700 dark:bg-setta-900/70">
+                <RiChatNewFill className="h-10 w-10 text-setta-300 dark:text-setta-600" />
+                <h3
+                  className="text-sm font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300"
+                  data-testid="project-chat-threads-empty-state-title"
+                >
+                  <button
+                    type="button"
+                    aria-label="Start a new thread"
+                    data-testid="project-chat-threads-empty-state-start-thread-button"
+                    className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold normal-case tracking-normal text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                    onClick={handleStartNewThread}
+                  >
+                    <MdAdd size={15} />
+                    <span>Start a new thread</span>
+                  </button>
+                </h3>
+                <p className="text-xs text-setta-400 dark:text-setta-500">
+                  This creates a draft thread using the current thread context.
+                </p>
+              </div>
+            </aside>
+          ) : (
+            <p className="text-center text-xs text-setta-400">
+              {emptyStateText}
+            </p>
+          )
         ) : (
           <DragDropProvider
             sensors={threadDndSensors}
