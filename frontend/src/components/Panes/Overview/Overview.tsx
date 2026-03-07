@@ -9,13 +9,7 @@ import {
   type PluginPaneIconName,
   type PluginPaneTabEntry,
 } from "plugins/runtime";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  type ReactElement,
-  type RefObject,
-} from "react";
+import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoMdGitBranch } from "react-icons/io";
 import { IoChatbox, IoSettingsOutline } from "react-icons/io5";
@@ -36,7 +30,6 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
-  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -75,14 +68,11 @@ export function Overview() {
     rootRef: overviewRef as RefObject<HTMLElement>,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const { selectedTabName, vis, width, notificationsPaneTab } = useLocalStorage(
-    (x) => ({
-      selectedTabName: x.overviewTab,
-      vis: x.overviewVis,
-      width: x.overviewWidth,
-      notificationsPaneTab: x.overviewNotificationsPaneTab,
-    }),
-  );
+  const { selectedTabName, vis, width } = useLocalStorage((x) => ({
+    selectedTabName: x.overviewTab,
+    vis: x.overviewVis,
+    width: x.overviewWidth,
+  }));
   const pluginPaneTabs = usePluginPaneTabs();
   const pluginPaneTabByKey = useMemo(() => {
     const values: Record<string, PluginPaneTabEntry> = {};
@@ -108,21 +98,9 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Plugins;
   }
   if (!showLLMTabs) {
-    if (
-      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
-      selectedTabName === OverviewTabNameEnum.ProjectAISettings
-    ) {
+    if (selectedTabName === OverviewTabNameEnum.ProjectAIChat) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
-  }
-  if (
-    showLLMTabs &&
-    selectedTabName === OverviewTabNameEnum.ProjectAISettings
-  ) {
-    effectiveTabName = OverviewTabNameEnum.ProjectAIChat;
-  }
-  if (selectedTabName === OverviewTabNameEnum.BackendLogs) {
-    effectiveTabName = OverviewTabNameEnum.Notifications;
   }
   if (
     !showFileBrowserTab &&
@@ -141,18 +119,6 @@ export function Overview() {
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
-  useEffect(() => {
-    if (selectedTabName !== OverviewTabNameEnum.BackendLogs) {
-      return;
-    }
-    if (notificationsPaneTab === OverviewNotificationsPaneTabEnum.BackendLogs) {
-      return;
-    }
-    useLocalStorage.setState({
-      overviewNotificationsPaneTab:
-        OverviewNotificationsPaneTabEnum.BackendLogs,
-    });
-  }, [notificationsPaneTab, selectedTabName]);
   const commonProps = {
     vis,
     selectedTabName: effectiveTabName,

@@ -3,15 +3,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   areAgentNativeSlashCommandMapsEqual,
-  filterAgentNativeSlashCommandsByEngineId,
   parseAgentNativeSlashCommandsStorage,
-  resolveAgentNativeSlashCommandsByEngineId,
   resolveCustomSlashDraftByProjectConfigIdUpdate,
   resolveSkillMarkdownRawDraftBySkillIdHydration,
   resolveSkillMarkdownRawDraftBySkillIdUpdate,
   resolveSkillPreviewContent,
   shouldPollSlashCommandAgentRuns,
 } from "./ProjectChatSkillsMcpViewer";
+import {
+  filterAgentNativeSlashCommandsByEngineId,
+  resolveAgentNativeSlashCommandsByEngineId,
+} from "./projectChatSkillsMcpViewerUtils";
 
 describe("parseAgentNativeSlashCommandsStorage", () => {
   it("fails closed on legacy engine-scoped storage entries", () => {

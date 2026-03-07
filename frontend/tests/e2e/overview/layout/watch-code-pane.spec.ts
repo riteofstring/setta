@@ -117,3 +117,21 @@ test("watch code portal stays clamped after content grows post-open", async ({
     portalRect.y + portalRect.height,
   );
 });
+
+test("watch code controls stay hidden in deployment mode", async ({ page }) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await ensureAppReady(page);
+
+  await page.evaluate(async () => {
+    const { useShareSession } = await import("/src/state/definitions.ts");
+    useShareSession.setState({
+      isDeploymentMode: true,
+      sharePolicy: null,
+    });
+  });
+
+  await expect(page.getByTestId("rf__watch-code-settings")).toHaveCount(0);
+  await expect(page.getByTestId("rf__watch-code-settings-portal")).toHaveCount(
+    0,
+  );
+});

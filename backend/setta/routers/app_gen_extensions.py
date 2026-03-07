@@ -39,7 +39,7 @@ class AppGenSkillEntry(BaseModel):
 class GetAppGenSkillsResponse(BaseModel):
     skills: list[AppGenSkillEntry]
     customSkillCreateRootPath: str | None = None
-    customSkillCreateRootError: str | None = None
+    customSkillCreateRootActionable: bool = False
 
 
 class GetAppGenSkillContentRequest(BaseModel):
@@ -202,14 +202,45 @@ def _build_skill_index_by_id(workspace_root: Path) -> dict[str, AppGenSkillEntry
     return skill_index
 
 
-def _probe_custom_skill_root_writable(root_path: Path) -> tuple[bool, str | None]:
+def _cleanup_custom_skill_probe_paths(created_paths: list[Path]) -> None:
+    for created_path in created_paths:
+        try:
+            created_path.rmdir()
+        except OSError:
+            break
+
+
+def _collect_missing_custom_skill_probe_paths(root_path: Path) -> list[Path]:
+    missing_paths: list[Path] = []
+    current_path = root_path.resolve(strict=False)
+    while True:
+        if current_path.exists():
+            return missing_paths
+        missing_paths.append(current_path)
+        parent_path = current_path.parent
+        if parent_path == current_path:
+            return missing_paths
+        current_path = parent_path
+
+
+def _probe_custom_skill_root_writable(
+    root_path: Path,
+) -> tuple[bool, bool, str | None]:
+    resolved_root_path = root_path.resolve(strict=False)
     try:
-        root_path.mkdir(parents=True, exist_ok=True)
+        root_exists = resolved_root_path.exists()
+        created_paths = (
+            [] if root_exists else _collect_missing_custom_skill_probe_paths(root_path)
+        )
     except OSError as exc:
-        return False, str(exc)
+        return False, False, str(exc)
+    try:
+        resolved_root_path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return False, root_exists, str(exc)
 
     probe_name = f".setta-write-probe-{os.getpid()}-{os.urandom(4).hex()}"
-    probe_path = root_path / probe_name
+    probe_path = resolved_root_path / probe_name
     try:
         with probe_path.open("w", encoding="utf-8") as handle:
             handle.write("")
@@ -219,34 +250,27 @@ def _probe_custom_skill_root_writable(root_path: Path) -> tuple[bool, str | None
             probe_path.unlink()
         except OSError:
             pass
-        return False, str(exc)
-    return True, None
+        _cleanup_custom_skill_probe_paths(created_paths)
+        return False, root_exists, str(exc)
+    _cleanup_custom_skill_probe_paths(created_paths)
+    return True, root_exists, None
 
 
-def _resolve_writable_custom_skill_root(
+def _resolve_custom_skill_create_root(
     workspace_root: Path,
-) -> tuple[str, str, Path]:
+) -> tuple[str, str, Path, bool]:
     checked_roots: list[str] = []
     for root_id, root_label, root_path in _iter_prioritized_custom_skill_roots(
         workspace_root
     ):
-        is_writable, error = _probe_custom_skill_root_writable(root_path)
+        is_writable, root_exists, error = _probe_custom_skill_root_writable(root_path)
         if is_writable:
-            return root_id, root_label, root_path
+            return root_id, root_label, root_path, root_exists
         checked_roots.append(f"{root_id} ({root_path}): {error or 'not writable'}")
     checked_detail = "; ".join(checked_roots)
     raise ValueError(
         f"No writable custom skill root available. Checked: {checked_detail}"
     )
-
-
-def _resolve_preferred_custom_skill_root(
-    workspace_root: Path,
-) -> tuple[str, str, Path]:
-    prioritized_roots = _iter_prioritized_custom_skill_roots(workspace_root)
-    if not prioritized_roots:
-        raise ValueError("No custom skill root available.")
-    return prioritized_roots[0]
 
 
 def _normalize_custom_skill_relative_path(relative_path: str) -> str:
@@ -326,18 +350,21 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
 
 def resolve_app_gen_skills_response(workspace_root: Path) -> GetAppGenSkillsResponse:
     custom_skill_create_root_path: str | None = None
-    custom_skill_create_root_error: str | None = None
+    custom_skill_create_root_actionable = False
     try:
-        _, _, custom_skill_create_root = _resolve_preferred_custom_skill_root(
-            workspace_root
-        )
+        (
+            _,
+            _,
+            custom_skill_create_root,
+            custom_skill_create_root_actionable,
+        ) = _resolve_custom_skill_create_root(workspace_root)
         custom_skill_create_root_path = str(custom_skill_create_root)
-    except ValueError as exc:
-        custom_skill_create_root_error = str(exc)
+    except ValueError:
+        pass
     return GetAppGenSkillsResponse(
         skills=list_app_gen_skills(workspace_root),
         customSkillCreateRootPath=custom_skill_create_root_path,
-        customSkillCreateRootError=custom_skill_create_root_error,
+        customSkillCreateRootActionable=custom_skill_create_root_actionable,
     )
 
 
@@ -424,9 +451,12 @@ def upsert_app_gen_custom_skill(
         skill_doc = existing_skill_doc
         created = False
     else:
-        target_root_id, _, target_root_path = _resolve_writable_custom_skill_root(
-            workspace_root
-        )
+        (
+            target_root_id,
+            _,
+            target_root_path,
+            _,
+        ) = _resolve_custom_skill_create_root(workspace_root)
         target_root_id = _resolve_discoverable_root_id_for_path(
             workspace_root=workspace_root,
             root_path=target_root_path,

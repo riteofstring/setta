@@ -38,7 +38,9 @@ import {
 } from "./projectChatHydrationAuthority";
 import {
   buildReservedSlashCommandTokens,
+  collectAgentNativeSlashCommandTokensFromEntries,
   reconcileCustomSlashCommands,
+  resolveAgentNativeSlashCommandsByEngineId,
 } from "./projectChatSkillsMcpViewerUtils";
 
 describe("getDefaultProjectChatPermissionMode", () => {
@@ -64,7 +66,7 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: ["/status"],
         persistedNativeSlashCommandTokens: ["/deploy", "/status"],
-        agentRunsInitialLoadComplete: false,
+        agentRunsAuthorityState: "loading",
       }),
     ).toEqual(["/deploy", "/status"]);
   });
@@ -74,9 +76,19 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: ["/status"],
         persistedNativeSlashCommandTokens: ["/deploy", "/status"],
-        agentRunsInitialLoadComplete: true,
+        agentRunsAuthorityState: "ready",
       }),
     ).toEqual(["/status"]);
+  });
+
+  it("keeps persisted native tokens fail-closed after terminal load failure", () => {
+    expect(
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: [],
+        persistedNativeSlashCommandTokens: ["/deploy", "/status"],
+        agentRunsAuthorityState: "terminal_error",
+      }),
+    ).toEqual(["/deploy", "/status"]);
   });
 
   it("keeps conflicting custom commands non-executable during startup hydration", () => {
@@ -84,7 +96,7 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: [],
         persistedNativeSlashCommandTokens: ["/deploy"],
-        agentRunsInitialLoadComplete: false,
+        agentRunsAuthorityState: "loading",
       });
     const customCommands = buildCustomPromptSlashCommandDefinitions([
       { command: "/deploy", prompt: "Deploy app." },
@@ -111,6 +123,68 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
     expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
       ["/project-status"],
     );
+  });
+
+  it("stops reserving stale commands from removed engines once runtime authority is ready", () => {
+    const runtimeNativeSlashCommandTokens =
+      collectAgentNativeSlashCommandTokensFromEntries(
+        resolveAgentNativeSlashCommandsByEngineId({
+          runs: [
+            createAgentRun({
+              id: "run-live",
+              inputs: {
+                projectConfigId: "project-a",
+              },
+              outputs: {
+                metadata: {
+                  engineConfigId: "engine-live",
+                  agentNativeSlashCommands: ["/status"],
+                },
+              },
+            }),
+            createAgentRun({
+              id: "run-removed",
+              inputs: {
+                projectConfigId: "project-a",
+              },
+              outputs: {
+                metadata: {
+                  engineConfigId: "engine-removed",
+                  agentNativeSlashCommands: ["/deploy"],
+                },
+              },
+            }),
+          ],
+          projectConfigId: "project-a",
+          engineConfigIds: ["engine-live"],
+        }),
+      );
+    const discoveredAgentNativeSlashCommands =
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens,
+        persistedNativeSlashCommandTokens: ["/deploy"],
+        agentRunsAuthorityState: "ready",
+      });
+    const resolved = resolveProjectChatComposerSlashCommandSets({
+      customProjectChatSlashCommands: [
+        {
+          command: "/deploy",
+          prompt: "Ship the current build.",
+        },
+      ],
+      discoveredAgentNativeSlashCommands,
+      showPermissionExecutionControl: true,
+      showSearchExecutionControl: true,
+    });
+
+    expect(
+      resolved.slashCommands.some((entry) => entry.command === "/deploy"),
+    ).toBe(true);
+    expect(
+      resolved.recognizedSlashCommands.some(
+        (entry) => entry.command === "/deploy",
+      ),
+    ).toBe(true);
   });
 });
 

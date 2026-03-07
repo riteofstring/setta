@@ -71,30 +71,24 @@ describe("local storage merge", () => {
     expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("migrates persisted BackendLogs overview tab to Notifications pane logs tab", () => {
+  it("treats the removed BackendLogs overview tab as invalid state", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { overviewTab: OverviewTabNameEnum.BackendLogs } as Record<
-        string,
-        unknown
-      >,
+      { overviewTab: "BackendLogs" } as Record<string, unknown>,
       current,
     ) as typeof current;
 
-    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Notifications);
-    expect(merged.overviewNotificationsPaneTab).toBe(
-      OverviewNotificationsPaneTabEnum.BackendLogs,
-    );
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 
-  it("migrates persisted WatchCode overview tab to Overview", () => {
+  it("treats the removed WatchCode overview tab as invalid state", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
 
     const merged = merge(
-      { overviewTab: OverviewTabNameEnum.WatchCode } as Record<string, unknown>,
+      { overviewTab: "WatchCode" } as Record<string, unknown>,
       current,
     ) as typeof current;
 

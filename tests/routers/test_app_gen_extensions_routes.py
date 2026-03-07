@@ -674,11 +674,49 @@ class TestAppGenExtensionsRoutes:
             assert response.customSkillCreateRootPath == str(
                 expected_create_root.resolve(strict=False)
             )
-            assert response.customSkillCreateRootError is None
+            assert response.customSkillCreateRootActionable is False
             assert [skill.skillId for skill in response.skills] == [
                 "workspace_agents_skills::workspace-only"
             ]
             assert expected_create_root.exists() is False
+
+    def test_resolve_app_gen_skills_response_matches_create_root_when_higher_priority_root_is_unwritable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            user_skills_root = fake_home / ".agents" / "skills"
+            user_skills_root.mkdir(parents=True, exist_ok=True)
+            agents_home = Path(tmpdir) / "agents-home"
+            agents_skills_root = agents_home / "skills"
+            agents_skills_root.mkdir(parents=True, exist_ok=True)
+            agents_skills_root.chmod(0o500)
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            try:
+                response = resolve_app_gen_skills_response(workspace_root)
+                create_response = upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=None,
+                    relative_path="authoritative-root-check",
+                    content="# authoritative-root-check\n\nBody.\n",
+                )
+            finally:
+                agents_skills_root.chmod(0o700)
+
+            assert response.customSkillCreateRootPath == create_response.rootPath
+            assert response.customSkillCreateRootPath == str(
+                user_skills_root.resolve(strict=False)
+            )
+            assert response.customSkillCreateRootActionable is True
 
     def test_updates_existing_workspace_custom_skill_by_skill_id(
         self,
@@ -1179,7 +1217,7 @@ class TestAppGenExtensionsRoutes:
         assert payload["customSkillCreateRootPath"] == str(
             (fake_home / ".agents" / "skills").resolve(strict=False)
         )
-        assert payload["customSkillCreateRootError"] is None
+        assert payload["customSkillCreateRootActionable"] is False
         assert (fake_home / ".agents" / "skills").exists() is False
         row_by_id = {row["skillId"]: row for row in payload["skills"]}
         root_row = row_by_id["workspace_agents_skills::."]
@@ -1191,6 +1229,60 @@ class TestAppGenExtensionsRoutes:
         editable_row = row_by_id["workspace_agents_skills::editable"]
         assert editable_row["isEditable"] is True
         assert editable_row["editabilityReason"] is None
+
+    def test_get_app_gen_skills_route_matches_create_route_under_fallback_root(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        user_skills_root = fake_home / ".agents" / "skills"
+        user_skills_root.mkdir(parents=True, exist_ok=True)
+        agents_home = tmp_path / "agents-home"
+        agents_skills_root = agents_home / "skills"
+        agents_skills_root.mkdir(parents=True, exist_ok=True)
+        agents_skills_root.chmod(0o500)
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        try:
+            with TestClient(app) as client:
+                get_response = client.get(
+                    f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILLS.value}"
+                )
+                create_response = client.post(
+                    f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                    json={
+                        "skillId": None,
+                        "relativePath": "route-authoritative-root-check",
+                        "content": "# route-authoritative-root-check\n\nBody.\n",
+                    },
+                )
+        finally:
+            agents_skills_root.chmod(0o700)
+            clear_setta_paths_cache()
+
+        assert get_response.status_code == 200
+        assert create_response.status_code == 200
+        get_payload = get_response.json()
+        create_payload = create_response.json()
+        assert get_payload["customSkillCreateRootPath"] == create_payload["rootPath"]
+        assert get_payload["customSkillCreateRootPath"] == str(
+            user_skills_root.resolve(strict=False)
+        )
+        assert get_payload["customSkillCreateRootActionable"] is True
 
     def test_upsert_custom_skill_route_rejects_non_custom_roots(
         self,

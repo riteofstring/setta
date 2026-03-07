@@ -6,11 +6,12 @@ import {
   setOverviewTab,
 } from "../../helpers";
 
-test("legacy BackendLogs entry opens logs first but allows tab switching", async ({
+test("notifications pane can open logs first and still allows tab switching", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
-    overviewTab: "BackendLogs",
+    overviewTab: "Notifications",
+    overviewNotificationsPaneTab: "backend_logs",
     overviewVis: true,
   });
   await ensureAppReady(page);
@@ -34,7 +35,7 @@ test("legacy BackendLogs entry opens logs first but allows tab switching", async
   ).toHaveAttribute("aria-selected", "false");
 });
 
-test("switching overview route from Notifications to BackendLogs always activates logs", async ({
+test("switching notifications pane state to backend logs always activates logs", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
@@ -54,7 +55,8 @@ test("switching overview route from Notifications to BackendLogs always activate
   await page.evaluate(async () => {
     const { useLocalStorage } = await import("/src/state/definitions.ts");
     useLocalStorage.setState({
-      overviewTab: "BackendLogs",
+      overviewTab: "Notifications",
+      overviewNotificationsPaneTab: "backend_logs",
       overviewVis: true,
     });
   });

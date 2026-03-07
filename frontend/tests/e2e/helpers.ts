@@ -21,6 +21,7 @@ const PROJECT_URL =
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
 const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
+const PROJECT_AI_SETTINGS_E2E_KEY = "__setta_e2e_open_project_ai_settings";
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
@@ -150,6 +151,7 @@ export async function ensureAppReady(page: Page): Promise<void> {
       waitUntil: "domcontentloaded",
     });
     if (await isAppReady(page)) {
+      await maybeOpenRequestedProjectAiSettings(page);
       return;
     }
 
@@ -170,6 +172,7 @@ export async function ensureAppReady(page: Page): Promise<void> {
       });
     }
     if (await isAppReady(page)) {
+      await maybeOpenRequestedProjectAiSettings(page);
       return;
     }
 
@@ -181,6 +184,7 @@ export async function ensureAppReady(page: Page): Promise<void> {
           waitUntil: "domcontentloaded",
         });
         if (await isAppReady(page)) {
+          await maybeOpenRequestedProjectAiSettings(page);
           return;
         }
       }
@@ -301,10 +305,51 @@ export async function seedLocalStorage(
   }, patch);
 }
 
+async function maybeOpenRequestedProjectAiSettings(page: Page): Promise<void> {
+  const shouldOpen = await page.evaluate((key) => {
+    const nextValue = window.sessionStorage.getItem(key);
+    if (nextValue !== "true") {
+      return false;
+    }
+    window.sessionStorage.removeItem(key);
+    return true;
+  }, PROJECT_AI_SETTINGS_E2E_KEY);
+  if (!shouldOpen) {
+    return;
+  }
+  await openProjectAiSettingsPopover(page);
+}
+
+export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
+  const accordionTrigger = page.getByTestId(
+    "project-ai-settings-accordion-llm-api-keys",
+  );
+  if (
+    await accordionTrigger
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return;
+  }
+  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  await page.getByTestId("project-chat-settings-open-project-settings").click();
+}
+
 export async function setOverviewTab(
   page: Page,
   tabName: string,
 ): Promise<void> {
+  if (tabName === "ProjectAISettings") {
+    await page.addInitScript((key) => {
+      window.sessionStorage.setItem(key, "true");
+    }, PROJECT_AI_SETTINGS_E2E_KEY);
+    await seedLocalStorage(page, {
+      overviewTab: "ProjectAIChat",
+      overviewVis: true,
+    });
+    return;
+  }
   if (tabName === "BackendLogs") {
     await seedLocalStorage(page, {
       overviewTab: "Notifications",
@@ -347,6 +392,7 @@ export async function openIsolatedProject(
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  await maybeOpenRequestedProjectAiSettings(page);
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,

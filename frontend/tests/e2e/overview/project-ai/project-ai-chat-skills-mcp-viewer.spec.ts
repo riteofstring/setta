@@ -15,13 +15,14 @@ function buildAppGenSkillsResponse(
   skills: Array<Record<string, unknown>>,
   overrides: {
     customSkillCreateRootPath?: string | null;
-    customSkillCreateRootError?: string | null;
+    customSkillCreateRootActionable?: boolean;
   } = {},
 ) {
   return {
     skills,
     customSkillCreateRootPath: overrides.customSkillCreateRootPath ?? null,
-    customSkillCreateRootError: overrides.customSkillCreateRootError ?? null,
+    customSkillCreateRootActionable:
+      overrides.customSkillCreateRootActionable ?? false,
   };
 }
 
@@ -1851,6 +1852,7 @@ test("project ai chat uses the backend create root for the custom skills root hi
           ],
           {
             customSkillCreateRootPath: createRootPath,
+            customSkillCreateRootActionable: false,
           },
         ),
       ),
@@ -1895,10 +1897,12 @@ test("project ai chat uses the backend create root for the custom skills root hi
 
   const rootHint = page.getByTestId("project-chat-custom-skill-root-path");
   await expect(rootHint).toContainText(createRootPath);
+  await expect(rootHint).toContainText("not created yet");
   await expect(rootHint).not.toContainText("/workspace/.agents/skills");
-
-  await page.getByTestId("project-chat-custom-skill-root-reveal").click();
-  await expect.poll(() => revealedPath).toBe(createRootPath);
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-reveal"),
+  ).toBeDisabled();
+  expect(revealedPath).toBeNull();
 });
 
 test("project ai chat can create and save custom skills from raw markdown mode", async ({
@@ -1938,7 +1942,12 @@ test("project ai chat can create and save custom skills from raw markdown mode",
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(buildAppGenSkillsResponse(skills)),
+      body: JSON.stringify(
+        buildAppGenSkillsResponse(skills, {
+          customSkillCreateRootPath: rootPath,
+          customSkillCreateRootActionable: true,
+        }),
+      ),
     });
   });
 
@@ -2052,6 +2061,12 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   await expect(
     page.getByRole("button", { name: /new-custom-skill/i }),
   ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-path"),
+  ).toContainText(rootPath);
+  await expect(
+    page.getByTestId("project-chat-custom-skill-root-reveal"),
+  ).toBeEnabled();
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "# new-custom-skill",
   );

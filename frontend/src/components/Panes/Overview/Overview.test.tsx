@@ -312,9 +312,9 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain(">Overview<");
   });
 
-  it("maps deprecated project ai settings tab selection to project ai chat", () => {
+  it("falls back to Overview when a removed project ai settings tab is selected", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectAISettings,
+      overviewTab: "ProjectAISettings" as never,
     });
     syncStoreInitialState(useLocalStorage);
 
@@ -324,15 +324,13 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">Project AI Chat<");
-    expect(markup).not.toContain(
-      'data-testid="project-ai-settings-scroll-region"',
-    );
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain('data-testid="project-chat-content"');
   });
 
-  it("maps legacy backend logs tab selection to notifications content", () => {
+  it("falls back to Overview when a removed backend logs tab is selected", () => {
     useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.BackendLogs,
+      overviewTab: "BackendLogs" as never,
     });
     syncStoreInitialState(useLocalStorage);
 
@@ -342,11 +340,7 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    expect(markup).toContain(">Notifications<");
-    expect(markup).toContain('data-testid="notifications-pane-shell"');
-    expect(markup).toContain(
-      'data-testid="notifications-pane-tab-backend-logs"',
-    );
-    expect(markup).not.toContain('data-testid="overview-tab-backend-logs"');
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain('data-testid="notifications-pane-shell"');
   });
 });

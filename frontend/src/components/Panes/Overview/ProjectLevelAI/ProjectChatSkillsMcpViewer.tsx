@@ -18,10 +18,6 @@ import {
 import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import {
-  filterRunsByProjectConfigId,
-  getRunLastUpdatedMs,
-} from "state/actions/agentRunUtils";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
@@ -38,7 +34,6 @@ import {
   route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
-  type AgentRun,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
@@ -47,14 +42,20 @@ import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import {
   AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+  type AgentNativeSlashCommandsByProjectConfigId,
+  type AgentNativeSlashCommandsEntry,
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
+  DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY,
+  EMPTY_AGENT_NATIVE_COMMANDS,
+  filterAgentNativeSlashCommandsByEngineId,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   type McpRuntimeServerStatus,
   reconcileCustomSlashCommands,
+  resolveAgentNativeSlashCommandsByEngineId,
   resolveMcpServerStatus,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -88,22 +89,6 @@ const MIN_SKILLS_LIST_HEIGHT_PCT = 30;
 const MIN_SKILL_MARKDOWN_HEIGHT_PCT = 20;
 const SKILL_MARKDOWN_RENDERED_CLASS =
   "prose prose-sm max-w-none dark:prose-invert prose-headings:my-2 prose-headings:font-semibold prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0";
-const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
-type AgentNativeSlashCommandsStatus =
-  | "unknown"
-  | "available"
-  | "none"
-  | "not_supported"
-  | "error";
-type AgentNativeSlashCommandsEntry = {
-  commands: string[];
-  status: AgentNativeSlashCommandsStatus;
-  statusDetail: string | null;
-};
-type AgentNativeSlashCommandsByProjectConfigId = Record<
-  string,
-  Record<string, AgentNativeSlashCommandsEntry>
->;
 type SkillMarkdownViewMode =
   | typeof SKILL_MARKDOWN_VIEW_MODE_RENDERED
   | typeof SKILL_MARKDOWN_VIEW_MODE_RAW;
@@ -120,12 +105,6 @@ type CustomSlashCommandDraft = {
   command: string;
   prompt: string;
 };
-const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
-  {
-    commands: EMPTY_AGENT_NATIVE_COMMANDS,
-    status: "unknown",
-    statusDetail: null,
-  };
 const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
   command: "",
   prompt: "",
@@ -427,122 +406,6 @@ export function areAgentNativeSlashCommandMapsEqual(
   return true;
 }
 
-function extractAgentNativeSlashCommandsFromRun(
-  run: AgentRun,
-): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
-  const outputs = run.outputs;
-  if (!isRecord(outputs)) {
-    return null;
-  }
-  const metadata = outputs.metadata;
-  if (!isRecord(metadata)) {
-    return null;
-  }
-  const rawEngineConfigId = metadata.engineConfigId;
-  if (
-    typeof rawEngineConfigId !== "string" ||
-    rawEngineConfigId.trim() === ""
-  ) {
-    return null;
-  }
-  const hasCommandsField = Array.isArray(metadata.agentNativeSlashCommands);
-  const commands = normalizeSlashCommandList(metadata.agentNativeSlashCommands);
-  const status = normalizeAgentNativeSlashCommandsStatus(
-    metadata.agentNativeSlashCommandsStatus,
-  );
-  const statusDetail = normalizeOptionalString(
-    metadata.agentNativeSlashCommandsStatusDetail,
-  );
-  let resolvedStatus = status;
-  if (commands.length > 0 && resolvedStatus === "unknown") {
-    resolvedStatus = "available";
-  } else if (hasCommandsField && resolvedStatus === "unknown") {
-    resolvedStatus = "none";
-  }
-  if (
-    commands.length === 0 &&
-    resolvedStatus === "unknown" &&
-    statusDetail === null
-  ) {
-    return null;
-  }
-  return {
-    engineConfigId: rawEngineConfigId,
-    entry: {
-      commands,
-      status: resolvedStatus,
-      statusDetail,
-    },
-  };
-}
-
-export function filterAgentNativeSlashCommandsByEngineId({
-  entries,
-  engineConfigIds,
-}: {
-  entries: Record<string, AgentNativeSlashCommandsEntry>;
-  engineConfigIds: string[];
-}): Record<string, AgentNativeSlashCommandsEntry> {
-  const allowedEngineIds = new Set(engineConfigIds);
-  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
-  for (const engineConfigId of engineConfigIds) {
-    const entry = entries[engineConfigId];
-    if (!entry || !allowedEngineIds.has(engineConfigId)) {
-      continue;
-    }
-    next[engineConfigId] = entry;
-  }
-  return next;
-}
-
-export function resolveAgentNativeSlashCommandsByEngineId({
-  runs,
-  projectConfigId,
-  engineConfigIds,
-}: {
-  runs: AgentRun[];
-  projectConfigId: string;
-  engineConfigIds: string[];
-}): Record<string, AgentNativeSlashCommandsEntry> {
-  const scopedRuns = filterRunsByProjectConfigId(runs, projectConfigId);
-  const allowedEngineIds = new Set(engineConfigIds);
-  const nextByEngineId: Record<
-    string,
-    {
-      entry: AgentNativeSlashCommandsEntry;
-      lastUpdatedMs: number;
-      runId: string;
-    }
-  > = {};
-  for (const run of scopedRuns) {
-    const extracted = extractAgentNativeSlashCommandsFromRun(run);
-    if (!extracted || !allowedEngineIds.has(extracted.engineConfigId)) {
-      continue;
-    }
-    const lastUpdatedMs = getRunLastUpdatedMs(run);
-    const current = nextByEngineId[extracted.engineConfigId];
-    const nextRunId = run.id.trim();
-    if (
-      current &&
-      (lastUpdatedMs < current.lastUpdatedMs ||
-        (lastUpdatedMs === current.lastUpdatedMs &&
-          nextRunId.localeCompare(current.runId) <= 0))
-    ) {
-      continue;
-    }
-    nextByEngineId[extracted.engineConfigId] = {
-      entry: extracted.entry,
-      lastUpdatedMs,
-      runId: nextRunId,
-    };
-  }
-  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
-  for (const [engineConfigId, value] of Object.entries(nextByEngineId)) {
-    next[engineConfigId] = value.entry;
-  }
-  return next;
-}
-
 function resolveAgentNativeSlashCommandsMessage(
   entry: AgentNativeSlashCommandsEntry,
 ): string {
@@ -767,9 +630,8 @@ export function ProjectChatSkillsMcpViewer({
   const [customSkillCreateRootPath, setCustomSkillCreateRootPath] = useState<
     string | null
   >(null);
-  const [customSkillCreateRootError, setCustomSkillCreateRootError] = useState<
-    string | null
-  >(null);
+  const [customSkillCreateRootActionable, setCustomSkillCreateRootActionable] =
+    useState(false);
   const [mcpConfigPath, setMcpConfigPath] = useState<string | null>(null);
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
@@ -842,15 +704,15 @@ export function ProjectChatSkillsMcpViewer({
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         setSkillsError(detail ?? "Failed to load skills.");
-        setCustomSkillCreateRootPath(null);
-        setCustomSkillCreateRootError(null);
         return;
       }
       const nextSkills = res.data.skills;
       skillContentCache.current.clear();
       setSkills(nextSkills);
       setCustomSkillCreateRootPath(res.data.customSkillCreateRootPath);
-      setCustomSkillCreateRootError(res.data.customSkillCreateRootError);
+      setCustomSkillCreateRootActionable(
+        res.data.customSkillCreateRootActionable,
+      );
       setSkillsRevision((value) => value + 1);
       setSelectedSkillId((current) => {
         if (nextSkills.length === 0) {
@@ -1612,7 +1474,7 @@ export function ProjectChatSkillsMcpViewer({
       return;
     }
     setCustomSkillCreateRootPath(res.data.rootPath);
-    setCustomSkillCreateRootError(null);
+    setCustomSkillCreateRootActionable(true);
     setNewCustomSkillRelativePath("");
     setIsSkillMarkdownViewerOpen(true);
     setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
@@ -1927,15 +1789,16 @@ export function ProjectChatSkillsMcpViewer({
                 data-testid="project-chat-custom-skill-root-path"
                 title={
                   customSkillCreateRootPath ??
-                  customSkillCreateRootError ??
                   "Custom skill create root unavailable."
                 }
               >
                 {customSkillCreateRootPath
-                  ? `Custom skills root: ${customSkillCreateRootPath}`
-                  : customSkillCreateRootError
-                    ? "Custom skills root unavailable."
-                    : "Loading custom skills root..."}
+                  ? customSkillCreateRootActionable
+                    ? `Custom skills root: ${customSkillCreateRootPath}`
+                    : `Custom skills root (not created yet): ${customSkillCreateRootPath}`
+                  : skillsLoading
+                    ? "Loading custom skills root..."
+                    : "Custom skills root unavailable."}
               </span>
               <button
                 type="button"
@@ -1944,7 +1807,10 @@ export function ProjectChatSkillsMcpViewer({
                 onClick={() =>
                   void revealPathInFileExplorer(customSkillCreateRootPath)
                 }
-                disabled={!isActionablePath(customSkillCreateRootPath)}
+                disabled={
+                  !customSkillCreateRootActionable ||
+                  !isActionablePath(customSkillCreateRootPath)
+                }
               >
                 Open
               </button>

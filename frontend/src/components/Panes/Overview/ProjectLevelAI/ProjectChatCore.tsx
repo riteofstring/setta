@@ -32,7 +32,6 @@ import {
   useState,
 } from "react";
 import {
-  filterRunsByProjectConfigId,
   getRunInputString,
   getRunLastUpdatedMs,
 } from "state/actions/agentRunUtils";
@@ -96,9 +95,10 @@ import {
 import {
   AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
   buildReservedSlashCommandTokens,
-  collectAgentNativeSlashCommandTokensFromRuns,
+  collectAgentNativeSlashCommandTokensFromEntries,
   collectAgentNativeSlashCommandTokensFromStorage,
   reconcileCustomSlashCommands,
+  resolveAgentNativeSlashCommandsByEngineId,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
@@ -177,13 +177,17 @@ export function buildProjectChatHydrationCacheKey({
 export function resolveProjectChatComposerNativeSlashCommandTokens({
   runtimeNativeSlashCommandTokens,
   persistedNativeSlashCommandTokens,
-  agentRunsInitialLoadComplete,
+  agentRunsAuthorityState,
 }: {
   runtimeNativeSlashCommandTokens: string[];
   persistedNativeSlashCommandTokens: string[];
-  agentRunsInitialLoadComplete: boolean;
+  agentRunsAuthorityState:
+    | "loading"
+    | "ready"
+    | "transient_error"
+    | "terminal_error";
 }): string[] {
-  if (agentRunsInitialLoadComplete) {
+  if (agentRunsAuthorityState === "ready") {
     return runtimeNativeSlashCommandTokens;
   }
   const mergedTokens: string[] = [];
@@ -1320,18 +1324,27 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
   const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
-    return collectAgentNativeSlashCommandTokensFromRuns(
-      filterRunsByProjectConfigId(agentRuns, projectConfigId),
+    const runtimeSlashCommandsByEngineId =
+      resolveAgentNativeSlashCommandsByEngineId({
+        runs: agentRuns,
+        projectConfigId,
+        engineConfigIds,
+      });
+    return collectAgentNativeSlashCommandTokensFromEntries(
+      runtimeSlashCommandsByEngineId,
     );
-  }, [agentRuns, projectConfigId]);
+  }, [agentRuns, engineConfigIds, projectConfigId]);
+  const agentRunsAuthorityState = useAIStore(
+    (state) => state.agentRunsAuthorityState,
+  );
   const discoveredAgentNativeSlashCommands = useMemo(() => {
     return resolveProjectChatComposerNativeSlashCommandTokens({
       runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
       persistedNativeSlashCommandTokens,
-      agentRunsInitialLoadComplete,
+      agentRunsAuthorityState,
     });
   }, [
-    agentRunsInitialLoadComplete,
+    agentRunsAuthorityState,
     persistedNativeSlashCommandTokens,
     runtimeAgentNativeSlashCommandTokens,
   ]);

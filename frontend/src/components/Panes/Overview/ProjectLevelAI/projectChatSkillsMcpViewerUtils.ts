@@ -8,9 +8,14 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import {
+  filterRunsByProjectConfigId,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
+import {
   EngineTypeEnum,
   ExternalAgentToolTypeEnum,
   type APIKeys,
+  type AgentRun,
   type AllLLMConfigs,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
@@ -20,6 +25,29 @@ import {
 
 export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
+
+export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
+type AgentNativeSlashCommandsStatus =
+  | "unknown"
+  | "available"
+  | "none"
+  | "not_supported"
+  | "error";
+export type AgentNativeSlashCommandsEntry = {
+  commands: string[];
+  status: AgentNativeSlashCommandsStatus;
+  statusDetail: string | null;
+};
+export type AgentNativeSlashCommandsByProjectConfigId = Record<
+  string,
+  Record<string, AgentNativeSlashCommandsEntry>
+>;
+export const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
+  {
+    commands: EMPTY_AGENT_NATIVE_COMMANDS,
+    status: "unknown",
+    statusDetail: null,
+  };
 
 export function filterSkills(
   skills: AppGenSkillEntry[],
@@ -565,6 +593,190 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed;
+}
+
+function normalizeSlashCommandList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    const normalizedValue = normalizeSlashCommandToken(value);
+    if (!normalizedValue || seen.has(normalizedValue)) {
+      continue;
+    }
+    seen.add(normalizedValue);
+    normalized.push(normalizedValue);
+  }
+  return normalized;
+}
+
+function normalizeAgentNativeSlashCommandsStatus(
+  rawStatus: unknown,
+): AgentNativeSlashCommandsStatus {
+  if (typeof rawStatus !== "string") {
+    return "unknown";
+  }
+  switch (rawStatus.trim()) {
+    case "available":
+      return "available";
+    case "none":
+      return "none";
+    case "not_supported":
+      return "not_supported";
+    case "error":
+      return "error";
+    default:
+      return "unknown";
+  }
+}
+
+function extractAgentNativeSlashCommandsFromRun(
+  run: AgentRun,
+): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
+  if (!isRecord(run.outputs)) {
+    return null;
+  }
+  const metadata = run.outputs.metadata;
+  if (!isRecord(metadata)) {
+    return null;
+  }
+  const rawEngineConfigId = metadata.engineConfigId;
+  if (
+    typeof rawEngineConfigId !== "string" ||
+    rawEngineConfigId.trim() === ""
+  ) {
+    return null;
+  }
+  const hasCommandsField = Array.isArray(metadata.agentNativeSlashCommands);
+  const commands = normalizeSlashCommandList(metadata.agentNativeSlashCommands);
+  const status = normalizeAgentNativeSlashCommandsStatus(
+    metadata.agentNativeSlashCommandsStatus,
+  );
+  const statusDetail = normalizeOptionalString(
+    metadata.agentNativeSlashCommandsStatusDetail,
+  );
+  let resolvedStatus = status;
+  if (commands.length > 0 && resolvedStatus === "unknown") {
+    resolvedStatus = "available";
+  } else if (hasCommandsField && resolvedStatus === "unknown") {
+    resolvedStatus = "none";
+  }
+  if (
+    commands.length === 0 &&
+    resolvedStatus === "unknown" &&
+    statusDetail === null
+  ) {
+    return null;
+  }
+  return {
+    engineConfigId: rawEngineConfigId,
+    entry: {
+      commands,
+      status: resolvedStatus,
+      statusDetail,
+    },
+  };
+}
+
+export function filterAgentNativeSlashCommandsByEngineId({
+  entries,
+  engineConfigIds,
+}: {
+  entries: Record<string, AgentNativeSlashCommandsEntry>;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  const allowedEngineIds = new Set(engineConfigIds);
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const engineConfigId of engineConfigIds) {
+    const entry = entries[engineConfigId];
+    if (!entry || !allowedEngineIds.has(engineConfigId)) {
+      continue;
+    }
+    next[engineConfigId] = entry;
+  }
+  return next;
+}
+
+export function resolveAgentNativeSlashCommandsByEngineId({
+  runs,
+  projectConfigId,
+  engineConfigIds,
+}: {
+  runs: AgentRun[];
+  projectConfigId: string;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  const scopedRuns = filterRunsByProjectConfigId(runs, projectConfigId);
+  const allowedEngineIds = new Set(engineConfigIds);
+  const nextByEngineId: Record<
+    string,
+    {
+      entry: AgentNativeSlashCommandsEntry;
+      lastUpdatedMs: number;
+      runId: string;
+    }
+  > = {};
+  for (const run of scopedRuns) {
+    const extracted = extractAgentNativeSlashCommandsFromRun(run);
+    if (!extracted || !allowedEngineIds.has(extracted.engineConfigId)) {
+      continue;
+    }
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const current = nextByEngineId[extracted.engineConfigId];
+    const nextRunId = run.id.trim();
+    if (
+      current &&
+      (lastUpdatedMs < current.lastUpdatedMs ||
+        (lastUpdatedMs === current.lastUpdatedMs &&
+          nextRunId.localeCompare(current.runId) <= 0))
+    ) {
+      continue;
+    }
+    nextByEngineId[extracted.engineConfigId] = {
+      entry: extracted.entry,
+      lastUpdatedMs,
+      runId: nextRunId,
+    };
+  }
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const [engineConfigId, value] of Object.entries(nextByEngineId)) {
+    next[engineConfigId] = value.entry;
+  }
+  return next;
+}
+
+export function collectAgentNativeSlashCommandTokensFromEntries(
+  entries: Record<string, AgentNativeSlashCommandsEntry>,
+): string[] {
+  const discoveredTokens: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of Object.values(entries)) {
+    for (const command of entry.commands) {
+      const normalizedCommand = normalizeSlashCommandToken(command);
+      if (!normalizedCommand || seen.has(normalizedCommand)) {
+        continue;
+      }
+      seen.add(normalizedCommand);
+      discoveredTokens.push(normalizedCommand);
+    }
+  }
+  return discoveredTokens;
+}
+
 function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
   if (typeof value !== "string") {
     return "unknown";
@@ -815,43 +1027,6 @@ export function buildSlashCommandsByEngine({
       }),
     };
   });
-}
-
-type AgentRunWithOutputs = {
-  outputs: unknown;
-};
-
-export function collectAgentNativeSlashCommandTokensFromRuns(
-  runs: AgentRunWithOutputs[],
-): string[] {
-  const discoveredTokens: string[] = [];
-  const seen = new Set<string>();
-  for (const run of runs) {
-    const outputs = isRecord(run.outputs) ? run.outputs : null;
-    if (!outputs) {
-      continue;
-    }
-    const metadata = isRecord(outputs.metadata) ? outputs.metadata : null;
-    if (!metadata) {
-      continue;
-    }
-    const nativeCommands = metadata.agentNativeSlashCommands;
-    if (!Array.isArray(nativeCommands)) {
-      continue;
-    }
-    for (const nativeCommand of nativeCommands) {
-      if (typeof nativeCommand !== "string") {
-        continue;
-      }
-      const normalized = normalizeSlashCommandToken(nativeCommand);
-      if (!normalized || seen.has(normalized)) {
-        continue;
-      }
-      seen.add(normalized);
-      discoveredTokens.push(normalized);
-    }
-  }
-  return discoveredTokens;
 }
 
 export function collectAgentNativeSlashCommandTokensFromStorage({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createAgentRun,
   createAllLLMConfigs,
   createEngineConfig,
   createExternalAgentPreflightStatus,
@@ -10,12 +11,13 @@ import {
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
-  collectAgentNativeSlashCommandTokensFromRuns,
+  collectAgentNativeSlashCommandTokensFromEntries,
   collectAgentNativeSlashCommandTokensFromStorage,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   reconcileCustomSlashCommands,
+  resolveAgentNativeSlashCommandsByEngineId,
   resolveMcpServerStatus,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
@@ -633,24 +635,51 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ]);
   });
 
-  it("collects normalized agent-native slash tokens from run metadata", () => {
-    const tokens = collectAgentNativeSlashCommandTokensFromRuns([
-      {
-        outputs: {
-          metadata: {
-            agentNativeSlashCommands: [" /triage ", "/help", 1],
-          },
-        },
-      },
-      {
-        outputs: {
-          metadata: {
-            agentNativeSlashCommands: ["/TRIAGE", "/ship"],
-          },
-        },
-      },
-      { outputs: null },
-    ]);
+  it("collects normalized agent-native slash tokens from authoritative run metadata", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromEntries(
+      resolveAgentNativeSlashCommandsByEngineId({
+        runs: [
+          createAgentRun({
+            id: "run-1",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-live",
+                agentNativeSlashCommands: [" /triage ", "/help", 1],
+              },
+            },
+          }),
+          createAgentRun({
+            id: "run-2",
+            inputs: {
+              projectConfigId: "project-a",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-second",
+                agentNativeSlashCommands: ["/TRIAGE", "/ship"],
+              },
+            },
+          }),
+          createAgentRun({
+            id: "run-ignored",
+            inputs: {
+              projectConfigId: "project-b",
+            },
+            outputs: {
+              metadata: {
+                engineConfigId: "engine-live",
+                agentNativeSlashCommands: ["/ignored"],
+              },
+            },
+          }),
+        ],
+        projectConfigId: "project-a",
+        engineConfigIds: ["engine-live", "engine-second"],
+      }),
+    );
 
     expect(tokens).toEqual(["/triage", "/help", "/ship"]);
   });

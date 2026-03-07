@@ -8789,7 +8789,7 @@ export type GetAppGenSkillContentRequestInput = z.input<
 const GetAppGenSkillsResponseSchema = z.object({
   skills: z.array(AppGenSkillEntrySchema),
   customSkillCreateRootPath: z.union([z.string(), z.null()]).default(null),
-  customSkillCreateRootError: z.union([z.string(), z.null()]).default(null),
+  customSkillCreateRootActionable: z.boolean().default(false),
 });
 
 export type GetAppGenSkillsResponse = z.infer<

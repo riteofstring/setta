@@ -283,3 +283,52 @@
 - Manual Chrome DevTools MCP verification for:
   - Project AI `Skills`, `MCP`, and `Slash Commands` aux-view transitions in the running app,
   - external-agent slash-command tab rendering and empty native-command state messaging.
+
+## 2026-03-06 05:55:26 PST
+
+### Consolidated findings implemented
+- Replaced split native slash-command reservation logic with one authoritative runtime resolver scoped to the active project, active engine IDs, and newest-run-wins per engine.
+- Restored strict fail-closed slash-command behavior during startup and degraded agent-run states so reserved native tokens never fall through as plain chat text.
+- Unified custom-skill create-root authority between backend and frontend so the displayed root, create target, and `Open` action all point at the same backend-selected location.
+- Removed misleading custom-skill root error semantics in favor of explicit actionability, which lets the UI distinguish “known path but not created yet” from “no usable root”.
+- Reinstated Watch Code visibility gating after the control relocation so deployment/share mode no longer renders the Watch Code entry point.
+- Deleted backward-compatibility remaps for removed top-level Overview tabs (`BackendLogs`, `WatchCode`, `ProjectAISettings`) so runtime tab state only accepts current destinations.
+
+### Proposed fixes applied
+- Backend `app_gen_extensions` now resolves the custom-skill create root through `_resolve_custom_skill_create_root(...)`, returning both `customSkillCreateRootPath` and `customSkillCreateRootActionable`.
+- Backend writable-root probing now tracks whether the root already existed and cleans up any probe-created directories, preserving read-only `GET /getAppGenSkills` behavior while still determining whether the path is actionable.
+- Custom-skill create/update flow now reuses that same backend resolver, so create writes land at the same path previously shown to the user.
+- Frontend skills viewer now stores `customSkillCreateRootActionable`, renders `Custom skills root (not created yet): ...` when the backend has chosen a path that is not yet materialized, and disables `Open` until the backend says that path is actionable.
+- Frontend slash-command resolution now uses `resolveAgentNativeSlashCommandsByEngineId(...)` plus `collectAgentNativeSlashCommandTokensFromEntries(...)` instead of unioning commands from arbitrary runs.
+- Project chat composer fallback now keys off `agentRunsAuthorityState === "ready"` before trusting runtime-native slash metadata; until then it stays fail-closed on persisted reserved/native tokens.
+- Watch Code portal rendering is now guarded by `shouldShowWatchCodePortalControl(...)`, and deployment-mode transitions force-close the portal instead of leaving stale UI state behind.
+- Overview/local-storage normalization no longer remaps removed top-level tab names, and backend-log visibility logic no longer special-cases the deleted `BackendLogs` top-level tab.
+
+### UX/DX before and after
+- Before: Stale runs, removed engines, or older runs could keep native slash tokens reserved in the current project, while startup `terminal_error` states could also accidentally reopen reserved tokens as executable custom commands.  
+  After: Only the latest run for each active engine in the current project can reserve native tokens, and startup/degraded states remain fail-closed until authoritative runtime data is ready.
+- Before: Skills UI could show one root, `Open` could target that root, and create could still write somewhere else, or `Open` could stay enabled for a path that did not exist yet.  
+  After: The banner, create target, and `Open` action share one backend contract; when the root is not created yet, the UI says so explicitly and disables `Open`.
+- Before: Deployment/share mode could still expose the relocated Watch Code control, widening feature availability relative to the previous product gate.  
+  After: The control is hidden before render in deployment mode, matching the intended availability rules.
+- Before: Removed top-level Overview tabs still existed as semi-supported runtime states through hydration/remap branches, which made navigation logic and tests harder to reason about.  
+  After: Only current tabs survive validation, so hydration follows one smaller state path and the runtime no longer carries dead compatibility code.
+
+### Validation coverage added or updated
+- Backend pytest coverage for:
+  - authoritative custom-skill create-root selection,
+  - `customSkillCreateRootActionable` behavior for existing vs not-yet-created roots,
+  - GET/POST consistency for the skills root contract.
+- Frontend Vitest coverage for:
+  - newest-run-wins native slash-command resolution by engine,
+  - fail-closed composer behavior while agent-run authority is not ready,
+  - skills-root label/actionability rendering,
+  - Watch Code deployment-mode gating,
+  - removed Overview tab compatibility-branch cleanup.
+- Playwright E2E coverage for:
+  - disabled `Open` behavior when the backend-selected custom-skills root is not yet created,
+  - preserved Watch Code hiding in deployment mode,
+  - updated Overview navigation paths after removing legacy top-level tab shims.
+- Manual Chrome DevTools MCP verification for:
+  - `Custom skills root (not created yet)` rendering with `Open` disabled,
+  - Watch Code control absence in deployment mode.
