@@ -145,11 +145,14 @@ Use the docs in this order:
   - focused slice doc for Go-owned `auto_layout_top_level_sections` MCP
     parity over the completed top-level auto-layout runtime and settings-backed
     sizing-policy boundary
-62. `spike-mcp.md`
+62. `phase-6-set-show-param-display-names-tool-parity.md`
+  - focused slice doc for Go-owned `set_show_param_display_names` MCP parity
+    over the completed layout-presentation runtime boundary
+63. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-63. `spike-pty.md`
+64. `spike-pty.md`
    - PTY uncertainty-reduction plan
-64. `spike-lsp.md`
+65. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
