@@ -55,6 +55,10 @@ Current repo status as of 2026-03-06:
 - binary upload HTTP transport now exists in Go under:
   - `internal/httpapi/binary_routes.go`
   - `internal/app/app.go`
+- Go now owns a backend-log broadcaster under:
+  - `internal/backendlogs`
+  - structured server logging plus frontend websocket backend-log events
+  - share-session-scoped frontend fan-out with `SETTA_UI_LOG_LEVEL` threshold support
 - run-code migration groundwork now exists in Go under:
   - `internal/projectstate`
   - `internal/runs`
@@ -74,9 +78,10 @@ Current repo status as of 2026-03-06:
   - section-variant overrides are planned against cloned project-state documents without mutating the active section map
   - attached-terminal reuse and ensure flow through Go project-state + terminal services
   - IDE draw snapshot uploads and project-state artifact updates now flow through Go-owned binary + run services
+  - successful run dispatch now emits a Go-owned `Started command` backend-log event to frontend websockets
   - `cliId` and `paramOverrides` still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
-- producer-side realtime event sources and terminal run HTTP routes still live only in Python across:
+- many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
   - `backend/setta/routers/terminals.py`

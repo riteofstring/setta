@@ -38,6 +38,7 @@ Current repo status as of 2026-03-06:
   - attached-terminal validation and creation against the planner-resolved variant when needed
   - `drawSnapshotsBySectionId` application through Go-owned binary upload, artifact writes, and draw-section state updates
   - terminal-session open/reuse plus shell-command dispatch through `internal/terminals`
+  - `Started command` backend-log notifications through a Go-owned broadcaster under `internal/backendlogs`
 - the current Go IDE `runCode` route still rejects:
   - `cliId`
   - `paramOverrides`
@@ -62,7 +63,6 @@ Current repo status as of 2026-03-06:
   - `internal/httpapi/binary_routes.go`
   - `internal/projectstate/draw_snapshots.go`
 - Go now has the first IDE `runCode` route for manual code-section runs, but it is still narrower than the Python route
-- Go does not yet have a backend-log event sink for run start notifications
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
@@ -223,7 +223,6 @@ What they do need is the set of side effects:
 The remaining gaps are no longer basic transport or project-graph modeling.
 The open work is now concentrated in the higher-level run semantics:
 
-- Go still does not have backend-log start notifications for successful runs
 - Go does not yet have temporary-terminal fallback for non-attached/manual-non-code targets
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have deployment/share run policy ownership for:
@@ -452,6 +451,7 @@ Status:
 Completed:
 
 - added `internal/runs/service.go`
+- added `internal/backendlogs/service.go`
 - added the minimal binary/draw-snapshot runtime pieces in:
   - `internal/binary/store.go`
   - `internal/httpapi/binary_routes.go`
@@ -471,10 +471,13 @@ Completed:
   - planned commands use explicit executable paths resolved from the host instead of assuming `python` is on the shell PATH
   - draw snapshot payloads are uploaded through a Go-owned binary store and applied before planning the command
   - draw snapshot artifacts are written under the Go-owned artifacts root and persisted back into draw-section state
+  - successful dispatch now logs and broadcasts the Go-owned equivalent of Python's `Started command` backend log event
 - added focused coverage in:
+  - `internal/backendlogs/service_test.go`
   - `internal/httpapi/binary_routes_test.go`
   - `internal/httpapi/terminal_routes_test.go`
   - `internal/app/app_test.go`
+  - `internal/app/websocket_test.go`
 
 Tests:
 
@@ -483,7 +486,6 @@ Tests:
 Deferred Within Slice 3:
 
 - temporary terminal allocation for non-attached/manual-non-code targets
-- backend-log start notifications
 - `cliId` output transport
 
 ### Slice 4: Deployment/Share Run Support
@@ -509,7 +511,6 @@ Blocked On:
 ## Open Questions
 
 - should the first Go run planner support generated Python project-entry runs immediately, or start with manual runnable code sections only?
-- do we need backend-log broadcast parity in the first route slice, or can that land one slice later if terminal output already proves the run started?
 - does any real Go migration consumer need the `cliId` branch before detached-run work starts?
 
 ## Recommended Option
@@ -527,8 +528,9 @@ Rationale:
 
 ## Next Recommended Step
 
-Finish the current IDE manual-run slice by adding backend-log start notifications:
+Finish the current IDE terminal-selection slice by adding temporary-terminal fallback:
 
-- emit the Go-owned equivalent of Python's `Started command` backend log event after successful dispatch
-- keep the transport thin by routing through a dedicated backend-log broadcaster service instead of teaching `internal/runs` about websocket details
-- defer temporary-terminal fallback, `cliId`, `paramOverrides`, and deployment/share policy until the current IDE side effects are complete
+- teach `internal/runs.Service` to reuse a free project/share-scoped terminal when the target is not an attached code-section run
+- create visible temporary terminal sections through Go project-state mutation when reuse is not possible
+- keep transport thin by continuing to route all terminal-choice semantics through `internal/runs` instead of the HTTP handler
+- defer `cliId`, `paramOverrides`, and deployment/share policy until terminal-selection parity is in place
