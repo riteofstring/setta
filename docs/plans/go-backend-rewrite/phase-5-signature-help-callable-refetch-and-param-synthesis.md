@@ -39,8 +39,18 @@ Current repo status as of 2026-03-07:
     `getLatestProjectState` routes
   - the frontend Search callable flow now rehydrates authoritative project
     state instead of waiting for a non-existent Go websocket push
-- the active LSP gap has moved to generated-diagnostics-driven callable
-  auto-refetch and watch-code reuse of the same synthesis path
+- Slice 2 of this follow-up is complete:
+  - generated Python diagnostics now classify resolved undefined-callable
+    sections and new callable mismatch sections in Go
+  - `internal/lsp` now reuses the Go callable synthesis path for
+    generated-diagnostics auto-refetch instead of rebuilding mutation logic in
+    the synchronizer
+  - mismatch-driven refetch now reads
+    `settings.backend.autoRefetchCallableParamsOnLspMismatch` from the Go
+    settings runtime, with the schema default applied when no settings project
+    exists yet
+- the active LSP gap has moved to watch-code callable refresh reuse and the
+  remaining warning/policy finish work in Slice 3
 - Python remains the source of truth for that gap in:
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/lsp_response_handlers/signatureHelp.py`
@@ -117,16 +127,14 @@ source-of-truth callable synthesis service above the shared LSP session.
 
 ## Dependency Finding
 
-Slice 1 is implemented. The remaining dependency for Slice 2 is narrower:
+Slices 1 and 2 are implemented. The remaining dependency for Slice 3 is now:
 
-1. generated Python diagnostics need a reusable resolved-symbol and
-   mismatch-section callback boundary in Go
-2. that callback must reuse the same callable synthesis owner instead of
-   rebuilding route logic in the synchronizer
-3. mismatch-driven refetch still depends on
-   `settings.backend.autoRefetchCallableParamsOnLspMismatch`
-   - that policy should be read through an explicit Go-owned settings path
-   - do not hard-code mismatch refetch behavior
+1. watch-code callable refreshes still bypass the Go refetch helper and need to
+   converge on the same source-of-truth mutation path
+2. unresolved signature-help results still need the final warning/notification
+   behavior for watcher-driven updates
+3. any remaining mismatch-policy wiring should stay explicit and reuse the new
+   settings-runtime lookup instead of copying defaults again
 
 ## Working Decisions
 
@@ -279,6 +287,8 @@ Acceptance:
 
 ### Slice 2: Auto-Refetch From Generated Diagnostics
 
+Status: complete
+
 Deliver:
 
 - Go-owned callbacks for:
@@ -336,11 +346,10 @@ For later slices, add:
 
 ## Next Recommended Step
 
-Execute Slice 2 next:
+Execute Slice 3 next:
 
-- add generated-diagnostics callbacks that detect resolved undefined-callable
-  sections and new callable mismatch sections
-- reuse the Go callable synthesis path for auto-refetch instead of rebuilding
-  mutation logic in the synchronizer
-- read mismatch refetch policy from the settings runtime instead of
-  hard-coding it
+- route watch-code callable refreshes through the Go callable refetch helper
+- preserve explicit warnings when signature help cannot resolve params during
+  watcher-driven updates
+- keep the mismatch-policy and watcher policy wiring on the same settings
+  source-of-truth path
