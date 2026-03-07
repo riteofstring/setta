@@ -27,6 +27,7 @@ import (
 	"setta/internal/runs"
 	"setta/internal/runtime"
 	"setta/internal/terminals"
+	"setta/internal/watchcode"
 	"setta/internal/wsapi"
 )
 
@@ -44,6 +45,7 @@ type App struct {
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	lspSync       *lsp.ProjectSynchronizer
+	watchCode     *watchcode.Service
 	handler       http.Handler
 }
 
@@ -76,6 +78,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		lspSignature       *lspsignature.Service
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
+		watchCodeService   *watchcode.Service
 		plannerFilesRoot   string
 		artifactsRoot      string
 		shareSessions      modes.ShareSessionStore
@@ -169,6 +172,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
 			MainRuntime: projectstate.RuntimeOptions{
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+					if watchCodeService != nil {
+						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
+							return err
+						}
+					}
 					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
 						return err
 					}
@@ -208,18 +216,34 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				}
 			},
 		)
+		if modePolicy.IsIDE() {
+			watchCodeService, err = watchcode.NewService(watchcode.ServiceOptions{
+				WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+				OnError: func(err error) {
+					logger.Error("watch code runtime failed", "error", err)
+				},
+			})
+			if err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+				return nil, err
+			}
+			if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(projectStates.Main().Snapshot().Document)); err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+				return nil, err
+			}
+		}
 	}
 
 	terminalService, err := terminals.New(terminals.Options{
 		Logger: logger,
 	})
 	if err != nil {
-		_ = closeProjectResources(projectStates, deploymentRuntime)
+		_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
 		return nil, err
 	}
 	binaryStore, err := binarypayload.NewStoreForRuntimeRoot(cfg.Paths.RuntimeRoot)
 	if err != nil {
-		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
@@ -228,7 +252,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		RuntimeRoot:    cfg.Paths.RuntimeRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
@@ -245,7 +269,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		EnvLookup:    os.LookupEnv,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
@@ -259,7 +283,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ArtifactsRoot:     artifactsRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	if deploymentRuntime != nil {
@@ -341,7 +365,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		},
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 
@@ -359,6 +383,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		lspSync:       projectLSPSyncer,
+		watchCode:     watchCodeService,
 		handler:       handler,
 	}, nil
 }
@@ -412,7 +437,11 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 }
 
 func (a *App) Shutdown(ctx context.Context) error {
-	return errors.Join(closeProjectResources(a.projectStates, a.deployment), closeLSPProjectSynchronizer(a.lspSync, ctx), a.terminals.Close(ctx), a.runtime.Shutdown(ctx))
+	return errors.Join(
+		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, ctx),
+		a.terminals.Close(ctx),
+		a.runtime.Shutdown(ctx),
+	)
 }
 
 type infoService struct {
@@ -451,6 +480,20 @@ func closeProjectResources(projectStates *projectstate.Registry, deploymentRunti
 	return errors.Join(closeProjectStates(projectStates), closeDeploymentRuntime(deploymentRuntime))
 }
 
+func closeProjectStateServices(
+	projectStates *projectstate.Registry,
+	deploymentRuntime *deployments.Runtime,
+	syncer *lsp.ProjectSynchronizer,
+	watchService *watchcode.Service,
+	ctx context.Context,
+) error {
+	return errors.Join(
+		closeWatchCodeService(watchService),
+		closeLSPProjectSynchronizer(syncer, ctx),
+		closeProjectResources(projectStates, deploymentRuntime),
+	)
+}
+
 func closeProjectStates(projectStates *projectstate.Registry) error {
 	if projectStates == nil {
 		return nil
@@ -470,4 +513,11 @@ func closeLSPProjectSynchronizer(syncer *lsp.ProjectSynchronizer, ctx context.Co
 		return nil
 	}
 	return syncer.Close(ctx)
+}
+
+func closeWatchCodeService(service *watchcode.Service) error {
+	if service == nil {
+		return nil
+	}
+	return service.Close()
 }

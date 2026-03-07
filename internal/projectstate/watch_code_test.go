@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"setta/internal/watchcode"
 )
 
 func TestRuntimeSetWatchCodeEnabledBaselinesExistingDefs(t *testing.T) {
@@ -191,5 +193,55 @@ class Widget:
 	}
 	if !reflect.DeepEqual(identities, expected) {
 		t.Fatalf("expected identities %#v, got %#v", expected, identities)
+	}
+}
+
+func TestWatchCodeConfigInputsClonesProjectWatchState(t *testing.T) {
+	t.Parallel()
+
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/watch.py"},
+				WatchCodeFolders: []WatchCodeFolder{
+					{Path: "pkg", Recursive: true},
+				},
+			},
+		},
+	}
+
+	configs := WatchCodeConfigInputs(document)
+	expected := map[string]watchcode.ConfigInputs{
+		"project-alpha": {
+			Enabled: true,
+			Files:   []string{"pkg/watch.py"},
+			Folders: []watchcode.FolderInput{
+				{Path: "pkg", Recursive: true},
+			},
+		},
+	}
+	if !reflect.DeepEqual(configs, expected) {
+		t.Fatalf("expected watch code configs %#v, got %#v", expected, configs)
+	}
+
+	configs["project-alpha"] = watchcode.ConfigInputs{
+		Enabled: false,
+		Files:   []string{"other.py"},
+		Folders: []watchcode.FolderInput{{Path: "other", Recursive: false}},
+	}
+	project := document.Projects["project-alpha"]
+	if !project.WatchCodeEnabled {
+		t.Fatal("expected original project watch code flag to stay enabled")
+	}
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/watch.py"}) {
+		t.Fatalf("expected original watch files to stay unchanged, got %#v", project.WatchCodeFiles)
+	}
+	if !reflect.DeepEqual(project.WatchCodeFolders, []WatchCodeFolder{{Path: "pkg", Recursive: true}}) {
+		t.Fatalf("expected original watch folders to stay unchanged, got %#v", project.WatchCodeFolders)
 	}
 }

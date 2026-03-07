@@ -86,6 +86,17 @@ func (s *Service) SyncConfigs(configs map[string]ConfigInputs) error {
 	return nil
 }
 
+func (s *Service) ConfigSnapshots() map[string]ConfigSnapshot {
+	if s == nil {
+		return map[string]ConfigSnapshot{}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.manager.ConfigSnapshots()
+}
+
 func (s *Service) Close() error {
 	if s == nil {
 		return nil

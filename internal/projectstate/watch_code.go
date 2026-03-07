@@ -268,6 +268,25 @@ func buildWatchCodeConfigSnapshot(project Project) watchCodeConfigSnapshot {
 	}
 }
 
+func WatchCodeConfigInputs(document Document) map[string]watchcode.ConfigInputs {
+	configs := make(map[string]watchcode.ConfigInputs, len(document.Projects))
+	for projectID, project := range document.Projects {
+		folders := make([]watchcode.FolderInput, 0, len(project.WatchCodeFolders))
+		for _, folder := range project.WatchCodeFolders {
+			folders = append(folders, watchcode.FolderInput{
+				Path:      folder.Path,
+				Recursive: folder.Recursive,
+			})
+		}
+		configs[projectID] = watchcode.ConfigInputs{
+			Enabled: project.WatchCodeEnabled,
+			Files:   append([]string(nil), project.WatchCodeFiles...),
+			Folders: folders,
+		}
+	}
+	return configs
+}
+
 func (p *Project) baselineWatchCodeOnEnable(workspaceRoot string) error {
 	if err := p.baselineWatchCodeInputs(workspaceRoot); err != nil {
 		return err

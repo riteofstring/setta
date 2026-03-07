@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/terminals"
+	"setta/internal/watchcode"
 )
 
 func TestAppServesFoundationRoutes(t *testing.T) {
@@ -222,6 +224,132 @@ func TestAppWiresSeparateProjectStateRuntimes(t *testing.T) {
 	}
 	if _, ok := settingsSnapshot.Document.Projects["project-alpha"]; ok {
 		t.Fatal("did not expect main project in settings runtime")
+	}
+}
+
+func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/watch.py"},
+				WatchCodeFolders: []projectstate.WatchCodeFolder{
+					{Path: "pkg", Recursive: true},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed saved main project state: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.watchCode == nil {
+		t.Fatal("expected IDE app to start watch code service")
+	}
+
+	expected := map[string]watchcode.ConfigSnapshot{
+		"project-alpha": {
+			Enabled: true,
+			Files: []string{
+				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch.py"),
+			},
+			Folders: []watchcode.FolderInput{
+				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg"), Recursive: true},
+			},
+		},
+	}
+	if !reflect.DeepEqual(app.watchCode.ConfigSnapshots(), expected) {
+		t.Fatalf("expected synced watch code config snapshots %#v, got %#v", expected, app.watchCode.ConfigSnapshots())
+	}
+}
+
+func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.watchCode == nil {
+		t.Fatal("expected IDE app to start watch code service")
+	}
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFiles:   []string{"pkg/watch.py"},
+			WatchCodeFolders: []projectstate.WatchCodeFolder{
+				{Path: "pkg/nested", Recursive: false},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate main runtime: %v", err)
+	}
+
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save main runtime: %v", err)
+	}
+
+	expected := map[string]watchcode.ConfigSnapshot{
+		"project-alpha": {
+			Enabled: true,
+			Files: []string{
+				filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "watch.py"),
+			},
+			Folders: []watchcode.FolderInput{
+				{Path: filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "nested"), Recursive: false},
+			},
+		},
+	}
+	if !reflect.DeepEqual(app.watchCode.ConfigSnapshots(), expected) {
+		t.Fatalf("expected watch code configs after save %#v, got %#v", expected, app.watchCode.ConfigSnapshots())
+	}
+}
+
+func TestAppLauncherDoesNotStartWatchCodeService(t *testing.T) {
+	t.Parallel()
+
+	app, err := New(testConfig(t), observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.watchCode != nil {
+		t.Fatal("did not expect launcher mode to start watch code service")
 	}
 }
 
@@ -1166,6 +1294,20 @@ func testConfig(t *testing.T) config.Config {
 			AutoMode:             config.AutoModeCreateLocal,
 		},
 	}
+}
+
+func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projectstate.Document) error {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		return err
+	}
+	return store.Save(context.Background(), document)
 }
 
 func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source string) {
