@@ -36,13 +36,16 @@ Current repo status as of 2026-03-06:
   - frontend share/app load paths still expect a frontend-facing
     `ProjectStateSingleConfig`
   - app mode also expects `appDefinition` and `appSpec`
-  - current Go `internal/projectstate.Document` is intentionally narrow and is
-    optimized for runtime ownership + run planning, not frontend hydration
-- current Go project state is missing frontend source fields such as:
-  - code-object graphs
-  - project-config view state
-  - edge/layout metadata
-  - app definition metadata
+- Go project state now includes the first richer frontend source fields under
+  `internal/projectstate`:
+  - app definition metadata on the document
+  - project-config view state on each project
+  - code-object graphs on each project
+  - opaque frontend payload storage for codegen targets, section impls, code
+    object impls, and modifier-heavy subtrees
+- the remaining blocker is now narrower:
+  - Go still does not have the frontend read-projection layer that turns those
+    source fields into `ProjectStateSingleConfig`
 - route-local compatibility shims would create a dead-end transport layer with
   no Go-owned source of truth
 
@@ -107,6 +110,45 @@ transport anymore.
 That makes a frontend-facing Go project-state transport boundary the
 highest-leverage next step.
 
+## Field Inventory
+
+Current frontend inspection shows the deployment share/app UI already depends
+on these project-state fields during bootstrap and first render:
+
+- project-config identity + routing state:
+  - `id`
+  - `name`
+  - `sectionVariantMap`
+  - `entryCodeBlockId`
+  - `activeIds`
+- view state:
+  - `viewModes`
+  - `activeViewModeId`
+  - `isEditingViewMode`
+  - `topLevelSections`
+- graph/render state:
+  - `sections`
+  - `sectionVariants`
+  - `sectionImpls`
+  - `codeObjs`
+  - `codeObjVariants`
+  - `codeObjImpls`
+  - `edges`
+  - `agenticEdges`
+  - `parentSectionMap`
+  - `shownParamIds`
+  - `singletonSections`
+- app-mode additions:
+  - `appDefinition`
+  - `appSpec`
+
+Slice 1 intentionally split those into:
+
+- explicit typed source fields for project/config identity, layout, code-object
+  graphs, and app-definition metadata
+- opaque raw JSON payloads for modifier-heavy or union-heavy frontend data that
+  Go does not own semantically yet
+
 ## Working Decisions
 
 - keep `internal/projectstate` as the runtime ownership boundary
@@ -127,6 +169,11 @@ highest-leverage next step.
 - keep app deployment metadata outside the generic projector where possible
   - `appDefinition` and `appSpec` remain deployment/app concerns
   - the projector should only own frontend project-state payloads
+- allow richer frontend impl payloads without widening run planning
+  - `internal/projectstate` now accepts opaque section/code-object impl payloads
+    for frontend state transport
+  - run planning still treats only the known Go runtime kinds as executable
+    semantics
 - if backend/frontend transport shapes need to change, update both sides in the
   same bounded slice
   - do not leave Go routes and frontend generated callers intentionally
@@ -220,6 +267,32 @@ Notes:
   Phase 3 run-planning document
 - this slice should not yet add deployment routes
 
+Status:
+
+- complete
+
+Completed:
+
+- inventoried the frontend deployment-state fields exercised by:
+  - `frontend/src/state/actions/share.ts`
+  - `frontend/src/state/actions/app.ts`
+  - `frontend/src/components/Pages/MainContainerCore.tsx`
+  - `frontend/src/components/App/AppRenderer.tsx`
+- expanded `internal/projectstate` to carry:
+  - document-level app definition metadata
+  - project-level view state, layout, edges, and agentic edges
+  - code-object graphs
+  - raw frontend payload fields for codegen targets, section impls, and
+    code-object impls
+- kept run-planning behavior stable:
+  - known Go runtime section kinds still drive run planning
+  - richer frontend-only section kinds are now stored as opaque payload-backed
+    impls instead of being rejected at normalization time
+
+Tests:
+
+- `./scripts/go.sh test ./internal/projectstate ./internal/deployments ./internal/runs -count=1`
+
 ### Slice 2: Frontend Projection Layer
 
 Deliver:
@@ -287,8 +360,8 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 1:
-  - inventory the exact frontend deployment-state fields still exercised by the
-    current share/app UI
-  - expand the Go project-state source schema to carry those fields cleanly
-  - keep derived frontend maps computed, not persisted
+- Implement Slice 2:
+  - add `internal/projectview` as the frontend read-projection layer
+  - project richer runtime snapshots into `ProjectStateSingleConfig`
+  - keep `parentSectionMap`, `singletonSections`, `shownParamIds`, and
+    `genCodeBinding` derived instead of persisted

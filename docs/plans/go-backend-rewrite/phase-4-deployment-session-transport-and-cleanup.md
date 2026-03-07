@@ -259,10 +259,8 @@ Tests:
 
 ## Next Recommended Step
 
-- Implement Slice 1 from
+- Implement Slice 2 from
   `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
-  build the frontend-facing Go project-state source fields and projection
-  boundary needed before deployment state/project-config route migration.
-  Current-session bootstrap and cleanup are no longer the blocker; the blocker
-  is that Go does not yet own the full deployment state payload those routes
-  must return.
+  build the frontend read-projection layer on top of the richer Go
+  project-state source fields added in Slice 1, then return to deployment
+  state/project-config route migration.

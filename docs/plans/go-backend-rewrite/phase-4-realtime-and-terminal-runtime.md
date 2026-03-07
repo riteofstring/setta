@@ -111,6 +111,10 @@ Current repo status as of 2026-03-06:
   - `backend/setta/routers/app_deployments.py`
 - the next dependency for that route migration is now tracked explicitly in:
   - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
+- the first source-schema slice for that work is now in place under:
+  - `internal/projectstate`
+  - richer frontend deployment-state source fields
+  - opaque payload support for frontend-only impl/config subtrees
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`

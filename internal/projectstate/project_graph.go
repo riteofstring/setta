@@ -72,23 +72,32 @@ const (
 type Section struct {
 	ID               string   `json:"id"`
 	Name             string   `json:"name"`
+	DisplayName      string   `json:"displayName,omitempty"`
 	VariantIDs       []string `json:"variantIds,omitempty"`
 	DefaultVariantID string   `json:"defaultVariantId,omitempty"`
 	ParentSectionID  string   `json:"parentSectionId,omitempty"`
+	SharedModifier   RawJSON  `json:"sharedModifier,omitempty"`
+	UnsharedKeys     []string `json:"unsharedKeys,omitempty"`
 }
 
 type ProjectCodegenTarget struct {
-	Language string `json:"language"`
+	Language string  `json:"language"`
+	Payload  RawJSON `json:"payload,omitempty"`
 }
 
 type SectionVariant struct {
-	ID     string `json:"id"`
-	ImplID string `json:"implId"`
+	ID               string   `json:"id"`
+	Name             string   `json:"name,omitempty"`
+	ImplID           string   `json:"implId"`
+	NonPresetImplIDs []string `json:"nonPresetImplIds,omitempty"`
+	Modifier         RawJSON  `json:"modifier,omitempty"`
+	IsFrozen         bool     `json:"isFrozen,omitempty"`
 }
 
 type SectionImpl struct {
 	ID        string                `json:"id"`
 	Kind      SectionKind           `json:"kind"`
+	Payload   RawJSON               `json:"payload,omitempty"`
 	Code      *CodeSectionImpl      `json:"code,omitempty"`
 	Terminal  *TerminalSectionImpl  `json:"terminal,omitempty"`
 	Draw      *DrawSectionImpl      `json:"draw,omitempty"`
@@ -128,9 +137,41 @@ type GeneratedSectionImpl struct {
 func (p Project) Clone() Project {
 	cloned := p
 	cloned.TopLevelSectionIDs = append([]string(nil), p.TopLevelSectionIDs...)
-	cloned.CodegenTargets = append([]ProjectCodegenTarget(nil), p.CodegenTargets...)
+	cloned.ActiveIDs = append([]string(nil), p.ActiveIDs...)
 	cloned.GeneratedCodeBinding = cloneCodeFileBinding(p.GeneratedCodeBinding)
 	cloned.GeneratedMetadataBinding = cloneCodeFileBinding(p.GeneratedMetadataBinding)
+	cloned.Viewport = cloneViewport(p.Viewport)
+
+	if p.ViewModes != nil {
+		cloned.ViewModes = make(map[string]ViewMode, len(p.ViewModes))
+		for viewModeID, viewMode := range p.ViewModes {
+			cloned.ViewModes[viewModeID] = viewMode.Clone()
+		}
+	}
+	if p.CodegenTargets != nil {
+		cloned.CodegenTargets = make([]ProjectCodegenTarget, len(p.CodegenTargets))
+		for index, target := range p.CodegenTargets {
+			cloned.CodegenTargets[index] = target.Clone()
+		}
+	}
+	if p.TopLevelSections != nil {
+		cloned.TopLevelSections = make(map[string]TopLevelSectionLayout, len(p.TopLevelSections))
+		for sectionID, layout := range p.TopLevelSections {
+			cloned.TopLevelSections[sectionID] = layout.Clone()
+		}
+	}
+	if p.Edges != nil {
+		cloned.Edges = make([]Edge, len(p.Edges))
+		for index, edge := range p.Edges {
+			cloned.Edges[index] = edge.Clone()
+		}
+	}
+	if p.AgenticEdges != nil {
+		cloned.AgenticEdges = make([]AgenticEdge, len(p.AgenticEdges))
+		for index, edge := range p.AgenticEdges {
+			cloned.AgenticEdges[index] = edge.Clone()
+		}
+	}
 
 	if p.SectionVariantMap != nil {
 		cloned.SectionVariantMap = make(map[string]string, len(p.SectionVariantMap))
@@ -147,13 +188,31 @@ func (p Project) Clone() Project {
 	if p.SectionVariants != nil {
 		cloned.SectionVariants = make(map[string]SectionVariant, len(p.SectionVariants))
 		for variantID, variant := range p.SectionVariants {
-			cloned.SectionVariants[variantID] = variant
+			cloned.SectionVariants[variantID] = variant.Clone()
 		}
 	}
 	if p.SectionImpls != nil {
 		cloned.SectionImpls = make(map[string]SectionImpl, len(p.SectionImpls))
 		for implID, impl := range p.SectionImpls {
 			cloned.SectionImpls[implID] = impl.Clone()
+		}
+	}
+	if p.CodeObjs != nil {
+		cloned.CodeObjs = make(map[string]CodeObject, len(p.CodeObjs))
+		for codeObjID, codeObj := range p.CodeObjs {
+			cloned.CodeObjs[codeObjID] = codeObj.Clone()
+		}
+	}
+	if p.CodeObjVariants != nil {
+		cloned.CodeObjVariants = make(map[string]CodeObjectVariant, len(p.CodeObjVariants))
+		for variantID, variant := range p.CodeObjVariants {
+			cloned.CodeObjVariants[variantID] = variant.Clone()
+		}
+	}
+	if p.CodeObjImpls != nil {
+		cloned.CodeObjImpls = make(map[string]CodeObjectImpl, len(p.CodeObjImpls))
+		for implID, impl := range p.CodeObjImpls {
+			cloned.CodeObjImpls[implID] = impl.Clone()
 		}
 	}
 
@@ -163,11 +222,27 @@ func (p Project) Clone() Project {
 func (s Section) Clone() Section {
 	cloned := s
 	cloned.VariantIDs = append([]string(nil), s.VariantIDs...)
+	cloned.SharedModifier = cloneRawJSON(s.SharedModifier)
+	cloned.UnsharedKeys = append([]string(nil), s.UnsharedKeys...)
+	return cloned
+}
+
+func (t ProjectCodegenTarget) Clone() ProjectCodegenTarget {
+	cloned := t
+	cloned.Payload = cloneRawJSON(t.Payload)
+	return cloned
+}
+
+func (v SectionVariant) Clone() SectionVariant {
+	cloned := v
+	cloned.NonPresetImplIDs = append([]string(nil), v.NonPresetImplIDs...)
+	cloned.Modifier = cloneRawJSON(v.Modifier)
 	return cloned
 }
 
 func (i SectionImpl) Clone() SectionImpl {
 	cloned := i
+	cloned.Payload = cloneRawJSON(i.Payload)
 	if i.Code != nil {
 		code := *i.Code
 		code.Children = append([]string(nil), i.Code.Children...)
@@ -194,8 +269,14 @@ func (i SectionImpl) Clone() SectionImpl {
 
 func (p Project) Normalized() (Project, error) {
 	normalized := p.Clone()
+	normalized.PreviewImgColor = strings.TrimSpace(normalized.PreviewImgColor)
+	normalized.ActiveViewModeID = strings.TrimSpace(normalized.ActiveViewModeID)
+	normalized.EntryCodeBlockID = strings.TrimSpace(normalized.EntryCodeBlockID)
 	if normalized.SectionVariantMap == nil {
 		normalized.SectionVariantMap = map[string]string{}
+	}
+	if normalized.ViewModes == nil {
+		normalized.ViewModes = map[string]ViewMode{}
 	}
 	if normalized.Sections == nil {
 		normalized.Sections = map[string]Section{}
@@ -205,6 +286,18 @@ func (p Project) Normalized() (Project, error) {
 	}
 	if normalized.SectionImpls == nil {
 		normalized.SectionImpls = map[string]SectionImpl{}
+	}
+	if normalized.TopLevelSections == nil {
+		normalized.TopLevelSections = map[string]TopLevelSectionLayout{}
+	}
+	if normalized.CodeObjs == nil {
+		normalized.CodeObjs = map[string]CodeObject{}
+	}
+	if normalized.CodeObjVariants == nil {
+		normalized.CodeObjVariants = map[string]CodeObjectVariant{}
+	}
+	if normalized.CodeObjImpls == nil {
+		normalized.CodeObjImpls = map[string]CodeObjectImpl{}
 	}
 	for index, target := range normalized.CodegenTargets {
 		normalizedTarget, err := target.Normalized()
@@ -221,6 +314,36 @@ func (p Project) Normalized() (Project, error) {
 	normalized.GeneratedMetadataBinding, err = normalizeCodeFileBinding(normalized.GeneratedMetadataBinding)
 	if err != nil {
 		return Project{}, fmt.Errorf("normalize generated metadata binding: %w", err)
+	}
+	for viewModeKey, viewMode := range normalized.ViewModes {
+		if strings.TrimSpace(viewModeKey) == "" {
+			return Project{}, ErrViewModeIDRequired
+		}
+		if strings.TrimSpace(viewMode.ID) == "" {
+			return Project{}, ErrViewModeIDRequired
+		}
+		if viewMode.ID != viewModeKey {
+			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrViewModeIDKeyMismatch, viewModeKey, viewMode.ID)
+		}
+		normalized.ViewModes[viewModeKey] = viewMode.Clone()
+	}
+	for index, edge := range normalized.Edges {
+		edge.Style, err = normalizeRawJSON(edge.Style, fmt.Sprintf("edge %q style", edge.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		edge.Data, err = normalizeRawJSON(edge.Data, fmt.Sprintf("edge %q data", edge.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		normalized.Edges[index] = edge.Clone()
+	}
+	for index, edge := range normalized.AgenticEdges {
+		edge.Style, err = normalizeRawJSON(edge.Style, fmt.Sprintf("agentic edge %q style", edge.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		normalized.AgenticEdges[index] = edge.Clone()
 	}
 
 	for sectionKey, section := range normalized.Sections {
@@ -244,6 +367,10 @@ func (p Project) Normalized() (Project, error) {
 				return Project{}, fmt.Errorf("%w: child=%q parent=%q", ErrParentSectionNotFound, section.ID, parentID)
 			}
 		}
+		section.SharedModifier, err = normalizeRawJSON(section.SharedModifier, fmt.Sprintf("section %q sharedModifier", section.ID))
+		if err != nil {
+			return Project{}, err
+		}
 		normalized.Sections[sectionKey] = section.Clone()
 	}
 
@@ -263,6 +390,11 @@ func (p Project) Normalized() (Project, error) {
 		if _, ok := normalized.SectionImpls[variant.ImplID]; !ok {
 			return Project{}, fmt.Errorf("%w: variant=%q impl=%q", ErrSectionImplNotFound, variant.ID, variant.ImplID)
 		}
+		variant.Modifier, err = normalizeRawJSON(variant.Modifier, fmt.Sprintf("section variant %q modifier", variant.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		normalized.SectionVariants[variantKey] = variant.Clone()
 	}
 
 	for implKey, impl := range normalized.SectionImpls {
@@ -274,6 +406,10 @@ func (p Project) Normalized() (Project, error) {
 		}
 		if impl.ID != implKey {
 			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrSectionImplIDKeyMismatch, implKey, impl.ID)
+		}
+		impl.Payload, err = normalizeRawJSON(impl.Payload, fmt.Sprintf("section impl %q payload", impl.ID))
+		if err != nil {
+			return Project{}, err
 		}
 		if strings.TrimSpace(string(impl.Kind)) == "" {
 			return Project{}, fmt.Errorf("%w: %q", ErrSectionImplKindRequired, impl.ID)
@@ -312,9 +448,77 @@ func (p Project) Normalized() (Project, error) {
 				return Project{}, fmt.Errorf("%w: %q", ErrUnsupportedGeneratedSectionKind, impl.Generated.Kind)
 			}
 		default:
-			return Project{}, fmt.Errorf("%w: %q", ErrUnsupportedSectionImplKind, impl.Kind)
+			// Allow richer frontend section kinds to coexist with the narrower
+			// run-planning helpers. The payload becomes the source of truth for
+			// projection until Go owns that section kind semantically.
 		}
 		normalized.SectionImpls[implKey] = impl.Clone()
+	}
+
+	for codeObjKey, codeObj := range normalized.CodeObjs {
+		if strings.TrimSpace(codeObjKey) == "" {
+			return Project{}, ErrCodeObjIDRequired
+		}
+		if strings.TrimSpace(codeObj.ID) == "" {
+			return Project{}, ErrCodeObjIDRequired
+		}
+		if codeObj.ID != codeObjKey {
+			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjIDKeyMismatch, codeObjKey, codeObj.ID)
+		}
+		if strings.TrimSpace(codeObj.Name) == "" {
+			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
+		}
+		if len(codeObj.VariantIDs) > 0 && strings.TrimSpace(codeObj.DefaultVariantID) == "" {
+			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjDefaultVariantMissing, codeObj.ID)
+		}
+		codeObj.SharedModifier, err = normalizeRawJSON(codeObj.SharedModifier, fmt.Sprintf("code object %q sharedModifier", codeObj.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		normalized.CodeObjs[codeObjKey] = codeObj.Clone()
+	}
+
+	for variantKey, variant := range normalized.CodeObjVariants {
+		if strings.TrimSpace(variantKey) == "" {
+			return Project{}, ErrCodeObjVariantIDRequired
+		}
+		if strings.TrimSpace(variant.ID) == "" {
+			return Project{}, ErrCodeObjVariantIDRequired
+		}
+		if variant.ID != variantKey {
+			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjVariantIDKeyMismatch, variantKey, variant.ID)
+		}
+		if strings.TrimSpace(variant.ImplID) == "" {
+			return Project{}, fmt.Errorf("%w: variant=%q", ErrCodeObjImplIDRequired, variant.ID)
+		}
+		if _, ok := normalized.CodeObjImpls[variant.ImplID]; !ok {
+			return Project{}, fmt.Errorf("%w: variant=%q impl=%q", ErrCodeObjImplNotFound, variant.ID, variant.ImplID)
+		}
+		variant.Modifier, err = normalizeRawJSON(variant.Modifier, fmt.Sprintf("code object variant %q modifier", variant.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		normalized.CodeObjVariants[variantKey] = variant.Clone()
+	}
+
+	for implKey, impl := range normalized.CodeObjImpls {
+		if strings.TrimSpace(implKey) == "" {
+			return Project{}, ErrCodeObjImplIDRequired
+		}
+		if strings.TrimSpace(impl.ID) == "" {
+			return Project{}, ErrCodeObjImplIDRequired
+		}
+		if impl.ID != implKey {
+			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjImplIDKeyMismatch, implKey, impl.ID)
+		}
+		if strings.TrimSpace(impl.Type) == "" {
+			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjImplTypeRequired, impl.ID)
+		}
+		impl.Payload, err = normalizeRawJSON(impl.Payload, fmt.Sprintf("code object impl %q payload", impl.ID))
+		if err != nil {
+			return Project{}, err
+		}
+		normalized.CodeObjImpls[implKey] = impl.Clone()
 	}
 
 	topLevelSeen := make(map[string]struct{}, len(normalized.TopLevelSectionIDs))
@@ -326,6 +530,23 @@ func (p Project) Normalized() (Project, error) {
 			return Project{}, fmt.Errorf("%w: %q", ErrDuplicateTopLevelSection, sectionID)
 		}
 		topLevelSeen[sectionID] = struct{}{}
+	}
+	for sectionID := range normalized.TopLevelSections {
+		if _, ok := normalized.Sections[sectionID]; !ok {
+			return Project{}, fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
+		}
+	}
+	for viewModeID, viewMode := range normalized.ViewModes {
+		for sectionID := range viewMode.TopLevelSections {
+			if _, ok := normalized.Sections[sectionID]; !ok {
+				return Project{}, fmt.Errorf("%w: viewMode=%q section=%q", ErrTopLevelSectionNotFound, viewModeID, sectionID)
+			}
+		}
+	}
+	if normalized.ActiveViewModeID != "" {
+		if _, ok := normalized.ViewModes[normalized.ActiveViewModeID]; !ok {
+			return Project{}, fmt.Errorf("%w: %q", ErrViewModeNotFound, normalized.ActiveViewModeID)
+		}
 	}
 
 	for sectionID, activeVariantID := range normalized.SectionVariantMap {
@@ -349,6 +570,16 @@ func (p Project) Normalized() (Project, error) {
 		}
 		if section.DefaultVariantID != "" && !containsString(section.VariantIDs, section.DefaultVariantID) {
 			return Project{}, fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantMembership, sectionID, section.DefaultVariantID)
+		}
+	}
+	for codeObjID, codeObj := range normalized.CodeObjs {
+		for _, variantID := range codeObj.VariantIDs {
+			if _, ok := normalized.CodeObjVariants[variantID]; !ok {
+				return Project{}, fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantNotFound, codeObjID, variantID)
+			}
+		}
+		if codeObj.DefaultVariantID != "" && !containsString(codeObj.VariantIDs, codeObj.DefaultVariantID) {
+			return Project{}, fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantMembership, codeObjID, codeObj.DefaultVariantID)
 		}
 	}
 
@@ -439,9 +670,15 @@ func (p Project) HasPythonCodegenTarget() bool {
 func (t ProjectCodegenTarget) Normalized() (ProjectCodegenTarget, error) {
 	normalized := ProjectCodegenTarget{
 		Language: strings.TrimSpace(t.Language),
+		Payload:  cloneRawJSON(t.Payload),
 	}
 	if normalized.Language == "" {
 		return ProjectCodegenTarget{}, ErrProjectCodegenTargetLanguage
+	}
+	var err error
+	normalized.Payload, err = normalizeRawJSON(normalized.Payload, fmt.Sprintf("project codegen target %q payload", normalized.Language))
+	if err != nil {
+		return ProjectCodegenTarget{}, err
 	}
 	return normalized, nil
 }
