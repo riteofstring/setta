@@ -14,8 +14,9 @@ Go now owns the callable refresh primitives that Watch Code should reuse:
 - generated-diagnostics callable auto-refetch
 - mismatch-refetch policy lookup from the Go settings runtime
 
-That Watch Code runtime ownership is now complete. The remaining Watch Code
-backend gap is the code-section / bound code-file reuse tracked in
+That Watch Code runtime ownership is now complete. The last bound code-section
+/ bound code-file reuse gap that remained after the earlier slices is now also
+complete in
 `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`.
 
 ## Status
@@ -42,11 +43,6 @@ Current repo status as of 2026-03-07:
   - `internal/projectstate/callable.go`
   - `internal/projectstate/callable_refetch.go`
   - `internal/lsp/project_synchronizer.go`
-- Python still owns only the remaining inline-edit / bound code-file reuse
-  boundary in:
-  - `backend/setta/project_state/watch_code.py`
-  - `backend/setta/project_state/code_files.py`
-  - `backend/setta/project_state/base_project_manager.py`
 - the current frontend already depends on Watch Code state and routes in:
   - `frontend/src/components/AppHeader/WatchCodeToggleButton.tsx`
   - `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`
@@ -104,12 +100,15 @@ The completed migration work is now captured in:
       Code apply path with explicit `sync LSP -> Watch Code update` ordering
     - successful bound Python edits now rehydrate authoritative frontend
       project state after the accepted mutation
-  - the remaining Watch Code backend gap is now narrowed to bound code-file
-    reload reuse:
-    - bound code-file reloads still reuse the Python-owned
-      `handle_code_section_update` path
-  - the active remaining Watch Code work is now narrowed in:
+  - the bound code-file reload reuse boundary is now complete:
+    - IDE mode now starts a Go-owned bound code-file runtime owner
+    - external bound file reloads now reuse the same
+      `ApplyWatchCodeBoundSectionUpdate` path as watcher and inline updates
+    - external reloads now preserve explicit `sync LSP -> Watch Code update`
+      ordering in the shared Go app service
+  - the completed final Watch Code backend handoff now lives in:
     - `docs/plans/go-backend-rewrite/phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
+  - no Python-owned Watch Code backend path remains in scope for this follow-up
 - the completed runtime-owner work remains captured in:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
   - file-identity snapshots remain the chosen move-detection owner
@@ -177,15 +176,9 @@ It is not just "call `RefetchCallableParams` when a file changes."
 
 ## Dependency Finding
 
-The original broad Watch Code gaps are now closed in Go except for one
-remaining source-of-truth layer:
-
-1. a Go code-section / bound-code-file integration path that reuses the
-   completed Watch Code apply, section-mutation, refetch, and warning helpers
-
-Without that layer, Watch Code behavior still differs depending on whether a
-Python edit arrives through the watcher runtime or through a bound code-file
-reload.
+The original broad Watch Code gaps are now closed in Go, including the final
+bound code-file integration layer that reuses the completed apply,
+section-mutation, refetch, and warning helpers.
 
 ## Working Decisions
 
@@ -392,7 +385,7 @@ For later slices, add:
 
 ## Next Recommended Step
 
-Continue with:
+This Watch Code follow-up is complete.
 
-- `phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
-- execute its Step 2 bound code-file reload reuse slice next
+Continue with the next uncovered focused doc in `go-backend-rewrite-plan.md`;
+Watch Code no longer blocks Phase 5 backend work.

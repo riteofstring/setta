@@ -7,8 +7,8 @@ runtime, project-state apply, Callable section mutation, callable refetch, and
 warning-notification slices.
 
 Go now owns watcher-driven Watch Code updates for on-disk watched files. What
-still remains Python-owned is the reuse boundary for edits that arrive through
-bound code sections instead of the Watch Code watcher runtime:
+this doc finished migrating from Python was the reuse boundary for edits that
+arrive through bound code sections instead of the Watch Code watcher runtime:
 
 - inline `set_code` updates on bound Python code sections
 - bound code-file reloads after on-disk file changes
@@ -42,13 +42,27 @@ Current repo status as of 2026-03-07:
   - `internal/app/watch_code_notifications.go`
 - unresolved signature-help `no_match` warnings now emit as deduped frontend
   `Notification` websocket messages from Go
-- Python still owns the remaining reuse boundary in:
-  - `backend/setta/project_state/watch_code.py`
-  - `backend/setta/project_state/code_files.py`
-  - `backend/setta/project_state/base_project_manager.py`
-- the active Watch Code gap is now narrowed to:
-  - bound code-file reload integration
-  - focused verification for the bound code-file reload reuse path
+- Step 2 in this focused doc is now complete:
+  - IDE mode now starts a Go-owned bound code-file polling runtime in:
+    - `internal/boundcode/service.go`
+    - `internal/app/app.go`
+  - saved main project-state snapshots now sync exact bound Python code-file
+    inputs into that runtime through:
+    - `internal/projectstate/bound_code_files.go`
+  - external bound file create/modify events now route through the same
+    authoritative mutation path as inline edits in:
+    - `internal/app/code_updates.go`
+    - `internal/projectstate/bound_code_files.go`
+    - `internal/projectstate/watch_code_bound_sections.go`
+  - external bound file updates now preserve explicit
+    `sync LSP -> Watch Code update` ordering in the shared app service path
+- Step 3 in this focused doc is now complete:
+  - focused Go coverage now exists for:
+    - bound code-file runtime baselining and create/modify callbacks
+    - bound section content reload on read-only bindings
+    - LSP-before-Watch-Code ordering for external reloads
+    - IDE app lifecycle wiring for the external reload path
+- the remaining Watch Code backend gap is now closed in Go
 
 ## Scope
 
@@ -108,15 +122,15 @@ Python currently reuses Watch Code for two non-watcher edit paths:
 
 ## Dependency Finding
 
-Two source-of-truth layers are still missing in Go:
+The last missing source-of-truth layers from this slice are now closed:
 
-1. bound code-file reload integration that reuses the same helper instead of a
-   second diff path
-2. focused verification for the reload path once it lands
+1. bound code-file reloads now reuse the same helper instead of a second diff
+   path
+2. focused verification now covers the reload path
 
-Without those layers, Watch Code behavior still differs depending on whether a
-Python edit arrives through the watcher runtime or through a bound code-file
-reload.
+That means Watch Code behavior no longer differs depending on whether a Python
+edit arrives through the watcher runtime, inline `setCode`, or a bound
+code-file reload.
 
 ## Working Decisions
 
@@ -129,6 +143,10 @@ reload.
 - keep source-of-truth bindings explicit
   - only bound Python code sections should enter this path
   - do not infer file ownership from section names or generated imports
+- baseline tracked bound files when the runtime syncs inputs
+  - the Go reload runtime owns subsequent on-disk changes only
+  - do not invent an implicit disk-vs-project-state reconciliation policy in
+    this slice
 - keep transport thin
   - this is backend runtime work, not a frontend transport expansion
 - avoid heuristic fallbacks
@@ -159,6 +177,8 @@ Acceptance:
 
 ### Step 2: Bound Code File Reload Reuse
 
+Status: complete on 2026-03-07.
+
 Deliver:
 
 - route the Go code-file reload owner through the same helper after section
@@ -171,7 +191,20 @@ Acceptance:
   the same source-of-truth apply helpers as watcher and inline edits
 - no second diff engine or hidden watcher cache is introduced
 
+Completed in this chunk:
+
+- `internal/boundcode/service.go`
+- `internal/boundcode/service_test.go`
+- `internal/projectstate/bound_code_files.go`
+- `internal/projectstate/bound_code_files_test.go`
+- `internal/app/code_updates.go`
+- `internal/app/code_updates_test.go`
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+
 ### Step 3: Verification And Handoff
+
+Status: complete on 2026-03-07.
 
 Deliver:
 
@@ -187,21 +220,33 @@ Acceptance:
 - the remaining Watch Code gap is explicitly narrowed again, or Phase 5 Watch
   Code is complete if no backend behavior remains
 
+Result:
+
+- Phase 5 Watch Code backend work is now complete for:
+  - watcher-driven file updates
+  - bound inline edits
+  - bound code-file reloads
+- no Python-owned Watch Code backend path remains in scope for this phase doc
+
 ## Verification Expectations
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/lsp ./internal/app -count=1 -timeout 180s`
-- `pnpm -C frontend exec vitest run src/state/actions/codeUpdates.test.ts src/state/actions/formatCode.test.ts`
-- add focused tests mirroring the Python reference behavior for:
-  - bound inline edits creating or updating Watch Code callables
-  - bound code-file reloads reusing the same Watch Code helper
-  - `sync LSP -> Watch Code update` ordering
+Completed in this chunk:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/boundcode -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestCodeUpdateServiceReloadBoundCodeFileSyncsLSPBeforeWatchCodeApply|TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads|TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate' -count=1 -timeout 180s`
+
+Note:
+
+- the full `./internal/app` package suite still includes unrelated LSP-
+  environment-sensitive tests, so this chunk used the focused app runs above
+  for the touched Watch Code path
 
 ## Next Recommended Step
 
-Execute Step 2 next:
+This focused doc is complete.
 
-- route the bound code-file reload owner through
-  `ApplyWatchCodeBoundSectionUpdate` after section reload
-- keep one shared Watch Code apply path for watcher, inline-edit, and
-  bound-file refresh inputs
-- add the focused reload-path verification before closing this doc
+Recommended next step:
+
+- return to `go-backend-rewrite-plan.md`, identify the next uncovered phase or
+  focused doc outside Watch Code, and treat Watch Code as no longer blocking
+  Phase 5 backend work

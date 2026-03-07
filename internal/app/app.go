@@ -12,6 +12,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
+	"setta/internal/boundcode"
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
@@ -46,6 +47,7 @@ type App struct {
 	listeners     *realtime.ListenerBroadcaster
 	lspSync       *lsp.ProjectSynchronizer
 	watchCode     *watchcode.Service
+	boundCode     *boundcode.Service
 	handler       http.Handler
 }
 
@@ -79,6 +81,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
 		watchCodeService   *watchcode.Service
+		boundCodeService   *boundcode.Service
 		watchCodeWarnings  *watchCodeWarningTracker
 		codeUpdates        *codeUpdateService
 		plannerFilesRoot   string
@@ -182,6 +185,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					if watchCodeWarnings != nil {
 						watchCodeWarnings.ReconcileDocument(snapshot.Document)
 					}
+					if boundCodeService != nil {
+						inputs, err := projectstate.PythonBoundCodeFileInputs(snapshot.Document, cfg.Paths.WorkspaceRoot)
+						if err != nil {
+							return err
+						}
+						if err := boundCodeService.SyncInputs(boundCodeServiceInputs(inputs)); err != nil {
+							return err
+						}
+					}
 					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
 						return err
 					}
@@ -265,11 +277,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				},
 			})
 			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
 				return nil, err
 			}
 			if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(projectStates.Main().Snapshot().Document)); err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
 				return nil, err
 			}
 			codeUpdates, err = newCodeUpdateService(codeUpdateServiceOptions{
@@ -281,7 +293,28 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				WebsocketHub:       websocketHub,
 			})
 			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+				return nil, err
+			}
+			boundCodeService, err = boundcode.NewService(boundcode.ServiceOptions{
+				OnFileUpdate: func(ctx context.Context, update boundcode.FileUpdate) error {
+					return codeUpdates.ReloadBoundCodeFile(ctx, update.Raw, update.Bindings)
+				},
+				OnError: func(err error) {
+					logger.Error("bound code file runtime failed", "error", err)
+				},
+			})
+			if err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+				return nil, err
+			}
+			inputs, err := projectstate.PythonBoundCodeFileInputs(projectStates.Main().Snapshot().Document, cfg.Paths.WorkspaceRoot)
+			if err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+				return nil, err
+			}
+			if err := boundCodeService.SyncInputs(boundCodeServiceInputs(inputs)); err != nil {
+				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
 				return nil, err
 			}
 		}
@@ -291,12 +324,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		Logger: logger,
 	})
 	if err != nil {
-		_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background())
+		_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
 		return nil, err
 	}
 	binaryStore, err := binarypayload.NewStoreForRuntimeRoot(cfg.Paths.RuntimeRoot)
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
@@ -305,7 +338,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		RuntimeRoot:    cfg.Paths.RuntimeRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
@@ -322,7 +355,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		EnvLookup:    os.LookupEnv,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
@@ -336,7 +369,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ArtifactsRoot:     artifactsRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 	if deploymentRuntime != nil {
@@ -419,7 +452,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		},
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, context.Background()), terminalService.Close(context.Background()))
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
 
@@ -438,6 +471,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		listeners:     listenerBroadcaster,
 		lspSync:       projectLSPSyncer,
 		watchCode:     watchCodeService,
+		boundCode:     boundCodeService,
 		handler:       handler,
 	}, nil
 }
@@ -492,7 +526,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 
 func (a *App) Shutdown(ctx context.Context) error {
 	return errors.Join(
-		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, ctx),
+		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
@@ -539,9 +573,11 @@ func closeProjectStateServices(
 	deploymentRuntime *deployments.Runtime,
 	syncer *lsp.ProjectSynchronizer,
 	watchService *watchcode.Service,
+	boundCodeService *boundcode.Service,
 	ctx context.Context,
 ) error {
 	return errors.Join(
+		closeBoundCodeService(boundCodeService),
 		closeWatchCodeService(watchService),
 		closeLSPProjectSynchronizer(syncer, ctx),
 		closeProjectResources(projectStates, deploymentRuntime),
@@ -574,4 +610,29 @@ func closeWatchCodeService(service *watchcode.Service) error {
 		return nil
 	}
 	return service.Close()
+}
+
+func closeBoundCodeService(service *boundcode.Service) error {
+	if service == nil {
+		return nil
+	}
+	return service.Close()
+}
+
+func boundCodeServiceInputs(inputs []projectstate.BoundCodeFileInput) []boundcode.FileInput {
+	serviceInputs := make([]boundcode.FileInput, 0, len(inputs))
+	for _, input := range inputs {
+		bindings := make([]boundcode.Binding, 0, len(input.Bindings))
+		for _, binding := range input.Bindings {
+			bindings = append(bindings, boundcode.Binding{
+				ProjectID: binding.ProjectID,
+				SectionID: binding.SectionID,
+			})
+		}
+		serviceInputs = append(serviceInputs, boundcode.FileInput{
+			Path:     input.Path,
+			Bindings: bindings,
+		})
+	}
+	return serviceInputs
 }

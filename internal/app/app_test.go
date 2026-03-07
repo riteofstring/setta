@@ -490,6 +490,50 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	}
 }
 
+func TestAppBoundCodeFileRuntimeAppliesWatchCodeReloads(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppWatchCodeBoundSectionProject(t, app)
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save watch code bound project: %v", err)
+	}
+	time.Sleep(400 * time.Millisecond)
+
+	boundPath := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg", "bound.py")
+	if err := os.MkdirAll(filepath.Dir(boundPath), 0o755); err != nil {
+		t.Fatalf("mkdir bound file parent: %v", err)
+	}
+	updatedSource := "def existing(value):\n    return value\n\n\ndef external_added(value):\n    return value\n"
+	if err := os.WriteFile(boundPath, []byte(updatedSource), 0o644); err != nil {
+		t.Fatalf("write bound file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.bound.external_added:function"]
+		if !ok || len(entry.SectionIDs) != 1 {
+			return false
+		}
+		boundSection, ok, err := project.ResolveWatchCodeBoundSection("section-main", cfg.Paths.WorkspaceRoot)
+		if err != nil || !ok {
+			return false
+		}
+		return boundSection.Code == updatedSource
+	})
+}
+
 func TestAppLauncherDoesNotStartWatchCodeService(t *testing.T) {
 	t.Parallel()
 
