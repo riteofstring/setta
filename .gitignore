@@ -61,3 +61,4 @@ backend/setta/vendor/node/
 .tools/
 .claude
 tmp/
+/.gocache/
