@@ -236,7 +236,6 @@ Additional note:
 
 ## Next Recommended Step
 
-- Return to `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` and
-  pick the next uncovered focused doc outside this completed auto-layout slice.
-- Keep `setSectionName` deferred until there is a separate focused doc for
-  validation and rename side effects.
+- Implement
+  `docs/plans/go-backend-rewrite/phase-4-section-name-validation-and-rename-refactor.md`
+  for the deferred `setSectionName` and rename-refactor slice.

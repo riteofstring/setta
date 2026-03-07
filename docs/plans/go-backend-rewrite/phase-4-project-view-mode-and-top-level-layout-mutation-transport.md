@@ -270,5 +270,5 @@ Completed 2026-03-07:
 - Implement
   `docs/plans/go-backend-rewrite/phase-4-auto-layout-top-level-sections.md`
   for the explicitly deferred `autoLayoutTopLevelSections` slice.
-- Keep `setSectionName` deferred until there is a separate focused doc for name
-  validation plus rename side effects.
+- The deferred `setSectionName` gap is now tracked in
+  `docs/plans/go-backend-rewrite/phase-4-section-name-validation-and-rename-refactor.md`.

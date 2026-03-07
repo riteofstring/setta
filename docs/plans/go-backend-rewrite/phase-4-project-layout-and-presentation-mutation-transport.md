@@ -250,5 +250,5 @@ Tests:
   - `createViewMode`
   - `setActiveViewMode`
   - related view-mode/layout routes
-- Keep `setSectionName` deferred until there is a focused doc for name
-  validation and rename-side effects.
+- The deferred `setSectionName` gap is now tracked in
+  `docs/plans/go-backend-rewrite/phase-4-section-name-validation-and-rename-refactor.md`.

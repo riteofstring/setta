@@ -2,15 +2,16 @@
 
 ## Purpose
 
-This doc narrows the active Slice 2 work from
+This doc captured the Slice 2 work from
 `phase-5-watch-code-runtime-and-callable-refresh.md`.
 
-Slice 1 is complete. Go already owns Watch Code state, route transport,
-baseline-on-enable/new-input semantics, and frontend project-state hydration.
+Slice 1 and Slice 2 are complete. Go owns Watch Code state, route transport,
+baseline-on-enable/new-input semantics, frontend project-state hydration, and
+the manager/runtime foundation recorded here.
 
-What Slice 2 still needs is the long-lived runtime owner that can turn watched
-file changes into deterministic registry/baseline mutation plans before later
-section-mutation and callable-refresh wiring.
+This doc now serves as the historical record for the long-lived runtime owner
+that turns watched file changes into deterministic registry/baseline mutation
+plans before the later completed section-mutation and callable-refresh slices.
 
 ## Status
 
@@ -33,7 +34,7 @@ Current repo status as of 2026-03-07:
     state
   - Slice 1 baseline parsing in `internal/projectstate/watch_code.go` now
     delegates to the shared parser owner instead of keeping a second parser
-- Slice 2 Step 2 is now in progress:
+- Slice 2 Step 2 is now complete:
   - `internal/watchcode` now owns config snapshot normalization,
     desired-watch-dir derivation, path matching, and missing-dir ancestor
     fallback
@@ -43,10 +44,8 @@ Current repo status as of 2026-03-07:
     over the shared manager state
   - the new manager foundation keeps watcher state pure and testable before any
     fsnotify/observer integration
-- the remaining active Watch Code gap is now beyond the manager/runtime owner:
-  - Go now owns file update/delete callbacks into project-state apply helpers
-  - section create/remove/rename and callable-refresh reuse still sit above the
-    completed manager/runtime foundation
+- the later Watch Code apply/mutation and callable-refresh docs are now also
+  complete on top of this manager/runtime foundation
 
 ## Scope
 
@@ -88,8 +87,9 @@ The Python Watch Code manager currently mixes three distinct responsibilities:
 3. owning observer sync, pending-move bookkeeping, and debounced file-event
    execution
 
-Go already covered the persisted state and route transport in Slice 1, but it
-still does not have those runtime owners separated out.
+Go already covered the persisted state and route transport in Slice 1, and this
+doc records the later completed step where those runtime owners were split out
+explicitly.
 
 ## Working Decisions
 
@@ -134,7 +134,7 @@ Acceptance:
 
 ### Step 2: Watch Manager Foundation
 
-Status: in progress.
+Status: complete on 2026-03-07.
 
 Deliver:
 
@@ -159,13 +159,7 @@ Completed in this chunk:
 - `internal/watchcode/manager_test.go`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/watchcode -count=1 -timeout 180s`
 
-Still open in Step 2:
-
-- concrete observer/file watcher integration over the new manager state
-- runtime application of scheduled scans/deletes/pending moves ahead of later
-  section mutation wiring
-
-That remaining runtime-owner step is now narrowed in:
+The completed runtime-owner step remains captured in:
 
 - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
 - the new focused doc records why heuristic rename pairing is out of bounds and
@@ -227,13 +221,8 @@ For Step 2, add:
 
 ## Next Recommended Step
 
-Execute the next focused doc:
-
-- `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
-- Step 1 there is now complete:
-  - Go-owned file update/delete apply helpers now sit behind the completed
-    runtime callbacks
-- execute Step 2 next:
-  - port callable section create/remove/rename over that apply path
-  - keep warning notification and inline-edit integration for later slices in
-    that doc
+- This focused doc is complete.
+- The later apply/mutation, callable-section, and inline/bound-file follow-up
+  docs are now also complete.
+- Return to the broader rewrite plan rather than treating this manager
+  foundation doc as still active work.
