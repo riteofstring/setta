@@ -72,6 +72,10 @@ const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
   activeBackgroundTerminals: 0,
   activeSubagents: 0,
 };
+const DEFAULT_RUNTIME_ACTIVITY_DETAILS: ChatRuntimeActivityDetails = {
+  activeBackgroundTerminals: [],
+  activeSubagents: [],
+};
 
 function normalizeNonNegativeCount(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -118,10 +122,24 @@ type ChatRuntimeActivityCounts = {
   activeSubagents: number;
 };
 
+type ChatRuntimeActivityEntry = {
+  id: string;
+  label: string;
+  toolName: string;
+};
+
+export type ChatRuntimeActivityDetails = {
+  activeBackgroundTerminals: ChatRuntimeActivityEntry[];
+  activeSubagents: ChatRuntimeActivityEntry[];
+};
+
 export type ChatSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
   args: string[];
+  rawSuffix?: string;
+  promptTemplate?: string;
+  unavailableFeedback?: string;
 };
 
 export type ChatSlashCommandResult =
@@ -130,6 +148,8 @@ export type ChatSlashCommandResult =
       handled?: boolean;
       feedback?: string;
       keepInput?: boolean;
+      refreshedSlashCommands?: ChatSlashCommandDefinition[];
+      refreshedRecognizedSlashCommands?: ChatSlashCommandDefinition[];
     };
 
 function formatCompactTokenCount(value: number): string {
@@ -221,6 +241,66 @@ type QueuedChatDraft = {
   queuedAtMs: number;
 };
 
+export function resolveSlashCommandRequest({
+  message,
+  slashCommands,
+  recognizedSlashCommands,
+}: {
+  message: string;
+  slashCommands: ChatSlashCommandDefinition[];
+  recognizedSlashCommands: ChatSlashCommandDefinition[];
+}): {
+  parsed: ChatSlashCommand | null;
+  commandAvailable: boolean;
+} {
+  const parsed = parseSlashCommand(message, recognizedSlashCommands);
+  if (!parsed) {
+    return {
+      parsed: null,
+      commandAvailable: false,
+    };
+  }
+  return {
+    parsed,
+    commandAvailable: slashCommands.some(
+      (entry) => entry.command === parsed.command,
+    ),
+  };
+}
+
+export function resolveCustomPromptSlashCommandSubmission({
+  promptTemplate,
+  args,
+  rawSuffix,
+  attachments,
+}: {
+  promptTemplate: string | null | undefined;
+  args: string[];
+  rawSuffix?: string | null;
+  attachments: ChatFileAttachment[];
+}): { message: string; attachments: ChatFileAttachment[] } | null {
+  const trimmedPromptTemplate = promptTemplate?.trim() ?? "";
+  if (!trimmedPromptTemplate) {
+    return null;
+  }
+  const promptArgs = rawSuffix ?? args.join(" ").trim();
+  return {
+    message: promptArgs
+      ? `${trimmedPromptTemplate}\n\n${promptArgs}`
+      : trimmedPromptTemplate,
+    attachments: attachments.map((attachment) => ({ ...attachment })),
+  };
+}
+
+function buildUnavailableSlashCommandFeedback(
+  command: ChatSlashCommand,
+): string {
+  return (
+    command.unavailableFeedback ??
+    `${command.command} is unavailable in the current context. Use /help.`
+  );
+}
+
 type ProviderDictationTranscriptionResult =
   | {
       kind: "ok";
@@ -292,10 +372,19 @@ type ChatInputProps = {
     message: string,
     attachments: ChatFileAttachment[],
   ) => Promise<boolean> | boolean;
+  onUnknownSlashCommand?: (
+    message: string,
+    attachments: ChatFileAttachment[],
+  ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
+  onUnavailableNativeSlashCommand?: (
+    message: string,
+    attachments: ChatFileAttachment[],
+  ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
   onStop?: () => Promise<void> | void;
   executionControls?: ChatExecutionControls;
   executionControlVisibility?: ChatExecutionControlVisibility;
   slashCommands?: ChatSlashCommandDefinition[];
+  recognizedSlashCommands?: ChatSlashCommandDefinition[];
   onSlashCommand?: (
     command: ChatSlashCommand,
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
@@ -312,6 +401,7 @@ type ChatInputProps = {
   contextUsageUnavailable?: boolean;
   submittedMessageHistory?: string[];
   runtimeActivityCounts?: ChatRuntimeActivityCounts;
+  runtimeActivityDetails?: ChatRuntimeActivityDetails;
 };
 
 type EscClearedComposerDraft = {
@@ -327,6 +417,8 @@ export const ChatInput = memo(function ChatInput({
   value,
   onChange,
   onSubmit,
+  onUnknownSlashCommand,
+  onUnavailableNativeSlashCommand,
   onStop,
   executionControls,
   executionControlVisibility = {
@@ -334,6 +426,7 @@ export const ChatInput = memo(function ChatInput({
     search: true,
   },
   slashCommands = CHAT_SLASH_COMMANDS,
+  recognizedSlashCommands,
   onSlashCommand,
   slashSuggestionsPlacement = "auto",
   dictationMode = "auto",
@@ -346,6 +439,7 @@ export const ChatInput = memo(function ChatInput({
   contextUsageUnavailable = false,
   submittedMessageHistory = [],
   runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
+  runtimeActivityDetails = DEFAULT_RUNTIME_ACTIVITY_DETAILS,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -372,6 +466,7 @@ export const ChatInput = memo(function ChatInput({
   const submittedHistoryDraftBeforeSelectionRef = useRef<string | null>(null);
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
+  const slashCommandRecognitionSet = recognizedSlashCommands ?? slashCommands;
   const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -709,17 +804,102 @@ export const ChatInput = memo(function ChatInput({
     waitingForResponse,
   ]);
 
-  const runSlashCommand = useCallback(
-    async (message: string): Promise<boolean> => {
-      const parsed = parseSlashCommand(message, CHAT_SLASH_COMMANDS);
-      if (!parsed) {
-        return false;
-      }
-      const commandAvailable = slashCommands.some(
-        (entry) => entry.command === parsed.command,
-      );
+  const executeResolvedSlashCommand = useCallback(
+    async ({
+      message,
+      submittedAttachments,
+      parsed,
+      commandAvailable,
+    }: {
+      message: string;
+      submittedAttachments: ChatFileAttachment[];
+      parsed: ChatSlashCommand;
+      commandAvailable: boolean;
+    }): Promise<boolean> => {
       if (!commandAvailable) {
-        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        if (
+          parsed.action === "native_prompt" &&
+          onUnavailableNativeSlashCommand
+        ) {
+          const result = await onUnavailableNativeSlashCommand(
+            message,
+            submittedAttachments,
+          );
+          if (result === false) {
+            setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
+            return true;
+          }
+          const slashResult =
+            result && typeof result === "object" ? result : undefined;
+          const refreshedSlashCommands =
+            slashResult?.refreshedSlashCommands ?? null;
+          const refreshedRecognizedSlashCommands =
+            slashResult?.refreshedRecognizedSlashCommands ?? null;
+          if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
+            const refreshedRequest = resolveSlashCommandRequest({
+              message,
+              slashCommands: refreshedSlashCommands,
+              recognizedSlashCommands: refreshedRecognizedSlashCommands,
+            });
+            if (refreshedRequest.parsed && refreshedRequest.commandAvailable) {
+              return executeResolvedSlashCommand({
+                message,
+                submittedAttachments,
+                parsed: refreshedRequest.parsed,
+                commandAvailable: true,
+              });
+            }
+          }
+          setSlashFeedback(
+            slashResult?.feedback ??
+              buildUnavailableSlashCommandFeedback(parsed),
+          );
+          if (slashResult?.keepInput === false) {
+            escClearedComposerDraftRef.current = null;
+            clearInput();
+            clearAttachments();
+          }
+          return true;
+        }
+        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
+        return true;
+      }
+      if (parsed.action === "custom_prompt") {
+        const submission = resolveCustomPromptSlashCommandSubmission({
+          promptTemplate: parsed.promptTemplate,
+          args: parsed.args,
+          ...(parsed.rawSuffix === undefined
+            ? {}
+            : { rawSuffix: parsed.rawSuffix }),
+          attachments: submittedAttachments,
+        });
+        if (!submission) {
+          setSlashFeedback("Custom slash command has no prompt content.");
+          return true;
+        }
+        const submitted =
+          (await onSubmit(submission.message, submission.attachments)) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(`Submitted ${parsed.command}`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+        return true;
+      }
+      if (parsed.action === "native_prompt") {
+        const submitted =
+          (await onSubmit(message, submittedAttachments)) === true;
+        if (!submitted) {
+          setSlashFeedback(`Failed to submit ${parsed.command}.`);
+          return true;
+        }
+        setSlashFeedback(`Submitted ${parsed.command}`);
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
         return true;
       }
       if (!onSlashCommand) {
@@ -745,7 +925,80 @@ export const ChatInput = memo(function ChatInput({
       }
       return true;
     },
-    [clearAttachments, clearInput, onSlashCommand, slashCommands],
+    [
+      clearAttachments,
+      clearInput,
+      onSlashCommand,
+      onSubmit,
+      onUnavailableNativeSlashCommand,
+    ],
+  );
+
+  const runSlashCommand = useCallback(
+    async (
+      message: string,
+      submittedAttachments: ChatFileAttachment[],
+    ): Promise<boolean> => {
+      const resolvedRequest = resolveSlashCommandRequest({
+        message,
+        slashCommands,
+        recognizedSlashCommands: slashCommandRecognitionSet,
+      });
+      if (resolvedRequest.parsed) {
+        return executeResolvedSlashCommand({
+          message,
+          submittedAttachments,
+          parsed: resolvedRequest.parsed,
+          commandAvailable: resolvedRequest.commandAvailable,
+        });
+      }
+      if (!message.trimStart().startsWith("/") || !onUnknownSlashCommand) {
+        return false;
+      }
+      const result = await onUnknownSlashCommand(message, submittedAttachments);
+      if (result === false) {
+        return false;
+      }
+      const slashResult =
+        result && typeof result === "object" ? result : undefined;
+      if (slashResult?.handled === false) {
+        return false;
+      }
+      const refreshedSlashCommands =
+        slashResult?.refreshedSlashCommands ?? null;
+      const refreshedRecognizedSlashCommands =
+        slashResult?.refreshedRecognizedSlashCommands ?? null;
+      if (refreshedSlashCommands && refreshedRecognizedSlashCommands) {
+        const refreshedRequest = resolveSlashCommandRequest({
+          message,
+          slashCommands: refreshedSlashCommands,
+          recognizedSlashCommands: refreshedRecognizedSlashCommands,
+        });
+        if (refreshedRequest.parsed) {
+          return executeResolvedSlashCommand({
+            message,
+            submittedAttachments,
+            parsed: refreshedRequest.parsed,
+            commandAvailable: refreshedRequest.commandAvailable,
+          });
+        }
+      }
+      setSlashFeedback(slashResult?.feedback ?? UNKNOWN_SLASH_COMMAND_FEEDBACK);
+      if (slashResult?.keepInput === false) {
+        escClearedComposerDraftRef.current = null;
+        clearInput();
+        clearAttachments();
+      }
+      return true;
+    },
+    [
+      clearAttachments,
+      clearInput,
+      executeResolvedSlashCommand,
+      onUnknownSlashCommand,
+      slashCommandRecognitionSet,
+      slashCommands,
+    ],
   );
 
   const submitMessage = useCallback(
@@ -772,7 +1025,7 @@ export const ChatInput = memo(function ChatInput({
       if (isSubmitDisabled) {
         return;
       }
-      if (await runSlashCommand(submittedValue)) {
+      if (await runSlashCommand(submittedValue, submittedAttachments)) {
         return;
       }
       const trimmedInput = submittedValue.trim();
@@ -1236,7 +1489,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-9 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
+      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -1369,19 +1622,35 @@ export const ChatInput = memo(function ChatInput({
     : "context";
   const showContextUnavailableBadge =
     contextRemainingValue === null && contextUsageUnavailable;
+  const activeBackgroundTerminalEntries =
+    runtimeActivityDetails.activeBackgroundTerminals;
+  const activeSubagentEntries = runtimeActivityDetails.activeSubagents;
   const activeBackgroundTerminals = useMemo(
     () =>
-      normalizeNonNegativeCount(
-        runtimeActivityCounts.activeBackgroundTerminals,
+      Math.max(
+        normalizeNonNegativeCount(
+          runtimeActivityCounts.activeBackgroundTerminals,
+        ),
+        activeBackgroundTerminalEntries.length,
       ),
-    [runtimeActivityCounts.activeBackgroundTerminals],
+    [
+      activeBackgroundTerminalEntries.length,
+      runtimeActivityCounts.activeBackgroundTerminals,
+    ],
   );
   const activeSubagents = useMemo(
-    () => normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
-    [runtimeActivityCounts.activeSubagents],
+    () =>
+      Math.max(
+        normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
+        activeSubagentEntries.length,
+      ),
+    [activeSubagentEntries.length, runtimeActivityCounts.activeSubagents],
   );
+  const showBackgroundTerminalDropdown =
+    activeBackgroundTerminalEntries.length > 0;
+  const showSubagentDropdown = activeSubagentEntries.length > 0;
   const showRuntimeActivityCounters =
-    canDictate || activeBackgroundTerminals > 0 || activeSubagents > 0;
+    activeBackgroundTerminals > 0 || activeSubagents > 0;
   const showContextBadge =
     contextRemainingValue !== null || showContextUnavailableBadge;
   const shouldShowComposerMetaRow =
@@ -1435,39 +1704,50 @@ export const ChatInput = memo(function ChatInput({
       content: `Current mode: ${modeLabel}`,
     });
   }, [executionControls, showPermissionControl]);
+  const dictationAriaLabel = useMemo(() => {
+    if (dictationState === "listening") {
+      return "Stop Mic";
+    }
+    if (dictationState === "transcribing") {
+      return "Transcribing";
+    }
+    return "Mic";
+  }, [dictationState]);
   const dictationTooltipHandlers = useMemo(() => {
     if (!canDictate) {
       return null;
     }
-    const label =
-      dictationState === "listening"
-        ? "Stop Mic"
-        : dictationState === "transcribing"
-          ? "Transcribing"
-          : "Mic";
     return getFloatingBoxHandlers({
       title: "Dictation",
-      content: label,
+      content: dictationAriaLabel,
     });
-  }, [canDictate, dictationState]);
+  }, [canDictate, dictationAriaLabel]);
   const backgroundTerminalTooltipHandlers = useMemo(() => {
     if (!showRuntimeActivityCounters) {
       return null;
     }
     return getFloatingBoxHandlers({
       title: "Background terminals",
-      content: `${activeBackgroundTerminals} active`,
+      content: showBackgroundTerminalDropdown
+        ? `${activeBackgroundTerminals} active. Click to view running terminals.`
+        : `${activeBackgroundTerminals} active`,
     });
-  }, [activeBackgroundTerminals, showRuntimeActivityCounters]);
+  }, [
+    activeBackgroundTerminals,
+    showBackgroundTerminalDropdown,
+    showRuntimeActivityCounters,
+  ]);
   const subagentTooltipHandlers = useMemo(() => {
     if (!showRuntimeActivityCounters) {
       return null;
     }
     return getFloatingBoxHandlers({
       title: "Subagents",
-      content: `${activeSubagents} active`,
+      content: showSubagentDropdown
+        ? `${activeSubagents} active. Click to view running subagents.`
+        : `${activeSubagents} active`,
     });
-  }, [activeSubagents, showRuntimeActivityCounters]);
+  }, [activeSubagents, showRuntimeActivityCounters, showSubagentDropdown]);
   const contextTooltipHandlers = useMemo(() => {
     if (!showContextBadge) {
       return null;
@@ -2125,13 +2405,40 @@ export const ChatInput = memo(function ChatInput({
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
             </DropdownMenu.Root>
+            {canDictate ? (
+              <button
+                type="button"
+                aria-label={dictationAriaLabel}
+                aria-pressed={dictationState === "listening"}
+                disabled={isDisabled || dictationState === "transcribing"}
+                className={`absolute left-7 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-blue-500/60 ${
+                  dictationState === "listening"
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-200"
+                    : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                } ${
+                  dictationState === "transcribing"
+                    ? "cursor-not-allowed opacity-40"
+                    : "cursor-pointer"
+                }`}
+                onClick={handleDictationToggle}
+                {...(dictationTooltipHandlers ?? {})}
+              >
+                <IoMic
+                  size={11}
+                  className={
+                    dictationState === "listening" ? "animate-pulse" : undefined
+                  }
+                />
+              </button>
+            ) : null}
             <textarea
               ref={textareaRef}
+              data-testid="chat-input-textarea"
               value={inputValue}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               placeholder={placeholderText}
-              className={textAreaClassName}
+              className={`${textAreaClassName} ${canDictate ? "pl-14" : "pl-9"}`}
               disabled={isDisabled}
             />
             <button
@@ -2256,60 +2563,134 @@ export const ChatInput = memo(function ChatInput({
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
                 ) : null}
-                {canDictate ? (
-                  <button
-                    type="button"
-                    aria-label={
-                      dictationState === "listening"
-                        ? "Stop Mic"
-                        : dictationState === "transcribing"
-                          ? "Transcribing"
-                          : "Mic"
-                    }
-                    aria-pressed={dictationState === "listening"}
-                    disabled={isDisabled || dictationState === "transcribing"}
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-colors ${
-                      dictationState === "listening"
-                        ? "bg-blue-600 text-white"
-                        : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={handleDictationToggle}
-                    {...(dictationTooltipHandlers ?? {})}
-                  >
-                    <IoMic
-                      size={11}
-                      className={
-                        dictationState === "listening"
-                          ? "animate-pulse"
-                          : undefined
-                      }
-                    />
-                  </button>
-                ) : null}
                 {showRuntimeActivityCounters ? (
                   <div className="inline-flex items-center gap-1">
-                    <span
-                      data-chat-runtime-active-background-terminals="true"
-                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                      aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
-                      {...(backgroundTerminalTooltipHandlers ?? {})}
-                    >
-                      <FiTerminal size={10} />
-                      <span className="font-mono leading-none">
-                        {activeBackgroundTerminals}
+                    {showBackgroundTerminalDropdown ? (
+                      <DropdownMenu.Root modal={false}>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            data-chat-runtime-active-background-terminals="true"
+                            className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                            aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
+                            {...(backgroundTerminalTooltipHandlers ?? {})}
+                          >
+                            <FiTerminal size={10} />
+                            <span className="font-mono leading-none">
+                              {activeBackgroundTerminals}
+                            </span>
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            align="start"
+                            sideOffset={6}
+                            className="z-30 min-w-[240px] max-w-[360px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
+                          >
+                            <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                              Background terminals
+                            </DropdownMenu.Label>
+                            <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                            <div className="max-h-52 overflow-y-auto pb-1">
+                              {activeBackgroundTerminalEntries.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
+                                >
+                                  <p
+                                    className="truncate text-[11px] font-medium"
+                                    title={entry.label}
+                                  >
+                                    {entry.label}
+                                  </p>
+                                  <p
+                                    className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-setta-400 dark:text-setta-500"
+                                    title={`${entry.toolName} | ${entry.id}`}
+                                  >
+                                    {entry.toolName} | {entry.id}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    ) : (
+                      <span
+                        data-chat-runtime-active-background-terminals="true"
+                        className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
+                        aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
+                        {...(backgroundTerminalTooltipHandlers ?? {})}
+                      >
+                        <FiTerminal size={10} />
+                        <span className="font-mono leading-none">
+                          {activeBackgroundTerminals}
+                        </span>
                       </span>
-                    </span>
-                    <span
-                      data-chat-runtime-active-subagents="true"
-                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
-                      aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
-                      {...(subagentTooltipHandlers ?? {})}
-                    >
-                      <FiCpu size={10} />
-                      <span className="font-mono leading-none">
-                        {activeSubagents}
+                    )}
+                    {showSubagentDropdown ? (
+                      <DropdownMenu.Root modal={false}>
+                        <DropdownMenu.Trigger asChild>
+                          <button
+                            type="button"
+                            data-chat-runtime-active-subagents="true"
+                            className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                            aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
+                            {...(subagentTooltipHandlers ?? {})}
+                          >
+                            <FiCpu size={10} />
+                            <span className="font-mono leading-none">
+                              {activeSubagents}
+                            </span>
+                          </button>
+                        </DropdownMenu.Trigger>
+                        <DropdownMenu.Portal>
+                          <DropdownMenu.Content
+                            align="start"
+                            sideOffset={6}
+                            className="z-30 min-w-[240px] max-w-[360px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
+                          >
+                            <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                              Subagents
+                            </DropdownMenu.Label>
+                            <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                            <div className="max-h-52 overflow-y-auto pb-1">
+                              {activeSubagentEntries.map((entry) => (
+                                <div
+                                  key={entry.id}
+                                  className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
+                                >
+                                  <p
+                                    className="truncate text-[11px] font-medium"
+                                    title={entry.label}
+                                  >
+                                    {entry.label}
+                                  </p>
+                                  <p
+                                    className="mt-0.5 truncate text-[10px] uppercase tracking-[0.1em] text-setta-400 dark:text-setta-500"
+                                    title={`${entry.toolName} | ${entry.id}`}
+                                  >
+                                    {entry.toolName} | {entry.id}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </DropdownMenu.Content>
+                        </DropdownMenu.Portal>
+                      </DropdownMenu.Root>
+                    ) : (
+                      <span
+                        data-chat-runtime-active-subagents="true"
+                        className="inline-flex h-5 select-none items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
+                        aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
+                        {...(subagentTooltipHandlers ?? {})}
+                      >
+                        <FiCpu size={10} />
+                        <span className="font-mono leading-none">
+                          {activeSubagents}
+                        </span>
                       </span>
-                    </span>
+                    )}
                   </div>
                 ) : null}
                 {executionControls &&

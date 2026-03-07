@@ -1,5 +1,6 @@
 import {
   buildChatSlashCommands,
+  normalizeSlashCommandToken,
   type ChatSlashCommandDefinition,
 } from "components/Chat/chatComposerControls";
 import {
@@ -7,15 +8,72 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import {
+  filterRunsByProjectConfigId,
+  getRunLastUpdatedMs,
+} from "state/actions/agentRunUtils";
+import {
   EngineTypeEnum,
   ExternalAgentToolTypeEnum,
   type APIKeys,
+  type AgentRun,
   type AllLLMConfigs,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
+import { createWithEqualityFn } from "zustand/traditional";
+
+export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
+
+export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
+const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
+  {},
+) as Record<string, AgentNativeSlashCommandsEntry>;
+type AgentNativeSlashCommandsStatus =
+  | "unknown"
+  | "available"
+  | "none"
+  | "not_supported"
+  | "error";
+export type AgentNativeSlashCommandsEntry = {
+  commands: string[];
+  status: AgentNativeSlashCommandsStatus;
+  statusDetail: string | null;
+};
+type AgentNativeSlashCommandsByProjectConfigId = Record<
+  string,
+  Record<string, AgentNativeSlashCommandsEntry>
+>;
+export type AgentRunsAuthorityState =
+  | "loading"
+  | "ready"
+  | "transient_error"
+  | "terminal_error";
+export const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
+  {
+    commands: EMPTY_AGENT_NATIVE_COMMANDS,
+    status: "unknown",
+    statusDetail: null,
+  };
+const agentNativeSlashCommandsStorageAdapter =
+  getSafeLocalStorageAdapter("agent-runs");
+export const useAgentNativeSlashCommandsCache =
+  createWithEqualityFn<AgentNativeSlashCommandsByProjectConfigId>()(() =>
+    parseAgentNativeSlashCommandsStorage(
+      agentNativeSlashCommandsStorageAdapter.getItem(
+        AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+      ),
+    ),
+  );
+
+export function isAgentRunsAuthorityReady(
+  agentRunsAuthorityState: AgentRunsAuthorityState,
+): boolean {
+  return agentRunsAuthorityState === "ready";
+}
 
 export function filterSkills(
   skills: AppGenSkillEntry[],
@@ -314,96 +372,52 @@ function buildSkillIdentifierIndex(
   return index;
 }
 
-function compareSkillCandidates({
-  left,
-  right,
-  applicableRootPriority,
-}: {
-  left: AppGenSkillEntry;
-  right: AppGenSkillEntry;
-  applicableRootPriority: Map<string, number>;
-}): number {
-  const leftRootId = getSkillRootId(left.skillId);
-  const rightRootId = getSkillRootId(right.skillId);
-  const leftIsApplicable = applicableRootPriority.has(leftRootId);
-  const rightIsApplicable = applicableRootPriority.has(rightRootId);
-  if (leftIsApplicable !== rightIsApplicable) {
-    return leftIsApplicable ? -1 : 1;
-  }
-  const leftPriority =
-    applicableRootPriority.get(leftRootId) ?? Number.MAX_SAFE_INTEGER;
-  const rightPriority =
-    applicableRootPriority.get(rightRootId) ?? Number.MAX_SAFE_INTEGER;
-  if (leftPriority !== rightPriority) {
-    return leftPriority - rightPriority;
-  }
-  const leftRelativePathLength = left.relativePath.length;
-  const rightRelativePathLength = right.relativePath.length;
-  if (leftRelativePathLength !== rightRelativePathLength) {
-    return leftRelativePathLength - rightRelativePathLength;
-  }
-  return left.skillId.localeCompare(right.skillId);
-}
-
-function selectBestSkillCandidate({
-  candidates,
-  applicableRootPriority,
-}: {
-  candidates: AppGenSkillEntry[];
-  applicableRootPriority: Map<string, number>;
-}): AppGenSkillEntry | null {
-  let bestCandidate: AppGenSkillEntry | null = null;
-  for (const candidate of candidates) {
-    if (bestCandidate === null) {
-      bestCandidate = candidate;
-      continue;
-    }
-    if (
-      compareSkillCandidates({
-        left: candidate,
-        right: bestCandidate,
-        applicableRootPriority,
-      }) < 0
-    ) {
-      bestCandidate = candidate;
-    }
-  }
-  return bestCandidate;
-}
-
 function mapActiveSkillNamesToSkillIds({
+  applicableRootIds,
   skills,
   activeSkillNames,
-  applicableRootIds,
 }: {
+  applicableRootIds: string[];
   skills: AppGenSkillEntry[];
   activeSkillNames: Map<string, string>;
-  applicableRootIds: string[];
-}): Map<string, string> {
+}): {
+  activeSkillSourcesBySkillId: Map<string, string>;
+  ambiguousSkillIds: Set<string>;
+} {
   const activeSkillSourcesBySkillId = new Map<string, string>();
+  const ambiguousSkillIds = new Set<string>();
   if (activeSkillNames.size === 0) {
-    return activeSkillSourcesBySkillId;
-  }
-  const applicableRootPriority = new Map<string, number>();
-  for (const [index, rootId] of applicableRootIds.entries()) {
-    applicableRootPriority.set(rootId, index);
+    return {
+      activeSkillSourcesBySkillId,
+      ambiguousSkillIds,
+    };
   }
   const skillIdentifierIndex = buildSkillIdentifierIndex(skills);
+  const applicableRootIdSet = new Set(applicableRootIds);
   for (const [activeSkillName, source] of activeSkillNames.entries()) {
     const candidates = skillIdentifierIndex.get(activeSkillName) ?? [];
-    if (candidates.length === 0) {
+    const applicableCandidates = candidates.filter((candidate) =>
+      applicableRootIdSet.has(getSkillRootId(candidate.skillId)),
+    );
+    if (applicableCandidates.length === 0) {
       continue;
     }
-    const bestCandidate = selectBestSkillCandidate({
-      candidates,
-      applicableRootPriority,
-    });
-    if (!bestCandidate) {
+    if (applicableCandidates.length > 1) {
+      for (const candidate of applicableCandidates) {
+        ambiguousSkillIds.add(candidate.skillId);
+      }
       continue;
     }
-    activeSkillSourcesBySkillId.set(bestCandidate.skillId, source);
+    const [matchedCandidate] = applicableCandidates;
+    if (!matchedCandidate) {
+      continue;
+    }
+    activeSkillSourcesBySkillId.set(matchedCandidate.skillId, source);
   }
-  return activeSkillSourcesBySkillId;
+  return {
+    activeSkillSourcesBySkillId,
+    ambiguousSkillIds,
+  };
 }
 
 export function buildSkillStatusBySkillId({
@@ -432,20 +446,23 @@ export function buildSkillStatusBySkillId({
       externalAgentToolType,
       messages,
     });
-  const activeSkillSourcesBySkillId = mapActiveSkillNamesToSkillIds({
-    skills,
-    activeSkillNames,
-    applicableRootIds,
-  });
+  const { activeSkillSourcesBySkillId, ambiguousSkillIds } =
+    mapActiveSkillNamesToSkillIds({
+      applicableRootIds,
+      skills,
+      activeSkillNames,
+    });
   for (const skill of skills) {
     const rootId = getSkillRootId(skill.skillId);
     const isApplicable = applicableRootIdSet.has(rootId);
     const activeSource = activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
     const activityState: SkillActivityState = activeSource
       ? "active"
-      : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
+      : ambiguousSkillIds.has(skill.skillId)
         ? "unknown"
-        : "inactive";
+        : isApplicable && requiresStructuredMetadata && !hasStructuredMetadata
+          ? "unknown"
+          : "inactive";
     statusesBySkillId[skill.skillId] = {
       isApplicable,
       applicabilityReason: isApplicable
@@ -611,6 +628,341 @@ export function groupMcpServersByConfigPath({
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed;
+}
+
+function normalizeSlashCommandList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+  for (const value of raw) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    const normalizedValue = normalizeSlashCommandToken(value);
+    if (!normalizedValue || seen.has(normalizedValue)) {
+      continue;
+    }
+    seen.add(normalizedValue);
+    normalized.push(normalizedValue);
+  }
+  return normalized;
+}
+
+function normalizeAgentNativeSlashCommandsStatus(
+  rawStatus: unknown,
+): AgentNativeSlashCommandsStatus {
+  if (typeof rawStatus !== "string") {
+    return "unknown";
+  }
+  switch (rawStatus.trim()) {
+    case "available":
+      return "available";
+    case "none":
+      return "none";
+    case "not_supported":
+      return "not_supported";
+    case "error":
+      return "error";
+    default:
+      return "unknown";
+  }
+}
+
+function extractAgentNativeSlashCommandsFromRun(
+  run: AgentRun,
+): { engineConfigId: string; entry: AgentNativeSlashCommandsEntry } | null {
+  if (!isRecord(run.outputs)) {
+    return null;
+  }
+  const metadata = run.outputs.metadata;
+  if (!isRecord(metadata)) {
+    return null;
+  }
+  const rawEngineConfigId = metadata.engineConfigId;
+  if (
+    typeof rawEngineConfigId !== "string" ||
+    rawEngineConfigId.trim() === ""
+  ) {
+    return null;
+  }
+  const hasCommandsField = Array.isArray(metadata.agentNativeSlashCommands);
+  const commands = normalizeSlashCommandList(metadata.agentNativeSlashCommands);
+  const status = normalizeAgentNativeSlashCommandsStatus(
+    metadata.agentNativeSlashCommandsStatus,
+  );
+  const statusDetail = normalizeOptionalString(
+    metadata.agentNativeSlashCommandsStatusDetail,
+  );
+  let resolvedStatus = status;
+  if (commands.length > 0 && resolvedStatus === "unknown") {
+    resolvedStatus = "available";
+  } else if (hasCommandsField && resolvedStatus === "unknown") {
+    resolvedStatus = "none";
+  }
+  if (
+    commands.length === 0 &&
+    resolvedStatus === "unknown" &&
+    statusDetail === null
+  ) {
+    return null;
+  }
+  return {
+    engineConfigId: rawEngineConfigId,
+    entry: {
+      commands,
+      status: resolvedStatus,
+      statusDetail,
+    },
+  };
+}
+
+export function filterAgentNativeSlashCommandsByEngineId({
+  entries,
+  engineConfigIds,
+}: {
+  entries: Record<string, AgentNativeSlashCommandsEntry>;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  const allowedEngineIds = new Set(engineConfigIds);
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const engineConfigId of engineConfigIds) {
+    const entry = entries[engineConfigId];
+    if (!entry || !allowedEngineIds.has(engineConfigId)) {
+      continue;
+    }
+    next[engineConfigId] = entry;
+  }
+  return next;
+}
+
+export function resolveAgentNativeSlashCommandsByEngineId({
+  runs,
+  projectConfigId,
+  engineConfigIds,
+}: {
+  runs: AgentRun[];
+  projectConfigId: string;
+  engineConfigIds: string[];
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  const scopedRuns = filterRunsByProjectConfigId(runs, projectConfigId);
+  const allowedEngineIds = new Set(engineConfigIds);
+  const nextByEngineId: Record<
+    string,
+    {
+      entry: AgentNativeSlashCommandsEntry;
+      lastUpdatedMs: number;
+      runId: string;
+    }
+  > = {};
+  for (const run of scopedRuns) {
+    const extracted = extractAgentNativeSlashCommandsFromRun(run);
+    if (!extracted || !allowedEngineIds.has(extracted.engineConfigId)) {
+      continue;
+    }
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const current = nextByEngineId[extracted.engineConfigId];
+    const nextRunId = run.id.trim();
+    if (
+      current &&
+      (lastUpdatedMs < current.lastUpdatedMs ||
+        (lastUpdatedMs === current.lastUpdatedMs &&
+          nextRunId.localeCompare(current.runId) <= 0))
+    ) {
+      continue;
+    }
+    nextByEngineId[extracted.engineConfigId] = {
+      entry: extracted.entry,
+      lastUpdatedMs,
+      runId: nextRunId,
+    };
+  }
+  const next: Record<string, AgentNativeSlashCommandsEntry> = {};
+  for (const [engineConfigId, value] of Object.entries(nextByEngineId)) {
+    next[engineConfigId] = value.entry;
+  }
+  return next;
+}
+
+export function resolveAgentNativeSlashCommandsByProjectConfigId({
+  runs,
+}: {
+  runs: AgentRun[];
+}): AgentNativeSlashCommandsByProjectConfigId {
+  const nextByProjectAndEngine: Record<
+    string,
+    Record<
+      string,
+      {
+        entry: AgentNativeSlashCommandsEntry;
+        lastUpdatedMs: number;
+        runId: string;
+      }
+    >
+  > = {};
+  for (const run of runs) {
+    const projectConfigId = run.inputs?.projectConfigId;
+    if (typeof projectConfigId !== "string" || projectConfigId.trim() === "") {
+      continue;
+    }
+    const extracted = extractAgentNativeSlashCommandsFromRun(run);
+    if (!extracted) {
+      continue;
+    }
+    const lastUpdatedMs = getRunLastUpdatedMs(run);
+    const nextRunId = run.id.trim();
+    const currentByEngine =
+      nextByProjectAndEngine[projectConfigId] ??
+      (nextByProjectAndEngine[projectConfigId] = {});
+    const current = currentByEngine[extracted.engineConfigId];
+    if (
+      current &&
+      (lastUpdatedMs < current.lastUpdatedMs ||
+        (lastUpdatedMs === current.lastUpdatedMs &&
+          nextRunId.localeCompare(current.runId) <= 0))
+    ) {
+      continue;
+    }
+    currentByEngine[extracted.engineConfigId] = {
+      entry: extracted.entry,
+      lastUpdatedMs,
+      runId: nextRunId,
+    };
+  }
+  const next: AgentNativeSlashCommandsByProjectConfigId = {};
+  for (const [projectConfigId, entriesByEngineId] of Object.entries(
+    nextByProjectAndEngine,
+  )) {
+    const normalizedEntries: Record<string, AgentNativeSlashCommandsEntry> = {};
+    for (const [engineConfigId, value] of Object.entries(entriesByEngineId)) {
+      normalizedEntries[engineConfigId] = value.entry;
+    }
+    if (Object.keys(normalizedEntries).length === 0) {
+      continue;
+    }
+    next[projectConfigId] = normalizedEntries;
+  }
+  return next;
+}
+
+export function resolveVisibleAgentNativeSlashCommandsByEngineId({
+  agentRunsAuthorityState,
+  runtimeEntries,
+}: {
+  agentRunsAuthorityState: AgentRunsAuthorityState;
+  runtimeEntries: Record<string, AgentNativeSlashCommandsEntry>;
+}): Record<string, AgentNativeSlashCommandsEntry> {
+  if (isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
+    return runtimeEntries;
+  }
+  return EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID;
+}
+
+function areAgentNativeSlashEntriesEqual(
+  currentEntry: AgentNativeSlashCommandsEntry | undefined,
+  nextEntry: AgentNativeSlashCommandsEntry,
+): boolean {
+  if (!currentEntry) {
+    return false;
+  }
+  if (
+    currentEntry.status !== nextEntry.status ||
+    currentEntry.statusDetail !== nextEntry.statusDetail
+  ) {
+    return false;
+  }
+  if (currentEntry.commands.length !== nextEntry.commands.length) {
+    return false;
+  }
+  for (let index = 0; index < currentEntry.commands.length; index += 1) {
+    if (currentEntry.commands[index] !== nextEntry.commands[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areAgentNativeSlashCommandMapsEqual(
+  current: Record<string, AgentNativeSlashCommandsEntry>,
+  next: Record<string, AgentNativeSlashCommandsEntry>,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+  for (const key of currentKeys) {
+    if (!(key in next)) {
+      return false;
+    }
+    const nextEntry = next[key];
+    if (!nextEntry) {
+      return false;
+    }
+    if (!areAgentNativeSlashEntriesEqual(current[key], nextEntry)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areAgentNativeSlashCommandProjectMapsEqual(
+  current: AgentNativeSlashCommandsByProjectConfigId,
+  next: AgentNativeSlashCommandsByProjectConfigId,
+): boolean {
+  const currentKeys = Object.keys(current);
+  const nextKeys = Object.keys(next);
+  if (currentKeys.length !== nextKeys.length) {
+    return false;
+  }
+  for (const key of currentKeys) {
+    if (!(key in next)) {
+      return false;
+    }
+    const nextProjectEntries = next[key];
+    if (!nextProjectEntries) {
+      return false;
+    }
+    if (
+      !areAgentNativeSlashCommandMapsEqual(
+        current[key] ?? {},
+        nextProjectEntries,
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function collectAgentNativeSlashCommandTokensFromEntries(
+  entries: Record<string, AgentNativeSlashCommandsEntry>,
+): string[] {
+  const discoveredTokens: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of Object.values(entries)) {
+    for (const command of entry.commands) {
+      const normalizedCommand = normalizeSlashCommandToken(command);
+      if (!normalizedCommand || seen.has(normalizedCommand)) {
+        continue;
+      }
+      seen.add(normalizedCommand);
+      discoveredTokens.push(normalizedCommand);
+    }
+  }
+  return discoveredTokens;
 }
 
 function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
@@ -859,7 +1211,153 @@ export function buildSlashCommandsByEngine({
         model: true,
         permissions: permissionsEnabled,
         search: searchEnabled,
+        appGenerationModes: true,
       }),
     };
   });
+}
+
+export function parseAgentNativeSlashCommandsStorage(
+  rawStorageValue: string | null,
+): AgentNativeSlashCommandsByProjectConfigId {
+  if (!rawStorageValue) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(rawStorageValue);
+    if (!isRecord(parsed)) {
+      return {};
+    }
+    const normalized: AgentNativeSlashCommandsByProjectConfigId = {};
+    for (const [projectConfigId, rawProjectEntry] of Object.entries(parsed)) {
+      if (!projectConfigId.trim() || !isRecord(rawProjectEntry)) {
+        continue;
+      }
+      const normalizedProjectEntries: Record<
+        string,
+        AgentNativeSlashCommandsEntry
+      > = {};
+      for (const [engineId, rawEntry] of Object.entries(rawProjectEntry)) {
+        if (!engineId.trim() || !isRecord(rawEntry)) {
+          continue;
+        }
+        const hasCommandsField = Array.isArray(rawEntry.commands);
+        const commands = normalizeSlashCommandList(rawEntry.commands);
+        const status = normalizeAgentNativeSlashCommandsStatus(rawEntry.status);
+        const statusDetail = normalizeOptionalString(rawEntry.statusDetail);
+        let resolvedStatus = status;
+        if (commands.length > 0 && resolvedStatus === "unknown") {
+          resolvedStatus = "available";
+        } else if (hasCommandsField && resolvedStatus === "unknown") {
+          resolvedStatus = "none";
+        }
+        if (
+          commands.length === 0 &&
+          resolvedStatus === "unknown" &&
+          statusDetail === null
+        ) {
+          continue;
+        }
+        normalizedProjectEntries[engineId] = {
+          commands,
+          status: resolvedStatus,
+          statusDetail,
+        };
+      }
+      if (Object.keys(normalizedProjectEntries).length === 0) {
+        continue;
+      }
+      normalized[projectConfigId] = normalizedProjectEntries;
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+}
+
+function serializeAgentNativeSlashCommandsStorage(
+  entries: AgentNativeSlashCommandsByProjectConfigId,
+): string {
+  return JSON.stringify(entries);
+}
+
+export function replaceAgentNativeSlashCommandsCache(
+  nextEntries: AgentNativeSlashCommandsByProjectConfigId,
+): void {
+  const currentEntries = useAgentNativeSlashCommandsCache.getState();
+  const persistedEntries = parseAgentNativeSlashCommandsStorage(
+    agentNativeSlashCommandsStorageAdapter.getItem(
+      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+    ),
+  );
+  if (
+    areAgentNativeSlashCommandProjectMapsEqual(currentEntries, nextEntries) &&
+    areAgentNativeSlashCommandProjectMapsEqual(persistedEntries, nextEntries)
+  ) {
+    return;
+  }
+  useAgentNativeSlashCommandsCache.setState(nextEntries, true);
+  if (Object.keys(nextEntries).length === 0) {
+    agentNativeSlashCommandsStorageAdapter.removeItem(
+      AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+    );
+    return;
+  }
+  agentNativeSlashCommandsStorageAdapter.setItem(
+    AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
+    serializeAgentNativeSlashCommandsStorage(nextEntries),
+  );
+}
+
+export function buildReservedSlashCommandTokens({
+  managedCommands,
+  engineCommandGroups,
+  discoveredNativeSlashCommands,
+}: {
+  managedCommands: ChatSlashCommandDefinition[];
+  engineCommandGroups: Array<{ commands: ChatSlashCommandDefinition[] }>;
+  discoveredNativeSlashCommands: string[];
+}): Set<string> {
+  const reserved = new Set<string>();
+  for (const command of managedCommands) {
+    reserved.add(command.command);
+  }
+  for (const group of engineCommandGroups) {
+    for (const command of group.commands) {
+      reserved.add(command.command);
+    }
+  }
+  for (const nativeCommand of discoveredNativeSlashCommands) {
+    const normalized = normalizeSlashCommandToken(nativeCommand);
+    if (!normalized) {
+      continue;
+    }
+    reserved.add(normalized);
+  }
+  return reserved;
+}
+
+export function reconcileCustomSlashCommands({
+  customCommands,
+  reservedTokens,
+}: {
+  customCommands: ChatSlashCommandDefinition[];
+  reservedTokens: Set<string>;
+}): {
+  executableCommands: ChatSlashCommandDefinition[];
+  conflictingCommandTokens: Set<string>;
+} {
+  const executableCommands: ChatSlashCommandDefinition[] = [];
+  const conflictingCommandTokens = new Set<string>();
+  for (const customCommand of customCommands) {
+    if (reservedTokens.has(customCommand.command)) {
+      conflictingCommandTokens.add(customCommand.command);
+      continue;
+    }
+    executableCommands.push(customCommand);
+  }
+  return {
+    executableCommands,
+    conflictingCommandTokens,
+  };
 }
