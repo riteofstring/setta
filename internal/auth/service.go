@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/riteofstring/setta/internal/config"
+	"setta/internal/config"
 )
 
 const (

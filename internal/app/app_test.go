@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/riteofstring/setta/internal/config"
-	"github.com/riteofstring/setta/internal/httpapi"
-	"github.com/riteofstring/setta/internal/observability"
+	"setta/internal/config"
+	"setta/internal/httpapi"
+	"setta/internal/observability"
 )
 
 func TestAppServesFoundationRoutes(t *testing.T) {

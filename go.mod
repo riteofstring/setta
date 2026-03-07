@@ -1,4 +1,4 @@
-module github.com/riteofstring/setta
+module setta
 
 go 1.26.0
 

@@ -6,11 +6,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/riteofstring/setta/internal/auth"
-	"github.com/riteofstring/setta/internal/config"
-	"github.com/riteofstring/setta/internal/httpapi"
-	"github.com/riteofstring/setta/internal/observability"
-	"github.com/riteofstring/setta/internal/runtime"
+	"setta/internal/auth"
+	"setta/internal/config"
+	"setta/internal/httpapi"
+	"setta/internal/observability"
+	"setta/internal/runtime"
 )
 
 type App struct {

@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riteofstring/setta/internal/auth"
-	"github.com/riteofstring/setta/internal/config"
+	"setta/internal/auth"
+	"setta/internal/config"
 )
 
 type stubInfoService struct {

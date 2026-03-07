@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/riteofstring/setta/internal/app"
-	"github.com/riteofstring/setta/internal/config"
-	"github.com/riteofstring/setta/internal/observability"
+	"setta/internal/app"
+	"setta/internal/config"
+	"setta/internal/observability"
 )
 
 func main() {

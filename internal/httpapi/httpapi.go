@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riteofstring/setta/internal/auth"
+	"setta/internal/auth"
 )
 
 const apiPrefix = "/api"

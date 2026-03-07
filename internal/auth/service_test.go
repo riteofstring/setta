@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/riteofstring/setta/internal/config"
+	"setta/internal/config"
 )
 
 type envMap map[string]string

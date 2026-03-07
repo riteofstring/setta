@@ -25,6 +25,7 @@ Phase-1 tooling decision:
 - require a pinned Go SDK before starting implementation
 - treat `gofmt` as included with the Go SDK
 - defer `gopls`, `golangci-lint`, code generators, and editor-specific tooling until real Go code exists and we can justify each addition
+- keep the module path local as `setta` until the rewrite has a real permanent home
 
 ## Completed In This Slice
 
