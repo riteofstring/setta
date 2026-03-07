@@ -1,18 +1,28 @@
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   IoAlertCircleSharp,
   IoClose,
   IoInformationCircle,
   IoWarning,
 } from "react-icons/io5";
+import { MdNotificationsNone } from "react-icons/md";
+import { TbLogs } from "react-icons/tb";
 import { VscSave } from "react-icons/vsc";
 import {
   DEFAULT_TEMP_TIMEOUT,
   markAsRead,
   removeNotification,
 } from "state/actions/notifications"; // Assuming this import path
-import { useNotifications, useProjectState } from "state/definitions";
+import {
+  useLocalStorage,
+  useNotifications,
+  useProjectState,
+} from "state/definitions";
+import {
+  type OverviewNotificationsPaneTab,
+  OverviewNotificationsPaneTabEnum,
+} from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_delete_notification,
@@ -23,6 +33,7 @@ import {
   SettaNotificationType,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { BackendLogEventsArea } from "./BackendLogEventsArea";
 
 export function NotificationsArea() {
   // Get all notifications from the store, including temporary ones
@@ -30,8 +41,24 @@ export function NotificationsArea() {
     (state) => state.notifications,
     _.isEqual,
   );
+  const persistedPaneTab = useLocalStorage(
+    (state) => state.overviewNotificationsPaneTab,
+  );
+  const activePaneTab = persistedPaneTab;
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
+
+  const setActivePaneTab = useCallback(
+    (nextTab: OverviewNotificationsPaneTab) => {
+      if (persistedPaneTab === nextTab) {
+        return;
+      }
+      useLocalStorage.setState({
+        overviewNotificationsPaneTab: nextTab,
+      });
+    },
+    [persistedPaneTab],
+  );
 
   // Fetch notifications when component mounts
   useEffect(() => {
@@ -57,8 +84,82 @@ export function NotificationsArea() {
     }
   }, [projectConfigId]);
 
+  let paneBody = <NotificationsList notifications={notifications} />;
+  if (activePaneTab === OverviewNotificationsPaneTabEnum.BackendLogs) {
+    paneBody = (
+      <div
+        data-testid="notifications-pane-backend-logs-view"
+        className="h-full min-h-0"
+      >
+        <BackendLogEventsArea />
+      </div>
+    );
+  }
+
   return (
-    <div className="setta-pane-scroll flex h-full w-full flex-col gap-4">
+    <div
+      data-testid="notifications-pane-shell"
+      className="flex h-full min-h-0 w-full flex-col gap-2"
+    >
+      <div
+        role="tablist"
+        aria-label="Notifications pane tabs"
+        className="inline-flex w-fit items-center gap-1 rounded-md bg-setta-100 p-1 text-[11px] dark:bg-setta-850"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={
+            activePaneTab === OverviewNotificationsPaneTabEnum.Notifications
+          }
+          data-testid="notifications-pane-tab-notifications"
+          onClick={() =>
+            setActivePaneTab(OverviewNotificationsPaneTabEnum.Notifications)
+          }
+          className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition-colors ${
+            activePaneTab === OverviewNotificationsPaneTabEnum.Notifications
+              ? "bg-white text-setta-700 dark:bg-setta-800 dark:text-setta-100"
+              : "text-setta-500 hover:text-setta-700 dark:text-setta-300 dark:hover:text-setta-100"
+          }`}
+        >
+          <MdNotificationsNone size={13} aria-hidden />
+          <span>Notifications</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={
+            activePaneTab === OverviewNotificationsPaneTabEnum.BackendLogs
+          }
+          data-testid="notifications-pane-tab-backend-logs"
+          onClick={() =>
+            setActivePaneTab(OverviewNotificationsPaneTabEnum.BackendLogs)
+          }
+          className={`inline-flex items-center gap-1 rounded px-2 py-1 font-semibold transition-colors ${
+            activePaneTab === OverviewNotificationsPaneTabEnum.BackendLogs
+              ? "bg-white text-setta-700 dark:bg-setta-800 dark:text-setta-100"
+              : "text-setta-500 hover:text-setta-700 dark:text-setta-300 dark:hover:text-setta-100"
+          }`}
+        >
+          <TbLogs size={13} aria-hidden />
+          <span>Logs</span>
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">{paneBody}</div>
+    </div>
+  );
+}
+
+function NotificationsList({
+  notifications,
+}: {
+  notifications: Array<SettaNotification>;
+}) {
+  return (
+    <div
+      data-testid="notifications-pane-notifications-view"
+      className="setta-pane-scroll flex h-full w-full flex-col gap-4"
+    >
       {notifications.length > 0 ? (
         notifications.map((notification) => (
           <NotificationItem key={notification.id} notification={notification} />

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   openIsolatedProject,
+  openProjectAiSettingsPopover,
   setOverviewTab,
 } from "../../helpers";
 
@@ -40,17 +41,15 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
       }),
     ).toBeVisible();
     await expect(
-      pluginCard.getByText(
-        adapterId,
-        {
-          exact: true,
-        },
-      ),
+      pluginCard.getByText(adapterId, {
+        exact: true,
+      }),
     ).toBeVisible();
 
-    await setOverviewTab(page, "ProjectAISettings");
+    await setOverviewTab(page, "ProjectAIChat");
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await openProjectAiSettingsPopover(page);
 
     const externalAgentsTrigger = page.getByTestId(
       "project-ai-settings-accordion-external-agents",
@@ -68,9 +67,10 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
     await externalAgentsSection
       .getByRole("button", { name: "New External Agent", exact: true })
       .click();
-    await externalAgentsSection.locator("input").first().fill(
-      "Fixture Plugin Agent",
-    );
+    await externalAgentsSection
+      .locator("input")
+      .first()
+      .fill("Fixture Plugin Agent");
 
     const toolTypeSelect = externalAgentsSection.locator("select").first();
     await toolTypeSelect.selectOption("plugin");
