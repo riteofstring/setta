@@ -63,8 +63,9 @@ Current repo status as of 2026-03-07:
     menus update immediately without a broader project-state websocket push
 - the next active LSP gap is now tracked in:
   - `docs/plans/go-backend-rewrite/phase-5-signature-help-callable-refetch-and-param-synthesis.md`
-  - this follow-up covers Go-owned `setCallable`, signature-help parsing,
-    callable param synthesis, and later auto-refetch/watch-code integration
+  - its Slice 1 manual `setCallable` runtime is now complete in Go
+  - the remaining active work there is generated-diagnostics auto-refetch and
+    later watch-code integration
 - Python still owns the current LSP runtime under:
   - `backend/setta/lsp/managers.py`
   - `backend/setta/lsp/server.py`

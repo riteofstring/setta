@@ -17,9 +17,6 @@ Go now owns the base Python LSP substrate:
 What Go still does not own is the callable-binding workflow that depends on
 `textDocument/signatureHelp`:
 
-- `setCallable`
-- signature-help response parsing into parameter proposals
-- callable parameter/code-object synthesis
 - auto-refetch after generated diagnostics resolve undefined callables
 - auto-refetch on generated signature mismatch diagnostics
 - watch-code callable refreshes that use the same synthesis path
@@ -31,20 +28,28 @@ Current repo status as of 2026-03-07:
 - Phase 5 slices 1 through 4 are complete
 - Go owns the shared LSP session, diagnostics, completion, and diagnostics
   ignore-state runtime boundaries
-- the active LSP gap has moved to signature-help-driven callable refetch and
-  parameter synthesis
+- Slice 1 of this follow-up is complete:
+  - Go owns raw `textDocument/signatureHelp` requests over temp Python
+    snapshots
+  - `internal/lspsignature` now resolves generated-Python callable signatures
+    into deterministic callable param proposals
+  - `internal/projectstate` now owns manual callable binding and param-child
+    synthesis
+  - IDE mode now exposes Go-owned `setCallable` and
+    `getLatestProjectState` routes
+  - the frontend Search callable flow now rehydrates authoritative project
+    state instead of waiting for a non-existent Go websocket push
+- the active LSP gap has moved to generated-diagnostics-driven callable
+  auto-refetch and watch-code reuse of the same synthesis path
 - Python remains the source of truth for that gap in:
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/lsp_response_handlers/signatureHelp.py`
   - `backend/setta/project_state/base_project_manager.py`
   - `backend/setta/project_state/watch_code.py`
   - `backend/setta/lsp/writer.py`
-- the current frontend still calls `route_set_callable` from:
+- the current frontend manual callable path lives in:
   - `frontend/src/components/Section/SectionParts/Search.tsx`
-- the current frontend ignores the Python route payload details and waits for
-  a project-state websocket refresh, but Go still has no general IDE
-  `UpdateFrontendProjectState` websocket message or `getLatestProjectState`
-  route
+  - `frontend/src/state/actions/project/callable.ts`
 
 ## Scope
 
@@ -55,7 +60,8 @@ This focused follow-up covers:
 - parsing `SignatureInformation` into deterministic parameter proposals
 - Go-owned callable-binding mutation and parameter child synthesis
 - IDE-only `setCallable` transport for manual callable selection
-- explicit follow-up slices for auto-refetch and watch-code integration
+- generated-diagnostics-driven callable auto-refetch
+- explicit follow-up watch-code integration work over the same synthesis path
 
 ## Non-Goals
 
@@ -111,24 +117,16 @@ source-of-truth callable synthesis service above the shared LSP session.
 
 ## Dependency Finding
 
-The next step is really an implementation-plan step, not immediate code, for
-four reasons:
+Slice 1 is implemented. The remaining dependency for Slice 2 is narrower:
 
-1. there is no Go-owned signature-help request pathway yet
-2. there is no Go-owned parser for `SignatureInformation` into ordered
-   `CodeParam` proposal data
-3. there is no Go-owned project-state mutation helper for callable binding and
-   child parameter synthesis
-4. the current frontend `setCallable` flow depends on project-state refresh, but
-   Go still has no general IDE project-state push/hydration pathway
-
-There is also one scope dependency that should stay explicit:
-
-- automatic refetch-on-mismatch currently depends on
-  `settings.backend.autoRefetchCallableParamsOnLspMismatch`
-  - that setting is still Python-owned for actual runtime behavior
-  - the first Go slice should not silently hard-code policy if a Go settings
-    owner is not ready
+1. generated Python diagnostics need a reusable resolved-symbol and
+   mismatch-section callback boundary in Go
+2. that callback must reuse the same callable synthesis owner instead of
+   rebuilding route logic in the synchronizer
+3. mismatch-driven refetch still depends on
+   `settings.backend.autoRefetchCallableParamsOnLspMismatch`
+   - that policy should be read through an explicit Go-owned settings path
+   - do not hard-code mismatch refetch behavior
 
 ## Working Decisions
 
@@ -148,8 +146,12 @@ There is also one scope dependency that should stay explicit:
     authoritative response
 - prefer authoritative state return over frontend mutation replay
   - callable synthesis touches section impls, callable code objects, child
-    params, and variant maps
+  params, and variant maps
   - the frontend should not reconstruct that mutation locally
+- use explicit follow-up hydration for manual callable changes
+  - Go now ships a dedicated `getLatestProjectState` route
+  - the frontend `setCallable` path should keep reloading authoritative state
+    through that route until a broader IDE project-state push exists
 - keep share/app mode blocked
   - `setCallable` and any later auto-refetch work stay IDE-only
 
@@ -231,28 +233,25 @@ Do not own:
 
 ## Response Direction
 
-Python currently returns `SetCallableResponse`, but the frontend ignores the
-payload and waits for a websocket project-state refresh. Go does not own that
-project-state push path yet.
+The implemented Slice 1 transport chose the explicit hydrate-route option:
 
-Recommended transport choice for the first Go slice:
-
-- return authoritative updated project state together with the callable result
-  in one route response
+- `setCallable` stays focused on the callable mutation result
+- `getLatestProjectState` provides the authoritative single-config rehydrate
+  payload
+- the frontend calls both routes in sequence and applies the backend snapshot
 
 Rationale:
 
 - it keeps the frontend on a source-of-truth refresh path
 - it avoids reconstructing structural callable mutations locally
-- it avoids widening this slice into a generic IDE websocket project-state push
-
-If this response change proves too disruptive once implemented, the fallback is
-to add a Go-owned `getLatestProjectState` hydrate route and explicitly re-fetch
-after success. Do not add frontend local mutation replay as a fallback.
+- it avoids widening this follow-up into a generic IDE websocket project-state
+  push
 
 ## Implementation Slices
 
 ### Slice 1: Manual `setCallable` Signature-Help Runtime
+
+Status: complete
 
 Deliver:
 
@@ -330,16 +329,18 @@ For later slices, add:
 
 ## Open Questions
 
-- whether the first Go `setCallable` route should replace the current response
-  type immediately or add a parallel route during transition inside the
-  worktree
-- whether auto-refetch should wait for Go settings/runtime ownership first or
-  read the existing settings store through a narrower bridge
+- whether later IDE project-state push work should replace the explicit
+  `getLatestProjectState` hydrate step for manual callable changes
+- whether watch-code integration should share the same refetch batching helper
+  directly or sit behind a thinner per-source adapter
 
 ## Next Recommended Step
 
-Execute Slice 1 next:
+Execute Slice 2 next:
 
-- add Go-owned signature-help snapshot request support
-- port the signature parser and callable synthesis service
-- land manual `setCallable` transport with an authoritative response path
+- add generated-diagnostics callbacks that detect resolved undefined-callable
+  sections and new callable mismatch sections
+- reuse the Go callable synthesis path for auto-refetch instead of rebuilding
+  mutation logic in the synchronizer
+- read mismatch refetch policy from the settings runtime instead of
+  hard-coding it

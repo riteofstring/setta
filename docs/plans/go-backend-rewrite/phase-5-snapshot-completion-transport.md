@@ -227,5 +227,5 @@ Slice 3 is complete. Slice 4 is also complete.
 Continue with:
 
 - `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
-- execute its Slice 1 manual `setCallable` signature-help runtime before
-  widening back out to auto-refetch and watch-code behavior
+- execute its Slice 2 generated-diagnostics auto-refetch runtime before
+  widening back out to watch-code behavior
