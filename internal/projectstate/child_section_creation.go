@@ -334,13 +334,13 @@ func ensureEmbeddedCodeSectionPayloadSize(
 	payload map[string]any,
 	policy AutoLayoutSectionSizingPolicy,
 ) error {
-	codeMinimum, ok := policy.MinByType["Code"]
+	codeMinimum, ok := policy.ByType["Code"]
 	if !ok {
 		return &InvalidAutoLayoutError{
 			Message: fmt.Sprintf("Section %q is missing Code sizing policy.", sectionID),
 		}
 	}
-	terminalMinimum, ok := policy.MinByType["Terminal"]
+	terminalMinimum, ok := policy.ByType["Terminal"]
 	if !ok {
 		return &InvalidAutoLayoutError{
 			Message: fmt.Sprintf("Section %q is missing Terminal sizing policy.", sectionID),

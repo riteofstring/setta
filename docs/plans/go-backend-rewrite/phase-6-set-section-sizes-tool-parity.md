@@ -146,3 +146,8 @@ The resize UX doc adds one important product rule beyond the narrow helper:
 - 2026-03-07: doc created immediately after the completed
   `set_code_section_attached_terminal` slice reranked the remaining Phase 6
   mutation gaps.
+- 2026-03-07: Go now owns the runtime/document/project `set_section_sizes`
+  mutation with shared settings-backed min/max normalization, `"auto"`
+  preservation, non-finite rejection, and embedded code/terminal width
+  lockstep plus code-height enforcement. MCP transport and bridge coverage are
+  still pending.

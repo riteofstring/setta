@@ -13,10 +13,12 @@ import (
 type AutoLayoutSectionMinDimensions struct {
 	MinWidth  float64
 	MinHeight float64
+	MaxWidth  float64
+	MaxHeight float64
 }
 
 type AutoLayoutSectionSizingPolicy struct {
-	MinByType map[string]AutoLayoutSectionMinDimensions
+	ByType map[string]AutoLayoutSectionMinDimensions
 }
 
 type InvalidAutoLayoutError struct {
@@ -75,7 +77,7 @@ func ResolveAutoLayoutSectionSizingPolicy(document Document) (AutoLayoutSectionS
 		return policy, nil
 	}
 
-	for sectionType, defaults := range policy.MinByType {
+	for sectionType, defaults := range policy.ByType {
 		typePayload, ok, err := findSettingsChildPayload(settingsProject, codeObjVariantMap, byTypePayload, sectionType)
 		if err != nil {
 			return AutoLayoutSectionSizingPolicy{}, err
@@ -106,10 +108,34 @@ func ResolveAutoLayoutSectionSizingPolicy(document Document) (AutoLayoutSectionS
 		if err != nil {
 			return AutoLayoutSectionSizingPolicy{}, err
 		}
+		maxWidth, err := resolveSettingsChildFloat(
+			settingsProject,
+			codeObjVariantMap,
+			typePayload,
+			"maxWidth",
+			defaults.MaxWidth,
+			fmt.Sprintf("sectionSizingPolicy.byType.%s.maxWidth", sectionType),
+		)
+		if err != nil {
+			return AutoLayoutSectionSizingPolicy{}, err
+		}
+		maxHeight, err := resolveSettingsChildFloat(
+			settingsProject,
+			codeObjVariantMap,
+			typePayload,
+			"maxHeight",
+			defaults.MaxHeight,
+			fmt.Sprintf("sectionSizingPolicy.byType.%s.maxHeight", sectionType),
+		)
+		if err != nil {
+			return AutoLayoutSectionSizingPolicy{}, err
+		}
 
-		policy.MinByType[sectionType] = AutoLayoutSectionMinDimensions{
-			MinWidth:  max(1, minWidth),
-			MinHeight: max(1, minHeight),
+		policy.ByType[sectionType] = AutoLayoutSectionMinDimensions{
+			MinWidth:  max(0, minWidth),
+			MinHeight: max(0, minHeight),
+			MaxWidth:  maxWidth,
+			MaxHeight: maxHeight,
 		}
 	}
 
@@ -317,16 +343,16 @@ func resolveAutoLayoutDimension(
 		}
 	}
 
-	minDimensions, ok := policy.MinByType[sectionType]
+	dimensions, ok := policy.ByType[sectionType]
 	if !ok {
 		return 0, &InvalidAutoLayoutError{
 			Message: fmt.Sprintf("Section %q has unsupported type %q for auto layout.", sectionID, sectionType),
 		}
 	}
 	if dimension == "width" {
-		return minDimensions.MinWidth, nil
+		return max(1, dimensions.MinWidth), nil
 	}
-	return minDimensions.MinHeight, nil
+	return max(1, dimensions.MinHeight), nil
 }
 
 func payloadAutoLayoutSizeValue(
@@ -421,29 +447,29 @@ func resolveSettingsChildFloat(
 
 func defaultAutoLayoutSectionSizingPolicy() AutoLayoutSectionSizingPolicy {
 	return AutoLayoutSectionSizingPolicy{
-		MinByType: map[string]AutoLayoutSectionMinDimensions{
-			"Callable":          {MinWidth: 200, MinHeight: 104},
-			"Dict":              {MinWidth: 200, MinHeight: 78},
-			"ListRoot":          {MinWidth: 200, MinHeight: 50},
-			"Group":             {MinWidth: 200, MinHeight: 1},
-			"Image":             {MinWidth: 200, MinHeight: 100},
-			"Chart":             {MinWidth: 300, MinHeight: 300},
-			"Draw":              {MinWidth: 402, MinHeight: 100},
-			"Prompt":            {MinWidth: 300, MinHeight: 150},
-			"TextBlock":         {MinWidth: 100, MinHeight: 49},
-			"MetaControl":       {MinWidth: 100, MinHeight: 10},
-			"Social":            {MinWidth: 200, MinHeight: 50},
-			"GlobalVariables":   {MinWidth: 200, MinHeight: 78},
-			"Code":              {MinWidth: 200, MinHeight: 58.2},
-			"GenPythonCode":     {MinWidth: 200, MinHeight: 1},
-			"GenPythonMetadata": {MinWidth: 200, MinHeight: 1},
-			"Terminal":          {MinWidth: 200, MinHeight: 100},
-			"IFrame":            {MinWidth: 200, MinHeight: 1},
-			"Chat":              {MinWidth: 400, MinHeight: 200},
-			"Browser":           {MinWidth: 200, MinHeight: 250},
-			"Plugin":            {MinWidth: 200, MinHeight: 80},
-			"TaskBoard":         {MinWidth: 360, MinHeight: 240},
-			"Spreadsheet":       {MinWidth: 420, MinHeight: 260},
+		ByType: map[string]AutoLayoutSectionMinDimensions{
+			"Callable":          {MinWidth: 200, MinHeight: 104, MaxWidth: 100000, MaxHeight: 100000},
+			"Dict":              {MinWidth: 200, MinHeight: 78, MaxWidth: 100000, MaxHeight: 100000},
+			"ListRoot":          {MinWidth: 200, MinHeight: 50, MaxWidth: 100000, MaxHeight: 50},
+			"Group":             {MinWidth: 200, MinHeight: 0, MaxWidth: 100000, MaxHeight: 100000},
+			"Image":             {MinWidth: 200, MinHeight: 100, MaxWidth: 100000, MaxHeight: 100000},
+			"Chart":             {MinWidth: 300, MinHeight: 300, MaxWidth: 100000, MaxHeight: 100000},
+			"Draw":              {MinWidth: 402, MinHeight: 100, MaxWidth: 100000, MaxHeight: 100000},
+			"Prompt":            {MinWidth: 300, MinHeight: 150, MaxWidth: 100000, MaxHeight: 100000},
+			"TextBlock":         {MinWidth: 100, MinHeight: 49, MaxWidth: 100000, MaxHeight: 100000},
+			"MetaControl":       {MinWidth: 100, MinHeight: 10, MaxWidth: 100000, MaxHeight: 100000},
+			"Social":            {MinWidth: 200, MinHeight: 50, MaxWidth: 100000, MaxHeight: 100000},
+			"GlobalVariables":   {MinWidth: 200, MinHeight: 78, MaxWidth: 100000, MaxHeight: 100000},
+			"Code":              {MinWidth: 200, MinHeight: 58.2, MaxWidth: 100000, MaxHeight: 100000},
+			"GenPythonCode":     {MinWidth: 200, MinHeight: 0, MaxWidth: 100000, MaxHeight: 100000},
+			"GenPythonMetadata": {MinWidth: 200, MinHeight: 0, MaxWidth: 100000, MaxHeight: 100000},
+			"Terminal":          {MinWidth: 200, MinHeight: 100, MaxWidth: 100000, MaxHeight: 100000},
+			"IFrame":            {MinWidth: 200, MinHeight: 0, MaxWidth: 100000, MaxHeight: 100000},
+			"Chat":              {MinWidth: 400, MinHeight: 200, MaxWidth: 100000, MaxHeight: 100000},
+			"Browser":           {MinWidth: 200, MinHeight: 250, MaxWidth: 100000, MaxHeight: 100000},
+			"Plugin":            {MinWidth: 200, MinHeight: 80, MaxWidth: 100000, MaxHeight: 100000},
+			"TaskBoard":         {MinWidth: 360, MinHeight: 240, MaxWidth: 100000, MaxHeight: 100000},
+			"Spreadsheet":       {MinWidth: 420, MinHeight: 260, MaxWidth: 100000, MaxHeight: 100000},
 		},
 	}
 }

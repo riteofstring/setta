@@ -18,10 +18,10 @@ func TestResolveAutoLayoutSectionSizingPolicyDefaultsWhenSettingsProjectMissing(
 		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy returned error: %v", err)
 	}
 
-	if got := policy.MinByType["TextBlock"]; got.MinWidth != 100 || got.MinHeight != 49 {
+	if got := policy.ByType["TextBlock"]; got.MinWidth != 100 || got.MinHeight != 49 || got.MaxWidth != 100000 || got.MaxHeight != 100000 {
 		t.Fatalf("expected default TextBlock min dimensions {100 49}, got %#v", got)
 	}
-	if got := policy.MinByType["MetaControl"]; got.MinWidth != 100 || got.MinHeight != 10 {
+	if got := policy.ByType["MetaControl"]; got.MinWidth != 100 || got.MinHeight != 10 || got.MaxWidth != 100000 || got.MaxHeight != 100000 {
 		t.Fatalf("expected default MetaControl min dimensions {100 10}, got %#v", got)
 	}
 }
@@ -30,20 +30,20 @@ func TestResolveAutoLayoutSectionSizingPolicyReadsSettingsProjectOverrides(t *te
 	t.Parallel()
 
 	policy, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsDocument(t, map[string]AutoLayoutSectionMinDimensions{
-		"TextBlock": {MinWidth: 321, MinHeight: 123},
-		"Chart":     {MinWidth: 444, MinHeight: 222},
+		"TextBlock": {MinWidth: 321, MinHeight: 123, MaxWidth: 999, MaxHeight: 888},
+		"Chart":     {MinWidth: 444, MinHeight: 222, MaxWidth: 777, MaxHeight: 666},
 	}))
 	if err != nil {
 		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy returned error: %v", err)
 	}
 
-	if got := policy.MinByType["TextBlock"]; got.MinWidth != 321 || got.MinHeight != 123 {
+	if got := policy.ByType["TextBlock"]; got.MinWidth != 321 || got.MinHeight != 123 || got.MaxWidth != 999 || got.MaxHeight != 888 {
 		t.Fatalf("expected overridden TextBlock min dimensions {321 123}, got %#v", got)
 	}
-	if got := policy.MinByType["Chart"]; got.MinWidth != 444 || got.MinHeight != 222 {
+	if got := policy.ByType["Chart"]; got.MinWidth != 444 || got.MinHeight != 222 || got.MaxWidth != 777 || got.MaxHeight != 666 {
 		t.Fatalf("expected overridden Chart min dimensions {444 222}, got %#v", got)
 	}
-	if got := policy.MinByType["Callable"]; got.MinWidth != 200 || got.MinHeight != 104 {
+	if got := policy.ByType["Callable"]; got.MinWidth != 200 || got.MinHeight != 104 || got.MaxWidth != 100000 || got.MaxHeight != 100000 {
 		t.Fatalf("expected Callable defaults to remain intact, got %#v", got)
 	}
 }
@@ -155,7 +155,7 @@ func TestRuntimeAutoLayoutTopLevelSectionsRejectsNonPositiveDimensions(t *testin
 func TestResolveAutoLayoutSectionSizingPolicyRejectsInvalidSettingsValue(t *testing.T) {
 	t.Parallel()
 
-	_, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsDocumentWithRawValue(t, "TextBlock", "minWidth", "not-a-number"))
+	_, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsDocumentWithRawValue(t, "TextBlock", "maxWidth", "not-a-number"))
 	if !errors.Is(err, ErrSettingsValueInvalid) {
 		t.Fatalf("expected ErrSettingsValueInvalid, got %v", err)
 	}
@@ -386,7 +386,7 @@ func autoLayoutSettingsDocumentWithRawValue(
 	return autoLayoutSettingsDocumentWithValues(
 		t,
 		map[string]AutoLayoutSectionMinDimensions{
-			sectionType: defaultAutoLayoutSectionSizingPolicy().MinByType[sectionType],
+			sectionType: defaultAutoLayoutSectionSizingPolicy().ByType[sectionType],
 		},
 		map[string]string{
 			sectionType + "." + fieldName: rawValue,
@@ -449,11 +449,13 @@ func autoLayoutSettingsDocumentWithValues(
 		typeID := sectionType
 		minWidthID := sectionType + "-min-width"
 		minHeightID := sectionType + "-min-height"
+		maxWidthID := sectionType + "-max-width"
+		maxHeightID := sectionType + "-max-height"
 
 		addCodeObj(typeID, sectionType, "NestedParam", map[string]any{
 			"id":       typeID + "-impl",
 			"type":     "NestedParam",
-			"children": []string{minWidthID, minHeightID},
+			"children": []string{minWidthID, minHeightID, maxWidthID, maxHeightID},
 		})
 
 		minWidthValue := strconvFormat(dimensions.MinWidth)
@@ -463,6 +465,14 @@ func autoLayoutSettingsDocumentWithValues(
 		minHeightValue := strconvFormat(dimensions.MinHeight)
 		if rawValue, ok := rawValues[sectionType+".minHeight"]; ok {
 			minHeightValue = rawValue
+		}
+		maxWidthValue := strconvFormat(dimensions.MaxWidth)
+		if rawValue, ok := rawValues[sectionType+".maxWidth"]; ok {
+			maxWidthValue = rawValue
+		}
+		maxHeightValue := strconvFormat(dimensions.MaxHeight)
+		if rawValue, ok := rawValues[sectionType+".maxHeight"]; ok {
+			maxHeightValue = rawValue
 		}
 
 		addCodeObj(minWidthID, "minWidth", "TextParam", map[string]any{
@@ -474,6 +484,16 @@ func autoLayoutSettingsDocumentWithValues(
 			"id":    minHeightID + "-impl",
 			"type":  "TextParam",
 			"value": minHeightValue,
+		})
+		addCodeObj(maxWidthID, "maxWidth", "TextParam", map[string]any{
+			"id":    maxWidthID + "-impl",
+			"type":  "TextParam",
+			"value": maxWidthValue,
+		})
+		addCodeObj(maxHeightID, "maxHeight", "TextParam", map[string]any{
+			"id":    maxHeightID + "-impl",
+			"type":  "TextParam",
+			"value": maxHeightValue,
 		})
 	}
 
