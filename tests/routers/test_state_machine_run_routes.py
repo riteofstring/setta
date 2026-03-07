@@ -1249,6 +1249,185 @@ async def test_state_machine_runner_waits_for_all_completed_children_before_and_
         ]
 
 
+@pytest.mark.asyncio
+async def test_state_machine_runner_blocks_and_gate_when_required_completion_becomes_impossible(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _, gate_section_id, _ = await _seed_state_machine_gate_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            gate_type=StateMachineGateType.AND,
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+        stopped_child_run_ids: list[ID] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        async def _capture_stop_run(run_id: ID):
+            stopped_child_run_ids.append(run_id)
+            child_run = next(run for run in child_runs if run.id == run_id)
+            child_run.status = AgentRunStatus.cancelled
+            save_agent_run(project_fixture.dbe, child_run)
+            return child_run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+        monkeypatch.setattr(agent_runner, "stop_run", _capture_stop_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+            # Once one required run_completed edge becomes impossible, the AND
+            # gate should block immediately and cancel any remaining child runs.
+            first_child_run = child_runs[0]
+            first_child_run.status = AgentRunStatus.failed
+            save_agent_run(project_fixture.dbe, first_child_run)
+            latest = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert latest.status == AgentRunStatus.failed
+        assert latest.outputs is not None
+        assert latest.outputs["gateStatusBySectionId"] == {
+            str(gate_section_id): "blocked"
+        }
+        assert latest.outputs["blockedGateSectionIds"] == [str(gate_section_id)]
+        blocked_detail = latest.outputs["blockedGateDetailsBySectionId"][
+            str(gate_section_id)
+        ]
+        assert blocked_detail["gateType"] == "AND"
+        assert blocked_detail["gateSectionId"] == str(gate_section_id)
+        assert len(blocked_detail["requiredEdgeIds"]) == 2
+        assert len(blocked_detail["impossibleEdgeIds"]) == 2
+        assert latest.outputs["activeChildRunIds"] == []
+        assert latest.outputs["processedChildTerminalRunIds"] == [str(first_child_run.id)]
+        assert stopped_child_run_ids == [child_runs[1].id]
+        assert [event.type for event in latest.events[-4:]] == [
+            "child_run_failed",
+            "gate_blocked",
+            "child_runs_cancelled",
+            "run_blocked",
+        ]
+        assert len(latest.events[-3].payload["impossibleEdgeIds"]) == 1
+
+
+@pytest.mark.parametrize("gate_type", [StateMachineGateType.OR, StateMachineGateType.XOR])
+@pytest.mark.asyncio
+async def test_state_machine_runner_blocks_or_and_xor_when_all_matching_outputs_are_exhausted(
+    gate_type: StateMachineGateType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, _, gate_section_id, _ = await _seed_state_machine_gate_chat_graph(
+            project_fixture=project_fixture,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
+            gate_type=gate_type,
+        )
+
+        state, _, agent_runner, _ = _build_runtime_state(
+            project_fixture,
+            settings_fixture,
+        )
+        child_runs: list[AgentRun] = []
+
+        def _capture_start_run(profile, inputs, **_kwargs):
+            run = create_agent_run(profile_id=profile.id, inputs=inputs)
+            save_agent_run(project_fixture.dbe, run)
+            child_runs.append(run)
+            return run
+
+        monkeypatch.setattr(agent_runner, "start_run", _capture_start_run)
+
+        with runtime_context(state) as ctx:
+            started = await route_start_state_machine_run(
+                StartStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                    startSectionId=start_section_id,
+                ),
+                ctx,
+            )
+
+            # OR and XOR stay viable while a qualifying completion is still
+            # possible, but should block once every candidate run_completed edge
+            # is exhausted by terminal failures.
+            for child_run in child_runs:
+                child_run.status = AgentRunStatus.failed
+                save_agent_run(project_fixture.dbe, child_run)
+            latest = await route_get_state_machine_run(
+                GetStateMachineRunRequest(
+                    projectConfigId=project_config_id,
+                    machineGroupId="workflow-main",
+                ),
+                ctx,
+            )
+
+        assert started.status == AgentRunStatus.running
+        assert latest.status == AgentRunStatus.failed
+        assert latest.outputs is not None
+        assert latest.outputs["gateStatusBySectionId"] == {
+            str(gate_section_id): "blocked"
+        }
+        assert latest.outputs["blockedGateSectionIds"] == [str(gate_section_id)]
+        blocked_detail = latest.outputs["blockedGateDetailsBySectionId"][
+            str(gate_section_id)
+        ]
+        assert blocked_detail["gateType"] == gate_type.value
+        assert len(blocked_detail["requiredEdgeIds"]) == 2
+        assert len(blocked_detail["impossibleEdgeIds"]) == 2
+        assert latest.outputs["reachedEndSectionIds"] == []
+        assert latest.outputs["activeChildRunIds"] == []
+        assert [event.type for event in latest.events[-2:]] == [
+            "gate_blocked",
+            "run_blocked",
+        ]
+
+
 @pytest.mark.parametrize("gate_type", [StateMachineGateType.OR, StateMachineGateType.XOR])
 @pytest.mark.asyncio
 async def test_state_machine_runner_gate_types_or_and_xor_fire_after_single_completion(
