@@ -1485,3 +1485,244 @@ New benchmark stages:
   - the old dummy preview structure was part of the problem
   - flattening it while preserving syntax highlighting helps
   - but it does not erase the remaining pan/zoom cost in `All Settings`
+
+## Addendum: SnapDOM SVG previews reduce DOM but do not buy a large enough pan/zoom win
+
+- Date: `2026-03-07`
+- Goal: test whether the inactive `CodeParam` preview can keep the current highlighted DOM appearance, but swap the live preview subtree for a single SnapDOM-captured SVG image surface.
+- Change under test:
+  - benchmark-only stages `code-widgets-snapdom` and `full-snapdom`
+  - inactive code widgets render the normal `DummyCodeMirror` once, capture it with SnapDOM `toSvg(...)`, then replace it with a single `<img>` backed by the captured SVG
+  - production behavior outside the benchmark stages was not changed
+
+### Live DOM verification
+
+- The SnapDOM benchmark path was confirmed live in the headed browser:
+  - `code-widgets-snapdom` renders `426` code widgets
+  - `.cm-line` count is `0`
+  - SnapDOM-ready preview count is `426`
+  - broken SnapDOM preview images: `0`
+- Screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/code-widgets-snapdom-baseline-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/code-widgets-snapdom-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-snapdom-baseline-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-snapdom-visible.png`
+
+### Repeated fixed-base rerun
+
+- Measurement note:
+  - fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+  - viewport size: `1440x1200`
+  - each stage rerun used `5` browser-side pan/zoom loops of `180` frames each
+  - compare these numbers only within this addendum
+
+### `code-widgets` baseline
+
+- DOM nodes in `.react-flow`: `8385`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `426`
+- SnapDOM preview images: `0`
+- Average frame time across `5` runs: `21.01ms`
+- Average FPS across `5` runs: `47.61`
+- Median FPS: `47.30`
+- Max frame time: `34.30ms`
+- Slow frames:
+  - `>16.7ms`: `666`
+  - `>33.3ms`: `9`
+  - `>50ms`: `0`
+- Per-run FPS: `47.12`, `46.90`, `47.30`, `48.38`, `48.38`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/code-widgets-snapdom-baseline-trace.json`
+
+### `code-widgets-snapdom`
+
+- DOM nodes in `.react-flow`: `7464`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `0`
+- SnapDOM preview images: `426`
+- Broken SnapDOM preview images: `0`
+- Average frame time across `5` runs: `21.93ms`
+- Average FPS across `5` runs: `45.61`
+- Median FPS: `45.22`
+- Max frame time: `42.50ms`
+- Slow frames:
+  - `>16.7ms`: `708`
+  - `>33.3ms`: `17`
+  - `>50ms`: `0`
+- Per-run FPS: `45.22`, `44.95`, `45.21`, `45.52`, `47.21`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/code-widgets-snapdom-trace.json`
+
+### `full` baseline
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `426`
+- SnapDOM preview images: `0`
+- Average frame time across `5` runs: `22.24ms`
+- Average FPS across `5` runs: `44.96`
+- Median FPS: `45.60`
+- Max frame time: `50.90ms`
+- Slow frames:
+  - `>16.7ms`: `741`
+  - `>33.3ms`: `21`
+  - `>50ms`: `1`
+- Per-run FPS: `46.19`, `45.60`, `45.17`, `42.24`, `45.83`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-snapdom-baseline-trace.json`
+
+### `full-snapdom`
+
+- DOM nodes in `.react-flow`: `7632`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `0`
+- SnapDOM preview images: `426`
+- Broken SnapDOM preview images: `0`
+- Average frame time across `5` runs: `21.15ms`
+- Average FPS across `5` runs: `47.29`
+- Median FPS: `47.11`
+- Max frame time: `66.90ms`
+- Slow frames:
+  - `>16.7ms`: `666`
+  - `>33.3ms`: `11`
+  - `>50ms`: `1`
+- Per-run FPS: `46.58`, `46.85`, `47.11`, `47.52`, `48.43`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-snapdom-trace.json`
+
+### SnapDOM conclusion
+
+- SnapDOM does reduce DOM meaningfully in the target hotspot.
+  - `code-widgets`: `8385` -> `7464` DOM nodes, `-921`
+  - `full`: `8553` -> `7632` DOM nodes, `-921`
+- But the pan/zoom result is not strong enough or clean enough to justify keeping the experiment.
+  - isolated code stage: `47.61 FPS` -> `45.61 FPS`, about `-2.00 FPS`
+  - full stage: `44.96 FPS` -> `47.29 FPS`, about `+2.33 FPS`
+- That means the most generous read is still only a low-single-digit improvement in the real view, and the code-only stage did not improve at all.
+- The practical branch conclusion is:
+  - replacing inactive code previews with SnapDOM SVG images is not the large win we need
+  - the DOM count drop alone does not translate into a decisive pan/zoom gain here
+  - this direction was measured and rejected, and the benchmark-only implementation was reverted after recording these results
+
+## Addendum: SnapDOM canvas previews are materially worse than both DOM and SVG
+
+- Date: `2026-03-07`
+- Goal: test whether replacing inactive `CodeParam` preview DOM with SnapDOM `canvas` surfaces performs better than the previously rejected SnapDOM SVG-image path.
+- Change under test:
+  - benchmark-only stages `code-widgets-canvas` and `full-canvas`
+  - inactive code widgets render the normal `DummyCodeMirror` once, capture it with SnapDOM `toCanvas(...)`, then replace it with a single `<canvas>` surface
+  - production behavior outside the benchmark stages was not changed
+
+### Live DOM verification
+
+- The canvas benchmark path was confirmed live in the headed browser:
+  - `code-widgets-canvas` renders `426` code widgets
+  - `.cm-line` count is `0`
+  - ready canvas preview count is `426`
+  - broken canvas previews: `0`
+- Screenshot artifacts:
+  - `perf/artifacts/frontend/settings-all-settings/code-widgets-canvas-baseline-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/code-widgets-canvas-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-canvas-baseline-visible.png`
+  - `perf/artifacts/frontend/settings-all-settings/full-canvas-visible.png`
+
+### Repeated fixed-base rerun
+
+- Measurement note:
+  - fixed viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -55.7)`
+  - viewport size: `1440x1200`
+  - each stage rerun used `5` browser-side pan/zoom loops of `180` frames each
+  - compare these numbers only within this addendum
+
+### `code-widgets` baseline
+
+- DOM nodes in `.react-flow`: `8385`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `426`
+- Canvas previews: `0`
+- Average frame time across `5` runs: `21.53ms`
+- Average FPS across `5` runs: `46.45`
+- Median FPS: `46.64`
+- Max frame time: `41.80ms`
+- Slow frames:
+  - `>16.7ms`: `684`
+  - `>33.3ms`: `20`
+  - `>50ms`: `0`
+- Per-run FPS: `44.62`, `46.50`, `46.64`, `47.15`, `47.42`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/code-widgets-canvas-baseline-trace.json`
+
+### `code-widgets-canvas`
+
+- DOM nodes in `.react-flow`: `7464`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `0`
+- Canvas previews: `426`
+- Broken canvas previews: `0`
+- Average frame time across `5` runs: `35.09ms`
+- Average FPS across `5` runs: `28.50`
+- Median FPS: `28.39`
+- Max frame time: `43.70ms`
+- Slow frames:
+  - `>16.7ms`: `895`
+  - `>33.3ms`: `605`
+  - `>50ms`: `0`
+- Per-run FPS: `28.38`, `28.39`, `27.91`, `29.11`, `28.71`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/code-widgets-canvas-trace.json`
+
+### `full` baseline
+
+- DOM nodes in `.react-flow`: `8553`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `426`
+- Canvas previews: `0`
+- Average frame time across `5` runs: `21.64ms`
+- Average FPS across `5` runs: `46.21`
+- Median FPS: `46.33`
+- Max frame time: `33.90ms`
+- Slow frames:
+  - `>16.7ms`: `713`
+  - `>33.3ms`: `8`
+  - `>50ms`: `0`
+- Per-run FPS: `46.09`, `45.26`, `46.48`, `46.33`, `46.91`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-canvas-baseline-trace.json`
+
+### `full-canvas`
+
+- DOM nodes in `.react-flow`: `7632`
+- Param containers: `697`
+- Resize handles: `627`
+- Code widgets: `426`
+- `.cm-line` nodes: `0`
+- Canvas previews: `426`
+- Broken canvas previews: `0`
+- Average frame time across `5` runs: `38.78ms`
+- Average FPS across `5` runs: `25.79`
+- Median FPS: `25.91`
+- Max frame time: `58.40ms`
+- Slow frames:
+  - `>16.7ms`: `895`
+  - `>33.3ms`: `785`
+  - `>50ms`: `7`
+- Per-run FPS: `26.08`, `25.69`, `25.91`, `25.27`, `26.00`
+- Trace artifact: `perf/artifacts/frontend/settings-all-settings/full-canvas-trace.json`
+
+### Canvas conclusion
+
+- The canvas version removes the same `921` DOM nodes as the SVG version, but it is dramatically slower in the actual pan/zoom benchmark.
+  - `code-widgets`: `46.45 FPS` -> `28.50 FPS`, about `-17.95 FPS`
+  - `full`: `46.21 FPS` -> `25.79 FPS`, about `-20.42 FPS`
+- That means the canvas path is not just “not good enough”; it is actively much worse than the current DOM preview and much worse than the rejected SVG-image path.
+- The most plausible interpretation is that hundreds of independently scaled raster canvases are significantly more expensive for this React Flow pan/zoom case than the existing DOM text path.
+- Practical branch conclusion:
+  - do not pursue the canvas inactive-preview path
+  - keep the measurements and artifacts, but revert the benchmark-only implementation
