@@ -185,15 +185,11 @@ Tests:
 
 ## Open Questions
 
-- whether the first Go-owned worker process/session owner should wrap
-  `WorkerRPCClient` directly or add a slightly broader lifecycle type around it
 - whether listener endpoint registration should share the same initial host
   service or wait for a later plugin transport slice
 
 ## Next Recommended Step
 
 - Treat this focused plan as complete for Phase 4 listener producer work.
-- If plugin runtime work needs to continue soon, add a separate implementation
-  plan for the first Go-owned worker process/session owner that can reuse
-  `internal/plugins/worker_rpc.go` without pulling full plugin
-  discovery/install/runtime work into the current phase.
+- Continue the next plugin-runtime dependency via
+  `docs/plans/go-backend-rewrite/phase-4-plugin-worker-session-owner.md`.

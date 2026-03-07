@@ -127,8 +127,10 @@ Current repo status as of 2026-03-06:
 - Go now also includes the first thin plugin worker listener-event transport
   boundary under:
   - `internal/plugins/worker_rpc.go`
-- broader plugin worker process/runtime ownership still lives only in Python
-  under:
+- Go now also includes the first worker process/session lifecycle owner under:
+  - `internal/plugins/worker_session.go`
+- broader plugin worker discovery/load/runtime ownership still lives only in
+  Python under:
   - `backend/setta/plugins/manager.py`
   - `backend/setta/plugins/worker.py`
 - deployment share/app state and project-config transport is now fully Go-owned

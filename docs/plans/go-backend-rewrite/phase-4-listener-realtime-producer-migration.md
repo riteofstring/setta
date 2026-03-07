@@ -291,14 +291,10 @@ Tests:
 
 - whether binary listener delta transport should reuse raw websocket binary
   frames or move to explicit content refs once Go owns both sides
-- when the first Go-owned plugin worker process/session owner lands, whether it
-  should adopt `internal/plugins/worker_rpc.go` directly or via a slightly
-  broader lifecycle wrapper
 
 ## Next Recommended Step
 
 - Treat listener producer migration as complete for plugin-emitted dependency
   events.
-- If plugin migration work continues soon, create a separate implementation
-  plan for the first Go-owned worker process/session owner that can reuse the
-  new `internal/plugins` host + transport boundary without widening this phase.
+- If plugin migration work continues soon, continue via
+  `docs/plans/go-backend-rewrite/phase-4-plugin-worker-session-owner.md`.
