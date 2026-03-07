@@ -54,6 +54,8 @@ Current repo status as of 2026-03-06:
     run planning, not full frontend-facing deployment state responses
   - faking share/app state routes from that minimal document would create a
     dead-end compatibility layer instead of a real source of truth
+- the missing dependency is now tracked in its own focused follow-up doc:
+  - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
 
 ## Scope
 
@@ -208,7 +210,8 @@ Acceptance:
 
 Status:
 
-- blocked on a richer Go project-state transport layer
+- moved into
+  `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
 
 Blocked Because:
 
@@ -256,8 +259,10 @@ Tests:
 
 ## Next Recommended Step
 
-- Build the frontend-facing Go project-state transport needed for deployment
-  state/project-config routes, then return to Slice 3.
+- Implement Slice 1 from
+  `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`:
+  build the frontend-facing Go project-state source fields and projection
+  boundary needed before deployment state/project-config route migration.
   Current-session bootstrap and cleanup are no longer the blocker; the blocker
   is that Go does not yet own the full deployment state payload those routes
   must return.
