@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 10 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 12 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -42,11 +42,18 @@ Current repo status as of 2026-03-07:
     - `list_mcp_tools` as the init-like tool
     - `set_agentic_context` as the first session-scoped init tool
     - `create_top_level_section` as the first structural MCP tool
+    - `create_child_sections` as the bounded child-construction structural tool
+    - `create_child_sections_via_incrementer` as the incrementer-placement
+      structural follow-on
     - `get_latest_project_state_summary` as the first filtered scoped pilot tool
     - `get_latest_lsp_diagnostics` as the second filtered scoped init tool
     - `set_code_section_diagnostics_mute` as the first scoped write pilot tool
     - `set_code_section_diagnostic_code_suppression` as the next scoped write
       tool
+    - `set_section_name` as the first rename/refactor-backed project-shape tool
+    - `set_param_entered_value` as the first scoped code-object value tool
+    - `set_type_error_ignore` as the scoped type-ignore write tool
+    - `set_code_obj_display_name` as the scoped code-object rename/display tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
@@ -601,14 +608,46 @@ Reference:
 
 - `phase-6-create-child-sections-structural-tool.md`
 
+### Slice 12: Create Child Sections Via Incrementer Structural Tool
+
+Deliver:
+
+- a Go-owned project-state owner for incrementer-style child creation over the
+  existing child-construction boundary
+- a Go MCP `create_child_sections_via_incrementer` structural tool
+- argument/result temp-id translation for `calledBy` and returned `sectionIds`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `create_child_sections_via_incrementer`
+- structural scope remains explicit and fail-closed
+- incrementer caller resolution stays explicit instead of heuristic:
+  - parent caller prepends at `startIdx=0`
+  - child caller inserts immediately after itself inside its parent
+- created result ids are temp-id translated through metadata instead of a
+  tool-name branch
+- the IDE HTTP `createChildSectionsViaIncrementer` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-create-child-sections-via-incrementer-structural-tool.md`
+
 ## Next Recommended Step
 
-- Slice 11 is now complete.
-- The next recommended step is `create_child_sections_via_incrementer`.
-- It stays on the same structural-construction boundary instead of switching
-  immediately into delete/move semantics.
-- It can reuse the new child-construction owner plus the existing result-id
-  metadata translation path.
+- Slice 12 is now complete.
+- The next recommended step is a bounded section-deletion slice anchored on a
+  Go-owned `delete_sections` owner.
+- `delete_child_sections_via_decrementer` should follow on top of that deletion
+  boundary instead of being split out first, because its Python behavior is
+  just caller-target resolution plus `delete_sections`.
+- Keep move/reparent semantics deferred until deletion and the later
+  decrementer slice prove the structural cleanup boundary.
 - Keep `set_code_obj_name` deferred until rename validation/refactor behavior
   is ready to move as one coherent boundary.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice

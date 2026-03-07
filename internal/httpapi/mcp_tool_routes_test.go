@@ -535,6 +535,79 @@ func TestMCPToolCallRouteSupportsStructuralChildCreateWithUnscopedContext(t *tes
 	}
 }
 
+func TestMCPToolCallRouteSupportsIncrementerStructuralChildCreateWithUnscopedContext(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"create_child_sections_via_incrementer",
+		"arguments":{"projectConfigId":"project-alpha","calledBy":"allowed-section","implType":"Terminal","numChildren":1},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected incrementer structural child create success, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	sectionIDs := mustStringListForRoute(t, structured["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one created incrementer child id, got %#v", sectionIDs)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route incrementer child create: %v", err)
+	}
+	createdSection, ok := project.Sections[sectionIDs[0]]
+	if !ok {
+		t.Fatalf("expected created incrementer child section %q in project, got %#v", sectionIDs[0], project.Sections)
+	}
+	if createdSection.ParentSectionID != "allowed-section" {
+		t.Fatalf("expected created incrementer child parent allowed-section, got %#v", createdSection)
+	}
+
+	parentPayload := mustDecodedRouteProjectPayload(t, project.SectionImpls["allowed-impl"].Payload)
+	children := mustStringListForRoute(t, parentPayload["children"])
+	if len(children) != 1 || children[0] != sectionIDs[0] {
+		t.Fatalf("expected allowed-section children [%q], got %#v", sectionIDs[0], children)
+	}
+}
+
 func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 	t.Parallel()
 

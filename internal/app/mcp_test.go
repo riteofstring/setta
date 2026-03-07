@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 13 {
-		t.Fatalf("expected 13 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 14 {
+		t.Fatalf("expected 14 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 13 {
-		t.Fatalf("expected 13 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 14 {
+		t.Fatalf("expected 14 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -616,6 +616,107 @@ func TestAppIDEMCPServerSupportsStructuralChildCreateOverAuthenticatedSSE(t *tes
 	}
 }
 
+func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before incrementer structural child create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "create_child_sections_via_incrementer",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"calledBy":        "allowed-section",
+			"implType":        "Terminal",
+			"numChildren":     1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_child_sections_via_incrementer: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_child_sections_via_incrementer success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	sectionIDs := mustStructuredStringListValue(t, payload["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one created incrementer child section id, got %#v", sectionIDs)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after incrementer structural child create: %v", err)
+	}
+	var canonicalSectionID string
+	for currentSectionID := range project.Sections {
+		if _, existed := beforeSectionIDs[currentSectionID]; !existed {
+			canonicalSectionID = currentSectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical incrementer child section, got %#v", project.Sections)
+	}
+	if sectionIDs[0] == canonicalSectionID {
+		t.Fatalf("expected translated incrementer child id to differ from canonical %q", canonicalSectionID)
+	}
+	if _, ok := project.Sections[sectionIDs[0]]; ok {
+		t.Fatalf("did not expect translated incrementer child id %q to be a canonical project key", sectionIDs[0])
+	}
+	createdSection := project.Sections[canonicalSectionID]
+	if createdSection.ParentSectionID != "allowed-section" {
+		t.Fatalf("expected created incrementer child parent allowed-section, got %#v", createdSection)
+	}
+}
+
 func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -1008,8 +1109,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 13 {
-		t.Fatalf("expected tool count 13, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 14 {
+		t.Fatalf("expected tool count 14, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -1550,6 +1651,101 @@ func TestAppIDEMCPToolCallRouteSupportsStructuralChildCreate(t *testing.T) {
 	createdSection := project.Sections[canonicalSectionID]
 	if createdSection.ParentSectionID != "allowed-section" {
 		t.Fatalf("expected created child parent allowed-section, got %#v", createdSection)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsIncrementerStructuralChildCreate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before route incrementer structural child create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"create_child_sections_via_incrementer",
+			"arguments":{"projectConfigId":"project-alpha","calledBy":"allowed-section","implType":"Terminal","numChildren":1},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post incrementer structural child create tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode incrementer structural child create tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected incrementer structural child create success, got %#v", payload.StructuredContent)
+	}
+
+	structured := mustStructuredMapValue(t, payload.StructuredContent)
+	sectionIDs := mustStructuredStringListValue(t, structured["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one created incrementer child id, got %#v", sectionIDs)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route incrementer structural child create: %v", err)
+	}
+	var canonicalSectionID string
+	for currentSectionID := range project.Sections {
+		if _, existed := beforeSectionIDs[currentSectionID]; !existed {
+			canonicalSectionID = currentSectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical incrementer child section, got %#v", project.Sections)
+	}
+	if sectionIDs[0] == canonicalSectionID {
+		t.Fatalf("expected translated incrementer child id to differ from canonical %q", canonicalSectionID)
+	}
+	if _, ok := project.Sections[sectionIDs[0]]; ok {
+		t.Fatalf("did not expect translated incrementer child id %q to be a canonical project key", sectionIDs[0])
+	}
+	createdSection := project.Sections[canonicalSectionID]
+	if createdSection.ParentSectionID != "allowed-section" {
+		t.Fatalf("expected created incrementer child parent allowed-section, got %#v", createdSection)
 	}
 }
 

@@ -136,12 +136,13 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 13 {
-		t.Fatalf("expected 13 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 14 {
+		t.Fatalf("expected 14 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
 	var createChildSectionsTool *sdkmcp.Tool
+	var createChildSectionsViaIncrementerTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
@@ -155,6 +156,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		names = append(names, tool.Name)
 		if tool.Name == "create_child_sections" {
 			createChildSectionsTool = tool
+		}
+		if tool.Name == "create_child_sections_via_incrementer" {
+			createChildSectionsViaIncrementerTool = tool
 		}
 		if tool.Name == "create_top_level_section" {
 			createTopLevelSectionTool = tool
@@ -187,6 +191,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	sort.Strings(names)
 	expectedNames := []string{
 		"create_child_sections",
+		"create_child_sections_via_incrementer",
 		"create_top_level_section",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
@@ -209,6 +214,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if createChildSectionsTool == nil {
 		t.Fatal("expected create_child_sections tool")
 	}
+	if createChildSectionsViaIncrementerTool == nil {
+		t.Fatal("expected create_child_sections_via_incrementer tool")
+	}
 	if createTopLevelSectionTool == nil {
 		t.Fatal("expected create_top_level_section tool")
 	}
@@ -223,6 +231,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	createChildResultPaths := mustStructuredMap(t, createChildMeta["resultIdPathsByType"])
 	if got := mustStringList(t, createChildResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
 		t.Fatalf("expected create_child_sections sectionIds result path, got %#v", got)
+	}
+	createChildViaIncrementerMeta := mustStructuredMap(t, createChildSectionsViaIncrementerTool.Meta[toolMetaNamespace])
+	if createChildViaIncrementerMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for create_child_sections_via_incrementer, got %#v", createChildViaIncrementerMeta["accessType"])
+	}
+	createChildViaIncrementerPaths := mustStructuredMap(t, createChildViaIncrementerMeta["idPathsByType"])
+	if got := mustStringList(t, createChildViaIncrementerPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "calledBy" {
+		t.Fatalf("expected create_child_sections_via_incrementer calledBy target path, got %#v", got)
+	}
+	createChildViaIncrementerResultPaths := mustStructuredMap(t, createChildViaIncrementerMeta["resultIdPathsByType"])
+	if got := mustStringList(t, createChildViaIncrementerResultPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionIds" {
+		t.Fatalf("expected create_child_sections_via_incrementer sectionIds result path, got %#v", got)
 	}
 	if summaryTool == nil {
 		t.Fatal("expected get_latest_project_state_summary tool")
@@ -307,8 +327,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 13 {
-		t.Fatalf("expected 13 registered tool names, got %#v", listNames)
+	if len(listNames) != 14 {
+		t.Fatalf("expected 14 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -925,6 +945,91 @@ func TestServerCreateChildSectionsAllowsUnscopedStructuralCallsAndTranslatesResu
 	createdSection := afterProject.Sections[canonicalSectionID]
 	if createdSection.ParentSectionID != "allowed-section" {
 		t.Fatalf("expected created child parent allowed-section, got %#v", createdSection)
+	}
+
+	parentPayload := mustDecodedProjectPayload(t, afterProject.SectionImpls["allowed-impl"].Payload)
+	children := mustStringList(t, parentPayload["children"])
+	if len(children) != 1 || children[0] != canonicalSectionID {
+		t.Fatalf("expected allowed-section children [%q], got %#v", canonicalSectionID, children)
+	}
+}
+
+func TestServerCreateChildSectionsViaIncrementerAllowsUnscopedStructuralCallsAndTranslatesResultIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+	})
+
+	beforeProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before incrementer child create: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "create_child_sections_via_incrementer",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"calledBy":        "14",
+			"implType":        "Terminal",
+			"numChildren":     1,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_child_sections_via_incrementer allowed: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_child_sections_via_incrementer success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	sectionIDs := mustStringList(t, payload["sectionIds"])
+	if len(sectionIDs) != 1 || strings.TrimSpace(sectionIDs[0]) == "" {
+		t.Fatalf("expected one translated incrementer child section id, got %#v", sectionIDs)
+	}
+
+	afterProject, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after incrementer child create: %v", err)
+	}
+	var canonicalSectionID string
+	for sectionID := range afterProject.Sections {
+		if _, existed := beforeSectionIDs[sectionID]; !existed {
+			canonicalSectionID = sectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical section id, got %#v", afterProject.Sections)
+	}
+	if sectionIDs[0] == canonicalSectionID {
+		t.Fatalf("expected translated incrementer child id to differ from canonical %q", canonicalSectionID)
+	}
+	if _, ok := afterProject.Sections[sectionIDs[0]]; ok {
+		t.Fatalf("did not expect translated incrementer child id %q to be a canonical project key", sectionIDs[0])
+	}
+	createdSection := afterProject.Sections[canonicalSectionID]
+	if createdSection.ParentSectionID != "allowed-section" {
+		t.Fatalf("expected created incrementer child parent allowed-section, got %#v", createdSection)
 	}
 
 	parentPayload := mustDecodedProjectPayload(t, afterProject.SectionImpls["allowed-impl"].Payload)

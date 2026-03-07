@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	ErrChildSectionIncrementerCalledByRequired   = errors.New("incrementer calledBy is required")
+	ErrChildSectionIncrementerCalledByRequired    = errors.New("incrementer calledBy is required")
 	ErrChildSectionIncrementerCalledByUnsupported = errors.New("incrementer calledBy must resolve to a parent section or a child with a parent")
 	ErrChildSectionIncrementerCalledByNotInParent = errors.New("incrementer calledBy was not found in its parent children")
 )

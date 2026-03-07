@@ -60,6 +60,7 @@ type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
+	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
@@ -511,6 +512,60 @@ func newCreateChildSectionsHandler(projectState projectStateProvider, settingsSt
 		}
 
 		_, result, err := projectState.CreateChildSections(ctx, projectConfigID, input, settingsDocument)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newCreateChildSectionsViaIncrementerHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		calledBy, err := readRequiredStringArgument(arguments, "calledBy")
+		if err != nil {
+			return nil, err
+		}
+		implType, err := readRequiredStringArgument(arguments, "implType")
+		if err != nil {
+			return nil, err
+		}
+		numChildren, err := readRequiredPositiveIntArgument(arguments, "numChildren")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural incrementer child-section invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		input := projectstate.CreateChildSectionsViaIncrementerInput{
+			CalledBy:    calledBy,
+			ImplType:    implType,
+			NumChildren: numChildren,
+		}
+
+		settingsDocument := projectstate.Document{}
+		if settingsState != nil {
+			settingsDocument = settingsState.Snapshot().Document
+		}
+
+		_, result, err := projectState.CreateChildSectionsViaIncrementer(ctx, projectConfigID, input, settingsDocument)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -1038,6 +1093,60 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "parentId", "implType", "numChildren"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sectionIds": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"sectionIds"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "create_child_sections_via_incrementer",
+				Description: "Create one or more child sections using incrementer-style caller placement.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"calledBy"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionIds"},
+					},
+					SearchCategory: "sections",
+					SearchTags:     []string{"create", "child", "section", "incrementer", "structural"},
+				},
+				Handler: newCreateChildSectionsViaIncrementerHandler(projectState, settingsState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id where incrementer children should be created.",
+					},
+					"calledBy": map[string]any{
+						"type":        "string",
+						"description": "Parent section or existing child section that determines the insertion point.",
+					},
+					"implType": map[string]any{
+						"type":        "string",
+						"description": "Section implementation type shared by every created child.",
+					},
+					"numChildren": map[string]any{
+						"type":        "integer",
+						"description": "Number of child sections to create.",
+					},
+				},
+				"required": []string{"projectConfigId", "calledBy", "implType", "numChildren"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",
@@ -1832,6 +1941,9 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrCodeSectionChildTypeInvalid),
 		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid),
 		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild),
+		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByRequired),
+		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByUnsupported),
+		errors.Is(err, projectstate.ErrChildSectionIncrementerCalledByNotInParent),
 		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeRequired),
 		errors.Is(err, projectstate.ErrTopLevelSectionImplTypeUnsupported),
 		errors.Is(err, projectstate.ErrTopLevelMetaControlCodeObjTypeUnsupported),

@@ -190,8 +190,9 @@ The high-leverage move is therefore:
 
 ## Next Recommended Step
 
-- keep the structural boundary moving with `create_child_sections_via_incrementer`
-- it can reuse the new child-construction owner and only needs the bounded
-  parent/insert-index resolution layer above it
-- keep delete/move semantics deferred until that smaller structural follow-on
-  lands
+- `create_child_sections_via_incrementer` has now landed as the next completed
+  structural follow-on
+- the next bounded structural slice should move to section deletion, anchored
+  on a Go-owned `delete_sections` owner
+- keep move/reparent semantics deferred until deletion and the later
+  decrementer follow-on prove the cleanup boundary
