@@ -37,7 +37,9 @@ Current repo status as of 2026-03-07:
     `internal/lspcompletion`
   - fixture-backed Go tests for temp cleanup, route payloads, and completion
     overlap with later runtime mutations
-- the active gap has moved to Slice 4 diagnostics ignore-state transport
+- the later Slice 4 diagnostics ignore-state transport is also complete
+- the active remaining work has moved into the callable-refetch and Watch Code
+  follow-ups
 - the frontend already calls those routes through generated endpoints in:
   - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
   - `frontend/src/components/Section/Layouts/CodeArea.tsx`
@@ -226,6 +228,6 @@ Slice 3 is complete. Slice 4 is also complete.
 
 Continue with:
 
-- `phase-5-signature-help-callable-refetch-and-param-synthesis.md`
-- execute its Slice 2 generated-diagnostics auto-refetch runtime before
-  widening back out to watch-code behavior
+- `phase-5-watch-code-runtime-and-callable-refresh.md`
+- execute its Slice 1 Watch Code state/transport foundation before widening
+  out to the watcher runtime and callable refresh reuse

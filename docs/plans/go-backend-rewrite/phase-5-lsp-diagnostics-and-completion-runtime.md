@@ -66,7 +66,10 @@ Current repo status as of 2026-03-07:
   - its Slice 1 manual `setCallable` runtime is now complete in Go
   - its Slice 2 generated-diagnostics auto-refetch runtime is now complete in
     Go
-  - the remaining active work there is Slice 3 watch-code integration
+  - the remaining active work has moved into:
+    `docs/plans/go-backend-rewrite/phase-5-watch-code-runtime-and-callable-refresh.md`
+  - that follow-up covers Watch Code state/transport, watcher runtime
+    ownership, and reuse of the completed callable refresh path
 - Python still owns the current LSP runtime under:
   - `backend/setta/lsp/managers.py`
   - `backend/setta/lsp/server.py`

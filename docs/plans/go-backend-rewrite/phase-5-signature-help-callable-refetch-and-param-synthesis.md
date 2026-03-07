@@ -49,8 +49,11 @@ Current repo status as of 2026-03-07:
     `settings.backend.autoRefetchCallableParamsOnLspMismatch` from the Go
     settings runtime, with the schema default applied when no settings project
     exists yet
-- the active LSP gap has moved to watch-code callable refresh reuse and the
-  remaining warning/policy finish work in Slice 3
+- the remaining Watch Code gap is broader than the original Slice 3 wording:
+  - Go still lacks Watch Code state fields, route transport, and watcher
+    runtime ownership
+  - that work now has a dedicated follow-up doc:
+    `docs/plans/go-backend-rewrite/phase-5-watch-code-runtime-and-callable-refresh.md`
 - Python remains the source of truth for that gap in:
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/lsp_response_handlers/signatureHelp.py`
@@ -71,7 +74,7 @@ This focused follow-up covers:
 - Go-owned callable-binding mutation and parameter child synthesis
 - IDE-only `setCallable` transport for manual callable selection
 - generated-diagnostics-driven callable auto-refetch
-- explicit follow-up watch-code integration work over the same synthesis path
+- handoff into an explicit Watch Code follow-up over the same synthesis path
 
 ## Non-Goals
 
@@ -127,14 +130,18 @@ source-of-truth callable synthesis service above the shared LSP session.
 
 ## Dependency Finding
 
-Slices 1 and 2 are implemented. The remaining dependency for Slice 3 is now:
+Slices 1 and 2 are implemented.
 
-1. watch-code callable refreshes still bypass the Go refetch helper and need to
-   converge on the same source-of-truth mutation path
-2. unresolved signature-help results still need the final warning/notification
-   behavior for watcher-driven updates
-3. any remaining mismatch-policy wiring should stay explicit and reuse the new
-   settings-runtime lookup instead of copying defaults again
+What remains is no longer just a small Slice 3 patch inside this doc. The repo
+still lacks the broader Watch Code owner that would invoke the new callable
+refresh helper:
+
+1. there are no Go Watch Code state fields on project state or project view
+2. there is no Go `setWatchCodeEnabled` / `setWatchCodeInputs` transport
+3. there is no Go watcher runtime for file scans, registry/baseline diffs, or
+   bound-file/inline integration
+
+That remaining work is now tracked in the dedicated Watch Code follow-up doc.
 
 ## Working Decisions
 
@@ -165,11 +172,12 @@ Slices 1 and 2 are implemented. The remaining dependency for Slice 3 is now:
 
 ## Recommended Option
 
-Execute this follow-up in three bounded slices:
+This follow-up was executed in three bounded slices, with the former Slice 3
+now spun into the dedicated Watch Code doc:
 
 1. manual `setCallable` over Go-owned signature-help snapshot requests
 2. generated-diagnostics-driven auto-refetch callbacks
-3. watch-code integration and mismatch-policy wiring
+3. Watch Code state/runtime migration and callable refresh reuse
 
 Rationale:
 
@@ -306,7 +314,10 @@ Acceptance:
 
 ### Slice 3: Watch-Code Integration And Policy Finish
 
-Deliver:
+Status: moved to `phase-5-watch-code-runtime-and-callable-refresh.md`
+
+This doc no longer owns the remaining work. The dedicated Watch Code follow-up
+now covers:
 
 - watch-code callable refreshes routed through the Go callable synthesis
   service
@@ -331,7 +342,7 @@ For Slice 1 implementation, require at minimum:
 - frontend Vitest coverage for the Search callable flow
 - Playwright coverage for manual callable selection once the route lands
 
-For later slices, add:
+For the Watch Code follow-up doc, add:
 
 - history/coalescing tests
 - generated-diagnostics callback/refetch tests
@@ -346,10 +357,8 @@ For later slices, add:
 
 ## Next Recommended Step
 
-Execute Slice 3 next:
+Continue with:
 
-- route watch-code callable refreshes through the Go callable refetch helper
-- preserve explicit warnings when signature help cannot resolve params during
-  watcher-driven updates
-- keep the mismatch-policy and watcher policy wiring on the same settings
-  source-of-truth path
+- `phase-5-watch-code-runtime-and-callable-refresh.md`
+- execute its Slice 1 Watch Code state/transport foundation before building the
+  watcher runtime that will reuse the completed callable refresh helper
