@@ -9,6 +9,8 @@ Review this branch for merge into `main`.
  
     Decision stability / cumulative review policy
     - Treat `cumulative_review.md` as source of truth for resolved decisions.
+    - Treat `new_branch_features.md` as source of truth for intentional feature/bug-fix behavior in this branch that must not be accidentally reverted in follow-up reviews.
+    - If a potential finding conflicts with `new_branch_features.md`, assume the branch behavior is intentional unless there is concrete regression evidence.
     - Do not reopen resolved items based on reviewer preference changes alone (e.g., X vs Y when both are valid)
     - Reopen only for regression with concrete evidence in this branch.
     - If reopened, cite prior decision + what changed + evidence.
@@ -41,6 +43,7 @@ Review this branch for merge into `main`.
     3. Dead code inventory
     4. Backward-compatibility shim inventory (must remove)
     5. Regression test plan
+    6. `new_branch_features.md` alignment check (items respected vs any true regressions with evidence)
 
 
 Compare the current branch with the main branch. Review only what this branch would add to main (diff vs merge base). Use git diff --name-status main...HEAD or git diff $(git merge-base main HEAD)..HEAD. Then update the docs as necessary.
@@ -62,3 +65,24 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
 Run pnpm -C frontend gcf. Add a new entry to cumulative_review.md (use date time as the heading). Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+
+Compare the current branch with `main` and write a detailed branch-intent summary to `new_branch_features.md`.
+
+  Scope and method:
+  - Analyze only what this branch introduces vs merge base:
+    - `git diff --name-status main...HEAD`
+    - `git diff $(git merge-base main HEAD)..HEAD`
+  - Capture both feature work and bug fixes.
+  - Focus on intentional behavior/product changes that follow-up branch reviews must not clobber or "fix back" accidentally.
+
+  For each item, include:
+  - What changed (before vs after behavior)
+  - Why the change appears intentional
+  - Files/endpoints/components involved (with paths)
+  - Any default-value changes, moved/renamed UX flows, or relocated logic
+  - Reviewer guardrail: what should not be reverted in later reviews unless a new decision is made
+
+  Output requirements:
+  - Overwrite `new_branch_features.md` with this branch's current summary.
+  - Group by: `Features`, `Bug Fixes`, `Intentional Behavior Changes To Preserve`.
+  - Be concrete and detailed enough that a reviewer on a follow-up branch can quickly avoid undoing intentional work.
