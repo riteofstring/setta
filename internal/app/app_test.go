@@ -335,6 +335,70 @@ func TestAppMainRuntimeSaveSyncsWatchCodeServiceConfigs(t *testing.T) {
 	}
 }
 
+func TestAppWatchCodeRuntimeAppliesFileCreateAndDeleteCallbacks(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFolders: []projectstate.WatchCodeFolder{
+				{Path: "pkg", Recursive: false},
+			},
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload:  json.RawMessage(`{"language":"python"}`),
+				},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed watch code project: %v", err)
+	}
+
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save watch code project: %v", err)
+	}
+
+	watchFile := filepath.Join(watchDir, "created.py")
+	if err := os.WriteFile(watchFile, []byte("def created(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watched file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.created.created:function"]
+		return ok && entry.SourcePath == watchFile && len(entry.SectionIDs) == 0 && entry.SectionsCount == 0
+	})
+
+	if err := os.Remove(watchFile); err != nil {
+		t.Fatalf("remove watched file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		return len(project.WatchCodeRegistry) == 0 && len(project.WatchCodeBaselineByPath) == 0
+	})
+}
+
 func TestAppLauncherDoesNotStartWatchCodeService(t *testing.T) {
 	t.Parallel()
 
@@ -1308,6 +1372,28 @@ func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projec
 		return err
 	}
 	return store.Save(context.Background(), document)
+}
+
+func waitForAppWatchCodeProject(t *testing.T, app *App, projectID string, predicate func(projectstate.Project) bool) {
+	t.Helper()
+
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		snapshot := app.ProjectStates().Main().Snapshot()
+		project, ok := snapshot.Document.Projects[projectID]
+		if ok && predicate(project) {
+			return
+		}
+
+		select {
+		case <-timeout:
+			t.Fatalf("timed out waiting for watch code project state for %q; latest snapshot %#v", projectID, snapshot.Document.Projects[projectID])
+		case <-ticker.C:
+		}
+	}
 }
 
 func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source string) {

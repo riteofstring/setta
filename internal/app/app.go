@@ -219,6 +219,27 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if modePolicy.IsIDE() {
 			watchCodeService, err = watchcode.NewService(watchcode.ServiceOptions{
 				WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+				OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
+					_, _, err := projectStates.Main().ApplyWatchCodeFileUpdate(
+						ctx,
+						update.ConfigID,
+						update.Path,
+						update.Raw,
+						update.BaselineOnly,
+						update.MovedFrom,
+						cfg.Paths.WorkspaceRoot,
+					)
+					return err
+				},
+				OnFileDelete: func(ctx context.Context, request watchcode.DeleteRequest) error {
+					_, _, err := projectStates.Main().ApplyWatchCodeFileDelete(
+						ctx,
+						request.ConfigID,
+						request.Path,
+						cfg.Paths.WorkspaceRoot,
+					)
+					return err
+				},
 				OnError: func(err error) {
 					logger.Error("watch code runtime failed", "error", err)
 				},

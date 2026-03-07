@@ -110,7 +110,9 @@ func TestServicePollsCreateModifyDeleteCallbacks(t *testing.T) {
 	if err := os.WriteFile(watchFile, []byte("print('created')\n"), 0o644); err != nil {
 		t.Fatalf("write created file: %v", err)
 	}
-	created := waitForFileUpdate(t, updateCh, errCh)
+	created := waitForMatchingFileUpdate(t, updateCh, errCh, func(update FileUpdate) bool {
+		return update.Path == watchFile && update.Raw == "print('created')\n"
+	})
 	if created.Path != watchFile || created.ConfigID != "project-alpha" || created.MovedFrom != "" {
 		t.Fatalf("unexpected created update %#v", created)
 	}
@@ -118,7 +120,9 @@ func TestServicePollsCreateModifyDeleteCallbacks(t *testing.T) {
 	if err := os.WriteFile(watchFile, []byte("print('modified')\n"), 0o644); err != nil {
 		t.Fatalf("rewrite file: %v", err)
 	}
-	modified := waitForFileUpdate(t, updateCh, errCh)
+	modified := waitForMatchingFileUpdate(t, updateCh, errCh, func(update FileUpdate) bool {
+		return update.Path == watchFile && update.Raw == "print('modified')\n"
+	})
 	if modified.Path != watchFile || modified.ConfigID != "project-alpha" || modified.Raw != "print('modified')\n" {
 		t.Fatalf("unexpected modified update %#v", modified)
 	}
@@ -228,6 +232,29 @@ func waitForFileUpdate(t *testing.T, updates <-chan FileUpdate, errCh <-chan err
 			return update
 		case <-timeout:
 			t.Fatal("timed out waiting for file update")
+		}
+	}
+}
+
+func waitForMatchingFileUpdate(
+	t *testing.T,
+	updates <-chan FileUpdate,
+	errCh <-chan error,
+	match func(FileUpdate) bool,
+) FileUpdate {
+	t.Helper()
+
+	timeout := time.After(2 * time.Second)
+	for {
+		select {
+		case err := <-errCh:
+			t.Fatalf("service error: %v", err)
+		case update := <-updates:
+			if match(update) {
+				return update
+			}
+		case <-timeout:
+			t.Fatal("timed out waiting for matching file update")
 		}
 	}
 }
