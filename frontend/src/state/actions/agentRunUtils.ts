@@ -34,6 +34,15 @@ export function getRunInputNumber(run: AgentRun, key: string): number | null {
   return null;
 }
 
+export function filterRunsByProjectConfigId(
+  runs: AgentRun[],
+  projectConfigId: string,
+): AgentRun[] {
+  return runs.filter(
+    (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
+  );
+}
+
 export function getRunLastUpdatedMs(run: AgentRun): number {
   const eventTimestamps = (run.events ?? [])
     .map((event) => Date.parse(event.timestamp ?? ""))

@@ -22,6 +22,11 @@ const DEFAULT_DURATION_MS = 3000;
 const MAX_DURATION_MS = 10000;
 const FIND_TARGET_INTERVAL_MS = 50;
 const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
+const WATCH_CODE_REVEAL_SETTING_IDS = new Set<string>([
+  "core.watch_code.enabled",
+  "core.watch_code.folders",
+  "core.watch_code.files",
+]);
 
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
 const uiEditorTabNameValues = new Set<string>(
@@ -57,8 +62,10 @@ type LocalStorageState = ReturnType<typeof useLocalStorage.getState>;
 type RevealLocalStorageSnapshot = {
   overviewVis: LocalStorageState["overviewVis"];
   overviewTab: LocalStorageState["overviewTab"];
+  watchCodePortalOpen: LocalStorageState["watchCodePortalOpen"];
   uiEditorVis: LocalStorageState["uiEditorVis"];
   uiEditorTab: LocalStorageState["uiEditorTab"];
+  projectChatAuxViewByProjectConfigId: LocalStorageState["projectChatAuxViewByProjectConfigId"];
   runInstructionsAccordionOpenValuesByProjectConfigId: LocalStorageState["runInstructionsAccordionOpenValuesByProjectConfigId"];
   projectAiSettingsAccordionOpenValuesByProjectConfigId: LocalStorageState["projectAiSettingsAccordionOpenValuesByProjectConfigId"];
 };
@@ -69,8 +76,10 @@ type RevealProjectStateSnapshot = {
 type RevealMutationDiff = {
   touchedOverviewVis: boolean;
   touchedOverviewTab: boolean;
+  touchedWatchCodePortalOpen: boolean;
   touchedUiEditorVis: boolean;
   touchedUiEditorTabSectionTypes: Set<string>;
+  touchedProjectChatAuxViewProjectConfigIds: Set<string>;
   touchedRunInstructionsProjectConfigIds: Set<string>;
   touchedProjectAiProjectConfigIds: Set<string>;
   touchedProjectStateActiveIdsProjectConfigIds: Set<string>;
@@ -104,8 +113,13 @@ let revealMutationLock: Promise<void> = Promise.resolve();
 let revealMutationSequence = 0;
 let revealMutationOwnerForOverviewVis: number | null = null;
 let revealMutationOwnerForOverviewTab: number | null = null;
+let revealMutationOwnerForWatchCodePortalOpen: number | null = null;
 let revealMutationOwnerForUiEditorVis: number | null = null;
 const revealMutationOwnerByUiEditorTabSectionType = new Map<string, number>();
+const revealMutationOwnerByProjectChatAuxViewProjectConfigId = new Map<
+  string,
+  number
+>();
 const revealMutationOwnerByRunInstructionsProjectConfigId = new Map<
   string,
   number
@@ -120,8 +134,10 @@ function createEmptyRevealMutationDiff(): RevealMutationDiff {
   return {
     touchedOverviewVis: false,
     touchedOverviewTab: false,
+    touchedWatchCodePortalOpen: false,
     touchedUiEditorVis: false,
     touchedUiEditorTabSectionTypes: new Set<string>(),
+    touchedProjectChatAuxViewProjectConfigIds: new Set<string>(),
     touchedRunInstructionsProjectConfigIds: new Set<string>(),
     touchedProjectAiProjectConfigIds: new Set<string>(),
     touchedProjectStateActiveIdsProjectConfigIds: new Set<string>(),
@@ -476,8 +492,12 @@ function captureRevealLocalStorageSnapshot(): RevealLocalStorageSnapshot {
   return {
     overviewVis: state.overviewVis,
     overviewTab: state.overviewTab,
+    watchCodePortalOpen: state.watchCodePortalOpen,
     uiEditorVis: state.uiEditorVis,
     uiEditorTab: { ...state.uiEditorTab },
+    projectChatAuxViewByProjectConfigId: {
+      ...state.projectChatAuxViewByProjectConfigId,
+    },
     runInstructionsAccordionOpenValuesByProjectConfigId: cloneStringArrayRecord(
       state.runInstructionsAccordionOpenValuesByProjectConfigId,
     ),
@@ -506,11 +526,20 @@ function recordRevealMutationOwnership({
   if (mutationDiff.touchedOverviewTab) {
     revealMutationOwnerForOverviewTab = leaseId;
   }
+  if (mutationDiff.touchedWatchCodePortalOpen) {
+    revealMutationOwnerForWatchCodePortalOpen = leaseId;
+  }
   if (mutationDiff.touchedUiEditorVis) {
     revealMutationOwnerForUiEditorVis = leaseId;
   }
   for (const sectionType of mutationDiff.touchedUiEditorTabSectionTypes) {
     revealMutationOwnerByUiEditorTabSectionType.set(sectionType, leaseId);
+  }
+  for (const projectConfigId of mutationDiff.touchedProjectChatAuxViewProjectConfigIds) {
+    revealMutationOwnerByProjectChatAuxViewProjectConfigId.set(
+      projectConfigId,
+      leaseId,
+    );
   }
   for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
     revealMutationOwnerByRunInstructionsProjectConfigId.set(
@@ -546,6 +575,12 @@ function clearRevealMutationOwnershipForLease({
     revealMutationOwnerForOverviewTab = null;
   }
   if (
+    mutationDiff.touchedWatchCodePortalOpen &&
+    revealMutationOwnerForWatchCodePortalOpen === leaseId
+  ) {
+    revealMutationOwnerForWatchCodePortalOpen = null;
+  }
+  if (
     mutationDiff.touchedUiEditorVis &&
     revealMutationOwnerForUiEditorVis === leaseId
   ) {
@@ -558,6 +593,18 @@ function clearRevealMutationOwnershipForLease({
       continue;
     }
     revealMutationOwnerByUiEditorTabSectionType.delete(sectionType);
+  }
+  for (const projectConfigId of mutationDiff.touchedProjectChatAuxViewProjectConfigIds) {
+    if (
+      revealMutationOwnerByProjectChatAuxViewProjectConfigId.get(
+        projectConfigId,
+      ) !== leaseId
+    ) {
+      continue;
+    }
+    revealMutationOwnerByProjectChatAuxViewProjectConfigId.delete(
+      projectConfigId,
+    );
   }
   for (const projectConfigId of mutationDiff.touchedRunInstructionsProjectConfigIds) {
     if (
@@ -653,6 +700,17 @@ function restoreRevealLocalStorageSnapshotIfOwned({
       changed = true;
     }
     if (
+      mutationDiff.touchedWatchCodePortalOpen &&
+      isRevealMutationOwnerMatch(
+        revealMutationOwnerForWatchCodePortalOpen,
+        leaseId,
+      ) &&
+      state.watchCodePortalOpen === postMutationSnapshot.watchCodePortalOpen
+    ) {
+      nextState.watchCodePortalOpen = snapshot.watchCodePortalOpen;
+      changed = true;
+    }
+    if (
       mutationDiff.touchedUiEditorVis &&
       isRevealMutationOwnerMatch(revealMutationOwnerForUiEditorVis, leaseId) &&
       state.uiEditorVis === postMutationSnapshot.uiEditorVis
@@ -684,6 +742,38 @@ function restoreRevealLocalStorageSnapshotIfOwned({
     }
     if (nextUiEditorTab !== null) {
       nextState.uiEditorTab = nextUiEditorTab;
+    }
+
+    let nextProjectChatAuxView:
+      | typeof state.projectChatAuxViewByProjectConfigId
+      | null = null;
+    for (const projectConfigId of mutationDiff.touchedProjectChatAuxViewProjectConfigIds) {
+      const didRevert = revertStringRecordEntryIfOwned({
+        currentRecord: state.projectChatAuxViewByProjectConfigId,
+        postMutationRecord:
+          postMutationSnapshot.projectChatAuxViewByProjectConfigId,
+        snapshotRecord: snapshot.projectChatAuxViewByProjectConfigId,
+        recordKey: projectConfigId,
+        ownerLeaseId:
+          revealMutationOwnerByProjectChatAuxViewProjectConfigId.get(
+            projectConfigId,
+          ),
+        leaseId,
+        ensureMutableRecord: () => {
+          if (nextProjectChatAuxView === null) {
+            nextProjectChatAuxView = {
+              ...state.projectChatAuxViewByProjectConfigId,
+            };
+          }
+          return nextProjectChatAuxView;
+        },
+      });
+      if (didRevert) {
+        changed = true;
+      }
+    }
+    if (nextProjectChatAuxView !== null) {
+      nextState.projectChatAuxViewByProjectConfigId = nextProjectChatAuxView;
     }
 
     let nextRunInstructions: Record<string, Array<string>> | null = null;
@@ -845,6 +935,41 @@ function revertStringArrayRecordEntryIfOwned({
     return true;
   }
   mutableRecord[recordKey] = [...snapshotEntry];
+  return true;
+}
+
+function revertStringRecordEntryIfOwned({
+  currentRecord,
+  postMutationRecord,
+  snapshotRecord,
+  recordKey,
+  ownerLeaseId,
+  leaseId,
+  ensureMutableRecord,
+}: {
+  currentRecord: Record<string, string>;
+  postMutationRecord: Record<string, string>;
+  snapshotRecord: Record<string, string>;
+  recordKey: string;
+  ownerLeaseId: number | undefined;
+  leaseId: number | undefined;
+  ensureMutableRecord: () => Record<string, string>;
+}): boolean {
+  if (!isRevealMutationOwnerMatch(ownerLeaseId, leaseId)) {
+    return false;
+  }
+  const currentEntry = currentRecord[recordKey];
+  const postMutationEntry = postMutationRecord[recordKey];
+  if (currentEntry !== postMutationEntry) {
+    return false;
+  }
+  const mutableRecord = ensureMutableRecord();
+  const snapshotEntry = snapshotRecord[recordKey];
+  if (snapshotEntry === undefined) {
+    delete mutableRecord[recordKey];
+    return true;
+  }
+  mutableRecord[recordKey] = snapshotEntry;
   return true;
 }
 
@@ -1051,7 +1176,13 @@ function applyRevealActivationSteps({
   mutationDiff: RevealMutationDiff;
 }): void {
   const activationSteps = target.revealActivationSteps;
-  if (!Array.isArray(activationSteps) || activationSteps.length === 0) {
+  const shouldOpenWatchCodePortal = WATCH_CODE_REVEAL_SETTING_IDS.has(
+    target.settingId,
+  );
+  if (
+    !shouldOpenWatchCodePortal &&
+    (!Array.isArray(activationSteps) || activationSteps.length === 0)
+  ) {
     return;
   }
   const projectConfigId = resolveProjectConfigIdForActivation(
@@ -1066,10 +1197,19 @@ function applyRevealActivationSteps({
       state.projectAiSettingsAccordionOpenValuesByProjectConfigId[
         projectConfigId
       ] ?? [];
+    let nextProjectChatAuxViewByProjectConfigId:
+      | typeof state.projectChatAuxViewByProjectConfigId
+      | null = null;
     let runInstructionsChanged = false;
     let projectAiChanged = false;
+    let projectChatAuxViewChanged = false;
+    const currentProjectChatAuxView =
+      state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
+    let nextProjectChatAuxView = currentProjectChatAuxView;
+    const watchCodePortalOpenChanged =
+      shouldOpenWatchCodePortal && !state.watchCodePortalOpen;
 
-    for (const step of activationSteps) {
+    for (const step of activationSteps ?? []) {
       if (step.type === "run_instructions_accordion_item") {
         const normalizedOpenValues =
           normalizeRunInstructionsAccordionOpenValues([
@@ -1099,14 +1239,27 @@ function applyRevealActivationSteps({
           nextProjectAiOpenValues = normalizedOpenValues;
           projectAiChanged = true;
         }
+        if (nextProjectChatAuxView !== "ai_settings") {
+          nextProjectChatAuxView = "ai_settings";
+          projectChatAuxViewChanged = true;
+        }
       }
     }
 
-    if (!runInstructionsChanged && !projectAiChanged) {
+    if (
+      !runInstructionsChanged &&
+      !projectAiChanged &&
+      !watchCodePortalOpenChanged &&
+      !projectChatAuxViewChanged
+    ) {
       return state;
     }
 
     const nextState: Partial<typeof state> = {};
+    if (watchCodePortalOpenChanged) {
+      nextState.watchCodePortalOpen = true;
+      mutationDiff.touchedWatchCodePortalOpen = true;
+    }
     if (runInstructionsChanged) {
       nextState.runInstructionsAccordionOpenValuesByProjectConfigId = {
         ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
@@ -1120,6 +1273,24 @@ function applyRevealActivationSteps({
         [projectConfigId]: nextProjectAiOpenValues,
       };
       mutationDiff.touchedProjectAiProjectConfigIds.add(projectConfigId);
+    }
+    if (projectChatAuxViewChanged) {
+      if (nextProjectChatAuxViewByProjectConfigId === null) {
+        nextProjectChatAuxViewByProjectConfigId = {
+          ...state.projectChatAuxViewByProjectConfigId,
+        };
+      }
+      if (nextProjectChatAuxView === "none") {
+        delete nextProjectChatAuxViewByProjectConfigId[projectConfigId];
+      } else {
+        nextProjectChatAuxViewByProjectConfigId[projectConfigId] =
+          nextProjectChatAuxView;
+      }
+      nextState.projectChatAuxViewByProjectConfigId =
+        nextProjectChatAuxViewByProjectConfigId;
+      mutationDiff.touchedProjectChatAuxViewProjectConfigIds.add(
+        projectConfigId,
+      );
     }
     return nextState;
   });
@@ -1194,7 +1365,7 @@ async function waitForAnchorElement({
     if (revealExecutionMismatch !== null) {
       return null;
     }
-    const paneRoot = getPaneRoot(side);
+    const paneRoot = getPaneRoot({ side, anchorId });
     if (paneRoot) {
       const anchor = findSettingAnchor(paneRoot, anchorId);
       if (anchor) {
@@ -1339,8 +1510,22 @@ async function invokePluginRevealHandlerWithinDeadline({
   return result;
 }
 
-function getPaneRoot(side: "left" | "right"): HTMLElement | null {
+function getPaneRoot({
+  side,
+  anchorId,
+}: {
+  side: "left" | "right";
+  anchorId: string;
+}): HTMLElement | null {
   if (side === "left") {
+    if (WATCH_CODE_REVEAL_SETTING_IDS.has(anchorId)) {
+      const watchCodePortalRoot = document.querySelector<HTMLElement>(
+        '[data-testid="rf__watch-code-settings-portal"]',
+      );
+      if (watchCodePortalRoot) {
+        return watchCodePortalRoot;
+      }
+    }
     return document.querySelector<HTMLElement>(
       '[data-testid="overview-tab-content-shell"]',
     );
