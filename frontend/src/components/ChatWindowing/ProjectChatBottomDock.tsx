@@ -1,4 +1,22 @@
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import {
+  buildFloatingSnapBounds,
+  buildFloatingSnapResizeBounds,
+  buildFloatingSnapResizeHandles,
+  resolveFloatingSnapPresetFromBounds,
+  type FloatingSnapPreset,
+  type FloatingSnapResizeHandle,
+  type FloatingWindowBoundaryInsets,
+} from "components/ChatWindowing/projectChatSnapLayout";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
+import {
+  getSectionContainerShellClassName,
+  getSectionSurfaceClassName,
+} from "components/Section/Container/sectionChrome";
+import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
+import { getBgColor } from "components/Section/Container/utils";
+import { HeaderIcon } from "components/Section/Header/HeaderIcon";
+import { getTitleStyles } from "components/Section/Header/SectionHeader";
 import _ from "lodash";
 import {
   useCallback,
@@ -8,28 +26,32 @@ import {
   useRef,
   useState,
   type PointerEvent,
+  type ReactNode,
 } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
   MdAdd,
   MdChevronLeft,
   MdChevronRight,
-  MdCropSquare,
   MdFlipToFront,
-  MdMinimize,
   MdOpenInNew,
   MdVerticalAlignBottom,
 } from "react-icons/md";
 import { RiChat3Line } from "react-icons/ri";
 import {
+  bootProjectChatWindowToCanvasSection,
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
   maximizeProjectChatWindow,
+  minimizeProjectChatWindow,
   reopenProjectChatWindow,
+  resolveDefaultDockedChatHeightPx,
   setProjectChatWindowBounds,
+  setProjectChatWindowBoundsById,
   setProjectChatWindowDockFractions,
   setProjectChatWindowPlacement,
+  setProjectChatWindowTitle,
   unmaximizeProjectChatWindow,
 } from "state/actions/projectChatWindowing";
 import {
@@ -38,12 +60,15 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  SectionTypeEnum,
   type ChatWindowBounds,
 } from "utils/generatedTypes";
+import { validateSectionNameInput } from "utils/nameValidation";
 import { isMacOs } from "utils/utils";
 
 type ResolvedWindowPill = {
@@ -56,9 +81,10 @@ type ResolvedWindowPill = {
   bounds: ChatWindowBounds;
   dockWidthFraction: number | null;
   dockPreferredWidthPx: number | null;
+  sectionId: string | null;
 };
 
-type PillDisplayMode = "full" | "compact" | "cycle";
+type PillDisplayMode = "full" | "compact" | "cycle" | "menu";
 
 type WindowResizeDirection =
   | "left"
@@ -105,20 +131,27 @@ type ActiveFloatingResize = {
   lastBounds: ChatWindowBounds;
 };
 
-type FloatingSnapPreset =
-  | "left"
-  | "right"
-  | "top"
-  | "bottom"
-  | "top_left"
-  | "top_right"
-  | "bottom_left"
-  | "bottom_right";
+type ChatWindowExitAnimationKind = "minimize" | "close";
+type ChatWindowEnterAnimationKind = "restore_from_minimize";
+type ChatWindowPillExitAnimationKind = "restore_from_minimize";
 
 type ActiveFloatingSnapPreview = {
   instanceId: string;
   preset: FloatingSnapPreset;
   bounds: ChatWindowBounds;
+};
+
+type ActiveFloatingSnapResize = {
+  pointerId: number;
+  axis: FloatingSnapResizeHandle["axis"];
+  startPointerPosition: number;
+  startCoordinate: number;
+  minCoordinate: number;
+  maxCoordinate: number;
+  leadingInstanceIds: string[];
+  trailingInstanceIds: string[];
+  startBoundsByInstanceId: Record<string, ChatWindowBounds>;
+  lastBoundsByInstanceId: Record<string, ChatWindowBounds>;
 };
 
 const DOCK_BAR_HEIGHT_PX = 40;
@@ -135,15 +168,40 @@ const DOCK_WINDOW_GAP_PX = 12;
 const DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX = 4;
 const MIN_DOCK_CHAT_WIDTH_PX = 280;
 const MIN_DOCK_CHAT_HEIGHT_PX = 220;
-const DOCK_TAB_OVERLAY_BOTTOM_INSET_PX = 6;
 const COMPACT_PILL_WIDTH_PX = 28;
 const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
 const PILL_GAP_PX = 4;
+const MENU_MODE_TRIGGER_WIDTH_PX = 28;
+const CHAT_WINDOW_LAYER_Z_INDEX = 24;
+const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
+const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 2;
+const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
+const CHAT_WINDOW_ENTER_DURATION_MS = 110;
+const CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS = 110;
+const CHAT_WINDOW_PILL_EXIT_DURATION_MS = 72;
+const FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX = 8;
+const FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
+const MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX = 16;
+const DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX =
+  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
+  CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
+  COMPACT_PILL_WIDTH_PX * 2 +
+  PILL_GAP_PX * 3 +
+  DOCK_WINDOW_GAP_PX;
+const SINGLE_CHAT_MENU_RESERVED_WIDTH_PX =
+  MINIMIZED_PILL_STRIP_HORIZONTAL_PADDING_PX +
+  COMPACT_PILL_WIDTH_PX +
+  MENU_MODE_TRIGGER_WIDTH_PX +
+  PILL_GAP_PX +
+  DOCK_WINDOW_GAP_PX;
+const NARROW_CHAT_MENU_BREAKPOINT_PX = 520;
 const FLOATING_WINDOW_MIN_WIDTH_PX = 380;
 const FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
 const FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
 const FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
 const FLOATING_SNAP_EDGE_THRESHOLD_PX = 84;
+const CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS = 115;
+const CHAT_WINDOW_CLOSE_EXIT_DURATION_MS = 125;
 
 type ParsedShortcut = {
   mod: boolean;
@@ -161,20 +219,6 @@ type ResizeHandleConfig = {
 };
 
 const DOCK_WINDOW_RESIZE_HANDLES: Array<ResizeHandleConfig> = [
-  {
-    direction: "left",
-    className: "left-0 top-2 bottom-2 w-2",
-    cursorClassName: "cursor-ew-resize",
-    indicatorClassName:
-      "h-10 w-[2px] rounded-full bg-setta-300 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-600 dark:group-hover/resize:bg-blue-400",
-  },
-  {
-    direction: "right",
-    className: "right-0 top-2 bottom-2 w-2",
-    cursorClassName: "cursor-ew-resize",
-    indicatorClassName:
-      "h-10 w-[2px] rounded-full bg-setta-300 transition-colors group-hover/resize:bg-blue-500 dark:bg-setta-600 dark:group-hover/resize:bg-blue-400",
-  },
   {
     direction: "top",
     className: "left-2 right-2 top-0 h-2",
@@ -208,16 +252,6 @@ const DOCK_WINDOW_RESIZE_HANDLES: Array<ResizeHandleConfig> = [
 ];
 
 const FLOATING_WINDOW_RESIZE_HANDLES: Array<ResizeHandleConfig> = [
-  {
-    direction: "left",
-    className: "left-0 top-3 bottom-3 w-2",
-    cursorClassName: "cursor-ew-resize",
-  },
-  {
-    direction: "right",
-    className: "right-0 top-3 bottom-3 w-2",
-    cursorClassName: "cursor-ew-resize",
-  },
   {
     direction: "top",
     className: "left-3 right-3 top-0 h-2",
@@ -389,9 +423,21 @@ function isEditableTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest("[contenteditable='true']"));
 }
 
+function isInteractiveWindowHeaderTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  return Boolean(
+    target.closest(
+      "button, [role='button'], [role='menuitem'], input, textarea, select, a, [contenteditable='true']",
+    ),
+  );
+}
+
 function buildWindowTitle(
   instanceId: string,
   sectionIdOrNull: string | null,
+  customTitle: string | null,
   sectionNamesById: Record<string, string>,
 ): string {
   if (sectionIdOrNull) {
@@ -399,6 +445,9 @@ function buildWindowTitle(
     if (typeof sectionName === "string" && sectionName.trim().length > 0) {
       return sectionName;
     }
+  }
+  if (typeof customTitle === "string" && customTitle.trim().length > 0) {
+    return customTitle.trim();
   }
   const suffix = instanceId.split("-").pop() ?? "";
   if (/^\d+$/.test(suffix)) {
@@ -419,6 +468,119 @@ function clampNumber(
     return maxValue;
   }
   return value;
+}
+
+function resolveMaxVisibleDockWindowCount(
+  totalWindowCount: number,
+  availableWidthPx: number,
+): number {
+  for (let count = totalWindowCount; count >= 1; count -= 1) {
+    const minimumWidthPx =
+      count * MIN_DOCK_CHAT_WIDTH_PX +
+      Math.max(0, count - 1) * DOCK_WINDOW_GAP_PX +
+      DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
+    if (minimumWidthPx <= availableWidthPx + 0.5) {
+      return count;
+    }
+  }
+  return 0;
+}
+
+function resolveDockWindowWidthsToFit(
+  dockedPills: ResolvedWindowPill[],
+  desiredWidthsById: Record<string, number>,
+  availableWidthPx: number,
+): Record<string, number> {
+  if (dockedPills.length === 0) {
+    return {};
+  }
+  const gapWidthPx = Math.max(0, dockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
+  const availablePanelWidthPx =
+    availableWidthPx - DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2 - gapWidthPx;
+  if (availablePanelWidthPx <= 0) {
+    return {};
+  }
+  const nextWidthsById: Record<string, number> = {};
+  const resolvedWidths = dockedPills.map((pill) =>
+    clampNumber(
+      desiredWidthsById[pill.instanceId] ?? DOCK_WINDOW_DEFAULT_WIDTH_PX,
+      MIN_DOCK_CHAT_WIDTH_PX,
+      DOCK_SURFACE_MAX_WIDTH_PX,
+    ),
+  );
+  const totalDesiredWidthPx = resolvedWidths.reduce(
+    (sum, widthPx) => sum + widthPx,
+    0,
+  );
+  if (totalDesiredWidthPx <= availablePanelWidthPx + 0.5) {
+    dockedPills.forEach((pill, index) => {
+      nextWidthsById[pill.instanceId] =
+        resolvedWidths[index] ?? MIN_DOCK_CHAT_WIDTH_PX;
+    });
+    return nextWidthsById;
+  }
+  const minTotalWidthPx = dockedPills.length * MIN_DOCK_CHAT_WIDTH_PX;
+  if (minTotalWidthPx >= availablePanelWidthPx - 0.5) {
+    dockedPills.forEach((pill) => {
+      nextWidthsById[pill.instanceId] = MIN_DOCK_CHAT_WIDTH_PX;
+    });
+    return nextWidthsById;
+  }
+  const shrinkableEntries = resolvedWidths.map((widthPx, index) => ({
+    index,
+    widthPx,
+  }));
+  let remainingReductionPx = totalDesiredWidthPx - availablePanelWidthPx;
+  while (remainingReductionPx > 0.5) {
+    const shrinkableIndices = shrinkableEntries
+      .map((entry) => entry.index)
+      .filter(
+        (index) =>
+          (shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) >
+          MIN_DOCK_CHAT_WIDTH_PX + 0.5,
+      );
+    if (shrinkableIndices.length === 0) {
+      break;
+    }
+    const totalShrinkCapacityPx = shrinkableIndices.reduce((sum, index) => {
+      return (
+        sum +
+        ((shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX) -
+          MIN_DOCK_CHAT_WIDTH_PX)
+      );
+    }, 0);
+    if (totalShrinkCapacityPx <= 0.5) {
+      break;
+    }
+    let appliedReductionPx = 0;
+    for (const index of shrinkableIndices) {
+      const entry = shrinkableEntries[index];
+      if (!entry) {
+        continue;
+      }
+      const capacityPx = entry.widthPx - MIN_DOCK_CHAT_WIDTH_PX;
+      const proportionalReductionPx =
+        remainingReductionPx * (capacityPx / totalShrinkCapacityPx);
+      const nextWidthPx = Math.max(
+        MIN_DOCK_CHAT_WIDTH_PX,
+        entry.widthPx - proportionalReductionPx,
+      );
+      appliedReductionPx += entry.widthPx - nextWidthPx;
+      entry.widthPx = nextWidthPx;
+    }
+    if (appliedReductionPx <= 0.5) {
+      break;
+    }
+    remainingReductionPx = Math.max(
+      0,
+      remainingReductionPx - appliedReductionPx,
+    );
+  }
+  dockedPills.forEach((pill, index) => {
+    nextWidthsById[pill.instanceId] =
+      shrinkableEntries[index]?.widthPx ?? MIN_DOCK_CHAT_WIDTH_PX;
+  });
+  return nextWidthsById;
 }
 
 function resizeDirectionIncludesAxis(
@@ -445,13 +607,6 @@ function getViewportDimensions(): { width: number; height: number } | null {
   }
   return { width, height };
 }
-
-type FloatingWindowBoundaryInsets = {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-};
 
 function resolveFloatingWindowBoundaryInsets(
   floatingBottomInsetPx: number,
@@ -569,91 +724,6 @@ function resolveFloatingSnapPresetFromPointer(
   return null;
 }
 
-function buildFloatingSnapBounds(
-  preset: FloatingSnapPreset,
-  viewportWidthPx: number,
-  viewportHeightPx: number,
-  insets: FloatingWindowBoundaryInsets,
-): ChatWindowBounds {
-  const minXBoundary = Math.max(0, insets.left);
-  const maxXBoundary = Math.max(
-    minXBoundary + 1,
-    viewportWidthPx - Math.max(0, insets.right),
-  );
-  const minYBoundary = Math.max(0, insets.top);
-  const maxYBoundary = Math.max(
-    minYBoundary + 1,
-    viewportHeightPx - Math.max(0, insets.bottom),
-  );
-  const availableWidthPx = maxXBoundary - minXBoundary;
-  const availableHeightPx = maxYBoundary - minYBoundary;
-  const halfWidth = availableWidthPx / 2;
-  const halfHeight = availableHeightPx / 2;
-
-  if (preset === "left") {
-    return {
-      x: minXBoundary,
-      y: minYBoundary,
-      width: halfWidth,
-      height: availableHeightPx,
-    };
-  }
-  if (preset === "right") {
-    return {
-      x: minXBoundary + halfWidth,
-      y: minYBoundary,
-      width: halfWidth,
-      height: availableHeightPx,
-    };
-  }
-  if (preset === "top") {
-    return {
-      x: minXBoundary,
-      y: minYBoundary,
-      width: availableWidthPx,
-      height: halfHeight,
-    };
-  }
-  if (preset === "bottom") {
-    return {
-      x: minXBoundary,
-      y: minYBoundary + halfHeight,
-      width: availableWidthPx,
-      height: halfHeight,
-    };
-  }
-  if (preset === "top_left") {
-    return {
-      x: minXBoundary,
-      y: minYBoundary,
-      width: halfWidth,
-      height: halfHeight,
-    };
-  }
-  if (preset === "top_right") {
-    return {
-      x: minXBoundary + halfWidth,
-      y: minYBoundary,
-      width: halfWidth,
-      height: halfHeight,
-    };
-  }
-  if (preset === "bottom_left") {
-    return {
-      x: minXBoundary,
-      y: minYBoundary + halfHeight,
-      width: halfWidth,
-      height: halfHeight,
-    };
-  }
-  return {
-    x: minXBoundary + halfWidth,
-    y: minYBoundary + halfHeight,
-    width: halfWidth,
-    height: halfHeight,
-  };
-}
-
 function buildPillBaseClass(isActive: boolean): string {
   if (isActive) {
     return "border-setta-400 bg-white text-setta-900 dark:border-setta-500 dark:bg-setta-900 dark:text-setta-100";
@@ -661,8 +731,732 @@ function buildPillBaseClass(isActive: boolean): string {
   return "border-setta-300 bg-setta-100 text-setta-700 hover:bg-setta-200 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
 }
 
-const SECTION_STYLE_CONTROL_BUTTON_CLASS =
-  "inline-flex h-5 w-5 items-center justify-center rounded-full text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100";
+const SECTION_WINDOW_ACTION_BUTTON_CLASS =
+  "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-500 transition focus-visible:ring-2 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-100";
+const SECTION_WINDOW_MINIMIZE_BUTTON_CLASS =
+  "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 transition focus-visible:ring-2 hover:bg-blue-500 hover:text-white dark:text-setta-600 dark:hover:bg-blue-500 dark:hover:text-white";
+const SECTION_WINDOW_CLOSE_BUTTON_CLASS =
+  "nodrag inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 transition focus-visible:ring-2 hover:bg-red-500 hover:text-white dark:text-setta-600 dark:hover:bg-red-500 dark:hover:text-white";
+const CHAT_WINDOW_HEADER_ICON_CLASS =
+  "nodrag mr-1 flex shrink-0 select-none items-center justify-center rounded-full p-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200";
+const DOCKED_CHAT_WINDOW_SHADOW_CLASS =
+  "shadow-[0_-1px_6px_rgba(15,23,42,0.08)] dark:shadow-[0_-1px_6px_rgba(0,0,0,0.18)]";
+const FLOATING_CHAT_WINDOW_SHADOW_CLASS =
+  "shadow-[0_2px_8px_rgba(15,23,42,0.10)] dark:shadow-[0_2px_10px_rgba(0,0,0,0.22)]";
+const CANVAS_VISIBILITY_TOGGLE_BUTTON_CLASS =
+  "fixed inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-setta-300 bg-setta-50/95 text-setta-400 shadow-sm backdrop-blur-sm transition-colors hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-800 dark:bg-setta-900/95 dark:text-setta-600 dark:hover:text-setta-500";
+const CANVAS_VISIBILITY_TOGGLE_BUTTON_ACTIVE_CLASS =
+  "border-blue-500 bg-blue-500 text-white hover:bg-blue-600 hover:text-white dark:border-blue-500 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400 dark:hover:text-white";
+const WINDOW_MAXIMIZE_ICON = <i className="gg-maximize !scale-[.4]" />;
+const WINDOWED_CHAT_ROUNDED_CLASS = "rounded-lg";
+const DOCKED_WINDOWED_CHAT_ROUNDED_CLASS = "rounded-b-none rounded-t-lg";
+
+function getChatWindowExitAnimationClass(
+  kind: ChatWindowExitAnimationKind | null,
+  placement: ChatWindowPlacementEnum,
+): string {
+  if (!kind) {
+    return "";
+  }
+  const originClassName =
+    placement === ChatWindowPlacementEnum.maximized
+      ? "origin-center"
+      : placement === ChatWindowPlacementEnum.bottom_docked
+        ? "origin-bottom-right"
+        : "origin-top-right";
+  if (kind === "minimize") {
+    return `${originClassName} pointer-events-none transform-gpu will-change-[transform,opacity] transition-[transform,opacity] duration-[115ms] ease-[cubic-bezier(0.2,0.82,0.32,1)] motion-reduce:transition-none translate-y-4 scale-[0.97] opacity-0`;
+  }
+  return `${originClassName} pointer-events-none transform-gpu will-change-[transform,opacity] transition-[transform,opacity] duration-[125ms] ease-[cubic-bezier(0.32,0,0.18,1)] motion-reduce:transition-none scale-[0.7] opacity-0`;
+}
+
+function getChatWindowEnterAnimationClass(
+  kind: ChatWindowEnterAnimationKind | null,
+  placement: ChatWindowPlacementEnum,
+): string {
+  if (!kind) {
+    return "";
+  }
+  const originClassName =
+    placement === ChatWindowPlacementEnum.maximized
+      ? "origin-center"
+      : placement === ChatWindowPlacementEnum.bottom_docked
+        ? "origin-bottom-right"
+        : "origin-top-right";
+  return `${originClassName} transform-gpu will-change-[transform,opacity] transition-[transform,opacity] duration-[110ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none translate-y-5 scale-[0.985] opacity-0`;
+}
+
+type ChatWindowHeaderAction = {
+  key: string;
+  label: string;
+  testId: string;
+  instanceId: string;
+  icon: ReactNode;
+  className?: string;
+  disabled?: boolean;
+  onClick: () => void;
+};
+
+type ProjectChatWindowHeaderProps = {
+  title: string;
+  instanceId: string;
+  actions: ChatWindowHeaderAction[];
+  onTitleClick: () => void;
+  onTitleCommit?: (nextTitle: string) => void;
+  headerClassName?: string;
+  dragHandleTestId?: string;
+  onTitlePointerDown?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onTitlePointerMove?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onTitlePointerUp?: (event: PointerEvent<HTMLParagraphElement>) => void;
+};
+
+function ProjectChatWindowTitle({
+  title,
+  instanceId,
+  onActivate,
+  onCommitTitle,
+  dragHandleTestId,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  title: string;
+  instanceId: string;
+  onActivate: () => void;
+  onCommitTitle?: (nextTitle: string) => void;
+  dragHandleTestId?: string;
+  onPointerDown?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onPointerMove?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onPointerUp?: (event: PointerEvent<HTMLParagraphElement>) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const titleRef = useRef<HTMLParagraphElement | null>(null);
+  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
+    useEditableOnSubmit(
+      title,
+      (nextTitle) => {
+        onCommitTitle?.(nextTitle);
+      },
+      (value) => validateSectionNameInput(value) === null,
+      false,
+      (value) => value.trim(),
+    );
+  const validationError = validateSectionNameInput(inputValue);
+  const errorClassName = validationError
+    ? "text-red-500 dark:text-red-300 border-red-400"
+    : "";
+  const titleProps = getTitleStyles({
+    isActiveSection: false,
+    isInOtherProjectConfigs: false,
+    sectionTypeName: SectionTypeEnum.Chat,
+    hasSectionStyleTheme: false,
+  });
+  const editingClassName =
+    `${titleProps.editing ?? ""} ${errorClassName}`.trim();
+  const notEditingClassName =
+    `${titleProps.notEditing ?? ""} ${errorClassName}`.trim();
+
+  useEffect(() => {
+    if (!isEditing || !inputRef.current) {
+      return;
+    }
+    inputRef.current.focus({ preventScroll: true });
+    const titleLength = inputRef.current.value.length;
+    inputRef.current.setSelectionRange(0, titleLength);
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (onCommitTitle) {
+      return;
+    }
+    setIsEditing(false);
+  }, [onCommitTitle]);
+
+  if (isEditing && onCommitTitle) {
+    return (
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <input
+          ref={inputRef}
+          value={inputValue}
+          onChange={onChange}
+          onBlur={(event) => {
+            const focusTitleAfterBlur = blurTriggeredByEscapeKey.current;
+            void onBlur(event);
+            setIsEditing(false);
+            if (focusTitleAfterBlur) {
+              requestAnimationFrame(() => {
+                titleRef.current?.focus({ preventScroll: true });
+              });
+            }
+          }}
+          onKeyDown={(event) => {
+            onKeyDown(event);
+            if (event.code === "Enter" || event.code === "Escape") {
+              setIsEditing(false);
+            }
+          }}
+          className={editingClassName}
+          data-testid="project-chat-window-title-input"
+          data-chat-window-instance-id={instanceId}
+        />
+        {validationError ? (
+          <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200">
+            <span className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]" />
+            {validationError}
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <p
+      ref={titleRef}
+      className={notEditingClassName}
+      tabIndex={0}
+      onClick={() => {
+        onActivate();
+      }}
+      onDoubleClick={(event) => {
+        if (!onCommitTitle) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        setIsEditing(true);
+      }}
+      onKeyDown={(event) => {
+        if (event.code === "Space") {
+          event.preventDefault();
+          if (onCommitTitle) {
+            setIsEditing(true);
+          }
+        }
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      title={title}
+      data-testid={dragHandleTestId ?? "project-chat-window-title"}
+      data-project-chat-window-title="true"
+      data-chat-window-instance-id={instanceId}
+    >
+      {title}
+    </p>
+  );
+}
+
+function ProjectChatWindowHeader({
+  title,
+  instanceId,
+  actions,
+  onTitleClick,
+  onTitleCommit,
+  headerClassName,
+  dragHandleTestId,
+  onTitlePointerDown,
+  onTitlePointerMove,
+  onTitlePointerUp,
+}: ProjectChatWindowHeaderProps) {
+  return (
+    <header
+      className={`section-title mx-2 flex shrink-0 flex-row items-center ${headerClassName ?? ""}`}
+      data-testid="project-chat-window-header"
+    >
+      <div
+        className={CHAT_WINDOW_HEADER_ICON_CLASS}
+        data-testid="project-chat-window-header-icon"
+      >
+        <HeaderIcon
+          sectionId={instanceId}
+          sectionTypeName={SectionTypeEnum.Chat}
+          isInOtherProjectConfigs={false}
+          isListElement={false}
+        />
+      </div>
+      <ProjectChatWindowTitle
+        title={title}
+        instanceId={instanceId}
+        onActivate={onTitleClick}
+        onCommitTitle={onTitleCommit}
+        dragHandleTestId={dragHandleTestId}
+        onPointerDown={onTitlePointerDown}
+        onPointerMove={onTitlePointerMove}
+        onPointerUp={onTitlePointerUp}
+      />
+      <div className="z-10 ml-auto flex items-center">
+        {actions.map((action) => (
+          <button
+            key={`${instanceId}-${action.key}`}
+            type="button"
+            className={action.className ?? SECTION_WINDOW_ACTION_BUTTON_CLASS}
+            onClick={action.onClick}
+            disabled={action.disabled}
+            aria-label={action.label}
+            data-testid={action.testId}
+            data-chat-window-instance-id={action.instanceId}
+          >
+            {action.icon}
+          </button>
+        ))}
+      </div>
+    </header>
+  );
+}
+
+type ProjectChatWindowSurfaceProps = {
+  title: string;
+  instanceId: string;
+  actions: ChatWindowHeaderAction[];
+  onTitleClick: () => void;
+  onTitleCommit?: (nextTitle: string) => void;
+  roundedClassName: string;
+  headerClassName?: string;
+  dragHandleTestId?: string;
+  onTitlePointerDown?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onTitlePointerMove?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  onTitlePointerUp?: (event: PointerEvent<HTMLParagraphElement>) => void;
+  children: ReactNode;
+};
+
+function ProjectChatWindowSurface({
+  title,
+  instanceId,
+  actions,
+  onTitleClick,
+  onTitleCommit,
+  roundedClassName,
+  headerClassName,
+  dragHandleTestId,
+  onTitlePointerDown,
+  onTitlePointerMove,
+  onTitlePointerUp,
+  children,
+}: ProjectChatWindowSurfaceProps) {
+  const bgColor = getBgColor(SectionTypeEnum.Chat);
+  const outerShellClassName = getSectionContainerShellClassName({
+    isActiveSection: false,
+    isGlobalVariables: false,
+    isInOtherProjectConfigs: false,
+    useMetaControlStyle: false,
+    hasSectionStyleTheme: false,
+    positionAndSizeLocked: false,
+    forceHideOutline: true,
+    sizeClassName: "h-full w-full",
+    cornerClassName: roundedClassName,
+  });
+  const innerShellClassName = getSectionSurfaceClassName({
+    bgColor,
+    hasSectionStyleTheme: false,
+    positionAndSizeLocked: false,
+    cornerClassName: roundedClassName,
+  });
+
+  return (
+    <section
+      className={outerShellClassName}
+      data-testid="project-chat-window-surface"
+    >
+      <div className={innerShellClassName}>
+        <ProjectChatWindowHeader
+          title={title}
+          instanceId={instanceId}
+          actions={actions}
+          onTitleClick={onTitleClick}
+          onTitleCommit={onTitleCommit}
+          headerClassName={headerClassName}
+          dragHandleTestId={dragHandleTestId}
+          onTitlePointerDown={onTitlePointerDown}
+          onTitlePointerMove={onTitlePointerMove}
+          onTitlePointerUp={onTitlePointerUp}
+        />
+        <div
+          className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
+        >
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type MinimizedPillStripProps = {
+  pills: ResolvedWindowPill[];
+  visiblePills: ResolvedWindowPill[];
+  menuPills: ResolvedWindowPill[];
+  pillExitAnimationsById: Record<string, ChatWindowPillExitAnimationKind>;
+  useCompactPills: boolean;
+  canCycleBackward: boolean;
+  canCycleForward: boolean;
+  maxCycleStartIndex: number;
+  pillDisplayMode: PillDisplayMode;
+  pillViewportRef: React.RefObject<HTMLDivElement | null>;
+  fullMeasureRowRef: React.RefObject<HTMLDivElement | null>;
+  compactMeasureRowRef: React.RefObject<HTMLDivElement | null>;
+  onCycleBackward: () => void;
+  onCycleForward: () => void;
+  onOpenWindow: (instanceId: string, source: "pill" | "menu") => void;
+  onCreateWindow: () => void;
+};
+
+function MinimizedPillStrip({
+  pills,
+  visiblePills,
+  menuPills,
+  pillExitAnimationsById,
+  useCompactPills,
+  canCycleBackward,
+  canCycleForward,
+  maxCycleStartIndex,
+  pillDisplayMode,
+  pillViewportRef,
+  fullMeasureRowRef,
+  compactMeasureRowRef,
+  onCycleBackward,
+  onCycleForward,
+  onOpenWindow,
+  onCreateWindow,
+}: MinimizedPillStripProps) {
+  const minimizedTabBaseClassName = `pointer-events-auto relative inline-flex h-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent text-xs shadow-sm transition-colors will-change-transform ${buildPillBaseClass(false)}`;
+  const createTabClassName = `${minimizedTabBaseClassName} w-7`;
+  const chatMenuTriggerClassName = `${minimizedTabBaseClassName} w-7`;
+  const stripItemNodesRef = useRef<Record<string, HTMLElement | null>>({});
+  const previousStripItemRectsRef = useRef<Record<string, DOMRect>>({});
+  const stripItemAnimationTimeoutsRef = useRef<Record<string, number>>({});
+  const stripItemAnimationFrameRef = useRef<number | null>(null);
+  const hasStripMountedRef = useRef(false);
+
+  const clearStripItemAnimation = useCallback((itemKey: string) => {
+    const activeTimeoutId = stripItemAnimationTimeoutsRef.current[itemKey];
+    if (activeTimeoutId !== undefined) {
+      window.clearTimeout(activeTimeoutId);
+      delete stripItemAnimationTimeoutsRef.current[itemKey];
+    }
+    const node = stripItemNodesRef.current[itemKey];
+    if (!node) {
+      return;
+    }
+    delete node.dataset.chatPillLayoutAnimation;
+    node.style.transition = "";
+    node.style.transform = "";
+  }, []);
+
+  const setStripItemNode = useCallback(
+    (itemKey: string) => (node: HTMLElement | null) => {
+      if (node) {
+        stripItemNodesRef.current[itemKey] = node;
+        return;
+      }
+      delete stripItemNodesRef.current[itemKey];
+      delete previousStripItemRectsRef.current[itemKey];
+    },
+    [],
+  );
+
+  const renderedStripItemKeys = useMemo(() => {
+    const nextKeys: string[] = [];
+    if (pillDisplayMode === "cycle") {
+      nextKeys.push("cycle-left");
+    }
+    nextKeys.push("create");
+    if (pillDisplayMode === "menu") {
+      nextKeys.push("menu");
+    } else {
+      for (const pill of visiblePills) {
+        nextKeys.push(`pill:${pill.instanceId}`);
+      }
+    }
+    if (pillDisplayMode === "cycle") {
+      nextKeys.push("cycle-right");
+    }
+    return nextKeys;
+  }, [pillDisplayMode, visiblePills]);
+
+  useEffect(() => {
+    return () => {
+      if (stripItemAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(stripItemAnimationFrameRef.current);
+        stripItemAnimationFrameRef.current = null;
+      }
+      for (const timeoutId of Object.values(
+        stripItemAnimationTimeoutsRef.current,
+      )) {
+        window.clearTimeout(timeoutId);
+      }
+      stripItemAnimationTimeoutsRef.current = {};
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const nextRects: Record<string, DOMRect> = {};
+    const animations: Array<{
+      itemKey: string;
+      node: HTMLElement;
+      startingTransform: string;
+      startingOpacity: string;
+    }> = [];
+
+    for (const itemKey of renderedStripItemKeys) {
+      const node = stripItemNodesRef.current[itemKey];
+      if (!node) {
+        continue;
+      }
+      const nextRect = node.getBoundingClientRect();
+      nextRects[itemKey] = nextRect;
+      const previousRect = previousStripItemRectsRef.current[itemKey];
+      if (previousRect) {
+        const deltaX = previousRect.left - nextRect.left;
+        const deltaY = previousRect.top - nextRect.top;
+        if (Math.abs(deltaX) <= 0.5 && Math.abs(deltaY) <= 0.5) {
+          continue;
+        }
+        clearStripItemAnimation(itemKey);
+        node.dataset.chatPillLayoutAnimation = "active";
+        node.style.transition = "none";
+        node.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+        animations.push({
+          itemKey,
+          node,
+          startingTransform: "translate(0px, 0px)",
+        });
+        continue;
+      }
+      if (!hasStripMountedRef.current) {
+        continue;
+      }
+      clearStripItemAnimation(itemKey);
+      node.dataset.chatPillLayoutAnimation = "active";
+      node.style.transition = "none";
+      node.style.transform = "translateY(8px) scale(0.96)";
+      animations.push({
+        itemKey,
+        node,
+        startingTransform: "translateY(0px) scale(1)",
+      });
+    }
+
+    previousStripItemRectsRef.current = nextRects;
+
+    if (!hasStripMountedRef.current) {
+      hasStripMountedRef.current = true;
+      return;
+    }
+    if (animations.length === 0) {
+      return;
+    }
+    if (stripItemAnimationFrameRef.current !== null) {
+      window.cancelAnimationFrame(stripItemAnimationFrameRef.current);
+    }
+    stripItemAnimationFrameRef.current = window.requestAnimationFrame(() => {
+      stripItemAnimationFrameRef.current = null;
+      for (const animation of animations) {
+        const { itemKey, node, startingTransform } = animation;
+        node.style.transition = `transform ${CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS}ms cubic-bezier(0.16,1,0.3,1)`;
+        node.style.transform = startingTransform;
+        const activeTimeoutId = stripItemAnimationTimeoutsRef.current[itemKey];
+        if (activeTimeoutId !== undefined) {
+          window.clearTimeout(activeTimeoutId);
+        }
+        stripItemAnimationTimeoutsRef.current[itemKey] = window.setTimeout(
+          () => {
+            delete stripItemAnimationTimeoutsRef.current[itemKey];
+            if (stripItemNodesRef.current[itemKey] !== node) {
+              return;
+            }
+            clearStripItemAnimation(itemKey);
+          },
+          CHAT_WINDOW_STRIP_LAYOUT_DURATION_MS,
+        );
+      }
+    });
+  }, [clearStripItemAnimation, renderedStripItemKeys]);
+
+  return (
+    <div
+      ref={pillViewportRef}
+      className="relative ml-auto flex min-w-0 max-w-full items-end justify-end gap-1 px-2"
+    >
+      <div
+        className="pointer-events-none absolute left-0 top-0 h-0 overflow-hidden opacity-0"
+        aria-hidden="true"
+      >
+        <div ref={fullMeasureRowRef} className="flex w-max items-center gap-1">
+          <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
+            <MdAdd size={14} />
+          </div>
+          {pills.map((pill) => (
+            <div
+              key={`measure-full-${pill.instanceId}`}
+              className="inline-flex h-7 shrink-0 items-center gap-1 rounded-b-none rounded-t-md border border-b-transparent bg-setta-100 px-2 text-xs"
+            >
+              <RiChat3Line size={12} className="shrink-0" />
+              <span className="max-w-[9.5rem] truncate">{pill.title}</span>
+            </div>
+          ))}
+        </div>
+        <div
+          ref={compactMeasureRowRef}
+          className="mt-1 flex w-max items-center gap-1"
+        >
+          <div className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100">
+            <MdAdd size={14} />
+          </div>
+          {pills.map((pill) => (
+            <div
+              key={`measure-compact-${pill.instanceId}`}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100"
+            >
+              <RiChat3Line size={14} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {pillDisplayMode === "cycle" ? (
+        <button
+          type="button"
+          className="pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 bg-setta-50 text-setta-700 shadow-sm transition-colors enabled:hover:bg-setta-100 enabled:hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-45 dark:border-setta-700 dark:bg-setta-860 dark:text-setta-200 dark:enabled:hover:bg-setta-800 dark:enabled:hover:text-setta-50"
+          ref={setStripItemNode("cycle-left")}
+          onClick={onCycleBackward}
+          disabled={!canCycleBackward}
+          aria-label="Show previous chat windows"
+          data-testid="project-chat-bottom-dock-cycle-left"
+        >
+          <MdChevronLeft size={14} />
+        </button>
+      ) : null}
+      <div className="flex min-w-0 items-end justify-end gap-1 overflow-hidden">
+        <button
+          type="button"
+          className={createTabClassName}
+          ref={setStripItemNode("create")}
+          onClick={onCreateWindow}
+          aria-label="Create chat window"
+          data-testid="project-chat-bottom-dock-create"
+          title="Create chat window"
+        >
+          <MdAdd size={14} />
+        </button>
+        {pillDisplayMode === "menu" ? (
+          <DropdownMenu.Root modal={false}>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                className={chatMenuTriggerClassName}
+                ref={setStripItemNode("menu")}
+                aria-label="Show chat windows"
+                title="Show chat windows"
+                data-testid="project-chat-bottom-dock-menu-trigger"
+              >
+                <RiChat3Line size={14} />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                side="top"
+                sideOffset={6}
+                className="bg-white/98 shadow-slate-950/12 dark:bg-setta-930/98 z-[80] min-w-[15rem] rounded-xl border border-setta-200 p-1 shadow-xl backdrop-blur-md dark:border-setta-800"
+                data-testid="project-chat-bottom-dock-menu-content"
+              >
+                <DropdownMenu.Label className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                  Chats
+                </DropdownMenu.Label>
+                <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                {menuPills.map((pill) => (
+                  <DropdownMenu.Item
+                    key={pill.instanceId}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-setta-700 outline-none transition-colors focus:bg-setta-100 focus:text-setta-900 dark:text-setta-200 dark:focus:bg-setta-800 dark:focus:text-setta-50"
+                    onSelect={() => {
+                      onOpenWindow(pill.instanceId, "menu");
+                    }}
+                    data-testid="project-chat-bottom-dock-menu-item"
+                    data-chat-window-instance-id={pill.instanceId}
+                  >
+                    <RiChat3Line
+                      size={13}
+                      className="shrink-0 text-setta-500 dark:text-setta-400"
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      {pill.title}
+                    </span>
+                  </DropdownMenu.Item>
+                ))}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
+        ) : (
+          visiblePills.map((pill) => {
+            const baseClass = minimizedTabBaseClassName;
+            if (useCompactPills) {
+              const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
+              return (
+                <button
+                  key={pill.instanceId}
+                  type="button"
+                  className={`${baseClass} w-7 ${pill.isClosed ? "opacity-65" : ""} ${
+                    pillExitAnimation
+                      ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
+                      : ""
+                  }`}
+                  onClick={() => {
+                    onOpenWindow(pill.instanceId, "pill");
+                  }}
+                  ref={setStripItemNode(`pill:${pill.instanceId}`)}
+                  title={pill.title}
+                  aria-label={pill.title}
+                  data-testid="project-chat-bottom-dock-pill"
+                  data-chat-window-pill-exit-animation={
+                    pillExitAnimationsById[pill.instanceId] ?? undefined
+                  }
+                >
+                  <RiChat3Line size={14} />
+                </button>
+              );
+            }
+            const pillExitAnimation = pillExitAnimationsById[pill.instanceId];
+            return (
+              <button
+                key={pill.instanceId}
+                type="button"
+                className={`${baseClass} min-w-0 gap-1 px-2 ${pill.isClosed ? "opacity-65" : ""} ${
+                  pillExitAnimation
+                    ? "pointer-events-none translate-y-2 scale-[0.94] opacity-0 transition-[transform,opacity] duration-[72ms] ease-[cubic-bezier(0.32,0,0.15,1)] motion-reduce:transition-none"
+                    : ""
+                }`}
+                onClick={() => {
+                  onOpenWindow(pill.instanceId, "pill");
+                }}
+                ref={setStripItemNode(`pill:${pill.instanceId}`)}
+                title={pill.title}
+                data-testid="project-chat-bottom-dock-pill"
+                data-chat-window-pill-exit-animation={
+                  pillExitAnimationsById[pill.instanceId] ?? undefined
+                }
+              >
+                <RiChat3Line size={12} className="shrink-0" />
+                <span className="max-w-[9.5rem] truncate">{pill.title}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+      {pillDisplayMode === "cycle" ? (
+        <button
+          type="button"
+          className="pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 bg-setta-50 text-setta-700 shadow-sm transition-colors enabled:hover:bg-setta-100 enabled:hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-45 dark:border-setta-700 dark:bg-setta-860 dark:text-setta-200 dark:enabled:hover:bg-setta-800 dark:enabled:hover:text-setta-50"
+          ref={setStripItemNode("cycle-right")}
+          onClick={onCycleForward}
+          disabled={!canCycleForward || maxCycleStartIndex === 0}
+          aria-label="Show more chat windows"
+          data-testid="project-chat-bottom-dock-cycle-right"
+        >
+          <MdChevronRight size={14} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
 
 export function ProjectChatBottomDock() {
   const hasViewModeTabs = useHasViewModeTabs();
@@ -711,7 +1505,9 @@ export function ProjectChatBottomDock() {
   const [pillDisplayMode, setPillDisplayMode] =
     useState<PillDisplayMode>("full");
   const [pillCycleStartIndex, setPillCycleStartIndex] = useState(0);
+  const [dockCycleOffsetFromEnd, setDockCycleOffsetFromEnd] = useState(0);
   const [pillViewportWidthPx, setPillViewportWidthPx] = useState(0);
+  const [viewportWidthPx, setViewportWidthPx] = useState(0);
   const [viewportHeightPx, setViewportHeightPx] = useState(0);
   const [workspaceTopInsetPx, setWorkspaceTopInsetPx] = useState(
     FALLBACK_WORKSPACE_TOP_INSET_PX,
@@ -729,15 +1525,34 @@ export function ProjectChatBottomDock() {
   const [dockPreviewHeightsById, setDockPreviewHeightsById] = useState<
     Record<string, number>
   >({});
+  const [windowExitAnimationsById, setWindowExitAnimationsById] = useState<
+    Record<string, ChatWindowExitAnimationKind>
+  >({});
+  const [windowEnterAnimationsById, setWindowEnterAnimationsById] = useState<
+    Record<string, ChatWindowEnterAnimationKind>
+  >({});
+  const [pillExitAnimationsById, setPillExitAnimationsById] = useState<
+    Record<string, ChatWindowPillExitAnimationKind>
+  >({});
+  const [windowEnterAnimationPrimesById, setWindowEnterAnimationPrimesById] =
+    useState<Record<string, ChatWindowEnterAnimationKind>>({});
   const pillViewportRef = useRef<HTMLDivElement | null>(null);
   const fullMeasureRowRef = useRef<HTMLDivElement | null>(null);
   const compactMeasureRowRef = useRef<HTMLDivElement | null>(null);
   const activeSingleDockResizeRef = useRef<ActiveSingleDockResize | null>(null);
   const activeFloatingDragRef = useRef<ActiveFloatingDrag | null>(null);
   const activeFloatingResizeRef = useRef<ActiveFloatingResize | null>(null);
+  const activeFloatingSnapResizeRef = useRef<ActiveFloatingSnapResize | null>(
+    null,
+  );
+  const autoCreateProjectConfigIdRef = useRef<string | null>(null);
   const activeFloatingSnapPreviewRef = useRef<ActiveFloatingSnapPreview | null>(
     null,
   );
+  const windowExitTimeoutsRef = useRef<Record<string, number>>({});
+  const pillExitTimeoutsRef = useRef<Record<string, number>>({});
+  const windowEnterPrimeTimeoutsRef = useRef<Record<string, number>>({});
+  const windowEnterAnimationTimeoutsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!showChatWindowing) {
@@ -752,9 +1567,11 @@ export function ProjectChatBottomDock() {
     if (order.length > 0) {
       return;
     }
-    createProjectChatWindowInstance({
-      placement: ChatWindowPlacementEnum.bottom_docked,
-    });
+    if (autoCreateProjectConfigIdRef.current === projectConfigId) {
+      return;
+    }
+    autoCreateProjectConfigIdRef.current = projectConfigId;
+    createProjectChatWindowInstance();
   }, [autoCreateInitialChat, order.length, projectConfigId, showChatWindowing]);
 
   useEffect(() => {
@@ -777,6 +1594,7 @@ export function ProjectChatBottomDock() {
 
   useEffect(() => {
     const handleViewportResize = () => {
+      setViewportWidthPx(window.innerWidth);
       setViewportHeightPx(window.innerHeight);
       const pane = document.querySelector(".react-flow__pane");
       if (!(pane instanceof HTMLElement)) {
@@ -803,6 +1621,31 @@ export function ProjectChatBottomDock() {
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      for (const timeoutId of Object.values(windowExitTimeoutsRef.current)) {
+        window.clearTimeout(timeoutId);
+      }
+      windowExitTimeoutsRef.current = {};
+      for (const timeoutId of Object.values(pillExitTimeoutsRef.current)) {
+        window.clearTimeout(timeoutId);
+      }
+      pillExitTimeoutsRef.current = {};
+      for (const timeoutId of Object.values(
+        windowEnterPrimeTimeoutsRef.current,
+      )) {
+        window.clearTimeout(timeoutId);
+      }
+      windowEnterPrimeTimeoutsRef.current = {};
+      for (const timeoutId of Object.values(
+        windowEnterAnimationTimeoutsRef.current,
+      )) {
+        window.clearTimeout(timeoutId);
+      }
+      windowEnterAnimationTimeoutsRef.current = {};
+    };
+  }, []);
+
   const orderedPills = useMemo<ResolvedWindowPill[]>(() => {
     const output: ResolvedWindowPill[] = [];
     const seen = new Set<string>();
@@ -815,24 +1658,10 @@ export function ProjectChatBottomDock() {
       if (!instance) {
         continue;
       }
-      output.push({
-        instanceId,
-        title: buildWindowTitle(
-          instanceId,
-          instance.sectionIdOrNull,
-          sectionNamesById,
-        ),
-        isClosed: instance.isClosed,
-        isMinimized: instance.isMinimized,
-        placement: instance.placement,
-        zIndex: instance.zIndex,
-        bounds: instance.bounds,
-        dockWidthFraction: instance.dockMetrics.widthFraction,
-        dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
-      });
-    }
-    for (const [instanceId, instance] of Object.entries(instancesById)) {
-      if (seen.has(instanceId)) {
+      if (
+        instance.sectionIdOrNull &&
+        !Object.hasOwn(sectionNamesById, instance.sectionIdOrNull)
+      ) {
         continue;
       }
       output.push({
@@ -840,6 +1669,7 @@ export function ProjectChatBottomDock() {
         title: buildWindowTitle(
           instanceId,
           instance.sectionIdOrNull,
+          instance.title,
           sectionNamesById,
         ),
         isClosed: instance.isClosed,
@@ -849,6 +1679,35 @@ export function ProjectChatBottomDock() {
         bounds: instance.bounds,
         dockWidthFraction: instance.dockMetrics.widthFraction,
         dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
+        sectionId: instance.sectionIdOrNull,
+      });
+    }
+    for (const [instanceId, instance] of Object.entries(instancesById)) {
+      if (seen.has(instanceId)) {
+        continue;
+      }
+      if (
+        instance.sectionIdOrNull &&
+        !Object.hasOwn(sectionNamesById, instance.sectionIdOrNull)
+      ) {
+        continue;
+      }
+      output.push({
+        instanceId,
+        title: buildWindowTitle(
+          instanceId,
+          instance.sectionIdOrNull,
+          instance.title,
+          sectionNamesById,
+        ),
+        isClosed: instance.isClosed,
+        isMinimized: instance.isMinimized,
+        placement: instance.placement,
+        zIndex: instance.zIndex,
+        bounds: instance.bounds,
+        dockWidthFraction: instance.dockMetrics.widthFraction,
+        dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
+        sectionId: instance.sectionIdOrNull,
       });
     }
     return output;
@@ -864,13 +1723,12 @@ export function ProjectChatBottomDock() {
       ),
     [orderedPills],
   );
-  const hiddenDockedPills = useMemo(
-    () =>
-      orderedPills.filter(
-        (pill) =>
-          pill.placement === ChatWindowPlacementEnum.bottom_docked &&
-          (pill.isClosed || pill.isMinimized),
-      ),
+  const minimizedPills = useMemo(
+    () => orderedPills.filter((pill) => pill.isMinimized),
+    [orderedPills],
+  );
+  const nonClosedPills = useMemo(
+    () => orderedPills.filter((pill) => !pill.isClosed),
     [orderedPills],
   );
 
@@ -953,6 +1811,66 @@ export function ProjectChatBottomDock() {
 
   const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
   const floatingBottomInsetPx = dockBottomOffsetPx;
+  const floatingWindowBoundaryInsets = useMemo(
+    () =>
+      resolveFloatingWindowBoundaryInsets(
+        floatingBottomInsetPx,
+        workspaceTopInsetPx,
+      ),
+    [floatingBottomInsetPx, workspaceTopInsetPx],
+  );
+  const floatingBoundsById = useMemo(() => {
+    const nextBoundsById: Record<string, ChatWindowBounds> = {};
+    for (const pill of openFloatingPills) {
+      nextBoundsById[pill.instanceId] =
+        floatingPreviewBoundsById[pill.instanceId] ?? pill.bounds;
+    }
+    return nextBoundsById;
+  }, [floatingPreviewBoundsById, openFloatingPills]);
+  const snappedFloatingWindows = useMemo(() => {
+    if (viewportWidthPx <= 0 || viewportHeightPx <= 0) {
+      return [];
+    }
+    return openFloatingPills.flatMap((pill) => {
+      const bounds = floatingBoundsById[pill.instanceId];
+      if (!bounds) {
+        return [];
+      }
+      const snapPreset = resolveFloatingSnapPresetFromBounds(
+        bounds,
+        viewportWidthPx,
+        viewportHeightPx,
+        floatingWindowBoundaryInsets,
+      );
+      if (!snapPreset) {
+        return [];
+      }
+      return [
+        {
+          instanceId: pill.instanceId,
+          bounds,
+          snapPreset,
+        },
+      ];
+    });
+  }, [
+    floatingBoundsById,
+    floatingWindowBoundaryInsets,
+    openFloatingPills,
+    viewportHeightPx,
+    viewportWidthPx,
+  ]);
+  const floatingSnapPresetById = useMemo(() => {
+    const nextPresetById: Record<string, FloatingSnapPreset> = {};
+    for (const snappedWindow of snappedFloatingWindows) {
+      nextPresetById[snappedWindow.instanceId] = snappedWindow.snapPreset;
+    }
+    return nextPresetById;
+  }, [snappedFloatingWindows]);
+  const floatingSnapResizeHandles = useMemo(
+    () => buildFloatingSnapResizeHandles(snappedFloatingWindows),
+    [snappedFloatingWindows],
+  );
   const dockAvailableHeightPx = useMemo(() => {
     const fallbackViewportHeight = 900;
     const resolvedViewportHeight =
@@ -962,6 +1880,35 @@ export function ProjectChatBottomDock() {
       resolvedViewportHeight - workspaceTopInsetPx - dockBottomOffsetPx,
     );
   }, [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx]);
+  const defaultDockWindowHeightPx = useMemo(
+    () =>
+      resolveDefaultDockedChatHeightPx({
+        viewportHeightPx,
+        workspaceTopInsetPx,
+        bottomInsetPx: dockBottomOffsetPx,
+        minHeightPx: MIN_DOCK_CHAT_HEIGHT_PX,
+      }),
+    [dockBottomOffsetPx, viewportHeightPx, workspaceTopInsetPx],
+  );
+  const dockSurfaceRightPx =
+    SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX;
+  const dockStripReservedWidthPx =
+    nonClosedPills.length > 1
+      ? DOCKED_MINIMIZED_STRIP_RESERVED_WIDTH_PX
+      : SINGLE_CHAT_MENU_RESERVED_WIDTH_PX;
+  const dockSurfaceAvailableWidthPx = useMemo(() => {
+    const fallbackViewportWidth =
+      DOCK_SURFACE_MAX_WIDTH_PX +
+      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 +
+      dockStripReservedWidthPx;
+    const resolvedViewportWidth =
+      viewportWidthPx > 0 ? viewportWidthPx : fallbackViewportWidth;
+    const usableViewportWidthPx =
+      resolvedViewportWidth -
+      (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2 -
+      dockStripReservedWidthPx;
+    return clampNumber(usableViewportWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
+  }, [dockStripReservedWidthPx, viewportWidthPx]);
 
   const baseDockWindowWidthsById = useMemo(() => {
     const nextWidthsById: Record<string, number> = {};
@@ -993,7 +1940,7 @@ export function ProjectChatBottomDock() {
       const shouldUseAutoFillHeight =
         Math.abs(candidateHeightPx - DOCK_WINDOW_DEFAULT_HEIGHT_PX) <= 0.5;
       const resolvedHeightPx = shouldUseAutoFillHeight
-        ? dockAvailableHeightPx
+        ? defaultDockWindowHeightPx
         : candidateHeightPx;
       nextHeightsById[pill.instanceId] = clampNumber(
         resolvedHeightPx,
@@ -1002,7 +1949,7 @@ export function ProjectChatBottomDock() {
       );
     }
     return nextHeightsById;
-  }, [dockAvailableHeightPx, openDockedPills]);
+  }, [defaultDockWindowHeightPx, dockAvailableHeightPx, openDockedPills]);
 
   const resolvedDockWindowWidthsById = useMemo(() => {
     const nextWidthsById: Record<string, number> = {
@@ -1050,6 +1997,63 @@ export function ProjectChatBottomDock() {
     () => openDockedPills.map((pill) => pill.instanceId).join("|"),
     [openDockedPills],
   );
+  const maxVisibleDockedCount = useMemo(
+    () =>
+      resolveMaxVisibleDockWindowCount(
+        openDockedPills.length,
+        dockSurfaceAvailableWidthPx,
+      ),
+    [dockSurfaceAvailableWidthPx, openDockedPills.length],
+  );
+  const maxDockCycleOffset = Math.max(
+    0,
+    openDockedPills.length - maxVisibleDockedCount,
+  );
+  const dockVisibleStartIndex =
+    maxVisibleDockedCount === 0
+      ? openDockedPills.length
+      : Math.max(0, maxDockCycleOffset - dockCycleOffsetFromEnd);
+  const visibleDockedPills = useMemo(() => {
+    if (maxVisibleDockedCount === 0) {
+      return [] as ResolvedWindowPill[];
+    }
+    return openDockedPills.slice(
+      dockVisibleStartIndex,
+      dockVisibleStartIndex + maxVisibleDockedCount,
+    );
+  }, [dockVisibleStartIndex, maxVisibleDockedCount, openDockedPills]);
+  const responsiveHiddenDockedIds = useMemo(() => {
+    const visibleIds = new Set(
+      visibleDockedPills.map((pill) => pill.instanceId),
+    );
+    return new Set(
+      openDockedPills
+        .filter((pill) => !visibleIds.has(pill.instanceId))
+        .map((pill) => pill.instanceId),
+    );
+  }, [openDockedPills, visibleDockedPills]);
+  const stripPills = useMemo(
+    () =>
+      orderedPills.filter(
+        (pill) =>
+          pill.isMinimized || responsiveHiddenDockedIds.has(pill.instanceId),
+      ),
+    [orderedPills, responsiveHiddenDockedIds],
+  );
+  const dockMenuPills = nonClosedPills;
+  const resolvedVisibleDockWindowWidthsById = useMemo(
+    () =>
+      resolveDockWindowWidthsToFit(
+        visibleDockedPills,
+        resolvedDockWindowWidthsById,
+        dockSurfaceAvailableWidthPx,
+      ),
+    [
+      dockSurfaceAvailableWidthPx,
+      resolvedDockWindowWidthsById,
+      visibleDockedPills,
+    ],
+  );
 
   const floatingWindowIdsKey = useMemo(
     () => openFloatingPills.map((pill) => pill.instanceId).join("|"),
@@ -1091,8 +2095,15 @@ export function ProjectChatBottomDock() {
   }, [dockedWindowIdsKey]);
 
   useEffect(() => {
+    setDockCycleOffsetFromEnd((current) =>
+      clampNumber(current, 0, maxDockCycleOffset),
+    );
+  }, [maxDockCycleOffset]);
+
+  useEffect(() => {
     activeFloatingDragRef.current = null;
     activeFloatingResizeRef.current = null;
+    activeFloatingSnapResizeRef.current = null;
     activeFloatingSnapPreviewRef.current = null;
     setActiveFloatingSnapPreview(null);
     if (!floatingWindowIdsKey) {
@@ -1124,34 +2135,30 @@ export function ProjectChatBottomDock() {
   }, [hasOverlayWindows]);
 
   const showDockedChatSurface =
-    openDockedPills.length > 0 && !isCanvasVisibilitySuppressed;
+    visibleDockedPills.length > 0 && !isCanvasVisibilitySuppressed;
   const dockSurfaceTargetWidthPx = useMemo(() => {
-    if (openDockedPills.length === 0) {
-      return DOCK_SURFACE_MIN_WIDTH_PX;
+    if (visibleDockedPills.length === 0) {
+      return 0;
     }
     let totalWindowWidthsPx = 0;
-    for (const pill of openDockedPills) {
+    for (const pill of visibleDockedPills) {
       totalWindowWidthsPx +=
-        resolvedDockWindowWidthsById[pill.instanceId] ??
+        resolvedVisibleDockWindowWidthsById[pill.instanceId] ??
         DOCK_WINDOW_DEFAULT_WIDTH_PX;
     }
     const totalGapWidthPx =
-      Math.max(0, openDockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
+      Math.max(0, visibleDockedPills.length - 1) * DOCK_WINDOW_GAP_PX;
     const rowPaddingWidthPx = DOCK_WINDOW_ROW_HORIZONTAL_PADDING_PX * 2;
     const targetWidthPx =
       totalWindowWidthsPx + totalGapWidthPx + rowPaddingWidthPx;
-    return clampNumber(
-      targetWidthPx,
-      DOCK_SURFACE_MIN_WIDTH_PX,
-      DOCK_SURFACE_MAX_WIDTH_PX,
-    );
-  }, [openDockedPills, resolvedDockWindowWidthsById]);
+    return clampNumber(targetWidthPx, 0, DOCK_SURFACE_MAX_WIDTH_PX);
+  }, [resolvedVisibleDockWindowWidthsById, visibleDockedPills]);
   const dockSurfaceTargetHeightPx = useMemo(() => {
-    if (openDockedPills.length === 0) {
+    if (visibleDockedPills.length === 0) {
       return MIN_DOCK_CHAT_HEIGHT_PX;
     }
     let maxHeightPx = MIN_DOCK_CHAT_HEIGHT_PX;
-    for (const pill of openDockedPills) {
+    for (const pill of visibleDockedPills) {
       const nextHeightPx =
         resolvedDockWindowHeightsById[pill.instanceId] ??
         DOCK_WINDOW_DEFAULT_HEIGHT_PX;
@@ -1164,74 +2171,442 @@ export function ProjectChatBottomDock() {
       MIN_DOCK_CHAT_HEIGHT_PX,
       dockAvailableHeightPx,
     );
-  }, [dockAvailableHeightPx, openDockedPills, resolvedDockWindowHeightsById]);
+  }, [
+    dockAvailableHeightPx,
+    resolvedDockWindowHeightsById,
+    visibleDockedPills,
+  ]);
   const dockSurfaceWidthCss = useMemo(() => {
+    if (dockSurfaceTargetWidthPx <= 0) {
+      return "0px";
+    }
     const insetPx =
       (SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX) * 2;
-    return `min(${dockSurfaceTargetWidthPx}px, ${DOCK_SURFACE_MAX_WIDTH_PX}px, calc(100vw - ${insetPx}px))`;
-  }, [dockSurfaceTargetWidthPx]);
+    return `min(${dockSurfaceTargetWidthPx}px, ${DOCK_SURFACE_MAX_WIDTH_PX}px, calc(100vw - ${insetPx + dockStripReservedWidthPx}px))`;
+  }, [dockStripReservedWidthPx, dockSurfaceTargetWidthPx]);
   const dockSurfaceHeightCss = useMemo(() => {
     const topBottomReservedPx = workspaceTopInsetPx + dockBottomOffsetPx;
     return `min(${dockSurfaceTargetHeightPx}px, calc(100vh - ${topBottomReservedPx}px))`;
   }, [dockBottomOffsetPx, dockSurfaceTargetHeightPx, workspaceTopInsetPx]);
   const showCanvasVisibilityToggle =
     isCanvasVisibilitySuppressed || openMaximizedWindow !== null;
+  const showStandaloneMinimizedPills = !showDockedChatSurface;
 
   const handleCreate = useCallback(() => {
-    const instanceId = createProjectChatWindowInstance({
-      placement: ChatWindowPlacementEnum.bottom_docked,
-    });
+    const instanceId = createProjectChatWindowInstance();
     focusProjectChatWindow(instanceId);
     setIsCanvasVisibilitySuppressed(false);
   }, []);
 
+  const clearWindowExitAnimation = useCallback((instanceId: string) => {
+    const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
+    if (activeTimeoutId !== undefined) {
+      window.clearTimeout(activeTimeoutId);
+      delete windowExitTimeoutsRef.current[instanceId];
+    }
+    setWindowExitAnimationsById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  }, []);
+
+  const clearWindowEnterAnimation = useCallback((instanceId: string) => {
+    const activePrimeTimeoutId =
+      windowEnterPrimeTimeoutsRef.current[instanceId];
+    if (activePrimeTimeoutId !== undefined) {
+      window.clearTimeout(activePrimeTimeoutId);
+      delete windowEnterPrimeTimeoutsRef.current[instanceId];
+    }
+    const activeAnimationTimeoutId =
+      windowEnterAnimationTimeoutsRef.current[instanceId];
+    if (activeAnimationTimeoutId !== undefined) {
+      window.clearTimeout(activeAnimationTimeoutId);
+      delete windowEnterAnimationTimeoutsRef.current[instanceId];
+    }
+    setWindowEnterAnimationsById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+    setWindowEnterAnimationPrimesById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  }, []);
+
+  const clearPillExitAnimation = useCallback((instanceId: string) => {
+    const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
+    if (activeTimeoutId !== undefined) {
+      window.clearTimeout(activeTimeoutId);
+      delete pillExitTimeoutsRef.current[instanceId];
+    }
+    setPillExitAnimationsById((current) => {
+      if (!(instanceId in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  }, []);
+
+  const startWindowEnterAnimation = useCallback(
+    (instanceId: string, kind: ChatWindowEnterAnimationKind) => {
+      setWindowEnterAnimationsById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      setWindowEnterAnimationPrimesById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      const activePrimeTimeoutId =
+        windowEnterPrimeTimeoutsRef.current[instanceId];
+      if (activePrimeTimeoutId !== undefined) {
+        window.clearTimeout(activePrimeTimeoutId);
+      }
+      const activeAnimationTimeoutId =
+        windowEnterAnimationTimeoutsRef.current[instanceId];
+      if (activeAnimationTimeoutId !== undefined) {
+        window.clearTimeout(activeAnimationTimeoutId);
+      }
+      windowEnterPrimeTimeoutsRef.current[instanceId] = window.setTimeout(
+        () => {
+          delete windowEnterPrimeTimeoutsRef.current[instanceId];
+          setWindowEnterAnimationPrimesById((current) => {
+            if (!(instanceId in current)) {
+              return current;
+            }
+            const next = { ...current };
+            delete next[instanceId];
+            return next;
+          });
+        },
+        CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS,
+      );
+      windowEnterAnimationTimeoutsRef.current[instanceId] = window.setTimeout(
+        () => {
+          delete windowEnterAnimationTimeoutsRef.current[instanceId];
+          setWindowEnterAnimationsById((current) => {
+            if (!(instanceId in current)) {
+              return current;
+            }
+            const next = { ...current };
+            delete next[instanceId];
+            return next;
+          });
+        },
+        CHAT_WINDOW_ENTER_DURATION_MS,
+      );
+    },
+    [],
+  );
+
+  const startPillExitAnimation = useCallback(
+    (
+      instanceId: string,
+      kind: ChatWindowPillExitAnimationKind,
+      onComplete: () => void,
+    ) => {
+      setPillExitAnimationsById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      const activeTimeoutId = pillExitTimeoutsRef.current[instanceId];
+      if (activeTimeoutId !== undefined) {
+        window.clearTimeout(activeTimeoutId);
+      }
+      pillExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
+        delete pillExitTimeoutsRef.current[instanceId];
+        setPillExitAnimationsById((current) => {
+          if (!(instanceId in current)) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[instanceId];
+          return next;
+        });
+        onComplete();
+      }, CHAT_WINDOW_PILL_EXIT_DURATION_MS);
+    },
+    [],
+  );
+
+  const startWindowExitAnimation = useCallback(
+    (
+      instanceId: string,
+      kind: ChatWindowExitAnimationKind,
+      { focusAfterClose = false }: { focusAfterClose?: boolean } = {},
+    ) => {
+      if (!instancesById[instanceId]) {
+        return;
+      }
+      clearWindowEnterAnimation(instanceId);
+      setWindowExitAnimationsById((current) => {
+        if (current[instanceId] === kind) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: kind,
+        };
+      });
+      const activeTimeoutId = windowExitTimeoutsRef.current[instanceId];
+      if (activeTimeoutId !== undefined) {
+        window.clearTimeout(activeTimeoutId);
+      }
+      const durationMs =
+        kind === "minimize"
+          ? CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS
+          : CHAT_WINDOW_CLOSE_EXIT_DURATION_MS;
+      windowExitTimeoutsRef.current[instanceId] = window.setTimeout(() => {
+        delete windowExitTimeoutsRef.current[instanceId];
+        if (kind === "minimize") {
+          minimizeProjectChatWindow(instanceId);
+        } else {
+          closeProjectChatWindow(instanceId);
+        }
+        setWindowExitAnimationsById((current) => {
+          if (!(instanceId in current)) {
+            return current;
+          }
+          const next = { ...current };
+          delete next[instanceId];
+          return next;
+        });
+        if (focusAfterClose) {
+          const nextVisibleWindowId = order.find(
+            (candidateInstanceId) =>
+              candidateInstanceId !== instanceId &&
+              instancesById[candidateInstanceId] &&
+              !instancesById[candidateInstanceId].isClosed &&
+              !instancesById[candidateInstanceId].isMinimized,
+          );
+          if (nextVisibleWindowId) {
+            focusProjectChatWindow(nextVisibleWindowId);
+          }
+        }
+      }, durationMs);
+    },
+    [clearWindowEnterAnimation, instancesById, order],
+  );
+
   const handleOpenWindow = useCallback(
-    (instanceId: string) => {
+    (instanceId: string, source: "pill" | "menu") => {
       const instance = instancesById[instanceId];
       if (!instance) {
         return;
+      }
+      if (
+        instance.placement === ChatWindowPlacementEnum.bottom_docked &&
+        maxVisibleDockedCount > 0
+      ) {
+        let targetDockIndex = 0;
+        let foundTarget = false;
+        for (const pill of orderedPills) {
+          if (
+            pill.isClosed ||
+            pill.placement !== ChatWindowPlacementEnum.bottom_docked
+          ) {
+            continue;
+          }
+          if (pill.isMinimized && pill.instanceId !== instanceId) {
+            continue;
+          }
+          if (pill.instanceId === instanceId) {
+            foundTarget = true;
+            break;
+          }
+          targetDockIndex += 1;
+        }
+        if (foundTarget) {
+          const currentEndIndex = dockVisibleStartIndex + maxVisibleDockedCount;
+          let nextStartIndex = dockVisibleStartIndex;
+          if (targetDockIndex < dockVisibleStartIndex) {
+            nextStartIndex = targetDockIndex;
+          } else if (targetDockIndex >= currentEndIndex) {
+            nextStartIndex = targetDockIndex - maxVisibleDockedCount + 1;
+          }
+          const nextTotalDockCount =
+            openDockedPills.length + (instance.isMinimized ? 1 : 0);
+          const nextMaxStartIndex = Math.max(
+            0,
+            nextTotalDockCount - maxVisibleDockedCount,
+          );
+          setDockCycleOffsetFromEnd(
+            nextMaxStartIndex -
+              clampNumber(nextStartIndex, 0, nextMaxStartIndex),
+          );
+        }
+      }
+      clearWindowExitAnimation(instanceId);
+      clearWindowEnterAnimation(instanceId);
+      clearPillExitAnimation(instanceId);
+      if (instance.isMinimized && source === "pill") {
+        startPillExitAnimation(instanceId, "restore_from_minimize", () => {
+          startWindowEnterAnimation(instanceId, "restore_from_minimize");
+          reopenProjectChatWindow(instanceId);
+          focusProjectChatWindow(instanceId);
+          setIsCanvasVisibilitySuppressed(false);
+        });
+        return;
+      }
+      if (instance.isClosed || instance.isMinimized) {
+        startWindowEnterAnimation(instanceId, "restore_from_minimize");
       }
       reopenProjectChatWindow(instanceId);
       focusProjectChatWindow(instanceId);
       setIsCanvasVisibilitySuppressed(false);
     },
-    [instancesById],
+    [
+      clearPillExitAnimation,
+      clearWindowEnterAnimation,
+      clearWindowExitAnimation,
+      dockVisibleStartIndex,
+      instancesById,
+      maxVisibleDockedCount,
+      openDockedPills.length,
+      orderedPills,
+      startPillExitAnimation,
+      startWindowEnterAnimation,
+    ],
   );
 
-  const handleMinimizeWindow = useCallback((instanceId: string) => {
-    closeProjectChatWindow(instanceId);
-  }, []);
+  const handleMinimizeWindow = useCallback(
+    (instanceId: string) => {
+      startWindowExitAnimation(instanceId, "minimize", {
+        focusAfterClose: true,
+      });
+    },
+    [startWindowExitAnimation],
+  );
+
+  const handleCloseWindow = useCallback(
+    (instanceId: string) => {
+      startWindowExitAnimation(instanceId, "close", { focusAfterClose: true });
+    },
+    [startWindowExitAnimation],
+  );
 
   const handleFocusWindow = useCallback((instanceId: string) => {
     focusProjectChatWindow(instanceId);
   }, []);
 
-  const handleUndockWindow = useCallback((instanceId: string) => {
-    setProjectChatWindowPlacement(instanceId, ChatWindowPlacementEnum.floating);
-    focusProjectChatWindow(instanceId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, []);
-
-  const handleDockWindow = useCallback((instanceId: string) => {
-    setProjectChatWindowPlacement(
-      instanceId,
-      ChatWindowPlacementEnum.bottom_docked,
+  const handleCycleDockWindowsBackward = useCallback(() => {
+    if (dockVisibleStartIndex <= 0 || maxVisibleDockedCount === 0) {
+      return;
+    }
+    const nextStartIndex = dockVisibleStartIndex - 1;
+    const focusTargetId = openDockedPills[nextStartIndex]?.instanceId;
+    setDockCycleOffsetFromEnd((current) =>
+      clampNumber(current + 1, 0, maxDockCycleOffset),
     );
-    focusProjectChatWindow(instanceId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, []);
+    if (focusTargetId) {
+      focusProjectChatWindow(focusTargetId);
+    }
+  }, [
+    dockVisibleStartIndex,
+    maxDockCycleOffset,
+    maxVisibleDockedCount,
+    openDockedPills,
+  ]);
 
-  const handleMaximizeWindow = useCallback((instanceId: string) => {
-    maximizeProjectChatWindow(instanceId);
-    focusProjectChatWindow(instanceId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, []);
+  const handleCycleDockWindowsForward = useCallback(() => {
+    if (dockCycleOffsetFromEnd <= 0 || maxVisibleDockedCount === 0) {
+      return;
+    }
+    const nextStartIndex = dockVisibleStartIndex + 1;
+    const focusTargetId =
+      openDockedPills[nextStartIndex + maxVisibleDockedCount - 1]?.instanceId;
+    setDockCycleOffsetFromEnd((current) => Math.max(0, current - 1));
+    if (focusTargetId) {
+      focusProjectChatWindow(focusTargetId);
+    }
+  }, [
+    dockCycleOffsetFromEnd,
+    dockVisibleStartIndex,
+    maxVisibleDockedCount,
+    openDockedPills,
+  ]);
 
-  const handleRestoreWindow = useCallback((instanceId: string) => {
-    unmaximizeProjectChatWindow(instanceId);
-    focusProjectChatWindow(instanceId);
-    setIsCanvasVisibilitySuppressed(false);
-  }, []);
+  const handleSetWindowTitle = useCallback(
+    (instanceId: string, nextTitle: string) => {
+      setProjectChatWindowTitle(instanceId, nextTitle);
+    },
+    [],
+  );
+
+  const handleUndockWindow = useCallback(
+    (instanceId: string) => {
+      clearWindowExitAnimation(instanceId);
+      setProjectChatWindowPlacement(
+        instanceId,
+        ChatWindowPlacementEnum.floating,
+      );
+      focusProjectChatWindow(instanceId);
+      setIsCanvasVisibilitySuppressed(false);
+    },
+    [clearWindowExitAnimation],
+  );
+
+  const handleDockWindow = useCallback(
+    (instanceId: string) => {
+      clearWindowExitAnimation(instanceId);
+      setProjectChatWindowPlacement(
+        instanceId,
+        ChatWindowPlacementEnum.bottom_docked,
+      );
+      focusProjectChatWindow(instanceId);
+      setIsCanvasVisibilitySuppressed(false);
+    },
+    [clearWindowExitAnimation],
+  );
+
+  const handleMaximizeWindow = useCallback(
+    (instanceId: string) => {
+      clearWindowExitAnimation(instanceId);
+      maximizeProjectChatWindow(instanceId);
+      focusProjectChatWindow(instanceId);
+      setIsCanvasVisibilitySuppressed(false);
+    },
+    [clearWindowExitAnimation],
+  );
+
+  const handleRestoreWindow = useCallback(
+    (instanceId: string) => {
+      clearWindowExitAnimation(instanceId);
+      unmaximizeProjectChatWindow(instanceId);
+      focusProjectChatWindow(instanceId);
+      setIsCanvasVisibilitySuppressed(false);
+    },
+    [clearWindowExitAnimation],
+  );
 
   const clampFloatingBoundsForCurrentViewport = useCallback(
     (bounds: ChatWindowBounds): ChatWindowBounds => {
@@ -1239,18 +2614,14 @@ export function ProjectChatBottomDock() {
       if (!viewport) {
         return bounds;
       }
-      const insets = resolveFloatingWindowBoundaryInsets(
-        floatingBottomInsetPx,
-        workspaceTopInsetPx,
-      );
       return clampFloatingBoundsToViewport(
         bounds,
         viewport.width,
         viewport.height,
-        insets,
+        floatingWindowBoundaryInsets,
       );
     },
-    [floatingBottomInsetPx, workspaceTopInsetPx],
+    [floatingWindowBoundaryInsets],
   );
 
   const snapFloatingWindowByPreset = useCallback(
@@ -1262,16 +2633,12 @@ export function ProjectChatBottomDock() {
       if (!viewport) {
         return;
       }
-      const insets = resolveFloatingWindowBoundaryInsets(
-        floatingBottomInsetPx,
-        workspaceTopInsetPx,
-      );
       const nextBounds = clampFloatingBoundsForCurrentViewport(
         buildFloatingSnapBounds(
           preset,
           viewport.width,
           viewport.height,
-          insets,
+          floatingWindowBoundaryInsets,
         ),
       );
       setProjectChatWindowBounds(activeFloatingWindowId, nextBounds);
@@ -1281,8 +2648,7 @@ export function ProjectChatBottomDock() {
     [
       activeFloatingWindowId,
       clampFloatingBoundsForCurrentViewport,
-      floatingBottomInsetPx,
-      workspaceTopInsetPx,
+      floatingWindowBoundaryInsets,
     ],
   );
 
@@ -1340,7 +2706,9 @@ export function ProjectChatBottomDock() {
       ) {
         event.preventDefault();
         event.stopPropagation();
-        closeProjectChatWindow(activeVisibleWindowId);
+        startWindowExitAnimation(activeVisibleWindowId, "minimize", {
+          focusAfterClose: true,
+        });
         return;
       }
 
@@ -1400,6 +2768,7 @@ export function ProjectChatBottomDock() {
     chatWindowingShortcuts.snapTop,
     hasOverlayWindows,
     snapFloatingWindowByPreset,
+    startWindowExitAnimation,
   ]);
 
   const handleFloatingBoundsPreview = useCallback(
@@ -1424,6 +2793,32 @@ export function ProjectChatBottomDock() {
     [],
   );
 
+  const handleFloatingBoundsPreviewBatch = useCallback(
+    (boundsByInstanceId: Record<string, ChatWindowBounds>) => {
+      setFloatingPreviewBoundsById((current) => {
+        let next = current;
+        for (const [instanceId, bounds] of Object.entries(boundsByInstanceId)) {
+          const existing = next[instanceId];
+          if (
+            existing &&
+            existing.x === bounds.x &&
+            existing.y === bounds.y &&
+            existing.width === bounds.width &&
+            existing.height === bounds.height
+          ) {
+            continue;
+          }
+          if (next === current) {
+            next = { ...current };
+          }
+          next[instanceId] = bounds;
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   const clearFloatingBoundsPreview = useCallback((instanceId: string) => {
     setFloatingPreviewBoundsById((current) => {
       if (!current[instanceId]) {
@@ -1434,6 +2829,25 @@ export function ProjectChatBottomDock() {
       return next;
     });
   }, []);
+
+  const clearFloatingBoundsPreviewBatch = useCallback(
+    (instanceIds: string[]) => {
+      setFloatingPreviewBoundsById((current) => {
+        let next = current;
+        for (const instanceId of instanceIds) {
+          if (!next[instanceId]) {
+            continue;
+          }
+          if (next === current) {
+            next = { ...current };
+          }
+          delete next[instanceId];
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   const updateActiveFloatingSnapPreview = useCallback(
     (nextSnapPreview: ActiveFloatingSnapPreview | null) => {
@@ -1467,24 +2881,24 @@ export function ProjectChatBottomDock() {
     }
 
     const applyViewportGuardrails = () => {
-      if (activeFloatingDragRef.current || activeFloatingResizeRef.current) {
+      if (
+        activeFloatingDragRef.current ||
+        activeFloatingResizeRef.current ||
+        activeFloatingSnapResizeRef.current
+      ) {
         return;
       }
       const viewport = getViewportDimensions();
       if (!viewport) {
         return;
       }
-      const insets = resolveFloatingWindowBoundaryInsets(
-        floatingBottomInsetPx,
-        workspaceTopInsetPx,
-      );
 
       for (const pill of openFloatingPills) {
         const clampedBounds = clampFloatingBoundsToViewport(
           pill.bounds,
           viewport.width,
           viewport.height,
-          insets,
+          floatingWindowBoundaryInsets,
         );
         if (areBoundsEqual(pill.bounds, clampedBounds)) {
           continue;
@@ -1512,11 +2926,18 @@ export function ProjectChatBottomDock() {
       }
       window.removeEventListener("resize", onResize);
     };
-  }, [floatingBottomInsetPx, openFloatingPills, workspaceTopInsetPx]);
+  }, [floatingWindowBoundaryInsets, openFloatingPills]);
 
   const handleFloatingDragPointerDown = useCallback(
     (event: PointerEvent<HTMLButtonElement>, pill: ResolvedWindowPill) => {
       if (event.button !== 0) {
+        return;
+      }
+      if (
+        event.detail > 1 &&
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-project-chat-window-title='true']")
+      ) {
         return;
       }
       const previewBounds = floatingPreviewBoundsById[pill.instanceId];
@@ -1560,16 +2981,12 @@ export function ProjectChatBottomDock() {
       });
       const viewport = getViewportDimensions();
       if (viewport) {
-        const insets = resolveFloatingWindowBoundaryInsets(
-          floatingBottomInsetPx,
-          workspaceTopInsetPx,
-        );
         const snapPreset = resolveFloatingSnapPresetFromPointer(
           event.clientX,
           event.clientY,
           viewport.width,
           viewport.height,
-          insets,
+          floatingWindowBoundaryInsets,
         );
         if (snapPreset) {
           updateActiveFloatingSnapPreview({
@@ -1579,7 +2996,7 @@ export function ProjectChatBottomDock() {
               snapPreset,
               viewport.width,
               viewport.height,
-              insets,
+              floatingWindowBoundaryInsets,
             ),
           });
         } else {
@@ -1593,9 +3010,8 @@ export function ProjectChatBottomDock() {
     },
     [
       clampFloatingBoundsForCurrentViewport,
-      floatingBottomInsetPx,
+      floatingWindowBoundaryInsets,
       handleFloatingBoundsPreview,
-      workspaceTopInsetPx,
       updateActiveFloatingSnapPreview,
     ],
   );
@@ -1753,6 +3169,143 @@ export function ProjectChatBottomDock() {
       }
     },
     [clearFloatingBoundsPreview, updateActiveFloatingSnapPreview],
+  );
+
+  const handleFloatingSnapResizePointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>, handle: FloatingSnapResizeHandle) => {
+      if (event.button !== 0) {
+        return;
+      }
+      const startBoundsByInstanceId: Record<string, ChatWindowBounds> = {};
+      const involvedInstanceIds = [
+        ...handle.leadingInstanceIds,
+        ...handle.trailingInstanceIds,
+      ];
+
+      for (const instanceId of involvedInstanceIds) {
+        const bounds = floatingBoundsById[instanceId];
+        if (!bounds) {
+          return;
+        }
+        startBoundsByInstanceId[instanceId] = { ...bounds };
+      }
+
+      if (handle.axis === "vertical") {
+        let minCoordinate = -Infinity;
+        let maxCoordinate = Infinity;
+        for (const instanceId of handle.leadingInstanceIds) {
+          const bounds = startBoundsByInstanceId[instanceId];
+          minCoordinate = Math.max(
+            minCoordinate,
+            bounds.x + FLOATING_WINDOW_MIN_WIDTH_PX,
+          );
+        }
+        for (const instanceId of handle.trailingInstanceIds) {
+          const bounds = startBoundsByInstanceId[instanceId];
+          maxCoordinate = Math.min(
+            maxCoordinate,
+            bounds.x + bounds.width - FLOATING_WINDOW_MIN_WIDTH_PX,
+          );
+        }
+        activeFloatingSnapResizeRef.current = {
+          pointerId: event.pointerId,
+          axis: "vertical",
+          startPointerPosition: event.clientX,
+          startCoordinate: handle.coordinate,
+          minCoordinate,
+          maxCoordinate,
+          leadingInstanceIds: handle.leadingInstanceIds,
+          trailingInstanceIds: handle.trailingInstanceIds,
+          startBoundsByInstanceId,
+          lastBoundsByInstanceId: startBoundsByInstanceId,
+        };
+      } else {
+        let minCoordinate = -Infinity;
+        let maxCoordinate = Infinity;
+        for (const instanceId of handle.leadingInstanceIds) {
+          const bounds = startBoundsByInstanceId[instanceId];
+          minCoordinate = Math.max(
+            minCoordinate,
+            bounds.y + FLOATING_WINDOW_MIN_HEIGHT_PX,
+          );
+        }
+        for (const instanceId of handle.trailingInstanceIds) {
+          const bounds = startBoundsByInstanceId[instanceId];
+          maxCoordinate = Math.min(
+            maxCoordinate,
+            bounds.y + bounds.height - FLOATING_WINDOW_MIN_HEIGHT_PX,
+          );
+        }
+        activeFloatingSnapResizeRef.current = {
+          pointerId: event.pointerId,
+          axis: "horizontal",
+          startPointerPosition: event.clientY,
+          startCoordinate: handle.coordinate,
+          minCoordinate,
+          maxCoordinate,
+          leadingInstanceIds: handle.leadingInstanceIds,
+          trailingInstanceIds: handle.trailingInstanceIds,
+          startBoundsByInstanceId,
+          lastBoundsByInstanceId: startBoundsByInstanceId,
+        };
+      }
+
+      updateActiveFloatingSnapPreview(null);
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+    },
+    [floatingBoundsById, updateActiveFloatingSnapPreview],
+  );
+
+  const handleFloatingSnapResizePointerMove = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const activeResize = activeFloatingSnapResizeRef.current;
+      if (!activeResize || activeResize.pointerId !== event.pointerId) {
+        return;
+      }
+      const pointerPosition =
+        activeResize.axis === "vertical" ? event.clientX : event.clientY;
+      const nextCoordinate = clampNumber(
+        activeResize.startCoordinate +
+          (pointerPosition - activeResize.startPointerPosition),
+        activeResize.minCoordinate,
+        activeResize.maxCoordinate,
+      );
+      const nextBoundsByInstanceId = buildFloatingSnapResizeBounds(
+        {
+          axis: activeResize.axis,
+          coordinate: activeResize.startCoordinate,
+          leadingInstanceIds: activeResize.leadingInstanceIds,
+          trailingInstanceIds: activeResize.trailingInstanceIds,
+          startBoundsByInstanceId: activeResize.startBoundsByInstanceId,
+        },
+        nextCoordinate,
+      );
+
+      activeResize.lastBoundsByInstanceId = nextBoundsByInstanceId;
+      handleFloatingBoundsPreviewBatch(nextBoundsByInstanceId);
+    },
+    [handleFloatingBoundsPreviewBatch],
+  );
+
+  const handleFloatingSnapResizePointerUp = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      const activeResize = activeFloatingSnapResizeRef.current;
+      if (!activeResize || activeResize.pointerId !== event.pointerId) {
+        return;
+      }
+      setProjectChatWindowBoundsById(activeResize.lastBoundsByInstanceId);
+      clearFloatingBoundsPreviewBatch([
+        ...activeResize.leadingInstanceIds,
+        ...activeResize.trailingInstanceIds,
+      ]);
+      updateActiveFloatingSnapPreview(null);
+      activeFloatingSnapResizeRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    },
+    [clearFloatingBoundsPreviewBatch, updateActiveFloatingSnapPreview],
   );
 
   const handleSingleDockResizePointerDown = useCallback(
@@ -1941,68 +3494,92 @@ export function ProjectChatBottomDock() {
     }
     const fullWidthPx = fullMeasureNode.scrollWidth;
     const compactWidthPx = compactMeasureNode.scrollWidth;
+    const minimumCycleWidthPx =
+      CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 +
+      COMPACT_PILL_WIDTH_PX * 2 +
+      PILL_GAP_PX * 3;
     let nextMode: PillDisplayMode = "full";
-    if (fullWidthPx > availableWidthPx + 1) {
-      nextMode = compactWidthPx > availableWidthPx + 1 ? "cycle" : "compact";
+    if (
+      stripPills.length > 1 &&
+      viewportWidthPx > 0 &&
+      viewportWidthPx <= NARROW_CHAT_MENU_BREAKPOINT_PX
+    ) {
+      nextMode = "menu";
+    } else if (fullWidthPx > availableWidthPx + 1) {
+      if (compactWidthPx <= availableWidthPx + 1) {
+        nextMode = "compact";
+      } else if (availableWidthPx <= minimumCycleWidthPx + 1) {
+        nextMode = "menu";
+      } else {
+        nextMode = "cycle";
+      }
     }
     if (nextMode !== pillDisplayMode) {
       setPillDisplayMode(nextMode);
     }
-  }, [hiddenDockedPills, pillDisplayMode, pillViewportWidthPx]);
+  }, [pillDisplayMode, pillViewportWidthPx, stripPills, viewportWidthPx]);
 
   const cycleVisibleCount = useMemo(() => {
-    if (hiddenDockedPills.length === 0) {
+    if (stripPills.length === 0) {
       return 0;
     }
     if (pillDisplayMode !== "cycle") {
-      return hiddenDockedPills.length;
+      return stripPills.length;
     }
     if (pillViewportWidthPx <= 0) {
       return 1;
     }
     const availablePillsWidthPx = Math.max(
       0,
-      pillViewportWidthPx - CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 - PILL_GAP_PX * 2,
+      pillViewportWidthPx -
+        CYCLE_CONTROL_BUTTON_WIDTH_PX * 2 -
+        PILL_GAP_PX * 2 -
+        COMPACT_PILL_WIDTH_PX -
+        PILL_GAP_PX,
     );
     const compactSlotWidthPx = COMPACT_PILL_WIDTH_PX + PILL_GAP_PX;
     const nextVisibleCount = Math.floor(
       (availablePillsWidthPx + PILL_GAP_PX) / compactSlotWidthPx,
     );
-    return clampNumber(nextVisibleCount, 1, hiddenDockedPills.length);
-  }, [hiddenDockedPills.length, pillDisplayMode, pillViewportWidthPx]);
+    return clampNumber(nextVisibleCount, 1, stripPills.length);
+  }, [pillDisplayMode, pillViewportWidthPx, stripPills.length]);
 
   useEffect(() => {
-    const maxStartIndex = Math.max(
-      0,
-      hiddenDockedPills.length - cycleVisibleCount,
-    );
+    const maxStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
     setPillCycleStartIndex((current) => clampNumber(current, 0, maxStartIndex));
-  }, [cycleVisibleCount, hiddenDockedPills.length]);
+  }, [cycleVisibleCount, stripPills.length]);
 
   const visiblePills = useMemo(() => {
     if (pillDisplayMode !== "cycle") {
-      return hiddenDockedPills;
+      return stripPills;
     }
-    return hiddenDockedPills.slice(
+    return stripPills.slice(
       pillCycleStartIndex,
       pillCycleStartIndex + cycleVisibleCount,
     );
-  }, [
-    cycleVisibleCount,
-    hiddenDockedPills,
-    pillCycleStartIndex,
-    pillDisplayMode,
-  ]);
+  }, [cycleVisibleCount, pillCycleStartIndex, pillDisplayMode, stripPills]);
 
-  const maxCycleStartIndex = Math.max(
-    0,
-    hiddenDockedPills.length - cycleVisibleCount,
-  );
+  const maxCycleStartIndex = Math.max(0, stripPills.length - cycleVisibleCount);
   const canCycleBackward =
     pillDisplayMode === "cycle" && pillCycleStartIndex > 0;
   const canCycleForward =
     pillDisplayMode === "cycle" && pillCycleStartIndex < maxCycleStartIndex;
-  const useCompactPills = pillDisplayMode !== "full";
+  const useCompactPills =
+    pillDisplayMode === "compact" || pillDisplayMode === "cycle";
+  const showDockHeaderCycleControls =
+    openDockedPills.length > visibleDockedPills.length &&
+    visibleDockedPills.length > 0;
+  const canCycleDockBackward = dockVisibleStartIndex > 0;
+  const canCycleDockForward = dockCycleOffsetFromEnd > 0;
+  const maximizedExitAnimation = openMaximizedWindow
+    ? windowExitAnimationsById[openMaximizedWindow.instanceId] ?? null
+    : null;
+  const maximizedEnterAnimation = openMaximizedWindow
+    ? windowEnterAnimationsById[openMaximizedWindow.instanceId] ?? null
+    : null;
+  const maximizedEnterAnimationPrime = openMaximizedWindow
+    ? windowEnterAnimationPrimesById[openMaximizedWindow.instanceId] ?? null
+    : null;
 
   if (!showChatWindowing) {
     return null;
@@ -2011,139 +3588,350 @@ export function ProjectChatBottomDock() {
   return (
     <>
       {showDockedChatSurface ? (
-        <section
-          className="pointer-events-none fixed z-[8]"
+        <div
+          className="pointer-events-none fixed"
           style={{
-            left: "50%",
-            width: dockSurfaceWidthCss,
-            transform: "translateX(-50%)",
+            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
+            left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+            right: dockSurfaceRightPx,
             bottom: dockBottomOffsetPx,
-            height: dockSurfaceHeightCss,
           }}
-          data-testid="project-chat-bottom-dock-window"
         >
-          <div
-            className="flex h-full min-h-0 items-end justify-center gap-3 overflow-x-auto overflow-y-hidden px-1"
-            data-testid="project-chat-bottom-dock-window-grid"
-          >
-            {openDockedPills.map((pill) => {
-              const resolvedWindowWidthPx =
-                resolvedDockWindowWidthsById[pill.instanceId] ??
-                DOCK_WINDOW_DEFAULT_WIDTH_PX;
-              const resolvedWindowHeightPx =
-                resolvedDockWindowHeightsById[pill.instanceId] ??
-                DOCK_WINDOW_DEFAULT_HEIGHT_PX;
-              return (
-                <article
-                  key={pill.instanceId}
-                  className="pointer-events-auto relative flex min-h-0 min-w-[16rem] shrink-0 flex-col overflow-hidden rounded-b-none rounded-t-xl border border-b-0 border-setta-200 bg-setta-50 shadow-[0_-8px_18px_rgba(15,23,42,0.14)] dark:border-setta-800 dark:bg-setta-900 dark:shadow-[0_-10px_20px_rgba(0,0,0,0.35)]"
-                  style={{
-                    width: resolvedWindowWidthPx,
-                    height: resolvedWindowHeightPx,
-                    minWidth: MIN_DOCK_CHAT_WIDTH_PX,
-                    maxWidth: DOCK_SURFACE_MAX_WIDTH_PX,
-                    minHeight: MIN_DOCK_CHAT_HEIGHT_PX,
-                    maxHeight: dockAvailableHeightPx,
-                  }}
-                  data-testid="project-chat-bottom-dock-window-panel"
-                  data-chat-window-instance-id={pill.instanceId}
-                  onPointerDown={() => {
-                    handleFocusWindow(pill.instanceId);
-                  }}
-                >
-                  <header className="section-title mx-2 flex h-8 shrink-0 items-center border-b border-setta-200 dark:border-setta-800">
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[0.72rem] font-bold tracking-tight text-setta-700 hover:text-setta-900 dark:text-setta-200 dark:hover:text-setta-50"
-                      onClick={() => {
+          <div className="flex min-w-0 items-end justify-end gap-3">
+            <div className="pointer-events-auto flex min-w-0 max-w-[28rem] items-end justify-end">
+              <MinimizedPillStrip
+                pills={stripPills}
+                visiblePills={visiblePills}
+                menuPills={dockMenuPills}
+                pillExitAnimationsById={pillExitAnimationsById}
+                useCompactPills={useCompactPills}
+                canCycleBackward={canCycleBackward}
+                canCycleForward={canCycleForward}
+                maxCycleStartIndex={maxCycleStartIndex}
+                pillDisplayMode={pillDisplayMode}
+                pillViewportRef={pillViewportRef}
+                fullMeasureRowRef={fullMeasureRowRef}
+                compactMeasureRowRef={compactMeasureRowRef}
+                onCycleBackward={() => {
+                  setPillCycleStartIndex((current) => Math.max(0, current - 1));
+                }}
+                onCycleForward={() => {
+                  setPillCycleStartIndex((current) =>
+                    Math.min(maxCycleStartIndex, current + 1),
+                  );
+                }}
+                onOpenWindow={handleOpenWindow}
+                onCreateWindow={handleCreate}
+              />
+            </div>
+            <section
+              className="pointer-events-none"
+              style={{
+                width: dockSurfaceWidthCss,
+                height: dockSurfaceHeightCss,
+              }}
+              data-testid="project-chat-bottom-dock-window"
+            >
+              <div
+                className="flex h-full min-h-0 items-end justify-end gap-3 overflow-x-hidden overflow-y-hidden px-1"
+                data-testid="project-chat-bottom-dock-window-grid"
+              >
+                {visibleDockedPills.map((pill) => {
+                  const resolvedWindowWidthPx =
+                    resolvedVisibleDockWindowWidthsById[pill.instanceId] ??
+                    DOCK_WINDOW_DEFAULT_WIDTH_PX;
+                  const resolvedWindowHeightPx =
+                    resolvedDockWindowHeightsById[pill.instanceId] ??
+                    DOCK_WINDOW_DEFAULT_HEIGHT_PX;
+                  const dockedExitAnimation =
+                    windowExitAnimationsById[pill.instanceId] ?? null;
+                  const dockedEnterAnimation =
+                    windowEnterAnimationsById[pill.instanceId] ?? null;
+                  const dockedEnterAnimationPrime =
+                    windowEnterAnimationPrimesById[pill.instanceId] ?? null;
+                  return (
+                    <article
+                      key={pill.instanceId}
+                      className={`pointer-events-auto relative flex min-h-0 min-w-[16rem] shrink-0 flex-col overflow-hidden bg-transparent ${DOCKED_CHAT_WINDOW_SHADOW_CLASS} ${getChatWindowExitAnimationClass(
+                        dockedExitAnimation,
+                        ChatWindowPlacementEnum.bottom_docked,
+                      )} ${getChatWindowEnterAnimationClass(
+                        dockedEnterAnimationPrime,
+                        ChatWindowPlacementEnum.bottom_docked,
+                      )}`}
+                      style={{
+                        width: resolvedWindowWidthPx,
+                        height: resolvedWindowHeightPx,
+                        minWidth: MIN_DOCK_CHAT_WIDTH_PX,
+                        maxWidth: DOCK_SURFACE_MAX_WIDTH_PX,
+                        minHeight: MIN_DOCK_CHAT_HEIGHT_PX,
+                        maxHeight: dockAvailableHeightPx,
+                      }}
+                      data-testid="project-chat-bottom-dock-window-panel"
+                      data-chat-window-instance-id={pill.instanceId}
+                      data-chat-window-exit-animation={
+                        dockedExitAnimation ?? undefined
+                      }
+                      data-chat-window-enter-animation={
+                        dockedEnterAnimation ?? undefined
+                      }
+                      onPointerDown={() => {
                         handleFocusWindow(pill.instanceId);
                       }}
-                      title={pill.title}
                     >
-                      <RiChat3Line size={13} className="shrink-0" />
-                      <span className="truncate">{pill.title}</span>
-                    </button>
-                    <div className="ml-2 flex items-center gap-1">
-                      <button
-                        type="button"
-                        className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                        onClick={() => {
-                          handleUndockWindow(pill.instanceId);
-                        }}
-                        aria-label={`Undock ${pill.title}`}
-                        data-testid="project-chat-window-undock"
-                        data-chat-window-instance-id={pill.instanceId}
-                      >
-                        <MdOpenInNew size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                        onClick={() => {
-                          handleMaximizeWindow(pill.instanceId);
-                        }}
-                        aria-label={`Maximize ${pill.title}`}
-                        data-testid="project-chat-window-maximize"
-                        data-chat-window-instance-id={pill.instanceId}
-                      >
-                        <MdCropSquare size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                        onClick={() => {
-                          handleMinimizeWindow(pill.instanceId);
-                        }}
-                        aria-label={`Minimize ${pill.title}`}
-                        data-testid="project-chat-window-minimize"
-                        data-chat-window-instance-id={pill.instanceId}
-                      >
-                        <MdMinimize size={13} />
-                      </button>
-                    </div>
-                  </header>
-                  <UnifiedChatSurface
-                    mode={ChatWindowModeEnum.project_ai_mode}
-                    host={ChatWindowPlacementEnum.bottom_docked}
-                  />
-                  {DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
-                    <div
-                      key={`${pill.instanceId}-${handle.direction}`}
-                      role="separator"
-                      aria-orientation={
-                        handle.direction === "top" ||
-                        handle.direction === "bottom"
-                          ? "horizontal"
-                          : "vertical"
-                      }
-                      className={`group/resize absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
-                      data-testid="project-chat-bottom-dock-resize-handle"
-                      data-resize-direction={handle.direction}
-                      onPointerDown={(event) => {
-                        handleSingleDockResizePointerDown(
-                          event,
-                          pill,
-                          handle.direction,
-                        );
-                      }}
-                      onPointerMove={handleSingleDockResizePointerMove}
-                      onPointerUp={handleSingleDockResizePointerUp}
-                    >
-                      {handle.indicatorClassName ? (
-                        <div className={handle.indicatorClassName} />
-                      ) : null}
-                    </div>
-                  ))}
-                </article>
-              );
-            })}
+                      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+                        {pill.sectionId ? (
+                          <SectionWindowSurface
+                            sectionId={pill.sectionId}
+                            roundedClassName={
+                              DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
+                            }
+                            chatHost={ChatWindowPlacementEnum.bottom_docked}
+                            headerActions={
+                              <>
+                                {showDockHeaderCycleControls ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
+                                      onClick={handleCycleDockWindowsBackward}
+                                      disabled={!canCycleDockBackward}
+                                      aria-label="Show previous docked chat"
+                                      data-testid="project-chat-window-cycle-left"
+                                      data-chat-window-instance-id={
+                                        pill.instanceId
+                                      }
+                                    >
+                                      <MdChevronLeft size={12} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`}
+                                      onClick={handleCycleDockWindowsForward}
+                                      disabled={!canCycleDockForward}
+                                      aria-label="Show next docked chat"
+                                      data-testid="project-chat-window-cycle-right"
+                                      data-chat-window-instance-id={
+                                        pill.instanceId
+                                      }
+                                    >
+                                      <MdChevronRight size={12} />
+                                    </button>
+                                  </>
+                                ) : null}
+                                <button
+                                  type="button"
+                                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                                  onClick={() => {
+                                    void bootProjectChatWindowToCanvasSection(
+                                      pill.instanceId,
+                                    );
+                                  }}
+                                  aria-label={`Show ${pill.title} in canvas`}
+                                  data-testid="project-chat-window-show-in-canvas"
+                                  data-chat-window-instance-id={pill.instanceId}
+                                >
+                                  <MdFlipToFront size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                                  onClick={() => {
+                                    handleUndockWindow(pill.instanceId);
+                                  }}
+                                  aria-label={`Undock ${pill.title}`}
+                                  data-testid="project-chat-window-undock"
+                                  data-chat-window-instance-id={pill.instanceId}
+                                >
+                                  <MdOpenInNew size={12} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                                  onClick={() => {
+                                    handleMaximizeWindow(pill.instanceId);
+                                  }}
+                                  aria-label={`Maximize ${pill.title}`}
+                                  data-testid="project-chat-window-maximize"
+                                  data-chat-window-instance-id={pill.instanceId}
+                                >
+                                  {WINDOW_MAXIMIZE_ICON}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={
+                                    SECTION_WINDOW_MINIMIZE_BUTTON_CLASS
+                                  }
+                                  onClick={() => {
+                                    handleMinimizeWindow(pill.instanceId);
+                                  }}
+                                  aria-label={`Minimize ${pill.title}`}
+                                  data-testid="project-chat-window-minimize"
+                                  data-chat-window-instance-id={pill.instanceId}
+                                >
+                                  <i className="gg-math-minus" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+                                  onClick={() => {
+                                    handleCloseWindow(pill.instanceId);
+                                  }}
+                                  aria-label={`Close ${pill.title}`}
+                                  data-testid="project-chat-window-close"
+                                  data-chat-window-instance-id={pill.instanceId}
+                                >
+                                  <i className="gg-close" />
+                                </button>
+                              </>
+                            }
+                          />
+                        ) : (
+                          <ProjectChatWindowSurface
+                            title={pill.title}
+                            instanceId={pill.instanceId}
+                            roundedClassName={
+                              DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
+                            }
+                            onTitleClick={() => {
+                              handleFocusWindow(pill.instanceId);
+                            }}
+                            onTitleCommit={(nextTitle) => {
+                              handleSetWindowTitle(pill.instanceId, nextTitle);
+                            }}
+                            actions={[
+                              ...(showDockHeaderCycleControls
+                                ? [
+                                    {
+                                      key: "cycle_left",
+                                      label: "Show previous docked chat",
+                                      testId: "project-chat-window-cycle-left",
+                                      instanceId: pill.instanceId,
+                                      icon: <MdChevronLeft size={12} />,
+                                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
+                                      disabled: !canCycleDockBackward,
+                                      onClick: () => {
+                                        handleCycleDockWindowsBackward();
+                                      },
+                                    },
+                                    {
+                                      key: "cycle_right",
+                                      label: "Show next docked chat",
+                                      testId: "project-chat-window-cycle-right",
+                                      instanceId: pill.instanceId,
+                                      icon: <MdChevronRight size={12} />,
+                                      className: `${SECTION_WINDOW_ACTION_BUTTON_CLASS} disabled:cursor-not-allowed disabled:opacity-35`,
+                                      disabled: !canCycleDockForward,
+                                      onClick: () => {
+                                        handleCycleDockWindowsForward();
+                                      },
+                                    },
+                                  ]
+                                : []),
+                              {
+                                key: "show_in_canvas",
+                                label: `Show ${pill.title} in canvas`,
+                                testId: "project-chat-window-show-in-canvas",
+                                instanceId: pill.instanceId,
+                                icon: <MdFlipToFront size={12} />,
+                                onClick: () => {
+                                  void bootProjectChatWindowToCanvasSection(
+                                    pill.instanceId,
+                                  );
+                                },
+                              },
+                              {
+                                key: "undock",
+                                label: `Undock ${pill.title}`,
+                                testId: "project-chat-window-undock",
+                                instanceId: pill.instanceId,
+                                icon: <MdOpenInNew size={12} />,
+                                onClick: () => {
+                                  handleUndockWindow(pill.instanceId);
+                                },
+                              },
+                              {
+                                key: "maximize",
+                                label: `Maximize ${pill.title}`,
+                                testId: "project-chat-window-maximize",
+                                instanceId: pill.instanceId,
+                                icon: WINDOW_MAXIMIZE_ICON,
+                                onClick: () => {
+                                  handleMaximizeWindow(pill.instanceId);
+                                },
+                              },
+                              {
+                                key: "minimize",
+                                label: `Minimize ${pill.title}`,
+                                testId: "project-chat-window-minimize",
+                                instanceId: pill.instanceId,
+                                className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+                                icon: <i className="gg-math-minus" />,
+                                onClick: () => {
+                                  handleMinimizeWindow(pill.instanceId);
+                                },
+                              },
+                              {
+                                key: "close",
+                                label: `Close ${pill.title}`,
+                                testId: "project-chat-window-close",
+                                instanceId: pill.instanceId,
+                                className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+                                icon: <i className="gg-close" />,
+                                onClick: () => {
+                                  handleCloseWindow(pill.instanceId);
+                                },
+                              },
+                            ]}
+                          >
+                            <UnifiedChatSurface
+                              mode={ChatWindowModeEnum.project_ai_mode}
+                              host={ChatWindowPlacementEnum.bottom_docked}
+                            />
+                          </ProjectChatWindowSurface>
+                        )}
+                        {DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
+                          <div
+                            key={`${pill.instanceId}-${handle.direction}`}
+                            role="separator"
+                            aria-orientation={
+                              handle.direction === "top" ||
+                              handle.direction === "bottom"
+                                ? "horizontal"
+                                : "vertical"
+                            }
+                            className={`group/resize absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
+                            data-testid="project-chat-bottom-dock-resize-handle"
+                            data-resize-direction={handle.direction}
+                            onPointerDown={(event) => {
+                              handleSingleDockResizePointerDown(
+                                event,
+                                pill,
+                                handle.direction,
+                              );
+                            }}
+                            onPointerMove={handleSingleDockResizePointerMove}
+                            onPointerUp={handleSingleDockResizePointerUp}
+                          >
+                            {handle.indicatorClassName ? (
+                              <div className={handle.indicatorClassName} />
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
           </div>
-        </section>
+        </div>
       ) : null}
       {!isCanvasVisibilitySuppressed && activeFloatingSnapPreview ? (
         <div
-          className="pointer-events-none fixed z-[9] rounded-xl border-2 border-setta-400/80 bg-setta-300/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] dark:border-setta-500/90 dark:bg-setta-500/25 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
+          className="pointer-events-none fixed rounded-none border-2 border-setta-400/80 bg-setta-300/20 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.45)] dark:border-setta-500/90 dark:bg-setta-500/25 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
           style={{
+            zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX,
             left: activeFloatingSnapPreview.bounds.x,
             top: activeFloatingSnapPreview.bounds.y,
             width: activeFloatingSnapPreview.bounds.width,
@@ -2153,15 +3941,113 @@ export function ProjectChatBottomDock() {
           data-chat-window-snap-preset={activeFloatingSnapPreview.preset}
         />
       ) : null}
+      {!isCanvasVisibilitySuppressed && floatingSnapResizeHandles.length > 0 ? (
+        <div
+          className="pointer-events-none fixed inset-0"
+          style={{ zIndex: CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX }}
+        >
+          {floatingSnapResizeHandles.map((handle) => {
+            const handleLengthPx = Math.max(
+              0,
+              handle.end -
+                handle.start -
+                FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+            );
+            return (
+              <div
+                key={`${handle.axis}-${handle.leadingInstanceIds.join("|")}-${handle.trailingInstanceIds.join("|")}`}
+                role="separator"
+                aria-orientation={
+                  handle.axis === "vertical" ? "vertical" : "horizontal"
+                }
+                className={`pointer-events-auto absolute flex items-center justify-center ${
+                  handle.axis === "vertical"
+                    ? "cursor-col-resize"
+                    : "cursor-row-resize"
+                }`}
+                style={
+                  handle.axis === "vertical"
+                    ? {
+                        left:
+                          handle.coordinate -
+                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX / 2,
+                        top: handle.start,
+                        width: FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                        height: Math.max(
+                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                          handleLengthPx +
+                            FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                        ),
+                      }
+                    : {
+                        left: handle.start,
+                        top:
+                          handle.coordinate -
+                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX / 2,
+                        width: Math.max(
+                          FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                          handleLengthPx +
+                            FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                        ),
+                        height: FLOATING_SNAP_RESIZE_HANDLE_HIT_SIZE_PX,
+                      }
+                }
+                onPointerDown={(event) => {
+                  handleFloatingSnapResizePointerDown(event, handle);
+                }}
+                onPointerMove={handleFloatingSnapResizePointerMove}
+                onPointerUp={handleFloatingSnapResizePointerUp}
+                data-testid="project-chat-floating-snap-resize-handle"
+                data-resize-axis={handle.axis}
+              >
+                <div
+                  className="rounded-full bg-setta-300/80 transition-colors hover:bg-blue-500 dark:bg-setta-600/80 dark:hover:bg-blue-400"
+                  style={
+                    handle.axis === "vertical"
+                      ? {
+                          width: FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX,
+                          height: Math.max(24, handle.end - handle.start - 8),
+                        }
+                      : {
+                          width: Math.max(24, handle.end - handle.start - 8),
+                          height: FLOATING_SNAP_RESIZE_HANDLE_LINE_THICKNESS_PX,
+                        }
+                  }
+                />
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
       {isCanvasVisibilitySuppressed ? null : (
-        <div className="pointer-events-none fixed inset-0 z-[8]">
+        <div
+          className="pointer-events-none fixed inset-0"
+          style={{ zIndex: CHAT_WINDOW_LAYER_Z_INDEX }}
+        >
           {openFloatingPills.map((pill) => {
-            const previewBounds = floatingPreviewBoundsById[pill.instanceId];
-            const bounds = previewBounds ?? pill.bounds;
+            const bounds = floatingBoundsById[pill.instanceId] ?? pill.bounds;
+            const floatingExitAnimation =
+              windowExitAnimationsById[pill.instanceId] ?? null;
+            const floatingEnterAnimation =
+              windowEnterAnimationsById[pill.instanceId] ?? null;
+            const floatingEnterAnimationPrime =
+              windowEnterAnimationPrimesById[pill.instanceId] ?? null;
+            const floatingSnapPreset =
+              floatingSnapPresetById[pill.instanceId] ?? null;
             return (
               <article
                 key={pill.instanceId}
-                className="border-setta-250 pointer-events-auto absolute flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-setta-50 shadow-[0_10px_32px_rgba(0,0,0,0.22)] dark:border-setta-800 dark:bg-setta-900 dark:shadow-[0_12px_38px_rgba(0,0,0,0.5)]"
+                className={`pointer-events-auto absolute flex min-h-0 min-w-0 flex-col overflow-hidden ${
+                  floatingSnapPreset
+                    ? "rounded-none shadow-none"
+                    : `${WINDOWED_CHAT_ROUNDED_CLASS} ${FLOATING_CHAT_WINDOW_SHADOW_CLASS}`
+                } ${getChatWindowExitAnimationClass(
+                  floatingExitAnimation,
+                  ChatWindowPlacementEnum.floating,
+                )} ${getChatWindowEnterAnimationClass(
+                  floatingEnterAnimationPrime,
+                  ChatWindowPlacementEnum.floating,
+                )}`}
                 style={{
                   left: bounds.x,
                   top: bounds.y,
@@ -2171,102 +4057,223 @@ export function ProjectChatBottomDock() {
                 }}
                 data-testid="project-chat-floating-window"
                 data-chat-window-instance-id={pill.instanceId}
+                data-chat-window-snap-preset={floatingSnapPreset ?? undefined}
+                data-chat-window-exit-animation={
+                  floatingExitAnimation ?? undefined
+                }
+                data-chat-window-enter-animation={
+                  floatingEnterAnimation ?? undefined
+                }
                 onPointerDown={() => {
                   handleFocusWindow(pill.instanceId);
                 }}
               >
-                <header className="section-title mx-2 flex h-8 shrink-0 items-center border-b border-setta-200 dark:border-setta-800">
-                  <button
-                    type="button"
-                    className="flex min-w-0 flex-1 cursor-move items-center gap-1 truncate text-left text-[0.72rem] font-bold tracking-tight text-setta-700 hover:text-setta-900 dark:text-setta-200 dark:hover:text-setta-50"
-                    onPointerDown={(event) => {
-                      handleFloatingDragPointerDown(event, pill);
-                    }}
-                    onPointerMove={handleFloatingDragPointerMove}
-                    onPointerUp={handleFloatingDragPointerUp}
-                    onClick={() => {
-                      handleFocusWindow(pill.instanceId);
-                    }}
-                    title={pill.title}
-                    data-testid="project-chat-floating-window-drag-handle"
-                    data-chat-window-instance-id={pill.instanceId}
-                  >
-                    <RiChat3Line size={13} className="shrink-0" />
-                    <span className="truncate">{pill.title}</span>
-                  </button>
-                  <div className="ml-2 flex items-center gap-1">
-                    <button
-                      type="button"
-                      className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                      onClick={() => {
-                        handleDockWindow(pill.instanceId);
-                      }}
-                      aria-label={`Dock ${pill.title}`}
-                      data-testid="project-chat-window-dock"
-                      data-chat-window-instance-id={pill.instanceId}
-                    >
-                      <MdVerticalAlignBottom size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                      onClick={() => {
-                        handleMaximizeWindow(pill.instanceId);
-                      }}
-                      aria-label={`Maximize ${pill.title}`}
-                      data-testid="project-chat-window-maximize"
-                      data-chat-window-instance-id={pill.instanceId}
-                    >
-                      <MdCropSquare size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                      onClick={() => {
-                        handleMinimizeWindow(pill.instanceId);
-                      }}
-                      aria-label={`Minimize ${pill.title}`}
-                      data-testid="project-chat-window-minimize"
-                      data-chat-window-instance-id={pill.instanceId}
-                    >
-                      <MdMinimize size={13} />
-                    </button>
-                  </div>
-                </header>
                 <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-                  <UnifiedChatSurface
-                    mode={ChatWindowModeEnum.project_ai_mode}
-                    host={ChatWindowPlacementEnum.floating}
-                  />
-                  {FLOATING_WINDOW_RESIZE_HANDLES.map((handle) => (
-                    <div
-                      key={`${pill.instanceId}-floating-${handle.direction}`}
-                      role="separator"
-                      aria-orientation={
-                        handle.direction === "top" ||
-                        handle.direction === "bottom"
-                          ? "horizontal"
-                          : "vertical"
+                  {pill.sectionId ? (
+                    <SectionWindowSurface
+                      sectionId={pill.sectionId}
+                      roundedClassName={
+                        floatingSnapPreset
+                          ? "rounded-none"
+                          : WINDOWED_CHAT_ROUNDED_CLASS
                       }
-                      className={`absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
-                      onPointerDown={(event) => {
-                        handleFloatingResizePointerDown(
-                          event,
-                          pill,
-                          handle.direction,
-                        );
+                      chatHost={ChatWindowPlacementEnum.floating}
+                      headerActions={
+                        <>
+                          <button
+                            type="button"
+                            className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                            onClick={() => {
+                              void bootProjectChatWindowToCanvasSection(
+                                pill.instanceId,
+                              );
+                            }}
+                            aria-label={`Show ${pill.title} in canvas`}
+                            data-testid="project-chat-window-show-in-canvas"
+                            data-chat-window-instance-id={pill.instanceId}
+                          >
+                            <MdFlipToFront size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                            onClick={() => {
+                              handleDockWindow(pill.instanceId);
+                            }}
+                            aria-label={`Dock ${pill.title}`}
+                            data-testid="project-chat-window-dock"
+                            data-chat-window-instance-id={pill.instanceId}
+                          >
+                            <MdVerticalAlignBottom size={12} />
+                          </button>
+                          <button
+                            type="button"
+                            className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                            onClick={() => {
+                              handleMaximizeWindow(pill.instanceId);
+                            }}
+                            aria-label={`Maximize ${pill.title}`}
+                            data-testid="project-chat-window-maximize"
+                            data-chat-window-instance-id={pill.instanceId}
+                          >
+                            {WINDOW_MAXIMIZE_ICON}
+                          </button>
+                          <button
+                            type="button"
+                            className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+                            onClick={() => {
+                              handleMinimizeWindow(pill.instanceId);
+                            }}
+                            aria-label={`Minimize ${pill.title}`}
+                            data-testid="project-chat-window-minimize"
+                            data-chat-window-instance-id={pill.instanceId}
+                          >
+                            <i className="gg-math-minus" />
+                          </button>
+                          <button
+                            type="button"
+                            className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+                            onClick={() => {
+                              handleCloseWindow(pill.instanceId);
+                            }}
+                            aria-label={`Close ${pill.title}`}
+                            data-testid="project-chat-window-close"
+                            data-chat-window-instance-id={pill.instanceId}
+                          >
+                            <i className="gg-close" />
+                          </button>
+                        </>
+                      }
+                      headerProps={{
+                        "data-testid":
+                          "project-chat-floating-window-drag-handle",
+                        className: "cursor-move",
+                        onPointerDown: (event) => {
+                          if (isInteractiveWindowHeaderTarget(event.target)) {
+                            return;
+                          }
+                          handleFloatingDragPointerDown(event, pill);
+                        },
+                        onPointerMove: handleFloatingDragPointerMove,
+                        onPointerUp: handleFloatingDragPointerUp,
                       }}
-                      onPointerMove={handleFloatingResizePointerMove}
-                      onPointerUp={handleFloatingResizePointerUp}
-                      data-testid="project-chat-floating-window-resize-handle"
-                      data-resize-direction={handle.direction}
-                      data-chat-window-instance-id={pill.instanceId}
+                    />
+                  ) : (
+                    <ProjectChatWindowSurface
+                      title={pill.title}
+                      instanceId={pill.instanceId}
+                      roundedClassName={
+                        floatingSnapPreset
+                          ? "rounded-none"
+                          : WINDOWED_CHAT_ROUNDED_CLASS
+                      }
+                      headerClassName="cursor-move"
+                      onTitleClick={() => {
+                        handleFocusWindow(pill.instanceId);
+                      }}
+                      onTitleCommit={(nextTitle) => {
+                        handleSetWindowTitle(pill.instanceId, nextTitle);
+                      }}
+                      dragHandleTestId="project-chat-floating-window-drag-handle"
+                      onTitlePointerDown={(event) => {
+                        handleFloatingDragPointerDown(event, pill);
+                      }}
+                      onTitlePointerMove={handleFloatingDragPointerMove}
+                      onTitlePointerUp={handleFloatingDragPointerUp}
+                      actions={[
+                        {
+                          key: "show_in_canvas",
+                          label: `Show ${pill.title} in canvas`,
+                          testId: "project-chat-window-show-in-canvas",
+                          instanceId: pill.instanceId,
+                          icon: <MdFlipToFront size={12} />,
+                          onClick: () => {
+                            void bootProjectChatWindowToCanvasSection(
+                              pill.instanceId,
+                            );
+                          },
+                        },
+                        {
+                          key: "dock",
+                          label: `Dock ${pill.title}`,
+                          testId: "project-chat-window-dock",
+                          instanceId: pill.instanceId,
+                          icon: <MdVerticalAlignBottom size={12} />,
+                          onClick: () => {
+                            handleDockWindow(pill.instanceId);
+                          },
+                        },
+                        {
+                          key: "maximize",
+                          label: `Maximize ${pill.title}`,
+                          testId: "project-chat-window-maximize",
+                          instanceId: pill.instanceId,
+                          icon: WINDOW_MAXIMIZE_ICON,
+                          onClick: () => {
+                            handleMaximizeWindow(pill.instanceId);
+                          },
+                        },
+                        {
+                          key: "minimize",
+                          label: `Minimize ${pill.title}`,
+                          testId: "project-chat-window-minimize",
+                          instanceId: pill.instanceId,
+                          className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+                          icon: <i className="gg-math-minus" />,
+                          onClick: () => {
+                            handleMinimizeWindow(pill.instanceId);
+                          },
+                        },
+                        {
+                          key: "close",
+                          label: `Close ${pill.title}`,
+                          testId: "project-chat-window-close",
+                          instanceId: pill.instanceId,
+                          className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+                          icon: <i className="gg-close" />,
+                          onClick: () => {
+                            handleCloseWindow(pill.instanceId);
+                          },
+                        },
+                      ]}
                     >
-                      {handle.indicatorClassName ? (
-                        <div className={handle.indicatorClassName} />
-                      ) : null}
-                    </div>
-                  ))}
+                      <UnifiedChatSurface
+                        mode={ChatWindowModeEnum.project_ai_mode}
+                        host={ChatWindowPlacementEnum.floating}
+                      />
+                    </ProjectChatWindowSurface>
+                  )}
+                  {floatingSnapPreset
+                    ? null
+                    : FLOATING_WINDOW_RESIZE_HANDLES.map((handle) => (
+                        <div
+                          key={`${pill.instanceId}-floating-${handle.direction}`}
+                          role="separator"
+                          aria-orientation={
+                            handle.direction === "top" ||
+                            handle.direction === "bottom"
+                              ? "horizontal"
+                              : "vertical"
+                          }
+                          className={`absolute z-10 flex items-center justify-center ${handle.className} ${handle.cursorClassName}`}
+                          onPointerDown={(event) => {
+                            handleFloatingResizePointerDown(
+                              event,
+                              pill,
+                              handle.direction,
+                            );
+                          }}
+                          onPointerMove={handleFloatingResizePointerMove}
+                          onPointerUp={handleFloatingResizePointerUp}
+                          data-testid="project-chat-floating-window-resize-handle"
+                          data-resize-direction={handle.direction}
+                          data-chat-window-instance-id={pill.instanceId}
+                        >
+                          {handle.indicatorClassName ? (
+                            <div className={handle.indicatorClassName} />
+                          ) : null}
+                        </div>
+                      ))}
                 </div>
               </article>
             );
@@ -2275,8 +4282,15 @@ export function ProjectChatBottomDock() {
       )}
       {!isCanvasVisibilitySuppressed && openMaximizedWindow ? (
         <section
-          className="border-setta-250 fixed z-[9] overflow-hidden rounded-none border bg-setta-50 shadow-[0_-8px_26px_rgba(0,0,0,0.22)] dark:border-setta-800 dark:bg-setta-900 dark:shadow-[0_-12px_34px_rgba(0,0,0,0.52)]"
+          className={`border-setta-250 fixed overflow-hidden rounded-none border bg-setta-50 shadow-none dark:border-setta-800 dark:bg-setta-900 ${getChatWindowExitAnimationClass(
+            maximizedExitAnimation,
+            ChatWindowPlacementEnum.maximized,
+          )} ${getChatWindowEnterAnimationClass(
+            maximizedEnterAnimationPrime,
+            ChatWindowPlacementEnum.maximized,
+          )}`}
           style={{
+            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
             left: SIDE_RAIL_WIDTH_PX,
             right: SIDE_RAIL_WIDTH_PX,
             top: workspaceTopInsetPx,
@@ -2284,212 +4298,231 @@ export function ProjectChatBottomDock() {
           }}
           data-testid="project-chat-maximized-window"
           data-chat-window-instance-id={openMaximizedWindow.instanceId}
+          data-chat-window-exit-animation={maximizedExitAnimation ?? undefined}
+          data-chat-window-enter-animation={
+            maximizedEnterAnimation ?? undefined
+          }
         >
           <article className="flex h-full min-h-0 flex-col overflow-hidden">
-            <header className="section-title mx-2 flex h-8 shrink-0 items-center border-b border-setta-200 dark:border-setta-800">
-              <button
-                type="button"
-                className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[0.72rem] font-bold tracking-tight text-setta-700 hover:text-setta-900 dark:text-setta-200 dark:hover:text-setta-50"
-                onClick={() => {
+            {openMaximizedWindow.sectionId ? (
+              <SectionWindowSurface
+                sectionId={openMaximizedWindow.sectionId}
+                roundedClassName="rounded-none"
+                chatHost={ChatWindowPlacementEnum.maximized}
+                headerActions={
+                  <>
+                    <button
+                      type="button"
+                      className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                      onClick={() => {
+                        void bootProjectChatWindowToCanvasSection(
+                          openMaximizedWindow.instanceId,
+                        );
+                      }}
+                      aria-label={`Show ${openMaximizedWindow.title} in canvas`}
+                      data-testid="project-chat-window-show-in-canvas"
+                      data-chat-window-instance-id={
+                        openMaximizedWindow.instanceId
+                      }
+                    >
+                      <MdFlipToFront size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                      onClick={() => {
+                        handleRestoreWindow(openMaximizedWindow.instanceId);
+                      }}
+                      aria-label={`Restore ${openMaximizedWindow.title}`}
+                      data-testid="project-chat-window-restore"
+                      data-chat-window-instance-id={
+                        openMaximizedWindow.instanceId
+                      }
+                    >
+                      <MdFlipToFront size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                      onClick={() => {
+                        handleDockWindow(openMaximizedWindow.instanceId);
+                      }}
+                      aria-label={`Dock ${openMaximizedWindow.title}`}
+                      data-testid="project-chat-window-dock"
+                      data-chat-window-instance-id={
+                        openMaximizedWindow.instanceId
+                      }
+                    >
+                      <MdVerticalAlignBottom size={12} />
+                    </button>
+                    <button
+                      type="button"
+                      className={SECTION_WINDOW_MINIMIZE_BUTTON_CLASS}
+                      onClick={() => {
+                        handleMinimizeWindow(openMaximizedWindow.instanceId);
+                      }}
+                      aria-label={`Minimize ${openMaximizedWindow.title}`}
+                      data-testid="project-chat-window-minimize"
+                      data-chat-window-instance-id={
+                        openMaximizedWindow.instanceId
+                      }
+                    >
+                      <i className="gg-math-minus" />
+                    </button>
+                    <button
+                      type="button"
+                      className={SECTION_WINDOW_CLOSE_BUTTON_CLASS}
+                      onClick={() => {
+                        handleCloseWindow(openMaximizedWindow.instanceId);
+                      }}
+                      aria-label={`Close ${openMaximizedWindow.title}`}
+                      data-testid="project-chat-window-close"
+                      data-chat-window-instance-id={
+                        openMaximizedWindow.instanceId
+                      }
+                    >
+                      <i className="gg-close" />
+                    </button>
+                  </>
+                }
+              />
+            ) : (
+              <ProjectChatWindowSurface
+                title={openMaximizedWindow.title}
+                instanceId={openMaximizedWindow.instanceId}
+                roundedClassName="rounded-none"
+                onTitleClick={() => {
                   handleFocusWindow(openMaximizedWindow.instanceId);
                 }}
-                title={openMaximizedWindow.title}
+                onTitleCommit={(nextTitle) => {
+                  handleSetWindowTitle(
+                    openMaximizedWindow.instanceId,
+                    nextTitle,
+                  );
+                }}
+                actions={[
+                  {
+                    key: "show_in_canvas",
+                    label: `Show ${openMaximizedWindow.title} in canvas`,
+                    testId: "project-chat-window-show-in-canvas",
+                    instanceId: openMaximizedWindow.instanceId,
+                    icon: <MdFlipToFront size={12} />,
+                    onClick: () => {
+                      void bootProjectChatWindowToCanvasSection(
+                        openMaximizedWindow.instanceId,
+                      );
+                    },
+                  },
+                  {
+                    key: "restore",
+                    label: `Restore ${openMaximizedWindow.title}`,
+                    testId: "project-chat-window-restore",
+                    instanceId: openMaximizedWindow.instanceId,
+                    icon: <MdFlipToFront size={12} />,
+                    onClick: () => {
+                      handleRestoreWindow(openMaximizedWindow.instanceId);
+                    },
+                  },
+                  {
+                    key: "dock",
+                    label: `Dock ${openMaximizedWindow.title}`,
+                    testId: "project-chat-window-dock",
+                    instanceId: openMaximizedWindow.instanceId,
+                    icon: <MdVerticalAlignBottom size={12} />,
+                    onClick: () => {
+                      handleDockWindow(openMaximizedWindow.instanceId);
+                    },
+                  },
+                  {
+                    key: "minimize",
+                    label: `Minimize ${openMaximizedWindow.title}`,
+                    testId: "project-chat-window-minimize",
+                    instanceId: openMaximizedWindow.instanceId,
+                    className: SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+                    icon: <i className="gg-math-minus" />,
+                    onClick: () => {
+                      handleMinimizeWindow(openMaximizedWindow.instanceId);
+                    },
+                  },
+                  {
+                    key: "close",
+                    label: `Close ${openMaximizedWindow.title}`,
+                    testId: "project-chat-window-close",
+                    instanceId: openMaximizedWindow.instanceId,
+                    className: SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+                    icon: <i className="gg-close" />,
+                    onClick: () => {
+                      handleCloseWindow(openMaximizedWindow.instanceId);
+                    },
+                  },
+                ]}
               >
-                <RiChat3Line size={13} className="shrink-0" />
-                <span className="truncate">{openMaximizedWindow.title}</span>
-              </button>
-              <div className="ml-2 flex items-center gap-1">
-                <button
-                  type="button"
-                  className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                  onClick={() => {
-                    handleRestoreWindow(openMaximizedWindow.instanceId);
-                  }}
-                  aria-label={`Restore ${openMaximizedWindow.title}`}
-                  data-testid="project-chat-window-restore"
-                  data-chat-window-instance-id={openMaximizedWindow.instanceId}
-                >
-                  <MdFlipToFront size={13} />
-                </button>
-                <button
-                  type="button"
-                  className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                  onClick={() => {
-                    handleDockWindow(openMaximizedWindow.instanceId);
-                  }}
-                  aria-label={`Dock ${openMaximizedWindow.title}`}
-                  data-testid="project-chat-window-dock"
-                  data-chat-window-instance-id={openMaximizedWindow.instanceId}
-                >
-                  <MdVerticalAlignBottom size={13} />
-                </button>
-                <button
-                  type="button"
-                  className={SECTION_STYLE_CONTROL_BUTTON_CLASS}
-                  onClick={() => {
-                    handleMinimizeWindow(openMaximizedWindow.instanceId);
-                  }}
-                  aria-label={`Minimize ${openMaximizedWindow.title}`}
-                  data-testid="project-chat-window-minimize"
-                  data-chat-window-instance-id={openMaximizedWindow.instanceId}
-                >
-                  <MdMinimize size={13} />
-                </button>
-              </div>
-            </header>
-            <UnifiedChatSurface
-              mode={ChatWindowModeEnum.project_ai_mode}
-              host={ChatWindowPlacementEnum.maximized}
-            />
+                <UnifiedChatSurface
+                  mode={ChatWindowModeEnum.project_ai_mode}
+                  host={ChatWindowPlacementEnum.maximized}
+                />
+              </ProjectChatWindowSurface>
+            )}
           </article>
         </section>
       ) : null}
-      <div
-        className="pointer-events-none fixed z-[9]"
-        style={{
-          left: "50%",
-          width: dockSurfaceWidthCss,
-          transform: "translateX(-50%)",
-          bottom: dockBottomOffsetPx + DOCK_TAB_OVERLAY_BOTTOM_INSET_PX,
-        }}
-      >
+      {showStandaloneMinimizedPills ? (
         <div
-          ref={pillViewportRef}
-          className="relative mx-auto flex min-w-0 max-w-full items-end justify-center gap-1 px-2"
+          className="pointer-events-none fixed"
+          style={{
+            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
+            left: SIDE_RAIL_WIDTH_PX + DOCK_SURFACE_HORIZONTAL_MARGIN_PX,
+            right: dockSurfaceRightPx,
+            bottom: dockBottomOffsetPx,
+          }}
         >
-          <div
-            className="pointer-events-none absolute left-0 top-0 h-0 overflow-hidden opacity-0"
-            aria-hidden="true"
-          >
-            <div
-              ref={fullMeasureRowRef}
-              className="flex w-max items-center gap-1"
-            >
-              {hiddenDockedPills.map((pill) => (
-                <div
-                  key={`measure-full-${pill.instanceId}`}
-                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-b-sm rounded-t-md border border-setta-300 border-b-setta-200 bg-setta-100 px-2 text-xs"
-                >
-                  <span className="max-w-[9.5rem] truncate">{pill.title}</span>
-                </div>
-              ))}
-            </div>
-            <div
-              ref={compactMeasureRowRef}
-              className="mt-1 flex w-max items-center gap-1"
-            >
-              {hiddenDockedPills.map((pill) => (
-                <div
-                  key={`measure-compact-${pill.instanceId}`}
-                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-sm rounded-t-md border border-setta-300 border-b-setta-200 bg-setta-100"
-                >
-                  <RiChat3Line size={14} />
-                </div>
-              ))}
-            </div>
-          </div>
-          {pillDisplayMode === "cycle" ? (
-            <button
-              type="button"
-              className="pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 bg-setta-50 text-setta-700 shadow-sm transition-colors enabled:hover:bg-setta-100 enabled:hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-45 dark:border-setta-700 dark:bg-setta-860 dark:text-setta-200 dark:enabled:hover:bg-setta-800 dark:enabled:hover:text-setta-50"
-              onClick={() => {
-                setPillCycleStartIndex((current) => Math.max(0, current - 1));
-              }}
-              disabled={!canCycleBackward}
-              aria-label="Show previous chat windows"
-              data-testid="project-chat-bottom-dock-cycle-left"
-            >
-              <MdChevronLeft size={14} />
-            </button>
-          ) : null}
-          <div className="flex min-w-0 items-end justify-center gap-1 overflow-hidden">
-            {visiblePills.map((pill) => {
-              const baseClass = buildPillBaseClass(false);
-              if (useCompactPills) {
-                return (
-                  <button
-                    key={pill.instanceId}
-                    type="button"
-                    className={`pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-sm rounded-t-md border border-b-setta-200 text-xs shadow-sm transition-colors ${baseClass} ${pill.isClosed ? "opacity-65" : ""}`}
-                    onClick={() => {
-                      handleOpenWindow(pill.instanceId);
-                    }}
-                    title={pill.title}
-                    aria-label={pill.title}
-                    data-testid="project-chat-bottom-dock-pill"
-                  >
-                    <RiChat3Line size={14} />
-                  </button>
-                );
-              }
-              return (
-                <button
-                  key={pill.instanceId}
-                  type="button"
-                  className={`pointer-events-auto inline-flex h-7 min-w-0 shrink-0 items-center gap-1 rounded-b-sm rounded-t-md border border-b-setta-200 px-2 text-xs shadow-sm transition-colors ${baseClass} ${pill.isClosed ? "opacity-65" : ""}`}
-                  onClick={() => {
-                    handleOpenWindow(pill.instanceId);
-                  }}
-                  title={pill.title}
-                  data-testid="project-chat-bottom-dock-pill"
-                >
-                  <RiChat3Line size={12} className="shrink-0" />
-                  <span className="max-w-[9.5rem] truncate">{pill.title}</span>
-                </button>
+          <MinimizedPillStrip
+            pills={stripPills}
+            visiblePills={visiblePills}
+            menuPills={dockMenuPills}
+            pillExitAnimationsById={pillExitAnimationsById}
+            useCompactPills={useCompactPills}
+            canCycleBackward={canCycleBackward}
+            canCycleForward={canCycleForward}
+            maxCycleStartIndex={maxCycleStartIndex}
+            pillDisplayMode={pillDisplayMode}
+            pillViewportRef={pillViewportRef}
+            fullMeasureRowRef={fullMeasureRowRef}
+            compactMeasureRowRef={compactMeasureRowRef}
+            onCycleBackward={() => {
+              setPillCycleStartIndex((current) => Math.max(0, current - 1));
+            }}
+            onCycleForward={() => {
+              setPillCycleStartIndex((current) =>
+                Math.min(maxCycleStartIndex, current + 1),
               );
-            })}
-          </div>
-          {pillDisplayMode === "cycle" ? (
-            <button
-              type="button"
-              className="pointer-events-auto inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 bg-setta-50 text-setta-700 shadow-sm transition-colors enabled:hover:bg-setta-100 enabled:hover:text-setta-900 disabled:cursor-not-allowed disabled:opacity-45 dark:border-setta-700 dark:bg-setta-860 dark:text-setta-200 dark:enabled:hover:bg-setta-800 dark:enabled:hover:text-setta-50"
-              onClick={() => {
-                setPillCycleStartIndex((current) =>
-                  Math.min(maxCycleStartIndex, current + 1),
-                );
-              }}
-              disabled={!canCycleForward}
-              aria-label="Show more chat windows"
-              data-testid="project-chat-bottom-dock-cycle-right"
-            >
-              <MdChevronRight size={14} />
-            </button>
-          ) : null}
+            }}
+            onOpenWindow={handleOpenWindow}
+            onCreateWindow={handleCreate}
+          />
         </div>
-      </div>
+      ) : null}
       <nav
-        className="pointer-events-none fixed z-[9]"
+        className="pointer-events-none fixed"
         style={{
-          left: "50%",
+          zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
+          right: dockSurfaceRightPx,
           width: dockSurfaceWidthCss,
-          transform: "translateX(-50%)",
           bottom: dockBottomOffsetPx + DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX,
           height: DOCK_BAR_HEIGHT_PX,
         }}
         data-testid="project-chat-bottom-dock-strip"
       />
-      <button
-        type="button"
-        className="fixed z-[20] inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-setta-300 bg-setta-50 text-setta-700 shadow-[0_6px_14px_rgba(0,0,0,0.18)] transition-colors hover:bg-setta-100 hover:text-setta-900 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800 dark:hover:text-setta-50"
-        style={{
-          right: SIDE_RAIL_WIDTH_PX + 10,
-          bottom: dockBottomOffsetPx + 48,
-        }}
-        onClick={handleCreate}
-        aria-label="Create chat window"
-        data-testid="project-chat-bottom-dock-create"
-      >
-        <MdAdd size={16} />
-      </button>
       {showCanvasVisibilityToggle ? (
         <button
           type="button"
-          className={`fixed z-[20] inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border shadow-[0_6px_14px_rgba(0,0,0,0.18)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+          className={`${CANVAS_VISIBILITY_TOGGLE_BUTTON_CLASS} ${
             isCanvasVisibilitySuppressed
-              ? "border-blue-500 bg-blue-500 text-white hover:bg-blue-600 dark:border-blue-500 dark:bg-blue-500 dark:text-white dark:hover:bg-blue-400"
-              : "border-setta-300 bg-setta-50 text-setta-700 hover:bg-setta-100 hover:text-setta-900 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800 dark:hover:text-setta-50"
+              ? CANVAS_VISIBILITY_TOGGLE_BUTTON_ACTIVE_CLASS
+              : ""
           }`}
           style={{
+            zIndex: CHAT_WINDOW_TOGGLE_Z_INDEX,
             left: 6,
             bottom: dockBottomOffsetPx + 136,
           }}
