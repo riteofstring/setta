@@ -543,7 +543,10 @@ export function RunInstructions() {
   }
 
   const codegenPolicyContent = !pythonCodegenEnabled ? (
-    <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
+    <div
+      className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300"
+      data-testid="run-instructions-codegen-policy-disabled-message"
+    >
       Enable Python codegen to edit section policy settings.
     </div>
   ) : (
@@ -564,6 +567,7 @@ export function RunInstructions() {
           <Switch.Root
             className={TOGGLE_ROOT_CLASSES}
             checked={pythonTarget.generateMetadata}
+            data-testid="run-instructions-python-metadata-toggle"
             disabled={isDeploymentMode}
             onCheckedChange={(checked) =>
               updatePythonTarget((target) => ({
@@ -1220,6 +1224,7 @@ export function RunInstructions() {
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}
                   checked={pythonCodegenEnabled}
+                  data-testid="run-instructions-python-codegen-toggle"
                   disabled={isDeploymentMode}
                   onCheckedChange={handleCodegenTargetToggle}
                 >
