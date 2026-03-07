@@ -407,4 +407,30 @@ describe("endpointUtils URL routing", () => {
 
     expect(getErrorCode(binaryJson)).toBe("missing_api_key");
   });
+
+  it("extracts Go-style error envelopes", () => {
+    const payload = {
+      error: {
+        code: "unknown_share_session",
+        message: "Share session not found: share-a",
+      },
+    };
+
+    expect(getErrorDetail(payload)).toBe("Share session not found: share-a");
+    expect(getErrorCode(payload)).toBe("unknown_share_session");
+  });
+
+  it("extracts Go-style error envelopes from binary JSON payloads", () => {
+    const binaryJson = new TextEncoder().encode(
+      JSON.stringify({
+        error: {
+          code: "project_config_not_found",
+          message: "Project config not found.",
+        },
+      }),
+    );
+
+    expect(getErrorDetail(binaryJson)).toBe("Project config not found.");
+    expect(getErrorCode(binaryJson)).toBe("project_config_not_found");
+  });
 });
