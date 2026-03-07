@@ -96,8 +96,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 37 {
-		t.Fatalf("expected 37 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 38 {
+		t.Fatalf("expected 38 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -115,11 +115,14 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 37 {
-		t.Fatalf("expected 37 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 38 {
+		t.Fatalf("expected 38 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "set_gen_code_prefix") {
 		t.Fatalf("expected set_gen_code_prefix in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "set_gen_code_suffix") {
+		t.Fatalf("expected set_gen_code_suffix in registered tool names, got %#v", rawNames)
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2332,6 +2335,149 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetGenCodePrefixOverAuthenticated
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetGenCodeSuffixOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_suffix",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"genCodeSuffix":   "state = CustomState()\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_gen_code_suffix: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_gen_code_suffix success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_gen_code_suffix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after app set_gen_code_suffix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after app set_gen_code_suffix")
+	}
+	if config.GenCodeSuffix != "state = CustomState()\n" {
+		t.Fatalf("expected persisted gen code suffix after app mutation, got %q", config.GenCodeSuffix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "state = CustomState()") {
+		t.Fatalf("expected generated python file to include suffix, got %q", content)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetGenCodeSuffixOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_gen_code_suffix",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"genCodeSuffix":   "state = RuntimeState()\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_gen_code_suffix: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_gen_code_suffix success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_gen_code_suffix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after temp-id app set_gen_code_suffix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after temp-id app set_gen_code_suffix")
+	}
+	if config.GenCodeSuffix != "state = RuntimeState()\n" {
+		t.Fatalf("expected persisted gen code suffix after temp-id app mutation, got %q", config.GenCodeSuffix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "state = RuntimeState()") {
+		t.Fatalf("expected generated python file to include temp-id suffix, got %q", content)
+	}
+}
+
 func TestAppIDEMCPServerSupportsTogglePositionLocksOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -3987,8 +4133,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 37 {
-		t.Fatalf("expected tool count 37, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 38 {
+		t.Fatalf("expected tool count 38, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -5365,6 +5511,86 @@ func TestAppIDEMCPToolCallRouteSupportsSetGenCodePrefix(t *testing.T) {
 	content := mustReadAppGeneratedPythonCode(t, cfg)
 	if !strings.Contains(content, "import math") {
 		t.Fatalf("expected generated python file to include route prefix, got %q", content)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetGenCodeSuffix(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_gen_code_suffix",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"genCodeSuffix":"state = CustomState()\n"
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_gen_code_suffix tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_gen_code_suffix tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_gen_code_suffix success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_gen_code_suffix: %v", err)
+	}
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("decode python target after route set_gen_code_suffix: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after route set_gen_code_suffix")
+	}
+	if config.GenCodeSuffix != "state = CustomState()\n" {
+		t.Fatalf("expected persisted gen code suffix after route mutation, got %q", config.GenCodeSuffix)
+	}
+
+	content := mustReadAppGeneratedPythonCode(t, cfg)
+	if !strings.Contains(content, "state = CustomState()") {
+		t.Fatalf("expected generated python file to include route suffix, got %q", content)
 	}
 }
 

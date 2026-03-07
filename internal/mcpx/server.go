@@ -86,6 +86,7 @@ type projectStateProvider interface {
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
 	SetGenCodePrefix(ctx context.Context, projectID string, genCodePrefix string) (projectstate.Snapshot, error)
+	SetGenCodeSuffix(ctx context.Context, projectID string, genCodeSuffix string) (projectstate.Snapshot, error)
 	SetProjectCodegenTargets(ctx context.Context, projectID string, targets []projectstate.ProjectCodegenTarget, validator projectstate.CodegenTargetValidator, pythonReconciler projectstate.PythonCodegenSectionReconciler) (projectstate.Snapshot, error)
 	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
@@ -1141,6 +1142,40 @@ func newSetGenCodePrefixHandler(projectState projectStateProvider) tools.Handler
 		}
 
 		if _, err := projectState.SetGenCodePrefix(ctx, projectConfigID, genCodePrefix); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetGenCodeSuffixHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		genCodeSuffix, err := readRequiredRawStringArgument(arguments, "genCodeSuffix")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped gen-code-suffix invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetGenCodeSuffix(ctx, projectConfigID, genCodeSuffix); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -2541,6 +2576,44 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "genCodePrefix"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_gen_code_suffix",
+				Description: "Update the text appended after generated Python code for the active project config.",
+				Metadata: tools.Metadata{
+					Kind:                          tools.KindDiscoverable,
+					AccessType:                    tools.AccessTypeWrite,
+					DefaultTargetSingletonSection: "GenPythonCode",
+					SearchCategory:                "codegen",
+					SearchTags:                    []string{"codegen", "python", "generated", "suffix", "write"},
+				},
+				Handler: newSetGenCodeSuffixHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose generated Python suffix should be updated.",
+					},
+					"genCodeSuffix": map[string]any{
+						"type":        "string",
+						"description": "Arbitrary text inserted after the generated Python body.",
+					},
+				},
+				"required": []string{"projectConfigId", "genCodeSuffix"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",

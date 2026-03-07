@@ -13,11 +13,11 @@ mutation surface instead of continuing by local intuition.
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 37 tools total
-- 34 current Go tool names overlap with Python
+- Go MCP now exposes 38 tools total
+- 35 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 32 of those overlaps are mutation or structural tools
-- Python still has 17 mutation or structural project-state MCP tools that do
+- 33 of those overlaps are mutation or structural tools
+- Python still has 16 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
@@ -65,9 +65,10 @@ MCP server:
 - writes:
   - `set_section_name`
   - `set_section_tag_color`
-  - `set_section_style_color`
-  - `set_gen_code_prefix`
-  - `set_callable`
+- `set_section_style_color`
+- `set_gen_code_prefix`
+- `set_gen_code_suffix`
+- `set_callable`
   - `set_code`
   - `set_top_level_section_layout`
   - `add_kwarg`
@@ -87,39 +88,27 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- `set_gen_code_suffix`
+- `format_code`
 
 Why this is next:
 
-1. `set_gen_code_prefix` proved the Go-owned Python target write path and the
-   singleton-section MCP boundary end to end.
-2. `set_gen_code_suffix` reuses the same owner and transport shape:
-   - narrow persisted mutation on the Python target
-   - scoped MCP write transport over
-     `defaultTargetSingletonSection="GenPythonCode"`
-3. It stays within the same bounded codegen-target subsystem before the
-   remaining gaps broaden again into formatting, layout, or app-definition
-   work.
-
-### 2. Good Follow-Ons After `set_gen_code_suffix`
-
-- `format_code`
-
-Why it follows naturally:
-
-1. The prefix/suffix target-field parity work will have closed the narrow
-   Python codegen target write gap.
+1. The narrow Python target prefix/suffix parity gap is now closed on the
+   Go-owned MCP boundary.
 2. `format_code` is the next product capability in the same user workflow that
-   still depends on broader Go-owned formatting and export semantics.
-3. It is meaningfully larger than the prefix/suffix writes, so it should not
-   block this smaller parity step.
+   still remains Python-owned.
+3. It is the highest-leverage remaining mutation gap before the unresolved
+   layout/variant/app-definition cluster broadens scope again.
+
+### 2. After `format_code`
+
+- rerank the remaining mutation gaps against the authoritative formatting owner
+- do not guess the post-formatting order in advance
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
 These should not be turned into MCP work until their authoritative Go mutation
 owner is clearer:
 
-- `format_code`
 - `set_section_sizes`
 - `toggle_group_orientation`
 - `set_group_overflow_mode`
@@ -146,7 +135,7 @@ priority:
 
 ## Recommended Next Step
 
-- use `set_gen_code_suffix` as the next bounded MCP slice
+- scope `format_code` as the next bounded Phase 6 slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -156,9 +145,10 @@ priority:
 
 ## Verification
 
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetGenCodePrefix|TestMCPToolCallRouteSetGenCodePrefixAcceptsTemporaryIDs' -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetGenCodePrefixOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetGenCodePrefixOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetGenCodePrefix|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeSetGenCode(Suffix|Prefix)(PersistsPythonTargetField|RequiresPythonTarget)' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServerListsToolsAndScopesToolCalls|TestServerSetGenCodePrefixRespectsScopedWriteTargets|TestServerSetGenCodePrefixAllowsUnscopedCallsAndTranslatesTemporaryProjectID|TestServerSetGenCodePrefixRejectsProjectsWithoutPythonCodegen|TestServerSetGenCodeSuffixRespectsScopedWriteTargets|TestServerSetGenCodeSuffixAllowsUnscopedCallsAndTranslatesTemporaryProjectID|TestServerSetGenCodeSuffixRejectsProjectsWithoutPythonCodegen' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetGenCode(Prefix|Suffix)|TestMCPToolCallRouteSetGenCode(Prefix|Suffix)AcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetGenCode(Prefix|Suffix)OverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetGenCode(Prefix|Suffix)OverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetGenCode(Prefix|Suffix)|TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -218,3 +208,7 @@ priority:
   tool over the existing Go Python codegen target owner and `GenPythonCode`
   singleton-target scope boundary.
 - 2026-03-07: the next bounded slice moved to `set_gen_code_suffix`.
+- 2026-03-07: `set_gen_code_suffix` MCP parity completed as a scoped write
+  tool over the existing Go Python codegen target owner and `GenPythonCode`
+  singleton-target scope boundary.
+- 2026-03-07: the next bounded slice moved to `format_code`.
