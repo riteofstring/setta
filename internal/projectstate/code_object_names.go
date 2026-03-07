@@ -168,6 +168,25 @@ func validateCodeObjectNameForSection(project Project, sectionID string, codeObj
 	return normalized, nil
 }
 
+func validateParamCodeObjectNameForSection(project Project, sectionID string, codeObjID string, name string) (string, error) {
+	section, variant, impl, err := project.ResolveSection(sectionID)
+	if err != nil {
+		return "", err
+	}
+	sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
+	if err != nil {
+		return "", err
+	}
+	sectionType := payloadStringField(sectionPayload, "type")
+	if sectionType == "" {
+		sectionType = fallbackSectionType(impl)
+	}
+	if sectionType == "MetaControl" {
+		return "", fmt.Errorf("%w: section=%q type=%q", ErrCodeObjRenameUnsupported, section.ID, sectionType)
+	}
+	return validateCodeObjectNameForSection(project, section.ID, codeObjID, name)
+}
+
 func validateCodeObjectNameFormat(
 	project Project,
 	sectionPayload map[string]any,

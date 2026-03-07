@@ -65,6 +65,7 @@ type projectStateProvider interface {
 	DeleteChildSectionsViaDecrementer(ctx context.Context, projectID string, input projectstate.DeleteChildSectionsViaDecrementerInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
+	SetParamNameAndValue(ctx context.Context, projectID string, sectionID string, codeObjID string, name string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
 	SetCodeObjectName(ctx context.Context, projectID string, codeObjID string, name string) (projectstate.Snapshot, error)
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
@@ -872,6 +873,52 @@ func newSetParamEnteredValueHandler(projectState projectStateProvider) tools.Han
 	}
 }
 
+func newSetParamNameAndValueHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		codeObjID, err := readRequiredStringArgument(arguments, "codeObjId")
+		if err != nil {
+			return nil, err
+		}
+		name, err := readRequiredRawStringArgument(arguments, "name")
+		if err != nil {
+			return nil, err
+		}
+		value, err := readRequiredRawStringArgument(arguments, "value")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped param name/value invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetParamNameAndValue(ctx, projectConfigID, sectionID, codeObjID, name, value); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
 func newSetTypeErrorIgnoreHandler(projectState projectStateProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -1578,6 +1625,59 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId", "sectionId", "paramInfoId", "value"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_param_name_and_value",
+				Description: "Rename the targeted parameter and persist its raw value in one mutation.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection:    {"sectionId"},
+						tools.IDTypeCodeObject: {"codeObjId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "name", "rename", "value", "write"},
+				},
+				Handler: newSetParamNameAndValueHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose parameter should be renamed and updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id containing the targeted parameter.",
+					},
+					"codeObjId": map[string]any{
+						"type":        "string",
+						"description": "Code-object id for the targeted parameter.",
+					},
+					"name": map[string]any{
+						"type":        "string",
+						"description": "Parameter name to store on the referenced code object.",
+					},
+					"value": map[string]any{
+						"type":        "string",
+						"description": "Raw parameter value to persist.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "codeObjId", "name", "value"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",

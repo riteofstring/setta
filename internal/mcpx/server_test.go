@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 18 {
-		t.Fatalf("expected 18 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 19 {
+		t.Fatalf("expected 19 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -152,6 +152,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var muteTool *sdkmcp.Tool
 	var setSectionNameTool *sdkmcp.Tool
 	var setParamTool *sdkmcp.Tool
+	var setParamNameAndValueTool *sdkmcp.Tool
 	var setTypeErrorIgnoreTool *sdkmcp.Tool
 	var setCodeObjNameTool *sdkmcp.Tool
 	var setCodeObjDisplayNameTool *sdkmcp.Tool
@@ -191,6 +192,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "set_param_entered_value" {
 			setParamTool = tool
 		}
+		if tool.Name == "set_param_name_and_value" {
+			setParamNameAndValueTool = tool
+		}
 		if tool.Name == "set_type_error_ignore" {
 			setTypeErrorIgnoreTool = tool
 		}
@@ -222,6 +226,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_code_section_diagnostic_code_suppression",
 		"set_code_section_diagnostics_mute",
 		"set_param_entered_value",
+		"set_param_name_and_value",
 		"set_section_name",
 		"set_type_error_ignore",
 	}
@@ -350,6 +355,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setParamTool == nil {
 		t.Fatal("expected set_param_entered_value tool")
 	}
+	if setParamNameAndValueTool == nil {
+		t.Fatal("expected set_param_name_and_value tool")
+	}
 	if setTypeErrorIgnoreTool == nil {
 		t.Fatal("expected set_type_error_ignore tool")
 	}
@@ -383,6 +391,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, setParamPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "paramInfoId" {
 		t.Fatalf("expected set_param_entered_value paramInfoId target path, got %#v", got)
 	}
+	setParamNameAndValueMeta := mustStructuredMap(t, setParamNameAndValueTool.Meta[toolMetaNamespace])
+	setParamNameAndValuePaths := mustStructuredMap(t, setParamNameAndValueMeta["idPathsByType"])
+	if got := mustStringList(t, setParamNameAndValuePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_param_name_and_value sectionId target path, got %#v", got)
+	}
+	if got := mustStringList(t, setParamNameAndValuePaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
+		t.Fatalf("expected set_param_name_and_value codeObjId target path, got %#v", got)
+	}
 	setCodeObjNameMeta := mustStructuredMap(t, setCodeObjNameTool.Meta[toolMetaNamespace])
 	setCodeObjNamePaths := mustStructuredMap(t, setCodeObjNameMeta["idPathsByType"])
 	if got := mustStringList(t, setCodeObjNamePaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
@@ -400,8 +416,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 18 {
-		t.Fatalf("expected 18 registered tool names, got %#v", listNames)
+	if len(listNames) != 19 {
+		t.Fatalf("expected 19 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -727,6 +743,106 @@ func TestServerSetParamEnteredValueRespectsScopedWriteTargets(t *testing.T) {
 	}
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
 		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetParamNameAndValueRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_name_and_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"codeObjId":       "allowed-param",
+			"name":            "user-id@v2",
+			"value":           "updated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_param_name_and_value allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_param_name_and_value success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_param_name_and_value: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
+		t.Fatalf("expected code object name user-id@v2, got %q", got)
+	}
+	payload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after combined update: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "updated" {
+		t.Fatalf("expected updated param value, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_name_and_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-params-section",
+			"codeObjId":       "blocked-param",
+			"name":            "blocked_name",
+			"value":           "blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_param_name_and_value blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_param_name_and_value call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetParamNameAndValueReturnsInvalidArgumentsForInvalidName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_name_and_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"codeObjId":       "allowed-param",
+			"name":            "bad\nname",
+			"value":           "updated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_param_name_and_value invalid name: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_param_name_and_value call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != "Param name cannot include control characters." {
+		t.Fatalf("expected control-character validation message, got %#v", payload["message"])
 	}
 }
 
@@ -1956,6 +2072,93 @@ func TestServerSetParamEnteredValueTranslatesTemporaryIDs(t *testing.T) {
 	}
 	if !blockedResult.IsError {
 		t.Fatal("expected blocked temp-id set_param_entered_value call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "21" {
+		t.Fatalf("expected translated blockedSectionIds [21], got %#v", ids)
+	}
+}
+
+func TestServerSetParamNameAndValueTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "20",
+		"blocked-params-section": "21",
+		"allowed-param":          "22",
+		"blocked-param":          "23",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_name_and_value",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"codeObjId":       "22",
+			"name":            "translated_name",
+			"value":           "translated",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_param_name_and_value allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_param_name_and_value success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id combined update: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "translated_name" {
+		t.Fatalf("expected translated code object name, got %q", got)
+	}
+	payload, _, _, _, err := project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after temp-id combined update: %v", err)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "translated" {
+		t.Fatalf("expected translated param value, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_name_and_value",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "21",
+			"codeObjId":       "23",
+			"name":            "blocked_name",
+			"value":           "blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_param_name_and_value blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_param_name_and_value call to fail")
 	}
 	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "21" {

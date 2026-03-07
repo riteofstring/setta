@@ -343,6 +343,39 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 
 	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_param_name_and_value",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","codeObjId":"allowed-param","name":"user-id@v2","value":"renamed"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_param_name_and_value success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_param_name_and_value: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
+		t.Fatalf("expected code object name user-id@v2, got %q", got)
+	}
+	paramPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-params-section", "allowed-param")
+	if err != nil {
+		t.Fatalf("resolve allowed-param after route set_param_name_and_value: %v", err)
+	}
+	if got := paramPayload["value"]; got != "renamed" {
+		t.Fatalf("expected renamed param value, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
 		"tool":"set_type_error_ignore",
 		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-params-section","paramInfoId":"allowed-param","ignoreTypeErrors":true},
 		"agenticContext":{
