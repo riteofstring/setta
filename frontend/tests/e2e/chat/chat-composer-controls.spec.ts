@@ -958,7 +958,7 @@ test.describe.serial("chat composer controls", () => {
       await submitButton.click();
 
       await expect(
-        section.getByText("Unknown or unavailable command. Use /help."),
+        section.getByText("/search is unavailable in the current context. Use /help."),
       ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
     } finally {
