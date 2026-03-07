@@ -85,6 +85,7 @@ type FilesystemWorkerSpecResolverOptions struct {
 	WorkspaceRoot    string
 	SettaFilesRoot   string
 	SettaHome        string
+	RuntimeProvider  WorkerRuntimeProvider
 	PythonBinary     string
 	ServerMode       config.Mode
 	Environment      []string
@@ -97,10 +98,8 @@ type FilesystemWorkerSpecResolver struct {
 	globalPluginsRoot     string
 	pluginsStatePath      string
 	pluginsGlobalState    string
-	pythonBinary          string
+	runtimeProvider       WorkerRuntimeProvider
 	serverMode            config.Mode
-	environment           []string
-	workingDirectory      string
 }
 
 type filesystemPluginManifest struct {
@@ -163,10 +162,6 @@ func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions
 		return nil, ErrFilesystemWorkerSpecResolverSettaHomeRequired
 	}
 
-	pythonBinary := strings.TrimSpace(options.PythonBinary)
-	if pythonBinary == "" {
-		return nil, ErrFilesystemWorkerSpecResolverPythonBinaryRequired
-	}
 	serverMode := options.ServerMode
 	if serverMode == "" {
 		return nil, ErrFilesystemWorkerSpecResolverServerModeRequired
@@ -175,12 +170,28 @@ func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions
 		return nil, fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverServerModeInvalid, serverMode)
 	}
 
-	workingDirectory := ""
-	if strings.TrimSpace(options.WorkingDirectory) != "" {
-		workingDirectory, err = statefs.NormalizePath(options.WorkingDirectory, "")
-		if err != nil {
-			return nil, fmt.Errorf("resolve plugin worker working directory: %w", err)
+	runtimeProvider := options.RuntimeProvider
+	if runtimeProvider == nil {
+		pythonBinary := strings.TrimSpace(options.PythonBinary)
+		if pythonBinary == "" {
+			return nil, ErrFilesystemWorkerSpecResolverPythonBinaryRequired
 		}
+
+		workingDirectory := ""
+		if strings.TrimSpace(options.WorkingDirectory) != "" {
+			workingDirectory, err = statefs.NormalizePath(options.WorkingDirectory, "")
+			if err != nil {
+				return nil, fmt.Errorf("resolve plugin worker working directory: %w", err)
+			}
+		}
+
+		runtimeProvider = WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
+			return WorkerRuntime{
+				PythonBinary:     pythonBinary,
+				Environment:      append([]string(nil), options.Environment...),
+				WorkingDirectory: workingDirectory,
+			}, nil
+		})
 	}
 
 	return &FilesystemWorkerSpecResolver{
@@ -189,10 +200,8 @@ func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions
 		globalPluginsRoot:     filepath.Join(settaHome, "plugins"),
 		pluginsStatePath:      filepath.Join(settaFilesRoot, "plugins_state.json"),
 		pluginsGlobalState:    filepath.Join(settaHome, "plugins_global_state.json"),
-		pythonBinary:          pythonBinary,
+		runtimeProvider:       runtimeProvider,
 		serverMode:            serverMode,
-		environment:           append([]string(nil), options.Environment...),
-		workingDirectory:      workingDirectory,
 	}, nil
 }
 
@@ -253,8 +262,13 @@ func (r *FilesystemWorkerSpecResolver) ResolvePluginCodegenWorkerSpec(ctx contex
 			return BackendWorkerSpec{}, fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverCodegenCapability, pluginID)
 		}
 
+		runtime, err := r.runtimeProvider.ResolveWorkerRuntime(ctx)
+		if err != nil {
+			return BackendWorkerSpec{}, err
+		}
+
 		return BackendWorkerSpec{
-			PythonBinary:          r.pythonBinary,
+			PythonBinary:          runtime.PythonBinary,
 			PluginID:              manifest.ID,
 			PluginVersion:         manifest.Version,
 			PluginRoot:            candidate.root,
@@ -262,8 +276,8 @@ func (r *FilesystemWorkerSpecResolver) ResolvePluginCodegenWorkerSpec(ctx contex
 			ServerMode:            string(r.serverMode),
 			RequestedCapabilities: requestedCapabilities,
 			EffectiveCapabilities: effectiveCapabilities,
-			Environment:           append([]string(nil), r.environment...),
-			WorkingDirectory:      r.workingDirectory,
+			Environment:           runtime.Environment,
+			WorkingDirectory:      runtime.WorkingDirectory,
 		}, nil
 	}
 
