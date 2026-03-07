@@ -966,6 +966,32 @@ test("project ai chat reloads unresolved native slash commands once authority be
     overviewVis: true,
   });
 
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+  const engineConfigsResponse = await page.request.get(
+    `${backendOrigin}/api/getEngineConfigs`,
+  );
+  expect(engineConfigsResponse.ok()).toBe(true);
+  const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+    id: string;
+    name: string;
+    engineType: string;
+    externalAgentConfigId?: string | null;
+  }>;
+  const externalEngine = engineConfigs.find(
+    (engine) => engine.engineType === "external_agent",
+  );
+  if (!externalEngine) {
+    throw new Error(
+      "Missing external agent engine for cached native slash submit test.",
+    );
+  }
+  if (!externalEngine.externalAgentConfigId) {
+    throw new Error(
+      "Missing external agent config id for cached native slash submit test.",
+    );
+  }
+
   await page.route("**/api/getAppGenSkills", async (route) => {
     await route.fulfill({
       status: 200,
@@ -973,31 +999,38 @@ test("project ai chat reloads unresolved native slash commands once authority be
       body: JSON.stringify(buildAppGenSkillsResponse([])),
     });
   });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          configId: externalEngine.externalAgentConfigId,
+          name: externalEngine.name,
+          toolType: "codex",
+          runMode: "app_server",
+          supported: true,
+          available: true,
+          issues: [],
+          nodePath: null,
+          nodeVersion: null,
+          sdkVersion: null,
+          cliVersion: "0.0.0",
+          baseUrl: null,
+          workingDir: null,
+          envVars: {
+            present: [],
+            missing: [],
+          },
+        },
+      ]),
+    });
+  });
 
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
 
   try {
-    const backendOrigin =
-      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-    const engineConfigsResponse = await page.request.get(
-      `${backendOrigin}/api/getEngineConfigs`,
-    );
-    expect(engineConfigsResponse.ok()).toBe(true);
-    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
-      id: string;
-      name: string;
-      engineType: string;
-    }>;
-    const externalEngine = engineConfigs.find(
-      (engine) => engine.engineType === "external_agent",
-    );
-    if (!externalEngine) {
-      throw new Error(
-        "Missing external agent engine for cached native slash submit test.",
-      );
-    }
-
     let releaseAgentRuns: (() => void) | null = null;
     const agentRunsGate = new Promise<void>((resolve) => {
       releaseAgentRuns = resolve;
@@ -1078,6 +1111,7 @@ test("project ai chat reloads unresolved native slash commands once authority be
 
     const input = page.getByTestId("chat-input-textarea");
     await expect(input).toBeVisible();
+    await expect(input).toBeEnabled();
     await input.fill("/deploy now");
     await page.getByLabel("Send message").click();
 
