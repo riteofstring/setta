@@ -48,6 +48,11 @@ Current repo status as of 2026-03-07:
   - missing-dir ancestor fallback
   - pending move and scheduled scan/delete state
   - file-event routing semantics over manager state
+- runtime-owner Step 1 is now complete:
+  - tracked file snapshots now exist in `internal/watchcode`
+  - stable file identity collection now exists for Unix and Windows builds
+  - snapshot diffing now emits create/modify/delete/move events from file
+    identity, not watcher heuristics
 - the remaining active Watch Code gap is now the runtime owner itself:
   - no concrete watcher adapter is running in Go
   - no Go service currently converts real filesystem activity into manager work
@@ -124,6 +129,8 @@ This focused doc covers:
 
 ### Step 1: File Snapshot And Identity Foundation
 
+Status: complete on 2026-03-07.
+
 Deliver:
 
 - tracked file snapshot model in `internal/watchcode`
@@ -140,7 +147,18 @@ Acceptance:
 - moves are derived from stable identities, not timing or content heuristics
 - recursive/non-recursive scans match the current manager semantics
 
+Completed in this chunk:
+
+- `internal/watchcode/snapshot.go`
+- `internal/watchcode/file_identity_unix.go`
+- `internal/watchcode/file_identity_windows.go`
+- `internal/watchcode/file_identity_other.go`
+- `internal/watchcode/snapshot_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/watchcode -count=1 -timeout 180s`
+
 ### Step 2: Polling Runtime Owner
+
+Status: next in progress boundary.
 
 Deliver:
 
@@ -177,8 +195,9 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 1 next:
+Execute Step 2 next:
 
-- add the tracked file snapshot model and stable identity collector
-- prove move detection from file identity, not watcher heuristics
-- keep app wiring and project-state callbacks out of that first slice
+- add the long-lived polling runtime owner over the tracked file snapshot
+- feed diffed file events through the existing manager
+- drain scheduled scans/deletes into explicit callbacks without touching app
+  wiring yet

@@ -169,6 +169,10 @@ That remaining runtime-owner step is now narrowed in:
 - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
 - the new focused doc records why heuristic rename pairing is out of bounds and
   why file-identity snapshots are the recommended runtime owner
+- Step 1 in that runtime-owner doc is now complete:
+  - tracked file snapshots and stable file identities now exist
+  - move detection is now proven from file identity instead of watcher
+    heuristics
 
 ### Step 3: Runtime Wiring Handoff
 
@@ -212,6 +216,6 @@ For Step 2, add:
 Execute Step 2 next:
 
 - start Step 1 from the new runtime-owner doc:
-  - add the tracked file snapshot model
-  - add stable file identity collection
-  - prove move detection without watcher heuristics
+  - add the long-lived polling runtime owner
+  - route diffed file events through the manager
+  - keep app wiring out of that next slice

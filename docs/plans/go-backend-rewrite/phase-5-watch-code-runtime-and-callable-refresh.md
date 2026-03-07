@@ -75,6 +75,10 @@ The active Slice 2 execution work is now narrowed in:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
   - the key decision there is to avoid heuristic rename pairing and use
     file-identity snapshots for concrete move detection
+  - Step 1 there is now complete:
+    - tracked file snapshots and stable file identities exist in Go
+    - move detection is now derived from file identity instead of watcher
+      heuristics
 
 ## Scope
 
