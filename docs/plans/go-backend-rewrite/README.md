@@ -126,11 +126,14 @@ Use the docs in this order:
   - focused slice doc for Go-owned `update_param_impl_config` MCP parity over
     the completed impl-switch and config-sensitive value-normalization
     boundaries
-56. `spike-mcp.md`
+56. `phase-6-delete-selected-params-tool-parity.md`
+  - focused slice doc for Go-owned `delete_selected_params` MCP parity over
+    the completed param-creation, impl-switch, and config-write boundaries
+57. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-57. `spike-pty.md`
+58. `spike-pty.md`
    - PTY uncertainty-reduction plan
-58. `spike-lsp.md`
+59. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
