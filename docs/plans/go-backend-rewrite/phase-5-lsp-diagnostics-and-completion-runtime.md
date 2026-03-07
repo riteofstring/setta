@@ -35,12 +35,16 @@ Current repo status as of 2026-03-07:
   - canonical Python code-section bindings normalize inside `internal/projectstate`
   - file-backed Python sections keep their canonical on-disk source when the
     current project snapshot has binding metadata but no inline `"code"` field
-- Slice 2 is now in progress:
+- Slice 2 is now complete:
   - Go owns project-scoped code-section diagnostics state and deduped snapshot
     hydration for `getLatestLspDiagnostics`
   - live Python code-section diagnostics now broadcast over the frontend
     websocket as `LSPDiagnostics`
-  - generated-code diagnostics mapping is still pending
+  - generated Python diagnostics mapping is now Go-owned for
+    `setta_gen.py` / `setta_gen_meta.py`
+- Slice 3 is now the active gap:
+  - completion routes still need Go-owned temporary snapshot documents for
+    canonical Python sections and generated Python files
 - there are still no Go-owned HTTP routes for:
   - `textFieldCompletion`
   - `outputAccessorCompletion`
@@ -277,7 +281,7 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
 
 ### Slice 3: Snapshot Completion Transport
 
@@ -370,30 +374,37 @@ Completed in code and tests:
   with deduped code-section payload snapshots
 - `internal/lsp` synchronizer now forwards publish-diagnostics notifications
   for canonical Python code-section documents into that registry
+- `internal/codegen` now maps generated Python diagnostics over the Go-owned
+  dependency graph and renderer, including named/positional call issues,
+  undefined-symbol range overlap, and `ignoreTypeErrors` filtering
+- `internal/projectstate` now merges generated-code and generated-metadata
+  diagnostics into the shared `genCode` / `unmappedGenCode` payload surface
 - `internal/realtime` now exposes `LSPDiagnostics` websocket messages for
   frontend hydration
 - `internal/httpapi` now serves `getLatestLspDiagnostics` from the Go-owned
   diagnostics registry with IDE-only gating
 - `internal/app` now wires save-hook diagnostics updates, section pruning, and
   websocket broadcasts end-to-end
-
-Still pending in Slice 2:
-
-- generated Python diagnostics mapping into `genCode` and `unmappedGenCode`
-- generated-code stale-clear semantics when Python LSP is unavailable or the
-  target is removed
+- `internal/lsp` now refreshes diagnostics callbacks even when tracked
+  document content is unchanged, which keeps generated mapping aligned with
+  policy-only project edits
+- generated metadata diagnostics now clear when metadata generation is disabled
+  or the Python target disappears
 
 Verification completed:
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/httpapi ./internal/lsp ./internal/realtime ./internal/app -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate ./internal/lsp -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate ./internal/httpapi ./internal/lsp ./internal/realtime ./internal/app -count=1 -timeout 150s`
 
 ## Next Recommended Step
 
-Execute Slice 2 next:
+Execute Slice 3 next:
 
-- finish generated Python diagnostics mapping into `genCode` and
-  `unmappedGenCode`
-- clear generated-code diagnostics when Python LSP state disappears instead of
-  leaving stale payloads behind
-- keep the websocket and hydration route reading the same registry snapshot
-  before widening to completion
+- add thin Go routes for snapshot-backed completion requests over canonical
+  Python code-section files and generated Python files
+- keep completion read-only by projecting temporary documents into the live LSP
+  session without mutating canonical tracked files
+- prove the completion path against the existing fixture language-server
+  integration pattern before widening to diagnostics ignore-state routes
