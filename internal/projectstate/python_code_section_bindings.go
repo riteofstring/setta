@@ -1,7 +1,6 @@
 package projectstate
 
 import (
-	"fmt"
 	"path"
 	"sort"
 	"strings"
@@ -123,53 +122,7 @@ func activePythonSectionSlugConflictIDs(project Project) (map[string]struct{}, e
 }
 
 func activeSectionPathFullName(project Project, sectionID string) (string, error) {
-	section, ok := project.Sections[sectionID]
-	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
-	}
-	parentID := strings.TrimSpace(section.ParentSectionID)
-	if parentID == "" {
-		return section.Name, nil
-	}
-
-	childID := sectionID
-	suffix := ""
-	for parentID != "" {
-		childType, err := activeSectionType(project, childID)
-		if err != nil {
-			return "", err
-		}
-		if childType == "ListRoot" {
-			children, err := activeSectionChildren(project, parentID)
-			if err != nil {
-				return "", err
-			}
-			index := indexOfString(children, childID)
-			if index < 0 {
-				return "", fmt.Errorf("project section %q missing from parent %q children", childID, parentID)
-			}
-			suffix = fmt.Sprintf("[%d]%s", index, suffix)
-		} else {
-			childSection, ok := project.Sections[childID]
-			if !ok {
-				return "", fmt.Errorf("%w: %q", ErrSectionNotFound, childID)
-			}
-			suffix = fmt.Sprintf("[\"%s\"]%s", childSection.Name, suffix)
-		}
-
-		parentSection, ok := project.Sections[parentID]
-		if !ok {
-			return "", fmt.Errorf("%w: %q", ErrParentSectionNotFound, parentID)
-		}
-		childID = parentID
-		parentID = strings.TrimSpace(parentSection.ParentSectionID)
-	}
-
-	rootSection, ok := project.Sections[childID]
-	if !ok {
-		return "", fmt.Errorf("%w: %q", ErrSectionNotFound, childID)
-	}
-	return rootSection.Name + suffix, nil
+	return activeSectionPathFullNameWithOverrides(project, sectionID, nil)
 }
 
 func activeSectionType(project Project, sectionID string) (string, error) {

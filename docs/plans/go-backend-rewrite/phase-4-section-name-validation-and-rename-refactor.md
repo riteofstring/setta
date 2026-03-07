@@ -262,7 +262,29 @@ Acceptance:
 
 Status:
 
-- next
+- in progress
+
+Completed so far:
+
+- Go-owned section-name validation now lives in `internal/projectstate`
+- Go-owned `SetSectionName` document/runtime/project mutation helpers now
+  exist for later transport wiring
+- validation now covers:
+  - format/path rules
+  - duplicate sibling names
+  - top-level identifier conflicts after sanitization
+  - descendant full-path slug conflicts across the renamed subtree
+- shared active section full-path resolution now comes from one projectstate
+  helper instead of duplicating path logic in validation and code binding code
+
+Remaining in this slice:
+
+- rename changed-value computation from authoritative Go graph/value data
+- focused tests for rename changed-value planning
+
+Verification so far:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -count=1 -timeout 180s`
 
 ### Slice 3: IDE Transport And Prompt Flow
 
@@ -295,8 +317,9 @@ Status:
 
 ## Next Recommended Step
 
-- Implement Slice 2 next.
-- Add Go-owned section-name validation in `internal/projectstate`.
-- Add the actual rename mutation helper and rename changed-value planner.
-- Keep transport out of scope until those semantics are proven with focused
-  tests.
+- Finish the remaining Slice 2 graph work next.
+- Extend the Go Python dependency graph path to retain parser-backed reference
+  positions, not just reference names.
+- Add the rename changed-value planner on top of that positioned graph data.
+- Keep transport and websocket prompt wiring out of scope until the planner is
+  proven with focused tests.
