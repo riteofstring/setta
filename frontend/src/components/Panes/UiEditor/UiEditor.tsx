@@ -29,7 +29,6 @@ import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
 import { VariantList } from "./SectionVariants/VariantList";
-import { StateMachineEdgeInspector } from "./StateMachineEdgeInspector";
 import { UIConfig } from "./UIConfig/UIConfig";
 
 export function UiEditor() {
@@ -40,13 +39,8 @@ export function UiEditor() {
     rootRef: uiEditorRef,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const { sectionIds, selectedStateMachineEdgeIds } = useProjectState(
-    (state) => ({
-      sectionIds: state.projectConfig.activeIds,
-      selectedStateMachineEdgeIds: state.projectConfig.stateMachineEdges
-        .filter((edge) => edge.selected)
-        .map((edge) => edge.id),
-    }),
+  const sectionIds = useProjectState(
+    (x) => x.projectConfig.activeIds,
     _.isEqual,
   );
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
@@ -143,28 +137,10 @@ export function UiEditor() {
             selectedTabName={selectedTabName}
             // inputTitle={inputTitle}
           />
-        ) : selectedStateMachineEdgeIds.length === 1 && vis ? (
-          <WorkflowEdgeVisible edgeId={selectedStateMachineEdgeIds[0]} />
-        ) : selectedStateMachineEdgeIds.length > 1 && vis ? (
-          <Placeholder title="Select One Workflow Edge" />
         ) : (
           <Placeholder />
         )}
       </PaneContainer>
-    </div>
-  );
-}
-
-function WorkflowEdgeVisible({ edgeId }: { edgeId: string }) {
-  return (
-    <div
-      data-testid="ui-editor-tab-content-shell"
-      className="mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
-    >
-      <h2 className="mb-1 cursor-pointer select-none pl-4 text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-        Workflow Edge
-      </h2>
-      <StateMachineEdgeInspector edgeId={edgeId} />
     </div>
   );
 }
@@ -215,17 +191,13 @@ function TabContent({
   }
 }
 
-function Placeholder({
-  title = "Select A Section to Edit",
-}: {
-  title?: string;
-}) {
+function Placeholder() {
   return (
     <aside className="mx-auto grid h-full min-h-0 w-[calc(100%_-_1rem)]">
       <div className="flex flex-col items-center gap-4 place-self-center">
         <FiEdit3 className="h-20 w-20 text-setta-300 dark:text-setta-700 " />
         <h4 className="text-center text-lg font-bold tracking-widest text-setta-300 dark:text-setta-600">
-          {title}
+          Select A Section to Edit
         </h4>
       </div>
     </aside>

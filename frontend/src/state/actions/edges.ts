@@ -17,23 +17,20 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
-import { STATE_MACHINE_EDGE_HANDLE_IDS } from "./stateMachineEdges";
 
-const nonDataHandleIds = new Set<string>([
+const agenticHandleIds = new Set<string>([
   AGENTIC_EDGE_HANDLE_IDS.source,
   AGENTIC_EDGE_HANDLE_IDS.target,
-  STATE_MACHINE_EDGE_HANDLE_IDS.source,
-  STATE_MACHINE_EDGE_HANDLE_IDS.target,
 ]);
 
 export function isValidDataEdgeConnection(connection: Connection): boolean {
   if (!connection.sourceHandle || !connection.targetHandle) {
     return false;
   }
-  if (nonDataHandleIds.has(connection.sourceHandle)) {
+  if (agenticHandleIds.has(connection.sourceHandle)) {
     return false;
   }
-  if (nonDataHandleIds.has(connection.targetHandle)) {
+  if (agenticHandleIds.has(connection.targetHandle)) {
     return false;
   }
   return true;

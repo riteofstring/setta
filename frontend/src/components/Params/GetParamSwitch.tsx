@@ -1,12 +1,18 @@
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
 import {
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  isBaseParamCodeObjImpl,
+  isBaseParentCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -26,6 +32,8 @@ export function GetParamSwitch({
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 }) {
+  const benchmark = useSettingsAllSettingsBenchmark();
+
   // TODO: make this more efficient
   const filteredIds = useProjectState((x) => {
     let matches = paramIds;
@@ -59,7 +67,28 @@ export function GetParamSwitch({
       }
     }
 
-    return paramIds.filter((p) => filteredRequired.has(p) || isTempParam(p));
+    const visibleParamIds = paramIds.filter(
+      (p) => filteredRequired.has(p) || isTempParam(p),
+    );
+
+    if (benchmark.paramStructureScope !== "parent-only") {
+      return visibleParamIds;
+    }
+
+    return visibleParamIds.filter((paramId) => {
+      if (isTempParam(paramId)) {
+        return false;
+      }
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        x,
+        sectionId,
+        paramId,
+        isBaseParamCodeObjImpl,
+      );
+      return (
+        isBaseParentCodeObjImpl(codeObjImpl) && codeObjImpl.children.length > 0
+      );
+    });
   }, _.isEqual);
 
   return filteredIds.map((paramId, idx) => (
