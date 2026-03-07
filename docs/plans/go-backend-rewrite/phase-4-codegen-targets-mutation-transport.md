@@ -37,7 +37,11 @@ Current repo status as of 2026-03-06:
     - `internal/projectstate/runtime.go`
     - `internal/projectstate/registry.go`
     - `internal/app/app.go`
-- Python still owns the IDE mutation transport for project codegen targets under:
+  - the first Go IDE mutation route plus authoritative project-state response
+    path for `setProjectConfigCodegenTargets` under:
+    - `internal/httpapi/project_routes.go`
+    - `internal/app/app.go`
+- Python still owns the broader surrounding IDE mutation transport surface under:
   - `backend/setta/routers/project_manager.py`
   - `backend/setta/project_state/base_project_manager.py`
 - the current frontend caller already has one narrow mutation entry point:
@@ -261,6 +265,49 @@ Acceptance:
 - plugin codegen outputs refresh through the existing runtime save hook
 - no websocket mutation broadcast dependency is required for correctness
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/httpapi/project_routes.go` as the first Go IDE mutation route
+  for `setProjectConfigCodegenTargets`
+- kept the transport thin:
+  - route request decoding owns JSON/object/language extraction from frontend
+    target payloads
+  - project-state mutation semantics still flow through
+    `Runtime.SetProjectCodegenTargets(...)`
+  - plugin target validation still flows through the injected Go validator
+- returned authoritative `projectview.SingleConfig` from the route after the
+  persisted mutation instead of rebuilding Python websocket mutation broadcasts
+- wired the route in `internal/app/app.go` using the existing filesystem
+  worker-spec resolver and plugin target validator boundary
+- verified the full end-to-end path in Go:
+  - auth-gated IDE route request
+  - project-state mutation/save
+  - post-save plugin codegen materialization
+  - authoritative project-state response payload
+- updated the frontend caller in
+  `frontend/src/components/Panes/Overview/RunInstructions.tsx` so it no longer
+  mutates stores optimistically before the backend responds
+- kept frontend adoption narrow and source-of-truth:
+  - use the backend response to update `projectConfig.codegenTargets`
+  - use the backend response to refresh matching metadata entries
+  - avoid broad frontend store replacement until a wider Go project-state
+    response/application path is ready
+- covered the slice with focused tests for:
+  - HTTP route success, invalid target payloads, Python-mutation rejection, and
+    deployment blocking
+  - app-level route registration plus plugin codegen materialization through the
+    save hook
+  - frontend authoritative store application from the backend response
+
+Tests:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi ./internal/app ./internal/projectstate ./internal/plugins -count=1`
+- `pnpm -C frontend exec vitest run src/state/actions/project/codegenTargets.test.ts src/state/actions/project/loadProject.test.ts`
+
 ### Slice 3: Python Codegen Section Side Effects
 
 Deliver:
@@ -277,15 +324,17 @@ Acceptance:
 
 ## Open Questions
 
-- whether the authoritative route response should return the full projected
-  project state directly or a narrower wrapper that still contains the same
-  source-of-truth payload
+- whether the next slice should keep extending this route or split a dedicated
+  focused doc for Python generated-section ownership before transport widens
 
 ## Next Recommended Step
 
-- Start Slice 2 on top of the completed domain mutation boundary.
-- Keep the response-path decision from this doc: authoritative updated project
-  state over HTTP, not Python-style mutation websocket broadcasts.
-- Reuse `Runtime.SetProjectCodegenTargets(...)` from the route/service layer and
-  return authoritative projected project state instead of optimistic frontend
-  patching.
+- Start Slice 3 from this doc: Go-owned Python generated-section side effects
+  for codegen-target mutations.
+- Keep the current clean-break boundary:
+  - plugin-only and unchanged-existing-Python mutations are supported
+  - Python target add/remove/config changes stay explicitly blocked until Go
+    owns the generated-section updates they require
+- If Slice 3 expands beyond the current focused scope, split a dedicated plan
+  doc before implementation rather than smuggling Python generated-entry
+  ownership into this transport doc.
