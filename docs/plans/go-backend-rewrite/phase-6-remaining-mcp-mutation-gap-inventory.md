@@ -84,24 +84,32 @@ MCP server:
 
 ## Remaining Mutation Gaps
 
-### 1. Highest-Leverage Next Step
+### 1. Highest-Leverage Next Slice
 
-- rerank the remaining mutation gaps from the actual Go-owned runtime surface
+- `set_gen_code_prefix`
 
 Why this is next:
 
-1. `set_project_config_codegen_targets` is now complete, so the inventory
-   should stop pointing at a finished slice.
-2. The remaining gap list still contains a mix of:
-   - surfaces that need more Go runtime-owner work first
-   - surfaces that may now have enough Go ownership to open a bounded MCP slice
-3. Choosing the next slice by stale assumption would widen scope or miss the
-   best existing Go-owned leverage point.
+1. `set_project_config_codegen_targets` completed the Go-owned source-of-truth
+   path for Python target payload mutation and reconciliation.
+2. `set_gen_code_prefix` now only needs:
+   - a narrow persisted runtime helper for the Python target field
+   - scoped MCP write-tool transport over the existing
+     `defaultTargetSingletonSection="GenPythonCode"` boundary
+3. It avoids broadening into view-mode, terminal, or app-definition subsystems
+   while directly reusing the codegen-target work that just landed.
 
-### 2. Good Follow-Ons After Reranking
+### 2. Good Follow-Ons After `set_gen_code_prefix`
 
-Once the rerank is done, the next bounded slice should get its own focused
-Phase 6 doc before implementation.
+- `set_gen_code_suffix`
+
+Why it follows naturally:
+
+1. It mutates the same Python target owner field family as `set_gen_code_prefix`.
+2. It uses the same singleton generated-section target and the same write-scope
+   boundary.
+3. It should be a near-identical transport/runtime slice once the prefix path
+   is proven.
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
@@ -137,8 +145,7 @@ priority:
 
 ## Recommended Next Step
 
-- rerank the remaining mutation inventory from the actual Go-owned runtime
-  surface before choosing the next bounded MCP slice
+- use `set_gen_code_prefix` as the next bounded MCP slice
 - defer app-definition MCP work until the frontend-source subsystem is ready
   for its own bounded Phase 6 slice
 
@@ -203,5 +210,6 @@ priority:
 - 2026-03-07: `set_project_config_codegen_targets` MCP parity completed as an
   unscoped structural tool over the existing Go codegen-target runtime owner,
   validator, and Python generated-section reconciler.
-- 2026-03-07: the next highest-leverage step moved back to reranking the
-  remaining mutation gaps from the actual Go-owned runtime surface.
+- 2026-03-07: reranking the remaining mutation gaps against the actual
+  Go-owned runtime surface moved the next bounded slice to
+  `set_gen_code_prefix`.

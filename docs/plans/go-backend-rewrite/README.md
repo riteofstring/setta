@@ -172,11 +172,15 @@ Use the docs in this order:
   - focused slice doc for Go-owned `set_project_config_codegen_targets` MCP
     parity over the completed codegen-target runtime owner, validator,
     generated-section reconciler, and project-scoped structural MCP boundary
-70. `spike-mcp.md`
+70. `phase-6-set-gen-code-prefix-tool-parity.md`
+  - focused slice doc for Go-owned `set_gen_code_prefix` MCP parity over the
+    completed Python codegen target runtime owner and scoped singleton-section
+    write boundary
+71. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-71. `spike-pty.md`
+72. `spike-pty.md`
    - PTY uncertainty-reduction plan
-72. `spike-lsp.md`
+73. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
