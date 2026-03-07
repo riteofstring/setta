@@ -69,8 +69,6 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-Run pnpm -C frontend gcf. Add a new entry to cumulative_review.md (use date time as the heading). Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
-
 Read the docs in `docs/plans/go-backend-rewrite/` in order, starting with `README.md`, then `go-backend-rewrite-plan.md`, then any relevant phase or spike docs for the current work. Treat those docs as the working context for this rewrite.
 
 Important constraints for this rewrite:
