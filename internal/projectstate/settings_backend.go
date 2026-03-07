@@ -8,6 +8,15 @@ import (
 
 const DefaultAutoRefetchCallableParamsOnLSPMismatch = true
 
+type RenameRefactorMode string
+
+const (
+	RenameRefactorModeAlwaysAsk    RenameRefactorMode = "ALWAYS_ASK"
+	RenameRefactorModeAlwaysRename RenameRefactorMode = "ALWAYS_RENAME"
+	RenameRefactorModeNeverRename  RenameRefactorMode = "NEVER_RENAME"
+	DefaultRenameRefactorMode      RenameRefactorMode = RenameRefactorModeAlwaysAsk
+)
+
 var (
 	ErrSettingsProjectAmbiguous = errors.New("settings project is ambiguous")
 	ErrSettingsValueInvalid     = errors.New("settings value is invalid")
@@ -77,6 +86,75 @@ func AutoRefetchCallableParamsOnLSPMismatchEnabled(document Document) (bool, err
 		return false, nil
 	default:
 		return false, fmt.Errorf("%w: autoRefetchCallableParamsOnLSPMismatch=%q", ErrSettingsValueInvalid, rawValue)
+	}
+}
+
+func RenameRefactorModeForDocument(document Document) (RenameRefactorMode, error) {
+	settingsProject, ok, err := resolveSettingsProject(document)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return DefaultRenameRefactorMode, nil
+	}
+
+	backendSectionID, ok, err := findSectionIDByName(settingsProject, "backend")
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return DefaultRenameRefactorMode, nil
+	}
+
+	_, backendVariant, _, err := settingsProject.ResolveSection(backendSectionID)
+	if err != nil {
+		return "", err
+	}
+	backendPayload, err := effectiveSectionPayload(settingsProject, backendSectionID, backendVariant.ID)
+	if err != nil {
+		return "", err
+	}
+	codeObjVariantMap := payloadStringMapField(backendPayload, "codeObjVariantMap")
+	backendTopLevelParamID := payloadStringField(backendPayload, "topLevelParamId")
+	if backendTopLevelParamID == "" {
+		return DefaultRenameRefactorMode, nil
+	}
+
+	backendParamPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, backendTopLevelParamID)
+	if err != nil {
+		return "", err
+	}
+	settingCodeObjID, ok, err := findChildCodeObjectIDByName(
+		settingsProject,
+		codeObjVariantMap,
+		backendParamPayload,
+		"renameRefactorMode",
+	)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return DefaultRenameRefactorMode, nil
+	}
+
+	settingPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, settingCodeObjID)
+	if err != nil {
+		return "", err
+	}
+	rawValue, present := payloadRawStringFieldWithPresence(settingPayload, "value")
+	if !present {
+		return DefaultRenameRefactorMode, nil
+	}
+
+	switch strings.ToUpper(strings.TrimSpace(rawValue)) {
+	case string(RenameRefactorModeAlwaysAsk):
+		return RenameRefactorModeAlwaysAsk, nil
+	case string(RenameRefactorModeAlwaysRename):
+		return RenameRefactorModeAlwaysRename, nil
+	case string(RenameRefactorModeNeverRename):
+		return RenameRefactorModeNeverRename, nil
+	default:
+		return "", fmt.Errorf("%w: renameRefactorMode=%q", ErrSettingsValueInvalid, rawValue)
 	}
 }
 

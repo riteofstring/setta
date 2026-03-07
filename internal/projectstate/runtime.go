@@ -44,6 +44,10 @@ type Runtime struct {
 	current  Document
 	revision uint64
 
+	frontendOpsMu        sync.RWMutex
+	pendingFrontendOps   map[string]struct{}
+	completedFrontendOps []string
+
 	submitMu sync.Mutex
 	closed   bool
 	ops      chan operation
@@ -51,8 +55,9 @@ type Runtime struct {
 }
 
 type operation struct {
-	run    func(*runtimeState) (Snapshot, error)
-	result chan operationResult
+	run          func(*runtimeState) (Snapshot, error)
+	frontendOpID string
+	result       chan operationResult
 }
 
 type operationResult struct {
@@ -107,6 +112,32 @@ func (r *Runtime) Snapshot() Snapshot {
 	}
 }
 
+func (r *Runtime) FrontendOpStatus() FrontendOpStatus {
+	if r == nil {
+		return FrontendOpStatus{}
+	}
+
+	r.frontendOpsMu.RLock()
+	defer r.frontendOpsMu.RUnlock()
+
+	return cloneFrontendOpStatus(r.pendingFrontendOps, r.completedFrontendOps)
+}
+
+func (r *Runtime) SnapshotAndConsumeFrontendOps() (Snapshot, FrontendOpStatus, error) {
+	if r == nil {
+		return Snapshot{}, FrontendOpStatus{}, ErrRuntimeClosed
+	}
+
+	status := FrontendOpStatus{}
+	snapshot, err := r.submit(operation{
+		run: func(state *runtimeState) (Snapshot, error) {
+			status = r.consumeFrontendOpsLocked()
+			return snapshotFromState(*state), nil
+		},
+	})
+	return snapshot, status, err
+}
+
 func (r *Runtime) SavePolicy() SavePolicy {
 	if r == nil {
 		return ""
@@ -155,6 +186,7 @@ func (r *Runtime) Save(ctx context.Context) (Snapshot, error) {
 			snapshot := snapshotFromState(*state)
 			return snapshot, r.persistSnapshot(ctx, snapshot)
 		},
+		frontendOpID: frontendOpIDFromContext(ctx),
 	})
 }
 
@@ -164,6 +196,7 @@ func (r *Runtime) MutateAndSave(ctx context.Context, mutate Mutation) (Snapshot,
 	}
 
 	return r.submit(operation{
+		frontendOpID: frontendOpIDFromContext(ctx),
 		run: func(state *runtimeState) (Snapshot, error) {
 			nextDocument, err := mutate(state.current.Clone())
 			if err != nil {
@@ -226,7 +259,14 @@ func (r *Runtime) runLoop(initial runtimeState) {
 	defer close(r.done)
 
 	for op := range r.ops {
+		frontendOpID := normalizeFrontendOpID(op.frontendOpID)
+		if frontendOpID != "" {
+			r.registerPendingFrontendOp(frontendOpID)
+		}
 		snapshot, err := op.run(&state)
+		if frontendOpID != "" {
+			r.finalizeFrontendOp(frontendOpID, err == nil)
+		}
 		r.syncState(state)
 		op.result <- operationResult{
 			snapshot: snapshot,
@@ -242,6 +282,41 @@ func (r *Runtime) syncState(state runtimeState) {
 
 	r.current = state.current.Clone()
 	r.revision = state.revision
+}
+
+func (r *Runtime) registerPendingFrontendOp(frontendOpID string) {
+	r.frontendOpsMu.Lock()
+	defer r.frontendOpsMu.Unlock()
+
+	if r.pendingFrontendOps == nil {
+		r.pendingFrontendOps = map[string]struct{}{}
+	}
+	r.pendingFrontendOps[frontendOpID] = struct{}{}
+}
+
+func (r *Runtime) finalizeFrontendOp(frontendOpID string, success bool) {
+	r.frontendOpsMu.Lock()
+	defer r.frontendOpsMu.Unlock()
+
+	delete(r.pendingFrontendOps, frontendOpID)
+	if !success {
+		return
+	}
+	for _, completedFrontendOpID := range r.completedFrontendOps {
+		if completedFrontendOpID == frontendOpID {
+			return
+		}
+	}
+	r.completedFrontendOps = append(r.completedFrontendOps, frontendOpID)
+}
+
+func (r *Runtime) consumeFrontendOpsLocked() FrontendOpStatus {
+	r.frontendOpsMu.Lock()
+	defer r.frontendOpsMu.Unlock()
+
+	status := cloneFrontendOpStatus(r.pendingFrontendOps, r.completedFrontendOps)
+	r.completedFrontendOps = nil
+	return status
 }
 
 func snapshotFromState(state runtimeState) Snapshot {
@@ -280,14 +355,16 @@ func openRuntime(document Document, controller saveController) (*Runtime, error)
 	}
 
 	runtime := &Runtime{
-		store:      controller.store,
-		savePolicy: controller.savePolicy,
-		saveFn:     controller.saveFn,
-		afterSave:  controller.afterSave,
-		current:    normalized.Clone(),
-		revision:   1,
-		ops:        make(chan operation, defaultRuntimeQueueSize),
-		done:       make(chan struct{}),
+		store:                controller.store,
+		savePolicy:           controller.savePolicy,
+		saveFn:               controller.saveFn,
+		afterSave:            controller.afterSave,
+		current:              normalized.Clone(),
+		revision:             1,
+		pendingFrontendOps:   map[string]struct{}{},
+		completedFrontendOps: []string{},
+		ops:                  make(chan operation, defaultRuntimeQueueSize),
+		done:                 make(chan struct{}),
 	}
 	go runtime.runLoop(runtimeState{
 		current:  normalized.Clone(),

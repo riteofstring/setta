@@ -240,6 +240,13 @@ type SetWatchCodeInputsRequest struct {
 	WatchCodeFiles   []string                       `json:"watchCodeFiles"`
 }
 
+func projectMutationContext(ctx context.Context, frontendOpID *string) context.Context {
+	if frontendOpID == nil {
+		return ctx
+	}
+	return projectstate.ContextWithFrontendOpID(ctx, *frontendOpID)
+}
+
 func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -313,15 +320,21 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 
-		projectStateView, err := projectview.SingleConfigByProjectID(deps.ProjectState.Snapshot().Document, projectID)
+		snapshot, frontendOps, err := deps.ProjectState.SnapshotAndConsumeFrontendOps()
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
 		if err != nil {
 			writeProjectRouteStateError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, ProjectStateSingleConfigWithCompletedOpIDs{
 			ProjectState:   projectStateView,
-			CompletedOpIDs: []string{},
-			PendingOpIDs:   []string{},
+			CompletedOpIDs: frontendOps.Completed,
+			PendingOpIDs:   frontendOps.Pending,
 		})
 	}
 }
@@ -344,7 +357,7 @@ func setShowParamDisplayNamesHandler(deps ProjectRouteDependencies) http.Handler
 			return
 		}
 
-		if _, err := deps.ProjectState.SetShowParamDisplayNames(r.Context(), projectID, payload.ShowParamDisplayNames); err != nil {
+		if _, err := deps.ProjectState.SetShowParamDisplayNames(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ShowParamDisplayNames); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -370,7 +383,7 @@ func createViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		_, viewModeID, err := deps.ProjectState.CreateViewMode(r.Context(), projectID)
+		_, viewModeID, err := deps.ProjectState.CreateViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID)
 		if err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
@@ -402,7 +415,7 @@ func setActiveViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.SetActiveViewMode(r.Context(), projectID, activeViewModeID); err != nil {
+		if _, err := deps.ProjectState.SetActiveViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, activeViewModeID); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -428,7 +441,7 @@ func toggleIsEditingViewModeHandler(deps ProjectRouteDependencies) http.HandlerF
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleIsEditingViewMode(r.Context(), projectID); err != nil {
+		if _, err := deps.ProjectState.ToggleIsEditingViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -454,7 +467,7 @@ func toggleSectionVisibilityHandler(deps ProjectRouteDependencies) http.HandlerF
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleSectionVisibility(r.Context(), projectID, payload.SectionIDs); err != nil {
+		if _, err := deps.ProjectState.ToggleSectionVisibility(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -485,7 +498,7 @@ func toggleViewModeUserFacingHandler(deps ProjectRouteDependencies) http.Handler
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleViewModeUserFacing(r.Context(), projectID, viewModeID); err != nil {
+		if _, err := deps.ProjectState.ToggleViewModeUserFacing(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -516,7 +529,7 @@ func toggleViewModeTabHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleViewModeTab(r.Context(), projectID, viewModeID); err != nil {
+		if _, err := deps.ProjectState.ToggleViewModeTab(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -547,7 +560,7 @@ func setViewModeNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.SetViewModeName(r.Context(), projectID, viewModeID, payload.Name); err != nil {
+		if _, err := deps.ProjectState.SetViewModeName(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID, payload.Name); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -573,7 +586,7 @@ func setViewModeSortOrderHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			return
 		}
 
-		if _, err := deps.ProjectState.SetViewModeSortOrder(r.Context(), projectID, payload.OrderedViewModeIDs); err != nil {
+		if _, err := deps.ProjectState.SetViewModeSortOrder(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.OrderedViewModeIDs); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -604,7 +617,7 @@ func deleteViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.DeleteViewMode(r.Context(), projectID, viewModeID); err != nil {
+		if _, err := deps.ProjectState.DeleteViewMode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, viewModeID); err != nil {
 			writeViewModeMutationError(w, r, err)
 			return
 		}
@@ -630,7 +643,7 @@ func setTopLevelSectionLayoutHandler(deps ProjectRouteDependencies) http.Handler
 			return
 		}
 
-		if _, err := deps.ProjectState.SetTopLevelSectionLayout(r.Context(), projectID, payload.TopLevelSections); err != nil {
+		if _, err := deps.ProjectState.SetTopLevelSectionLayout(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.TopLevelSections); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -661,7 +674,7 @@ func autoLayoutTopLevelSectionsHandler(deps ProjectRouteDependencies) http.Handl
 			margin = *payload.Margin
 		}
 		if _, err := deps.ProjectState.AutoLayoutTopLevelSections(
-			r.Context(),
+			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			deps.SettingsState.Snapshot().Document,
 			margin,
@@ -691,7 +704,7 @@ func togglePositionLocksHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			return
 		}
 
-		if _, err := deps.ProjectState.TogglePositionLocks(r.Context(), projectID, payload.SectionIDs); err != nil {
+		if _, err := deps.ProjectState.TogglePositionLocks(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -722,7 +735,7 @@ func toggleMinimizedHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.ToggleMinimized(r.Context(), projectID, sectionID); err != nil {
+		if _, err := deps.ProjectState.ToggleMinimized(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -754,7 +767,7 @@ func setCallableHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 		}
 
 		_, response, err := deps.ProjectState.SetCallable(
-			r.Context(),
+			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			sectionID,
 			payload.CallableName,
@@ -787,7 +800,7 @@ func setActiveIDsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.SetActiveIDs(r.Context(), projectID, payload.ActiveIDs); err != nil {
+		if _, err := deps.ProjectState.SetActiveIDs(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ActiveIDs); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -813,7 +826,7 @@ func setViewportHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.SetViewport(r.Context(), projectID, payload.Viewport); err != nil {
+		if _, err := deps.ProjectState.SetViewport(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.Viewport); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -844,7 +857,7 @@ func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if err := deps.CodeUpdates.SetCode(r.Context(), projectID, sectionID, payload.Code); err != nil {
+		if err := deps.CodeUpdates.SetCode(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.Code); err != nil {
 			writeSetCodeError(w, r, err)
 			return
 		}
@@ -875,7 +888,7 @@ func setSectionTagColorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionTagColor(r.Context(), projectID, sectionID, payload.TagColor); err != nil {
+		if _, err := deps.ProjectState.SetSectionTagColor(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.TagColor); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -906,7 +919,7 @@ func setSectionStyleColorHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionStyleColor(r.Context(), projectID, sectionID, payload.StyleColor); err != nil {
+		if _, err := deps.ProjectState.SetSectionStyleColor(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.StyleColor); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -937,7 +950,7 @@ func setCallableHideParamsHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 
-		if _, err := deps.ProjectState.SetCallableHideParams(r.Context(), projectID, sectionID, payload.HideParams); err != nil {
+		if _, err := deps.ProjectState.SetCallableHideParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideParams); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -968,7 +981,7 @@ func setSectionHideUnpinnedParamsHandler(deps ProjectRouteDependencies) http.Han
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionHideUnpinnedParams(r.Context(), projectID, sectionID, payload.HideUnpinnedParams); err != nil {
+		if _, err := deps.ProjectState.SetSectionHideUnpinnedParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.HideUnpinnedParams); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -999,7 +1012,7 @@ func setSectionPinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFu
 			return
 		}
 
-		if _, err := deps.ProjectState.SetSectionPinnedParams(r.Context(), projectID, sectionID, payload.PinnedParams); err != nil {
+		if _, err := deps.ProjectState.SetSectionPinnedParams(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.PinnedParams); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -1032,7 +1045,7 @@ func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.H
 		}
 
 		snapshot, err := deps.ProjectState.SetProjectCodegenTargets(
-			r.Context(),
+			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			targets,
 			deps.CodegenTargetValidator,
@@ -1071,7 +1084,7 @@ func setWatchCodeEnabledHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 		}
 
 		if _, err := deps.ProjectState.SetWatchCodeEnabled(
-			r.Context(),
+			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Enabled,
 			deps.WorkspaceRoot,
@@ -1102,7 +1115,7 @@ func setWatchCodeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 		}
 
 		if _, err := deps.ProjectState.SetWatchCodeInputs(
-			r.Context(),
+			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.WatchCodeFolders,
 			payload.WatchCodeFiles,

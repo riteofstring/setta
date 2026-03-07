@@ -119,7 +119,63 @@ func TestAutoRefetchCallableParamsOnLSPMismatchEnabledRejectsInvalidValue(t *tes
 	}
 }
 
+// Empty settings documents should use the schema default for rename refactors
+// so rename flows can start from one deterministic mode in Go.
+func TestRenameRefactorModeForDocumentDefaultsAlwaysAsk(t *testing.T) {
+	t.Parallel()
+
+	mode, err := RenameRefactorModeForDocument(Document{
+		SchemaVersion: CurrentSchemaVersion,
+		Projects:      map[string]Project{},
+	})
+	if err != nil {
+		t.Fatalf("lookup rename refactor mode default: %v", err)
+	}
+	if mode != RenameRefactorModeAlwaysAsk {
+		t.Fatalf("expected default rename mode ALWAYS_ASK, got %q", mode)
+	}
+}
+
+// The backend rename mode should come from the settings runtime rather than a
+// route-local default so later rename flows have one source of truth.
+func TestRenameRefactorModeForDocumentReadsBackendSetting(t *testing.T) {
+	t.Parallel()
+
+	mode, err := RenameRefactorModeForDocument(
+		settingsBackendSettingTestDocument(t, "renameRefactorMode", "ALWAYS_RENAME"),
+	)
+	if err != nil {
+		t.Fatalf("lookup rename refactor mode: %v", err)
+	}
+	if mode != RenameRefactorModeAlwaysRename {
+		t.Fatalf("expected ALWAYS_RENAME mode, got %q", mode)
+	}
+}
+
+// Invalid stored rename modes should fail loudly instead of silently guessing
+// which rename flow the backend should follow.
+func TestRenameRefactorModeForDocumentRejectsInvalidValue(t *testing.T) {
+	t.Parallel()
+
+	_, err := RenameRefactorModeForDocument(
+		settingsBackendSettingTestDocument(t, "renameRefactorMode", "SOMETHING_ELSE"),
+	)
+	if !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected invalid settings value error, got %v", err)
+	}
+}
+
 func settingsBackendTestDocument(t *testing.T, rawValue string) Document {
+	t.Helper()
+
+	return settingsBackendSettingTestDocument(
+		t,
+		"autoRefetchCallableParamsOnLSPMismatch",
+		rawValue,
+	)
+}
+
+func settingsBackendSettingTestDocument(t *testing.T, settingName string, rawValue string) Document {
 	t.Helper()
 
 	document, err := Document{
@@ -173,7 +229,7 @@ func settingsBackendTestDocument(t *testing.T, rawValue string) Document {
 					},
 					"setting-refetch": {
 						ID:               "setting-refetch",
-						Name:             "autoRefetchCallableParamsOnLSPMismatch",
+						Name:             settingName,
 						VariantIDs:       []string{"setting-refetch-variant"},
 						DefaultVariantID: "setting-refetch-variant",
 					},

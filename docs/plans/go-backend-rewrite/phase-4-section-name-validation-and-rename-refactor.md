@@ -27,6 +27,10 @@ Current repo status as of 2026-03-07:
 - Go already owns:
   - authoritative `getLatestProjectState` hydrate transport
   - project-state runtime mutation/save ownership
+  - runtime-scoped `frontendOpId` pending/completed tracking in the Go
+    project-state path
+  - authoritative `completedOpIds` / `pendingOpIds` hydrate envelope data
+  - narrow backend settings lookup for `renameRefactorMode`
   - frontend websocket delivery infrastructure
   - Python codegen export and Python dependency-graph ownership in Go
   - narrow settings-runtime storage and targeted backend-setting readers
@@ -36,7 +40,6 @@ Current repo status as of 2026-03-07:
   - `declineRenameRefactor`
   - backend-authoritative section-name validation
   - rename-refactor prompt websocket emission
-  - pending/completed frontend op tracking in the Go project-state path
 
 ## Scope
 
@@ -132,6 +135,9 @@ tracking boundary.
   - `completedOpIds` / `pendingOpIds` stay the authoritative hydrate path
 - keep settings access narrow
   - resolve only `settings.backend.renameRefactorMode`
+- keep frontend op tracking runtime-scoped
+  - `frontendOpId` lifecycle metadata is not persisted project state
+  - successful ids are exposed once through hydrate and then consumed
 - prefer a Go-owned graph-based rename result
   - compute changed node values from authoritative dependency/value graph data
   - do not implement handler-local or regex-based rewrites
@@ -215,7 +221,25 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- `internal/projectstate` runtime now tracks pending and completed
+  `frontendOpId` values for successful save-backed mutations
+- `getLatestProjectState` now returns authoritative `pendingOpIds` and
+  one-shot `completedOpIds`
+- `internal/projectstate` now reads
+  `settings.backend.renameRefactorMode` with `ALWAYS_ASK` defaulting and
+  invalid-value rejection
+- focused tests cover:
+  - pending/completed frontend op lifecycle
+  - hydrate consumption of completed ids
+  - rename-refactor mode default, override, and invalid settings cases
+
+Verification:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/httpapi -count=1 -timeout 180s`
 
 ### Slice 2: Section Name Validation And Rename Result Computation
 
@@ -238,7 +262,7 @@ Acceptance:
 
 Status:
 
-- pending
+- next
 
 ### Slice 3: IDE Transport And Prompt Flow
 
@@ -258,7 +282,6 @@ Acceptance:
 
 - the existing frontend rename modal flow works against Go-owned backend paths
 - prompt delivery waits on authoritative completed-op tracking instead of HTTP
-  timing
 
 Status:
 
@@ -269,12 +292,11 @@ Status:
 - whether rename changed-value computation can reuse the current Go
   `PythonDependencyGraph` directly, or whether one small additional projection
   layer is needed for writable node values
-- whether the op-tracking foundation should land as a project-runtime-wide
-  primitive first, or only for the bounded set of hydrate-backed project
-  mutations needed by rename flows
 
 ## Next Recommended Step
 
-- Implement Slice 1 first.
-- Do not add a Go `setSectionName` handler before op tracking is authoritative,
-  because the frontend rename prompt flow depends on completed/pending op ids.
+- Implement Slice 2 next.
+- Add Go-owned section-name validation in `internal/projectstate`.
+- Add the actual rename mutation helper and rename changed-value planner.
+- Keep transport out of scope until those semantics are proven with focused
+  tests.

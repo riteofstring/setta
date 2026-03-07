@@ -136,6 +136,88 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesReturnsCompletedFrontendOpIDsAfterMutation(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": viewModesRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	// A successful mutation should mark the frontend op completed in the next
+	// hydrate payload so optimistic state can clear deterministically.
+	mutateRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetViewport,
+		strings.NewReader(`{"projectConfigId":"project-alpha","frontendOpId":"frontend-op-1","viewport":{"x":15,"y":25,"zoom":1.25}}`),
+	)
+	mutateRequest.Header.Set("Content-Type", "application/json")
+	mutateResponse := httptest.NewRecorder()
+	handler.ServeHTTP(mutateResponse, mutateRequest)
+	if mutateResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 from setViewport, got %d with body %q", mutateResponse.Code, mutateResponse.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 from getLatestProjectState, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project state payload: %v", err)
+	}
+	if !reflect.DeepEqual(payload.CompletedOpIDs, []string{"frontend-op-1"}) {
+		t.Fatalf("expected completed frontend op id [frontend-op-1], got %#v", payload.CompletedOpIDs)
+	}
+	if len(payload.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending frontend op ids, got %#v", payload.PendingOpIDs)
+	}
+	if payload.ProjectState.ProjectConfig.Viewport == nil || payload.ProjectState.ProjectConfig.Viewport.X != 15 {
+		t.Fatalf("expected updated viewport in hydrate payload, got %#v", payload.ProjectState.ProjectConfig.Viewport)
+	}
+
+	// Completed ids are one-shot metadata and should be cleared after the hydrate
+	// that exposes them.
+	secondLatestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	secondLatestRequest.Header.Set("Content-Type", "application/json")
+	secondLatestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(secondLatestResponse, secondLatestRequest)
+	if secondLatestResponse.Code != http.StatusOK {
+		t.Fatalf("expected second 200 from getLatestProjectState, got %d with body %q", secondLatestResponse.Code, secondLatestResponse.Body.String())
+	}
+	if err := json.Unmarshal(secondLatestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode second latest project state payload: %v", err)
+	}
+	if len(payload.CompletedOpIDs) != 0 {
+		t.Fatalf("expected completed frontend op ids to clear after hydration, got %#v", payload.CompletedOpIDs)
+	}
+}
+
 func TestRegisterProjectRoutesSetCodeInvokesServiceAndReturnsOK(t *testing.T) {
 	t.Parallel()
 

@@ -382,6 +382,97 @@ func TestRuntimeSaveReturnsAfterSaveHookErrorAfterPersistingState(t *testing.T) 
 	}
 }
 
+func TestRuntimeMutateAndSaveTracksFrontendOpLifecycle(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntime(t, store)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	errCh := make(chan error, 1)
+
+	go func() {
+		_, err := runtime.MutateAndSave(
+			ContextWithFrontendOpID(context.Background(), "frontend-op-1"),
+			func(document Document) (Document, error) {
+				close(started)
+				<-release
+				document.Projects["project-alpha"] = Project{
+					ID:   "project-alpha",
+					Name: "Alpha",
+				}
+				document.DefaultProjectID = "project-alpha"
+				return document, nil
+			},
+		)
+		errCh <- err
+	}()
+
+	<-started
+
+	status := runtime.FrontendOpStatus()
+	if len(status.Pending) != 1 || status.Pending[0] != "frontend-op-1" {
+		t.Fatalf("expected pending frontend op [frontend-op-1], got %#v", status.Pending)
+	}
+	if len(status.Completed) != 0 {
+		t.Fatalf("expected no completed frontend ops while mutation is running, got %#v", status.Completed)
+	}
+
+	close(release)
+
+	if err := <-errCh; err != nil {
+		t.Fatalf("mutate and save runtime: %v", err)
+	}
+
+	status = runtime.FrontendOpStatus()
+	if len(status.Pending) != 0 {
+		t.Fatalf("expected no pending frontend ops after completion, got %#v", status.Pending)
+	}
+	if len(status.Completed) != 1 || status.Completed[0] != "frontend-op-1" {
+		t.Fatalf("expected completed frontend op [frontend-op-1], got %#v", status.Completed)
+	}
+
+	_, consumed, err := runtime.SnapshotAndConsumeFrontendOps()
+	if err != nil {
+		t.Fatalf("snapshot and consume frontend ops: %v", err)
+	}
+	if len(consumed.Completed) != 1 || consumed.Completed[0] != "frontend-op-1" {
+		t.Fatalf("expected consumed completed frontend op [frontend-op-1], got %#v", consumed.Completed)
+	}
+
+	status = runtime.FrontendOpStatus()
+	if len(status.Completed) != 0 {
+		t.Fatalf("expected consumed completed frontend ops to clear, got %#v", status.Completed)
+	}
+}
+
+func TestRuntimeMutateAndSaveDoesNotCompleteFailedFrontendOp(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	runtime := openTestRuntime(t, store)
+
+	expectedErr := errors.New("mutation failed")
+	_, err := runtime.MutateAndSave(
+		ContextWithFrontendOpID(context.Background(), "frontend-op-failed"),
+		func(document Document) (Document, error) {
+			return document, expectedErr
+		},
+	)
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected mutation failure %v, got %v", expectedErr, err)
+	}
+
+	status := runtime.FrontendOpStatus()
+	if len(status.Pending) != 0 {
+		t.Fatalf("expected no pending frontend ops after failure, got %#v", status.Pending)
+	}
+	if len(status.Completed) != 0 {
+		t.Fatalf("expected failed frontend op not to be marked complete, got %#v", status.Completed)
+	}
+}
+
 func openTestRuntime(t *testing.T, store *Store) *Runtime {
 	t.Helper()
 
