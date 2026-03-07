@@ -162,6 +162,7 @@
 - `2026-03-05` | `done` | `CW-030` | Locked scope resolution to outgoing-only edges so incoming-only links never grant section-mode access; aligned backend/frontend scope resolvers and tests.
 - `2026-03-05` | `done` | `CW-031` | Added/updated unit + backend coverage for outgoing-only scope directionality, live recomputation after edge edits, and project chat windowing state defaults.
 - `2026-03-05` | `done` | `CW-032` | Re-ran Playwright coverage: `project-chat-bottom-dock.spec.ts` full pass (`12/12`) and targeted `chat-composer-controls` managed/section-mode cases (`4/4`).
+- `2026-03-05` | `blocked` | `CW-032` | Full `chat-composer-controls.spec.ts` run still times out at `project chat shows starter controls...` waiting for `Project AI Settings`; targeted chat-windowing-related cases pass.
 - `2026-03-05` | `done` | `CW-033` | Re-ran chrome-devtools-mcp visual verification for two independent docked windows, floating create action, and maximized window containment below navbar.
 - `2026-03-05` | `planned` | `CW-028` | Chat-to-chat bounded tool-call bridge behavior still pending explicit implementation log and validation entry in this checklist.
 - `2026-03-05` | `planned` | `CW-029` | Recursion guard depth/cycle enforcement for chat-to-chat tool-call bridge still pending explicit completion log.
