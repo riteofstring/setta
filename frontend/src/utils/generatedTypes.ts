@@ -9068,6 +9068,17 @@ export type GetLLMResponseRequestInput = z.input<
   typeof GetLLMResponseRequestSchema
 >;
 
+const GetLLMResponseResponseSchema = z.object({
+  chatId: IDSchema,
+  runId: IDSchema,
+  engineType: z.enum(EngineTypeEnum),
+  sectionId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetLLMResponseResponse = z.infer<
+  typeof GetLLMResponseResponseSchema
+>;
+
 const StartTranscriptionSessionRequestSchema = z.object({
   transcriptionProfileId: IDSchema,
   language: z.union([z.string(), z.null()]).default(null),

@@ -469,7 +469,7 @@ export async function route_set_llm_api_keys(
 
 export async function route_get_llm_response(
   x: gt.GetLLMResponseRequestInput,
-): Promise<ResponseDataAndStatus<string | null>> {
+): Promise<ResponseDataAndStatus<gt.GetLLMResponseResponse>> {
   return await post("/getLLMResponse", x);
 }
 
