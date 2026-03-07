@@ -3,6 +3,7 @@ import {
   cleanupIsolatedProject,
   ensureAppReady,
   ensureManagedChatEngine,
+  openOverviewMoreDestination,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
@@ -230,7 +231,7 @@ test.describe.serial("state machine sections", () => {
         startSectionId,
         {
           machineGroupId: "workflow-main",
-          label: "Start",
+          label: "Review Flow",
           gateType: null,
           maxIterations: null,
         },
@@ -479,37 +480,59 @@ test.describe.serial("state machine sections", () => {
       const gateActivityPanel = page.getByTestId(
         `state-machine-activity-panel-${gateSectionId}`,
       );
-      const startButton = page.getByTestId(
-        `state-machine-start-button-${startSectionId}`,
+      await openOverviewMoreDestination(page, "Custom Runs");
+      const workflowControlsTrigger = page.getByTestId(
+        "run-instructions-accordion-workflow-controls",
       );
-      const stopButton = page.getByTestId(
-        `state-machine-stop-button-${startSectionId}`,
+      await expect(workflowControlsTrigger).toBeVisible();
+      await expect(workflowControlsTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
       );
-      const resetButton = page.getByTestId(
-        `state-machine-reset-button-${startSectionId}`,
+      const workflowControlRow = page.getByTestId(
+        `run-instructions-workflow-control-row-${startSectionId}`,
+      );
+      await expect(workflowControlRow).toContainText("Review Flow");
+      await expect(workflowControlRow).toContainText("workflow-main");
+      const overviewWorkflowStatus = page.getByTestId(
+        `run-instructions-workflow-status-${startSectionId}`,
+      );
+      const overviewStartButton = page.getByTestId(
+        `run-instructions-workflow-start-${startSectionId}`,
+      );
+      const overviewStopButton = page.getByTestId(
+        `run-instructions-workflow-stop-${startSectionId}`,
+      );
+      const overviewResetButton = page.getByTestId(
+        `run-instructions-workflow-reset-${startSectionId}`,
       );
 
+      await expect(overviewWorkflowStatus).toHaveText("Idle");
       await expect(startStatus).toHaveText("Idle");
       await expect(gateStatus).toHaveText("Idle");
 
-      await startButton.click();
+      await overviewStartButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
       await expect(gateStatus).toHaveText("Running");
       await expect(gateWorkflowStatus).toHaveText("Satisfied");
       await expect(startActivityPanel).toContainText("Dispatched 1 start action");
       await expect(gateActivityPanel).toContainText("Gate satisfied");
 
-      await stopButton.click();
+      await overviewStopButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Stopped");
       await expect(startStatus).toHaveText("Stopped");
       await expect(gateStatus).toHaveText("Stopped");
       await expect(startActivityPanel).toContainText("Workflow stopped");
 
-      await startButton.click();
+      await overviewStartButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
       await expect(gateStatus).toHaveText("Running");
       await expect(gateWorkflowStatus).toHaveText("Satisfied");
 
-      await resetButton.click();
+      await overviewResetButton.click();
+      await expect(overviewWorkflowStatus).toHaveText("Stopped");
       await expect(startStatus).toHaveText("Stopped");
       await expect(gateStatus).toHaveText("Stopped");
       await expect(startActivityPanel).toContainText("Workflow stopped");
