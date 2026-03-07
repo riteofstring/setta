@@ -1,7 +1,7 @@
 import codecs
 import os
-from pathlib import Path
 import re
+from pathlib import Path
 
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -122,19 +122,62 @@ def _resolve_skill_doc_path_from_id(
     )
 
 
-def _resolve_default_custom_skill_root(
+def _iter_prioritized_custom_skill_roots(
     workspace_root: Path,
-) -> tuple[str, str, Path]:
+) -> list[tuple[str, str, Path]]:
     roots = list(iter_skill_roots(workspace_root))
     roots_by_id: dict[str, tuple[str, Path]] = {}
     for root_id, root_label, root_path in roots:
         roots_by_id[root_id] = (root_label, root_path.resolve(strict=False))
+    prioritized_roots: list[tuple[str, str, Path]] = []
     for root_id in _CUSTOM_SKILL_ROOT_PRIORITY:
-        if root_id in roots_by_id:
-            root_label, root_path = roots_by_id[root_id]
-            return root_id, root_label, root_path
+        root_info = roots_by_id.get(root_id)
+        if root_info is None:
+            continue
+        root_label, root_path = root_info
+        prioritized_roots.append((root_id, root_label, root_path))
+    if prioritized_roots:
+        return prioritized_roots
     fallback_root = (Path.home() / ".agents" / "skills").resolve(strict=False)
-    return "user_agents_skills", "User ~/.agents/skills", fallback_root
+    return [("user_agents_skills", "User ~/.agents/skills", fallback_root)]
+
+
+def _probe_custom_skill_root_writable(root_path: Path) -> tuple[bool, str | None]:
+    try:
+        root_path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return False, str(exc)
+
+    probe_name = f".setta-write-probe-{os.getpid()}-{os.urandom(4).hex()}"
+    probe_path = root_path / probe_name
+    try:
+        with probe_path.open("w", encoding="utf-8") as handle:
+            handle.write("")
+        probe_path.unlink()
+    except OSError as exc:
+        try:
+            probe_path.unlink()
+        except OSError:
+            pass
+        return False, str(exc)
+    return True, None
+
+
+def _resolve_writable_custom_skill_root(
+    workspace_root: Path,
+) -> tuple[str, str, Path]:
+    checked_roots: list[str] = []
+    for root_id, root_label, root_path in _iter_prioritized_custom_skill_roots(
+        workspace_root
+    ):
+        is_writable, error = _probe_custom_skill_root_writable(root_path)
+        if is_writable:
+            return root_id, root_label, root_path
+        checked_roots.append(f"{root_id} ({root_path}): {error or 'not writable'}")
+    checked_detail = "; ".join(checked_roots)
+    raise ValueError(
+        f"No writable custom skill root available. Checked: {checked_detail}"
+    )
 
 
 def _normalize_custom_skill_relative_path(relative_path: str) -> str:
@@ -242,11 +285,6 @@ def upsert_app_gen_custom_skill(
     if not selected_skill_id and not selected_relative_path:
         raise ValueError("relativePath is required when skillId is not provided.")
 
-    target_root_id, _, target_root_path = _resolve_default_custom_skill_root(
-        workspace_root
-    )
-    target_root_path.mkdir(parents=True, exist_ok=True)
-
     if selected_skill_id:
         (
             existing_root_id,
@@ -270,6 +308,9 @@ def upsert_app_gen_custom_skill(
         target_relative_path = existing_relative_path
         skill_doc = existing_skill_doc
     else:
+        target_root_id, _, target_root_path = _resolve_writable_custom_skill_root(
+            workspace_root
+        )
         target_relative_path = _normalize_custom_skill_relative_path(
             selected_relative_path
         )

@@ -7,11 +7,14 @@ import {
   createLLMConfig,
 } from "utils/generatedTypes";
 import {
+  buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
+  collectAgentNativeSlashCommandTokensFromRuns,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  reconcileCustomSlashCommands,
   resolveMcpServerStatus,
   SETTA_MCP_RUNTIME_SOURCE,
   toRuntimeStatusByServerId,
@@ -555,5 +558,76 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       "/model",
       "/help",
     ]);
+  });
+
+  it("collects normalized agent-native slash tokens from run metadata", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromRuns([
+      {
+        outputs: {
+          metadata: {
+            agentNativeSlashCommands: [" /triage ", "/help", 1],
+          },
+        },
+      },
+      {
+        outputs: {
+          metadata: {
+            agentNativeSlashCommands: ["/TRIAGE", "/ship"],
+          },
+        },
+      },
+      { outputs: null },
+    ]);
+
+    expect(tokens).toEqual(["/triage", "/help", "/ship"]);
+  });
+
+  it("reconciles colliding custom commands against managed and native reserved tokens", () => {
+    const reservedTokens = buildReservedSlashCommandTokens({
+      managedCommands: [
+        {
+          command: "/new",
+          action: "new",
+          summary: "Start a new thread.",
+        },
+      ],
+      engineCommandGroups: [
+        {
+          commands: [
+            {
+              command: "/permissions",
+              action: "permissions",
+              summary: "Set permissions mode.",
+            },
+          ],
+        },
+      ],
+      discoveredNativeSlashCommands: ["/triage"],
+    });
+
+    const reconciled = reconcileCustomSlashCommands({
+      customCommands: [
+        {
+          command: "/triage",
+          action: "custom_prompt",
+          summary: "Run a saved custom prompt.",
+          promptTemplate: "Custom triage",
+        },
+        {
+          command: "/project-status",
+          action: "custom_prompt",
+          summary: "Run a saved custom prompt.",
+          promptTemplate: "Status report",
+        },
+      ],
+      reservedTokens,
+    });
+
+    expect(Array.from(reconciled.conflictingCommandTokens)).toEqual([
+      "/triage",
+    ]);
+    expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
+      ["/project-status"],
+    );
   });
 });

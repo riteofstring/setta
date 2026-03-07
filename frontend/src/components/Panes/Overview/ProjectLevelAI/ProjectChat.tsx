@@ -78,11 +78,11 @@ import {
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
+import { ProjectAISettings } from "./ProjectAISettings";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
 } from "./ProjectChatCore";
-import { ProjectAISettings } from "./ProjectAISettings";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
@@ -1446,7 +1446,7 @@ export function ProjectChat() {
                 ? "Leave Slash Commands and reopen chat."
                 : projectChatAuxView === "ai_settings"
                   ? "Leave AI Settings and reopen chat."
-                : "Close threads-only view and reopen chat.",
+                  : "Close threads-only view and reopen chat.",
       }),
     [projectChatAuxView],
   );
@@ -1580,11 +1580,10 @@ export function ProjectChat() {
       setDraftThreadContinuationSourceChatId(null);
     }
   }, [draftThreadContinuationSourceChatId, draftThreadState.phase]);
-  const auxViewContent = (
+  const auxViewContent =
     projectChatAuxView === "skills" ||
     projectChatAuxView === "mcp" ||
-    projectChatAuxView === "slash_commands"
-  ) ? (
+    projectChatAuxView === "slash_commands" ? (
       <ProjectChatSkillsMcpViewer
         projectConfigId={projectConfigId}
         chatId={chatId}

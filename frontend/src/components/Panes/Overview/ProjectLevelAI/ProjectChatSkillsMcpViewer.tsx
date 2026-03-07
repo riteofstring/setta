@@ -42,12 +42,14 @@ import {
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import {
+  buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   type McpRuntimeServerStatus,
+  reconcileCustomSlashCommands,
   resolveMcpServerStatus,
   toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -456,7 +458,9 @@ export function ProjectChatSkillsMcpViewer({
         ? SKILL_MARKDOWN_VIEW_MODE_RAW
         : SKILL_MARKDOWN_VIEW_MODE_RENDERED;
     });
-  const [skillMarkdownRawDraft, setSkillMarkdownRawDraft] = useState("");
+  const [skillMarkdownRawDraft, setSkillMarkdownRawDraft] = useState<
+    string | null
+  >(null);
   const [newCustomSkillRelativePath, setNewCustomSkillRelativePath] =
     useState("");
   const [customSkillCreateInFlight, setCustomSkillCreateInFlight] =
@@ -699,8 +703,16 @@ export function ProjectChatSkillsMcpViewer({
   }, [skillMarkdownViewMode, storageAdapter]);
 
   useEffect(() => {
+    if (!selectedSkillId) {
+      setSkillMarkdownRawDraft(null);
+      return;
+    }
+    if (skillContentLoading) {
+      setSkillMarkdownRawDraft(null);
+      return;
+    }
     setSkillMarkdownRawDraft(selectedSkillContent);
-  }, [selectedSkillContent, selectedSkillId]);
+  }, [selectedSkillContent, selectedSkillId, skillContentLoading]);
 
   useEffect(() => {
     if (agentRunsInitialLoadComplete) {
@@ -824,41 +836,45 @@ export function ProjectChatSkillsMcpViewer({
       DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
     );
   }, [agentNativeSlashCommandsByEngineId, selectedSlashEngine]);
+  const managedSlashCommandDefinitions = useMemo(() => {
+    return buildChatSlashCommands({
+      model: true,
+      permissions: true,
+      search: true,
+      appGenerationModes: true,
+    });
+  }, []);
   const customSlashCommandDefinitions = useMemo(() => {
     return buildCustomPromptSlashCommandDefinitions(
       customProjectChatSlashCommands,
     );
   }, [customProjectChatSlashCommands]);
   const customSlashCommandTokens = useMemo(() => {
-    return new Set(
-      customSlashCommandDefinitions.map((entry) => entry.command),
-    );
+    return new Set(customSlashCommandDefinitions.map((entry) => entry.command));
   }, [customSlashCommandDefinitions]);
-  const reservedSlashCommandTokens = useMemo(() => {
-    const reserved = new Set(
-      buildChatSlashCommands({
-        model: true,
-        permissions: true,
-        search: true,
-        appGenerationModes: true,
-      }).map((entry) => entry.command),
+  const discoveredAgentNativeSlashCommands = useMemo(() => {
+    return Object.values(agentNativeSlashCommandsByEngineId).flatMap(
+      (entry) => entry.commands,
     );
-    for (const slashCommandsForEngine of slashCommandsByEngine) {
-      for (const command of slashCommandsForEngine.commands) {
-        reserved.add(command.command);
-      }
-    }
-    for (const nativeEntry of Object.values(agentNativeSlashCommandsByEngineId)) {
-      for (const nativeCommand of nativeEntry.commands) {
-        const normalizedCommand = normalizeSlashCommandToken(nativeCommand);
-        if (!normalizedCommand) {
-          continue;
-        }
-        reserved.add(normalizedCommand);
-      }
-    }
-    return reserved;
-  }, [agentNativeSlashCommandsByEngineId, slashCommandsByEngine]);
+  }, [agentNativeSlashCommandsByEngineId]);
+  const reservedSlashCommandTokens = useMemo(() => {
+    return buildReservedSlashCommandTokens({
+      managedCommands: managedSlashCommandDefinitions,
+      engineCommandGroups: slashCommandsByEngine,
+      discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
+    });
+  }, [
+    discoveredAgentNativeSlashCommands,
+    managedSlashCommandDefinitions,
+    slashCommandsByEngine,
+  ]);
+  const { conflictingCommandTokens: conflictingCustomSlashCommandTokens } =
+    useMemo(() => {
+      return reconcileCustomSlashCommands({
+        customCommands: customSlashCommandDefinitions,
+        reservedTokens: reservedSlashCommandTokens,
+      });
+    }, [customSlashCommandDefinitions, reservedSlashCommandTokens]);
 
   useEffect(() => {
     if (slashCommandsByEngine.length === 0) {
@@ -980,12 +996,7 @@ export function ProjectChatSkillsMcpViewer({
         return CUSTOM_SKILL_ROOT_IDS.has(rootId);
       }) ?? null;
     return discoveredRoot?.rootPath ?? customSkillRootPathHint;
-  }, [
-    customSkillRootPathHint,
-    selectedSkill,
-    selectedSkillRootId,
-    skills,
-  ]);
+  }, [customSkillRootPathHint, selectedSkill, selectedSkillRootId, skills]);
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
       ? "Loading skill content..."
@@ -996,10 +1007,33 @@ export function ProjectChatSkillsMcpViewer({
       : null;
   const isRawMarkdownView =
     skillMarkdownViewMode === SKILL_MARKDOWN_VIEW_MODE_RAW;
+  const rawMarkdownModeHint = useMemo(() => {
+    if (!selectedSkillIsEditable) {
+      return "Read-only preview. Select or create a custom skill to edit.";
+    }
+    if (selectedSkillContentTruncated) {
+      return (
+        "Preview is truncated. Full content loading is required before editing " +
+        "or saving."
+      );
+    }
+    return "Editing mode for custom skills.";
+  }, [selectedSkillContentTruncated, selectedSkillIsEditable]);
+  const saveSelectedSkillButtonTitle = useMemo(() => {
+    if (!selectedSkillIsEditable) {
+      return "Only custom skills can be edited.";
+    }
+    if (selectedSkillContentTruncated) {
+      return "Cannot save a truncated preview.";
+    }
+    return "Save selected custom skill";
+  }, [selectedSkillContentTruncated, selectedSkillIsEditable]);
   const canSaveSelectedSkill =
     selectedSkillIsEditable &&
     !!selectedSkillId &&
     isRawMarkdownView &&
+    !selectedSkillContentTruncated &&
+    skillMarkdownRawDraft !== null &&
     !skillContentLoading &&
     !customSkillSaveInFlight;
 
@@ -1179,11 +1213,22 @@ export function ProjectChatSkillsMcpViewer({
       );
       return;
     }
+    if (selectedSkillContentTruncated) {
+      addTemporaryNotification(
+        "Cannot save while this skill preview is truncated.",
+      );
+      return;
+    }
+    if (skillMarkdownRawDraft === null) {
+      addTemporaryNotification("Skill content is still loading.");
+      return;
+    }
+    const nextContent = skillMarkdownRawDraft;
     setCustomSkillSaveInFlight(true);
     const res = await route_upsert_app_gen_custom_skill({
       skillId: selectedSkillId,
       relativePath: null,
-      content: skillMarkdownRawDraft,
+      content: nextContent,
     });
     setCustomSkillSaveInFlight(false);
     if (!res200(res)) {
@@ -1196,13 +1241,13 @@ export function ProjectChatSkillsMcpViewer({
       return;
     }
     setCustomSkillRootPathHint(res.data.rootPath);
-    setSelectedSkillContent(skillMarkdownRawDraft);
+    setSelectedSkillContent(nextContent);
     setSelectedSkillContentTruncated(false);
-    setSelectedSkillOriginalSizeBytes(skillMarkdownRawDraft.length);
+    setSelectedSkillOriginalSizeBytes(nextContent.length);
     const cacheEntry = {
-      content: skillMarkdownRawDraft,
+      content: nextContent,
       truncated: false,
-      originalSizeBytes: skillMarkdownRawDraft.length,
+      originalSizeBytes: nextContent.length,
     };
     for (const key of skillContentCache.current.keys()) {
       if (key.endsWith(`:${selectedSkillId}`)) {
@@ -1210,7 +1255,12 @@ export function ProjectChatSkillsMcpViewer({
       }
     }
     addTemporaryNotification("Saved custom skill.");
-  }, [selectedSkillId, selectedSkillIsEditable, skillMarkdownRawDraft]);
+  }, [
+    selectedSkillContentTruncated,
+    selectedSkillId,
+    selectedSkillIsEditable,
+    skillMarkdownRawDraft,
+  ]);
 
   const beginSkillsListResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -1416,17 +1466,22 @@ export function ProjectChatSkillsMcpViewer({
               <span
                 className="truncate"
                 data-testid="project-chat-custom-skill-root-path"
-                title={customSkillRootPath ?? "Custom skill root will be created on first save."}
+                title={
+                  customSkillRootPath ??
+                  "Custom skill root will be created on first save."
+                }
               >
                 {customSkillRootPath
                   ? `Custom skills root: ${customSkillRootPath}`
-                  : "Custom skills root: AGENTS_HOME/skills (fallback: ~/.agents/skills)"}
+                  : "Custom skills root: first writable of AGENTS_HOME/skills, ~/.agents/skills, or workspace .agents/skills"}
               </span>
               <button
                 type="button"
                 data-testid="project-chat-custom-skill-root-reveal"
                 className="shrink-0 rounded px-1 py-0.5 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-                onClick={() => void revealPathInFileExplorer(customSkillRootPath)}
+                onClick={() =>
+                  void revealPathInFileExplorer(customSkillRootPath)
+                }
                 disabled={!isActionablePath(customSkillRootPath)}
               >
                 Open
@@ -1583,7 +1638,9 @@ export function ProjectChatSkillsMcpViewer({
                 <Accordion.Item
                   value={SKILL_MARKDOWN_VIEWER_VALUE}
                   className={`rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950 ${
-                    isSkillMarkdownViewerOpen ? "flex h-full min-h-0 flex-col" : ""
+                    isSkillMarkdownViewerOpen
+                      ? "flex h-full min-h-0 flex-col"
+                      : ""
                   }`}
                 >
                   <Accordion.Header>
@@ -1650,11 +1707,7 @@ export function ProjectChatSkillsMcpViewer({
                             className="inline-flex h-6 items-center gap-1 rounded px-2 text-[10px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
                             onClick={() => void saveSelectedCustomSkill()}
                             disabled={!canSaveSelectedSkill}
-                            title={
-                              selectedSkillIsEditable
-                                ? "Save selected custom skill"
-                                : "Only custom skills can be edited."
-                            }
+                            title={saveSelectedSkillButtonTitle}
                           >
                             <FiSave className="h-3 w-3" />
                             Save
@@ -1662,9 +1715,7 @@ export function ProjectChatSkillsMcpViewer({
                         </div>
                         {isRawMarkdownView ? (
                           <div className="px-2 py-1 text-[10px] text-setta-500 dark:text-setta-400">
-                            {selectedSkillIsEditable
-                              ? "Editing mode for custom skills."
-                              : "Read-only preview. Select or create a custom skill to edit."}
+                            {rawMarkdownModeHint}
                           </div>
                         ) : null}
                         {!isRawMarkdownView ? (
@@ -1682,16 +1733,22 @@ export function ProjectChatSkillsMcpViewer({
                               aria-label="Skill Markdown Content"
                               className="h-full text-xs [&_.cm-content]:text-xs [&_.cm-gutters]:text-xs"
                               height="100%"
-                              value={skillMarkdownRawDraft || skillPreviewContent}
+                              value={
+                                skillMarkdownRawDraft ?? skillPreviewContent
+                              }
                               onChange={(value) => {
-                                if (!selectedSkillIsEditable) {
+                                if (
+                                  !selectedSkillIsEditable ||
+                                  selectedSkillContentTruncated
+                                ) {
                                   return;
                                 }
                                 setSkillMarkdownRawDraft(value);
                               }}
                               theme={codeMirrorTheme}
                               extensions={
-                                selectedSkillIsEditable
+                                selectedSkillIsEditable &&
+                                !selectedSkillContentTruncated
                                   ? editableMarkdownViewerExtensions
                                   : readonlyMarkdownViewerExtensions
                               }
@@ -1823,36 +1880,50 @@ export function ProjectChatSkillsMcpViewer({
                     </div>
                     {customSlashCommandDefinitions.length > 0 ? (
                       <div className="grid min-w-0 gap-1">
-                        {customSlashCommandDefinitions.map((command) => (
-                          <div
-                            key={command.command}
-                            className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
-                          >
-                            <div className="min-w-0">
-                              <div
-                                className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
-                                data-testid="project-chat-custom-slash-command"
-                              >
-                                {command.command}
-                              </div>
-                              <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
-                                {command.promptTemplate}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              className="inline-flex h-6 cursor-pointer items-center rounded border border-setta-300 px-2 text-[10px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                              data-testid="project-chat-custom-slash-remove"
-                              onClick={() =>
-                                removeCustomProjectChatSlashCommand(
-                                  command.command,
-                                )
-                              }
+                        {customSlashCommandDefinitions.map((command) => {
+                          const hasCollision =
+                            conflictingCustomSlashCommandTokens.has(
+                              command.command,
+                            );
+                          return (
+                            <div
+                              key={command.command}
+                              className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded px-1 py-1 hover:bg-setta-100 dark:hover:bg-setta-800"
                             >
-                              Remove
-                            </button>
-                          </div>
-                        ))}
+                              <div className="min-w-0">
+                                <div
+                                  className="truncate font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                                  data-testid="project-chat-custom-slash-command"
+                                >
+                                  {command.command}
+                                </div>
+                                <div className="min-w-0 break-words text-[10px] text-setta-600 dark:text-setta-300">
+                                  {command.promptTemplate}
+                                </div>
+                                {hasCollision ? (
+                                  <div
+                                    className="mt-0.5 text-[10px] text-amber-700 dark:text-amber-300"
+                                    data-testid="project-chat-custom-slash-command-conflict"
+                                  >
+                                    Disabled due to command collision.
+                                  </div>
+                                ) : null}
+                              </div>
+                              <button
+                                type="button"
+                                className="inline-flex h-6 cursor-pointer items-center rounded border border-setta-300 px-2 text-[10px] font-semibold text-setta-600 transition-colors hover:border-setta-500 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                                data-testid="project-chat-custom-slash-remove"
+                                onClick={() =>
+                                  removeCustomProjectChatSlashCommand(
+                                    command.command,
+                                  )
+                                }
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="px-1 text-[10px] text-setta-500 dark:text-setta-400">

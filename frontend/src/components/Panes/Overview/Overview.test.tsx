@@ -325,6 +325,8 @@ describe("Overview rail offsets", () => {
     );
 
     expect(markup).toContain(">Project AI Chat<");
-    expect(markup).not.toContain('data-testid="project-ai-settings-scroll-region"');
+    expect(markup).not.toContain(
+      'data-testid="project-ai-settings-scroll-region"',
+    );
   });
 });

@@ -179,6 +179,27 @@ describe("chatComposerControls", () => {
     expect(parsed?.promptTemplate).toBe("Summarize regressions.");
   });
 
+  it("ignores malformed runtime custom slash command entries", () => {
+    const malformedEntries: unknown[] = [
+      null,
+      1,
+      { command: 2, prompt: "invalid command type" },
+      { command: "/invalid-prompt", prompt: [] },
+      { command: "/valid", prompt: "Keep this prompt." },
+    ];
+
+    const commands = buildCustomPromptSlashCommandDefinitions(malformedEntries);
+
+    expect(commands).toEqual([
+      {
+        command: "/valid",
+        action: "custom_prompt",
+        summary: "Run a saved custom prompt.",
+        promptTemplate: "Keep this prompt.",
+      },
+    ]);
+  });
+
   it("creates shared managed execution setting handlers without clobbering sibling settings", () => {
     let currentSettings: ManagedChatExecutionSettings = {
       permissionMode: "minimal",

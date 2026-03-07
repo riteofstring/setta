@@ -384,12 +384,27 @@ export function normalizeSlashCommandToken(
   return withPrefix;
 }
 
+function isCustomSlashCommandRecord(
+  value: unknown,
+): value is { command: unknown; prompt: unknown } {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 export function buildCustomPromptSlashCommandDefinitions(
-  customCommands: Array<{ command: string; prompt: string }>,
+  customCommands: unknown[],
 ): ChatSlashCommandDefinition[] {
   const normalized: ChatSlashCommandDefinition[] = [];
   const seen = new Set<string>();
   for (const customCommand of customCommands) {
+    if (!isCustomSlashCommandRecord(customCommand)) {
+      continue;
+    }
+    if (
+      typeof customCommand.command !== "string" ||
+      typeof customCommand.prompt !== "string"
+    ) {
+      continue;
+    }
     const normalizedCommand = normalizeSlashCommandToken(customCommand.command);
     if (!normalizedCommand || seen.has(normalizedCommand)) {
       continue;

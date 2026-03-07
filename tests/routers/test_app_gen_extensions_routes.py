@@ -556,6 +556,130 @@ class TestAppGenExtensionsRoutes:
             assert response.created is False
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
+    def test_updates_skill_id_target_when_agents_home_root_is_unwritable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            # Updating by explicit skillId should not depend on default root writability.
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            agents_home = workspace_root / "agents-home"
+            agents_skills_root = agents_home / "skills"
+            agents_skills_root.mkdir(parents=True, exist_ok=True)
+            agents_skills_root.chmod(0o500)
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            try:
+                response = upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::editable",
+                    relative_path=None,
+                    content="# editable\n\nUpdated.\n",
+                )
+            finally:
+                agents_skills_root.chmod(0o700)
+
+            assert response.skillId == "workspace_agents_skills::editable"
+            assert response.created is False
+            assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
+
+    def test_creates_custom_skill_in_next_writable_priority_root(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            # Create should skip non-writable AGENTS_HOME and fall back to the next
+            # writable root in configured priority order.
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            user_skills_root = fake_home / ".agents" / "skills"
+            user_skills_root.mkdir(parents=True, exist_ok=True)
+            agents_home = Path(tmpdir) / "agents-home"
+            agents_skills_root = agents_home / "skills"
+            agents_skills_root.mkdir(parents=True, exist_ok=True)
+            agents_skills_root.chmod(0o500)
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            try:
+                response = upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id=None,
+                    relative_path="writable-fallback",
+                    content="# writable-fallback\n\nBody.\n",
+                )
+            finally:
+                agents_skills_root.chmod(0o700)
+
+            expected_skill_doc = user_skills_root / "writable-fallback" / "SKILL.md"
+            assert response.skillId == "user_agents_skills::writable-fallback"
+            assert response.created is True
+            assert response.skillDocPath == str(expected_skill_doc.resolve(strict=False))
+            assert (
+                expected_skill_doc.read_text(encoding="utf-8")
+                == "# writable-fallback\n\nBody.\n"
+            )
+
+    def test_create_custom_skill_fails_when_no_writable_root_exists(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            # If all editable roots are non-writable, create should fail with a
+            # deterministic client-facing error message.
+            workspace_root = Path(tmpdir) / "workspace"
+            workspace_root.mkdir(parents=True, exist_ok=True)
+            workspace_skills_root = workspace_root / ".agents" / "skills"
+            workspace_skills_root.mkdir(parents=True, exist_ok=True)
+            fake_home = Path(tmpdir) / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            user_skills_root = fake_home / ".agents" / "skills"
+            user_skills_root.mkdir(parents=True, exist_ok=True)
+            agents_home = Path(tmpdir) / "agents-home"
+            agents_skills_root = agents_home / "skills"
+            agents_skills_root.mkdir(parents=True, exist_ok=True)
+
+            workspace_skills_root.chmod(0o500)
+            user_skills_root.chmod(0o500)
+            agents_skills_root.chmod(0o500)
+
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            try:
+                with pytest.raises(
+                    ValueError,
+                    match="No writable custom skill root available",
+                ):
+                    upsert_app_gen_custom_skill(
+                        workspace_root=workspace_root,
+                        skill_id=None,
+                        relative_path="no-writable-root",
+                        content="# no-writable-root\n\nBody.\n",
+                    )
+            finally:
+                workspace_skills_root.chmod(0o700)
+                user_skills_root.chmod(0o700)
+                agents_skills_root.chmod(0o700)
+
     def test_rejects_updates_for_non_custom_skill_root(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -732,3 +856,106 @@ class TestAppGenExtensionsRoutes:
         assert response.status_code == 400
         assert "Only skills under AGENTS_HOME/skills" in response.json()["detail"]
         clear_setta_paths_cache()
+
+    def test_upsert_custom_skill_route_updates_selected_skill_when_agents_home_is_unwritable(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Route updates must succeed when the selected skill is writable, even if
+        # the default AGENTS_HOME root is not writable.
+        workspace_root = tmp_path / "workspace"
+        skill_dir = workspace_root / ".agents" / "skills" / "editable"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_doc = skill_dir / "SKILL.md"
+        skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        agents_home = tmp_path / "agents-home"
+        agents_skills_root = agents_home / "skills"
+        agents_skills_root.mkdir(parents=True, exist_ok=True)
+        agents_skills_root.chmod(0o500)
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        try:
+            with TestClient(app) as client:
+                response = client.post(
+                    f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                    json={
+                        "skillId": "workspace_agents_skills::editable",
+                        "relativePath": None,
+                        "content": "# editable\n\nUpdated.\n",
+                    },
+                )
+        finally:
+            agents_skills_root.chmod(0o700)
+            clear_setta_paths_cache()
+
+        assert response.status_code == 200
+        assert response.json()["skillId"] == "workspace_agents_skills::editable"
+        assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
+
+    def test_upsert_custom_skill_route_returns_400_when_no_writable_roots(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Route create should return a controlled 400 when no editable root is writable.
+        workspace_root = tmp_path / "workspace"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        workspace_skills_root = workspace_root / ".agents" / "skills"
+        workspace_skills_root.mkdir(parents=True, exist_ok=True)
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        user_skills_root = fake_home / ".agents" / "skills"
+        user_skills_root.mkdir(parents=True, exist_ok=True)
+
+        agents_home = tmp_path / "agents-home"
+        agents_skills_root = agents_home / "skills"
+        agents_skills_root.mkdir(parents=True, exist_ok=True)
+
+        workspace_skills_root.chmod(0o500)
+        user_skills_root.chmod(0o500)
+        agents_skills_root.chmod(0o500)
+
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.setenv("AGENTS_HOME", str(agents_home))
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        try:
+            with TestClient(app) as client:
+                response = client.post(
+                    f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                    json={
+                        "skillId": None,
+                        "relativePath": "no-writable-root",
+                        "content": "# no-writable-root\n\nBody.\n",
+                    },
+                )
+        finally:
+            workspace_skills_root.chmod(0o700)
+            user_skills_root.chmod(0o700)
+            agents_skills_root.chmod(0o700)
+            clear_setta_paths_cache()
+
+        assert response.status_code == 400
+        assert "No writable custom skill root available" in response.json()["detail"]

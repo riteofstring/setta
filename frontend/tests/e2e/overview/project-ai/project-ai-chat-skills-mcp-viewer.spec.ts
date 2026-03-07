@@ -6,6 +6,9 @@ import {
   seedLocalStorage,
 } from "../../helpers";
 
+const SELECT_ALL_SHORTCUT =
+  process.platform === "darwin" ? "Meta+A" : "Control+A";
+
 async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   await expect(locator).toBeVisible();
   const styleInfo = await locator.evaluate((node) => {
@@ -1483,6 +1486,170 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "# new-custom-skill",
   );
+});
+
+test("project ai chat blocks saving truncated editable skill previews", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "user_agents_skills::large-custom",
+          name: "large-custom",
+          rootLabel: "User ~/.agents/skills",
+          rootPath: "/home/.agents/skills",
+          relativePath: "large-custom",
+          description: "Large editable custom skill.",
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "user_agents_skills::large-custom",
+        content: "# large-custom\n\nPreview body",
+        truncated: true,
+        originalSizeBytes: 900000,
+      }),
+    });
+  });
+
+  let upsertRequestCount = 0;
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    upsertRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::large-custom",
+        created: false,
+        rootPath: "/home/.agents/skills",
+        skillDocPath: "/home/.agents/skills/large-custom/SKILL.md",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  await expect(page.getByTestId("project-chat-custom-skill-save")).toBeDisabled();
+  await expect(
+    page.getByText("Preview is truncated. Full content loading is required"),
+  ).toBeVisible();
+  expect(upsertRequestCount).toBe(0);
+});
+
+test("project ai chat can save intentionally empty custom skill content", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "user_agents_skills::emptyable",
+          name: "emptyable",
+          rootLabel: "User ~/.agents/skills",
+          rootPath,
+          relativePath: "emptyable",
+          description: "Custom skill that can be emptied.",
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "user_agents_skills::emptyable",
+        content: "# emptyable\n\nInitial body",
+        truncated: false,
+        originalSizeBytes: 24,
+      }),
+    });
+  });
+
+  const upsertPayloads: Array<{ content: string }> = [];
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    const payload = route.request().postDataJSON() as { content?: string };
+    upsertPayloads.push({ content: payload.content ?? "" });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "user_agents_skills::emptyable",
+        created: false,
+        rootPath,
+        skillDocPath: `${rootPath}/emptyable/SKILL.md`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  const editor = page.getByLabel("Skill Markdown Content");
+  const editorContent = editor.locator(".cm-content");
+  await editorContent.click();
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.press("Backspace");
+  await page.getByTestId("project-chat-custom-skill-save").click();
+
+  await expect.poll(() => upsertPayloads.length).toBe(1);
+  expect(upsertPayloads[0]?.content).toBe("");
+  await expect.poll(async () => {
+    return editorContent.evaluate((node) => {
+      const element = node as HTMLElement;
+      return element.innerText.trim();
+    });
+  }).toBe("");
 });
 
 test("project ai chat mounts markdown viewer lazily and shows truncation metadata", async ({

@@ -1,7 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
 import {
@@ -53,12 +53,10 @@ import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
-import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
-import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
@@ -90,7 +88,6 @@ export function Overview() {
   }));
   const showFileBrowserTab = !isDeploymentMode;
   const showGitTab = !isDeploymentMode;
-  const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
   const showMoreAppTab = showAppTab;
@@ -122,9 +119,6 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showGitTab && selectedTabName === OverviewTabNameEnum.Git) {
-    effectiveTabName = OverviewTabNameEnum.Overview;
-  }
-  if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
@@ -252,7 +246,9 @@ export function Overview() {
           >
             <MenuItem
               className={moreMenuItemClasses}
-              onClick={() => onOverviewTabClick(OverviewTabNameEnum.RunInstructions)}
+              onClick={() =>
+                onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
+              }
             >
               <i className="w-3 opacity-80">
                 <RiPlayList2Fill />
@@ -431,8 +427,6 @@ function TabContent({
       );
     case OverviewTabNameEnum.Git:
       return <GitPane />;
-    case OverviewTabNameEnum.WatchCode:
-      return <WatchCodePane />;
     case OverviewTabNameEnum.App:
       return <AppConfigPane />;
     case OverviewTabNameEnum.RunInstructions:
@@ -449,8 +443,6 @@ function TabContent({
       );
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
-    case OverviewTabNameEnum.ProjectAISettings:
-      return <ProjectAISettings />;
     default:
       return <ProjectOverview />;
   }

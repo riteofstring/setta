@@ -451,6 +451,50 @@ export type ProjectChatCustomSlashCommand = {
   prompt: string;
 };
 
+function isPersistedRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
+  value: unknown,
+): Record<string, Array<ProjectChatCustomSlashCommand>> {
+  if (!isPersistedRecord(value)) {
+    return {};
+  }
+  const normalized: Record<string, Array<ProjectChatCustomSlashCommand>> = {};
+  for (const [projectConfigId, rawCommands] of Object.entries(value)) {
+    const normalizedProjectConfigId = projectConfigId.trim();
+    if (!normalizedProjectConfigId || !Array.isArray(rawCommands)) {
+      continue;
+    }
+    const normalizedCommands: Array<ProjectChatCustomSlashCommand> = [];
+    for (const rawCommand of rawCommands) {
+      if (!isPersistedRecord(rawCommand)) {
+        continue;
+      }
+      const commandValue = rawCommand.command;
+      const promptValue = rawCommand.prompt;
+      if (typeof commandValue !== "string" || typeof promptValue !== "string") {
+        continue;
+      }
+      const command = commandValue.trim();
+      const prompt = promptValue.trim();
+      if (!command || !prompt) {
+        continue;
+      }
+      normalizedCommands.push({
+        command,
+        prompt,
+      });
+    }
+    if (normalizedCommands.length === 0) {
+      continue;
+    }
+    normalized[normalizedProjectConfigId] = normalizedCommands;
+  }
+  return normalized;
+}
+
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
@@ -1097,6 +1141,9 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.BackendLogs;
         }
+        if (merged.overviewTab === OverviewTabNameEnum.WatchCode) {
+          merged.overviewTab = OverviewTabNameEnum.Overview;
+        }
         if (
           merged.overviewNotificationsPaneTab !==
             OverviewNotificationsPaneTabEnum.Notifications &&
@@ -1106,14 +1153,10 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.Notifications;
         }
-        if (
-          !merged.customProjectChatSlashCommandsByProjectConfigId ||
-          typeof merged.customProjectChatSlashCommandsByProjectConfigId !==
-            "object" ||
-          Array.isArray(merged.customProjectChatSlashCommandsByProjectConfigId)
-        ) {
-          merged.customProjectChatSlashCommandsByProjectConfigId = {};
-        }
+        merged.customProjectChatSlashCommandsByProjectConfigId =
+          normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
+            merged.customProjectChatSlashCommandsByProjectConfigId,
+          );
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
           typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==

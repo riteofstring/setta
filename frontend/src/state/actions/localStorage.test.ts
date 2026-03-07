@@ -89,6 +89,18 @@ describe("local storage merge", () => {
     );
   });
 
+  it("migrates persisted WatchCode overview tab to Overview", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { overviewTab: OverviewTabNameEnum.WatchCode } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
+  });
+
   it("sanitizes invalid notifications pane tab values", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
@@ -104,6 +116,39 @@ describe("local storage merge", () => {
     expect(merged.overviewNotificationsPaneTab).toBe(
       OverviewNotificationsPaneTabEnum.Notifications,
     );
+  });
+
+  it("sanitizes malformed persisted custom slash command shapes deeply", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      {
+        customProjectChatSlashCommandsByProjectConfigId: {
+          "project-a": [
+            1,
+            { command: 2 },
+            { prompt: [] },
+            { command: " ", prompt: "x" },
+          ],
+          "project-b": [
+            { command: "/ship", prompt: "  Ship the current release.  " },
+            { command: "/trimmed", prompt: "   " },
+          ],
+          " ": [{ command: "/ignored", prompt: "ignored" }],
+        },
+      } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.customProjectChatSlashCommandsByProjectConfigId).toEqual({
+      "project-b": [
+        {
+          command: "/ship",
+          prompt: "Ship the current release.",
+        },
+      ],
+    });
   });
 
   it("falls back to canonical home pane defaults when persisted values are invalid", () => {

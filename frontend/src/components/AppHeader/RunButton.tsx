@@ -180,7 +180,9 @@ export function RunButton() {
           <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
           <MenuItem
             className={menuItemClasses}
-            onClick={() => onOverviewTabClick(OverviewTabNameEnum.RunInstructions)}
+            onClick={() =>
+              onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
+            }
           >
             <i className="w-3 opacity-80">
               <RiPlayList2Fill />

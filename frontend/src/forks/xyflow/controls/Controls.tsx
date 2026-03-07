@@ -1,5 +1,5 @@
-import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { WatchCodePane } from "components/Panes/Overview/WatchCode/WatchCodePane";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import "forks/xyflow/controls/style.css";
 import {
   resetZoom,
@@ -25,7 +25,11 @@ import {
   toggleMiniMap,
   toggleSnapToGrid,
 } from "state/actions/localStorage";
-import { useLocalStorage, useProjectState, useSettings } from "state/definitions";
+import {
+  useLocalStorage,
+  useProjectState,
+  useSettings,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
 import { onFitViewHandler } from "../core/store/utils";
 
@@ -154,9 +158,7 @@ const Controls = () => {
       const minTop = WATCH_CODE_PORTAL_MARGIN_PX;
       const maxTop = Math.max(
         minTop,
-        viewportHeight -
-          WATCH_CODE_PORTAL_MARGIN_PX -
-          portalHeight,
+        viewportHeight - WATCH_CODE_PORTAL_MARGIN_PX - portalHeight,
       );
       const top = Math.max(minTop, Math.min(buttonRect.top - 24, maxTop));
 
@@ -355,27 +357,23 @@ const Controls = () => {
               className="nodrag nopan nowheel fixed z-[70] flex max-h-[min(70vh,34rem)] flex-col overflow-visible rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-setta-700/70 dark:bg-setta-900/95"
               data-testid="rf__watch-code-settings-portal"
               aria-label="Watch code settings"
-              style={
-                {
-                  left: `${watchCodePortalPosition.left}px`,
-                  top: `${watchCodePortalPosition.top}px`,
-                  width: `${watchCodePortalPosition.width}px`,
-                }
-              }
+              style={{
+                left: `${watchCodePortalPosition.left}px`,
+                top: `${watchCodePortalPosition.top}px`,
+                width: `${watchCodePortalPosition.width}px`,
+              }}
             >
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute left-0 top-5 z-10 h-[22px] w-[11px]"
                 data-testid="rf__watch-code-settings-caret"
-                style={
-                  {
-                    top: `${watchCodePortalPosition.caretTop}px`,
-                    transform: "translate(-100%, -50%)",
-                  }
-                }
+                style={{
+                  top: `${watchCodePortalPosition.caretTop}px`,
+                  transform: "translate(-100%, -50%)",
+                }}
               >
-                <div className="absolute left-0 top-0 h-0 w-0 border-y-[11px] border-y-transparent border-r-[11px] border-r-setta-200/80 dark:border-r-setta-700/70" />
-                <div className="absolute left-[1px] top-[1px] h-0 w-0 border-y-[10px] border-y-transparent border-r-[10px] border-r-white/95 dark:border-r-setta-900/95" />
+                <div className="absolute left-0 top-0 h-0 w-0 border-y-[11px] border-r-[11px] border-y-transparent border-r-setta-200/80 dark:border-r-setta-700/70" />
+                <div className="absolute left-[1px] top-[1px] h-0 w-0 border-y-[10px] border-r-[10px] border-y-transparent border-r-white/95 dark:border-r-setta-900/95" />
               </div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
