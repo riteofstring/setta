@@ -28,6 +28,19 @@ Current repo status as of 2026-03-06:
 - the Go IDE planner currently rejects:
   - `paramOverrides`
     - Go project state does not yet model params, so the planner fails explicitly instead of guessing
+- the Go rewrite now includes the first IDE `runCode` HTTP transport under:
+  - `internal/httpapi/terminal_routes.go`
+  - `internal/runs/service.go`
+- the current Go IDE `runCode` route supports:
+  - manual Python/Bash code-section runs
+  - explicit valid attached-terminal reuse
+  - attached-terminal creation through Go project-state mutation when needed
+  - terminal-session open/reuse plus shell-command dispatch through `internal/terminals`
+- the current Go IDE `runCode` route still rejects:
+  - `cliId`
+  - `drawSnapshotsBySectionId`
+  - `sectionVariantOverrides`
+  - `paramOverrides`
 - Python still owns `POST /api/runCode` under:
   - `backend/setta/routers/terminals.py`
 - Python run-code behavior is currently split across:
@@ -44,10 +57,12 @@ Current repo status as of 2026-03-06:
   - attached-terminal validation
   - attached-terminal and temporary-terminal mutation helpers
 - Go now has the first run snapshot creation and run-command builders for IDE manual code-section runs
+- Go now has the first IDE `runCode` route for manual code-section runs, but it is still narrower than the Python route
 - Go does not yet have a backend-log event sink for run start notifications
 - Go does not yet have a `cliId` output transport equivalent
 - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
+- Go still does not model draw snapshot updates, so `drawSnapshotsBySectionId` remain intentionally unsupported on the Go route
 
 ## Scope
 
@@ -437,6 +452,41 @@ Acceptance:
 - temporary terminals become visible through project-state mutation, not only in terminal runtime
 - focused app-stack tests cover route success and failure paths
 
+Status:
+
+- in progress
+
+Completed:
+
+- added `internal/runs/service.go`
+- added the first Go-owned `POST /api/runCode` handler in:
+  - `internal/httpapi/terminal_routes.go`
+  - `internal/app/app.go`
+- kept the transport boundary narrow:
+  - the handler validates the current unsupported payload edges
+  - `internal/runs.Service` owns planner invocation, attached-terminal reuse/ensure, PTY session open/reuse, and command dispatch
+- implemented the first IDE transport behaviors:
+  - explicit valid attached terminals are reused
+  - missing attached terminals are created through Go project-state mutation before dispatch
+  - terminal sessions are opened lazily through `internal/terminals`
+  - planned commands use explicit executable paths resolved from the host instead of assuming `python` is on the shell PATH
+- added focused coverage in:
+  - `internal/httpapi/terminal_routes_test.go`
+  - `internal/app/app_test.go`
+
+Tests:
+
+- `./scripts/go.sh test ./internal/runs ./internal/httpapi ./internal/app`
+
+Deferred Within Slice 3:
+
+- `drawSnapshotsBySectionId`
+  - current frontend IDE runs may send draw payloads, but Go still lacks draw/artifact state ownership
+- route-level override support
+  - the planner can already handle section-variant overrides, but the HTTP route still rejects them until terminal attachment semantics for overridden variants are made explicit
+- temporary terminal allocation for non-attached/manual-non-code targets
+- backend-log start notifications
+
 ### Slice 4: Deployment/Share Run Support
 
 Deliver:
@@ -478,8 +528,8 @@ Rationale:
 
 ## Next Recommended Step
 
-Implement Slice 3:
+Finish Slice 3 by adding the missing Go-owned source of truth for run-time draw updates:
 
-- add `POST /api/runCode` in Go for the first supported IDE path
-- use `internal/runs` plus `internal/terminals` to pick the terminal target and dispatch the planned command
-- keep generated project-entry runs, `cliId`, and deployment/share policy work deferred until the IDE transport path is stable
+- model and apply `drawSnapshotsBySectionId` in Go before widening the `runCode` route surface
+- once draw updates exist in Go, decide whether HTTP route override support should land immediately or stay behind the planner boundary until attached-terminal semantics for overridden variants are explicit
+- keep generated project-entry runs, `cliId`, backend-log parity, and deployment/share policy work deferred until the IDE transport path is stable

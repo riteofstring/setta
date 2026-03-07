@@ -62,6 +62,14 @@ Current repo status as of 2026-03-06:
   - direct-file run commands plus snapshot planning for `never`, `ephemeral`, and `always`
   - section-variant overrides applied against cloned project-state documents
   - explicit rejection of `paramOverrides` until Go owns parameter state
+- the Go rewrite now includes the first IDE `runCode` transport under:
+  - `internal/httpapi/terminal_routes.go`
+  - `internal/runs/service.go`
+  - `internal/app/app.go`
+- current Go `runCode` transport behavior is intentionally narrow:
+  - manual Python/Bash code-section runs only
+  - attached-terminal reuse and ensure flow through Go project-state + terminal services
+  - `cliId`, draw snapshot payloads, and HTTP override payloads still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - producer-side realtime event sources and terminal run HTTP routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
