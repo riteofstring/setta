@@ -356,6 +356,12 @@ def _resolve_skill_editability(
     normalized_relative_path = relative_path.strip()
     if normalized_relative_path in ("", "."):
         return False, "Editing root-level SKILL.md is not supported."
+    return _resolve_existing_custom_skill_replaceability(skill_doc)
+
+
+def _resolve_existing_custom_skill_replaceability(
+    skill_doc: Path,
+) -> tuple[bool, str | None]:
     resolved_skill_doc = skill_doc.resolve(strict=False)
     try:
         skill_doc_exists = resolved_skill_doc.exists()
@@ -371,9 +377,9 @@ def _resolve_skill_editability(
         return False, str(exc)
     if not os.access(skill_parent, os.X_OK):
         return False, "Skill directory is not accessible."
-    if os.access(resolved_skill_doc, os.W_OK):
-        return True, None
-    return False, "SKILL.md is not writable."
+    if not os.access(skill_parent, os.W_OK | os.X_OK):
+        return False, "Skill directory is not writable."
+    return True, None
 
 
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:

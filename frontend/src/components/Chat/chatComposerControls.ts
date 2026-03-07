@@ -100,6 +100,7 @@ export type ChatSlashCommandDefinition = {
   action: ChatSlashCommandAction;
   summary: string;
   promptTemplate?: string;
+  unavailableFeedback?: string;
 };
 
 type ManagedChatSlashCommandAction = Exclude<
@@ -127,6 +128,7 @@ type ParsedSlashCommand = {
   args: string[];
   rawSuffix: string;
   promptTemplate?: string;
+  unavailableFeedback?: string;
 };
 
 type ChatSlashCommandCapabilities = {
@@ -512,6 +514,9 @@ export function parseSlashCommand(
   };
   if (definition.promptTemplate) {
     parsedCommand.promptTemplate = definition.promptTemplate;
+  }
+  if (definition.unavailableFeedback) {
+    parsedCommand.unavailableFeedback = definition.unavailableFeedback;
   }
   return parsedCommand;
 }

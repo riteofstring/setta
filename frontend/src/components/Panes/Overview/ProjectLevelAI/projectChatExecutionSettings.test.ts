@@ -1,7 +1,3 @@
-import {
-  buildChatSlashCommands,
-  buildCustomPromptSlashCommandDefinitions,
-} from "components/Chat/chatComposerControls";
 import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
@@ -39,9 +35,7 @@ import {
   resolveProjectChatRunTypeForEngine,
 } from "./projectChatHydrationAuthority";
 import {
-  buildReservedSlashCommandTokens,
   collectAgentNativeSlashCommandTokensFromEntries,
-  reconcileCustomSlashCommands,
   resolveAgentNativeSlashCommandsByEngineId,
 } from "./projectChatSkillsMcpViewerUtils";
 
@@ -63,78 +57,40 @@ describe("getDefaultProjectChatPermissionMode", () => {
 });
 
 describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
-  it("fail-closes startup command reconciliation with persisted native tokens", () => {
+  it("keeps native slash commands unavailable until authority is ready", () => {
     expect(
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: ["/status"],
-        persistedNativeSlashCommandTokens: ["/deploy", "/status"],
         agentRunsAuthorityState: "loading",
       }),
-    ).toEqual(["/deploy", "/status"]);
+    ).toEqual([]);
   });
 
   it("uses authoritative runtime native tokens after runs finish loading", () => {
     expect(
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: ["/status"],
-        persistedNativeSlashCommandTokens: ["/deploy", "/status"],
         agentRunsAuthorityState: "ready",
       }),
     ).toEqual(["/status"]);
   });
 
-  it("keeps persisted native tokens fail-closed after terminal load failure", () => {
+  it("keeps native slash commands unavailable after terminal load failure", () => {
     expect(
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: [],
-        persistedNativeSlashCommandTokens: ["/deploy", "/status"],
         agentRunsAuthorityState: "terminal_error",
       }),
-    ).toEqual(["/deploy", "/status"]);
+    ).toEqual([]);
   });
 
   it("ignores runtime-only native tokens until agent-run authority is ready", () => {
     expect(
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens: ["/deploy"],
-        persistedNativeSlashCommandTokens: ["/status"],
         agentRunsAuthorityState: "loading",
       }),
-    ).toEqual(["/status"]);
-  });
-
-  it("keeps conflicting custom commands non-executable during startup hydration", () => {
-    const startupNativeTokens =
-      resolveProjectChatComposerNativeSlashCommandTokens({
-        runtimeNativeSlashCommandTokens: [],
-        persistedNativeSlashCommandTokens: ["/deploy"],
-        agentRunsAuthorityState: "loading",
-      });
-    const customCommands = buildCustomPromptSlashCommandDefinitions([
-      { command: "/deploy", prompt: "Deploy app." },
-      { command: "/project-status", prompt: "Summarize project status." },
-    ]);
-    const reservedTokens = buildReservedSlashCommandTokens({
-      managedCommands: buildChatSlashCommands({
-        model: true,
-        permissions: true,
-        search: true,
-        appGenerationModes: true,
-      }),
-      engineCommandGroups: [],
-      discoveredNativeSlashCommands: startupNativeTokens,
-    });
-    const reconciled = reconcileCustomSlashCommands({
-      customCommands,
-      reservedTokens,
-    });
-
-    expect(Array.from(reconciled.conflictingCommandTokens)).toContain(
-      "/deploy",
-    );
-    expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
-      ["/project-status"],
-    );
+    ).toEqual([]);
   });
 
   it("stops reserving stale commands from removed engines once runtime authority is ready", () => {
@@ -174,7 +130,6 @@ describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
     const discoveredAgentNativeSlashCommands =
       resolveProjectChatComposerNativeSlashCommandTokens({
         runtimeNativeSlashCommandTokens,
-        persistedNativeSlashCommandTokens: ["/deploy"],
         agentRunsAuthorityState: "ready",
       });
     const resolved = resolveProjectChatComposerSlashCommandSets({
@@ -285,11 +240,18 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
     ).toBe("native_prompt");
   });
 
-  it("keeps cached native slash commands recognized but non-executable before authority resolves", () => {
+  it("keeps custom slash commands recognized but non-executable before native authority resolves", () => {
     const resolved = resolveProjectChatComposerSlashCommandSets({
-      customProjectChatSlashCommands: [],
-      discoveredAgentNativeSlashCommands: ["/deploy"],
-      executableAgentNativeSlashCommands: [],
+      customProjectChatSlashCommands: [
+        {
+          command: "/deploy",
+          prompt: "Ship the current build.",
+        },
+      ],
+      discoveredAgentNativeSlashCommands: [],
+      customCommandsExecutable: false,
+      customCommandUnavailableFeedback:
+        "Custom slash commands are unavailable until native command authority is loaded for this project.",
       showPermissionExecutionControl: true,
       showSearchExecutionControl: true,
     });
@@ -297,20 +259,29 @@ describe("resolveProjectChatComposerSlashCommandSets", () => {
     expect(
       resolved.slashCommands.some((entry) => entry.command === "/deploy"),
     ).toBe(false);
-    expect(
-      resolved.recognizedSlashCommands.find(
-        (entry) => entry.command === "/deploy",
-      )?.action,
-    ).toBe("native_prompt");
+    const recognizedDeploy = resolved.recognizedSlashCommands.find(
+      (entry) => entry.command === "/deploy",
+    );
+    expect(recognizedDeploy?.action).toBe("custom_prompt");
+    expect(recognizedDeploy?.unavailableFeedback).toBe(
+      "Custom slash commands are unavailable until native command authority is loaded for this project.",
+    );
   });
 });
 
 describe("project chat slash-command resolution", () => {
-  it("treats cached native slash commands as unavailable until authority is ready", () => {
+  it("treats custom slash commands as unavailable until native authority is ready", () => {
     const resolvedSlashCommands = resolveProjectChatComposerSlashCommandSets({
-      customProjectChatSlashCommands: [],
-      discoveredAgentNativeSlashCommands: ["/deploy"],
-      executableAgentNativeSlashCommands: [],
+      customProjectChatSlashCommands: [
+        {
+          command: "/deploy",
+          prompt: "Ship the current build.",
+        },
+      ],
+      discoveredAgentNativeSlashCommands: [],
+      customCommandsExecutable: false,
+      customCommandUnavailableFeedback:
+        "Custom slash commands are unavailable until native command authority is loaded for this project.",
       showPermissionExecutionControl: true,
       showSearchExecutionControl: true,
     });
@@ -322,7 +293,10 @@ describe("project chat slash-command resolution", () => {
     });
 
     expect(request.parsed?.command).toBe("/deploy");
-    expect(request.parsed?.action).toBe("native_prompt");
+    expect(request.parsed?.action).toBe("custom_prompt");
+    expect(request.parsed?.unavailableFeedback).toBe(
+      "Custom slash commands are unavailable until native command authority is loaded for this project.",
+    );
     expect(request.commandAvailable).toBe(false);
   });
 });

@@ -926,32 +926,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(tokens).toEqual([]);
   });
 
-  it("keeps cached native slash entries visible until runtime authority is ready", () => {
+  it("hides native slash entries until runtime authority is ready", () => {
     const visible = resolveVisibleAgentNativeSlashCommandsByEngineId({
       agentRunsAuthorityState: "terminal_error",
-      persistedEntries: {
-        "engine-live": {
-          commands: ["/deploy"],
-          status: "available",
-          statusDetail: null,
-        },
-        "engine-removed": {
-          commands: ["/obsolete"],
-          status: "available",
-          statusDetail: null,
-        },
-      },
       runtimeEntries: {},
-      engineConfigIds: ["engine-live"],
     });
 
-    expect(visible).toEqual({
-      "engine-live": {
-        commands: ["/deploy"],
-        status: "available",
-        statusDetail: null,
-      },
-    });
+    expect(visible).toEqual({});
   });
 
   it("replaces project-scoped cache entries only through the runtime cache authority", () => {

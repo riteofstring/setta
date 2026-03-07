@@ -104,7 +104,7 @@ class TestAppGenExtensionsRoutes:
                 row.editabilityReason == "Editing root-level SKILL.md is not supported."
             )
 
-    def test_marks_existing_custom_skill_as_non_editable_when_skill_doc_is_read_only(
+    def test_marks_existing_custom_skill_as_editable_when_skill_doc_is_read_only_but_directory_is_writable(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -121,25 +121,46 @@ class TestAppGenExtensionsRoutes:
             monkeypatch.delenv("AGENTS_HOME", raising=False)
             monkeypatch.delenv("CODEX_HOME", raising=False)
             monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            skill_doc.chmod(0o444)
 
-            original_access = app_gen_extensions.os.access
-
-            def patched_access(path: os.PathLike[str] | str, mode: int) -> bool:
-                if (
-                    Path(path).resolve(strict=False) == skill_doc.resolve(strict=False)
-                    and mode == os.W_OK
-                ):
-                    return False
-                return original_access(path, mode)
-
-            monkeypatch.setattr(app_gen_extensions.os, "access", patched_access)
-
-            rows = list_app_gen_skills(workspace_root)
+            try:
+                rows = list_app_gen_skills(workspace_root)
+            finally:
+                skill_doc.chmod(0o644)
 
             row_by_id = {row.skillId: row for row in rows}
             row = row_by_id["workspace_agents_skills::read-only"]
+            assert row.isEditable is True
+            assert row.editabilityReason is None
+
+    def test_marks_existing_custom_skill_as_non_editable_when_skill_directory_is_not_writable(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "locked-dir"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# Locked Dir\n\nLocked.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            skill_dir.chmod(0o555)
+
+            try:
+                rows = list_app_gen_skills(workspace_root)
+            finally:
+                skill_dir.chmod(0o755)
+
+            row_by_id = {row.skillId: row for row in rows}
+            row = row_by_id["workspace_agents_skills::locked-dir"]
             assert row.isEditable is False
-            assert row.editabilityReason == "SKILL.md is not writable."
+            assert row.editabilityReason == "Skill directory is not writable."
 
     def test_lists_workspace_claude_and_opencode_skills(
         self,
@@ -881,6 +902,42 @@ class TestAppGenExtensionsRoutes:
             assert response.skillContent.content == "# editable\n\nUpdated.\n"
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
+    def test_updates_existing_workspace_custom_skill_when_skill_doc_is_read_only(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / ".agents" / "skills" / "editable"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            skill_doc = skill_dir / "SKILL.md"
+            skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            skill_doc.chmod(0o444)
+
+            try:
+                response = upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::editable",
+                    relative_path=None,
+                    content="# editable\n\nUpdated.\n",
+                )
+            finally:
+                if skill_doc.exists():
+                    skill_doc.chmod(0o644)
+
+            assert response.skillId == "workspace_agents_skills::editable"
+            assert response.created is False
+            assert response.skill.isEditable is True
+            assert response.skillContent.content == "# editable\n\nUpdated.\n"
+            assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
+
     def test_update_custom_skill_preserves_existing_content_when_temp_write_fails(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -934,7 +991,9 @@ class TestAppGenExtensionsRoutes:
             monkeypatch.delenv("CODEX_HOME", raising=False)
             monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
 
-            original_write_existing = app_gen_extensions._write_existing_custom_skill_doc
+            original_write_existing = (
+                app_gen_extensions._write_existing_custom_skill_doc
+            )
 
             def delete_before_update_open(
                 *,
@@ -1252,7 +1311,7 @@ class TestAppGenExtensionsRoutes:
                     content="# read-only\n\nUpdated.\n",
                 )
 
-    def test_rejects_updates_when_existing_custom_skill_is_no_longer_writable(
+    def test_rejects_updates_when_existing_custom_skill_directory_is_no_longer_writable(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1269,26 +1328,21 @@ class TestAppGenExtensionsRoutes:
             monkeypatch.delenv("AGENTS_HOME", raising=False)
             monkeypatch.delenv("CODEX_HOME", raising=False)
             monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+            skill_dir.chmod(0o555)
 
-            original_access = app_gen_extensions.os.access
-
-            def patched_access(path: os.PathLike[str] | str, mode: int) -> bool:
-                if (
-                    Path(path).resolve(strict=False) == skill_doc.resolve(strict=False)
-                    and mode == os.W_OK
+            try:
+                with pytest.raises(
+                    ValueError,
+                    match="Skill directory is not writable.",
                 ):
-                    return False
-                return original_access(path, mode)
-
-            monkeypatch.setattr(app_gen_extensions.os, "access", patched_access)
-
-            with pytest.raises(ValueError, match="SKILL.md is not writable."):
-                upsert_app_gen_custom_skill(
-                    workspace_root=workspace_root,
-                    skill_id="workspace_agents_skills::read-only",
-                    relative_path=None,
-                    content="# read-only\n\nUpdated.\n",
-                )
+                    upsert_app_gen_custom_skill(
+                        workspace_root=workspace_root,
+                        skill_id="workspace_agents_skills::read-only",
+                        relative_path=None,
+                        content="# read-only\n\nUpdated.\n",
+                    )
+            finally:
+                skill_dir.chmod(0o755)
 
     def test_skill_content_route_returns_plain_keyerror_detail(
         self,
@@ -1777,7 +1831,7 @@ class TestAppGenExtensionsRoutes:
         assert editable_row["isEditable"] is True
         assert editable_row["editabilityReason"] is None
 
-    def test_get_app_gen_skills_route_surfaces_read_only_custom_skill_reason(
+    def test_get_app_gen_skills_and_upsert_route_reject_non_writable_skill_directory(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -1795,18 +1849,7 @@ class TestAppGenExtensionsRoutes:
         monkeypatch.delenv("CODEX_HOME", raising=False)
         monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
         clear_setta_paths_cache()
-
-        original_access = app_gen_extensions.os.access
-
-        def patched_access(path: os.PathLike[str] | str, mode: int) -> bool:
-            if (
-                Path(path).resolve(strict=False) == skill_doc.resolve(strict=False)
-                and mode == os.W_OK
-            ):
-                return False
-            return original_access(path, mode)
-
-        monkeypatch.setattr(app_gen_extensions.os, "access", patched_access)
+        skill_dir.chmod(0o555)
 
         app = FastAPI()
         app.state.setta = SimpleNamespace(deployment_mode=False)
@@ -1814,18 +1857,83 @@ class TestAppGenExtensionsRoutes:
 
         try:
             with TestClient(app) as client:
-                response = client.get(
+                get_response = client.get(
                     f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILLS.value}"
                 )
+                post_response = client.post(
+                    f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                    json={
+                        "skillId": "workspace_agents_skills::read-only",
+                        "relativePath": None,
+                        "content": "# read-only\n\nUpdated.\n",
+                    },
+                )
         finally:
+            skill_dir.chmod(0o755)
             clear_setta_paths_cache()
 
-        assert response.status_code == 200
-        payload = response.json()
+        assert get_response.status_code == 200
+        payload = get_response.json()
         row_by_id = {row["skillId"]: row for row in payload["skills"]}
         read_only_row = row_by_id["workspace_agents_skills::read-only"]
         assert read_only_row["isEditable"] is False
-        assert read_only_row["editabilityReason"] == "SKILL.md is not writable."
+        assert read_only_row["editabilityReason"] == "Skill directory is not writable."
+        assert post_response.status_code == 400
+        assert post_response.json()["detail"] == "Skill directory is not writable."
+        assert skill_doc.read_text(encoding="utf-8") == "# read-only\n"
+
+    def test_get_app_gen_skills_and_upsert_route_treat_read_only_skill_doc_as_editable(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        skill_dir = workspace_root / ".agents" / "skills" / "editable"
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_doc = skill_dir / "SKILL.md"
+        skill_doc.write_text("# editable\n\nInitial.\n", encoding="utf-8")
+        skill_doc.chmod(0o444)
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        try:
+            with TestClient(app) as client:
+                get_response = client.get(
+                    f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILLS.value}"
+                )
+                post_response = client.post(
+                    f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                    json={
+                        "skillId": "workspace_agents_skills::editable",
+                        "relativePath": None,
+                        "content": "# editable\n\nUpdated.\n",
+                    },
+                )
+        finally:
+            if skill_doc.exists():
+                skill_doc.chmod(0o644)
+            clear_setta_paths_cache()
+
+        assert get_response.status_code == 200
+        get_payload = get_response.json()
+        row_by_id = {row["skillId"]: row for row in get_payload["skills"]}
+        editable_row = row_by_id["workspace_agents_skills::editable"]
+        assert editable_row["isEditable"] is True
+        assert editable_row["editabilityReason"] is None
+
+        assert post_response.status_code == 200
+        assert post_response.json()["skill"]["isEditable"] is True
+        assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
     def test_get_app_gen_skills_route_does_not_probe_writes(
         self,

@@ -322,6 +322,70 @@ test("project ai chat can open the skills side view", async ({ page }) => {
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
 });
 
+test("project ai chat disables save for non-editable custom skills", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        buildAppGenSkillsResponse([
+          {
+            skillId: "workspace_agents_skills::locked-skill",
+            name: "locked-skill",
+            rootLabel: "Workspace .agents/skills",
+            rootPath: "/workspace/.agents/skills",
+            relativePath: "locked-skill",
+            isEditable: false,
+            editabilityReason: "Skill directory is not writable.",
+            description: "Locked custom skill.",
+          },
+        ]),
+      ),
+    });
+  });
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "workspace_agents_skills::locked-skill",
+        content: "# locked-skill\n\nLocked custom skill.\n",
+        truncated: false,
+        originalSizeBytes: 37,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await openSkillsViewer(page);
+    await page
+      .getByTestId("skills-mcp-skill-name")
+      .filter({ hasText: "locked-skill" })
+      .click();
+    await openRawSkillMarkdown(page);
+
+    const saveButton = page.getByTestId("project-chat-custom-skill-save");
+    await expect(saveButton).toBeDisabled();
+    await expect(saveButton).toHaveAttribute(
+      "title",
+      "Skill directory is not writable.",
+    );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project ai chat can open slash commands in a dedicated side view", async ({
   page,
 }) => {
@@ -704,7 +768,7 @@ test("project ai chat ignores cached native slash commands from other projects",
   }
 });
 
-test("project ai chat keeps cached native slash commands visible after terminal run-load failure", async ({
+test("project ai chat ignores cached native slash commands after terminal run-load failure", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
@@ -795,12 +859,17 @@ test("project ai chat keeps cached native slash commands visible after terminal 
     const deployCommand = page
       .getByTestId("skills-mcp-agent-slash-command")
       .filter({ hasText: "/deploy" });
-    await expect(deployCommand).toBeVisible();
+    await expect(deployCommand).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "Native command metadata is unavailable until agent metadata reloads for this project.",
+      ),
+    ).toBeVisible();
 
     await expect
       .poll(() => getAgentRunsRequests, { timeout: 10_000 })
       .toBeGreaterThanOrEqual(4);
-    await expect(deployCommand).toBeVisible();
+    await expect(deployCommand).toHaveCount(0);
 
     const storedCommands = await page.evaluate(() => {
       return window.localStorage.getItem(
@@ -946,7 +1015,7 @@ test("project ai chat blocks custom slash creation until native command authorit
   }
 });
 
-test("project ai chat keeps cached native slash submits fail-closed until authority becomes ready", async ({
+test("project ai chat ignores cached native slash metadata until authority becomes ready", async ({
   page,
 }) => {
   await seedLocalStorage(page, {

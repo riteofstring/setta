@@ -42,7 +42,6 @@ import {
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
-import { shallow } from "zustand/shallow";
 import {
   type AgentNativeSlashCommandsEntry,
   type AgentRunsAuthorityState,
@@ -51,7 +50,6 @@ import {
   buildSlashCommandsByEngine,
   DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY,
   EMPTY_AGENT_NATIVE_COMMANDS,
-  EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
@@ -62,7 +60,6 @@ import {
   resolveMcpServerStatus,
   resolveVisibleAgentNativeSlashCommandsByEngineId,
   toRuntimeStatusByServerId,
-  useAgentNativeSlashCommandsCache,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 
@@ -325,6 +322,9 @@ export function resolveCustomSlashDraftByProjectConfigIdUpdate({
 function resolveAgentNativeSlashCommandsMessage(
   entry: AgentNativeSlashCommandsEntry,
 ): string {
+  if (entry.status === "unknown" && entry.statusDetail) {
+    return entry.statusDetail;
+  }
   if (entry.status === "not_supported") {
     return (
       entry.statusDetail ??
@@ -346,6 +346,21 @@ function resolveAgentNativeSlashCommandsMessage(
     "command list (for example, /help). This view auto-refreshes from agent run " +
     "metadata while this tab is selected."
   );
+}
+
+function resolveAgentNativeSlashAuthorityDetail(
+  agentRunsAuthorityState: AgentRunsAuthorityState,
+): string | null {
+  if (agentRunsAuthorityState === "loading") {
+    return "Native command authority is still loading for this project.";
+  }
+  if (
+    agentRunsAuthorityState === "transient_error" ||
+    agentRunsAuthorityState === "terminal_error"
+  ) {
+    return "Native command metadata is unavailable until agent metadata reloads for this project.";
+  }
+  return null;
 }
 
 function isActionablePath(path: string | null): path is string {
@@ -666,13 +681,6 @@ export function ProjectChatSkillsMcpViewer({
     customSlashDraftByProjectConfigId,
     setCustomSlashDraftByProjectConfigId,
   ] = useState<Record<string, CustomSlashCommandDraft>>({});
-  const persistedAgentNativeSlashCommandsByEngineId =
-    useAgentNativeSlashCommandsCache(
-      (state) =>
-        state[projectConfigId] ??
-        EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID,
-      shallow,
-    );
   const [skillsRevision, setSkillsRevision] = useState(0);
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
@@ -984,16 +992,9 @@ export function ProjectChatSkillsMcpViewer({
   const visibleAgentNativeSlashCommandsByEngineId = useMemo(() => {
     return resolveVisibleAgentNativeSlashCommandsByEngineId({
       agentRunsAuthorityState,
-      persistedEntries: persistedAgentNativeSlashCommandsByEngineId,
       runtimeEntries: runtimeAgentNativeSlashCommandsByEngineId,
-      engineConfigIds: slashCommandEngineIds,
     });
-  }, [
-    agentRunsAuthorityState,
-    persistedAgentNativeSlashCommandsByEngineId,
-    runtimeAgentNativeSlashCommandsByEngineId,
-    slashCommandEngineIds,
-  ]);
+  }, [agentRunsAuthorityState, runtimeAgentNativeSlashCommandsByEngineId]);
   const selectedSlashEngine = useMemo(() => {
     if (!selectedSlashEngineId) {
       return slashCommandsByEngine[0] ?? null;
@@ -1025,11 +1026,24 @@ export function ProjectChatSkillsMcpViewer({
     ) {
       return DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY;
     }
+    const authorityDetail = resolveAgentNativeSlashAuthorityDetail(
+      agentRunsAuthorityState,
+    );
+    if (authorityDetail) {
+      return {
+        ...DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY,
+        statusDetail: authorityDetail,
+      };
+    }
     return (
       visibleAgentNativeSlashCommandsByEngineId[selectedSlashEngine.engineId] ??
       DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY
     );
-  }, [selectedSlashEngine, visibleAgentNativeSlashCommandsByEngineId]);
+  }, [
+    agentRunsAuthorityState,
+    selectedSlashEngine,
+    visibleAgentNativeSlashCommandsByEngineId,
+  ]);
   const managedSlashCommandDefinitions = useMemo(() => {
     return buildChatSlashCommands({
       model: true,
@@ -2359,8 +2373,8 @@ export function ProjectChatSkillsMcpViewer({
               </div>
               <div className="text-[10px] text-setta-500 dark:text-setta-400">
                 Setta command availability is defined by this app. Native agent
-                command lists are sourced from external-agent run metadata and
-                cached locally per engine.
+                command lists are sourced from current external-agent run
+                metadata.
               </div>
             </>
           )}

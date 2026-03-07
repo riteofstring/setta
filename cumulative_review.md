@@ -601,3 +601,62 @@
   - verified a temporary workspace custom skill loaded into the viewer,
   - edited the draft in `Raw text`, switched to `Rendered`, and confirmed the unsaved draft rendered immediately,
   - switched back to `Raw text` and confirmed the save control remained enabled for the dirty draft.
+
+## 2026-03-06 10:40:06 PST
+
+### Consolidated findings implemented
+- Fixed the custom-skill editability contract so skills are marked editable based on the actual temp-file-plus-replace write path, not the `SKILL.md` file bit alone.
+- Fixed inactive chat hydration so completed chats and section chats converge back to backend truth instead of preserving arbitrary stale local-only rows.
+- Fixed project-chat slash-command authority so native command discovery/execution is runtime-authoritative only, and custom commands fail closed until external-agent native authority is ready.
+
+### Proposed fixes applied
+- Backend skill editability alignment in `backend/setta/routers/app_gen_extensions.py`:
+  - `_resolve_skill_editability(...)` now delegates to `_resolve_existing_custom_skill_replaceability(...)`.
+  - The shared helper checks the same parent-directory accessibility and writability required by `_write_existing_custom_skill_doc(...)`.
+  - This makes the list response and the upsert route use one editability contract instead of separate file-bit and replace-path rules.
+- Hydration convergence in `frontend/src/state/actions/ai.ts`:
+  - inactive hydrate paths now pass `preserveLocalOnlyMessages: false`,
+  - active local streams still preserve in-flight overlays while the stream remains active,
+  - section-chat hydrate uses the same rule as project-chat hydrate instead of always preserving local-only rows.
+- Slash-command authority hardening in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`:
+  - `resolveProjectChatComposerNativeSlashCommandTokens(...)` now returns runtime native tokens only when authority is ready and otherwise returns none,
+  - `resolveProjectChatComposerSlashCommandSets(...)` now separates executable custom commands from recognized-only custom commands,
+  - pre-authority custom commands remain recognized but non-executable and carry explicit unavailable feedback,
+  - native slash-command refresh/retry flows now rebuild command sets only from live agent-run metadata.
+- Slash-command UI/source-of-truth cleanup in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` and `frontend/src/components/Panes/Overview/ProjectLevelAI/projectChatSkillsMcpViewerUtils.ts`:
+  - the slash-command viewer no longer surfaces cached native command lists before runtime authority is ready,
+  - unresolved authority states now show explicit status copy instead of stale command rows,
+  - viewer copy now states that native command lists come from current external-agent run metadata.
+- Slash-command parsing/feedback plumbing in `frontend/src/components/Chat/chatComposerControls.ts` and `frontend/src/components/Chat/ChatInput.tsx`:
+  - recognized-but-unavailable commands can now carry command-specific unavailable feedback,
+  - pre-authority custom slash submits return deterministic authority-loading feedback instead of the generic unavailable message.
+
+### UX/DX before and after
+- Before: a custom skill could appear read-only even though replace-based save would work, or appear editable and then fail only after the user pressed Save because the directory could not stage the temp file.  
+  After: the Save affordance, disabled state, tooltip/reason text, and backend outcome all match the real filesystem capability.
+- Before: completed chat hydrations could leave ghost local-only messages in the transcript after reload or refresh, undermining transcript trust and muddying branch/history state.  
+  After: once streaming is inactive, hydrated chat state matches backend truth again, while active streams still preserve intentional transient overlays.
+- Before: cached native slash metadata could influence command recognition and reservation before runtime authority was ready, and external-agent custom commands could still be parsed/executed on stale assumptions during startup or degraded loads.  
+  After: native slash authority is runtime-only, custom commands stay fail-closed until collision authority is known, and the UI shows explicit loading/unavailable states instead of stale command ownership.
+- Before: frontend reasoning about slash commands required tracking persisted cache state, runtime state, and executable state as overlapping authorities.  
+  After: runtime metadata is the single authority for native commands, while recognition-only fallback for custom commands is explicit and testable.
+
+### Validation coverage added or updated
+- Backend pytest coverage in `tests/routers/test_app_gen_extensions_routes.py` for:
+  - read-only `SKILL.md` + writable directory remaining editable and saveable,
+  - writable `SKILL.md` + non-writable directory becoming non-editable with route-level rejection,
+  - `GET /getAppGenSkills` and `POST /upsertAppGenCustomSkill` agreeing on both permission layouts.
+- Frontend Vitest coverage for:
+  - inactive hydrate dropping local-only messages in both project-chat and section-chat state,
+  - active hydrate continuing to preserve local-only overlays while the stream remains active,
+  - custom slash commands being recognized but non-executable before native authority resolves,
+  - runtime-only native slash discovery returning no cached native tokens for unresolved authority states,
+  - hidden pre-authority native slash rows in the slash-command viewer utility layer.
+- Playwright coverage in `frontend/tests/e2e/overview/project-ai/project-ai-chat-skills-mcp-viewer.spec.ts` for:
+  - disabling Save for a backend-reported non-editable custom skill,
+  - ignoring cached native slash rows after terminal agent-run load failure,
+  - blocking custom slash creation until native authority is ready,
+  - ignoring cached native slash metadata until runtime authority becomes ready.
+- Manual Chrome DevTools MCP verification:
+  - verified the skills viewer shows a disabled Save control with the backend reason for a non-editable skill,
+  - verified the slash-command viewer shows runtime-authoritative native-command status text instead of cached native command rows before authority is ready.

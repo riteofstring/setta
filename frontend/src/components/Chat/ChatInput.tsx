@@ -139,6 +139,7 @@ export type ChatSlashCommand = {
   args: string[];
   rawSuffix?: string;
   promptTemplate?: string;
+  unavailableFeedback?: string;
 };
 
 export type ChatSlashCommandResult =
@@ -291,8 +292,13 @@ export function resolveCustomPromptSlashCommandSubmission({
   };
 }
 
-function buildUnavailableSlashCommandFeedback(command: string): string {
-  return `${command} is unavailable in the current context. Use /help.`;
+function buildUnavailableSlashCommandFeedback(
+  command: ChatSlashCommand,
+): string {
+  return (
+    command.unavailableFeedback ??
+    `${command.command} is unavailable in the current context. Use /help.`
+  );
 }
 
 type ProviderDictationTranscriptionResult =
@@ -820,9 +826,7 @@ export const ChatInput = memo(function ChatInput({
             submittedAttachments,
           );
           if (result === false) {
-            setSlashFeedback(
-              buildUnavailableSlashCommandFeedback(parsed.command),
-            );
+            setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
             return true;
           }
           const slashResult =
@@ -848,7 +852,7 @@ export const ChatInput = memo(function ChatInput({
           }
           setSlashFeedback(
             slashResult?.feedback ??
-              buildUnavailableSlashCommandFeedback(parsed.command),
+              buildUnavailableSlashCommandFeedback(parsed),
           );
           if (slashResult?.keepInput === false) {
             escClearedComposerDraftRef.current = null;
@@ -857,7 +861,7 @@ export const ChatInput = memo(function ChatInput({
           }
           return true;
         }
-        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed.command));
+        setSlashFeedback(buildUnavailableSlashCommandFeedback(parsed));
         return true;
       }
       if (parsed.action === "custom_prompt") {

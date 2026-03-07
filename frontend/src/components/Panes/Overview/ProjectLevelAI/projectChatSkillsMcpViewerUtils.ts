@@ -29,7 +29,7 @@ export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByProjectConfigId";
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
-export const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
+const EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID = Object.freeze(
   {},
 ) as Record<string, AgentNativeSlashCommandsEntry>;
 type AgentNativeSlashCommandsStatus =
@@ -859,22 +859,15 @@ export function resolveAgentNativeSlashCommandsByProjectConfigId({
 
 export function resolveVisibleAgentNativeSlashCommandsByEngineId({
   agentRunsAuthorityState,
-  persistedEntries,
   runtimeEntries,
-  engineConfigIds,
 }: {
   agentRunsAuthorityState: AgentRunsAuthorityState;
-  persistedEntries: Record<string, AgentNativeSlashCommandsEntry>;
   runtimeEntries: Record<string, AgentNativeSlashCommandsEntry>;
-  engineConfigIds: string[];
 }): Record<string, AgentNativeSlashCommandsEntry> {
   if (isAgentRunsAuthorityReady(agentRunsAuthorityState)) {
     return runtimeEntries;
   }
-  return filterAgentNativeSlashCommandsByEngineId({
-    entries: persistedEntries,
-    engineConfigIds,
-  });
+  return EMPTY_AGENT_NATIVE_SLASH_COMMANDS_BY_ENGINE_ID;
 }
 
 function areAgentNativeSlashEntriesEqual(
