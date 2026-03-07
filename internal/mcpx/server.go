@@ -66,6 +66,7 @@ type projectStateProvider interface {
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetTypeErrorIgnore(ctx context.Context, projectID string, sectionID string, paramInfoID *string, ignoreTypeErrors bool) (projectstate.Snapshot, error)
+	SetCodeObjectName(ctx context.Context, projectID string, codeObjID string, name string) (projectstate.Snapshot, error)
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
@@ -955,6 +956,44 @@ func newSetCodeObjectDisplayNameHandler(projectState projectStateProvider) tools
 	}
 }
 
+func newSetCodeObjectNameHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		codeObjID, err := readRequiredStringArgument(arguments, "codeObjId")
+		if err != nil {
+			return nil, err
+		}
+		name, err := readRequiredRawStringArgument(arguments, "name")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped code-object name invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetCodeObjectName(ctx, projectConfigID, codeObjID, name); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
 func (s *Server) sessionAgenticContext(sessionKey string) *AgenticContext {
 	if s == nil || strings.TrimSpace(sessionKey) == "" {
 		return nil
@@ -1602,6 +1641,50 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "set_code_obj_name",
+				Description: "Rename a code object referenced by the active project state.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeCodeObject: {"codeObjId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"code", "object", "name", "param", "rename"},
+				},
+				Handler: newSetCodeObjectNameHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose code-object name should be updated.",
+					},
+					"codeObjId": map[string]any{
+						"type":        "string",
+						"description": "Code-object id whose name should be updated.",
+					},
+					"name": map[string]any{
+						"type":        "string",
+						"description": "Code-object name to store on the referenced code object.",
+					},
+				},
+				"required": []string{"projectConfigId", "codeObjId", "name"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "set_code_obj_display_name",
 				Description: "Update the user-facing display name for the requested code object.",
 				Metadata: tools.Metadata{
@@ -2217,10 +2300,14 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError(projectNotFoundErrorCode, "%s", err.Error())
 	case projectstate.IsInvalidSectionNameError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
+	case projectstate.IsInvalidCodeObjectNameError(err):
+		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsInvalidAutoLayoutError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
+		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
 		errors.Is(err, projectstate.ErrChildSectionParentIDRequired),
 		errors.Is(err, projectstate.ErrChildSectionImplTypeRequired),

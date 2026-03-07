@@ -373,6 +373,32 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 
 	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_code_obj_name",
+		"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","name":"user-id@v2"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_code_obj_name success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code_obj_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
+		t.Fatalf("expected code object name user-id@v2, got %q", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
 		"tool":"set_code_obj_display_name",
 		"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","displayName":"Height"},
 		"agenticContext":{
@@ -1002,12 +1028,12 @@ func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 					"allowed-params-impl": {
 						ID:      "allowed-params-impl",
 						Kind:    projectstate.SectionKind("dict"),
-						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "topLevelParamId": "allowed-param", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
 					},
 					"blocked-params-impl": {
 						ID:      "blocked-params-impl",
 						Kind:    projectstate.SectionKind("dict"),
-						Payload: mustRawJSONForRoute(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+						Payload: mustRawJSONForRoute(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "topLevelParamId": "blocked-param", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
 					},
 				},
 				CodeObjs: map[string]projectstate.CodeObject{

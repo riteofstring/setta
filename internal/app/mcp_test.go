@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 17 {
-		t.Fatalf("expected 17 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 18 {
+		t.Fatalf("expected 18 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 17 {
-		t.Fatalf("expected 17 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 18 {
+		t.Fatalf("expected 18 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -394,6 +394,29 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	}
 	if !typeErrorIgnoreState.Params["allowed-param"] {
 		t.Fatalf("expected allowed-param type-error ignore state, got %#v", typeErrorIgnoreState)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_obj_name",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"codeObjId":       "allowed-param",
+			"name":            "user-id@v2",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_obj_name: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_code_obj_name success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_code_obj_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
+		t.Fatalf("expected code object name user-id@v2, got %q", got)
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1133,6 +1156,34 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 			"chatId":          "12",
 			"sectionId":       "13",
 		},
+		Name: "set_code_obj_name",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"codeObjId":       "22",
+			"name":            "translated_name",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code_obj_name: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id set_code_obj_name success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_code_obj_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "translated_name" {
+		t.Fatalf("expected translated code object name, got %q", got)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
 		Name: "set_code_section_diagnostic_code_suppression",
 		Arguments: map[string]any{
 			"projectConfigId": "11",
@@ -1386,8 +1437,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 17 {
-		t.Fatalf("expected tool count 17, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 18 {
+		t.Fatalf("expected tool count 18, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -1541,6 +1592,44 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if !ignoreState.Muted {
 		t.Fatalf("expected allowed-section to be muted, got %#v", ignoreState)
+	}
+
+	response, err = client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_code_obj_name",
+			"arguments":{"projectConfigId":"project-alpha","codeObjId":"allowed-param","name":"user-id@v2"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_code_obj_name tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_code_obj_name tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_code_obj_name success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code_obj_name: %v", err)
+	}
+	if got := project.CodeObjs["allowed-param"].Name; got != "user-id@v2" {
+		t.Fatalf("expected code object name user-id@v2, got %q", got)
 	}
 
 	response, err = client.Post(
@@ -2172,12 +2261,12 @@ func saveAppScopedMCPProject(t *testing.T, cfg config.Config) {
 					"allowed-params-impl": {
 						ID:      "allowed-params-impl",
 						Kind:    projectstate.SectionKind("dict"),
-						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+						Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-params-impl", "type": "Dict", "topLevelParamId": "allowed-param", "codeObjVariantMap": map[string]string{"allowed-param": "allowed-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
 					},
 					"blocked-params-impl": {
 						ID:      "blocked-params-impl",
 						Kind:    projectstate.SectionKind("dict"),
-						Payload: mustRawJSONValue(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
+						Payload: mustRawJSONValue(t, map[string]any{"id": "blocked-params-impl", "type": "Dict", "topLevelParamId": "blocked-param", "codeObjVariantMap": map[string]string{"blocked-param": "blocked-param-variant"}, "ignoreTypeErrors": map[string]any{"callable": false, "params": map[string]any{}}}),
 					},
 				},
 				CodeObjs: map[string]projectstate.CodeObject{
