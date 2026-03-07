@@ -17,7 +17,17 @@ import (
 
 const (
 	RouteGetLatestProjectState          = "/getLatestProjectState"
+	RouteSetShowParamDisplayNames       = "/setShowParamDisplayNames"
+	RouteTogglePositionLocks            = "/togglePositionLocks"
+	RouteToggleMinimized                = "/toggleMinimized"
 	RouteSetCode                        = "/setCode"
+	RouteSetActiveIDs                   = "/setActiveIds"
+	RouteSetViewport                    = "/setViewport"
+	RouteSetSectionTagColor             = "/setSectionTagColor"
+	RouteSetSectionStyleColor           = "/setSectionStyleColor"
+	RouteSetCallableHideParams          = "/setCallableHideParams"
+	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
+	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
 	RouteSetCallable                    = "/setCallable"
 	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
 	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
@@ -60,6 +70,24 @@ type GetLatestProjectStateRequest struct {
 	ProjectID    string  `json:"projectConfigId"`
 }
 
+type SetShowParamDisplayNamesRequest struct {
+	FrontendOpID          *string `json:"frontendOpId"`
+	ProjectID             string  `json:"projectConfigId"`
+	ShowParamDisplayNames bool    `json:"showParamDisplayNames"`
+}
+
+type TogglePositionLocksRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionIDs   []string `json:"sectionIds"`
+}
+
+type ToggleMinimizedRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+}
+
 type SetCallableRequest struct {
 	FrontendOpID  *string `json:"frontendOpId"`
 	ProjectID     string  `json:"projectConfigId"`
@@ -68,11 +96,58 @@ type SetCallableRequest struct {
 	RefetchParams bool    `json:"refetchParams"`
 }
 
+type SetActiveIDsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	ActiveIDs    []string `json:"activeIds"`
+}
+
+type SetViewportRequest struct {
+	FrontendOpID *string                `json:"frontendOpId"`
+	ProjectID    string                 `json:"projectConfigId"`
+	Viewport     *projectstate.Viewport `json:"viewport"`
+}
+
 type SetCodeRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
 	Code         string  `json:"code"`
+}
+
+type SetSectionTagColorRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	TagColor     *string `json:"tagColor"`
+}
+
+type SetSectionStyleColorRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	StyleColor   *string `json:"styleColor"`
+}
+
+type SetCallableHideParamsRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	HideParams   bool    `json:"hideParams"`
+}
+
+type SetSectionHideUnpinnedParamsRequest struct {
+	FrontendOpID       *string `json:"frontendOpId"`
+	ProjectID          string  `json:"projectConfigId"`
+	SectionID          string  `json:"sectionId"`
+	HideUnpinnedParams bool    `json:"hideUnpinnedParams"`
+}
+
+type SetSectionPinnedParamsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionID    string   `json:"sectionId"`
+	PinnedParams []string `json:"pinnedParams"`
 }
 
 type SetWatchCodeEnabledRequest struct {
@@ -111,7 +186,17 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCode, setCodeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveIDs, setActiveIDsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewport, setViewportHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionTagColor, setSectionTagColorHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionStyleColor, setSectionStyleColorHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
@@ -147,6 +232,89 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			CompletedOpIDs: []string{},
 			PendingOpIDs:   []string{},
 		})
+	}
+}
+
+func setShowParamDisplayNamesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetShowParamDisplayNamesRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetShowParamDisplayNames(r.Context(), projectID, payload.ShowParamDisplayNames); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func togglePositionLocksHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[TogglePositionLocksRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.TogglePositionLocks(r.Context(), projectID, payload.SectionIDs); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleMinimizedHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleMinimizedRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleMinimized(r.Context(), projectID, sectionID); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
 	}
 }
 
@@ -189,6 +357,58 @@ func setCallableHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func setActiveIDsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetActiveIDsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetActiveIDs(r.Context(), projectID, payload.ActiveIDs); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setViewportHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetViewportRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetViewport(r.Context(), projectID, payload.Viewport); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetCodeRequest](r)
@@ -214,6 +434,161 @@ func setCodeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 
 		if err := deps.CodeUpdates.SetCode(r.Context(), projectID, sectionID, payload.Code); err != nil {
 			writeSetCodeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionTagColorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionTagColorRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionTagColor(r.Context(), projectID, sectionID, payload.TagColor); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionStyleColorHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionStyleColorRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionStyleColor(r.Context(), projectID, sectionID, payload.StyleColor); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setCallableHideParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCallableHideParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetCallableHideParams(r.Context(), projectID, sectionID, payload.HideParams); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionHideUnpinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionHideUnpinnedParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionHideUnpinnedParams(r.Context(), projectID, sectionID, payload.HideUnpinnedParams); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionPinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionPinnedParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionPinnedParams(r.Context(), projectID, sectionID, payload.PinnedParams); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -381,6 +756,22 @@ func writeProjectRouteStateError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

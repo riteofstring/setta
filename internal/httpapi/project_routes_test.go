@@ -730,6 +730,230 @@ func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSe
 	}
 }
 
+func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": layoutPresentationRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	requests := []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetShowParamDisplayNames,
+			body:  `{"projectConfigId":"project-alpha","showParamDisplayNames":true}`,
+		},
+		{
+			route: RouteSetActiveIDs,
+			body:  `{"projectConfigId":"project-alpha","activeIds":["callable-section"]}`,
+		},
+		{
+			route: RouteSetViewport,
+			body:  `{"projectConfigId":"project-alpha","viewport":{"x":1.25,"y":2.5,"zoom":0.9}}`,
+		},
+		{
+			route: RouteSetSectionTagColor,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","tagColor":"#123456"}`,
+		},
+		{
+			route: RouteSetSectionStyleColor,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","styleColor":"#654321"}`,
+		},
+		{
+			route: RouteSetCallableHideParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideParams":true}`,
+		},
+		{
+			route: RouteSetSectionHideUnpinnedParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","hideUnpinnedParams":true}`,
+		},
+		{
+			route: RouteSetSectionPinnedParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section","pinnedParams":["param-a","param-b"]}`,
+		},
+		{
+			route: RouteToggleMinimized,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"callable-section"}`,
+		},
+		{
+			route: RouteTogglePositionLocks,
+			body:  `{"projectConfigId":"project-alpha","sectionIds":["callable-section","plain-section"]}`,
+		},
+	}
+
+	for _, requestSpec := range requests {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	if !payload.ProjectState.ProjectConfig.ShowParamDisplayNames {
+		t.Fatal("expected ShowParamDisplayNames=true")
+	}
+	if !reflect.DeepEqual(payload.ProjectState.ProjectConfig.ActiveIDs, []string{"callable-section"}) {
+		t.Fatalf("expected active ids [callable-section], got %#v", payload.ProjectState.ProjectConfig.ActiveIDs)
+	}
+	if payload.ProjectState.ProjectConfig.Viewport == nil {
+		t.Fatal("expected projected viewport")
+	}
+	if payload.ProjectState.ProjectConfig.Viewport.X != 1.25 || payload.ProjectState.ProjectConfig.Viewport.Y != 2.5 || payload.ProjectState.ProjectConfig.Viewport.Zoom != 0.9 {
+		t.Fatalf("unexpected projected viewport %#v", payload.ProjectState.ProjectConfig.Viewport)
+	}
+	viewMode := payload.ProjectState.ProjectConfig.ViewModes["focus"]
+	if viewMode.Viewport == nil || viewMode.Viewport.X != 1.25 || viewMode.Viewport.Y != 2.5 || viewMode.Viewport.Zoom != 0.9 {
+		t.Fatalf("unexpected active view mode viewport %#v", viewMode.Viewport)
+	}
+	if !viewMode.ViewportInitialized {
+		t.Fatal("expected active view mode viewport initialized")
+	}
+
+	callableSection := payload.ProjectState.Sections["callable-section"]
+	callableSharedModifier := decodeProjectRouteRawObject(t, callableSection.SharedModifier)
+	if got := callableSharedModifier["tagColor"]; got != "#123456" {
+		t.Fatalf("expected tagColor #123456, got %#v", got)
+	}
+	if got := callableSharedModifier["styleColor"]; got != "#654321" {
+		t.Fatalf("expected styleColor #654321, got %#v", got)
+	}
+	if got := callableSharedModifier["hideParams"]; got != true {
+		t.Fatalf("expected hideParams=true, got %#v", got)
+	}
+	if got := callableSharedModifier["hideUnpinnedParams"]; got != true {
+		t.Fatalf("expected hideUnpinnedParams=true, got %#v", got)
+	}
+	if got := callableSharedModifier["isMinimized"]; got != true {
+		t.Fatalf("expected isMinimized=true, got %#v", got)
+	}
+	if got := callableSharedModifier["positionAndSizeLocked"]; got != true {
+		t.Fatalf("expected positionAndSizeLocked=true, got %#v", got)
+	}
+	if got := decodeProjectRouteStringArray(callableSharedModifier["pinnedParams"]); !reflect.DeepEqual(got, []string{"param-a", "param-b"}) {
+		t.Fatalf("expected pinned params [param-a param-b], got %#v", got)
+	}
+
+	plainSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["plain-section"].SharedModifier)
+	if got := plainSharedModifier["positionAndSizeLocked"]; got != true {
+		t.Fatalf("expected plain section position lock=true, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesSetViewportReturnsInternalErrorWithoutActiveViewMode(t *testing.T) {
+	t.Parallel()
+
+	project := layoutPresentationRouteTestProject(t)
+	project.ActiveViewModeID = ""
+	project.ViewModes = map[string]projectstate.ViewMode{}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetViewport,
+		strings.NewReader(`{"projectConfigId":"project-alpha","viewport":{"x":0,"y":0,"zoom":1}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"internal_error"`) {
+		t.Fatalf("expected internal_error body, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectRoutesTogglePositionLocksReturnsNotFoundForUnknownSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": layoutPresentationRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteTogglePositionLocks,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionIds":["missing-section"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"section_not_found"`) {
+		t.Fatalf("expected section_not_found body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
@@ -911,6 +1135,33 @@ func derefString(value *string) string {
 	return *value
 }
 
+func decodeProjectRouteRawObject(t *testing.T, payload json.RawMessage) map[string]any {
+	t.Helper()
+	if len(payload) == 0 {
+		return map[string]any{}
+	}
+	var object map[string]any
+	if err := json.Unmarshal(payload, &object); err != nil {
+		t.Fatalf("decode raw object %q: %v", string(payload), err)
+	}
+	return object
+}
+
+func decodeProjectRouteStringArray(value any) []string {
+	entries, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	output := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		stringValue, ok := entry.(string)
+		if ok {
+			output = append(output, stringValue)
+		}
+	}
+	return output
+}
+
 type stubProjectRouteCallableSignatureResolver struct {
 	result projectstate.CallableSignatureResult
 	ok     bool
@@ -1034,4 +1285,72 @@ func callableRouteTestProject(t *testing.T) projectstate.Project {
 		t.Fatalf("normalize callable route project: %v", err)
 	}
 	return project
+}
+
+func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:               "project-alpha",
+		Name:             "Alpha",
+		ActiveViewModeID: "focus",
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID: "focus",
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"callable-section": "callable-variant",
+			"plain-section":    "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"callable-section": {
+				ID:               "callable-section",
+				Name:             "Callable Section",
+				VariantIDs:       []string{"callable-variant"},
+				DefaultVariantID: "callable-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"callable-variant": {
+				ID:     "callable-variant",
+				ImplID: "callable-impl",
+			},
+			"plain-variant": {
+				ID:     "plain-variant",
+				ImplID: "plain-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"callable-impl": {
+				ID:      "callable-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "callable-impl", "type": "Callable"}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize layout presentation route project: %v", err)
+	}
+	return project
+}
+
+func mustProjectRouteRawJSON(t *testing.T, value map[string]any) projectstate.RawJSON {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal raw JSON: %v", err)
+	}
+	return projectstate.RawJSON(encoded)
 }
