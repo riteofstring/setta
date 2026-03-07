@@ -78,11 +78,13 @@ Use the docs in this order:
    - focused next-work plan for Go-owned MCP server/client foundations, namespaced tool registry, and scoped tool-call boundaries ahead of LLM/chat migration
 37. `phase-6-internal-mcp-client-and-runtime-status.md`
    - focused current-work plan for the first Go-owned internal MCP client, namespaced tool routing, and runtime-status transport
-38. `spike-mcp.md`
+38. `phase-6-scoped-tool-call-pilot.md`
+   - focused current-work plan for the first Go-owned agentic-context carrier, scoped MCP invocation boundary, and filtered project-summary pilot
+39. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-39. `spike-pty.md`
+40. `spike-pty.md`
    - PTY uncertainty-reduction plan
-40. `spike-lsp.md`
+41. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

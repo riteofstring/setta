@@ -399,3 +399,5 @@ Acceptance:
   for scoped tool invocation.
 - Keep scope enforcement in Setta-owned metadata/context services instead of
   pushing it into transport handlers.
+- Use `phase-6-scoped-tool-call-pilot.md` as the active implementation doc for
+  the bounded Slice 4 work.
