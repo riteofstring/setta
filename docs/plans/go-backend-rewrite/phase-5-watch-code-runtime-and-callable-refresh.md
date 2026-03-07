@@ -71,6 +71,10 @@ The active Slice 2 execution work is now narrowed in:
   - file-event routing now owns create/modify/delete/move scheduling semantics
 - the remaining Slice 2 gap is the concrete watcher adapter and runtime
   application before later section-mutation wiring
+- that runtime-owner gap is now narrowed in:
+  - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
+  - the key decision there is to avoid heuristic rename pairing and use
+    file-identity snapshots for concrete move detection
 
 ## Scope
 

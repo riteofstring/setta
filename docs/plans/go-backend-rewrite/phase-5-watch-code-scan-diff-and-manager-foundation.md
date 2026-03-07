@@ -164,6 +164,12 @@ Still open in Step 2:
 - runtime application of scheduled scans/deletes/pending moves ahead of later
   section mutation wiring
 
+That remaining runtime-owner step is now narrowed in:
+
+- `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
+- the new focused doc records why heuristic rename pairing is out of bounds and
+  why file-identity snapshots are the recommended runtime owner
+
 ### Step 3: Runtime Wiring Handoff
 
 Deliver:
@@ -205,8 +211,7 @@ For Step 2, add:
 
 Execute Step 2 next:
 
-- add the concrete observer/file watcher adapter over the new manager state
-  without touching section mutation yet
-- wire scheduled scans/deletes/pending moves into a bounded runtime owner
-- keep later callable-refresh and section mutation wiring as the following
-  boundary after the watcher adapter is stable
+- start Step 1 from the new runtime-owner doc:
+  - add the tracked file snapshot model
+  - add stable file identity collection
+  - prove move detection without watcher heuristics
