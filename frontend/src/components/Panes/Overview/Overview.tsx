@@ -9,7 +9,13 @@ import {
   type PluginPaneIconName,
   type PluginPaneTabEntry,
 } from "plugins/runtime";
-import { useMemo, useRef, type ReactElement, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactElement,
+  type RefObject,
+} from "react";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoMdGitBranch } from "react-icons/io";
 import { IoChatbox, IoSettingsOutline } from "react-icons/io5";
@@ -69,11 +75,14 @@ export function Overview() {
     rootRef: overviewRef as RefObject<HTMLElement>,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const { selectedTabName, vis, width } = useLocalStorage((x) => ({
-    selectedTabName: x.overviewTab,
-    vis: x.overviewVis,
-    width: x.overviewWidth,
-  }));
+  const { selectedTabName, vis, width, notificationsPaneTab } = useLocalStorage(
+    (x) => ({
+      selectedTabName: x.overviewTab,
+      vis: x.overviewVis,
+      width: x.overviewWidth,
+      notificationsPaneTab: x.overviewNotificationsPaneTab,
+    }),
+  );
   const pluginPaneTabs = usePluginPaneTabs();
   const pluginPaneTabByKey = useMemo(() => {
     const values: Record<string, PluginPaneTabEntry> = {};
@@ -112,6 +121,9 @@ export function Overview() {
   ) {
     effectiveTabName = OverviewTabNameEnum.ProjectAIChat;
   }
+  if (selectedTabName === OverviewTabNameEnum.BackendLogs) {
+    effectiveTabName = OverviewTabNameEnum.Notifications;
+  }
   if (
     !showFileBrowserTab &&
     selectedTabName === OverviewTabNameEnum.FileBrowser
@@ -129,6 +141,18 @@ export function Overview() {
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
   );
+  useEffect(() => {
+    if (selectedTabName !== OverviewTabNameEnum.BackendLogs) {
+      return;
+    }
+    if (notificationsPaneTab === OverviewNotificationsPaneTabEnum.BackendLogs) {
+      return;
+    }
+    useLocalStorage.setState({
+      overviewNotificationsPaneTab:
+        OverviewNotificationsPaneTabEnum.BackendLogs,
+    });
+  }, [notificationsPaneTab, selectedTabName]);
   const commonProps = {
     vis,
     selectedTabName: effectiveTabName,
@@ -434,13 +458,8 @@ function TabContent({
     case OverviewTabNameEnum.ViewModes:
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
-      return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:
-      return (
-        <NotificationsArea
-          initialTab={OverviewNotificationsPaneTabEnum.BackendLogs}
-        />
-      );
+      return <NotificationsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
       return <ProjectChat />;
     default:

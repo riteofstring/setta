@@ -61,6 +61,7 @@ import {
   useAIStore,
   useLocalStorage,
   useProjectState,
+  type ProjectChatAuxView,
 } from "state/definitions";
 import {
   buildSearchableTextForMessage,
@@ -125,12 +126,6 @@ type ProjectAISettingsPopoverProps = {
 };
 
 type ProjectDictationMode = "auto" | "browser" | "provider";
-type ProjectChatAuxView =
-  | "none"
-  | "skills"
-  | "mcp"
-  | "slash_commands"
-  | "ai_settings";
 type ProjectChatAuxTabId = Exclude<ProjectChatAuxView, "none">;
 const INLINE_THREADS_BREAKPOINT_PX = 760;
 const INLINE_THREADS_MIN_WIDTH_PX = 220;
@@ -477,6 +472,32 @@ export function ProjectChat() {
     }),
     _.isEqual,
   );
+  const projectChatAuxView = useLocalStorage((state): ProjectChatAuxView => {
+    return state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
+  });
+  const setProjectChatAuxView = useCallback(
+    (nextAuxView: ProjectChatAuxView) => {
+      useLocalStorage.setState((state) => {
+        const currentAuxView =
+          state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
+        if (currentAuxView === nextAuxView) {
+          return state;
+        }
+        const nextByProject = {
+          ...state.projectChatAuxViewByProjectConfigId,
+        };
+        if (nextAuxView === "none") {
+          delete nextByProject[projectConfigId];
+        } else {
+          nextByProject[projectConfigId] = nextAuxView;
+        }
+        return {
+          projectChatAuxViewByProjectConfigId: nextByProject,
+        };
+      });
+    },
+    [projectConfigId],
+  );
   const inlineThreadsWidthStorage = useMemo(
     () => getSafeLocalStorageAdapter("project-chat-inline-threads"),
     [],
@@ -502,8 +523,6 @@ export function ProjectChat() {
   >(null);
   const [inlineThreadsHeaderPortalTarget, setInlineThreadsHeaderPortalTarget] =
     useState<HTMLDivElement | null>(null);
-  const [projectChatAuxView, setProjectChatAuxView] =
-    useState<ProjectChatAuxView>("none");
   const [engineSwitchContinuation, setEngineSwitchContinuation] =
     useState<ProjectChatEngineSwitchContinuation | null>(null);
   const [

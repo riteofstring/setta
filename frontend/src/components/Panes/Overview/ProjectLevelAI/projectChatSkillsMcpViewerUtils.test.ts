@@ -11,6 +11,7 @@ import {
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   collectAgentNativeSlashCommandTokensFromRuns,
+  collectAgentNativeSlashCommandTokensFromStorage,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
@@ -594,6 +595,26 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ]);
 
     expect(tokens).toEqual(["/triage", "/help", "/ship"]);
+  });
+
+  it("collects normalized agent-native slash tokens from persisted viewer metadata", () => {
+    const tokens = collectAgentNativeSlashCommandTokensFromStorage(
+      JSON.stringify({
+        "engine-1": {
+          commands: [" /deploy ", "/status", 1],
+          status: "available",
+          statusDetail: "From cached run metadata.",
+        },
+        "engine-2": {
+          commands: ["/DEPLOY", "/diagnose"],
+          status: "available",
+          statusDetail: null,
+        },
+        "engine-3": ["/legacy-array-shape"],
+      }),
+    );
+
+    expect(tokens).toEqual(["/deploy", "/status", "/diagnose"]);
   });
 
   it("reconciles colliding custom commands against managed and native reserved tokens", () => {

@@ -43,3 +43,39 @@
   After: Polling/lookup is limited to slash mode with stable fallback behavior and tests.
 - Before: Notifications `initialTab` could keep reapplying and disrupt user tab selection.  
   After: `initialTab` is consumed once, then user tab choice is preserved.
+
+## 2026-03-05 11:48:38 PST
+
+### Consolidated findings implemented
+- Enforced `skillId` upsert as update-only: missing target `SKILL.md` now hard-fails instead of creating nested/spoofed paths.
+- Fixed custom-skill save race so late responses from previously selected skills cannot overwrite the current skill editor state.
+- Added deterministic startup slash-command token resolution that merges persisted native tokens during hydration and switches to runtime-authoritative tokens after initial run load completes.
+- Removed route/subtab drift for Notifications vs Backend Logs by always mapping `BackendLogs` route to backend-logs pane state.
+- Migrated reveal routing and pane-open behavior for Watch Code and Project AI Settings to current topology/state model (no legacy tab-key assumptions).
+- Moved watch-code portal visibility and project chat aux-view selection into shared persisted state with ownership-aware rollback in reveal mutations.
+
+### Proposed fixes applied
+- Backend `upsert_app_gen_custom_skill` now checks selected `skillId` target existence before writing and raises deterministic `KeyError` for missing targets.
+- Skills editor save path now captures request skill identity and applies response/cache updates only to that identity; selected-view state updates are guarded by current selection.
+- Project chat composer now reads native slash-command tokens from persisted storage via shared utility and uses startup reconciliation logic to avoid temporary false-negatives.
+- Notifications pane no longer accepts an `initialTab` override; Overview layer enforces backend-logs subtab whenever route tab is `BackendLogs`.
+- UI settings registry now targets current overview keys (`Overview`, `ProjectAIChat`) for watch-code and project-ai settings reveals.
+- Reveal activation/rollback now tracks and reverts `watchCodePortalOpen` and per-project `projectChatAuxViewByProjectConfigId` changes only when owned by the running mutation.
+- Added persisted-state normalization for new keys and filtered invalid aux-view payloads deterministically.
+
+### UX/DX before and after
+- Before: Passing a crafted/missing `skillId` could create unintended skill folders during update flows.  
+  After: Update-by-`skillId` is strict; missing target rejects immediately and no new files are created.
+- Before: Saving skill A while switching to skill B could replace B editor content when A save resolved late.  
+  After: Late save responses are scoped to the original skill request; active skill content remains stable.
+- Before: Native slash commands could temporarily disappear before run hydration finished, degrading composer reliability.  
+  After: Startup token reconciliation keeps native slash commands available until runtime metadata becomes authoritative.
+- Before: Switching to `BackendLogs` overview route could still show Notifications subtab from prior state.  
+  After: Route transition deterministically opens backend logs every time.
+- Before: Reveal actions depended on outdated tab keys/local-only pane state and could miss intended anchors or rollback incompletely.  
+  After: Reveal opens the correct modern pane targets (including watch-code portal and project-ai settings aux view) and rolls back owned state changes cleanly on failure.
+
+### Validation coverage added or updated
+- Backend tests: skill-id target-missing rejection at unit and route levels.
+- Frontend unit/integration tests: startup slash-command reconciliation, persisted-state normalization, reveal state/rollback ownership, notifications/backend-logs routing behavior.
+- Playwright tests: skill-save race regression and notifications->backend-logs route transition determinism.

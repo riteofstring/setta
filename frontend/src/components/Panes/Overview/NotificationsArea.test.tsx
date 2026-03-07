@@ -22,12 +22,8 @@ describe("NotificationsArea", () => {
     resetProjectStores();
   });
 
-  it("renders from persisted tab state instead of pinning to initialTab prop", () => {
-    const markup = renderToStaticMarkup(
-      <NotificationsArea
-        initialTab={OverviewNotificationsPaneTabEnum.BackendLogs}
-      />,
-    );
+  it("renders from persisted tab state", () => {
+    const markup = renderToStaticMarkup(<NotificationsArea />);
 
     expect(markup).toContain(
       'data-testid="notifications-pane-tab-notifications"',

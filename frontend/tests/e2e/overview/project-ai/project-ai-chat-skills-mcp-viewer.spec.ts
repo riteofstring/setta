@@ -1492,6 +1492,139 @@ test("project ai chat can create and save custom skills from raw markdown mode",
   );
 });
 
+test("project ai chat keeps selected skill content stable when another skill save resolves", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  const rootPath = "/home/.agents/skills";
+  const skills = [
+    {
+      skillId: "user_agents_skills::alpha-custom",
+      name: "alpha-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath,
+      relativePath: "alpha-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Alpha custom skill",
+    },
+    {
+      skillId: "user_agents_skills::beta-custom",
+      name: "beta-custom",
+      rootLabel: "User ~/.agents/skills",
+      rootPath,
+      relativePath: "beta-custom",
+      isEditable: true,
+      editabilityReason: null,
+      description: "Beta custom skill",
+    },
+  ];
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(skills),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  const contentBySkillId: Record<string, string> = {
+    "user_agents_skills::alpha-custom": "# alpha-custom\n\nAlpha initial body",
+    "user_agents_skills::beta-custom": "# beta-custom\n\nBeta stable body",
+  };
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    const skillId = payload.skillId ?? "user_agents_skills::alpha-custom";
+    const content = contentBySkillId[skillId] ?? "# unknown";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        content,
+        truncated: false,
+        originalSizeBytes: content.length,
+      }),
+    });
+  });
+
+  let alphaSaveRequestCount = 0;
+  let releaseAlphaSave: (() => void) | null = null;
+  const alphaSaveBlock = new Promise<void>((resolve) => {
+    releaseAlphaSave = resolve;
+  });
+  await page.route("**/api/upsertAppGenCustomSkill", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      skillId?: string | null;
+      content?: string;
+    };
+    if (payload.skillId === "user_agents_skills::alpha-custom") {
+      alphaSaveRequestCount += 1;
+      await alphaSaveBlock;
+      contentBySkillId["user_agents_skills::alpha-custom"] = payload.content ?? "";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          skillId: "user_agents_skills::alpha-custom",
+          created: false,
+          rootPath,
+          skillDocPath: `${rootPath}/alpha-custom/SKILL.md`,
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "user_agents_skills::beta-custom",
+        created: false,
+        rootPath,
+        skillDocPath: `${rootPath}/beta-custom/SKILL.md`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await openSkillsViewer(page);
+  await openRawSkillMarkdown(page);
+
+  const markdown = page.getByLabel("Skill Markdown Content");
+  await expect(markdown).toContainText("Alpha initial body");
+
+  const editorContent = markdown.locator(".cm-content");
+  await editorContent.click();
+  await page.keyboard.press(SELECT_ALL_SHORTCUT);
+  await page.keyboard.type("# alpha-custom\n\nAlpha saved update");
+  await page.getByTestId("project-chat-custom-skill-save").click();
+
+  await expect.poll(() => alphaSaveRequestCount).toBe(1);
+  await page.getByRole("button", { name: /beta-custom/i }).click();
+  await expect(markdown).toContainText("Beta stable body");
+
+  releaseAlphaSave?.();
+  await expect(page.getByText("Saved custom skill.")).toBeVisible();
+  await expect(markdown).toContainText("Beta stable body");
+  await expect(markdown).not.toContainText("Alpha saved update");
+});
+
 test("project ai chat blocks saving truncated editable skill previews", async ({
   page,
 }) => {

@@ -1,3 +1,7 @@
+import {
+  buildChatSlashCommands,
+  buildCustomPromptSlashCommandDefinitions,
+} from "components/Chat/chatComposerControls";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
@@ -17,11 +21,11 @@ import {
   getDefaultProjectChatPermissionMode,
   getProjectChatBlockedReasonMessage,
   PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
+  resolveProjectChatComposerNativeSlashCommandTokens,
   resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRetryDecision,
   resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatProviderDictationTranscribeEnabled,
-  resolveProjectChatRuntimeActivityCounts,
   resolveProjectChatRuntimeActivityDetails,
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
@@ -31,6 +35,10 @@ import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,
 } from "./projectChatHydrationAuthority";
+import {
+  buildReservedSlashCommandTokens,
+  reconcileCustomSlashCommands,
+} from "./projectChatSkillsMcpViewerUtils";
 
 describe("getDefaultProjectChatPermissionMode", () => {
   it("defaults external engines to config_toml_custom", () => {
@@ -46,6 +54,62 @@ describe("getDefaultProjectChatPermissionMode", () => {
       "minimal",
     );
     expect(getDefaultProjectChatPermissionMode(null)).toBe("minimal");
+  });
+});
+
+describe("resolveProjectChatComposerNativeSlashCommandTokens", () => {
+  it("fail-closes startup command reconciliation with persisted native tokens", () => {
+    expect(
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: ["/status"],
+        persistedNativeSlashCommandTokens: ["/deploy", "/status"],
+        agentRunsInitialLoadComplete: false,
+      }),
+    ).toEqual(["/deploy", "/status"]);
+  });
+
+  it("uses authoritative runtime native tokens after runs finish loading", () => {
+    expect(
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: ["/status"],
+        persistedNativeSlashCommandTokens: ["/deploy", "/status"],
+        agentRunsInitialLoadComplete: true,
+      }),
+    ).toEqual(["/status"]);
+  });
+
+  it("keeps conflicting custom commands non-executable during startup hydration", () => {
+    const startupNativeTokens =
+      resolveProjectChatComposerNativeSlashCommandTokens({
+        runtimeNativeSlashCommandTokens: [],
+        persistedNativeSlashCommandTokens: ["/deploy"],
+        agentRunsInitialLoadComplete: false,
+      });
+    const customCommands = buildCustomPromptSlashCommandDefinitions([
+      { command: "/deploy", prompt: "Deploy app." },
+      { command: "/project-status", prompt: "Summarize project status." },
+    ]);
+    const reservedTokens = buildReservedSlashCommandTokens({
+      managedCommands: buildChatSlashCommands({
+        model: true,
+        permissions: true,
+        search: true,
+        appGenerationModes: true,
+      }),
+      engineCommandGroups: [],
+      discoveredNativeSlashCommands: startupNativeTokens,
+    });
+    const reconciled = reconcileCustomSlashCommands({
+      customCommands,
+      reservedTokens,
+    });
+
+    expect(Array.from(reconciled.conflictingCommandTokens)).toContain(
+      "/deploy",
+    );
+    expect(reconciled.executableCommands.map((entry) => entry.command)).toEqual(
+      ["/project-status"],
+    );
   });
 });
 
@@ -569,9 +633,9 @@ describe("project chat plan badge runtime policy", () => {
   });
 });
 
-describe("resolveProjectChatRuntimeActivityCounts", () => {
-  it("counts unresolved streaming terminal and subagent calls", () => {
-    const counts = resolveProjectChatRuntimeActivityCounts({
+describe("resolveProjectChatRuntimeActivityDetails count derivation", () => {
+  it("counts unresolved streaming terminal and subagent calls from details", () => {
+    const details = resolveProjectChatRuntimeActivityDetails({
       waitingForResponse: true,
       messages: [
         createUserChatMessage({
@@ -606,10 +670,8 @@ describe("resolveProjectChatRuntimeActivityCounts", () => {
       ],
     });
 
-    expect(counts).toEqual({
-      activeBackgroundTerminals: 1,
-      activeSubagents: 1,
-    });
+    expect(details.activeBackgroundTerminals).toHaveLength(1);
+    expect(details.activeSubagents).toHaveLength(1);
   });
 
   it("ignores completed tool calls and idle runs", () => {
@@ -641,28 +703,22 @@ describe("resolveProjectChatRuntimeActivityCounts", () => {
       }),
     ];
 
-    expect(
-      resolveProjectChatRuntimeActivityCounts({
-        waitingForResponse: true,
-        messages,
-      }),
-    ).toEqual({
-      activeBackgroundTerminals: 0,
-      activeSubagents: 0,
+    const waitingDetails = resolveProjectChatRuntimeActivityDetails({
+      waitingForResponse: true,
+      messages,
     });
-    expect(
-      resolveProjectChatRuntimeActivityCounts({
-        waitingForResponse: false,
-        messages,
-      }),
-    ).toEqual({
-      activeBackgroundTerminals: 0,
-      activeSubagents: 0,
+    expect(waitingDetails.activeBackgroundTerminals).toHaveLength(0);
+    expect(waitingDetails.activeSubagents).toHaveLength(0);
+    const idleDetails = resolveProjectChatRuntimeActivityDetails({
+      waitingForResponse: false,
+      messages,
     });
+    expect(idleDetails.activeBackgroundTerminals).toHaveLength(0);
+    expect(idleDetails.activeSubagents).toHaveLength(0);
   });
 
   it("does not infer activity from unknown tool-name suffixes", () => {
-    const counts = resolveProjectChatRuntimeActivityCounts({
+    const details = resolveProjectChatRuntimeActivityDetails({
       waitingForResponse: true,
       messages: [
         createAssistantChatMessage({
@@ -687,10 +743,8 @@ describe("resolveProjectChatRuntimeActivityCounts", () => {
       ],
     });
 
-    expect(counts).toEqual({
-      activeBackgroundTerminals: 0,
-      activeSubagents: 0,
-    });
+    expect(details.activeBackgroundTerminals).toHaveLength(0);
+    expect(details.activeSubagents).toHaveLength(0);
   });
 });
 

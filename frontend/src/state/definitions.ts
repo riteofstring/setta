@@ -451,6 +451,21 @@ export type ProjectChatCustomSlashCommand = {
   prompt: string;
 };
 
+export type ProjectChatAuxView =
+  | "none"
+  | "skills"
+  | "mcp"
+  | "slash_commands"
+  | "ai_settings";
+
+const PROJECT_CHAT_AUX_VIEW_VALUES = new Set<ProjectChatAuxView>([
+  "none",
+  "skills",
+  "mcp",
+  "slash_commands",
+  "ai_settings",
+]);
+
 function isPersistedRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -491,6 +506,26 @@ function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
       continue;
     }
     normalized[normalizedProjectConfigId] = normalizedCommands;
+  }
+  return normalized;
+}
+
+function normalizePersistedProjectChatAuxViewByProjectConfigId(
+  value: unknown,
+): Record<string, ProjectChatAuxView> {
+  if (!isPersistedRecord(value)) {
+    return {};
+  }
+  const normalized: Record<string, ProjectChatAuxView> = {};
+  for (const [projectConfigId, rawAuxView] of Object.entries(value)) {
+    const normalizedProjectConfigId = projectConfigId.trim();
+    if (!normalizedProjectConfigId || typeof rawAuxView !== "string") {
+      continue;
+    }
+    if (!PROJECT_CHAT_AUX_VIEW_VALUES.has(rawAuxView as ProjectChatAuxView)) {
+      continue;
+    }
+    normalized[normalizedProjectConfigId] = rawAuxView as ProjectChatAuxView;
   }
   return normalized;
 }
@@ -993,6 +1028,7 @@ type ZustandLocalStorage = {
   overviewTrueWidth: number;
   overviewTab: OverviewTabKey;
   overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
+  watchCodePortalOpen: boolean;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -1009,6 +1045,7 @@ type ZustandLocalStorage = {
     string,
     Array<ProjectChatCustomSlashCommand>
   >;
+  projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
   runInstructionsAccordionOpenValuesByProjectConfigId: Record<
     string,
@@ -1067,6 +1104,7 @@ export const useLocalStorage = createWithEqualityFn(
       overviewTab: OverviewTabNameEnum.Overview,
       overviewNotificationsPaneTab:
         OverviewNotificationsPaneTabEnum.Notifications,
+      watchCodePortalOpen: false,
       gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
       gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
       gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -1080,6 +1118,7 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       customProjectChatSlashCommandsByProjectConfigId: {},
+      projectChatAuxViewByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
@@ -1153,9 +1192,16 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewNotificationsPaneTab =
             OverviewNotificationsPaneTabEnum.Notifications;
         }
+        if (typeof merged.watchCodePortalOpen !== "boolean") {
+          merged.watchCodePortalOpen = false;
+        }
         merged.customProjectChatSlashCommandsByProjectConfigId =
           normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
             merged.customProjectChatSlashCommandsByProjectConfigId,
+          );
+        merged.projectChatAuxViewByProjectConfigId =
+          normalizePersistedProjectChatAuxViewByProjectConfigId(
+            merged.projectChatAuxViewByProjectConfigId,
           );
         if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||

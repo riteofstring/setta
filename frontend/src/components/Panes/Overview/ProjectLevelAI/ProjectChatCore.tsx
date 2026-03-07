@@ -84,6 +84,7 @@ import {
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
+import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { shallow } from "zustand/shallow";
 import {
   resolveProjectChatRunTypeForEngine,
@@ -91,8 +92,10 @@ import {
   type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
 import {
+  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
   buildReservedSlashCommandTokens,
   collectAgentNativeSlashCommandTokensFromRuns,
+  collectAgentNativeSlashCommandTokensFromStorage,
   reconcileCustomSlashCommands,
 } from "./projectChatSkillsMcpViewerUtils";
 import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
@@ -167,6 +170,37 @@ export function buildProjectChatHydrationCacheKey({
     return null;
   }
   return `${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
+}
+
+export function resolveProjectChatComposerNativeSlashCommandTokens({
+  runtimeNativeSlashCommandTokens,
+  persistedNativeSlashCommandTokens,
+  agentRunsInitialLoadComplete,
+}: {
+  runtimeNativeSlashCommandTokens: string[];
+  persistedNativeSlashCommandTokens: string[];
+  agentRunsInitialLoadComplete: boolean;
+}): string[] {
+  if (agentRunsInitialLoadComplete) {
+    return runtimeNativeSlashCommandTokens;
+  }
+  const mergedTokens: string[] = [];
+  const seen = new Set<string>();
+  for (const token of persistedNativeSlashCommandTokens) {
+    if (seen.has(token)) {
+      continue;
+    }
+    seen.add(token);
+    mergedTokens.push(token);
+  }
+  for (const token of runtimeNativeSlashCommandTokens) {
+    if (seen.has(token)) {
+      continue;
+    }
+    seen.add(token);
+    mergedTokens.push(token);
+  }
+  return mergedTokens;
 }
 
 type ProjectChatHydrationRetryStatus =
@@ -352,11 +386,6 @@ export function resolveWorkspaceRootPollDelayMs(
   return WORKSPACE_ROOT_FAST_POLL_MS;
 }
 
-type ProjectChatRuntimeActivityCounts = {
-  activeBackgroundTerminals: number;
-  activeSubagents: number;
-};
-
 type ProjectChatRuntimeActivityEntry =
   ChatRuntimeActivityDetails["activeBackgroundTerminals"][number];
 
@@ -497,24 +526,6 @@ export function resolveProjectChatRuntimeActivityDetails({
   return {
     activeBackgroundTerminals,
     activeSubagents,
-  };
-}
-
-export function resolveProjectChatRuntimeActivityCounts({
-  messages,
-  waitingForResponse,
-}: {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-}): ProjectChatRuntimeActivityCounts {
-  const runtimeActivityDetails = resolveProjectChatRuntimeActivityDetails({
-    messages,
-    waitingForResponse,
-  });
-  return {
-    activeBackgroundTerminals:
-      runtimeActivityDetails.activeBackgroundTerminals.length,
-    activeSubagents: runtimeActivityDetails.activeSubagents.length,
   };
 }
 
@@ -1136,6 +1147,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
+  const storageAdapter = useMemo(
+    () => getSafeLocalStorageAdapter("project-chat-core"),
+    [],
+  );
   const customProjectChatSlashCommands = useLocalStorage(
     (state): ProjectChatCustomSlashCommand[] =>
       selectCustomProjectChatSlashCommands(
@@ -1143,6 +1158,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         projectConfigId,
       ),
   );
+  const persistedNativeSlashCommandTokens = useMemo(() => {
+    return collectAgentNativeSlashCommandTokensFromStorage(
+      storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
+    );
+  }, [storageAdapter]);
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({
@@ -1222,9 +1242,20 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
-  const discoveredAgentNativeSlashCommands = useMemo(() => {
+  const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
     return collectAgentNativeSlashCommandTokensFromRuns(agentRuns);
   }, [agentRuns]);
+  const discoveredAgentNativeSlashCommands = useMemo(() => {
+    return resolveProjectChatComposerNativeSlashCommandTokens({
+      runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
+      persistedNativeSlashCommandTokens,
+      agentRunsInitialLoadComplete,
+    });
+  }, [
+    agentRunsInitialLoadComplete,
+    persistedNativeSlashCommandTokens,
+    runtimeAgentNativeSlashCommandTokens,
+  ]);
   const slashCommands = useMemo(() => {
     const managedCommands = buildChatSlashCommands({
       model: true,

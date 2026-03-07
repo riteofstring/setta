@@ -118,6 +118,18 @@ describe("local storage merge", () => {
     );
   });
 
+  it("sanitizes invalid persisted watch-code portal visibility values", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { watchCodePortalOpen: "open" } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.watchCodePortalOpen).toBe(false);
+  });
+
   it("sanitizes malformed persisted custom slash command shapes deeply", () => {
     const merge = useLocalStorage.persist.getOptions().merge;
     const current = useLocalStorage.getState();
@@ -148,6 +160,26 @@ describe("local storage merge", () => {
           prompt: "Ship the current release.",
         },
       ],
+    });
+  });
+
+  it("sanitizes malformed persisted project chat aux view mappings", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      {
+        projectChatAuxViewByProjectConfigId: {
+          "project-a": "skills",
+          "project-b": "invalid",
+          " ": "ai_settings",
+        },
+      } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.projectChatAuxViewByProjectConfigId).toEqual({
+      "project-a": "skills",
     });
   });
 

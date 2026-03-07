@@ -42,6 +42,7 @@ import {
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import {
+  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
   buildReservedSlashCommandTokens,
   buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
@@ -75,8 +76,6 @@ const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
 const SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewMode";
-const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
-  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByEngineId";
 const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
 const SKILL_MARKDOWN_VIEW_MODE_RENDERED = "rendered";
 const SKILL_MARKDOWN_VIEW_MODE_RAW = "raw";
@@ -1294,6 +1293,7 @@ export function ProjectChatSkillsMcpViewer({
     if (!selectedSkillId) {
       return;
     }
+    const requestSkillId = selectedSkillId;
     if (skillContentLoadStatus === "error") {
       addTemporaryNotification(
         skillContentLoadError
@@ -1326,7 +1326,7 @@ export function ProjectChatSkillsMcpViewer({
     const nextContent = skillMarkdownRawDraft;
     setCustomSkillSaveInFlight(true);
     const res = await route_upsert_app_gen_custom_skill({
-      skillId: selectedSkillId,
+      skillId: requestSkillId,
       relativePath: null,
       content: nextContent,
     });
@@ -1341,20 +1341,22 @@ export function ProjectChatSkillsMcpViewer({
       return;
     }
     setCustomSkillRootPathHint(res.data.rootPath);
-    setSkillContentLoadStatus("loaded");
-    setSkillContentLoadError(null);
-    setSelectedSkillContent(nextContent);
-    setSelectedSkillContentTruncated(false);
-    setSelectedSkillOriginalSizeBytes(nextContent.length);
     const cacheEntry = {
       content: nextContent,
       truncated: false,
       originalSizeBytes: nextContent.length,
     };
     for (const key of skillContentCache.current.keys()) {
-      if (key.endsWith(`:${selectedSkillId}`)) {
+      if (key.endsWith(`:${requestSkillId}`)) {
         skillContentCache.current.set(key, cacheEntry);
       }
+    }
+    if (selectedSkillIdRef.current === requestSkillId) {
+      setSkillContentLoadStatus("loaded");
+      setSkillContentLoadError(null);
+      setSelectedSkillContent(nextContent);
+      setSelectedSkillContentTruncated(false);
+      setSelectedSkillOriginalSizeBytes(nextContent.length);
     }
     addTemporaryNotification("Saved custom skill.");
   }, [

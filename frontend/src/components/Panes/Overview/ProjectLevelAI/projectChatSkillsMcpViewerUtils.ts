@@ -18,6 +18,9 @@ import {
   type ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
 
+export const AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.agentNativeSlashCommandsByEngineId";
+
 export function filterSkills(
   skills: AppGenSkillEntry[],
   query: string,
@@ -893,6 +896,42 @@ export function collectAgentNativeSlashCommandTokensFromRuns(
         continue;
       }
       const normalized = normalizeSlashCommandToken(nativeCommand);
+      if (!normalized || seen.has(normalized)) {
+        continue;
+      }
+      seen.add(normalized);
+      discoveredTokens.push(normalized);
+    }
+  }
+  return discoveredTokens;
+}
+
+export function collectAgentNativeSlashCommandTokensFromStorage(
+  rawStorageValue: string | null,
+): string[] {
+  if (!rawStorageValue) {
+    return [];
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawStorageValue);
+  } catch {
+    return [];
+  }
+  if (!isRecord(parsed)) {
+    return [];
+  }
+  const discoveredTokens: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of Object.values(parsed)) {
+    if (!isRecord(entry) || !Array.isArray(entry.commands)) {
+      continue;
+    }
+    for (const command of entry.commands) {
+      if (typeof command !== "string") {
+        continue;
+      }
+      const normalized = normalizeSlashCommandToken(command);
       if (!normalized || seen.has(normalized)) {
         continue;
       }

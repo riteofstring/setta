@@ -34,6 +34,39 @@ test("legacy BackendLogs entry opens logs first but allows tab switching", async
   ).toHaveAttribute("aria-selected", "false");
 });
 
+test("switching overview route from Notifications to BackendLogs always activates logs", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "Notifications",
+    overviewNotificationsPaneTab: "notifications",
+    overviewVis: true,
+  });
+  await ensureAppReady(page);
+
+  await expect(
+    page.getByTestId("notifications-pane-notifications-view"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("notifications-pane-tab-notifications"),
+  ).toHaveAttribute("aria-selected", "true");
+
+  await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    useLocalStorage.setState({
+      overviewTab: "BackendLogs",
+      overviewVis: true,
+    });
+  });
+
+  await expect(
+    page.getByTestId("notifications-pane-backend-logs-view"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("notifications-pane-tab-backend-logs"),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
 test("backend logs pane supports column resize handles and copy feedback", async ({
   page,
 }) => {

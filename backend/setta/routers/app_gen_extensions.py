@@ -320,6 +320,12 @@ def upsert_app_gen_custom_skill(
             workspace_root=workspace_root,
             skill_id=selected_skill_id,
         )
+        try:
+            existing_skill_doc_exists = existing_skill_doc.exists()
+        except OSError as exc:
+            raise ValueError(str(exc)) from exc
+        if not existing_skill_doc_exists:
+            raise KeyError(f"Missing SKILL.md for {selected_skill_id}")
         is_editable, editability_reason = _resolve_skill_editability(
             root_id=existing_root_id,
             relative_path=existing_relative_path,

@@ -7,7 +7,7 @@ import {
   zoomOut,
 } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FaMinus, FaPlus } from "react-icons/fa6";
 import { IoMapOutline } from "react-icons/io5";
@@ -67,7 +67,20 @@ const Controls = () => {
   const watchCodeEnabled = useProjectState(
     (state) => state.projectConfig.watchCodeEnabled,
   );
-  const [watchCodePortalOpen, setWatchCodePortalOpen] = useState(false);
+  const watchCodePortalOpen = useLocalStorage(
+    (state) => state.watchCodePortalOpen,
+  );
+  const setWatchCodePortalOpen = useCallback(
+    (nextOpen: boolean | ((current: boolean) => boolean)) => {
+      useLocalStorage.setState((state) => ({
+        watchCodePortalOpen:
+          typeof nextOpen === "function"
+            ? nextOpen(state.watchCodePortalOpen)
+            : nextOpen,
+      }));
+    },
+    [],
+  );
   const [watchCodePortalPosition, setWatchCodePortalPosition] = useState<{
     left: number;
     top: number;

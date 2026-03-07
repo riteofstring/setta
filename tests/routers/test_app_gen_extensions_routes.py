@@ -593,6 +593,36 @@ class TestAppGenExtensionsRoutes:
             assert response.created is False
             assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
 
+    def test_rejects_skill_id_target_when_skill_doc_is_missing(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            workspace_skills = workspace_root / ".agents" / "skills"
+            workspace_skills.mkdir(parents=True, exist_ok=True)
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+            monkeypatch.delenv("AGENTS_HOME", raising=False)
+            monkeypatch.delenv("CODEX_HOME", raising=False)
+            monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+
+            target_skill_doc = workspace_skills / ".hidden" / "nested" / "SKILL.md"
+            with pytest.raises(
+                KeyError,
+                match="Missing SKILL.md for workspace_agents_skills::.hidden/nested",
+            ):
+                upsert_app_gen_custom_skill(
+                    workspace_root=workspace_root,
+                    skill_id="workspace_agents_skills::.hidden/nested",
+                    relative_path=None,
+                    content="# nested\n\nCreated unexpectedly.\n",
+                )
+
+            assert target_skill_doc.exists() is False
+
     def test_updates_skill_id_target_when_agents_home_root_is_unwritable(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -996,6 +1026,46 @@ class TestAppGenExtensionsRoutes:
         assert response.status_code == 200
         assert response.json()["skillId"] == "workspace_agents_skills::editable"
         assert skill_doc.read_text(encoding="utf-8") == "# editable\n\nUpdated.\n"
+
+    def test_upsert_custom_skill_route_rejects_missing_skill_id_target(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_skills = workspace_root / ".agents" / "skills"
+        workspace_skills.mkdir(parents=True, exist_ok=True)
+
+        fake_home = tmp_path / "home"
+        fake_home.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(Path, "home", lambda: fake_home)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        monkeypatch.delenv("AGENTS_HOME", raising=False)
+        monkeypatch.delenv("CODEX_HOME", raising=False)
+        monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        missing_skill_doc = workspace_skills / ".hidden" / "nested" / "SKILL.md"
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.UPSERT_APP_GEN_CUSTOM_SKILL.value}",
+                json={
+                    "skillId": "workspace_agents_skills::.hidden/nested",
+                    "relativePath": None,
+                    "content": "# nested\n\nCreated unexpectedly.\n",
+                },
+            )
+
+        assert response.status_code == 404
+        assert "Missing SKILL.md for workspace_agents_skills::.hidden/nested" in (
+            response.json()["detail"]
+        )
+        assert missing_skill_doc.exists() is False
+        clear_setta_paths_cache()
 
     def test_upsert_custom_skill_route_returns_400_when_no_writable_roots(
         self,
