@@ -26,7 +26,7 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 through Slice 14 foundations:
+- Go now owns Phase 6 Slice 1 through Slice 16 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
@@ -57,6 +57,7 @@ Current repo status as of 2026-03-07:
     - `set_param_entered_value` as the first scoped code-object value tool
     - `set_type_error_ignore` as the scoped type-ignore write tool
     - `set_code_obj_display_name` as the scoped code-object rename/display tool
+    - `set_code_obj_name` as the scoped code-object naming tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
@@ -735,14 +736,47 @@ Reference:
 
 - `phase-6-create-new-section-variant-structural-tool.md`
 
+### Slice 16: CodeObj Name Tool Parity
+
+Deliver:
+
+- a Go-owned project-state owner for renaming a code object by `codeObjId`
+- active-section discovery derived from canonical `codeObjVariantMap` state
+- authoritative dict/callable/meta-control name validation in
+  `internal/projectstate`
+- a Go MCP `set_code_obj_name` write tool
+- argument temp-id translation for `codeObjId`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `set_code_obj_name`
+- write scope remains explicit and fail-closed through `codeObj` metadata
+- rename validation stays source-of-truth in `internal/projectstate` instead
+  of transport-owned heuristics
+- invalid rename failures normalize to MCP `invalid_arguments`
+- temp-id input/denial payload translation stays metadata-driven
+- the IDE HTTP `setCodeObjName` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-codeobj-name-tool-parity.md`
+
 ## Next Recommended Step
 
-- Slice 15 is now complete.
-- The next recommended step is a focused `set_code_obj_name` slice so the
-  remaining MCP naming gap can move as one explicit rename/refactor boundary.
+- Slice 16 is now complete.
+- The next recommended step is a focused `set_param_name_and_value` slice so
+  the remaining system-prompt combined param rename/value workflow moves onto
+  Go-owned runtime boundaries.
+- Keep it layered on the completed `set_code_obj_name` and
+  `set_param_entered_value` owners instead of inventing a new transport-owned
+  mutation path.
 - Keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner.
-- Keep `set_code_obj_name` scoped to rename validation/refactor behavior rather
-  than broadening it into unrelated write or structural work.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice
   actually needs viewport/reveal-specific transport semantics.

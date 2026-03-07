@@ -238,10 +238,13 @@ Remain the owner for:
 ## Recommended Follow-On
 
 - Slice 7 is complete.
-- The next recommended step is a focused code-object write slice that uses the
-  now-complete targeting boundary for real tool parity:
-  - `set_param_entered_value`
-  - `set_type_error_ignore`
-  - `set_code_obj_display_name` if it falls out cleanly from the same owner
-- Keep structural/project-shape tools as the follow-on after code-object write
-  semantics are proven over real Go runtime owners.
+- Follow-on code-object write slices for `set_param_entered_value`,
+  `set_type_error_ignore`, `set_code_obj_display_name`, and
+  `set_code_obj_name` are now complete.
+- Structural/project-shape follow-ons through `create_new_section_variant` are
+  now complete.
+- The next recommended step is a focused `set_param_name_and_value` slice so
+  the remaining combined param rename/value workflow moves onto Go-owned
+  project-state owners.
+- Keep broader structural move/reparent semantics deferred until a dedicated
+  structural plan narrows them into a bounded owner.

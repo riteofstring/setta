@@ -107,11 +107,14 @@ Use the docs in this order:
 49. `phase-6-create-new-section-variant-structural-tool.md`
    - focused current-work plan for Go-owned section-variant duplication over
      the completed structural construction and deletion boundaries
-50. `spike-mcp.md`
+50. `phase-6-codeobj-name-tool-parity.md`
+   - focused slice doc for Go-owned `set_code_obj_name` MCP parity over the
+     completed code-object targeting and rename-validation boundaries
+51. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-51. `spike-pty.md`
+52. `spike-pty.md`
    - PTY uncertainty-reduction plan
-52. `spike-lsp.md`
+53. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

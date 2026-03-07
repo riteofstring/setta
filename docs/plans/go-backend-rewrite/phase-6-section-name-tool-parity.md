@@ -215,10 +215,12 @@ Do not own:
 ## Recommended Follow-On
 
 - Slice 9 is complete.
-- The next bounded Phase 6 slice should move to the first structural
-  project-shape tool:
-  - `create_top_level_section`
-- it is already a canonical MCP workflow anchor in the Python system prompt and
-  is the highest-leverage structural tool after section-rename parity
-- keep `set_code_obj_name` deferred until rename validation/refactor behavior
-  is ready to move as one coherent boundary
+- Structural follow-on slices through `create_new_section_variant` are now
+  complete.
+- `set_code_obj_name` is now complete over the Go-owned rename-validation
+  boundary.
+- The next recommended step is a focused `set_param_name_and_value` slice so
+  the remaining combined param rename/value workflow moves onto Go-owned
+  project-state owners.
+- Keep broader structural move/reparent semantics deferred until a dedicated
+  structural plan narrows them into a bounded owner.

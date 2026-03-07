@@ -172,10 +172,12 @@ The high-leverage move is therefore:
 ## Next Recommended Step
 
 - `create_new_section_variant` has now landed as the section-variant follow-on
-- the next bounded Phase 6 slice should move to `set_code_obj_name`
-- it remains the highest-leverage non-structural MCP gap because the system
-  prompt still relies on explicit code-object naming
-- keep `set_code_obj_name` scoped to rename validation/refactor behavior
+- `set_code_obj_name` has now landed as the next completed rename/refactor
+  slice
+- the next bounded Phase 6 slice should move to `set_param_name_and_value`
+- it remains the highest-leverage remaining system-prompt param-editing gap
+- keep `set_param_name_and_value` scoped to one coherent code-object write
+  boundary
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner
 
@@ -187,3 +189,5 @@ The high-leverage move is therefore:
   authenticated route/SSE coverage.
 - 2026-03-07: follow-on `create_new_section_variant` slice completed; next
   recommended step moved to `set_code_obj_name`.
+- 2026-03-07: follow-on `set_code_obj_name` slice completed; next recommended
+  step moved to `set_param_name_and_value`.

@@ -164,8 +164,11 @@ The high-leverage move is therefore:
 - `delete_child_sections_via_decrementer` has now landed as the decrementer
   deletion follow-on
 - `create_new_section_variant` has now landed as the section-variant follow-on
-- the next bounded Phase 6 slice should move to `set_code_obj_name`
-- keep `set_code_obj_name` scoped to rename validation/refactor behavior
+- `set_code_obj_name` has now landed as the next completed rename/refactor
+  slice
+- the next bounded Phase 6 slice should move to `set_param_name_and_value`
+- keep `set_param_name_and_value` scoped to one coherent code-object write
+  boundary
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner
 
@@ -180,3 +183,5 @@ The high-leverage move is therefore:
   completed; next recommended step moved to `create_new_section_variant`.
 - 2026-03-07: follow-on `create_new_section_variant` slice completed; next
   recommended step moved to `set_code_obj_name`.
+- 2026-03-07: follow-on `set_code_obj_name` slice completed; next recommended
+  step moved to `set_param_name_and_value`.

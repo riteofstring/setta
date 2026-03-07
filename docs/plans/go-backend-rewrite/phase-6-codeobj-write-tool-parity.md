@@ -232,9 +232,12 @@ Do not own:
 
 - Slice 8 is complete.
 - Slice 9 is now complete.
-- The next recommended step is the first structural MCP slice, anchored on
-  `create_top_level_section`.
-- Keep `set_code_obj_name` deferred until rename validation/refactor behavior
-  is ready to move as a coherent boundary.
-- Leave broader structural create/delete/move tools after that first
-  structural slice proves the boundary.
+- Structural follow-on slices through `create_new_section_variant` are now
+  complete.
+- `set_code_obj_name` is now complete over the Go-owned rename-validation
+  boundary.
+- The next recommended step is a focused `set_param_name_and_value` slice so
+  the remaining combined param rename/value workflow moves onto Go-owned
+  project-state owners.
+- Leave broader structural create/delete/move tools deferred until a dedicated
+  structural plan narrows them into a bounded owner.

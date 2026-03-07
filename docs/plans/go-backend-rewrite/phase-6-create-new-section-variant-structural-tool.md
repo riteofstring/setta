@@ -149,10 +149,12 @@ The high-leverage move is therefore:
 
 ## Next Recommended Step
 
-- the next bounded Phase 6 slice should move to `set_code_obj_name`
-- it remains the highest-leverage remaining MCP gap because the system prompt
-  still references it directly for naming param-bearing code objects
-- move it only as one coherent rename/refactor boundary
+- `set_code_obj_name` has now landed as the next completed rename/refactor
+  slice
+- the next bounded Phase 6 slice should move to `set_param_name_and_value`
+- it remains the highest-leverage remaining system-prompt param-editing gap
+  because MCP still references it directly for combined name/value updates
+- move it only as one coherent code-object write boundary
 - keep move/reparent semantics deferred until a dedicated structural plan
   narrows them into a bounded owner
 
@@ -164,3 +166,5 @@ The high-leverage move is therefore:
   `sectionVariant` temp-id translation, and authenticated route/SSE coverage.
 - 2026-03-07: kept the MCP result bounded to `variantId`; duplicated
   code-object variant ids remain internal mutation state for this slice.
+- 2026-03-07: follow-on `set_code_obj_name` slice completed; next recommended
+  step moved to `set_param_name_and_value`.
