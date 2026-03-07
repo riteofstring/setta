@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/config"
+	"setta/internal/lsp"
+	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
@@ -44,7 +46,7 @@ func TestRegisterLSPRoutesReturnsLatestDiagnosticsSnapshot(t *testing.T) {
 		testHTTPAPILSPDiagnostic("fixture-ts"),
 	})
 
-	handler := newLSPRouteTestHandler(t, config.ModeIDE, projectRuntime, diagnostics)
+	handler := newLSPRouteTestHandler(t, config.ModeIDE, projectRuntime, diagnostics, nil)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLatestLSPDiagnostics,
@@ -74,7 +76,7 @@ func TestRegisterLSPRoutesReturnsLatestDiagnosticsSnapshot(t *testing.T) {
 func TestRegisterLSPRoutesRejectsShareModeRequests(t *testing.T) {
 	t.Parallel()
 
-	handler := newLSPRouteTestHandler(t, config.ModeShare, nil, nil)
+	handler := newLSPRouteTestHandler(t, config.ModeShare, nil, nil, nil)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLatestLSPDiagnostics,
@@ -94,8 +96,20 @@ func newLSPRouteTestHandler(
 	mode config.Mode,
 	projectRuntime *projectstate.Runtime,
 	diagnostics *projectstate.LSPDiagnosticsRegistry,
+	completions *lspcompletion.Service,
 ) http.Handler {
 	t.Helper()
+
+	if mode == config.ModeIDE && completions == nil {
+		var err error
+		completions, err = lspcompletion.NewService(lspcompletion.ServiceOptions{
+			SettaFilesRoot: t.TempDir(),
+			LSPService:     lsp.NewService(&lsp.Session{}),
+		})
+		if err != nil {
+			t.Fatalf("new completion service: %v", err)
+		}
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -106,6 +120,7 @@ func newLSPRouteTestHandler(
 				ModePolicy:   modes.NewPolicy(mode),
 				ProjectState: projectRuntime,
 				Diagnostics:  diagnostics,
+				Completions:  completions,
 			}); err != nil {
 				t.Fatalf("register lsp routes: %v", err)
 			}

@@ -1,11 +1,14 @@
 import json
+import os
 import sys
+import time
 
 
 FIXTURE_COMPLETION_LABEL = "fixtureCompletion"
 FIXTURE_ERROR_CODE = "fixture-ts"
 FIXTURE_ERROR_TOKEN = "__fixture_error__"
 FIXTURE_ERROR_MESSAGE = "Fixture TypeScript diagnostic"
+FIXTURE_COMPLETION_DELAY_MS = int(os.environ.get("FIXTURE_COMPLETION_DELAY_MS", "0"))
 
 
 def _send(payload: dict) -> None:
@@ -132,6 +135,8 @@ def main() -> int:
             continue
 
         if method == "textDocument/completion" and message_id is not None:
+            if FIXTURE_COMPLETION_DELAY_MS > 0:
+                time.sleep(FIXTURE_COMPLETION_DELAY_MS / 1000)
             _send(
                 {
                     "jsonrpc": "2.0",

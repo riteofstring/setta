@@ -17,6 +17,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/lsp"
+	"setta/internal/lspcompletion"
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/plugins"
@@ -70,6 +71,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		codegenValidator   projectstate.CodegenTargetValidator
 		lspDiagnostics     *projectstate.LSPDiagnosticsRegistry
 		projectLSPSyncer   *lsp.ProjectSynchronizer
+		lspCompletion      *lspcompletion.Service
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
 		plannerFilesRoot   string
@@ -136,11 +138,20 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		lspService := lsp.NewService(pythonSession)
 		projectLSPSyncer, err = lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			Service:        lsp.NewService(pythonSession),
+			Service:        lspService,
 			Diagnostics:    lspDiagnostics,
+		})
+		if err != nil {
+			return nil, err
+		}
+		lspCompletion, err = lspcompletion.NewService(lspcompletion.ServiceOptions{
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
+			LSPService:     lspService,
 		})
 		if err != nil {
 			return nil, err
@@ -291,6 +302,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:   modePolicy,
 				ProjectState: projectRuntime,
 				Diagnostics:  lspDiagnostics,
+				Completions:  lspCompletion,
 			}); err != nil {
 				panic(err)
 			}
