@@ -39,8 +39,6 @@ The chat composer supports local slash commands and execution controls:
 
 - Supported slash actions: `/new`, `/resume`, `/help`, `/permissions`, `/model`, `/search`.
 - Availability by surface: Project Chat includes `/model`, `/permissions`, and `/search`; Managed Chat section includes `/model` and `/permissions`; Scriptable Chat section includes `/permissions` only (plus `/new`, `/resume`, `/help`).
-- Project Chat also supports per-project custom prompt slash commands defined in the `Slash Commands` aux view.
-- For external-agent Project Chat, the composer now separates recognized slash commands from executable slash commands. Native commands discovered from current project run metadata can be recognized before authority fully loads, return local feedback, refresh authority, and then retry resolution instead of falling through as plain chat text.
 - Slash commands are handled client-side; unavailable commands return local feedback and are not sent as LLM prompts.
 - Footer controls always show permission mode when execution controls are enabled; search toggle is shown only where `searchEnabled` is mutable in that surface.
 

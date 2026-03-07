@@ -3,7 +3,6 @@ import {
   allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
-  openProjectAiSettingsPopover,
   postBackend,
   setOverviewTab,
 } from "../../helpers";
@@ -12,9 +11,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("llm api keys supports adding custom key/value entries", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     const customKey = "E2E_CUSTOM_LLM_API_KEY";
     const customValue = "e2e-custom-secret-value";
     const backendOrigin = process.env.SETTA_BACKEND_ORIGIN;
@@ -33,9 +31,9 @@ test.describe.serial("project ai settings accordion layout", () => {
       await page
         .getByTestId("project-llm-settings-new-api-key-name")
         .fill(customKey);
-      await page
-        .locator("#project-llm-settings-new-api-key-value")
-        .fill(customValue);
+      await page.locator("#project-llm-settings-new-api-key-value").fill(
+        customValue,
+      );
       await page.getByTestId("project-llm-settings-add-api-key").click();
 
       await expect(
@@ -45,9 +43,7 @@ test.describe.serial("project ai settings accordion layout", () => {
       // The backend should persist arbitrary key/value entries.
       await expect
         .poll(async () => {
-          const res = await page.request.get(
-            `${backendOrigin}/api/llm/apiKeys`,
-          );
+          const res = await page.request.get(`${backendOrigin}/api/llm/apiKeys`);
           if (!res.ok()) {
             return null;
           }
@@ -59,7 +55,6 @@ test.describe.serial("project ai settings accordion layout", () => {
         .toBe(customValue);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await openProjectAiSettingsPopover(page);
       await expect(
         page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(customKey);
@@ -71,9 +66,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("llm api key save retries on revision conflict and preserves concurrent keys", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     const customKey = "E2E_RETRY_CUSTOM_KEY";
     const customValue = "retry-custom-secret";
     const concurrentKey = "E2E_CONCURRENT_KEY";
@@ -161,7 +155,9 @@ test.describe.serial("project ai settings accordion layout", () => {
         .fill(customValue);
       await page.getByTestId("project-llm-settings-add-api-key").click();
 
-      await expect.poll(() => postPayloads.length).toBeGreaterThanOrEqual(2);
+      await expect
+        .poll(() => postPayloads.length)
+        .toBeGreaterThanOrEqual(2);
       await expect(
         page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
       ).toContainText(customKey);
@@ -192,9 +188,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("defaults to essentials open and persists accordion state", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     try {
       const llmKeysTrigger = page.getByTestId(
         "project-ai-settings-accordion-llm-api-keys",
@@ -224,7 +219,6 @@ test.describe.serial("project ai settings accordion layout", () => {
         default_config_id: "e2e-anthropic-config",
       });
       await page.reload({ waitUntil: "domcontentloaded" });
-      await openProjectAiSettingsPopover(page);
 
       // Verify the default essential sections are open, with advanced sections minimized.
       await expect(llmKeysTrigger).toHaveAttribute("aria-expanded", "true");
@@ -292,7 +286,6 @@ test.describe.serial("project ai settings accordion layout", () => {
       }
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await openProjectAiSettingsPopover(page);
 
       await expect(
         page.getByTestId("project-ai-settings-accordion-prompt-templates"),
@@ -421,9 +414,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("agent profile toggles are visible and default off", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     try {
       const agentProfilesTrigger = page.getByTestId(
         "project-ai-settings-accordion-agent-profiles",
@@ -455,9 +447,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   });
 
   test("guardrails completion toggle persists", async ({ page }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     try {
       const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
@@ -488,7 +479,6 @@ test.describe.serial("project ai settings accordion layout", () => {
       }
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await openProjectAiSettingsPopover(page);
       const reloadedGuardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
       );
@@ -514,9 +504,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("guardrails completion toggle is disabled while save is in flight", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     try {
       const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",
@@ -573,9 +562,8 @@ test.describe.serial("project ai settings accordion layout", () => {
   test("guardrails completion toggle rolls back when save fails", async ({
     page,
   }) => {
-    await setOverviewTab(page, "ProjectAIChat");
+    await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
-    await openProjectAiSettingsPopover(page);
     try {
       const guardrailsTrigger = page.getByTestId(
         "project-ai-settings-accordion-guardrails",

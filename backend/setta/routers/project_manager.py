@@ -86,6 +86,7 @@ from setta.project_state.project_manager_types import (
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParentDefaultChildSectionTypeRequest,
+    SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
@@ -1368,6 +1369,15 @@ async def route_set_chat_section_state(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_chat_section_state(x)
+
+
+@router.post(Route.SET_PROJECT_CHAT_WINDOWING_STATE)
+async def route_set_project_chat_windowing_state(
+    x: SetProjectChatWindowingStateRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+    await manager.set_project_chat_windowing_state(x)
 
 
 @router.post(Route.GET_CHAT_SECTION_CHAT_ID)
