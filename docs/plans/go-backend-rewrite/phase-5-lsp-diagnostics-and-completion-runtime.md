@@ -42,18 +42,19 @@ Current repo status as of 2026-03-07:
     websocket as `LSPDiagnostics`
   - generated Python diagnostics mapping is now Go-owned for
     `setta_gen.py` / `setta_gen_meta.py`
-- Slice 3 is now the active gap:
-  - completion routes still need Go-owned temporary snapshot documents for
-    canonical Python sections and generated Python files
-- there are still no Go-owned HTTP routes for:
-  - `textFieldCompletion`
-  - `outputAccessorCompletion`
-  - `codeAreaCompletion`
-  - `genCodePrefixCompletion`
-  - `genCodeSuffixCompletion`
-  - `clearTextFieldCompletion`
-  - `setCodeSectionDiagnosticsMute`
-  - `setCodeSectionDiagnosticCodeSuppression`
+- Slice 3 is now complete:
+  - Go owns snapshot-backed completion routes for:
+    `textFieldCompletion`, `outputAccessorCompletion`,
+    `codeAreaCompletion`, `genCodePrefixCompletion`,
+    `genCodeSuffixCompletion`, and `clearTextFieldCompletion`
+  - `internal/lsp` now owns temp snapshot document lifecycle beside canonical
+    Python files
+  - `internal/lspcompletion` now owns runtime-snapshot completion builders and
+    frontend-compatible completion payload mapping
+- Slice 4 is now the active gap:
+  - Go still needs diagnostics ignore-state routes for:
+    `setCodeSectionDiagnosticsMute` and
+    `setCodeSectionDiagnosticCodeSuppression`
 - Python still owns the current LSP runtime under:
   - `backend/setta/lsp/managers.py`
   - `backend/setta/lsp/server.py`
@@ -199,12 +200,25 @@ Own:
 
 - project-scoped LSP diagnostics state
 - canonical code-section binding reconciliation needed for LSP-visible files
-- read-snapshot completion helpers for code sections and generated code
 - diagnostics ignore-state mutation helpers
 
 Do not own:
 
 - raw stdio protocol framing
+- HTTP route policy
+
+### `internal/lspcompletion`
+
+Own:
+
+- read-snapshot completion helpers for canonical Python code sections and
+  generated Python files
+- completion result mapping into the frontend `CodeMirrorCompletion` payload
+
+Do not own:
+
+- raw stdio protocol framing
+- persisted diagnostics state
 - HTTP route policy
 
 ### `internal/httpapi`
@@ -308,7 +322,7 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
 
 ### Slice 4: Diagnostics Ignore-State Transport
 
@@ -398,13 +412,42 @@ Verification completed:
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate ./internal/lsp -count=1`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/codegen ./internal/projectstate ./internal/httpapi ./internal/lsp ./internal/realtime ./internal/app -count=1 -timeout 150s`
 
+## Slice 3 Notes
+
+Completed in code and tests:
+
+- `internal/lsp` now owns temp snapshot file open/completion/close/unlink flow
+  through `CompleteSnapshot`
+- `internal/lspcompletion` now owns Python completion snapshot builders and the
+  read-only completion service over runtime snapshots
+- `internal/httpapi` now serves all six completion endpoints with existing
+  frontend payloads unchanged
+- `internal/app` now shares one LSP service between canonical-document sync and
+  snapshot completion transport
+- fixture-backed route and lifecycle tests now cover:
+  - temp snapshot cleanup on success and timeout
+  - code-area and generated-code completion payloads
+  - completion requests staying unblocked by later runtime mutations
+
+Key decision:
+
+- move completion snapshot assembly out of `internal/projectstate` into
+  `internal/lspcompletion`
+- rationale: keeping the Go Python codegen/read-model logic separate from the
+  persisted project-state package avoids the `projectstate -> codegen ->
+  projectstate` import cycle while preserving a thin `httpapi` boundary
+
+Verification completed:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/lsp ./internal/lspcompletion ./internal/httpapi ./internal/app -count=1 -timeout 150s`
+
 ## Next Recommended Step
 
-Execute Slice 3 next:
+Execute Slice 4 next:
 
-- add thin Go routes for snapshot-backed completion requests over canonical
-  Python code-section files and generated Python files
-- keep completion read-only by projecting temporary documents into the live LSP
-  session without mutating canonical tracked files
-- prove the completion path against the existing fixture language-server
-  integration pattern before widening to diagnostics ignore-state routes
+- add thin Go routes for `setCodeSectionDiagnosticsMute` and
+  `setCodeSectionDiagnosticCodeSuppression`
+- keep ignore-state reapplication source-of-truth-driven by filtering the
+  stored raw diagnostics already held in `internal/projectstate`
+- prove IDE-only route behavior and filtered payload refresh with focused Go
+  route and registry tests before widening to frontend verification

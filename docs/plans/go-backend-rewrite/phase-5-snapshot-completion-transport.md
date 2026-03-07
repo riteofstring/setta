@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc narrows the active Slice 3 work from
+This doc narrowed the Slice 3 work from
 `phase-5-lsp-diagnostics-and-completion-runtime.md`.
 
 Go already owns:
@@ -12,8 +12,8 @@ Go already owns:
 - generated Python file materialization and diagnostics mapping
 - frontend-compatible diagnostics hydration/broadcast transport
 
-What Go still does not own is the read-only completion transport that the
-frontend uses for:
+What this slice needed to finish was the read-only completion transport that
+the frontend uses for:
 
 - text-field expression completion inside Python-backed generated code
 - output accessor completion for edge-port accessors
@@ -26,14 +26,18 @@ Current repo status as of 2026-03-07:
 
 - Phase 5 Slice 1 is complete
 - Phase 5 Slice 2 is complete
-- Slice 3 is the active implementation gap
-- there are still no Go-owned HTTP routes for:
-  - `textFieldCompletion`
-  - `outputAccessorCompletion`
-  - `codeAreaCompletion`
-  - `genCodePrefixCompletion`
-  - `genCodeSuffixCompletion`
-  - `clearTextFieldCompletion`
+- Slice 3 is complete
+- Go now owns:
+  - all six completion routes:
+    `textFieldCompletion`, `outputAccessorCompletion`,
+    `codeAreaCompletion`, `genCodePrefixCompletion`,
+    `genCodeSuffixCompletion`, and `clearTextFieldCompletion`
+  - temp snapshot document lifecycle in `internal/lsp`
+  - runtime-snapshot completion builders and payload mapping in
+    `internal/lspcompletion`
+  - fixture-backed Go tests for temp cleanup, route payloads, and completion
+    overlap with later runtime mutations
+- the active gap has moved to Slice 4 diagnostics ignore-state transport
 - the frontend already calls those routes through generated endpoints in:
   - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
   - `frontend/src/components/Section/Layouts/CodeArea.tsx`
@@ -91,8 +95,8 @@ This focused Slice 3 plan covers:
   - temp documents must be closed with `didClose` and unlinked immediately
 - keep project semantics out of handlers
   - `internal/httpapi` decodes, validates, and maps
-  - `internal/projectstate` builds Python completion snapshots from the current
-    project snapshot
+  - `internal/lspcompletion` builds Python completion snapshots from the
+    current runtime snapshot
   - `internal/lsp` owns temp document lifecycle and raw completion requests
 - keep frontend DTOs unchanged
   - return `[{ label, type }]`
@@ -103,7 +107,7 @@ This focused Slice 3 plan covers:
 
 ## Proposed Boundaries
 
-### `internal/projectstate`
+### `internal/lspcompletion`
 
 Own:
 
@@ -165,7 +169,7 @@ Acceptance:
 
 Deliver:
 
-- `internal/projectstate` helpers that derive temp-document requests for:
+- `internal/lspcompletion` helpers that derive temp-document requests for:
   - Python Code section completion
   - generated text-field completion
   - output accessor completion
@@ -218,9 +222,12 @@ Acceptance:
 
 ## Next Recommended Step
 
-Implement Step 2 first:
+Slice 3 is complete. Execute Slice 4 next:
 
-- add `internal/projectstate` Python completion snapshot builders
-- add the minimal shared temp-document request struct they will hand to
-  `internal/lsp`
-- prove them with focused Go unit tests before wiring the HTTP routes
+- add Go-owned diagnostics ignore-state routes for
+  `setCodeSectionDiagnosticsMute` and
+  `setCodeSectionDiagnosticCodeSuppression`
+- keep the filtering source of truth inside the existing
+  `internal/projectstate` diagnostics registry
+- add focused route and registry tests before widening to frontend
+  verification
