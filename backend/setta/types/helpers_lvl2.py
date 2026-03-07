@@ -163,6 +163,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
+        ProjectChatWindowingState,
         ProjectStateBackend,
         ProjectStateCore,
         ProjectStateSingleConfig,
@@ -3194,6 +3195,13 @@ def set_prompt_section_format(
             renderError=result.render_error,
         ),
     )
+
+
+def set_project_chat_windowing_state(
+    p: "ProjectStateSingleConfig",
+    state: "ProjectChatWindowingState",
+):
+    p.projectChatWindowing = state
 
 
 def set_chat_section_settings(

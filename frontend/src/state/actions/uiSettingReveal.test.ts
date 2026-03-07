@@ -45,7 +45,7 @@ function createRevealTarget(
   return {
     settingId: "core.watch_code.enabled",
     side: "left",
-    overviewTabKey: "Overview",
+    overviewTabKey: "WatchCode",
     uiEditorTabName: null,
     pluginId: null,
     paneId: null,
@@ -196,9 +196,7 @@ describe("receiveUISettingReveal", () => {
     useLocalStorage.setState({
       overviewVis: false,
       overviewTab: "Overview",
-      watchCodePortalOpen: false,
       uiEditorVis: false,
-      projectChatAuxViewByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
     });
@@ -242,7 +240,7 @@ describe("receiveUISettingReveal", () => {
     };
     docRef.document = {
       querySelector: vi.fn((selector: string) => {
-        if (selector === '[data-testid="rf__watch-code-settings-portal"]') {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
           return paneRoot;
         }
         return null;
@@ -253,8 +251,7 @@ describe("receiveUISettingReveal", () => {
 
     const localState = useLocalStorage.getState();
     expect(localState.overviewVis).toBe(true);
-    expect(localState.overviewTab).toBe("Overview");
-    expect(localState.watchCodePortalOpen).toBe(true);
+    expect(localState.overviewTab).toBe("WatchCode");
     expect(statuses).toEqual([
       {
         settingId: "core.watch_code.enabled",
@@ -630,7 +627,7 @@ describe("receiveUISettingReveal", () => {
         reveals: [
           createRevealTarget({
             settingId: anchorId,
-            overviewTabKey: "ProjectAIChat",
+            overviewTabKey: "ProjectAISettings",
             anchorId,
             revealActivationSteps: [
               {
@@ -648,9 +645,6 @@ describe("receiveUISettingReveal", () => {
     expect(
       state.projectAiSettingsAccordionOpenValuesByProjectConfigId["project-1"],
     ).toContain("project-ai-settings-prompt-templates");
-    expect(state.projectChatAuxViewByProjectConfigId["project-1"]).toBe(
-      "ai_settings",
-    );
   });
 
   it("applies Run Instructions accordion activation steps before anchor lookup", async () => {
@@ -805,7 +799,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
   });
 
   it("rolls back a failed older reveal without clobbering a newer non-overlapping reveal", async () => {
@@ -877,7 +870,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
     expect(state.uiEditorVis).toBe(true);
     expect(state.uiEditorTab[SectionTypeEnum.Code]).toBe(
       "SectionVariantsConfig",
@@ -1062,7 +1054,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
     expect(
       state.runInstructionsAccordionOpenValuesByProjectConfigId["project-1"],
     ).toBeUndefined();
@@ -1205,7 +1196,6 @@ describe("receiveUISettingReveal", () => {
     const state = useLocalStorage.getState();
     expect(state.overviewVis).toBe(false);
     expect(state.overviewTab).toBe("Overview");
-    expect(state.watchCodePortalOpen).toBe(false);
   });
 
   it("keeps other-project local accordion state when rollback runs after project switch", async () => {

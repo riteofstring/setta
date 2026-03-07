@@ -1,0 +1,172 @@
+# Chat Windowing v1 Checklist (Append-Only)
+
+## Rules
+- This file is append-only.
+- Do not edit, delete, or reorder existing lines.
+- To update progress, append a new line in `Status Log` referencing the task ID.
+- If a task changes meaning, append a new task ID in `Task Catalog` instead of rewriting old items.
+
+## Status Values
+- `planned`
+- `in_progress`
+- `blocked`
+- `done`
+- `deferred`
+
+## Task Catalog (Append-Only)
+- `CW-001` [P0] Extract unified host-agnostic chat surface for bottom/floating/maximized/canvas-section hosts.
+- `CW-002` [P0] Replace current separate section chat implementation with unified chat surface modes.
+- `CW-003` [P0] Introduce chat window manager state model with chat-first generic-friendly primitives.
+- `CW-004` [P0] Wire per-project DB-backed persistence for runtime chat/window state.
+- `CW-005` [P0] Add settings JSON defaults plumbing for auto-create and shortcut bindings.
+- `CW-006` [P1] Add bottom strip host with X-style pills and persistent `+` action.
+- `CW-007` [P1] Implement `+` flow to create immediately-open docked chat instance.
+- `CW-008` [P1] Implement multi-open docked layout with equal-width behavior and resize handles.
+- `CW-009` [P1] Implement overflow behavior (`title -> icon`) plus left/right cycle controls.
+- `CW-010` [P1] Implement close-as-hide semantics while preserving instance/thread state.
+- `CW-011` [P1] Implement right-pane Chat Manager reopen flow that restores prior placement/geometry.
+- `CW-012` [P1] Implement startup auto-create one docked chat unless disabled by settings JSON.
+- `CW-013` [P2] Implement floating undock, drag, resize, and focus-driven z-order behavior.
+- `CW-014` [P2] Implement maximize/unmaximize with exact restore to prior state and geometry.
+- `CW-015` [P2] Implement global canvas visibility toggle button behavior when overlays obscure canvas.
+- `CW-016` [P2] Implement canvas visibility and window control shortcuts with cross-platform key handling.
+- `CW-017` [P2] Implement viewport guardrails (minimum visible title bar + `120px`, resize auto-correction).
+- `CW-018` [P3] Implement drag ghost-zone snapping for halves and quarters.
+- `CW-019` [P3] Implement keyboard snapping for focused floating windows.
+- `CW-020` [P4] Implement boot-to-canvas action using cursor position, with canvas-center fallback.
+- `CW-021` [P4] Implement undock from canvas-section to floating with translucent visual-only placeholder.
+- `CW-022` [P4] Implement section rendering behavior where settings are right-pane only and threads remain in chat UI.
+- `CW-023` [P4] Implement mode switching (`section mode` <-> `project-ai mode`) for canvas section chat.
+- `CW-024` [P4] Reapply prior section edge-based scope when switching back from `project-ai mode`.
+- `CW-025` [P5] Implement section-mode outgoing-edge-only direct-node scope filtering (direction-aware).
+- `CW-026` [P5] Implement live scope recomputation on edge edits.
+- `CW-027` [P5] Implement zero-scope UX (header warning icon + dismissible per-session inline banner).
+- `CW-028` [P5] Implement chat-to-chat edge as bounded tool-call invocation endpoint behavior.
+- `CW-029` [P5] Enforce recursion safety with cycle detection and max depth `1` for chat-to-chat tool-calls.
+- `CW-030` [P5] Ensure incoming-only edges do not grant section-mode access.
+- `CW-031` [QA] Add/refresh Vitest coverage for window manager transitions, persistence, scope rules, and recursion guard.
+- `CW-032` [QA] Add/refresh Playwright E2E for docked/floating/maximized/snap/canvas-section workflows.
+- `CW-033` [QA] Run CDP visual verification for key UI workflows after implementation.
+- `CW-034` [QA] Capture before/after CDP performance profiles and append results under `perf/`.
+- `CW-035` [DOC] Document intentional no-migration/no-compatibility break for old section chat in implementation notes.
+- `CW-036` [POST] Add right-pane grouped chat/thread management follow-up task (deferred post-v1).
+- `CW-037` [POST] Add non-chat section window-controls rollout follow-up task (deferred post-v1).
+
+## Status Log (Append-Only)
+- `2026-03-03` | `planned` | `CW-001` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-002` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-003` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-004` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-005` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-006` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-007` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-008` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-009` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-010` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-011` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-012` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-013` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-014` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-015` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-016` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-017` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-018` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-019` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-020` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-021` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-022` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-023` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-024` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-025` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-026` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-027` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-028` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-029` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-030` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-031` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-032` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-033` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-034` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-035` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-036` | Initial chat-windowing checklist created from approved plan.
+- `2026-03-03` | `planned` | `CW-037` | Initial chat-windowing checklist created from approved plan.
+
+## Entry Template (Append New Lines Only)
+- `YYYY-MM-DD` | `<planned|in_progress|blocked|done|deferred>` | `CW-XXX` | `<concise note>`
+- `2026-03-04` | `done` | `CW-003` | Added project chat windowing reducer primitives + frontend actions (create/place/focus/maximize/close/reopen).
+- `2026-03-04` | `done` | `CW-004` | Added DB-backed project runtime state field `projectChatWindowing` and update route `setProjectChatWindowingState`.
+- `2026-03-04` | `done` | `CW-005` | Added settings JSON defaults for `chatWindowing` (`autoCreateInitialChat`, shortcuts, restore behavior).
+- `2026-03-04` | `done` | `CW-006` | Added bottom chat strip host with chat pills and persistent `+` action.
+- `2026-03-04` | `done` | `CW-007` | Wired `+` to create and focus a new bottom-docked chat instance.
+- `2026-03-04` | `done` | `CW-010` | Implemented close-as-hide state transitions and manager/dock controls.
+- `2026-03-04` | `done` | `CW-011` | Added overview Project AI Chat Manager pane with reopen/focus/hide controls.
+- `2026-03-04` | `done` | `CW-012` | Added startup auto-create of initial docked chat gated by settings.
+- `2026-03-04` | `done` | `CW-031` | Added Vitest coverage for windowing transitions and visibility ordering.
+- `2026-03-04` | `done` | `CW-032` | Added Playwright E2E coverage for bottom-dock auto-create and `+` creation flow.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for dock strip, chat surface, and manager interactions.
+- `2026-03-04` | `done` | `CW-008` | Implemented multi-open bottom-docked chat layout with equal-width default sizing and drag resize handles.
+- `2026-03-04` | `done` | `CW-009` | Added dock pill overflow behavior (title-to-icon compression plus cycle controls).
+- `2026-03-04` | `done` | `CW-031` | Expanded Vitest reducer coverage for dock width fraction persistence updates.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright coverage for multi-dock resize behavior and overflow cycle controls.
+- `2026-03-04` | `done` | `CW-001` | Added `UnifiedChatSurface` host-agnostic wrapper with explicit mode/host routing across chat hosts.
+- `2026-03-04` | `done` | `CW-002` | Switched section chat rendering path to `UnifiedChatSurface` in `section_mode` while preserving managed/scriptable section behavior.
+- `2026-03-04` | `done` | `CW-031` | Added unit tests for unified chat surface mode routing (`project_ai_mode` vs `section_mode`).
+- `2026-03-04` | `done` | `CW-033` | Re-ran CDP visual verification after unified-surface wiring for project chat dock hosts.
+- `2026-03-04` | `done` | `CW-013` | Added floating project chat windows with undock/dock controls, pointer drag + resize handling, and focus-driven z-index ordering.
+- `2026-03-04` | `done` | `CW-014` | Added maximize/unmaximize controls with restore to prior placement while preserving window geometry.
+- `2026-03-04` | `done` | `CW-031` | Expanded reducer tests for project chat bounds updates and maximize/unmaximize geometry preservation.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright E2E coverage for floating undock, drag/resize, z-order focus, and maximize/restore workflows.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for floating and maximized project chat hosts with restore controls.
+- `2026-03-04` | `done` | `CW-015` | Added global canvas visibility toggle control on the project chat strip to hide/show docked, floating, and maximized overlay hosts without mutating window placement state.
+- `2026-03-04` | `done` | `CW-032` | Added Playwright coverage for canvas visibility toggle hide/show behavior on overlay chat windows.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for canvas toggle transitions (`Show canvas`/`Show chats`) and overlay host restoration.
+- `2026-03-04` | `done` | `CW-016` | Added settings-driven keyboard shortcuts for canvas visibility toggle and focused window maximize/minimize actions with cross-platform `Mod` handling.
+- `2026-03-04` | `done` | `CW-032` | Added Playwright keyboard shortcut coverage for canvas toggle and focused-window maximize flow.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for keyboard shortcut behavior (`Shift+Esc`, `Mod+Shift+Enter`).
+- `2026-03-04` | `done` | `CW-017` | Added floating viewport guardrails enforcing title-bar visibility and minimum `120px` on-screen visibility, including resize-time auto-correction.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright coverage for floating viewport guardrails across drag extremes, minimum resize limits, and viewport-resize correction.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for floating guardrail behavior after drag-to-edge and viewport resize.
+- `2026-03-04` | `done` | `CW-018` | Added floating drag snap ghost zones with snap-on-drop presets for halves and quarters.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright coverage for floating drag snap ghost visibility and quarter/half snap geometry assertions.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for floating snap outcomes (top-half and top-left quarter).
+- `2026-03-04` | `done` | `CW-019` | Added settings-driven keyboard snapping for focused floating chat windows (`snapLeft/Right/Top/Bottom`) using `Mod+Alt+Arrow` defaults.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright coverage for keyboard snap shortcuts with focused floating window geometry assertions.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for keyboard snapping outcomes (left half and bottom half).
+- `2026-03-04` | `done` | `CW-020` | Added manager-driven boot-to-canvas action that reuses last canvas cursor when available and falls back to canvas center when unavailable, while binding/reusing section ids on chat window instances.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright E2E coverage for move-to-canvas flows, including cursor-based placement and canvas-center fallback assertions.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for Project AI Chat manager `Canvas` action and resulting canvas-section rendering/placement state transitions.
+- `2026-03-04` | `done` | `CW-021` | Added canvas-section undock action to floating and rendered a translucent, visual-only on-canvas placeholder for externalized chat sections.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright E2E coverage for canvas-section undock flow with assertions for floating host visibility and matching canvas placeholder state.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for Project AI Chat manager `Float` control from canvas-section and placeholder rendering continuity on canvas.
+- `2026-03-04` | `done` | `CW-022` | Updated section chat rendering to keep settings in right-pane workflows only while preserving in-chat thread actions (`History`/`New Chat`) for managed section chats.
+- `2026-03-04` | `done` | `CW-032` | Added/updated Playwright coverage to assert section chat composer hides inline settings controls and managed section chats still expose in-chat thread actions.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for section chat: no inline permissions control, and managed section chat shows `HISTORY`/`NEW CHAT` in the canvas chat UI.
+- `2026-03-04` | `done` | `CW-023` | Added canvas section chat mode switching via right-pane `Chat Mode` control backed by project chat windowing mode state.
+- `2026-03-04` | `done` | `CW-032` | Added Playwright coverage for right-pane `Chat Mode` switching between `section_mode` and `project_ai_mode` rendering in canvas chat sections.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for canvas section chat mode switching (`section_mode` <-> `project_ai_mode`) and section surface rendering transitions.
+- `2026-03-04` | `done` | `CW-024` | Added mode-switch scope reapply verification by asserting `getLLMResponse` payload flips back to section-scoped (`sectionId` set, `allowUnscoped=false`) after returning from `project_ai_mode`.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright mode-switch coverage to assert scoped/unscoped request payload transitions across `section_mode` -> `project_ai_mode` -> `section_mode`.
+- `2026-03-04` | `done` | `CW-025` | Implemented section-mode outgoing-only direct-node scope filtering across backend/frontend scope resolution, context-edge payload building, and MCP scope-enforcement fixtures.
+- `2026-03-04` | `done` | `CW-026` | Added live scope recomputation coverage for edge add/update/delete and aligned right-pane context/link editing with outgoing `chat_section` edges.
+- `2026-03-04` | `done` | `CW-031` | Expanded unit coverage for outgoing-only scope directionality and live recomputation behavior in backend/frontend scope utilities.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for section settings scope empty-state and outgoing-scope messaging updates.
+- `2026-03-04` | `done` | `CW-027` | Added managed section zero-scope UX with a persistent header indicator plus a dismissible inline warning banner dismissed per browser session.
+- `2026-03-04` | `done` | `CW-032` | Added Playwright coverage for managed section zero-scope warning dismissal persistence and indicator visibility across managed-mode remount.
+- `2026-03-04` | `done` | `CW-033` | Completed chrome-devtools-mcp visual verification for managed section zero-scope banner + `Scope limited` indicator rendering.
+- `2026-03-04` | `done` | `CW-006` | Refined bottom dock visual behavior to a centered narrow surface with user-resizable strip width, active-tongue tab treatment, and floating create action.
+- `2026-03-04` | `done` | `CW-032` | Expanded Playwright dock coverage with assertions for centered narrow dock width, floating create action placement, active tongue rendering, and strip width resize behavior.
+- `2026-03-04` | `done` | `CW-033` | Re-ran chrome-devtools-mcp visual verification for dock style alignment (centered overlay surface, active tongue tab behavior, and floating `+` action).
+- `2026-03-05` | `done` | `CW-006` | Refined docked windows to render as independent bottom-pop surfaces with pane-aligned dark background, overlay tabs preserved, and floating `+` placement moved to far-right action slot.
+- `2026-03-05` | `done` | `CW-008` | Expanded dock/floating resize affordances so window handles are available on all edges and corners without tying resize to tab strip width.
+- `2026-03-05` | `done` | `CW-014` | Updated maximized chat window framing to stay contained inside side rails/top workspace inset and use pane-style no-radius edges.
+- `2026-03-05` | `done` | `CW-030` | Locked scope resolution to outgoing-only edges so incoming-only links never grant section-mode access; aligned backend/frontend scope resolvers and tests.
+- `2026-03-05` | `done` | `CW-031` | Added/updated unit + backend coverage for outgoing-only scope directionality, live recomputation after edge edits, and project chat windowing state defaults.
+- `2026-03-05` | `done` | `CW-032` | Re-ran Playwright coverage: `project-chat-bottom-dock.spec.ts` full pass (`12/12`) and targeted `chat-composer-controls` managed/section-mode cases (`4/4`).
+- `2026-03-05` | `blocked` | `CW-032` | Full `chat-composer-controls.spec.ts` run still times out at `project chat shows starter controls...` waiting for `Project AI Settings`; targeted chat-windowing-related cases pass.
+- `2026-03-05` | `done` | `CW-033` | Re-ran chrome-devtools-mcp visual verification for two independent docked windows, floating create action, and maximized window containment below navbar.
+- `2026-03-05` | `planned` | `CW-028` | Chat-to-chat bounded tool-call bridge behavior still pending explicit implementation log and validation entry in this checklist.
+- `2026-03-05` | `planned` | `CW-029` | Recursion guard depth/cycle enforcement for chat-to-chat tool-call bridge still pending explicit completion log.
+- `2026-03-05` | `planned` | `CW-034` | Before/after CDP performance traces have not been appended under `perf/` yet.
+- `2026-03-05` | `planned` | `CW-035` | Intentional no-migration/no-compatibility implementation note is still pending write-up.
+- `2026-03-05` | `deferred` | `CW-036` | Right-pane grouped chat/thread management follow-up remains post-v1.
+- `2026-03-05` | `deferred` | `CW-037` | Non-chat section window-controls rollout remains post-v1.

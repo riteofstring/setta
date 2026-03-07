@@ -1,5 +1,4 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { onOverviewTabClick } from "components/Panes/paneFns";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
@@ -7,7 +6,6 @@ import { useEffect } from "react";
 import {
   RiArrowDownSLine,
   RiLoopRightFill,
-  RiPlayList2Fill,
   RiPlayMiniFill,
 } from "react-icons/ri";
 import {
@@ -23,7 +21,6 @@ import {
   useRunControl,
 } from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { OverviewTabNameEnum } from "utils/constants";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
@@ -175,19 +172,6 @@ export function RunButton() {
             >
               Continuous run
             </span>
-          </MenuItem>
-
-          <Menubar.Separator className="mx-2 my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
-          <MenuItem
-            className={menuItemClasses}
-            onClick={() =>
-              onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
-            }
-          >
-            <i className="w-3 opacity-80">
-              <RiPlayList2Fill />
-            </i>
-            <span className="ml-0.5">Custom Runs...</span>
           </MenuItem>
 
           {dropdownRuns.length > 0 && (

@@ -33,7 +33,10 @@ from setta.types.project_config import (
     ViewportBounds,
     WatchCodeFolder,
 )
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.project_state import (
+    ProjectChatWindowingState,
+    ProjectStateSingleConfig,
+)
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -1134,6 +1137,10 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
     state: ChatSectionState
+
+
+class SetProjectChatWindowingStateRequest(ProjectManagerRequestWithProjectConfig):
+    state: ProjectChatWindowingState
 
 
 class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):

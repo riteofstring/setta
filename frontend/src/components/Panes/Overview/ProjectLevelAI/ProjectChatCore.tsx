@@ -1,7 +1,6 @@
 import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
-  buildCustomPromptSlashCommandDefinitions,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
@@ -11,7 +10,6 @@ import {
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
-  type ChatRuntimeActivityDetails,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
 } from "components/Chat/ChatInput";
@@ -55,14 +53,8 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
-import {
-  useAIStore,
-  useLocalStorage,
-  useProjectState,
-  type ProjectChatCustomSlashCommand,
-} from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   hasPendingToolInteraction,
   normalizeToolName,
@@ -82,23 +74,13 @@ import {
   ChatFileAttachment,
   ChatRoleEnum,
   EngineTypeEnum,
-  type ToolCall,
 } from "utils/generatedTypes";
-import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { shallow } from "zustand/shallow";
 import {
   resolveProjectChatRunTypeForEngine,
   type ProjectChatHydrationAuthority,
   type ProjectChatThreadBlockedErrorCode,
 } from "./projectChatHydrationAuthority";
-import {
-  AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY,
-  buildReservedSlashCommandTokens,
-  collectAgentNativeSlashCommandTokensFromRuns,
-  collectAgentNativeSlashCommandTokensFromStorage,
-  reconcileCustomSlashCommands,
-} from "./projectChatSkillsMcpViewerUtils";
-import { selectCustomProjectChatSlashCommands } from "./projectChatSlashCommandSelectors";
 import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
 import {
   getCachedWorkspacePythonSignal,
@@ -170,37 +152,6 @@ export function buildProjectChatHydrationCacheKey({
     return null;
   }
   return `${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
-}
-
-export function resolveProjectChatComposerNativeSlashCommandTokens({
-  runtimeNativeSlashCommandTokens,
-  persistedNativeSlashCommandTokens,
-  agentRunsInitialLoadComplete,
-}: {
-  runtimeNativeSlashCommandTokens: string[];
-  persistedNativeSlashCommandTokens: string[];
-  agentRunsInitialLoadComplete: boolean;
-}): string[] {
-  if (agentRunsInitialLoadComplete) {
-    return runtimeNativeSlashCommandTokens;
-  }
-  const mergedTokens: string[] = [];
-  const seen = new Set<string>();
-  for (const token of persistedNativeSlashCommandTokens) {
-    if (seen.has(token)) {
-      continue;
-    }
-    seen.add(token);
-    mergedTokens.push(token);
-  }
-  for (const token of runtimeNativeSlashCommandTokens) {
-    if (seen.has(token)) {
-      continue;
-    }
-    seen.add(token);
-    mergedTokens.push(token);
-  }
-  return mergedTokens;
 }
 
 type ProjectChatHydrationRetryStatus =
@@ -386,15 +337,15 @@ export function resolveWorkspaceRootPollDelayMs(
   return WORKSPACE_ROOT_FAST_POLL_MS;
 }
 
-type ProjectChatRuntimeActivityEntry =
-  ChatRuntimeActivityDetails["activeBackgroundTerminals"][number];
+type ProjectChatRuntimeActivityCounts = {
+  activeBackgroundTerminals: number;
+  activeSubagents: number;
+};
 
-type ProjectChatRuntimeActivityDetails = ChatRuntimeActivityDetails;
-
-const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS: ProjectChatRuntimeActivityDetails =
+const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
   {
-    activeBackgroundTerminals: [],
-    activeSubagents: [],
+    activeBackgroundTerminals: 0,
+    activeSubagents: 0,
   };
 const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
   "command_execution",
@@ -435,62 +386,19 @@ function resolveStreamingAssistantMessage(
   return null;
 }
 
-function resolveRuntimeActivityEntryLabel(
-  toolCall: ToolCall,
-  normalizedToolName: string,
-): string {
-  const normalizedName = normalizedToolName.toLowerCase();
-  const argumentsByName = toolCall.function.arguments;
-  if (normalizedName === "command_execution") {
-    const commandValue = argumentsByName?.command;
-    if (typeof commandValue === "string" && commandValue.trim().length > 0) {
-      return commandValue.trim();
-    }
-  }
-  if (ACTIVE_SUBAGENT_TOOL_IDS.has(normalizedName)) {
-    const profileIdValue = argumentsByName?.profileId;
-    if (
-      typeof profileIdValue === "string" &&
-      profileIdValue.trim().length > 0
-    ) {
-      return profileIdValue.trim();
-    }
-  }
-  return `${normalizedToolName} (${toolCall.id})`;
-}
-
-function resolveProjectChatRuntimeActivityEntry(toolCall: ToolCall): {
-  category: "background_terminal" | "subagent";
-  entry: ProjectChatRuntimeActivityEntry;
-} | null {
-  const normalizedToolName = normalizeToolName(toolCall.function?.name ?? "");
-  const category = resolveToolRuntimeCategory(normalizedToolName);
-  if (!category || !normalizedToolName) {
-    return null;
-  }
-  return {
-    category,
-    entry: {
-      id: toolCall.id,
-      label: resolveRuntimeActivityEntryLabel(toolCall, normalizedToolName),
-      toolName: normalizedToolName,
-    },
-  };
-}
-
-export function resolveProjectChatRuntimeActivityDetails({
+export function resolveProjectChatRuntimeActivityCounts({
   messages,
   waitingForResponse,
 }: {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
-}): ProjectChatRuntimeActivityDetails {
+}): ProjectChatRuntimeActivityCounts {
   if (!waitingForResponse) {
-    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
   }
   const streamingAssistantMessage = resolveStreamingAssistantMessage(messages);
   if (!streamingAssistantMessage) {
-    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_DETAILS;
+    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
   }
   const completedToolCallIds = new Set<string>();
   for (const message of messages) {
@@ -503,24 +411,23 @@ export function resolveProjectChatRuntimeActivityDetails({
     }
     completedToolCallIds.add(toolCallId);
   }
-  const activeBackgroundTerminals: Array<ProjectChatRuntimeActivityEntry> = [];
-  const activeSubagents: Array<ProjectChatRuntimeActivityEntry> = [];
+  let activeBackgroundTerminals = 0;
+  let activeSubagents = 0;
   const toolCalls = streamingAssistantMessage.tool_calls ?? [];
   for (const toolCall of toolCalls) {
     if (completedToolCallIds.has(toolCall.id)) {
       continue;
     }
-    const runtimeActivityEntry =
-      resolveProjectChatRuntimeActivityEntry(toolCall);
-    if (!runtimeActivityEntry) {
+    const category = resolveToolRuntimeCategory(toolCall.function?.name ?? "");
+    if (!category) {
       continue;
     }
-    if (runtimeActivityEntry.category === "background_terminal") {
-      activeBackgroundTerminals.push(runtimeActivityEntry.entry);
+    if (category === "background_terminal") {
+      activeBackgroundTerminals += 1;
       continue;
     }
-    if (runtimeActivityEntry.category === "subagent") {
-      activeSubagents.push(runtimeActivityEntry.entry);
+    if (category === "subagent") {
+      activeSubagents += 1;
     }
   }
   return {
@@ -1026,8 +933,6 @@ function EmptyChatState({
 
 export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
-  draftMessage,
-  setDraftMessage,
   placeholderText,
   conversationFilterText,
   requiresNewThreadContinuation = false,
@@ -1054,8 +959,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onPermissionModeChange,
 }: {
   chatId: string | null | undefined;
-  draftMessage: string;
-  setDraftMessage: Dispatch<SetStateAction<string>>;
   placeholderText: string;
   conversationFilterText: string;
   requiresNewThreadContinuation?: boolean;
@@ -1118,6 +1021,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
   }, shallow);
+  const [draftMessage, setDraftMessage] = useState("");
   const [hydrationBlockedErrorCode, setHydrationBlockedErrorCode] =
     useState<ProjectChatBlockedErrorCode | null>(null);
   const [executionSettings, setExecutionSettings] =
@@ -1146,23 +1050,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [filteredConversationMessages],
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const appGenerationMode = useLocalStorage((state) => state.appGenerationMode);
-  const storageAdapter = useMemo(
-    () => getSafeLocalStorageAdapter("project-chat-core"),
-    [],
-  );
-  const customProjectChatSlashCommands = useLocalStorage(
-    (state): ProjectChatCustomSlashCommand[] =>
-      selectCustomProjectChatSlashCommands(
-        state.customProjectChatSlashCommandsByProjectConfigId,
-        projectConfigId,
-      ),
-  );
-  const persistedNativeSlashCommandTokens = useMemo(() => {
-    return collectAgentNativeSlashCommandTokensFromStorage(
-      storageAdapter.getItem(AGENT_NATIVE_SLASH_COMMANDS_STORAGE_KEY),
-    );
-  }, [storageAdapter]);
   const submittedMessageHistory = useMemo(
     () =>
       buildProjectChatSubmittedMessageHistory({
@@ -1242,53 +1129,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
   const showSearchExecutionControl = false;
-  const runtimeAgentNativeSlashCommandTokens = useMemo(() => {
-    return collectAgentNativeSlashCommandTokensFromRuns(agentRuns);
-  }, [agentRuns]);
-  const discoveredAgentNativeSlashCommands = useMemo(() => {
-    return resolveProjectChatComposerNativeSlashCommandTokens({
-      runtimeNativeSlashCommandTokens: runtimeAgentNativeSlashCommandTokens,
-      persistedNativeSlashCommandTokens,
-      agentRunsInitialLoadComplete,
-    });
-  }, [
-    agentRunsInitialLoadComplete,
-    persistedNativeSlashCommandTokens,
-    runtimeAgentNativeSlashCommandTokens,
-  ]);
-  const slashCommands = useMemo(() => {
-    const managedCommands = buildChatSlashCommands({
-      model: true,
-      permissions: showPermissionExecutionControl,
-      search: showSearchExecutionControl,
-      appGenerationModes: true,
-    });
-    const globallyReservedManagedCommands = buildChatSlashCommands({
-      model: true,
-      permissions: true,
-      search: true,
-      appGenerationModes: true,
-    });
-    const reservedCommandSet = buildReservedSlashCommandTokens({
-      managedCommands: globallyReservedManagedCommands,
-      engineCommandGroups: [],
-      discoveredNativeSlashCommands: discoveredAgentNativeSlashCommands,
-    });
-    const { executableCommands: customCommands } = reconcileCustomSlashCommands(
-      {
-        customCommands: buildCustomPromptSlashCommandDefinitions(
-          customProjectChatSlashCommands,
-        ),
-        reservedTokens: reservedCommandSet,
-      },
-    );
-    return [...managedCommands, ...customCommands];
-  }, [
-    customProjectChatSlashCommands,
-    discoveredAgentNativeSlashCommands,
-    showPermissionExecutionControl,
-    showSearchExecutionControl,
-  ]);
+  const slashCommands = useMemo(
+    () =>
+      buildChatSlashCommands({
+        model: true,
+        permissions: showPermissionExecutionControl,
+        search: showSearchExecutionControl,
+      }),
+    [showPermissionExecutionControl, showSearchExecutionControl],
+  );
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
     Record<string, ProjectChatHydrationRetryEntry>
@@ -1536,14 +1385,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => createManagedExecutionControlHandlers(setExecutionSettings),
     [setExecutionSettings],
   );
-  const handleSetAppGenerationMode = useCallback(
-    (nextMode: AppGenerationMode) => {
-      useLocalStorage.setState({
-        appGenerationMode: nextMode,
-      });
-    },
-    [],
-  );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
@@ -1575,16 +1416,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
         searchEnabled: executionSettings.searchEnabled,
         onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
-        appGenerationMode,
-        onSetAppGenerationMode: handleSetAppGenerationMode,
       });
     },
     [
-      appGenerationMode,
       executionSettings.searchEnabled,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
-      handleSetAppGenerationMode,
       handleNewChatStart,
       handleResumeLatestChat,
       slashCommands,
@@ -1811,21 +1648,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       (!waitingForResponse && hasPendingToolInteraction(messages)),
     [messages, requiresNewThreadContinuation, waitingForResponse],
   );
-  const runtimeActivityDetails = useMemo(
+  const runtimeActivityCounts = useMemo(
     () =>
-      resolveProjectChatRuntimeActivityDetails({
+      resolveProjectChatRuntimeActivityCounts({
         messages,
         waitingForResponse,
       }),
     [messages, waitingForResponse],
-  );
-  const runtimeActivityCounts = useMemo(
-    () => ({
-      activeBackgroundTerminals:
-        runtimeActivityDetails.activeBackgroundTerminals.length,
-      activeSubagents: runtimeActivityDetails.activeSubagents.length,
-    }),
-    [runtimeActivityDetails],
   );
   const showThinkingExecutionControl =
     engineType === EngineTypeEnum.setta_llm ||
@@ -1860,14 +1689,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [transcriptionProfileId],
   );
-  const chatWidthShellClassName = "mx-auto w-full min-w-0 max-w-[72rem] px-2";
+  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const showConversationSearchEmptyState =
     normalizedConversationSearchTerms.length > 0 &&
     !hasVisibleConversationMatches &&
     !waitingForResponse;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden">
+    <div className="flex min-h-0 flex-1 flex-col">
       {blockedReason ? (
         <div
           role="alert"
@@ -1938,12 +1767,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={
-            showEmptyState ? false : contextUsageUnavailable
-          }
+          contextUsageUnavailable={contextUsageUnavailable}
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
-          runtimeActivityDetails={runtimeActivityDetails}
           onProviderDictationTranscribe={
             !resolveProjectChatProviderDictationTranscribeEnabled({
               providerDictationAvailable,
