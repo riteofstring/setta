@@ -148,11 +148,12 @@ Current repo status as of 2026-03-06:
   - `internal/plugins/worker_runtime.go`
   - explicit interpreter selection from `SETTA_PLUGIN_WORKER_PYTHON` or the
     active virtualenv
-- Go now also owns the first persistent save-triggered plugin codegen refresh
-  path under:
+- Go now also owns the first central main-runtime save-hook plugin codegen
+  refresh path under:
+  - `internal/projectstate/runtime.go`
+  - `internal/projectstate/registry.go`
   - `internal/app/app.go`
-  - `internal/runs/service.go`
-  - non-deployment run-save hooks for attached terminals and draw snapshots
+  - document-level plugin output refresh in `internal/codegen/plugin_materializer.go`
 - broader plugin worker discovery/load/runtime ownership still lives only in
   Python under:
   - `backend/setta/plugins/manager.py`

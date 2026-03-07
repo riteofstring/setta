@@ -217,12 +217,17 @@ Completed:
   - `Flush`
   - `Save`
   - `Close`
+- kept the runtime extensible for later lifecycle owners:
+  - `RuntimeOptions.AfterSave` can attach bounded post-save work to a specific
+    persisted runtime without reviving a global project manager
 - kept reads cheap and explicit:
   - snapshots clone the current document
   - snapshot callers cannot mutate runtime-owned state accidentally
 - kept save semantics aligned with the Python reference behavior:
   - queued mutations complete before a save writes to disk
   - save writes the current in-memory snapshot through the project-state store
+  - bounded post-save hooks run after persistence and observe that saved
+    snapshot directly
 
 Tests:
 
@@ -233,6 +238,7 @@ Tests:
   - serialized mutation ordering
   - `Flush` waiting for pending mutation completion
   - `Save` persisting the latest queued mutation
+  - after-save hook success and failure semantics
 - full Go suite passes with `./scripts/go.sh test ./...`
 
 Deferred:
@@ -270,6 +276,8 @@ Completed:
   - path resolution
   - runtime lookup by logical target
   - lifecycle ownership for both runtimes
+- added bounded per-runtime option wiring so callers can attach main/settings
+  save hooks without widening the registry into a giant mutable coordinator
 - wired the registry into `internal/app` so the app now owns:
   - the runtime supervisor
   - the project-state registry
@@ -282,6 +290,7 @@ Tests:
   - main/settings runtime creation
   - target lookup errors
   - separate persistence and revision behavior
+  - per-runtime after-save option wiring
 - added app-level coverage in `internal/app/app_test.go` for:
   - registry wiring at startup
   - separate main/settings runtime paths and saves

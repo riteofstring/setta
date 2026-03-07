@@ -56,12 +56,13 @@ Current repo status as of 2026-03-06:
     active virtualenv
   - explicit optional `SETTA_PLUGIN_WORKER_PYTHONPATH` injection instead of a
     hidden Python manager singleton
-- Go now also owns the first persistent save-triggered plugin codegen refresh
-  path under:
+- Go now also owns the first central main-runtime save-triggered plugin codegen
+  refresh path under:
+  - `internal/projectstate/runtime.go`
+  - `internal/projectstate/registry.go`
   - `internal/app/app.go`
-  - `internal/runs/service.go`
-  - non-deployment main-runtime save hooks for attached-terminal and draw
-    snapshot persistence
+  - document-level plugin codegen refresh and stale project-root pruning in
+    `internal/codegen/plugin_materializer.go`
 
 ## Scope
 
@@ -246,32 +247,47 @@ Completed:
   - current-process worker runtime resolution
   - filesystem worker-spec resolution
   - plugin codegen materializer construction
-- added a narrow `saveProjectState(...)` refresh hook in
-  `internal/runs/service.go` so the first persistent save-triggering run paths
-  now refresh plugin codegen outputs from the saved document snapshot
+- added central post-save hook support in `internal/projectstate`:
+  - `RuntimeOptions.AfterSave` in `internal/projectstate/runtime.go`
+  - main/settings runtime option wiring in `internal/projectstate/registry.go`
+- promoted `internal/codegen/plugin_materializer.go` to document-level refresh
+  ownership so a main-runtime save now:
+  - refreshes every current project deterministically
+  - prunes stale `plugin_codegen` roots left behind by removed or renamed
+    projects
+- removed the `internal/runs/service.go` special case and moved plugin codegen
+  refresh ownership into the central main-runtime save boundary instead
 - covered the adoption slice with focused Go tests for:
   - explicit runtime provider resolution and `PYTHONPATH` wiring in
     `internal/plugins/worker_runtime_test.go`
-  - real app-level run-triggered plugin codegen output materialization in
-    `internal/app/app_test.go`
+  - runtime and registry after-save hook semantics in
+    `internal/projectstate/runtime_test.go` and
+    `internal/projectstate/registry_test.go`
+  - document-level stale project-root pruning in
+    `internal/codegen/plugin_materializer_test.go`
+  - both direct-save and run-path app-level plugin codegen output
+    materialization in `internal/app/app_test.go`
 
 Tests:
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/codegen ./internal/runs ./internal/app -count=1`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/codegen ./internal/plugins ./internal/runs ./internal/app -count=1`
 
 ## Open Questions
 
 - whether plugin codegen output caching should remain entirely absent until
   refresh ownership exists, or whether a minimal content fingerprint is worth
-  adding before broader refresh ownership leaves the current run-triggered
+  adding before broader refresh ownership leaves the current save-hook
   boundary
-- which Go-owned mutation/save owner should take over next so plugin codegen
-  refresh is no longer limited to run-triggered persistent saves
+- which first Go-owned IDE mutation/save transport should adopt the central
+  runtime save hook so ordinary editor mutations persist and refresh plugin
+  outputs without depending on run-triggered saves or test-only callers
 
 ## Next Recommended Step
 
 - Continue Slice 2.
-- Widen refresh ownership from `internal/runs/service.go` into the first
-  central Go-owned main project-state mutation/save boundary so plugin codegen
-  outputs stay current after ordinary IDE state edits, not only after
-  run-triggered persistent saves.
+- Keep the new runtime save hook as the ownership boundary.
+- Continue in
+  `docs/plans/go-backend-rewrite/phase-4-codegen-targets-mutation-transport.md`
+  with the first real Go-owned IDE mutation/save transport on top of it so
+  ordinary project-state edits start persisting through that hook and refresh
+  plugin codegen outputs automatically.

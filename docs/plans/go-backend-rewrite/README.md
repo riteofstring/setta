@@ -44,11 +44,13 @@ Use the docs in this order:
    - focused current-work plan for the first worker-backed plugin codegen runtime and target invocation boundary
 20. `phase-4-plugin-codegen-refresh-owner.md`
    - focused current-work plan for the first Go-owned plugin codegen output materialization owner above the worker runtime
-21. `spike-mcp.md`
+21. `phase-4-codegen-targets-mutation-transport.md`
+   - focused current-work plan for the first IDE project-state mutation/save transport that can drive the new Go codegen refresh hook
+22. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-22. `spike-pty.md`
+23. `spike-pty.md`
    - PTY uncertainty-reduction plan
-23. `spike-lsp.md`
+24. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

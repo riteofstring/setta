@@ -179,10 +179,10 @@ The remaining Go gaps are now narrower:
 - plugin codegen now has a Go worker-backed execution/runtime boundary under
   `internal/plugins/codegen_runtime.go`, and the first output materializer above
   it now lives under `internal/codegen/plugin_materializer.go`
-- Go now has the first persistent save-triggered refresh adoption boundary for
-  those plugin-generated files under `internal/runs/service.go`, but normal
-  project-state lifecycle ownership outside run-triggered saves is still
-  missing
+- Go now has the first central main-runtime save-hook adoption boundary for
+  those plugin-generated files under `internal/projectstate`, but ordinary IDE
+  mutation/save transport that would drive that hook outside run-triggered paths
+  is still missing
 - deployment/share run policy and session-run semantics still live outside this
   slice
 
