@@ -132,7 +132,7 @@ func (s *Service) ConsumeBootstrapToken(token string, now time.Time) (RequestInf
 	if err != nil || payload.SessionID != currentSession.Metadata.ID {
 		return RequestInfo{}, ErrInvalidBootstrapToken
 	}
-	return requestInfoFromSession(currentSession, AuthSourceBootstrap), nil
+	return requestInfoFromSession(currentSession, AuthSourceBootstrap, payload.Exp), nil
 }
 
 func (s *Service) MintAuthCookie(now time.Time) (string, AuthCookiePayload, error) {
@@ -166,7 +166,32 @@ func (s *Service) ValidateAuthCookie(token string, now time.Time) (RequestInfo, 
 	if err != nil || payload.SessionID != currentSession.Metadata.ID {
 		return RequestInfo{}, ErrInvalidAuthCookie
 	}
-	return requestInfoFromSession(currentSession, AuthSourceCookie), nil
+	return requestInfoFromSession(currentSession, AuthSourceCookie, payload.Exp), nil
+}
+
+func (s *Service) ShouldRefreshAuthCookie(requestInfo RequestInfo, now time.Time) bool {
+	if s == nil || requestInfo.Source != AuthSourceCookie || requestInfo.ExpiresAt.IsZero() {
+		return false
+	}
+
+	remaining := requestInfo.ExpiresAt.Sub(effectiveNow(now))
+	return remaining <= s.settings.CookieRefreshWindow
+}
+
+func (s *Service) RefreshAuthCookie(w http.ResponseWriter, r *http.Request, now time.Time) (RequestInfo, error) {
+	currentSession, err := s.requireCurrentSession()
+	if err != nil {
+		return RequestInfo{}, err
+	}
+
+	token, payload, err := s.MintAuthCookie(now)
+	if err != nil {
+		return RequestInfo{}, err
+	}
+	if err := s.SetAuthCookie(w, r, token); err != nil {
+		return RequestInfo{}, err
+	}
+	return requestInfoFromSession(currentSession, AuthSourceCookie, payload.Exp), nil
 }
 
 func (s *Service) SetAuthCookie(w http.ResponseWriter, r *http.Request, token string) error {
@@ -287,12 +312,16 @@ func isRequestSecure(r *http.Request) bool {
 	return strings.EqualFold(strings.TrimSpace(firstValue), "https")
 }
 
-func requestInfoFromSession(currentSession *CurrentSession, source AuthSource) RequestInfo {
-	return RequestInfo{
+func requestInfoFromSession(currentSession *CurrentSession, source AuthSource, exp int64) RequestInfo {
+	requestInfo := RequestInfo{
 		SessionID: currentSession.Metadata.ID,
 		Session:   currentSession.Metadata,
 		Source:    source,
 	}
+	if exp > 0 {
+		requestInfo.ExpiresAt = time.Unix(exp, 0).UTC()
+	}
+	return requestInfo
 }
 
 func (s *Service) requireCurrentSession() (*CurrentSession, error) {

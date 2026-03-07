@@ -256,9 +256,9 @@ func TestHandlerInjectsRequestAuthContext(t *testing.T) {
 		Auth:   authService,
 		Register: func(r chi.Router) {
 			r.Get("/authContext", func(w http.ResponseWriter, r *http.Request) {
-				requestInfo, ok := auth.RequestInfoFromContext(r.Context())
-				if !ok {
-					t.Fatal("expected request auth context")
+				requestInfo, err := auth.RequireRequestInfo(r)
+				if err != nil {
+					t.Fatalf("require request auth: %v", err)
 				}
 				writeJSON(w, http.StatusOK, map[string]string{
 					"sessionId": requestInfo.SessionID,
@@ -310,6 +310,95 @@ func TestHandlerInjectsRequestAuthContext(t *testing.T) {
 	}
 	if payload["source"] != "cookie" {
 		t.Fatalf("expected source cookie, got %q", payload["source"])
+	}
+}
+
+func TestHandlerRefreshesNearExpiryAuthCookieOnAPIResponses(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	now := time.Now().UTC()
+	oldToken, _, err := authService.MintAuthCookie(now.Add(-(12 * time.Hour) + (30 * time.Minute)))
+	if err != nil {
+		t.Fatalf("mint old auth cookie: %v", err)
+	}
+	oldInfo, err := authService.ValidateAuthCookie(oldToken, now)
+	if err != nil {
+		t.Fatalf("validate old auth cookie: %v", err)
+	}
+
+	cookieName, err := authService.CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/runtimeInfo", nil)
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: oldToken,
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	responseCookies := response.Result().Cookies()
+	if len(responseCookies) != 1 {
+		t.Fatalf("expected one refreshed auth cookie, got %d", len(responseCookies))
+	}
+	newInfo, err := authService.ValidateAuthCookie(responseCookies[0].Value, time.Now().UTC())
+	if err != nil {
+		t.Fatalf("validate refreshed auth cookie: %v", err)
+	}
+	if !newInfo.ExpiresAt.After(oldInfo.ExpiresAt) {
+		t.Fatalf("expected refreshed cookie expiry after %s, got %s", oldInfo.ExpiresAt, newInfo.ExpiresAt)
+	}
+}
+
+func TestHandlerDoesNotRefreshFreshAuthCookieOnAPIResponses(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	freshToken, _, err := authService.MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint fresh auth cookie: %v", err)
+	}
+	cookieName, err := authService.CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/runtimeInfo", nil)
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: freshToken,
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if cookieHeader := response.Header().Get("Set-Cookie"); cookieHeader != "" {
+		t.Fatalf("expected no refreshed cookie header, got %q", cookieHeader)
 	}
 }
 

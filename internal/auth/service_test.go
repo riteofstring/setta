@@ -2,6 +2,8 @@ package auth
 
 import (
 	"encoding/json"
+	"errors"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -131,6 +133,57 @@ func TestServiceCookieNameIsSessionScopedAndSanitized(t *testing.T) {
 	}
 	if cookieName != "setta_auth_name_abc123" {
 		t.Fatalf("expected sanitized session-scoped cookie name, got %q", cookieName)
+	}
+}
+
+func TestServiceShouldRefreshNearExpiryAuthCookie(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	now := time.Now().UTC()
+	issuedAt := now.Add(-(12 * time.Hour) + (30 * time.Minute))
+
+	token, _, err := service.MintAuthCookie(issuedAt)
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+
+	requestInfo, err := service.ValidateAuthCookie(token, now)
+	if err != nil {
+		t.Fatalf("validate auth cookie: %v", err)
+	}
+	if service.ShouldRefreshAuthCookie(requestInfo, now) != true {
+		t.Fatal("expected near-expiry auth cookie to require refresh")
+	}
+}
+
+func TestServiceDoesNotRefreshFreshAuthCookie(t *testing.T) {
+	t.Parallel()
+
+	service := newTestService(t, "")
+	now := time.Now().UTC()
+
+	token, _, err := service.MintAuthCookie(now)
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+
+	requestInfo, err := service.ValidateAuthCookie(token, now)
+	if err != nil {
+		t.Fatalf("validate auth cookie: %v", err)
+	}
+	if service.ShouldRefreshAuthCookie(requestInfo, now) {
+		t.Fatal("expected fresh auth cookie to skip refresh")
+	}
+}
+
+func TestRequireRequestInfoReturnsErrorWhenMissing(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest("GET", "/api/test", nil)
+	_, err := RequireRequestInfo(request)
+	if !errors.Is(err, ErrMissingRequestInfo) {
+		t.Fatalf("expected missing request info error, got %v", err)
 	}
 }
 

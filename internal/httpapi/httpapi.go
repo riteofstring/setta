@@ -171,16 +171,29 @@ func authMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
 				return
 			}
 
+			now := time.Now().UTC()
 			cookieValue, ok := authService.ReadAuthCookie(r)
 			if !ok {
 				writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
 				return
 			}
 
-			requestInfo, err := authService.ValidateAuthCookie(cookieValue, time.Now().UTC())
+			requestInfo, err := authService.ValidateAuthCookie(cookieValue, now)
 			if err != nil {
 				writeError(w, r, http.StatusUnauthorized, "unauthorized", "Unauthorized.")
 				return
+			}
+
+			if authService.ShouldRefreshAuthCookie(requestInfo, now) {
+				requestInfo, err = authService.RefreshAuthCookie(w, r, now)
+				if err != nil {
+					if errors.Is(err, auth.ErrMissingCurrentSession) {
+						writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+						return
+					}
+					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					return
+				}
 			}
 
 			next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
