@@ -159,6 +159,7 @@ class CoreArgs(TypedDict):
                 "masterFontSizePx",
                 "max",
                 "maxAttachments",
+                "maxIterations",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
@@ -438,6 +439,7 @@ class StateMachineStartSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.StateMachineStart]]
     machineGroupId: NotRequired[str]
     label: NotRequired[str]
+    maxIterations: NotRequired[int | None]
 
 
 class StateMachineStartSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
@@ -450,6 +452,7 @@ class StateMachineStartSectionImplArgsWithCallable(BaseSectionImplArgsWithCallab
     ]
     machineGroupId: NotRequired[str | Callable[[str], str]]
     label: NotRequired[str | Callable[[str], str]]
+    maxIterations: NotRequired[int | None | Callable[[int | None], int | None]]
 
 
 class StateMachineGateSectionImplArgs(BaseSectionImplArgs):

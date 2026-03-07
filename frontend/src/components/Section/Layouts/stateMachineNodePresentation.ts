@@ -25,6 +25,7 @@ type StateMachineRunPresentation = {
   hasRun: boolean;
   iterationLabel: string | null;
   gateStatus: StateMachineGateStatusPresentation;
+  failureSummaryLabel: string | null;
   activityItems: StateMachineActivityItem[];
 };
 
@@ -63,6 +64,7 @@ export function getStateMachineNodePresentation({
       sectionType === SectionTypeEnum.StateMachineGate
         ? getGateStatusPresentation(latestRun, sectionId)
         : null,
+    failureSummaryLabel: getFailureSummaryLabel(latestRun),
     activityItems: getRecentActivityItems({
       latestRun,
       sectionId,
@@ -175,6 +177,26 @@ function getGateStatusPresentation(
   return null;
 }
 
+function getFailureSummaryLabel(run: AgentRun | null): string | null {
+  const outputs = getRunOutputs(run);
+  if (outputs === null) {
+    return null;
+  }
+  const rawFailureSummary = outputs.failureSummary;
+  if (
+    rawFailureSummary === null ||
+    typeof rawFailureSummary !== "object" ||
+    Array.isArray(rawFailureSummary)
+  ) {
+    return null;
+  }
+  const rawMessage = rawFailureSummary.message;
+  if (typeof rawMessage !== "string" || rawMessage.trim() === "") {
+    return null;
+  }
+  return rawMessage;
+}
+
 function getRecentActivityItems({
   latestRun,
   sectionId,
@@ -187,6 +209,7 @@ function getRecentActivityItems({
   if (latestRun === null) {
     return [];
   }
+  const failureSummaryLabel = getFailureSummaryLabel(latestRun);
   const events = latestRun.events;
   const activityItems: StateMachineActivityItem[] = [];
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -203,7 +226,17 @@ function getRecentActivityItems({
       break;
     }
   }
-  return activityItems;
+  if (
+    failureSummaryLabel !== null &&
+    !activityItems.some((item) => item.label === failureSummaryLabel)
+  ) {
+    activityItems.unshift({
+      id: `failure-summary-${latestRun.id}`,
+      label: failureSummaryLabel,
+      tone: "danger",
+    });
+  }
+  return activityItems.slice(0, DEFAULT_ACTIVITY_ITEM_LIMIT);
 }
 
 function getGateActivityItem(
@@ -404,6 +437,13 @@ function getMachineActivityItem(
       tone: "danger",
     };
   }
+  if (event.type === "iteration_limit_reached") {
+    return {
+      id: event.id,
+      label: "Iteration limit reached",
+      tone: "danger",
+    };
+  }
   if (event.type === "gate_satisfied") {
     return {
       id: event.id,
@@ -416,6 +456,13 @@ function getMachineActivityItem(
       id: event.id,
       label: "Gate input received",
       tone: "default",
+    };
+  }
+  if (event.type === "run_failed") {
+    return {
+      id: event.id,
+      label: "Workflow failed",
+      tone: "danger",
     };
   }
   return null;

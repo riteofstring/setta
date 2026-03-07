@@ -3295,10 +3295,13 @@ def set_state_machine_section_settings(
     machineGroupId: str,
     label: str,
     gateType: StateMachineGateType | None,
+    maxIterations: int | None,
 ):
     _ensure_state_machine_machine_group_id_valid(
         machineGroupId, f"State machine section {sectionId}"
     )
+    if maxIterations is not None and maxIterations < 1:
+        raise ValueError("State machine maxIterations must be at least 1.")
     impl = get_curr_effective_section_impl(p, sectionId)
     if isinstance(impl, StateMachineStartSectionImpl):
         _ensure_connected_state_machine_groups_valid(
@@ -3312,6 +3315,7 @@ def set_state_machine_section_settings(
             {
                 "machineGroupId": machineGroupId,
                 "label": label,
+                "maxIterations": maxIterations,
             },
         )
         return

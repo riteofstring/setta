@@ -4873,6 +4873,7 @@ class BaseProjectManager(ABC):
             x.machineGroupId,
             x.label,
             x.gateType,
+            x.maxIterations,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

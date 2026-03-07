@@ -145,6 +145,7 @@ class SharedModifier(TypedDict):
     masterFontSizePx: NotRequired[float]
     max: NotRequired[float | int]
     maxAttachments: NotRequired[int | None]
+    maxIterations: NotRequired[int | None]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

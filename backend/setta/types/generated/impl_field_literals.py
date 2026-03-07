@@ -80,6 +80,7 @@ AllImplFields = Literal[
     "masterFontSizePx",
     "max",
     "maxAttachments",
+    "maxIterations",
     "messages",
     "metaControlParamId",
     "metaControlStyle",

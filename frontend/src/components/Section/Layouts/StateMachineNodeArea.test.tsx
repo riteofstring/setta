@@ -277,4 +277,71 @@ describe("StateMachineNodeArea", () => {
       'data-testid="state-machine-iteration-section-start-activity"',
     );
   });
+
+  it("renders a workflow failure summary ahead of generic failure activity", () => {
+    seedWorkflowSection({
+      sectionId: "section-start-failed",
+      variantId: "variant-start-failed",
+      impl: {
+        id: "impl-start-failed",
+        type: SectionTypeEnum.StateMachineStart,
+        name: "Failed Start Node",
+        size: createSectionSize({ width: 260, height: 120 }),
+        machineGroupId: "workflow-main",
+        label: "Kickoff",
+        maxIterations: 1,
+        ...COMMON_MACHINE_IMPL_FIELDS,
+      },
+    });
+    useAIStore.setState({
+      agentRuns: [
+        createAgentRun({
+          id: "machine-run-failed",
+          status: AgentRunStatusEnum.failed,
+          startedAt: "2024-01-01T00:00:00Z",
+          finishedAt: "2024-01-01T00:00:03Z",
+          inputs: {
+            runType: "state_machine",
+            projectConfigId: "project-1",
+            machineGroupId: "workflow-main",
+          },
+          outputs: {
+            stateMachineIteration: 1,
+            failureSummary: {
+              reason: "max_iterations_reached",
+              message:
+                "Workflow reached the max iteration limit (1) before dispatching iteration 2.",
+              details: {},
+            },
+          },
+          events: [
+            {
+              id: "event-failed-1",
+              timestamp: "2024-01-01T00:00:01Z",
+              type: "iteration_limit_reached",
+              payload: {},
+            },
+            {
+              id: "event-failed-2",
+              timestamp: "2024-01-01T00:00:02Z",
+              type: "run_failed",
+              payload: {},
+            },
+          ],
+        }),
+      ],
+    });
+    syncStoreInitialState(useAIStore);
+
+    const markup = renderToStaticMarkup(
+      <StateMachineNodeArea sectionId="section-start-failed" />,
+    );
+
+    expect(markup).toContain("Failed");
+    expect(markup).toContain(
+      "Workflow reached the max iteration limit (1) before dispatching iteration 2.",
+    );
+    expect(markup).toContain("Iteration limit reached");
+    expect(markup).toContain("Workflow failed");
+  });
 });

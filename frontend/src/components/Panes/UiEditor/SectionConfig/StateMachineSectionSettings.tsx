@@ -29,6 +29,7 @@ type StateMachineSectionState = {
   machineGroupId: string;
   label: string;
   gateType: StateMachineGateType | null;
+  maxIterations: number | null;
   isFrozen: boolean;
 };
 
@@ -53,15 +54,47 @@ const GATE_TYPE_OPTIONS = [
   },
 ];
 
+export function formatMaxIterationsDraft(maxIterations: number | null): string {
+  if (maxIterations === null) {
+    return "";
+  }
+  return String(maxIterations);
+}
+
+export function parseMaxIterationsDraft(
+  draft: string,
+): number | null | "invalid" {
+  const normalized = draft.trim();
+  if (normalized === "") {
+    return null;
+  }
+  const parsed = Number(normalized);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return "invalid";
+  }
+  return parsed;
+}
+
 function getStateMachineSectionState(
   impl: StateMachineSectionImpl,
 ): StateMachineSectionState {
+  if (impl.type === SectionTypeEnum.StateMachineStart) {
+    return {
+      type: impl.type,
+      machineGroupId: impl.machineGroupId,
+      label: impl.label,
+      gateType: null,
+      maxIterations: impl.maxIterations,
+      isFrozen: impl.isFrozen,
+    };
+  }
   if (impl.type === SectionTypeEnum.StateMachineGate) {
     return {
       type: impl.type,
       machineGroupId: impl.machineGroupId,
       label: impl.label,
       gateType: impl.gateType,
+      maxIterations: null,
       isFrozen: impl.isFrozen,
     };
   }
@@ -70,6 +103,7 @@ function getStateMachineSectionState(
     machineGroupId: impl.machineGroupId,
     label: impl.label,
     gateType: null,
+    maxIterations: null,
     isFrozen: impl.isFrozen,
   };
 }
@@ -111,16 +145,26 @@ export function StateMachineSectionSettings({
     sectionState.machineGroupId,
   );
   const [labelDraft, setLabelDraft] = React.useState(sectionState.label);
+  const [maxIterationsDraft, setMaxIterationsDraft] = React.useState(
+    formatMaxIterationsDraft(sectionState.maxIterations),
+  );
 
   React.useEffect(() => {
     setMachineGroupIdDraft(sectionState.machineGroupId);
     setLabelDraft(sectionState.label);
-  }, [sectionState.label, sectionState.machineGroupId, sectionState.type]);
+    setMaxIterationsDraft(formatMaxIterationsDraft(sectionState.maxIterations));
+  }, [
+    sectionState.label,
+    sectionState.machineGroupId,
+    sectionState.maxIterations,
+    sectionState.type,
+  ]);
 
   function persist(next: {
     machineGroupId: string;
     label: string;
     gateType: StateMachineGateType | null;
+    maxIterations: number | null;
   }) {
     const machineGroupId = next.machineGroupId.trim();
     const label = next.label.trim();
@@ -133,6 +177,7 @@ export function StateMachineSectionSettings({
             {
               machineGroupId,
               label,
+              maxIterations: next.maxIterations,
             },
           );
           return;
@@ -165,15 +210,24 @@ export function StateMachineSectionSettings({
           machineGroupId,
           label,
           gateType: next.gateType,
+          maxIterations: next.maxIterations,
           frontendOpId,
         }),
     });
   }
 
   function commitDrafts() {
+    const parsedMaxIterations = parseMaxIterationsDraft(maxIterationsDraft);
+    if (parsedMaxIterations === "invalid") {
+      setMaxIterationsDraft(
+        formatMaxIterationsDraft(sectionState.maxIterations),
+      );
+      return;
+    }
     if (
       machineGroupIdDraft.trim() === sectionState.machineGroupId &&
-      labelDraft.trim() === sectionState.label
+      labelDraft.trim() === sectionState.label &&
+      parsedMaxIterations === sectionState.maxIterations
     ) {
       return;
     }
@@ -181,6 +235,7 @@ export function StateMachineSectionSettings({
       machineGroupId: machineGroupIdDraft,
       label: labelDraft,
       gateType: sectionState.gateType,
+      maxIterations: parsedMaxIterations,
     });
   }
 
@@ -223,6 +278,24 @@ export function StateMachineSectionSettings({
         />
       </label>
 
+      {sectionState.type === SectionTypeEnum.StateMachineStart ? (
+        <label className="flex flex-col gap-1 text-xs text-setta-600 dark:text-setta-300">
+          Max Iterations
+          <input
+            value={maxIterationsDraft}
+            onChange={(event) => setMaxIterationsDraft(event.target.value)}
+            onBlur={commitDrafts}
+            disabled={isDisabled}
+            inputMode="numeric"
+            min={1}
+            placeholder="Unlimited"
+            step={1}
+            type="number"
+            className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+          />
+        </label>
+      ) : null}
+
       {sectionState.type === SectionTypeEnum.StateMachineGate ? (
         <div className="flex flex-col gap-1">
           <p className="text-xs text-setta-600 dark:text-setta-300">
@@ -240,6 +313,7 @@ export function StateMachineSectionSettings({
                 machineGroupId: machineGroupIdDraft,
                 label: labelDraft,
                 gateType,
+                maxIterations: sectionState.maxIterations,
               });
             }}
           />

@@ -1931,6 +1931,7 @@ const SharedModifierSchema = z.object({
   masterFontSizePx: z.number().optional(),
   max: z.union([z.number(), z.int()]).optional(),
   maxAttachments: z.union([z.int(), z.null()]).optional(),
+  maxIterations: z.union([z.int(), z.null()]).optional(),
   messages: z
     .array(
       z.union([
@@ -2100,6 +2101,7 @@ const CoreSchema = z.object({
         "masterFontSizePx",
         "max",
         "maxAttachments",
+        "maxIterations",
         "messages",
         "metaControlParamId",
         "metaControlStyle",
@@ -2334,6 +2336,7 @@ const StateMachineStartSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   machineGroupId: z.string().default(create_new_id),
   label: z.string().default("Start" as const),
+  maxIterations: z.union([z.int(), z.null()]).default(null),
 });
 
 type StateMachineStartSectionImpl = z.infer<
@@ -4113,6 +4116,7 @@ const StateMachineStartSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   machineGroupId: z.string().optional(),
   label: z.string().optional(),
+  maxIterations: z.union([z.int(), z.null()]).optional(),
 });
 
 type StateMachineStartSectionImplArgs = z.infer<
@@ -6507,6 +6511,7 @@ const UserDefaultStateMachineStartSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   machineGroupId: z.string().default(create_new_id),
   label: z.string().default("Start" as const),
+  maxIterations: z.union([z.int(), z.null()]).default(null),
 });
 
 type UserDefaultStateMachineStartSectionImpl = z.infer<
@@ -11453,6 +11458,7 @@ const SetStateMachineSectionSettingsRequestSchema = z.object({
   machineGroupId: z.string(),
   label: z.string(),
   gateType: z.union([z.enum(StateMachineGateTypeEnum), z.null()]).default(null),
+  maxIterations: z.union([z.int(), z.null()]).default(null),
 });
 
 export type SetStateMachineSectionSettingsRequestInput = z.input<

@@ -74,6 +74,7 @@ class ResolvedStateMachineGraph:
     machine_group_id: str
     start_section_id: ID
     machine_name: str
+    max_iterations: int | None
     start_section_ids: list[ID]
     gate_section_ids: list[ID]
     end_section_ids: list[ID]
@@ -194,13 +195,18 @@ class StateMachineRunner:
                 share_session_id=share_session_id,
             )
         except Exception as exc:
-            run.status = AgentRunStatus.failed
-            run.finishedAt = get_now_timestamp()
-            save_agent_run(self.dbe, run)
             self._record_event(
                 run,
                 "start_edge_action_failed",
                 {
+                    "error": str(exc),
+                },
+            )
+            self._fail_run(
+                run=run,
+                reason="start_edge_action_failed",
+                message=f"Workflow failed while dispatching the first action: {exc}",
+                extra_details={
                     "error": str(exc),
                 },
             )
@@ -543,6 +549,7 @@ class StateMachineRunner:
             machine_group_id=machine_group_id,
             start_section_id=resolved_start_section_id,
             machine_name=machine_name,
+            max_iterations=start_impl.maxIterations,
             start_section_ids=start_section_ids,
             gate_section_ids=gate_section_ids,
             end_section_ids=end_section_ids,
@@ -586,6 +593,7 @@ class StateMachineRunner:
         defaults: dict[str, object] = {
             "machineGroupId": graph.machine_group_id,
             "machineName": graph.machine_name,
+            "maxIterations": graph.max_iterations,
             "stateMachineIteration": INITIAL_STATE_MACHINE_ITERATION,
             "startSectionId": str(graph.start_section_id),
             "startSectionIds": [
@@ -615,6 +623,7 @@ class StateMachineRunner:
             "blockedGateDetailsBySectionId": {},
             "reachedEndSectionIds": [],
             "activeChildRunIds": [],
+            "failureSummary": None,
         }
         for key, value in defaults.items():
             if key not in run.outputs:
@@ -792,7 +801,8 @@ class StateMachineRunner:
             edges=edges,
             project_config_id=project_config_id,
         ):
-            self._begin_next_iteration(run=run, edges=edges)
+            if not self._begin_next_iteration(run=run, graph=graph, edges=edges):
+                return []
         edge_groups = self._group_edges_by_target_section(edges)
         if not edge_groups:
             return []
@@ -881,10 +891,41 @@ class StateMachineRunner:
         self,
         *,
         run: AgentRun,
+        graph: ResolvedStateMachineGraph,
         edges: list[StateMachineEdge],
-    ) -> None:
+    ) -> bool:
         previous_iteration = self._get_state_machine_iteration(run)
         next_iteration = previous_iteration + 1
+        max_iterations = graph.max_iterations
+        if max_iterations is not None and next_iteration > max_iterations:
+            target_section_ids = [str(edge.targetSectionId) for edge in edges]
+            edge_ids = [str(edge.id) for edge in edges]
+            self._record_event(
+                run,
+                "iteration_limit_reached",
+                {
+                    "previousIteration": previous_iteration,
+                    "attemptedIteration": next_iteration,
+                    "maxIterations": max_iterations,
+                    "targetSectionIds": target_section_ids,
+                    "edgeIds": edge_ids,
+                },
+            )
+            self._fail_run(
+                run=run,
+                reason="max_iterations_reached",
+                message=(
+                    f"Workflow reached the max iteration limit ({max_iterations}) before dispatching iteration {next_iteration}."
+                ),
+                extra_details={
+                    "previousIteration": previous_iteration,
+                    "attemptedIteration": next_iteration,
+                    "maxIterations": max_iterations,
+                    "targetSectionIds": target_section_ids,
+                    "edgeIds": edge_ids,
+                },
+            )
+            return False
         run.outputs["stateMachineIteration"] = next_iteration
         run.outputs["activatedEdgeIds"] = []
         run.outputs["processedChildTerminalRunIds"] = []
@@ -906,6 +947,7 @@ class StateMachineRunner:
                 "edgeIds": [str(edge.id) for edge in edges],
             },
         )
+        return True
 
     async def _activate_edge(
         self,
@@ -1381,6 +1423,26 @@ class StateMachineRunner:
             raise KeyError("State machine run machineGroupId is missing.")
         return raw_machine_group_id
 
+    def _get_section_display_label(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> str:
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if isinstance(section_impl, StateMachineGateSectionImpl):
+            if section_impl.label.strip() != "":
+                return section_impl.label
+            return f"{section_impl.gateType.value} Gate"
+        if (
+            isinstance(
+                section_impl,
+                (StateMachineStartSectionImpl, StateMachineEndSectionImpl),
+            )
+            and section_impl.label.strip() != ""
+        ):
+            return section_impl.label
+        return str(section_id)
+
     def _get_state_machine_iteration(self, run: AgentRun) -> int:
         if not isinstance(run.outputs, dict):
             raise KeyError("State machine run outputs are missing.")
@@ -1388,6 +1450,47 @@ class StateMachineRunner:
         if not isinstance(raw_iteration, int):
             raise KeyError("State machine run iteration is missing.")
         return raw_iteration
+
+    def _set_failure_summary(
+        self,
+        *,
+        run: AgentRun,
+        reason: str,
+        message: str,
+        extra_details: dict[str, object] | None = None,
+    ) -> None:
+        if run.outputs is None:
+            run.outputs = {}
+        run.outputs["failureSummary"] = {
+            "reason": reason,
+            "message": message,
+            "details": {} if extra_details is None else extra_details,
+        }
+
+    def _fail_run(
+        self,
+        *,
+        run: AgentRun,
+        reason: str,
+        message: str,
+        extra_details: dict[str, object] | None = None,
+    ) -> None:
+        self._set_failure_summary(
+            run=run,
+            reason=reason,
+            message=message,
+            extra_details=extra_details,
+        )
+        run.status = AgentRunStatus.failed
+        run.finishedAt = get_now_timestamp()
+        save_agent_run(self.dbe, run)
+        failure_event_payload: dict[str, object] = {
+            "reason": reason,
+            "message": message,
+        }
+        if extra_details is not None:
+            failure_event_payload["details"] = extra_details
+        self._record_event(run, "run_failed", failure_event_payload)
 
     def _get_edge_action_event_type(
         self,
@@ -1449,19 +1552,33 @@ class StateMachineRunner:
                     "childRunIds": stopped_child_run_ids,
                 },
             )
-        run.status = AgentRunStatus.failed
-        run.finishedAt = get_now_timestamp()
-        save_agent_run(self.dbe, run)
+        gate_section_ids = [
+            str(gate_section_id) for gate_section_id in blocked_gate_section_ids
+        ]
+        gate_details_by_section_id = progress_state.blocked_gate_details_by_section_id
+        blocked_gate_labels = [
+            self._get_section_display_label(graph.project_state, gate_section_id)
+            for gate_section_id in blocked_gate_section_ids
+        ]
+        if len(blocked_gate_labels) == 1:
+            failure_message = f"Workflow blocked at gate {blocked_gate_labels[0]}."
+        else:
+            failure_message = f"Workflow blocked at {len(blocked_gate_labels)} gates: {', '.join(blocked_gate_labels)}."
         self._record_event(
             run,
             "run_blocked",
             {
-                "gateSectionIds": [
-                    str(gate_section_id) for gate_section_id in blocked_gate_section_ids
-                ],
-                "gateDetailsBySectionId": (
-                    progress_state.blocked_gate_details_by_section_id
-                ),
+                "gateSectionIds": gate_section_ids,
+                "gateDetailsBySectionId": gate_details_by_section_id,
+            },
+        )
+        self._fail_run(
+            run=run,
+            reason="run_blocked",
+            message=failure_message,
+            extra_details={
+                "gateSectionIds": gate_section_ids,
+                "gateDetailsBySectionId": gate_details_by_section_id,
             },
         )
 

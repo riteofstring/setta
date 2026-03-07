@@ -52,6 +52,7 @@ type LatestProjectStateResponse = {
         sharedModifier?: {
           machineGroupId?: string;
           label?: string;
+          maxIterations?: number | null;
           engineConfigId?: string | null;
         };
       }
@@ -63,6 +64,7 @@ type LatestProjectStateResponse = {
         modifier?: {
           machineGroupId?: string;
           label?: string;
+          maxIterations?: number | null;
           engineConfigId?: string | null;
         };
       }
@@ -73,6 +75,7 @@ type LatestProjectStateResponse = {
         type?: string;
         machineGroupId?: string;
         label?: string;
+        maxIterations?: number | null;
         engineConfigId?: string | null;
       }
     >;
@@ -229,6 +232,7 @@ test.describe.serial("state machine sections", () => {
           machineGroupId: "workflow-main",
           label: "Start",
           gateType: null,
+          maxIterations: null,
         },
       );
       await setStateMachineSectionSettings(
@@ -239,6 +243,7 @@ test.describe.serial("state machine sections", () => {
           machineGroupId: "workflow-main",
           label: "End",
           gateType: null,
+          maxIterations: null,
         },
       );
 
@@ -257,6 +262,7 @@ test.describe.serial("state machine sections", () => {
         .toMatchObject({
           type: "StateMachineStart",
           machineGroupId: "workflow-main",
+          maxIterations: null,
         });
       await expect
         .poll(
@@ -271,6 +277,27 @@ test.describe.serial("state machine sections", () => {
         .toMatchObject({
           type: "StateMachineEnd",
           machineGroupId: "workflow-main",
+        });
+
+      await startNode.click();
+      const maxIterationsInput = uiEditorPane.getByLabel("Max Iterations");
+      await expect(maxIterationsInput).toBeVisible();
+      await maxIterationsInput.fill("3");
+      await maxIterationsInput.blur();
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineImpl(
+              page,
+              projectContext.projectConfigId,
+              startSectionId,
+            ),
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          type: "StateMachineStart",
+          machineGroupId: "workflow-main",
+          maxIterations: 3,
         });
 
       const gateSourceHandle = page.getByTestId(
@@ -548,6 +575,7 @@ async function setStateMachineSectionSettings(
     machineGroupId: string;
     label: string;
     gateType: string | null;
+    maxIterations?: number | null;
   },
 ): Promise<void> {
   await postBackend(page, "/setStateMachineSectionSettings", {
@@ -556,6 +584,7 @@ async function setStateMachineSectionSettings(
     machineGroupId: payload.machineGroupId,
     label: payload.label,
     gateType: payload.gateType,
+    maxIterations: payload.maxIterations ?? null,
   });
 }
 
@@ -634,6 +663,7 @@ async function readStateMachineImpl(
   type: string | null;
   machineGroupId: string | null;
   label: string | null;
+  maxIterations: number | null;
 }> {
   const response = await postBackend<LatestProjectStateResponse>(
     page,
@@ -648,6 +678,7 @@ async function readStateMachineImpl(
       type: null,
       machineGroupId: null,
       label: null,
+      maxIterations: null,
     };
   }
   const sectionImplId = projectState.sectionVariants?.[sectionVariantId]?.impl;
@@ -656,6 +687,7 @@ async function readStateMachineImpl(
       type: null,
       machineGroupId: null,
       label: null,
+      maxIterations: null,
     };
   }
   const sectionVariant = projectState.sectionVariants?.[sectionVariantId];
@@ -672,6 +704,11 @@ async function readStateMachineImpl(
       sectionVariant?.modifier?.label ??
       sectionCore?.sharedModifier?.label ??
       sectionImpl?.label ??
+      null,
+    maxIterations:
+      sectionVariant?.modifier?.maxIterations ??
+      sectionCore?.sharedModifier?.maxIterations ??
+      sectionImpl?.maxIterations ??
       null,
   };
 }

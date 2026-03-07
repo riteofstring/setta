@@ -125,6 +125,7 @@ class UserDefaultStateMachineStartSectionImpl(
     )
     machineGroupId: str = Field(default_factory=create_new_id)
     label: str = "Start"
+    maxIterations: int | None = None
 
 
 class UserDefaultStateMachineGateSectionImpl(

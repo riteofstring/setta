@@ -1157,6 +1157,7 @@ class SetStateMachineSectionSettingsRequest(ProjectManagerRequestWithSection):
     machineGroupId: str
     label: str
     gateType: StateMachineGateType | None = None
+    maxIterations: int | None = None
 
 
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):

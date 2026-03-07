@@ -929,6 +929,7 @@ class ListenerSetStateMachineSectionSettingsRequestPayload(TypedDict):
     machineGroupId: str
     label: str
     gateType: NotRequired[StateMachineGateType | None]
+    maxIterations: NotRequired[int | None]
 
 
 class ListenerSetTaskBoardSectionStateRequestPayload(TypedDict):
