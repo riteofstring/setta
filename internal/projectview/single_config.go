@@ -32,23 +32,28 @@ type SingleConfig struct {
 }
 
 type ProjectConfig struct {
-	ID                      string                                        `json:"id"`
-	Name                    string                                        `json:"name"`
-	ShowParamDisplayNames   bool                                          `json:"showParamDisplayNames"`
-	AllowJSONSourceKeyEdits bool                                          `json:"allowJsonSourceKeyEdits"`
-	PreviewImgColor         string                                        `json:"previewImgColor,omitempty"`
-	Viewport                *projectstate.Viewport                        `json:"viewport"`
-	ViewportInitialized     bool                                          `json:"viewportInitialized"`
-	ViewModes               map[string]projectstate.ViewMode              `json:"viewModes"`
-	ActiveViewModeID        *string                                       `json:"activeViewModeId"`
-	IsEditingViewMode       bool                                          `json:"isEditingViewMode"`
-	CodegenTargets          []json.RawMessage                             `json:"codegenTargets"`
-	EntryCodeBlockID        *string                                       `json:"entryCodeBlockId"`
-	TopLevelSections        map[string]projectstate.TopLevelSectionLayout `json:"topLevelSections"`
-	SectionVariantMap       map[string]string                             `json:"sectionVariantMap"`
-	ActiveIDs               []string                                      `json:"activeIds"`
-	Edges                   []projectstate.Edge                           `json:"edges"`
-	AgenticEdges            []projectstate.AgenticEdge                    `json:"agenticEdges"`
+	ID                      string                                         `json:"id"`
+	Name                    string                                         `json:"name"`
+	ShowParamDisplayNames   bool                                           `json:"showParamDisplayNames"`
+	AllowJSONSourceKeyEdits bool                                           `json:"allowJsonSourceKeyEdits"`
+	PreviewImgColor         string                                         `json:"previewImgColor,omitempty"`
+	Viewport                *projectstate.Viewport                         `json:"viewport"`
+	ViewportInitialized     bool                                           `json:"viewportInitialized"`
+	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes"`
+	ActiveViewModeID        *string                                        `json:"activeViewModeId"`
+	IsEditingViewMode       bool                                           `json:"isEditingViewMode"`
+	CodegenTargets          []json.RawMessage                              `json:"codegenTargets"`
+	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled"`
+	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders"`
+	WatchCodeFiles          []string                                       `json:"watchCodeFiles"`
+	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry"`
+	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath"`
+	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId"`
+	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections"`
+	SectionVariantMap       map[string]string                              `json:"sectionVariantMap"`
+	ActiveIDs               []string                                       `json:"activeIds"`
+	Edges                   []projectstate.Edge                            `json:"edges"`
+	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges"`
 }
 
 type Core struct {
@@ -207,6 +212,11 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		ActiveViewModeID:        activeViewModeID,
 		IsEditingViewMode:       project.IsEditingViewMode,
 		CodegenTargets:          codegenTargets,
+		WatchCodeEnabled:        project.WatchCodeEnabled,
+		WatchCodeFolders:        cloneWatchCodeFolders(project.WatchCodeFolders),
+		WatchCodeFiles:          append([]string(nil), project.WatchCodeFiles...),
+		WatchCodeRegistry:       cloneWatchCodeRegistry(project.WatchCodeRegistry),
+		WatchCodeBaselineByPath: cloneStringSlicesMap(project.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
 		TopLevelSections:        topLevelSections,
 		SectionVariantMap:       cloneStringMap(project.SectionVariantMap),
@@ -968,6 +978,45 @@ func cloneStringMap(source map[string]string) map[string]string {
 	cloned := make(map[string]string, len(source))
 	for key, value := range source {
 		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneWatchCodeFolders(source []projectstate.WatchCodeFolder) []projectstate.WatchCodeFolder {
+	if source == nil {
+		return []projectstate.WatchCodeFolder{}
+	}
+	cloned := make([]projectstate.WatchCodeFolder, len(source))
+	copy(cloned, source)
+	return cloned
+}
+
+func cloneWatchCodeRegistry(source map[string]projectstate.WatchCodeRegistryEntry) map[string]projectstate.WatchCodeRegistryEntry {
+	if source == nil {
+		return map[string]projectstate.WatchCodeRegistryEntry{}
+	}
+	cloned := make(map[string]projectstate.WatchCodeRegistryEntry, len(source))
+	for identity, entry := range source {
+		cloned[identity] = projectstate.WatchCodeRegistryEntry{
+			CallableName:  entry.CallableName,
+			Kind:          entry.Kind,
+			SignatureHash: entry.SignatureHash,
+			BodyHash:      entry.BodyHash,
+			SourcePath:    entry.SourcePath,
+			SectionIDs:    append([]string(nil), entry.SectionIDs...),
+			SectionsCount: entry.SectionsCount,
+		}
+	}
+	return cloned
+}
+
+func cloneStringSlicesMap(source map[string][]string) map[string][]string {
+	if source == nil {
+		return map[string][]string{}
+	}
+	cloned := make(map[string][]string, len(source))
+	for key, values := range source {
+		cloned[key] = append([]string(nil), values...)
 	}
 	return cloned
 }

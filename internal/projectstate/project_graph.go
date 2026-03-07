@@ -140,6 +140,10 @@ func (p Project) Clone() Project {
 	cloned := p
 	cloned.TopLevelSectionIDs = append([]string(nil), p.TopLevelSectionIDs...)
 	cloned.ActiveIDs = append([]string(nil), p.ActiveIDs...)
+	cloned.WatchCodeFolders = cloneWatchCodeFolders(p.WatchCodeFolders)
+	cloned.WatchCodeFiles = append([]string(nil), p.WatchCodeFiles...)
+	cloned.WatchCodeRegistry = cloneWatchCodeRegistry(p.WatchCodeRegistry)
+	cloned.WatchCodeBaselineByPath = cloneStringSliceMap(p.WatchCodeBaselineByPath)
 	cloned.GeneratedCodeBinding = cloneCodeFileBinding(p.GeneratedCodeBinding)
 	cloned.GeneratedMetadataBinding = cloneCodeFileBinding(p.GeneratedMetadataBinding)
 	cloned.Viewport = cloneViewport(p.Viewport)
@@ -280,6 +284,18 @@ func (p Project) Normalized() (Project, error) {
 	if normalized.ViewModes == nil {
 		normalized.ViewModes = map[string]ViewMode{}
 	}
+	if normalized.WatchCodeRegistry == nil {
+		normalized.WatchCodeRegistry = map[string]WatchCodeRegistryEntry{}
+	} else {
+		normalized.WatchCodeRegistry = cloneWatchCodeRegistry(normalized.WatchCodeRegistry)
+	}
+	if normalized.WatchCodeBaselineByPath == nil {
+		normalized.WatchCodeBaselineByPath = map[string][]string{}
+	} else {
+		normalized.WatchCodeBaselineByPath = cloneStringSliceMap(normalized.WatchCodeBaselineByPath)
+	}
+	normalized.WatchCodeFolders = cloneWatchCodeFolders(normalized.WatchCodeFolders)
+	normalized.WatchCodeFiles = append([]string(nil), normalized.WatchCodeFiles...)
 	if normalized.Sections == nil {
 		normalized.Sections = map[string]Section{}
 	}

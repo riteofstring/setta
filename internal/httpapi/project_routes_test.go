@@ -3,11 +3,14 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -42,7 +45,7 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 	})
 
 	validatedTargets := make([]string, 0, 1)
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(_ context.Context, target projectstate.ProjectCodegenTarget) error {
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), projectstate.CodegenTargetValidatorFunc(func(_ context.Context, target projectstate.ProjectCodegenTarget) error {
 		validatedTargets = append(validatedTargets, target.Language)
 		return nil
 	}), nil, nil)
@@ -108,7 +111,7 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 		}
 	})
 
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, nil, nil, nil)
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLatestProjectState,
@@ -130,6 +133,185 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 	}
 	if len(payload.CompletedOpIDs) != 0 || len(payload.PendingOpIDs) != 0 {
 		t.Fatalf("expected empty op ids, got completed=%#v pending=%#v", payload.CompletedOpIDs, payload.PendingOpIDs)
+	}
+}
+
+func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir watch file parent: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:             "project-alpha",
+				Name:           "Alpha",
+				WatchCodeFiles: []string{"pkg/watch_me.py"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWatchCodeEnabled,
+		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project state payload: %v", err)
+	}
+	if !payload.ProjectState.ProjectConfig.WatchCodeEnabled {
+		t.Fatal("expected watch code to be enabled in latest project state")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if got := payload.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
+		t.Fatalf("expected watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
+	}
+}
+
+func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
+	newFile := filepath.Join(workspaceRoot, "pkg", "new_watch.py")
+	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
+		t.Fatalf("mkdir pkg: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFile, []byte("class Added:\n    pass\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+
+	existingBaselineKey := filepath.Clean(existingFile)
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/existing.py"},
+				WatchCodeBaselineByPath: map[string][]string{
+					existingBaselineKey: []string{"pkg.existing.existing:function"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWatchCodeInputs,
+		strings.NewReader(`{"projectConfigId":"project-alpha","watchCodeFolders":[],"watchCodeFiles":["pkg/existing.py","pkg/new_watch.py"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if !reflect.DeepEqual(project.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected normalized watch files, got %#v", project.WatchCodeFiles)
+	}
+	if got := project.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected existing baseline to stay unchanged, got %#v", project.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFile)
+	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected new baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestRegisterProjectRoutesRejectsWatchCodeInputsOutsideWorkspace(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	outsideFile := filepath.Join(filepath.Dir(workspaceRoot), "outside_watch.py")
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWatchCodeInputs,
+		strings.NewReader(fmt.Sprintf(`{"projectConfigId":"project-alpha","watchCodeFolders":[],"watchCodeFiles":["%s"]}`, outsideFile)),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_watch_code_input"`) {
+		t.Fatalf("expected invalid_watch_code_input error, got %q", response.Body.String())
 	}
 }
 
@@ -233,7 +415,7 @@ func TestRegisterProjectRoutesDisablesPythonCodegenAndReturnsCleanedProjectState
 		}
 	})
 
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
 	}), nil, nil)
 
@@ -298,7 +480,7 @@ func TestRegisterProjectRoutesRejectsInvalidCodegenTargetPayload(t *testing.T) {
 		}
 	})
 
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
 	}), nil, nil)
 
@@ -382,7 +564,7 @@ func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSe
 		}
 	})
 
-	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, settaFilesRoot, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
 	}), materializer, nil)
 
@@ -439,7 +621,7 @@ func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSe
 func TestRegisterProjectRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newProjectRouteTestHandler(t, config.ModeShare, nil, nil, nil, nil)
+	handler := newProjectRouteTestHandler(t, config.ModeShare, nil, "", nil, nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -480,6 +662,7 @@ func TestRegisterProjectRoutesSetsCallableAndPersistsUpdatedProjectState(t *test
 		t,
 		config.ModeIDE,
 		projectRuntime,
+		t.TempDir(),
 		nil,
 		nil,
 		projectstate.CallableSignatureResolver(&stubProjectRouteCallableSignatureResolver{
@@ -558,6 +741,7 @@ func newProjectRouteTestHandler(
 	t *testing.T,
 	mode config.Mode,
 	projectRuntime *projectstate.Runtime,
+	workspaceRoot string,
 	validator projectstate.CodegenTargetValidator,
 	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 	callableResolver projectstate.CallableSignatureResolver,
@@ -581,6 +765,7 @@ func newProjectRouteTestHandler(
 		Register: func(r chi.Router) {
 			if err := RegisterProjectRoutes(r, ProjectRouteDependencies{
 				ModePolicy:                     modes.NewPolicy(mode),
+				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
 				CodegenTargetValidator:         validator,
 				PythonCodegenSectionReconciler: pythonReconciler,

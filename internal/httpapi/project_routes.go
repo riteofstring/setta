@@ -18,6 +18,8 @@ const (
 	RouteGetLatestProjectState          = "/getLatestProjectState"
 	RouteSetCallable                    = "/setCallable"
 	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
+	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
+	RouteSetWatchCodeInputs             = "/setWatchCodeInputs"
 )
 
 var (
@@ -27,6 +29,7 @@ var (
 
 type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
+	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
@@ -58,11 +61,27 @@ type SetCallableRequest struct {
 	RefetchParams bool    `json:"refetchParams"`
 }
 
+type SetWatchCodeEnabledRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	Enabled      bool    `json:"enabled"`
+}
+
+type SetWatchCodeInputsRequest struct {
+	FrontendOpID     *string                        `json:"frontendOpId"`
+	ProjectID        string                         `json:"projectConfigId"`
+	WatchCodeFolders []projectstate.WatchCodeFolder `json:"watchCodeFolders"`
+	WatchCodeFiles   []string                       `json:"watchCodeFiles"`
+}
+
 func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
 	}
 	if deps.ModePolicy.IsIDE() {
+		if strings.TrimSpace(deps.WorkspaceRoot) == "" {
+			return fmt.Errorf("workspace root is required in ide mode")
+		}
 		if deps.ProjectState == nil {
 			return fmt.Errorf("project runtime is required in ide mode")
 		}
@@ -77,6 +96,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeInputs, setWatchCodeInputsHandler(deps))
 	return nil
 }
 
@@ -195,6 +216,69 @@ func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.H
 	}
 }
 
+func setWatchCodeEnabledHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetWatchCodeEnabledRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetWatchCodeEnabled(
+			r.Context(),
+			projectID,
+			payload.Enabled,
+			deps.WorkspaceRoot,
+		); err != nil {
+			writeSetWatchCodeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setWatchCodeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetWatchCodeInputsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetWatchCodeInputs(
+			r.Context(),
+			projectID,
+			payload.WatchCodeFolders,
+			payload.WatchCodeFiles,
+			deps.WorkspaceRoot,
+		); err != nil {
+			writeSetWatchCodeError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func decodeProjectCodegenTargets(payloads []json.RawMessage) ([]projectstate.ProjectCodegenTarget, error) {
 	targets := make([]projectstate.ProjectCodegenTarget, 0, len(payloads))
 	for _, payload := range payloads {
@@ -286,6 +370,21 @@ func writeSetCallableError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case errors.Is(err, projectstate.ErrCallableSectionRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_callable_section", "Section must resolve to a callable section.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSetWatchCodeError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired),
+		errors.Is(err, projectview.ErrProjectConfigIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
+		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
+		writeError(w, r, http.StatusBadRequest, "invalid_watch_code_input", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
