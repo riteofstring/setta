@@ -81,6 +81,7 @@ type projectStateProvider interface {
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
 }
 
 type codeUpdateProvider interface {
@@ -948,6 +949,40 @@ func newAutoLayoutTopLevelSectionsHandler(projectState projectStateProvider, set
 		}
 
 		if _, err := projectState.AutoLayoutTopLevelSections(ctx, projectConfigID, settingsDocument, margin); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetShowParamDisplayNamesHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		showParamDisplayNames, err := readRequiredBoolArgument(arguments, "showParamDisplayNames")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural show-param-display-names invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetShowParamDisplayNames(ctx, projectConfigID, showParamDisplayNames); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1984,6 +2019,43 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_show_param_display_names",
+				Description: "Toggle whether parameter display names are shown across the active project view.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "presentation", "params", "display", "structural"},
+				},
+				Handler: newSetShowParamDisplayNamesHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose parameter display-name visibility should be updated.",
+					},
+					"showParamDisplayNames": map[string]any{
+						"type":        "boolean",
+						"description": "True to show parameter display names, false to show canonical parameter names.",
+					},
+				},
+				"required": []string{"projectConfigId", "showParamDisplayNames"},
 			},
 			OutputSchema: map[string]any{
 				"type": "object",

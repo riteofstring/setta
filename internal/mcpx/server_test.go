@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 28 {
-		t.Fatalf("expected 28 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 29 {
+		t.Fatalf("expected 29 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -150,6 +150,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setCallableTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
+	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setTopLevelSectionLayoutTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var deleteKwargTool *sdkmcp.Tool
@@ -194,6 +195,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "auto_layout_top_level_sections" {
 			autoLayoutTopLevelSectionsTool = tool
+		}
+		if tool.Name == "set_show_param_display_names" {
+			setShowParamDisplayNamesTool = tool
 		}
 		if tool.Name == "set_top_level_section_layout" {
 			setTopLevelSectionLayoutTool = tool
@@ -271,6 +275,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_param_entered_value",
 		"set_param_name_and_value",
 		"set_section_name",
+		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
 		"update_param_impl_config",
@@ -307,6 +312,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if autoLayoutTopLevelSectionsTool == nil {
 		t.Fatal("expected auto_layout_top_level_sections tool")
+	}
+	if setShowParamDisplayNamesTool == nil {
+		t.Fatal("expected set_show_param_display_names tool")
 	}
 	if setTopLevelSectionLayoutTool == nil {
 		t.Fatal("expected set_top_level_section_layout tool")
@@ -430,6 +438,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	autoLayoutTopLevelSectionsMeta := mustStructuredMap(t, autoLayoutTopLevelSectionsTool.Meta[toolMetaNamespace])
 	if autoLayoutTopLevelSectionsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for auto_layout_top_level_sections, got %#v", autoLayoutTopLevelSectionsMeta["accessType"])
+	}
+	setShowParamDisplayNamesMeta := mustStructuredMap(t, setShowParamDisplayNamesTool.Meta[toolMetaNamespace])
+	if setShowParamDisplayNamesMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_show_param_display_names, got %#v", setShowParamDisplayNamesMeta["accessType"])
 	}
 	setTopLevelSectionLayoutMeta := mustStructuredMap(t, setTopLevelSectionLayoutTool.Meta[toolMetaNamespace])
 	if setTopLevelSectionLayoutMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -581,8 +593,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 28 {
-		t.Fatalf("expected 28 registered tool names, got %#v", listNames)
+	if len(listNames) != 29 {
+		t.Fatalf("expected 29 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2187,6 +2199,86 @@ func TestServerAutoLayoutTopLevelSectionsRejectsInvalidMargin(t *testing.T) {
 	}
 	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "Auto layout margin must be non-negative.") {
 		t.Fatalf("expected invalid margin message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetShowParamDisplayNamesRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_show_param_display_names",
+		Arguments: map[string]any{
+			"projectConfigId":       "project-alpha",
+			"showParamDisplayNames": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_show_param_display_names blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_show_param_display_names call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetShowParamDisplayNamesAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before show-param toggle: %v", err)
+	}
+	if project.ShowParamDisplayNames {
+		t.Fatal("expected ShowParamDisplayNames=false before mutation")
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_show_param_display_names",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":       "11",
+			"showParamDisplayNames": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_show_param_display_names: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_show_param_display_names success, got %#v", result.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after show-param toggle: %v", err)
+	}
+	if !project.ShowParamDisplayNames {
+		t.Fatal("expected ShowParamDisplayNames=true after mutation")
 	}
 }
 

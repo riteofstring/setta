@@ -18,13 +18,14 @@ Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
 - `auto_layout_top_level_sections` MCP parity is complete
+- `set_show_param_display_names` MCP parity is now complete
 - Go already owns `set_show_param_display_names` in:
   - `internal/projectstate/layout_presentation.go`
   - `internal/httpapi/project_routes.go`
 - Python continues to tag `set_show_param_display_names` as a structural
   project-state tool
-- the remaining work is MCP registration plus structural-scope and authenticated
-  transport coverage
+- structural-scope, temporary-id, authenticated HTTP bridge, and IDE SSE
+  coverage landed in the completed slice
 
 ## Scope
 
@@ -119,21 +120,31 @@ tool, but that is a different slice and should not be bundled into this one.
 
 ## Verification
 
-- pending implementation
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsSetShowParamDisplayNames|TestMCPToolCallRouteSetShowParamDisplayNamesAcceptsTemporaryIDs' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCPServerSupportsAuthenticatedSSECalls|TestAppIDEMCPServerSupportsSetShowParamDisplayNamesOverAuthenticatedSSE|TestAppIDEMCPServerSupportsTemporaryIDsForSetShowParamDisplayNamesOverAuthenticatedSSE|TestAppIDEMCPToolCallRouteSupportsSetShowParamDisplayNames' -count=1 -timeout 420s`
 
 ## Open Questions
 
 - none at slice start
+- none after implementation
 
 ## Next Recommended Step
 
-- implement this slice before widening into the remaining section-targeted
-  layout-presentation MCP tools
-- after this slice, the next likely bounded work is:
-  - `toggle_position_locks`
-  - `toggle_minimized`
+- move to `toggle_position_locks` as the next bounded Phase 6
+  layout-presentation MCP slice
+- keep `toggle_minimized` as the nearby follow-on after that section-targeted
+  structural mutation lands
 
 ## Progress Notes
 
 - 2026-03-07: doc created after the remaining-gap inventory moved the next
   bounded slice to `set_show_param_display_names`.
+- 2026-03-07: MCP now exposes `set_show_param_display_names` as an unscoped
+  structural tool over the existing Go layout-presentation runtime owner.
+- 2026-03-07: the slice kept MCP transport thin: required boolean input,
+  project-id consistency checks, and delegation to the existing runtime owner
+  without bundling compare-and-set behavior.
+- 2026-03-07: coverage landed at the MCP server, authenticated
+  `__setta__/tools/call`, and IDE SSE layers, including temporary project-id
+  translation.
