@@ -44,6 +44,7 @@ type ServerOptions struct {
 	Registry           *tools.Registry
 	WorkspaceRoot      string
 	ProjectState       projectStateProvider
+	CodeUpdates        codeUpdateProvider
 	SettingsState      settingsStateProvider
 	SectionNames       sectionNameProvider
 	CallableSignatures projectstate.CallableSignatureResolver
@@ -78,6 +79,10 @@ type projectStateProvider interface {
 	SetCodeObjectDisplayName(ctx context.Context, projectID string, codeObjID string, displayName string) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticsMute(ctx context.Context, projectID string, sectionID string, mute bool) (projectstate.Snapshot, error)
 	SetCodeSectionDiagnosticCodeSuppression(ctx context.Context, projectID string, sectionID string, code any, suppress bool) (projectstate.Snapshot, error)
+}
+
+type codeUpdateProvider interface {
+	SetCode(ctx context.Context, projectID string, sectionID string, code string) error
 }
 
 type settingsStateProvider interface {
@@ -164,7 +169,17 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		instance.temporaryIDs = temporaryIDs
 	}
 
-	for _, definition := range defaultToolDefinitions(instance, workspaceRoot, registry, opts.ProjectState, opts.SettingsState, opts.SectionNames, opts.CallableSignatures, opts.LSPDiagnostics) {
+	for _, definition := range defaultToolDefinitions(
+		instance,
+		workspaceRoot,
+		registry,
+		opts.ProjectState,
+		opts.CodeUpdates,
+		opts.SettingsState,
+		opts.SectionNames,
+		opts.CallableSignatures,
+		opts.LSPDiagnostics,
+	) {
 		registered, err := registry.Register(definition.Spec)
 		if err != nil {
 			return nil, err
@@ -824,6 +839,44 @@ func newDeleteKwargHandler(projectState projectStateProvider) tools.Handler {
 	}
 }
 
+func newSetCodeHandler(codeUpdates codeUpdateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		code, err := readRequiredRawStringArgument(arguments, "code")
+		if err != nil {
+			return nil, err
+		}
+		if codeUpdates == nil {
+			return nil, newToolError("internal_error", "Code-update runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped code-edit invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if err := codeUpdates.SetCode(ctx, projectConfigID, sectionID, code); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
 func newSetCodeSectionDiagnosticsMuteHandler(projectState projectStateProvider, diagnostics lspDiagnosticsProvider) tools.Handler {
 	return func(ctx context.Context, arguments map[string]any) (any, error) {
 		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
@@ -1322,6 +1375,7 @@ func defaultToolDefinitions(
 	workspaceRoot string,
 	registry *tools.Registry,
 	projectState projectStateProvider,
+	codeUpdates codeUpdateProvider,
 	settingsState settingsStateProvider,
 	sectionNames sectionNameProvider,
 	callableSignatures projectstate.CallableSignatureResolver,
@@ -1834,6 +1888,52 @@ func defaultToolDefinitions(
 				"required": []string{"callableId", "childCodeObjs", "lspStatus"},
 			},
 		})
+
+		if codeUpdates != nil {
+			definitions = append(definitions, toolDefinition{
+				Spec: tools.Spec{
+					Name:        "set_code",
+					Description: "Replace the inline code for the targeted code section.",
+					Metadata: tools.Metadata{
+						Kind:       tools.KindDiscoverable,
+						AccessType: tools.AccessTypeWrite,
+						IDPathsByType: map[tools.IDType][]string{
+							tools.IDTypeSection: {"sectionId"},
+						},
+						SearchCategory: "code",
+						SearchTags:     []string{"code", "edit", "write", "section", "python"},
+					},
+					Handler: newSetCodeHandler(codeUpdates),
+				},
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"projectConfigId": map[string]any{
+							"type":        "string",
+							"description": "Project config id whose code section should be updated.",
+						},
+						"sectionId": map[string]any{
+							"type":        "string",
+							"description": "Code section id whose inline code should be replaced.",
+						},
+						"code": map[string]any{
+							"type":        "string",
+							"description": "Complete replacement source for the targeted inline code section.",
+						},
+					},
+					"required": []string{"projectConfigId", "sectionId", "code"},
+				},
+				OutputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"status": map[string]any{
+							"type": "string",
+						},
+					},
+					"required": []string{"status"},
+				},
+			})
+		}
 	}
 
 	if projectState != nil && lspDiagnostics != nil {
@@ -3005,6 +3105,7 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
+		errors.Is(err, projectstate.ErrCodeSectionReadOnly),
 		errors.Is(err, projectstate.ErrChildSectionParentIDRequired),
 		errors.Is(err, projectstate.ErrChildSectionImplTypeRequired),
 		errors.Is(err, projectstate.ErrChildSectionImplTypeUnsupported),

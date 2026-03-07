@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 25 {
-		t.Fatalf("expected 25 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 26 {
+		t.Fatalf("expected 26 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 25 {
-		t.Fatalf("expected 25 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 26 {
+		t.Fatalf("expected 26 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -780,6 +780,192 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
 	}
+}
+
+func TestAppIDEMCPServerRejectsReadOnlySetCodeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+	mustSetAppCodeSectionReadOnly(t, app.ProjectStates().Main(), "project-alpha", "section-main")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "section-main",
+			"code":            "def readonly(value):\n    return value\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code readonly: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected readonly set_code to fail")
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != `code section is read-only: "section-main"` {
+		t.Fatalf("unexpected readonly set_code message %#v", payload["message"])
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetCodeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "section-main",
+			"code":            "def sorted(iterable):\n    return iterable\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_code success, got %#v", result.StructuredContent)
+	}
+
+	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha": "11",
+		"section-main":  "14",
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "set_code",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"code":            "def sorted(iterable):\n    return iterable\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_code success, got %#v", result.StructuredContent)
+	}
+
+	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
 }
 
 func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.T) {
@@ -2132,8 +2318,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 25 {
-		t.Fatalf("expected tool count 25, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 26 {
+		t.Fatalf("expected tool count 26, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -2573,6 +2759,63 @@ func TestAppIDEMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
 	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetCode(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_code",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"section-main","code":"def sorted(iterable):\n    return iterable\n"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_code tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_code tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_code success, got %#v", payload.StructuredContent)
+	}
+
+	assertAppBoundSetCodeState(t, app, "def sorted(iterable):\n    return iterable\n")
 }
 
 func TestAppIDEMCPToolCallRouteSupportsStructuralCreate(t *testing.T) {
@@ -3168,6 +3411,70 @@ func mustSeedAppChildSection(t *testing.T, runtime *projectstate.Runtime, parent
 		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
 	}
 	return result.SectionIDs[0]
+}
+
+func mustSetAppCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {
+	t.Helper()
+
+	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID(projectID)
+		if err != nil {
+			return document, err
+		}
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			return document, err
+		}
+		payload := mustDecodedProjectPayloadValue(t, impl.Payload)
+		bindingPayload, ok := payload["codeFileBinding"].(map[string]any)
+		if !ok {
+			bindingPayload = map[string]any{}
+		}
+		if _, ok := bindingPayload["path"].(string); !ok {
+			bindingPayload["path"] = "code/readonly.py"
+		}
+		bindingPayload["access_mode"] = string(projectstate.CodeFileAccessModeReadOnly)
+		payload["codeFileBinding"] = bindingPayload
+		impl.Payload = mustRawJSONValue(t, payload)
+		impl.Code.Binding = &projectstate.CodeFileBinding{
+			Path:       bindingPayload["path"].(string),
+			AccessMode: projectstate.CodeFileAccessModeReadOnly,
+		}
+		project.SectionImpls[impl.ID] = impl
+		document.Projects[project.ID] = project
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("mark app code section %q read-only: %v", sectionID, err)
+	}
+}
+
+func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
+	t.Helper()
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after bound set_code: %v", err)
+	}
+	sectionPayload := mustDecodedProjectPayloadValue(t, project.SectionImpls["impl-main"].Payload)
+	if got := sectionPayload["code"]; got != expectedCode {
+		t.Fatalf("expected bound code payload %q, got %#v", expectedCode, got)
+	}
+
+	entry, ok := project.WatchCodeRegistry["pkg.bound.sorted:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+		t.Fatalf("expected one callable section binding, got %#v", entry)
+	}
+	_, _, impl, err := project.ResolveSection(entry.SectionIDs[0])
+	if err != nil {
+		t.Fatalf("resolve callable section after bound set_code: %v", err)
+	}
+	if impl.Kind != projectstate.SectionKind("callable") {
+		t.Fatalf("expected callable section impl, got %q", impl.Kind)
+	}
 }
 
 func writeAppTemporaryIDMap(t *testing.T, path string, payload map[string]string) {

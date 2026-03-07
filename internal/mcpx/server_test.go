@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 25 {
-		t.Fatalf("expected 25 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 26 {
+		t.Fatalf("expected 26 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -148,6 +148,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var deleteSectionsTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
+	var setCodeTool *sdkmcp.Tool
 	var addKwargTool *sdkmcp.Tool
 	var deleteKwargTool *sdkmcp.Tool
 	var changeParamImplTool *sdkmcp.Tool
@@ -185,6 +186,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_callable" {
 			setCallableTool = tool
+		}
+		if tool.Name == "set_code" {
+			setCodeTool = tool
 		}
 		if tool.Name == "add_kwarg" {
 			addKwargTool = tool
@@ -250,6 +254,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"read_file_range",
 		"set_agentic_context",
 		"set_callable",
+		"set_code",
 		"set_code_obj_display_name",
 		"set_code_obj_name",
 		"set_code_section_diagnostic_code_suppression",
@@ -286,6 +291,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setCallableTool == nil {
 		t.Fatal("expected set_callable tool")
+	}
+	if setCodeTool == nil {
+		t.Fatal("expected set_code tool")
 	}
 	if addKwargTool == nil {
 		t.Fatal("expected add_kwarg tool")
@@ -394,6 +402,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setCallableResultPaths := mustStructuredMap(t, setCallableMeta["resultIdPathsByType"])
 	if got := mustStringList(t, setCallableResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 2 || got[0] != "callableId" || got[1] != "childCodeObjs.codeObjId" {
 		t.Fatalf("expected set_callable code-object result paths, got %#v", got)
+	}
+	setCodeMeta := mustStructuredMap(t, setCodeTool.Meta[toolMetaNamespace])
+	if setCodeMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_code, got %#v", setCodeMeta["accessType"])
+	}
+	setCodePaths := mustStructuredMap(t, setCodeMeta["idPathsByType"])
+	if got := mustStringList(t, setCodePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_code sectionId target path, got %#v", got)
 	}
 	addKwargMeta := mustStructuredMap(t, addKwargTool.Meta[toolMetaNamespace])
 	if addKwargMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -537,8 +553,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 25 {
-		t.Fatalf("expected 25 registered tool names, got %#v", listNames)
+	if len(listNames) != 26 {
+		t.Fatalf("expected 26 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1879,6 +1895,95 @@ func TestServerSetSectionNameRespectsScopedWriteTargets(t *testing.T) {
 	}
 	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
 		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetCodeRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"code":            "print('updated by set_code')\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_code success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_code: %v", err)
+	}
+	payload := mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	if got := payload["code"]; got != "print('updated by set_code')\n" {
+		t.Fatalf("expected updated code payload, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-section",
+			"code":            "print('blocked')\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_code call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetCodeRejectsReadOnlyCodeSections(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustSetTestCodeSectionReadOnly(t, projectRuntime, "project-alpha", "allowed-section")
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"code":            "print('blocked by readonly')\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code readonly: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected readonly set_code call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if payload["message"] != `code section is read-only: "allowed-section"` {
+		t.Fatalf("unexpected readonly set_code message %#v", payload["message"])
 	}
 }
 
@@ -3309,6 +3414,84 @@ func TestServerSetSectionNameTranslatesTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestServerSetCodeTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+		"blocked-section": "16",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "14",
+			"code":            "print('temp id updated')\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_code success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_code: %v", err)
+	}
+	payload := mustDecodedProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	if got := payload["code"]; got != "print('temp id updated')\n" {
+		t.Fatalf("expected translated set_code payload, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "16",
+			"code":            "print('blocked')\n",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_code call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "16" {
+		t.Fatalf("expected translated blockedSectionIds [16], got %#v", ids)
+	}
+}
+
 func TestServerSetCodeObjectDisplayNameTranslatesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -3828,6 +4011,31 @@ func mustSeedScopedTestChildSection(t *testing.T, runtime *projectstate.Runtime,
 	return result.SectionIDs[0]
 }
 
+func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {
+	t.Helper()
+
+	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID(projectID)
+		if err != nil {
+			return document, err
+		}
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			return document, err
+		}
+		impl.Code.Binding = &projectstate.CodeFileBinding{
+			Path:       "code/readonly.py",
+			AccessMode: projectstate.CodeFileAccessModeReadOnly,
+		}
+		project.SectionImpls[impl.ID] = impl
+		document.Projects[project.ID] = project
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("mark code section %q read-only: %v", sectionID, err)
+	}
+}
+
 func setScopedAgenticContext(t *testing.T, clientSession *sdkmcp.ClientSession, projectConfigID string, chatID string, sectionID string) {
 	t.Helper()
 
@@ -3871,6 +4079,9 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	}
 	if options.SectionNames == nil && projectRuntime != nil {
 		options.SectionNames = testSectionNameService{runtime: projectRuntime}
+	}
+	if options.CodeUpdates == nil && projectRuntime != nil {
+		options.CodeUpdates = testCodeUpdateService{runtime: projectRuntime}
 	}
 
 	server, err := NewServer(options)
@@ -3922,6 +4133,18 @@ func (s testSectionNameService) SetSectionName(ctx context.Context, projectID st
 		return projectstate.ErrRuntimeClosed
 	}
 	_, err := s.runtime.SetSectionName(ctx, projectID, sectionID, name)
+	return err
+}
+
+type testCodeUpdateService struct {
+	runtime *projectstate.Runtime
+}
+
+func (s testCodeUpdateService) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
+	if s.runtime == nil {
+		return projectstate.ErrRuntimeClosed
+	}
+	_, err := s.runtime.SetCode(ctx, projectID, sectionID, code)
 	return err
 }
 

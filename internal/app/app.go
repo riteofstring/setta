@@ -409,6 +409,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Logger:             logger,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 			ProjectState:       projectRuntime,
+			CodeUpdates:        codeUpdates,
 			SettingsState:      settingsRuntime,
 			SectionNames:       renameRefactors,
 			CallableSignatures: lspSignature,

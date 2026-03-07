@@ -203,6 +203,7 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	server, err := mcpx.NewServer(mcpx.ServerOptions{
 		WorkspaceRoot:  t.TempDir(),
 		ProjectState:   projectRuntime,
+		CodeUpdates:    routeCodeUpdateService{runtime: projectRuntime},
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
 	})
@@ -311,6 +312,58 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if got := project.Sections["allowed-section"].Name; got != "Allowed Renamed" {
 		t.Fatalf("expected renamed section name, got %q", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_code",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"print('route updated')\n"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_code success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-section"].SharedModifier)
+	if got := allowedPayload["code"]; got != "print('route updated')\n" {
+		t.Fatalf("expected updated route code payload, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"set_code",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"blocked-section","code":"print('blocked')\n"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatal("expected blocked set_code route call to fail")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", structured["reason"])
+	}
+	if ids := mustStringListForRoute(t, structured["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-section" {
+		t.Fatalf("expected blockedSectionIds [blocked-section], got %#v", ids)
 	}
 
 	response = postMCPToolRoute(t, handler, `{
@@ -743,6 +796,66 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	}
 	if got := project.CodeObjs["allowed-param"].DisplayName; got != "Height" {
 		t.Fatalf("expected display name Height, got %q", got)
+	}
+}
+
+func TestMCPToolCallRouteRejectsReadOnlySetCode(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustSetRouteCodeSectionReadOnly(t, projectRuntime, "project-alpha", "allowed-section")
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		CodeUpdates:    routeCodeUpdateService{runtime: projectRuntime},
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_code",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","code":"print('readonly')\n"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatal("expected readonly set_code route call to fail")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
+	}
+	if structured["message"] != `code section is read-only: "allowed-section"` {
+		t.Fatalf("unexpected readonly set_code message %#v", structured["message"])
 	}
 }
 
@@ -1575,6 +1688,18 @@ func (s routeSectionNameService) SetSectionName(ctx context.Context, projectID s
 	return err
 }
 
+type routeCodeUpdateService struct {
+	runtime *projectstate.Runtime
+}
+
+func (s routeCodeUpdateService) SetCode(ctx context.Context, projectID string, sectionID string, code string) error {
+	if s.runtime == nil {
+		return projectstate.ErrRuntimeClosed
+	}
+	_, err := s.runtime.SetCode(ctx, projectID, sectionID, code)
+	return err
+}
+
 func mustStructuredMapForRoute(t *testing.T, value any) map[string]any {
 	t.Helper()
 
@@ -1644,6 +1769,31 @@ func mustRouteRawJSON(t *testing.T, value any) projectstate.RawJSON {
 func mustRawJSONForRoute(t *testing.T, value any) projectstate.RawJSON {
 	t.Helper()
 	return mustRouteRawJSON(t, value)
+}
+
+func mustSetRouteCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {
+	t.Helper()
+
+	_, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID(projectID)
+		if err != nil {
+			return document, err
+		}
+		_, _, impl, err := project.ResolveSection(sectionID)
+		if err != nil {
+			return document, err
+		}
+		impl.Code.Binding = &projectstate.CodeFileBinding{
+			Path:       "code/readonly.py",
+			AccessMode: projectstate.CodeFileAccessModeReadOnly,
+		}
+		project.SectionImpls[impl.ID] = impl
+		document.Projects[project.ID] = project
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("mark route code section %q read-only: %v", sectionID, err)
+	}
 }
 
 func writeRouteTemporaryIDMap(t *testing.T, path string, payload map[string]string) {
