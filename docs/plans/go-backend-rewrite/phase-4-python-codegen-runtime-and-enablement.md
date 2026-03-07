@@ -44,8 +44,11 @@ Current repo status as of 2026-03-06:
   - `backend/setta/code_gen/python/meta_generator.py`
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/base_project_manager.py`
-- Go still lacks:
+- Go now owns the backend source of truth for:
   - authoritative generated-section creation/update on Python target enablement
+    and edits
+  - route-time generated singleton section reconciliation
+  - save-hook file materialization for first-party Python outputs
 
 ## Scope
 
@@ -355,9 +358,37 @@ Acceptance:
 - enabling Python codegen from the IDE produces authoritative generated files,
   bindings, and sections in one Go-owned flow
 
+Status:
+
+- complete
+
+Completed 2026-03-06:
+
+- added deterministic generated singleton identities in
+  `internal/projectstate/python_codegen.go`
+- added `projectstate.PythonCodegenSectionReconciler` and threaded it through
+  `Runtime.SetProjectCodegenTargets(...)`
+- fixed Python-target mutation ordering so reconciliation sees the next target
+  config before bindings/sections are refreshed
+- implemented authoritative generated-section reconciliation in
+  `internal/codegen.PythonMaterializer`
+  - reuses the Go-owned dependency graph, value codec, wrapper renderer, and
+    metadata renderer
+  - updates `GenPythonCode` / `GenPythonMetadata` payloads from rendered source
+  - keeps top-level/view-mode visibility and layout state coherent
+  - removes the metadata singleton when `generateMetadata` is false
+- reopened Python target enable/edit transport in:
+  - `internal/httpapi/project_routes.go`
+  - `internal/app/app.go`
+- added focused coverage across:
+  - `internal/projectstate`
+  - `internal/codegen`
+  - `internal/httpapi`
+  - `internal/app`
+
 ## Open Questions
 
-- none inside Slice 3; the remaining design work belongs to Slice 4
+- none inside this backend runtime slice
 
 ## Decisions Made In Slice 1
 
@@ -392,10 +423,5 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Start Slice 4 next:
-  - add a focused implementation doc for generated-section reconciliation and
-    Python target enable/edit reopening
-  - port `GenPythonCode` / `GenPythonMetadata` section creation, update, and
-    cleanup into Go using the new authoritative render/materialize path
-  - reopen Python target enablement/edit transport only after that section sync
-    exists end-to-end
+- add frontend/browser verification for Python target enable/edit through the
+  existing Run Instructions flow now that the backend path is authoritative

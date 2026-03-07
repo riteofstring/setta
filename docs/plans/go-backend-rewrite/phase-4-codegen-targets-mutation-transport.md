@@ -59,8 +59,9 @@ Current repo status as of 2026-03-06:
   - `route_set_project_config_codegen_targets(...)`
   - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
 - the remaining Go gap in this focused area is no longer route transport
-  correctness; it is first-party Python target enablement/in-place edits, which
-  still require a Go-owned authoritative Python codegen/materialization path
+  correctness; subsequent Phase 4 Python runtime work has already reopened
+  first-party Python target enablement/in-place edits using a Go-owned
+  authoritative codegen/materialization path
 - the current Go backend still has no broader IDE project-state mutation route
   surface and no Go-owned project-state mutation broadcast transport for IDE
   mode
@@ -246,8 +247,8 @@ Completed:
   - plugin-only target mutations are supported
   - unchanged existing Python targets may remain present alongside plugin target
     edits
-  - any Python target add/remove/config change still fails explicitly with
-    `ErrProjectCodegenPythonMutationUnsupported`
+  - at Slice 1 time, Python target add/remove/config change still failed
+    explicitly until the Go Python runtime landed
 - made Python-target equality semantic instead of formatting-sensitive by
   compacting JSON payloads before comparison
 - ensured duplicate-language rejection happens before plugin validation so the
@@ -352,7 +353,8 @@ Completed:
   honest Python-target transition it can own today:
   - existing Python target removal is allowed
   - unchanged existing Python target plus plugin mutations remain allowed
-  - Python target enablement and in-place edits still fail explicitly
+  - Python target enablement and in-place edits still remained blocked at that
+    point
 - added cleanup of stale generated Python runtime state during target removal:
   - clear `GeneratedCodeBinding`
   - clear `GeneratedMetadataBinding`
@@ -375,16 +377,11 @@ Tests:
 
 ## Open Questions
 
-- whether the next slice should create a dedicated focused doc for first-party
-  Python codegen runtime/enablement ownership instead of extending this
-  transport doc further
+- none for this transport doc; follow-on Python runtime work already moved to
+  `phase-4-python-codegen-runtime-and-enablement.md` and is now complete
 
 ## Next Recommended Step
 
-- Continue in
-  `docs/plans/go-backend-rewrite/phase-4-python-codegen-runtime-and-enablement.md`.
-- Keep the current clean-break boundary until that work lands:
-  - plugin-only mutations are supported
-  - unchanged existing Python target plus plugin mutations are supported
-  - Python target removal cleanup is supported
-  - Python target enablement and in-place edits stay explicitly blocked
+- Treat this transport slice as complete.
+- Follow-on work should focus on frontend/browser verification of the reopened
+  Python target flow rather than more backend transport ownership here.

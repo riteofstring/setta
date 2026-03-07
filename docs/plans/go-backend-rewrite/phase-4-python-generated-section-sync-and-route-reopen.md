@@ -26,14 +26,16 @@ Current repo status as of 2026-03-06:
     writes under `internal/codegen`
   - cleanup-only removal of generated Python singleton sections when the Python
     target is disabled
-- Python still owns:
-  - singleton section creation/deletion inside
-    `set_project_config_codegen_targets`
-  - mirroring generated body/meta code into singleton section payloads
-- Go still lacks:
-  - a project-state reconciliation path that ensures generated Python singleton
-    sections exist and carry current payload content when the Python target is
-    enabled or edited
+  - project-state reconciliation for authoritative `GenPythonCode` /
+    `GenPythonMetadata` singleton sections during Python target enable/edit
+  - deterministic generated singleton ids, impl payload sync, and view-mode
+    visibility/layout population for generated sections
+  - route/app wiring that reopens Python target enablement and edits through
+    the Go-owned `setProjectConfigCodegenTargets` flow
+- Python now serves only as reference material for this slice; the runtime
+  source of truth is Go
+- Remaining follow-up after this slice is frontend/browser verification of the
+  reopened Python target flow, not more backend ownership inside this slice
 
 ## Scope
 
@@ -151,6 +153,32 @@ Acceptance:
 - toggling `generateMetadata` creates/deletes `GenPythonMetadata`
 - editing Python target settings refreshes generated section payload content
 
+Status:
+
+- complete
+
+Completed 2026-03-06:
+
+- added a narrow `projectstate.PythonCodegenSectionReconciler` hook to the
+  codegen-target mutation path
+- fixed target-mutation ordering so reconciliation runs against the next Python
+  target, not the previous in-memory target list
+- implemented reconciliation in `internal/codegen.PythonMaterializer` using the
+  Go-owned renderer/runtime-password path
+- synchronized generated singleton section payloads from authoritative rendered
+  outputs:
+  - `GenPythonCode.code` stores the generated body only
+  - `GenPythonMetadata.code` stores authoritative metadata module output
+  - `codeFileBinding` mirrors the canonical write-only generated binding
+- made generated singleton section reconciliation authoritative for:
+  - deterministic section/variant/impl ids
+  - top-level section membership
+  - view-mode visibility/layout presence
+  - metadata-section removal when `generateMetadata` is false
+- added focused coverage in:
+  - `internal/projectstate/codegen_targets_test.go`
+  - `internal/codegen/python_materializer_test.go`
+
 ### Slice B: Route Reopen
 
 Deliver:
@@ -164,7 +192,25 @@ Acceptance:
 - `setProjectConfigCodegenTargets` accepts Python enable/edit mutations
 - route responses include authoritative singleton sections and payload content
 
+Status:
+
+- complete
+
+Completed 2026-03-06:
+
+- threaded the Python generated-section reconciler through
+  `internal/httpapi/project_routes.go` and `internal/app/app.go`
+- reopened Python target enable/edit transport by routing the mutation through
+  the same Go-owned reconciliation + save-hook materialization path
+- added focused route/app coverage proving:
+  - Python enable/edit now returns authoritative singleton sections and impl
+    payloads
+  - the main runtime still materializes `setta_gen.py` / `setta_gen_meta.py`
+    on save after route mutations
+  - plugin-only target validation behavior remains unchanged
+
 ## Next Recommended Step
 
-Implement Slice A first, then reopen the route in Slice B once runtime tests are
-green.
+Add frontend/browser verification for Python target enable/edit through the
+existing Run Instructions flow so the reopened backend path is covered above
+HTTP as well.
