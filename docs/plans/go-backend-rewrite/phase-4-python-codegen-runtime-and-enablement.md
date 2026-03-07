@@ -31,6 +31,10 @@ Current repo status as of 2026-03-06:
   - plugin codegen runtime/materialization under `internal/plugins` and
     `internal/codegen`
   - cleanup-only Python target removal from the Go mutation route
+  - typed Python target decoding/default handling under
+    `internal/projectstate`
+  - canonical first-party generated path and binding policy shared across
+    Python and plugin codegen roots
 - Python still owns the first-party Python codegen source-of-truth under:
   - `backend/setta/code_gen/dependency_graph.py`
   - `backend/setta/code_gen/python/code_generator.py`
@@ -38,8 +42,6 @@ Current repo status as of 2026-03-06:
   - `backend/setta/project_state/project_code.py`
   - `backend/setta/project_state/base_project_manager.py`
 - Go still lacks:
-  - typed Python target decoding above raw JSON payloads
-  - canonical path/binding policy for first-party generated files
   - a Go dependency-export surface for Python codegen inputs
   - a Go Python code/meta renderer
   - a Go materializer for `setta_gen.py` / `setta_gen_meta.py`
@@ -162,7 +164,23 @@ Acceptance:
 
 Status:
 
-- in progress
+- complete
+
+Completed 2026-03-06:
+
+- added typed Python target decoding with explicit defaults and strict payload
+  validation
+- added canonical project code-sections root helpers for deterministic
+  first-party output paths
+- added project-state reconciliation for canonical generated Python bindings
+  with `write_only` access
+- updated Python-target equality to compare decoded semantic config instead of
+  raw payload shape
+- moved plugin codegen project-root pathing onto the same shared source of
+  truth
+- added focused Go coverage for decoding defaults, explicit fields, canonical
+  binding reconciliation, cleanup when Python is missing, and unchanged-default
+  payload comparison
 
 ### Slice 2: Python Codegen Input Export Surface
 
@@ -206,11 +224,22 @@ Acceptance:
   `internal/projectstate` or split into a dedicated package before rendering
   starts
 
+## Decisions Made In Slice 1
+
+- Python target mutation equality is semantic for Go-owned fields; empty payload
+  and explicit default payloads are treated as the same config
+- canonical first-party generated bindings are deterministic derived state, not
+  user-authored project config
+- plugin and first-party Python codegen now share the same project slug/root
+  helper so later materializers do not drift on filesystem layout
+
 ## Next Recommended Step
 
-- Finish Slice 1 from this doc:
-  - typed Python target decode
-  - canonical generated path helpers
-  - canonical binding reconciliation
+- Start Slice 2 from this doc:
+  - define the Go-owned export surface for Python codegen/materialization inputs
+  - map the minimum project-state fields needed from the current Python
+    dependency/codegen pipeline
+  - keep the export layer deterministic and transport-free so later renderers
+    can consume typed data instead of raw project DTOs
 - Keep Python target enablement/edit support blocked until at least Slice 3
   exists.

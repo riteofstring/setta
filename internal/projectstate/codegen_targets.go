@@ -111,7 +111,7 @@ func applySupportedPythonCodegenMutation(project *Project, next []ProjectCodegen
 			return err
 		}
 		if equal {
-			return nil
+			return project.ReconcilePythonGeneratedBindings()
 		}
 		return ErrProjectCodegenPythonMutationUnsupported
 	default:
@@ -313,6 +313,9 @@ func projectCodegenTargetsEqual(left ProjectCodegenTarget, right ProjectCodegenT
 	if left.Language != right.Language {
 		return false, nil
 	}
+	if strings.TrimSpace(left.Language) == string(CodeLanguagePython) {
+		return pythonCodegenTargetsEqual(left, right)
+	}
 
 	leftPayload, err := compactRawJSON(left.Payload)
 	if err != nil {
@@ -323,6 +326,48 @@ func projectCodegenTargetsEqual(left ProjectCodegenTarget, right ProjectCodegenT
 		return false, fmt.Errorf("compact project codegen target %q payload: %w", right.Language, err)
 	}
 	return bytes.Equal(leftPayload, rightPayload), nil
+}
+
+func pythonCodegenTargetsEqual(left ProjectCodegenTarget, right ProjectCodegenTarget) (bool, error) {
+	leftConfig, err := DecodePythonCodegenTarget(left)
+	if err != nil {
+		return false, err
+	}
+	rightConfig, err := DecodePythonCodegenTarget(right)
+	if err != nil {
+		return false, err
+	}
+	if leftConfig.GenCodePrefix != rightConfig.GenCodePrefix {
+		return false, nil
+	}
+	if leftConfig.GenCodeSuffix != rightConfig.GenCodeSuffix {
+		return false, nil
+	}
+	if leftConfig.GenerateMetadata != rightConfig.GenerateMetadata {
+		return false, nil
+	}
+
+	leftSectionPolicy, err := compactRawJSON(leftConfig.SectionPolicy)
+	if err != nil {
+		return false, fmt.Errorf("compact project codegen target %q sectionPolicy: %w", left.Language, err)
+	}
+	rightSectionPolicy, err := compactRawJSON(rightConfig.SectionPolicy)
+	if err != nil {
+		return false, fmt.Errorf("compact project codegen target %q sectionPolicy: %w", right.Language, err)
+	}
+	if !bytes.Equal(leftSectionPolicy, rightSectionPolicy) {
+		return false, nil
+	}
+
+	leftCodeObjValuePolicy, err := compactRawJSON(leftConfig.CodeObjValuePolicy)
+	if err != nil {
+		return false, fmt.Errorf("compact project codegen target %q codeObjValuePolicy: %w", left.Language, err)
+	}
+	rightCodeObjValuePolicy, err := compactRawJSON(rightConfig.CodeObjValuePolicy)
+	if err != nil {
+		return false, fmt.Errorf("compact project codegen target %q codeObjValuePolicy: %w", right.Language, err)
+	}
+	return bytes.Equal(leftCodeObjValuePolicy, rightCodeObjValuePolicy), nil
 }
 
 func compactRawJSON(raw RawJSON) (RawJSON, error) {

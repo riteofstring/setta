@@ -67,6 +67,7 @@ type CodeFileAccessMode string
 const (
 	CodeFileAccessModeReadWrite CodeFileAccessMode = "read_write"
 	CodeFileAccessModeReadOnly  CodeFileAccessMode = "read_only"
+	CodeFileAccessModeWriteOnly CodeFileAccessMode = "write_only"
 )
 
 type Section struct {

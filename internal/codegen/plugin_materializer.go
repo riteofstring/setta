@@ -309,7 +309,7 @@ func pruneStalePluginCodegenProjectRoots(settaFilesRoot string, expectedRoots ma
 }
 
 func pluginCodegenOutputRoot(settaFilesRoot string, projectName string) string {
-	return filepath.Join(settaFilesRoot, "code", "sections", sanitizeSlug(projectName), "plugin_codegen")
+	return filepath.Join(projectstate.ProjectCodeSectionsRoot(settaFilesRoot, projectName), "plugin_codegen")
 }
 
 func pluginCodegenTargetDirName(targetID string) string {
@@ -327,22 +327,4 @@ func pluginCodegenTargetDirName(targetID string) string {
 	}
 	digest := sha256.Sum256([]byte(targetID))
 	return normalized + "__" + hex.EncodeToString(digest[:])[:12]
-}
-
-func sanitizeSlug(name string) string {
-	sanitizedRunes := make([]rune, 0, len(name))
-	for _, char := range name {
-		switch char {
-		case '[', ']', '"', '\'', ' ':
-			sanitizedRunes = append(sanitizedRunes, '_')
-		default:
-			sanitizedRunes = append(sanitizedRunes, char)
-		}
-	}
-	sanitized := string(sanitizedRunes)
-	for strings.Contains(sanitized, "__") {
-		sanitized = strings.ReplaceAll(sanitized, "__", "_")
-	}
-	sanitized = strings.Trim(sanitized, "_")
-	return strings.ToLower(sanitized)
 }

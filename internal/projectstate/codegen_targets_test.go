@@ -254,6 +254,62 @@ func TestRuntimeSetProjectCodegenTargetsAllowsPluginMutationWithUnchangedPythonT
 	if snapshot.Revision != 2 {
 		t.Fatalf("expected revision 2, got %d", snapshot.Revision)
 	}
+	project := snapshot.Document.Projects["project-alpha"]
+	if project.GeneratedCodeBinding == nil {
+		t.Fatal("expected canonical generated code binding to be reconciled")
+	}
+	if project.GeneratedCodeBinding.Path != "code/sections/alpha/setta_gen.py" {
+		t.Fatalf("unexpected generated code binding path %q", project.GeneratedCodeBinding.Path)
+	}
+	if project.GeneratedCodeBinding.AccessMode != CodeFileAccessModeWriteOnly {
+		t.Fatalf("expected generated code binding to be write_only, got %q", project.GeneratedCodeBinding.AccessMode)
+	}
+	if project.GeneratedMetadataBinding == nil {
+		t.Fatal("expected canonical generated metadata binding to be reconciled")
+	}
+	if project.GeneratedMetadataBinding.Path != "code/sections/alpha/setta_gen_meta.py" {
+		t.Fatalf("unexpected generated metadata binding path %q", project.GeneratedMetadataBinding.Path)
+	}
+	if project.GeneratedMetadataBinding.AccessMode != CodeFileAccessModeWriteOnly {
+		t.Fatalf("expected generated metadata binding to be write_only, got %q", project.GeneratedMetadataBinding.AccessMode)
+	}
+}
+
+// Semantically unchanged Python targets should remain accepted even when one side relies on defaults instead of an explicit raw payload shape.
+func TestRuntimeSetProjectCodegenTargetsTreatsDefaultedPythonPayloadAsUnchanged(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := codegenTargetsTestDocument()
+	document.Projects["project-alpha"] = Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []ProjectCodegenTarget{
+			{
+				Language: string(CodeLanguagePython),
+			},
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntime(t, store)
+
+	_, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload:  RawJSON(`{"language":"python"}`),
+		},
+		{
+			Language: "setta-fixture-backend-codegen:typescript",
+			Payload:  RawJSON(`{"language":"setta-fixture-backend-codegen:typescript"}`),
+		},
+	}, CodegenTargetValidatorFunc(func(context.Context, ProjectCodegenTarget) error {
+		return nil
+	}))
+	if err != nil {
+		t.Fatalf("set mixed codegen targets with defaulted python payload: %v", err)
+	}
 }
 
 func codegenTargetsTestDocument() Document {
