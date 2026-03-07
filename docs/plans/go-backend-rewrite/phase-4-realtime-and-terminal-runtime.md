@@ -47,8 +47,11 @@ Current repo status as of 2026-03-06:
 - websocket terminal transport now exists in Go under:
   - `internal/wsapi/routes.go`
   - `internal/app/app.go`
+- terminal delete HTTP transport now exists in Go under:
+  - `internal/httpapi/terminal_routes.go`
+  - `internal/app/app.go`
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
-- producer-side realtime event sources and terminal HTTP routes still live only in Python across:
+- producer-side realtime event sources and terminal kill/run HTTP routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
   - `backend/setta/routers/terminals.py`

@@ -6,14 +6,20 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
+	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/terminals"
 )
 
 func TestAppServesFoundationRoutes(t *testing.T) {
@@ -171,6 +177,69 @@ func TestAppWiresSeparateProjectStateRuntimes(t *testing.T) {
 	}
 }
 
+func TestAppServesDeleteTerminalsRoute(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         terminals.BuildTerminalID("section-a", ""),
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open terminal: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteDeleteTerminals, strings.NewReader(`{"sectionIds":["section-a"]}`))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post delete terminals: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	if _, ok := app.Terminals().Session(terminals.BuildTerminalID("section-a", "")); ok {
+		t.Fatal("expected terminal session to be deleted")
+	}
+}
+
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
 
@@ -196,5 +265,68 @@ func testConfig(t *testing.T) config.Config {
 			GlobalSettaFilesBase: filepath.Join(settaHome, "setta_files"),
 			AutoMode:             config.AutoModeCreateLocal,
 		},
+	}
+}
+
+func prepareAppCurrentSession(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	sessionID := "abc123"
+	t.Setenv("SETTA_SESSION_ID", sessionID)
+
+	sessionDir := filepath.Join(cfg.Paths.RuntimeRoot, "sessions", sessionID)
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatalf("mkdir session dir: %v", err)
+	}
+
+	secretPath := filepath.Join(sessionDir, "secret")
+	if err := os.WriteFile(secretPath, []byte("test-secret"), 0o600); err != nil {
+		t.Fatalf("write session secret: %v", err)
+	}
+
+	metadata := auth.SessionMetadata{
+		ID:                     sessionID,
+		WorkspacePath:          cfg.Paths.WorkspaceRoot,
+		WorkspacePathCanonical: cfg.Paths.WorkspaceRoot,
+		Host:                   "127.0.0.1",
+		Port:                   61234,
+		PID:                    os.Getpid(),
+		StartedAt:              time.Unix(1_700_000_000, 0).UTC(),
+		SecretPath:             secretPath,
+		RuntimeRoot:            cfg.Paths.RuntimeRoot,
+		ServerMode:             string(cfg.Server.Mode),
+	}
+	metadataBytes, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal session metadata: %v", err)
+	}
+	metadataBytes = append(metadataBytes, '\n')
+	if err := os.WriteFile(filepath.Join(sessionDir, "session.json"), metadataBytes, 0o644); err != nil {
+		t.Fatalf("write session metadata: %v", err)
+	}
+}
+
+func quietAppTestCatCommand(t *testing.T) []string {
+	t.Helper()
+
+	shell := requireAppTestCommand(t, "sh")
+	return []string{shell, "-c", "stty -echo; cat"}
+}
+
+func requireAppTestCommand(t *testing.T, name string) string {
+	t.Helper()
+
+	path, err := exec.LookPath(name)
+	if err != nil {
+		t.Skipf("required command %q not available: %v", name, err)
+	}
+	return path
+}
+
+func skipIfAppTerminalPTYUnsupported(t *testing.T) {
+	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY integration tests currently target macOS and Linux")
 	}
 }

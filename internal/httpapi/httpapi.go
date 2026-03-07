@@ -52,12 +52,12 @@ type RuntimeAuth struct {
 }
 
 type Dependencies struct {
-	Logger     *slog.Logger
-	Info       InfoService
-	Auth       *auth.Service
-	ModePolicy modes.Policy
+	Logger       *slog.Logger
+	Info         InfoService
+	Auth         *auth.Service
+	ModePolicy   modes.Policy
 	RegisterRoot func(chi.Router)
-	Register   func(chi.Router)
+	Register     func(chi.Router)
 }
 
 type errorResponse struct {

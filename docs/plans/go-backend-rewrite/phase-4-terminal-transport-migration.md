@@ -156,7 +156,7 @@ Tests:
 
 Deliver:
 
-- Go-owned HTTP route(s) for terminal deletion and enumeration
+- Go-owned HTTP delete route for terminal teardown
 - route-level runtime resolution by project/share-session scope
 - tests covering scoped deletion behavior
 
@@ -164,6 +164,37 @@ Acceptance:
 
 - handlers do not reach into PTY maps directly
 - route behavior is explicit for unknown or missing terminal ids
+
+Status:
+
+- complete
+
+Completed:
+
+- added `POST /api/deleteTerminals` in `internal/httpapi`
+- kept the HTTP boundary thin:
+  - handlers decode request payloads and mode context
+  - `internal/terminals` owns actual terminal-session deletion
+- kept scope tight instead of inventing an unused list route:
+  - the current Python/backend product surface exposes delete, not terminal enumeration
+  - runtime enumeration stays service-only until a real transport consumer exists
+- chose idempotent delete semantics for missing terminals:
+  - unknown terminal section ids are ignored
+  - blank terminal section ids fail with a `400`
+- kept deployment/share behavior deferred:
+  - the route currently requires full IDE mode
+  - deployment `allowRun` gating remains blocked on a Go share-policy source of truth
+
+Tests:
+
+- `internal/httpapi/terminal_routes_test.go`
+  - scoped deletion of one terminal without touching others
+  - idempotent behavior for unknown terminal ids
+  - invalid blank section-id rejection
+  - deployment/share mode rejection
+- `internal/app/app_test.go`
+  - delete route wiring through the real app HTTP stack
+- full Go suite passes with `./scripts/go.sh test ./...`
 
 ### Slice 3: Interrupt/Kill Surface
 
@@ -191,10 +222,15 @@ Resolved In Slice 1:
 - the first Go terminal websocket route stays IDE-only until share-policy enforcement exists in Go
 - the ready marker is sufficient for the first transport slice; there is no separate terminal-created event
 
+Resolved In Slice 2:
+
+- we are not adding a terminal list HTTP route in Phase 4 because the current product surface does not need one
+- the first HTTP terminal route is delete-only and remains IDE-only until deployment run policy exists in Go
+
 ## Next Recommended Step
 
-Implement Slice 2:
+Implement Slice 3:
 
-- migrate the first Go-owned HTTP terminal delete/list surface
-- keep project/share-session scoping explicit in the handlers
-- defer kill semantics until we make an explicit interrupt vs hard-kill decision
+- define explicit interrupt/kill semantics in `internal/terminals`
+- migrate the `killSubprocesses` HTTP surface only after that semantic choice is written down
+- keep deployment/share transport deferred until a Go `allowRun` policy source exists

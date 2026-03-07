@@ -83,9 +83,17 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 		},
+		Register: func(r chi.Router) {
+			if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
+				ModePolicy: modes.NewPolicy(cfg.Server.Mode),
+				Terminals:  terminalService,
+			}); err != nil {
+				panic(err)
+			}
+		},
 	})
 	if err != nil {
-		_ = projectStates.Close()
+		_ = errors.Join(projectStates.Close(), terminalService.Close(context.Background()))
 		return nil, err
 	}
 
