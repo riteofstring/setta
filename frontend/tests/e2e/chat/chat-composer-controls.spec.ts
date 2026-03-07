@@ -843,7 +843,7 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
-  test("project chat collapses nav labels below the toolbar label breakpoint", async ({
+  test("project chat collapses nav labels when pane width drops below 500px", async ({
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -875,11 +875,11 @@ test.describe.serial("chat composer controls", () => {
         .locator("span", { hasText: /^Settings$/ })
         .first();
 
-      await setProjectChatPaneWidth(page, 820);
+      await setProjectChatPaneWidth(page, 700);
       await expect(historyVisibleLabel).toBeVisible();
       await expect(settingsVisibleLabel).toBeVisible();
 
-      await setProjectChatPaneWidth(page, 700);
+      await setProjectChatPaneWidth(page, 460);
       await expect(historyVisibleLabel).toBeHidden();
       await expect(settingsVisibleLabel).toBeHidden();
     } finally {
@@ -958,7 +958,7 @@ test.describe.serial("chat composer controls", () => {
       await submitButton.click();
 
       await expect(
-        section.getByText("/search is unavailable in the current context. Use /help."),
+        section.getByText("Unknown or unavailable command. Use /help."),
       ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
     } finally {

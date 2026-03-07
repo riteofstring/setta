@@ -6,7 +6,6 @@ import {
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
-  CHAT_SLASH_COMMANDS,
   buildChatSlashCommands,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
@@ -929,7 +928,6 @@ function ScriptableChatArea({
           onSubmit={handleSubmit}
           onStop={handleStop}
           slashCommands={slashCommands}
-          recognizedSlashCommands={CHAT_SLASH_COMMANDS}
           onSlashCommand={handleSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
@@ -1860,7 +1858,6 @@ function ManagedChatArea({
           onSubmit={handleSubmit}
           onStop={handleStop}
           slashCommands={slashCommands}
-          recognizedSlashCommands={CHAT_SLASH_COMMANDS}
           onSlashCommand={handleSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
