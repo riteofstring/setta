@@ -2400,3 +2400,120 @@ New benchmark stages:
 - Practical implication:
   - if the goal is maximum pan/zoom gain in `All Settings`, `opacity: 0` on inactive section bodies is still the strongest result on this branch
   - if the goal is a visually faithful inactive surrogate, SnapDOM is now workable, but it does not currently justify itself on performance or activation latency
+
+## Addendum: plain section activation is slow even without SnapDOM, and the cliff is in the live widget layer
+
+- Date: `2026-03-07`
+- Goal: verify whether the visible section-activation lag still exists in the plain fully live `All Settings` view, then isolate which benchmark layer introduces it.
+- Method:
+  - repeated alternating clicks between the two visible top-row sections (`shortcuts` and `gui`)
+  - measured `click -> active outline class flips` in the live page
+  - `6` runs per stage
+  - compare these numbers only within this addendum
+
+### Visual confirmation
+
+- Plain full stage before activation:
+  - `perf/artifacts/frontend/settings-all-settings/activation-lag-2026-03-07/full-before-click.png`
+- Plain full stage after activation:
+  - `perf/artifacts/frontend/settings-all-settings/activation-lag-2026-03-07/full-after-click.png`
+- `non-text-widgets` stage before activation:
+  - `perf/artifacts/frontend/settings-all-settings/activation-lag-2026-03-07/non-text-widgets-before-click.png`
+- `non-text-widgets` stage after activation:
+  - `perf/artifacts/frontend/settings-all-settings/activation-lag-2026-03-07/non-text-widgets-after-click.png`
+
+### Activation ladder
+
+- `frame-only`
+  - average `46.68ms`
+  - min `39.80ms`
+  - max `52.90ms`
+- `header-only`
+  - average `74.65ms`
+  - min `35.00ms`
+  - max `91.20ms`
+- `section-body-shell`
+  - average `62.52ms`
+  - min `19.50ms`
+  - max `95.30ms`
+- `static-param-list`
+  - average `74.40ms`
+  - min `39.30ms`
+  - max `100.00ms`
+- `param-container-shell`
+  - average `77.07ms`
+  - min `38.70ms`
+  - max `99.60ms`
+- `non-text-widgets`
+  - average `220.40ms`
+  - min `127.90ms`
+  - max `422.10ms`
+- `code-widgets`
+  - average `226.33ms`
+  - min `140.80ms`
+  - max `384.90ms`
+- `full`
+  - average `230.80ms`
+  - min `146.50ms`
+  - max `401.40ms`
+- `full-section-opacity-hidden`
+  - average `230.52ms`
+  - min `146.90ms`
+  - max `395.20ms`
+- `full-section-opacity-1pct`
+  - average `236.17ms`
+  - min `148.50ms`
+  - max `413.50ms`
+
+### What changed, and what did not
+
+- The lag is real in plain `full`, without SnapDOM.
+- `opacity` is not the cause:
+  - `full`: `230.80ms`
+  - `full-section-opacity-hidden`: `230.52ms`
+  - `full-section-opacity-1pct`: `236.17ms`
+- The section outline path itself is not the main problem:
+  - `frame-only` is only about `46.68ms`
+- The row shell is not the main activation cliff either:
+  - `param-container-shell` is only about `77.07ms`
+- The big jump is when real widgets return:
+  - `param-container-shell -> non-text-widgets`: about `+143.33ms`
+- Code widgets are only a small extra activation cost on top of that:
+  - `non-text-widgets -> code-widgets`: about `+5.93ms`
+  - `code-widgets -> full`: about `+4.47ms`
+
+### Trace findings
+
+- Representative full-stage activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/activation-lag-2026-03-07/full-activation-trace.json`
+  - traced `click -> active` sample: about `550.30ms`
+- Representative `non-text-widgets` activation trace:
+  - `perf/artifacts/frontend/settings-all-settings/activation-lag-2026-03-07/non-text-widgets-activation-trace.json`
+  - traced `click -> active` sample: about `584.15ms`
+
+- In both traces, the click handler itself is not the slow part:
+  - `EventDispatch` was only about `13-15ms`
+  - the optimistic `route_set_active_ids` request is sent immediately after the click
+- The dominant cost is post-click React work on the main thread:
+  - `RunMicrotasks` / `FunctionCall` consumed about `534-569ms`
+  - the trace is dominated by `commitPassiveMountOnFiber`, `recursivelyTraversePassiveMountEffects`, and related React commit work
+- The strongest widget-specific signal in the slow trace is the combobox stack:
+  - repeated `downshift` passive-effect frames dominate the widget-layer sample
+  - notable functions include `wrapper`, the anonymous `downshift` passive-effect path, `setTimeout`, `clearTimeout`, and follow-on hook updates
+- GC is a secondary but real factor in the slow path:
+  - the `non-text-widgets` sample included both `MajorGC` and `MinorGC`
+  - that points at meaningful allocation churn during the activation rerender
+- `setZIndices` / `cloneDeep` still exists in the activation path, but it was not the dominant cost in these traces.
+
+### Corrected takeaway
+
+- The user observation was correct:
+  - section activation is still slow in the plain fully live view
+  - SnapDOM removal and opacity changes are not the primary cause
+- The current best diagnosis is:
+  - the activation cliff is mostly the live widget layer
+  - within that layer, the largest trace signal is the combobox / `downshift` effect path
+  - code widgets are not the main remaining activation problem, even though they were a major steady-state pan/zoom cost
+- So the next optimization target for activation should be:
+  - reduce the number of widget subtrees that do meaningful work when `activeIds` changes
+  - especially the combobox / passive-effect-heavy path

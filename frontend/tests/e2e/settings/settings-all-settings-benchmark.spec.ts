@@ -27,6 +27,7 @@ const STAGES = [
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",
+  "full-section-opacity-1pct",
   "full-section-snapdom-hidden-live",
 ] as const;
 
@@ -599,6 +600,29 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("full-section-opacity-hidden")?.sampleParamRowCount,
   ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")?.sectionOpacityHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")
+      ?.sectionOpacityHiddenHiddenCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")
+      ?.sectionOpacityHiddenVisibleActiveCount,
+  ).toBeLessThanOrEqual(1);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")?.textInputDummyCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-opacity-1pct")?.sampleParamRowCount,
+  ).toBeGreaterThan(0);
 
   expect(
     metricsByStage.get("full-section-snapdom-hidden-live")?.staticRowCount,
@@ -761,7 +785,10 @@ async function openBenchmarkStage(
     await waitForSectionSnapdomStage(page, true);
     await assertSectionSnapdomPreviewFidelity(page);
   }
-  if (stage === "full-section-opacity-hidden") {
+  if (
+    stage === "full-section-opacity-hidden" ||
+    stage === "full-section-opacity-1pct"
+  ) {
     await page.waitForFunction(() => {
       const roots = document.querySelectorAll(
         "[data-settings-benchmark-section-opacity-hidden]",

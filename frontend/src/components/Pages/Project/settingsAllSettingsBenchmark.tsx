@@ -33,6 +33,7 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "full",
   "full-section-snapdom",
   "full-section-opacity-hidden",
+  "full-section-opacity-1pct",
   "full-section-snapdom-hidden-live",
 ] as const;
 
@@ -67,7 +68,7 @@ type SettingsAllSettingsBenchmarkValue = {
   renderParamChrome: boolean;
   renderParamSortable: boolean;
   renderSectionBodySnapdomPreview: boolean;
-  renderSectionBodyOpacityHidden?: boolean;
+  sectionBodyHiddenOpacity?: number | null;
   keepSectionBodyMountedWithSnapdomPreview?: boolean;
 };
 
@@ -94,7 +95,7 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderParamChrome: true,
   renderParamSortable: true,
   renderSectionBodySnapdomPreview: false,
-  renderSectionBodyOpacityHidden: false,
+  sectionBodyHiddenOpacity: null,
   keepSectionBodyMountedWithSnapdomPreview: false,
 };
 
@@ -148,6 +149,7 @@ function resolveBenchmarkValue(
         renderParamChrome: false,
         renderParamSortable: false,
         renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
       };
     case "header-only":
       return {
@@ -171,6 +173,7 @@ function resolveBenchmarkValue(
         renderParamChrome: false,
         renderParamSortable: false,
         renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
       };
     case "section-body-shell":
       return {
@@ -194,6 +197,7 @@ function resolveBenchmarkValue(
         renderParamChrome: false,
         renderParamSortable: false,
         renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
       };
     case "static-param-list":
       return {
@@ -217,6 +221,7 @@ function resolveBenchmarkValue(
         renderParamChrome: false,
         renderParamSortable: false,
         renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
       };
     case "group-container-static-list":
       return {
@@ -538,6 +543,7 @@ function resolveBenchmarkValue(
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
       };
     case "full-section-snapdom":
       return {
@@ -561,7 +567,7 @@ function resolveBenchmarkValue(
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,
-        renderSectionBodyOpacityHidden: false,
+        sectionBodyHiddenOpacity: null,
         keepSectionBodyMountedWithSnapdomPreview: false,
       };
     case "full-section-opacity-hidden":
@@ -586,7 +592,32 @@ function resolveBenchmarkValue(
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: false,
-        renderSectionBodyOpacityHidden: true,
+        sectionBodyHiddenOpacity: 0,
+        keepSectionBodyMountedWithSnapdomPreview: false,
+      };
+    case "full-section-opacity-1pct":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: 0.01,
         keepSectionBodyMountedWithSnapdomPreview: false,
       };
     case "full-section-snapdom-hidden-live":
@@ -611,7 +642,7 @@ function resolveBenchmarkValue(
         renderParamChrome: true,
         renderParamSortable: true,
         renderSectionBodySnapdomPreview: true,
-        renderSectionBodyOpacityHidden: false,
+        sectionBodyHiddenOpacity: null,
         keepSectionBodyMountedWithSnapdomPreview: true,
       };
     default:

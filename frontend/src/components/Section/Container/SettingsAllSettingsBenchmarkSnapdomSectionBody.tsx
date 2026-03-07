@@ -44,8 +44,9 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
 
   const shouldUseSnapdomPreview =
     benchmark.active && benchmark.renderSectionBodySnapdomPreview;
+  const hiddenOpacity = benchmark.sectionBodyHiddenOpacity ?? null;
   const shouldUseOpacityHidden =
-    benchmark.active && benchmark.renderSectionBodyOpacityHidden === true;
+    benchmark.active && hiddenOpacity !== null && hiddenOpacity >= 0;
   const shouldKeepMountedWithSnapdomPreview =
     benchmark.active &&
     benchmark.keepSectionBodyMountedWithSnapdomPreview === true;
@@ -202,7 +203,7 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
       entry.child.style.pointerEvents = "none";
       entry.child.style.userSelect = "none";
       if (hiddenLiveMode === "opacity") {
-        entry.child.style.opacity = "0";
+        entry.child.style.opacity = String(hiddenOpacity ?? 0);
         entry.child.style.visibility = "";
       } else {
         entry.child.style.opacity = "";
@@ -224,7 +225,7 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
         }
       }
     };
-  }, [hiddenLiveMode]);
+  }, [hiddenLiveMode, hiddenOpacity]);
 
   const previewOverlay =
     shouldShowSnapdomPreview &&
