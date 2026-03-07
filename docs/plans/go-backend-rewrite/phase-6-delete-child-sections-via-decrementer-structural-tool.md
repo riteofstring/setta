@@ -171,10 +171,11 @@ The high-leverage move is therefore:
 
 ## Next Recommended Step
 
-- the next bounded structural slice should move to
-  `create_new_section_variant`
-- it is the next explicit structural manager boundary that does not depend on
-  move/reparent layout semantics or frontend-specific reveal transport
+- `create_new_section_variant` has now landed as the section-variant follow-on
+- the next bounded Phase 6 slice should move to `set_code_obj_name`
+- it remains the highest-leverage non-structural MCP gap because the system
+  prompt still relies on explicit code-object naming
+- keep `set_code_obj_name` scoped to rename validation/refactor behavior
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner
 
@@ -184,3 +185,5 @@ The high-leverage move is therefore:
 - 2026-03-07: slice completed with Go-owned decrementer caller resolution,
   `delete_sections` reuse, MCP registration, temp-id translation, and
   authenticated route/SSE coverage.
+- 2026-03-07: follow-on `create_new_section_variant` slice completed; next
+  recommended step moved to `set_code_obj_name`.

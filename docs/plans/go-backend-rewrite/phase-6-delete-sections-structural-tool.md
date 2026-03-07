@@ -181,8 +181,9 @@ The high-leverage move was therefore:
 
 - `delete_child_sections_via_decrementer` has now landed as the next completed
   structural slice over this deletion owner
-- the next bounded structural slice should move to
-  `create_new_section_variant`
+- `create_new_section_variant` has now landed as the section-variant follow-on
+- the next bounded Phase 6 slice should move to `set_code_obj_name`
+- keep `set_code_obj_name` scoped to rename validation/refactor behavior
 - keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner
 - keep the IDE HTTP `deleteSections` route deferred unless a frontend-specific
@@ -195,3 +196,5 @@ The high-leverage move was therefore:
   registration, temp-id translation, and authenticated route/SSE coverage.
 - 2026-03-07: follow-on `delete_child_sections_via_decrementer` slice
   completed; next recommended step moved to `create_new_section_variant`.
+- 2026-03-07: follow-on `create_new_section_variant` slice completed; next
+  recommended step moved to `set_code_obj_name`.

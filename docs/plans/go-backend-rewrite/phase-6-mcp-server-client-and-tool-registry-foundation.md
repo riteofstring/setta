@@ -704,15 +704,45 @@ Reference:
 
 - `phase-6-delete-child-sections-via-decrementer-structural-tool.md`
 
+### Slice 15: Create New Section Variant Structural Tool
+
+Deliver:
+
+- a Go-owned project-state owner for duplicating a section's active variant
+- explicit cloning of non-preset section/code-object impl state when required
+- bounded edge copying based on canonical output-port/input-param state
+- a Go MCP `create_new_section_variant` structural tool
+- argument/result temp-id translation for `sectionId` and returned `variantId`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `create_new_section_variant`
+- structural scope remains explicit and fail-closed
+- the duplicated section becomes active through `SectionVariantMap`
+- duplicated code-object variants are created through canonical
+  `codeObjVariantMap` ownership instead of heuristic payload copying
+- returned variant ids are temp-id translated through metadata instead of a
+  tool-name branch
+- the IDE HTTP `createNewSectionVariant` route remains deferred
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-create-new-section-variant-structural-tool.md`
+
 ## Next Recommended Step
 
-- Slice 14 is now complete.
-- The next recommended step is a bounded `create_new_section_variant` slice so
-  Phase 6 can keep landing explicit structural tools without jumping ahead to
-  move/reparent geometry.
+- Slice 15 is now complete.
+- The next recommended step is a focused `set_code_obj_name` slice so the
+  remaining MCP naming gap can move as one explicit rename/refactor boundary.
 - Keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner.
-- Keep `set_code_obj_name` deferred until rename validation/refactor behavior
-  is ready to move as one coherent boundary.
+- Keep `set_code_obj_name` scoped to rename validation/refactor behavior rather
+  than broadening it into unrelated write or structural work.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice
   actually needs viewport/reveal-specific transport semantics.
