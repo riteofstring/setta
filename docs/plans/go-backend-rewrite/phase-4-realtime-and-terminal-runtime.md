@@ -121,9 +121,13 @@ Current repo status as of 2026-03-06:
   - `internal/realtime/listener_producer.go`
   - `internal/runs/service.go`
   - `internal/app/app.go`
-- the remaining producer-side listener realtime source still lives only in
-  Python under:
+- Go now also includes the first transport-independent plugin worker listener
+  event host boundary under:
+  - `internal/plugins/worker_host.go`
+- the remaining producer-side listener realtime transport/runtime integration
+  still lives only in Python under:
   - `backend/setta/plugins/manager.py`
+  - `backend/setta/plugins/worker.py`
 - deployment share/app state and project-config transport is now fully Go-owned
   under:
   - `internal/httpapi/deployment_routes.go`

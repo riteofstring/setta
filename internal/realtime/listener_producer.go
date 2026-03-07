@@ -41,6 +41,19 @@ type EmitDependencyEventParams struct {
 	BinaryPayload  []byte
 }
 
+type DependencyEventInput struct {
+	DependencyKey json.RawMessage
+	Payload       json.RawMessage
+	TimestampMS   int64
+	BinaryPayload []byte
+}
+
+type ProduceDependencyEventsParams struct {
+	ProjectID        string
+	ShareSessionID   string
+	DependencyEvents []DependencyEventInput
+}
+
 type BinarySectionDelta struct {
 	SectionID     string
 	Value         binarypayload.ContentRef
@@ -99,37 +112,51 @@ func (p *ListenerProducer) EmitUIChange(ctx context.Context, params EmitUIChange
 }
 
 func (p *ListenerProducer) EmitDependencyEvent(ctx context.Context, params EmitDependencyEventParams) (uint64, int, error) {
+	return p.EmitDependencyEvents(ctx, ProduceDependencyEventsParams{
+		ProjectID:      params.ProjectID,
+		ShareSessionID: params.ShareSessionID,
+		DependencyEvents: []DependencyEventInput{
+			{
+				DependencyKey: params.DependencyKey,
+				Payload:       params.Payload,
+				TimestampMS:   params.TimestampMS,
+				BinaryPayload: params.BinaryPayload,
+			},
+		},
+	})
+}
+
+func (p *ListenerProducer) EmitDependencyEvents(ctx context.Context, params ProduceDependencyEventsParams) (uint64, int, error) {
 	projectID, err := p.requireProjectScope(params.ProjectID, params.ShareSessionID)
 	if err != nil {
 		return 0, 0, err
 	}
 
-	dependency, err := CanonicalDependencyKey(params.DependencyKey)
-	if err != nil {
-		return 0, 0, err
+	if len(params.DependencyEvents) == 0 {
+		return 0, 0, ErrEmptyDependencyEvents
 	}
 
-	event := ListenerDependencyEvent{
-		DependencyKey: dependency,
-		Payload:       cloneRawMessage(params.Payload),
-		TimestampMS:   params.TimestampMS,
-		BinaryPayload: cloneBytes(params.BinaryPayload),
-	}
-	if params.BinaryPayload != nil {
-		return p.broadcaster.EmitDependencyEventsBinary(ctx, EmitDependencyEventsBinaryParams{
-			ProjectID:        projectID,
-			ShareSessionID:   strings.TrimSpace(params.ShareSessionID),
-			DependencyEvents: []ListenerDependencyEvent{event},
-			BinaryPayload:    cloneBytes(params.BinaryPayload),
+	events := make([]ListenerDependencyEvent, 0, len(params.DependencyEvents))
+	for _, rawEvent := range params.DependencyEvents {
+		if rawEvent.BinaryPayload != nil {
+			return 0, 0, fmt.Errorf("realtime: batched binary dependency events are not supported")
+		}
+
+		dependency, err := CanonicalDependencyKey(rawEvent.DependencyKey)
+		if err != nil {
+			return 0, 0, err
+		}
+		events = append(events, ListenerDependencyEvent{
+			DependencyKey: dependency,
+			Payload:       cloneRawMessage(rawEvent.Payload),
+			TimestampMS:   rawEvent.TimestampMS,
 		})
 	}
 
 	return p.broadcaster.EmitDependencyEvents(ctx, EmitDependencyEventsParams{
-		ProjectID:      projectID,
-		ShareSessionID: strings.TrimSpace(params.ShareSessionID),
-		DependencyEvents: []ListenerDependencyEvent{
-			event,
-		},
+		ProjectID:        projectID,
+		ShareSessionID:   strings.TrimSpace(params.ShareSessionID),
+		DependencyEvents: events,
 	})
 }
 

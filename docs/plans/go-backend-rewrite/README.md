@@ -36,11 +36,13 @@ Use the docs in this order:
    - focused current-work plan for frontend-facing Go project-state transport and deployment state/project-config route migration
 16. `phase-4-listener-realtime-producer-migration.md`
    - focused current-work plan for the remaining listener realtime producer boundaries
-17. `spike-mcp.md`
+17. `phase-4-plugin-worker-listener-event-bridge.md`
+   - focused current-work plan for the first Go plugin worker host boundary needed by the remaining listener producer migration
+18. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-18. `spike-pty.md`
+19. `spike-pty.md`
    - PTY uncertainty-reduction plan
-19. `spike-lsp.md`
+20. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

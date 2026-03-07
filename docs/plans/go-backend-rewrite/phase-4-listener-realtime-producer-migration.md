@@ -10,6 +10,9 @@ Go already owns listener websocket transport, registration, sequencing, and
 fan-out. The remaining gap is getting concrete producer entry points onto that
 Go-owned broadcaster without rebuilding the old Python sender/receiver split.
 
+Focused plugin-worker follow-up work is now tracked in
+`docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`.
+
 ## Status
 
 Current repo status as of 2026-03-06:
@@ -27,6 +30,12 @@ Current repo status as of 2026-03-06:
   - `internal/realtime/listener_producer.go`
   - `internal/runs/service.go`
   - `internal/app/app.go`
+- Go now also includes the first transport-independent plugin worker host
+  boundary under:
+  - `internal/plugins/worker_host.go`
+- plugin worker transport/runtime integration is still missing on the Go side;
+  focused follow-up is tracked in:
+  - `docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`
 - the remaining producer-side listener realtime gap is now:
   - plugin-worker `host.emit_listener_dependency_event`
 - Python reference behavior for this area still lives under:
@@ -256,7 +265,15 @@ Acceptance:
 
 Status:
 
-- pending
+- in progress
+
+Current progress:
+
+- the transport-independent worker host boundary for plugin listener dependency
+  events is now Go-owned under
+  `docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`
+- the remaining gap is the first Go worker transport integration that can call
+  that host boundary without Python plugin-manager participation
 
 ## Open Questions
 
@@ -267,8 +284,7 @@ Status:
 
 ## Next Recommended Step
 
-- Start Slice 4: plugin listener dependency events.
-- Keep the slice narrow: add only the first Go-owned plugin host boundary
-  needed to emit listener dependency events directly through
-  `internal/realtime.ListenerBroadcaster`, without widening Phase 4 into
-  general plugin-runtime migration.
+- Continue Slice 4 via
+  `docs/plans/go-backend-rewrite/phase-4-plugin-worker-listener-event-bridge.md`.
+- Start the first worker transport integration that can route backend-worker
+  listener-event requests into the new Go host boundary.
