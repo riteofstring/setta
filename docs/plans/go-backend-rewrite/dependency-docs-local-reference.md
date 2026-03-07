@@ -125,3 +125,14 @@ This approach gives the rewrite:
 - lower prompt-injection exposure during normal `yolo` development
 - less reliance on stale model memory
 - version-pinned notes tied to the actual dependency set in this worktree
+
+## Initial Seed
+
+The first local seed set should live under:
+
+- `docs/reference/dependencies/`
+
+That folder should distinguish between:
+
+- libraries already pinned in `go.mod`
+- planned candidates referenced by the rewrite plan but not yet pinned locally
