@@ -88,8 +88,14 @@
   display: none;
 }
 
-.react-flow[data-show-agentic-edges="false"] .react-flow__handle.agentic-handle,
-.react-flow[data-show-agentic-edges="false"] .agentic-handle-safe-zone {
+.react-flow[data-show-agentic-edges="false"]
+  .react-flow__handle.agentic-handle:not(.workflow-handle):not(
+    .chat-shared-handle
+  ),
+.react-flow[data-show-agentic-edges="false"]
+  .agentic-handle-safe-zone:not(.workflow-handle-safe-zone):not(
+    .chat-shared-handle-safe-zone
+  ) {
   display: none !important;
 }
 
@@ -186,6 +192,22 @@ html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
 
 html.dark .workflow-handle-metrics {
   --agentic-handle-accent: #f59e0b;
+}
+
+.chat-shared-handle-metrics {
+  --agentic-handle-accent: #0f766e;
+}
+
+html.dark .chat-shared-handle-metrics {
+  --agentic-handle-accent: #14b8a6;
+}
+
+.agentic-handle-scope--themed .chat-shared-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
 }
 
 .workflow-handle-scope {

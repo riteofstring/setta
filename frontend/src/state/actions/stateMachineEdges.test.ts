@@ -1,4 +1,5 @@
 import type { Connection } from "forks/xyflow/core/types";
+import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import {
   createStateMachineEdgeFromConnection,
   isValidStateMachineEdgeConnection,
@@ -156,6 +157,18 @@ function createConnection(source: string, target: string): Connection {
   };
 }
 
+function createSharedChatTargetConnection(
+  source: string,
+  target: string,
+): Connection {
+  return {
+    source,
+    target,
+    sourceHandle: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+    targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+  };
+}
+
 describe("state machine edge creation", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -253,6 +266,36 @@ describe("state machine edge creation", () => {
           type: "run_completed",
         }),
         targetAction: null,
+      }),
+    );
+  });
+
+  it("accepts a shared chat target handle and stores canonical workflow ports", async () => {
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = createSharedChatTargetConnection(
+      startSectionId,
+      chatSectionId,
+    );
+
+    expect(isValidStateMachineEdgeConnection(connection)).toBe(true);
+
+    createStateMachineEdgeFromConnection(connection);
+
+    const edge = useProjectState.getState().projectConfig.stateMachineEdges[0];
+    expect(edge).toEqual(
+      expect.objectContaining({
+        sourceSectionId: startSectionId,
+        targetSectionId: chatSectionId,
+        sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+        targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
       }),
     );
   });

@@ -37,9 +37,6 @@ function getSectionTypeById(
 }
 
 function getWorkflowAnchorFactor(sectionType: SectionTypeEnum | null): number {
-  if (sectionType === SectionTypeEnum.Chat) {
-    return 0.32;
-  }
   return 0.5;
 }
 

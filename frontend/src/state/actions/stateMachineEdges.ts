@@ -13,6 +13,7 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { clearActiveSectionIds } from "./activeSections";
+import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -66,9 +67,11 @@ function getWorkflowSectionInfo(
 }
 
 function hasWorkflowHandles(connection: Connection): boolean {
+  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   return (
-    connection.sourceHandle === STATE_MACHINE_EDGE_HANDLE_IDS.source &&
-    connection.targetHandle === STATE_MACHINE_EDGE_HANDLE_IDS.target
+    normalizedConnection.sourceHandle ===
+      STATE_MACHINE_EDGE_HANDLE_IDS.source &&
+    normalizedConnection.targetHandle === STATE_MACHINE_EDGE_HANDLE_IDS.target
   );
 }
 
@@ -79,6 +82,20 @@ export function isWorkflowHandleId(
     handleId === STATE_MACHINE_EDGE_HANDLE_IDS.source ||
     handleId === STATE_MACHINE_EDGE_HANDLE_IDS.target
   );
+}
+
+export function normalizeWorkflowConnectionHandles(
+  connection: Connection,
+): Connection {
+  return {
+    ...connection,
+    sourceHandle: isSharedChatHandleId(connection.sourceHandle)
+      ? STATE_MACHINE_EDGE_HANDLE_IDS.source
+      : connection.sourceHandle,
+    targetHandle: isSharedChatHandleId(connection.targetHandle)
+      ? STATE_MACHINE_EDGE_HANDLE_IDS.target
+      : connection.targetHandle,
+  };
 }
 
 function getUniqueConnectedMachineGroupId(
@@ -214,36 +231,52 @@ function buildStateMachineEdgeForConnection(
   connection: Connection,
   state: ProjectStateSingleConfig,
 ): WorkflowEdge | null {
+  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   if (
-    !connection.source ||
-    !connection.target ||
-    !hasWorkflowHandles(connection)
+    !normalizedConnection.source ||
+    !normalizedConnection.target ||
+    !hasWorkflowHandles(normalizedConnection)
   ) {
     return null;
   }
-  const sourceInfo = getWorkflowSectionInfo(state, connection.source);
-  const targetInfo = getWorkflowSectionInfo(state, connection.target);
+  const sourceInfo = getWorkflowSectionInfo(state, normalizedConnection.source);
+  const targetInfo = getWorkflowSectionInfo(state, normalizedConnection.target);
+  if (
+    isSharedChatHandleId(connection.sourceHandle) &&
+    sourceInfo.type !== SectionTypeEnum.Chat
+  ) {
+    return null;
+  }
+  if (
+    isSharedChatHandleId(connection.targetHandle) &&
+    targetInfo.type !== SectionTypeEnum.Chat
+  ) {
+    return null;
+  }
   if (
     !isAllowedStateMachineConnection(
       sourceInfo.type,
       targetInfo.type,
-      connection.source,
-      connection.target,
+      normalizedConnection.source,
+      normalizedConnection.target,
     )
   ) {
     return null;
   }
-  const machineGroupId = resolveMachineGroupIdForConnection(connection, state);
+  const machineGroupId = resolveMachineGroupIdForConnection(
+    normalizedConnection,
+    state,
+  );
   if (!machineGroupId) {
     return null;
   }
   return {
     id: createNewId(),
     machineGroupId,
-    sourceSectionId: connection.source,
-    sourcePortId: connection.sourceHandle,
-    targetSectionId: connection.target,
-    targetPortId: connection.targetHandle,
+    sourceSectionId: normalizedConnection.source,
+    sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+    targetSectionId: normalizedConnection.target,
+    targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
     sourceFilter: createDefaultSourceFilter(sourceInfo.type),
     targetAction: createDefaultTargetAction(targetInfo.type),
     style: null,
@@ -256,10 +289,11 @@ function buildStateMachineEdgeForConnection(
 export function isValidStateMachineEdgeConnection(
   connection: Connection,
 ): boolean {
+  const normalizedConnection = normalizeWorkflowConnectionHandles(connection);
   if (
-    !connection.source ||
-    !connection.target ||
-    !hasWorkflowHandles(connection)
+    !normalizedConnection.source ||
+    !normalizedConnection.target ||
+    !hasWorkflowHandles(normalizedConnection)
   ) {
     return false;
   }
@@ -267,19 +301,33 @@ export function isValidStateMachineEdgeConnection(
     return false;
   }
   const state = useProjectState.getState();
-  const sourceInfo = getWorkflowSectionInfo(state, connection.source);
-  const targetInfo = getWorkflowSectionInfo(state, connection.target);
+  const sourceInfo = getWorkflowSectionInfo(state, normalizedConnection.source);
+  const targetInfo = getWorkflowSectionInfo(state, normalizedConnection.target);
+  if (
+    isSharedChatHandleId(connection.sourceHandle) &&
+    sourceInfo.type !== SectionTypeEnum.Chat
+  ) {
+    return false;
+  }
+  if (
+    isSharedChatHandleId(connection.targetHandle) &&
+    targetInfo.type !== SectionTypeEnum.Chat
+  ) {
+    return false;
+  }
   if (
     !isAllowedStateMachineConnection(
       sourceInfo.type,
       targetInfo.type,
-      connection.source,
-      connection.target,
+      normalizedConnection.source,
+      normalizedConnection.target,
     )
   ) {
     return false;
   }
-  return resolveMachineGroupIdForConnection(connection, state) !== null;
+  return (
+    resolveMachineGroupIdForConnection(normalizedConnection, state) !== null
+  );
 }
 
 export function createStateMachineEdgeFromConnection(

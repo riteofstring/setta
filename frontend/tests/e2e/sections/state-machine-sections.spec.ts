@@ -305,10 +305,10 @@ test.describe.serial("state machine sections", () => {
         `workflow-source-handle-${gateSectionId}`,
       );
       const chatTargetHandle = page.getByTestId(
-        `workflow-target-handle-${chatSectionId}`,
+        `chat-shared-target-handle-${chatSectionId}`,
       );
       const chatSourceHandle = page.getByTestId(
-        `workflow-source-handle-${chatSectionId}`,
+        `chat-shared-source-handle-${chatSectionId}`,
       );
       const endTargetHandle = page.getByTestId(
         `workflow-target-handle-${endSectionId}`,
@@ -323,6 +323,16 @@ test.describe.serial("state machine sections", () => {
       await chatNode.hover();
       await expect(chatTargetHandle).toBeVisible();
       await expect(chatSourceHandle).toBeVisible();
+      await expect(
+        page.locator(
+          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]`,
+        ),
+      ).toHaveCount(1);
+      await expect(
+        page.locator(
+          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
+        ),
+      ).toHaveCount(1);
       await endNode.hover();
       await expect(endTargetHandle).toBeVisible();
 
