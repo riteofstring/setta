@@ -267,7 +267,8 @@ Completed 2026-03-07:
 
 ## Next Recommended Step
 
-- Add a new focused doc for the explicitly deferred
-  `autoLayoutTopLevelSections` slice before implementing it.
+- Implement
+  `docs/plans/go-backend-rewrite/phase-4-auto-layout-top-level-sections.md`
+  for the explicitly deferred `autoLayoutTopLevelSections` slice.
 - Keep `setSectionName` deferred until there is a separate focused doc for name
   validation plus rename side effects.
