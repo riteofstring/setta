@@ -26,12 +26,17 @@ Current repo status as of 2026-03-06:
   - IDE command planning in `backend/setta/project_state/base_project_manager.py`
   - deployment/share command planning in `backend/setta/project_state/share_runtime_state.py`
 - Current Go gaps are structural:
-  - `internal/projectstate` only stores a minimal document with project ids and names
-  - Go does not yet have a runnable section graph, code bindings, or terminal attachment model
-  - Go does not yet have run snapshot creation or run-command builders
-  - Go does not yet have a backend-log event sink for run start notifications
-  - Go does not yet have a `cliId` output transport equivalent
-  - Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
+- `internal/projectstate` now includes a first runnable project-graph minimum:
+  - entry code block ids
+  - active section variants
+  - code and terminal section impl kinds
+  - code language metadata and file binding metadata
+  - attached-terminal validation
+  - attached-terminal and temporary-terminal mutation helpers
+- Go does not yet have run snapshot creation or run-command builders
+- Go does not yet have a backend-log event sink for run start notifications
+- Go does not yet have a `cliId` output transport equivalent
+- Go does not yet have the deployment/share `allowRun` and `allowMultipleRuns` source of truth needed for the deployment run path
 
 ## Scope
 
@@ -313,6 +318,42 @@ Acceptance:
 - attached-terminal validation is structural and typed
 - temporary terminal creation flows through Go project-state mutation APIs
 
+Status:
+
+- complete
+
+Completed:
+
+- expanded `internal/projectstate` beyond project ids and names to include the first runnable graph minimum:
+  - entry code block ids
+  - sections
+  - active variants
+  - code and terminal section impls
+  - code language metadata
+  - code file binding metadata
+- added typed run-facing helpers for:
+  - resolving the effective run target from explicit section id or project entry section
+  - identifying runnable code implementations
+  - validating attached-terminal structure without Python helpers
+- added Go project-state mutations for:
+  - ensuring an attached terminal for a code section
+  - creating a temporary top-level terminal
+- kept the work scoped to project-state ownership:
+  - no HTTP route changes yet
+  - no run planner yet
+  - no deployment/share policy port yet
+
+Tests:
+
+- `internal/projectstate/run_graph_test.go`
+  - entry-code-block target resolution
+  - runnable-language detection
+  - attached-terminal structural validation
+  - attached-terminal creation and reuse
+  - temporary-terminal creation
+- `./scripts/go.sh test ./internal/projectstate`
+- full Go suite passes with `./scripts/go.sh test ./...`
+
 ### Slice 2: IDE Run Planner
 
 Deliver:
@@ -392,8 +433,8 @@ Rationale:
 
 ## Next Recommended Step
 
-Implement Slice 1:
+Implement Slice 2:
 
-- extend Go project-state modeling to the minimum runnable graph required by `runCode`
-- add typed attached-terminal validation and temporary-terminal mutation helpers
-- keep deployment/share policy work deferred until the IDE graph path exists
+- add `internal/runs` for IDE-mode run planning
+- start with manual Python/Bash code-section command planning and override application
+- keep generated project-entry runs and deployment/share policy work deferred until the planner boundary is stable

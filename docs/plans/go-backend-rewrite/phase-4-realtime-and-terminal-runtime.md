@@ -52,6 +52,9 @@ Current repo status as of 2026-03-06:
 - terminal delete and interrupt HTTP transport now exist in Go under:
   - `internal/httpapi/terminal_routes.go`
   - `internal/app/app.go`
+- run-code migration groundwork now exists in Go under:
+  - `internal/projectstate`
+  - `docs/plans/go-backend-rewrite/phase-4-terminal-run-code-migration.md`
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
 - producer-side realtime event sources and terminal run HTTP routes still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
