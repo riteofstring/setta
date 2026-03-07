@@ -49,6 +49,8 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
+    StateMachineGateType,
+    StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -116,6 +118,7 @@ class SharedModifier(TypedDict):
     filePath: NotRequired[str]
     folder: NotRequired[str]
     format: NotRequired[PromptFormat | TextBlockFormat]
+    gateType: NotRequired[StateMachineGateType]
     hasSecret: NotRequired[bool]
     headingAsSectionName: NotRequired[bool]
     hideColumn: NotRequired[bool]
@@ -137,6 +140,7 @@ class SharedModifier(TypedDict):
     kind: NotRequired[str]
     label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
+    machineGroupId: NotRequired[str]
     managed: NotRequired[bool]
     masterFontSizePx: NotRequired[float]
     max: NotRequired[float | int]
@@ -194,6 +198,7 @@ class SharedModifier(TypedDict):
     transcriptionProfileId: NotRequired[ID | None]
     typeAnnotation: NotRequired[str]
     typesColumnWidth: NotRequired[float | None]
+    ui: NotRequired[StateMachineGateUiState]
     uiType: NotRequired[TextParamInputUIType]
     url: NotRequired[str]
     value: NotRequired[str]
