@@ -4,10 +4,18 @@ from types import SimpleNamespace
 from fastapi import HTTPException
 import pytest
 
+from setta.agentic.state_machine_signals import (
+    REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME,
+)
 from setta.agentic.chat_view import LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.state_machine_runner import STATE_MACHINE_RUN_TYPE, StateMachineRunner
-from setta.agentic.store import create_agent_run, save_agent_run, save_engine_configs
+from setta.agentic.store import (
+    create_agent_run,
+    save_agent_profiles,
+    save_agent_run,
+    save_engine_configs,
+)
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
@@ -28,7 +36,13 @@ from setta.routers.agentic import (
     route_start_state_machine_run,
     route_stop_state_machine_run,
 )
-from setta.types.agentic import AgentRun, AgentRunStatus, EngineConfig, EngineType
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRun,
+    AgentRunStatus,
+    EngineConfig,
+    EngineType,
+)
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
@@ -1586,6 +1600,70 @@ async def test_state_machine_runner_advances_iteration_for_signal_retry_loop(
             "end_reached",
             "run_completed",
         ]
+
+
+@pytest.mark.asyncio
+async def test_state_machine_runner_fails_closed_when_signal_tool_is_missing_from_profile() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+
+        engine_config_id = ID("engine-primary")
+        _seed_engine_config(project_fixture.dbe, engine_config_id)
+        start_section_id, first_chat_id, _, _ = (
+            await _seed_state_machine_signal_branch_graph(
+                project_fixture=project_fixture,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+            )
+        )
+        restricted_profile = AgentProfile(
+            id=ID("profile-signal-missing"),
+            name="Restricted reviewer",
+            engineConfigId=engine_config_id,
+            toolAllowlist=["report_completion_status"],
+        )
+        save_agent_profiles(project_fixture.dbe, [restricted_profile])
+        await project_fixture.manager.set_chat_section_settings(
+            SetChatSectionSettingsRequest(
+                projectConfigId=project_config_id,
+                sectionId=first_chat_id,
+                managed=True,
+                engineConfigId=engine_config_id,
+                transcriptionProfileId=None,
+                agentProfileId=restricted_profile.id,
+                thinking=False,
+                permissionMode=ChatPermissionMode.minimal,
+                searchEnabled=True,
+                dictationMode=ChatDictationMode.auto,
+            )
+        )
+
+        state, _, _, _ = _build_runtime_state(project_fixture, settings_fixture)
+
+        with runtime_context(state) as ctx:
+            with pytest.raises(HTTPException) as exc_info:
+                await route_start_state_machine_run(
+                    StartStateMachineRunRequest(
+                        projectConfigId=project_config_id,
+                        machineGroupId="workflow-main",
+                        startSectionId=start_section_id,
+                    ),
+                    ctx,
+                )
+
+        assert exc_info.value.status_code == 400
+        assert REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME in str(
+            exc_info.value.detail
+        )
 
 
 @pytest.mark.asyncio

@@ -3,25 +3,40 @@ import logging
 from dataclasses import dataclass
 
 from setta.agentic.chat_view import get_run_last_updated, is_external_agent_run
+from setta.agentic.completion_guard import load_completion_guard_enabled
 from setta.agentic.external_agent_runner import ExternalAgentRunner
+from setta.agentic.external_tool_allowlist import build_external_tool_allowlist
 from setta.agentic.managed_chat_dispatch import (
     ManagedChatDispatcher,
     ManagedChatDispatchRequest,
+)
+from setta.agentic.state_machine_signals import (
+    REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME,
+    REPORT_STATE_MACHINE_SIGNAL_TOOL_NAME,
 )
 from setta.agentic.store import (
     create_agent_run,
     list_agent_runs_by_metadata,
     load_agent_run,
     load_prompt_template,
+    require_agent_profile,
+    require_engine_config,
     save_agent_run,
 )
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.prompt_renderer import render_prompt
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.project_state.project_manager_types import SetChatSectionChatIdRequest
-from setta.types.agentic import AgentRun, AgentRunStatus, RunEvent
+from setta.types.agentic import (
+    AgentProfile,
+    AgentRun,
+    AgentRunStatus,
+    EngineType,
+    RunEvent,
+)
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl,
@@ -937,6 +952,7 @@ class StateMachineRunner:
             return [action_result]
         action_result = await self._send_prompt_action(
             run=run,
+            graph=graph,
             edge=edge,
             target_action=target_action,
             project_config_id=project_config_id,
@@ -1151,6 +1167,7 @@ class StateMachineRunner:
         self,
         *,
         run: AgentRun,
+        graph: ResolvedStateMachineGraph,
         edge: StateMachineEdge,
         target_action: StateMachineTargetAction,
         project_config_id: ID,
@@ -1160,6 +1177,12 @@ class StateMachineRunner:
             project_config_id,
             edge.targetSectionId,
             share_session_id=share_session_id,
+        )
+        self._ensure_signal_tool_available_for_chat_dispatch(
+            graph=graph,
+            edge=edge,
+            target_impl=target_impl,
+            target_action=target_action,
         )
         prompt_text = self._resolve_prompt_text(edge.id, target_action)
         chat_id = target_impl.chatId
@@ -1249,6 +1272,94 @@ class StateMachineRunner:
             "stateMachineIteration": self._get_state_machine_iteration(run),
             "stateMachineParentRunType": STATE_MACHINE_RUN_TYPE,
         }
+
+    def _ensure_signal_tool_available_for_chat_dispatch(
+        self,
+        *,
+        graph: ResolvedStateMachineGraph,
+        edge: StateMachineEdge,
+        target_impl: ChatSectionImpl,
+        target_action: StateMachineTargetAction,
+    ) -> None:
+        if not self._chat_section_has_signal_outputs(
+            graph=graph,
+            section_id=edge.targetSectionId,
+        ):
+            return
+        agent_profile = self._resolve_signal_dispatch_agent_profile(
+            target_impl=target_impl,
+            target_action=target_action,
+        )
+        if agent_profile is None or not agent_profile.toolAllowlist:
+            return
+        engine_config = require_engine_config(
+            self.dbe,
+            self._resolve_engine_config_id(edge.id, target_impl, target_action),
+        )
+        completion_guard_enabled = load_completion_guard_enabled(self.dbe)
+        if engine_config.engineType == EngineType.setta_llm:
+            allowlist = self.agent_runner._normalize_tool_allowlist(
+                agent_profile,
+                completion_guard_enabled=completion_guard_enabled,
+            )
+            if allowlist is None:
+                return
+            if self.agent_runner._is_tool_allowed(
+                REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME,
+                allowlist,
+                completion_guard_enabled=completion_guard_enabled,
+            ):
+                return
+            raise ValueError(
+                f"Chat section {edge.targetSectionId} has signal-filtered outgoing state-machine edges, but agent profile {agent_profile.id} does not allow {REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME}."
+            )
+        if engine_config.engineType != EngineType.external_agent:
+            return
+        allowlist, error = build_external_tool_allowlist(
+            agent_profile.toolAllowlist,
+            server_id=SETTA_MCP_SERVER_ID,
+            completion_guard_enabled=completion_guard_enabled,
+        )
+        if error is not None:
+            raise ValueError(error)
+        if allowlist is None or allowlist.allow_all:
+            return
+        if REPORT_STATE_MACHINE_SIGNAL_TOOL_NAME in allowlist.tool_names:
+            return
+        raise ValueError(
+            f"Chat section {edge.targetSectionId} has signal-filtered outgoing state-machine edges, but agent profile {agent_profile.id} does not allow {REPORT_STATE_MACHINE_SIGNAL_NAMESPACED_TOOL_NAME}."
+        )
+
+    def _chat_section_has_signal_outputs(
+        self,
+        *,
+        graph: ResolvedStateMachineGraph,
+        section_id: ID,
+    ) -> bool:
+        for edge in graph.machine_edges:
+            if edge.sourceSectionId != section_id:
+                continue
+            source_filter = edge.sourceFilter
+            if source_filter is None:
+                continue
+            if source_filter.type == StateMachineSourceFilterType.signal:
+                return True
+        return False
+
+    def _resolve_signal_dispatch_agent_profile(
+        self,
+        *,
+        target_impl: ChatSectionImpl,
+        target_action: StateMachineTargetAction,
+    ) -> AgentProfile | None:
+        agent_profile_id = (
+            target_action.agentProfileId
+            if target_action.agentProfileId is not None
+            else target_impl.agentProfileId
+        )
+        if agent_profile_id is None:
+            return None
+        return require_agent_profile(self.dbe, agent_profile_id)
 
     def _get_machine_group_id(self, run: AgentRun) -> str:
         if not isinstance(run.inputs, dict):
