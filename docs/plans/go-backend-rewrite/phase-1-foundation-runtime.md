@@ -9,12 +9,16 @@ This phase is about runtime skeleton, not feature completeness.
 
 Current repo status as of 2026-03-06:
 
-- the rewrite repo has planning docs only; there is still no `go.mod` or Go source tree
-- `go` was not installed in the working environment when Phase 1 status was checked
-- the repo now pins a Go toolchain in `scripts/go_version.txt`
-- the repo now includes:
+- the rewrite repo now has a root `go.mod` and the first Phase 1 Go source tree
+- the repo pins a Go toolchain in `scripts/go_version.txt`
+- the repo includes:
   - `scripts/install_go_toolchain.sh` for a repo-local SDK bootstrap under `.tools/go/`
   - `scripts/go.sh` for invoking the pinned Go toolchain from either the repo-local install or an explicitly provided matching binary
+- the current Go runtime surface is intentionally small:
+  - `GET /healthz`
+  - `GET /api/serverMode`
+  - `GET /api/runtimeInfo`
+- auth/session flows, websocket/runtime fan-out, MCP, PTY, and LSP are still out of scope for the current codebase state
 
 Phase-1 tooling decision:
 
@@ -22,18 +26,72 @@ Phase-1 tooling decision:
 - treat `gofmt` as included with the Go SDK
 - defer `gopls`, `golangci-lint`, code generators, and editor-specific tooling until real Go code exists and we can justify each addition
 
-Next recommended step after toolchain bootstrap:
+## Completed In This Slice
 
-- initialize `go.mod`
-- add `cmd/setta-server`
-- add the minimum package skeleton:
+- initialized the root Go module and pinned it to the repo toolchain baseline
+- added `cmd/setta-server`
+- added the first Phase 1 package set:
   - `internal/app`
   - `internal/config`
   - `internal/httpapi`
-  - `internal/runtime`
   - `internal/observability`
+  - `internal/runtime`
   - `internal/statefs`
-- add the first Go tests for config loading, path policy, startup/shutdown wiring, and error-envelope shaping
+- implemented path/config resolution with:
+  - server mode, host, port, and log level parsing
+  - `setta_home`, `setta_files`, runtime root, and profile lookup resolution
+  - profile config loading from `<setta_home>/profiles/<name>.json`
+  - user config loading from `<setta_home>/config.json`
+  - canonical naming validation for `setta_home` and `setta_files` roots
+  - deterministic global `setta_files` path derivation
+- implemented filesystem helpers with:
+  - root-constrained path resolution helpers
+  - atomic file replacement
+  - a first lock-strategy interface (`NoopLocker`)
+- implemented the first HTTP surface:
+  - `GET /healthz`
+  - `GET /api/serverMode`
+  - `GET /api/runtimeInfo`
+- implemented Phase 1 HTTP conventions:
+  - JSON error envelope: `{ "error": { "code", "message", "requestId" } }`
+  - request-id middleware
+  - panic recovery middleware
+  - access logging middleware
+- implemented a small runtime supervisor with cooperative task shutdown
+- added package and integration tests covering:
+  - config/path precedence and validation
+  - filesystem root enforcement and atomic writes
+  - runtime shutdown behavior
+  - status routes and error-envelope behavior
+
+## Decisions Made
+
+- keep the first path/config contract close to the current product model:
+  - local-vs-global `setta_files`
+  - profile lookup home
+  - user config `autoMode`
+  - canonical root naming
+- use a consolidated `runtimeInfo` endpoint instead of preserving the narrower Python `settaHomeInfo` route shape
+- keep the transport layer thin:
+  - handlers expose only health/runtime metadata
+  - path policy lives in `internal/config` and `internal/statefs`
+  - lifecycle coordination lives in `internal/runtime`
+- defer auth/mode guards, websocket auth, and browser-launch behavior to later phases
+
+## Open Questions
+
+- Should `runtimeInfo` remain a general backend endpoint, or shrink once later phases add narrower operational/status surfaces?
+- Do we want `--profile-lookup-home` to remain a public server flag, or should that stay as an advanced env-only input?
+- Should the final Phase 1 route set keep `/api/serverMode`, or fold mode/runtime introspection into a single status endpoint before frontend integration begins?
+
+## Next Recommended Step
+
+- move to Phase 2 groundwork on top of this skeleton:
+  - bootstrap token flow
+  - signed auth cookie flow
+  - request-scoped auth/context helpers
+  - mode-aware route gating
+- before broadening the route surface, decide whether the Go rewrite should keep `serverMode` as a standalone route or collapse it into a broader runtime status contract
 
 ## Scope
 
