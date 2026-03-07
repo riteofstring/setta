@@ -486,29 +486,30 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, "setta");
 
       await expect(
-        overviewPane.getByRole("button", { name: "/new" }),
+        projectChatSurface.getByRole("button", { name: "/new" }),
       ).toHaveCount(0);
       await expect(
-        overviewPane.getByRole("button", { name: "/resume" }),
+        projectChatSurface.getByRole("button", { name: "/resume" }),
       ).toHaveCount(0);
       await expect(
-        overviewPane.getByRole("button", { name: "/model" }),
+        projectChatSurface.getByRole("button", { name: "/model" }),
       ).toHaveCount(0);
       await expect(
-        overviewPane.getByRole("button", { name: /^Create Project UI$/ }),
+        projectChatSurface.getByRole("button", { name: /^Create Project UI$/ }),
       ).toHaveCount(0);
-      const createProjectButton = overviewPane.getByRole("button", {
+      const createProjectButton = projectChatSurface.getByRole("button", {
         name: /^Create Project$/,
       });
       await expect(createProjectButton).toBeVisible();
-      const summarizeCodebaseButton = overviewPane.getByRole("button", {
+      const summarizeCodebaseButton = projectChatSurface.getByRole("button", {
         name: /^Summarize Codebase$/,
       });
       await expect(summarizeCodebaseButton).toBeVisible();
-      const planNextStepsButton = overviewPane.getByRole("button", {
+      const planNextStepsButton = projectChatSurface.getByRole("button", {
         name: /^Plan Next Steps$/,
       });
       await expect(planNextStepsButton).toBeVisible();
@@ -526,7 +527,7 @@ test.describe.serial("chat composer controls", () => {
       expect(firstButtonClass).toBeTruthy();
       expect(firstButtonClass).toBe(secondButtonClass);
 
-      const input = overviewPane.getByPlaceholder("Type a message...");
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
       await input.fill("/res");
       const projectSuggestions = page
@@ -551,14 +552,14 @@ test.describe.serial("chat composer controls", () => {
       const isBelowInput = suggestionBox.y >= inputBottom - 2;
       expect(isAboveInput || isBelowInput).toBe(true);
 
-      const submitButton = overviewPane
+      const submitButton = projectChatSurface
         .locator('button[type="submit"]')
         .first();
       await input.fill("/res");
       await submitButton.click();
       await expect
         .poll(async () => {
-          const text = await overviewPane.textContent();
+          const text = await projectChatSurface.textContent();
           return Boolean(
             text?.includes("No previous project chat found to resume.") ||
               text?.includes("Resumed the latest project chat."),
@@ -571,7 +572,7 @@ test.describe.serial("chat composer controls", () => {
       await submitButton.click();
       await expect
         .poll(async () => {
-          const text = await overviewPane.textContent();
+          const text = await projectChatSurface.textContent();
           return Boolean(
             text?.includes("No previous project chat found to resume.") ||
               text?.includes("Resumed the latest project chat."),
@@ -581,9 +582,11 @@ test.describe.serial("chat composer controls", () => {
       expect(llmSubmitCount).toBe(0);
 
       await expect(
-        overviewPane.getByRole("button", { name: /permissions$/i }),
+        projectChatSurface.getByRole("button", { name: /permissions$/i }),
       ).toBeVisible();
-      const searchButton = overviewPane.getByRole("button", { name: "Search" });
+      const searchButton = projectChatSurface.getByRole("button", {
+        name: "Search",
+      });
       await expect(searchButton).toHaveCount(0);
     } finally {
       await engineCleanup();
@@ -691,22 +694,25 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, "Setta E2E");
 
-      const threadsPanel = overviewPane.getByTestId(
+      const threadsPanel = projectChatSurface.getByTestId(
         "project-chat-threads-panel",
       );
       if (
         (await threadsPanel.count()) === 0 ||
         !(await threadsPanel.first().isVisible())
       ) {
-        await overviewPane
+        await projectChatSurface
           .getByRole("button", { name: "View Threads" })
           .click();
       }
       await expect(threadsPanel).toBeVisible();
 
-      await overviewPane.getByRole("button", { name: "New Group" }).click();
+      await projectChatSurface
+        .getByRole("button", { name: "New Group" })
+        .click();
       const groupNameInput = threadsPanel.getByTestId(
         "project-chat-thread-group-name-input",
       );
@@ -726,19 +732,20 @@ test.describe.serial("chat composer controls", () => {
         /text-blue-700/,
       );
 
-      const returnToChatButton = overviewPane
+      const returnToChatButton = projectChatSurface
         .getByRole("button", { name: "Return to chat" })
         .first();
       if (await returnToChatButton.isVisible()) {
         await returnToChatButton.click();
       }
 
-      const composerInput = overviewPane.getByPlaceholder("Type a message...");
+      const composerInput =
+        projectChatSurface.getByPlaceholder("Type a message...");
       await expect(composerInput).toBeVisible();
       await composerInput.fill("/new");
       await composerInput.press("Enter");
       await expect(
-        overviewPane.getByText("Started a new chat thread."),
+        projectChatSurface.getByText("Started a new chat thread."),
       ).toBeVisible();
 
       await composerInput.fill("Route this thread into Backend");
@@ -1205,27 +1212,28 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
-      const returnToChatButton = overviewPane
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      const returnToChatButton = projectChatSurface
         .getByRole("button", { name: /^Return to chat$/ })
         .first();
       if (await returnToChatButton.isVisible()) {
         await returnToChatButton.click();
       }
 
-      const historyVisibleLabel = overviewPane
+      const historyVisibleLabel = projectChatSurface
         .getByRole("button", { name: "View Threads" })
         .locator("span", { hasText: /^Threads$/ })
         .first();
-      const settingsVisibleLabel = overviewPane
+      const settingsVisibleLabel = projectChatSurface
         .getByRole("button", { name: "Project AI Settings" })
         .locator("span", { hasText: /^Settings$/ })
         .first();
 
-      await setProjectChatPaneWidth(page, 700);
+      await setProjectChatSurfaceWidth(page, 700);
       await expect(historyVisibleLabel).toBeVisible();
       await expect(settingsVisibleLabel).toBeVisible();
 
-      await setProjectChatPaneWidth(page, 460);
+      await setProjectChatSurfaceWidth(page, 460);
       await expect(historyVisibleLabel).toBeHidden();
       await expect(settingsVisibleLabel).toBeHidden();
     } finally {
@@ -1297,11 +1305,10 @@ test.describe.serial("chat composer controls", () => {
       await expect(section).toBeVisible();
 
       const input = section.locator("textarea").first();
-      const submitButton = section.locator('button[type="submit"]').first();
 
       // `/search` is intentionally unavailable in managed section slash menus.
       await input.fill("/search off");
-      await submitButton.click();
+      await input.press("Enter");
 
       await expect(
         section.getByText("Unknown or unavailable command. Use /help."),
@@ -1367,14 +1374,16 @@ test.describe.serial("chat composer controls", () => {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
 
-      const overviewPane = page.locator("#OverviewPane");
-      const input = overviewPane.getByPlaceholder("Type a message...");
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
       await input.fill("/tmp build logs look stale");
       await input.press("Enter");
 
       await expect.poll(() => llmSubmitCount).toBe(1);
       await expect(
-        overviewPane.getByText("Unknown or unavailable command. Use /help."),
+        projectChatSurface.getByText(
+          "Unknown or unavailable command. Use /help.",
+        ),
       ).toHaveCount(0);
     } finally {
       await engineCleanup();
@@ -1459,9 +1468,10 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, "setta");
 
-      const input = overviewPane.getByPlaceholder("Type a message...");
+      const input = projectChatSurface.getByPlaceholder("Type a message...");
       await expect(input).toHaveValue("");
 
       await input.fill("   ");
@@ -1509,9 +1519,10 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, "setta");
 
-      const projectShell = overviewPane
+      const projectShell = projectChatSurface
         .locator('[data-chat-width-shell="true"]')
         .first();
       await expect(projectShell).toBeVisible();
@@ -1685,48 +1696,51 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      const projectChatSurface = await getVisibleProjectChatSurface(page);
       await selectProjectAiEngine(page, "setta");
 
       const closeThreadsIfOpen = async () => {
-        const returnToChatButton = overviewPane
+        const returnToChatButton = projectChatSurface
           .getByRole("button", { name: /^Return to chat$/ })
           .first();
         if (await returnToChatButton.isVisible()) {
           await returnToChatButton.click();
           return;
         }
-        const existingThreadsPanel = overviewPane.getByTestId(
+        const existingThreadsPanel = projectChatSurface.getByTestId(
           "project-chat-threads-panel",
         );
         if (
           (await existingThreadsPanel.count()) > 0 &&
           (await existingThreadsPanel.first().isVisible())
         ) {
-          await overviewPane
+          await projectChatSurface
             .getByRole("button", { name: "View Threads" })
             .click();
         }
       };
       await closeThreadsIfOpen();
 
-      await overviewPane.getByRole("button", { name: "View Threads" }).click();
+      await projectChatSurface
+        .getByRole("button", { name: "View Threads" })
+        .click();
       await expect(
-        overviewPane.getByText("matching history entry"),
+        projectChatSurface.getByText("matching history entry"),
       ).toBeVisible();
       await expect(
-        overviewPane.getByText("mismatch history entry"),
+        projectChatSurface.getByText("mismatch history entry"),
       ).toBeVisible();
       await expect(
-        overviewPane.getByText("external history entry"),
+        projectChatSurface.getByText("external history entry"),
       ).toBeVisible();
-      const matchingThreadEntry = overviewPane
+      const matchingThreadEntry = projectChatSurface
         .getByTestId("project-chat-thread-entry")
         .filter({ hasText: "matching history entry" })
         .first();
       await expect(
         matchingThreadEntry.getByTestId("project-chat-thread-agent-badge"),
       ).toHaveText(/setta/i);
-      const externalThreadEntry = overviewPane
+      const externalThreadEntry = projectChatSurface
         .getByTestId("project-chat-thread-entry")
         .filter({ hasText: "external history entry" })
         .first();
@@ -2010,14 +2024,54 @@ async function selectProjectAiEngine(
   page: Page,
   engineQuery: string,
 ): Promise<void> {
-  const overviewPane = page.locator("#OverviewPane");
-  await overviewPane
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  await projectChatSurface
     .getByRole("button", { name: "Project AI Settings" })
     .click();
   const engineInput = page.getByPlaceholder("Select an engine");
   await expect(engineInput).toBeVisible();
   await engineInput.fill(engineQuery);
   await engineInput.press("Enter");
+}
+
+async function getVisibleProjectChatSurface(page: Page): Promise<Locator> {
+  await collapseSidePanesForWindowInteraction(page);
+  const surfaceCandidates = [
+    page.getByTestId("project-chat-maximized-window").first(),
+    page.getByTestId("project-chat-floating-window").first(),
+    page.getByTestId("project-chat-bottom-dock-window-panel").first(),
+    page
+      .locator('#OverviewPane [data-chat-surface-mode="project_ai_mode"]')
+      .first(),
+  ];
+  await expect
+    .poll(async () => {
+      for (const candidate of surfaceCandidates) {
+        if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
+          return true;
+        }
+      }
+      return false;
+    })
+    .toBe(true);
+  for (const candidate of surfaceCandidates) {
+    if ((await candidate.count()) > 0 && (await candidate.isVisible())) {
+      return candidate;
+    }
+  }
+  throw new Error("No visible project chat surface found.");
+}
+
+async function collapseSidePanesForWindowInteraction(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    useLocalStorage.setState({
+      overviewVis: false,
+      uiEditorVis: false,
+    });
+  });
 }
 
 async function expectButtonsStackedVertically(
@@ -2047,27 +2101,24 @@ async function expectButtonsStackedVertically(
   }
 }
 
-async function setProjectChatPaneWidth(
+async function setProjectChatSurfaceWidth(
   page: Page,
   widthPx: number,
 ): Promise<void> {
-  const didSet = await page.evaluate((width) => {
-    const heading = Array.from(document.querySelectorAll("h2")).find((el) =>
-      (el.textContent ?? "").trim().toLowerCase().includes("project ai chat"),
-    );
-    if (!heading) {
-      return false;
-    }
-    const paneAside = heading.parentElement
-      ?.parentElement as HTMLElement | null;
-    if (!paneAside) {
+  const projectChatSurface = await getVisibleProjectChatSurface(page);
+  const didSet = await projectChatSurface.evaluate((surface, width) => {
+    const panel =
+      surface.closest(
+        '[data-testid="project-chat-bottom-dock-window-panel"], [data-testid="project-chat-floating-window"], [data-testid="project-chat-maximized-window"]',
+      ) ?? surface;
+    if (!(panel instanceof HTMLElement)) {
       return false;
     }
     const widthValue = `${width}px`;
-    paneAside.style.width = widthValue;
-    paneAside.style.minWidth = widthValue;
-    paneAside.style.maxWidth = widthValue;
-    paneAside.style.flexBasis = widthValue;
+    panel.style.width = widthValue;
+    panel.style.minWidth = widthValue;
+    panel.style.maxWidth = widthValue;
+    panel.style.flexBasis = widthValue;
     return true;
   }, widthPx);
   expect(didSet).toBe(true);

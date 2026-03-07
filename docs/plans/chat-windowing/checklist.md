@@ -170,3 +170,12 @@
 - `2026-03-05` | `planned` | `CW-035` | Intentional no-migration/no-compatibility implementation note is still pending write-up.
 - `2026-03-05` | `deferred` | `CW-036` | Right-pane grouped chat/thread management follow-up remains post-v1.
 - `2026-03-05` | `deferred` | `CW-037` | Non-chat section window-controls rollout remains post-v1.
+- `2026-03-05` | `in_progress` | `CW-028` | Wired linked-chat invocation context metadata through managed/external runners, MCP transport parsing, and agentic prompt context so direct `chat_chat` targets can be invoked explicitly.
+- `2026-03-05` | `in_progress` | `CW-029` | Propagated linked-chat recursion depth/chain metadata across Setta MCP tool calls and added focused backend coverage for pending depth/cycle enforcement.
+- `2026-03-05` | `in_progress` | `CW-032` | Restarted full-file timeout investigation from the `Project AI Settings` wait path to verify whether file-order state leakage or overview-pane activation is the remaining blocker.
+- `2026-03-05` | `done` | `CW-028` | Implemented `invoke_linked_chat` as a bounded MCP tool-call bridge for direct `chat_chat` targets and added backend coverage for successful invocation + unsupported-target rejection.
+- `2026-03-05` | `done` | `CW-029` | Enforced linked-chat recursion safety with invocation-depth propagation, cycle detection, max depth `1`, and route-level backend coverage for depth/cycle failures.
+- `2026-03-05` | `done` | `CW-032` | Updated `chat-composer-controls.spec.ts` project-chat selectors to target the visible docked/floating/maximized chat surface, collapse side panes before dock interaction, and eliminate the old `Project AI Settings` timeout in the full-file run path.
+- `2026-03-05` | `blocked` | `CW-032` | The original full-file timeout is fixed, but long serial reruns still intermittently abort on backend-side `ECONNRESET`/`mcp.client.sse` `httpx.ConnectTimeout` during `POST /api/setChatSectionSettings`; isolated formerly blocked cases (`:468`, `:597`, `:1245`, `:166`) pass.
+- `2026-03-05` | `done` | `CW-034` | Captured baseline/current Chrome DevTools traces for Project AI Chat project-load rendering and appended the results under `perf/reports/frontend/2026-03-05_chat-windowing-cw-034.md`.
+- `2026-03-05` | `done` | `CW-035` | Added `docs/plans/chat-windowing/implementation-notes.md` documenting the intentional no-migration/no-compatibility break from legacy pane-embedded section chat.
