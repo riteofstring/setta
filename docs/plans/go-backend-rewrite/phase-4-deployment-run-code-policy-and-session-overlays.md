@@ -40,11 +40,9 @@ Current repo status as of 2026-03-06:
   - share-session existence/touch semantics
   - per-session run-count reservation, increment, and rollback
 - the current Go deployment gap is now concentrated in wiring:
-  - `internal/app.New` still always opens the IDE `setta_files` registry
-  - Go startup/config still has no deployment-root input, so share/app mode has
-    nowhere to load a deployment from
-  - no Go route yet creates deployment sessions or injects the deployment
-    runtime into HTTP/websocket handlers
+  - deployment startup/session wiring now exists, but deployment `runCode`
+    transport still does not use it
+  - no Go route yet creates deployment sessions over HTTP
   - `POST /api/runCode` is still mounted behind `RequireFullIDERuntime`
 - Python still owns deployment/share `runCode` semantics across:
   - `backend/setta/routers/terminals.py`
@@ -236,7 +234,26 @@ Acceptance:
 
 Status:
 
-- pending
+- complete
+
+Completed:
+
+- added explicit `--deployment-root` startup support in
+  `cmd/setta-server` and `internal/config`
+- added deployment runtime-root derivation from deployment manifest metadata
+  when share/app mode does not override `--runtime-root`
+- made `internal/app.New` mode-aware:
+  - IDE/launcher still open the `setta_files` project-state registry
+  - share/app now open `internal/deployments.Runtime` instead
+- wired the same deployment session store into:
+  - websocket connection resolution under `internal/wsapi`
+  - app-exposed share-session dependencies for HTTP middleware
+- exposed deployment runtime metadata through `internal/app.App` and
+  `api/runtimeInfo`
+
+Tests:
+
+- `./scripts/go.sh test -p 1 ./internal/app ./internal/httpapi ./internal/wsapi ./internal/config ./internal/deployments -count=1`
 
 ### Slice 3: Deployment `runCode` Route Migration
 
@@ -269,5 +286,5 @@ Status:
 
 ## Next Recommended Step
 
-- Implement Slice 2 from this doc:
-  app wiring for the deployment runtime.
+- Implement Slice 3 from this doc:
+  deployment `runCode` route migration on top of the wired deployment runtime.

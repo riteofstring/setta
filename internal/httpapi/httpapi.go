@@ -34,6 +34,7 @@ type RuntimeInfo struct {
 
 type RuntimePaths struct {
 	WorkspaceRoot      string `json:"workspaceRoot"`
+	DeploymentRoot     string `json:"deploymentRoot,omitempty"`
 	SettaHome          string `json:"settaHome"`
 	ProfileLookupHome  string `json:"profileLookupHome"`
 	Profile            string `json:"profile,omitempty"`

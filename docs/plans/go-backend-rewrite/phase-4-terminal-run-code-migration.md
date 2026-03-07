@@ -84,9 +84,14 @@ Current repo status as of 2026-03-06:
   - deployment-mode base runtime loading from deployment `project.json`
   - session overlay ownership
   - share-session run-count reservation and rollback primitives
+- Go now wires that deployment source of truth through startup/runtime under:
+  - `internal/config`
+  - `cmd/setta-server`
+  - `internal/app`
+  - `internal/wsapi`
 - Go does not yet have a `cliId` output transport equivalent
-- Go does not yet wire that deployment source of truth into app startup,
-  session transport, or the `runCode` route
+- Go does not yet wire that deployment source of truth into the deployment
+  `runCode` route itself
 - Go still does not model project-state params, so `paramOverrides` remain intentionally unsupported in the Go planner
 
 ## Scope

@@ -89,6 +89,9 @@ Current repo status as of 2026-03-06:
   - non-attached terminal reuse is currently limited to live top-level sessions with an explicit reusable-session signal from `internal/terminals`
   - `cliId` and `paramOverrides` still fail explicitly
 - `internal/app` now owns the terminal service lifecycle alongside runtime, project state, and realtime wiring
+- `internal/app` now also owns deployment runtime lifecycle in share/app mode,
+  with a Go-wired share-session source of truth feeding websocket mode
+  resolution
 - many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
   - `backend/setta/websockets/realtime_event_hub.py`
   - `backend/setta/websockets/websocket_manager.py`
