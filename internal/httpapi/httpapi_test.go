@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/modes"
 )
 
 type stubInfoService struct {
@@ -313,6 +314,136 @@ func TestHandlerInjectsRequestAuthContext(t *testing.T) {
 	}
 }
 
+func TestHandlerBlocksIDEModeRouteInShareMode(t *testing.T) {
+	t.Parallel()
+
+	policy := modes.NewPolicy(config.ModeShare)
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: policy,
+		Register: func(r chi.Router) {
+			r.With(RequireIDEMode(policy)).Get("/ideOnly", func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/ideOnly", nil))
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+		t.Fatalf("expected mode_forbidden envelope, got %q", response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "Deployment mode does not allow this endpoint.") {
+		t.Fatalf("expected deployment mode message, got %q", response.Body.String())
+	}
+}
+
+func TestHandlerShareSessionMiddlewareInjectsContext(t *testing.T) {
+	t.Parallel()
+
+	store := newTestHTTPShareSessionStore("header", "cookie", "query")
+	policy := modes.NewPolicy(config.ModeShare)
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: policy,
+		Register: func(r chi.Router) {
+			r.With(RequireShareSession(modes.Resolver{
+				Policy: policy,
+				Store:  store,
+			})).Get("/shareContext", func(w http.ResponseWriter, r *http.Request) {
+				requestInfo, err := modes.RequireRequestInfo(r)
+				if err != nil {
+					t.Fatalf("require request mode info: %v", err)
+				}
+				writeJSON(w, http.StatusOK, map[string]string{
+					"mode":           string(requestInfo.Policy.Mode()),
+					"shareSessionId": requestInfo.ShareSessionID,
+				})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/shareContext?shareSessionId=query", nil)
+	request.Header.Set(modes.ShareSessionHeaderName, "header")
+	request.AddCookie(&http.Cookie{
+		Name:  modes.ShareSessionCookieName,
+		Value: "cookie",
+	})
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode share context payload: %v", err)
+	}
+	if payload["mode"] != "share" {
+		t.Fatalf("expected share mode, got %q", payload["mode"])
+	}
+	if payload["shareSessionId"] != "header" {
+		t.Fatalf("expected header precedence, got %q", payload["shareSessionId"])
+	}
+	if store.touched["header"] != 1 {
+		t.Fatalf("expected touched share session count 1, got %d", store.touched["header"])
+	}
+}
+
+func TestHandlerShareSessionMiddlewareRejectsMissingAndUnknownSessions(t *testing.T) {
+	t.Parallel()
+
+	store := newTestHTTPShareSessionStore("known")
+	policy := modes.NewPolicy(config.ModeShare)
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "share", info: RuntimeInfo{Mode: "share"}},
+		ModePolicy: policy,
+		Register: func(r chi.Router) {
+			r.With(RequireShareSession(modes.Resolver{
+				Policy: policy,
+				Store:  store,
+			})).Get("/shareContext", func(w http.ResponseWriter, r *http.Request) {
+				writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+			})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	missingResponse := httptest.NewRecorder()
+	handler.ServeHTTP(missingResponse, httptest.NewRequest(http.MethodGet, "/api/shareContext", nil))
+	if missingResponse.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", missingResponse.Code, missingResponse.Body.String())
+	}
+	if !strings.Contains(missingResponse.Body.String(), `"code":"missing_share_session"`) {
+		t.Fatalf("expected missing_share_session envelope, got %q", missingResponse.Body.String())
+	}
+
+	unknownRequest := httptest.NewRequest(http.MethodGet, "/api/shareContext?shareSessionId=unknown", nil)
+	unknownResponse := httptest.NewRecorder()
+	handler.ServeHTTP(unknownResponse, unknownRequest)
+	if unknownResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", unknownResponse.Code, unknownResponse.Body.String())
+	}
+	if !strings.Contains(unknownResponse.Body.String(), `"code":"unknown_share_session"`) {
+		t.Fatalf("expected unknown_share_session envelope, got %q", unknownResponse.Body.String())
+	}
+}
+
 func TestHandlerRefreshesNearExpiryAuthCookieOnAPIResponses(t *testing.T) {
 	t.Parallel()
 
@@ -449,4 +580,29 @@ func newTestAuthService(t *testing.T) *auth.Service {
 		t.Fatalf("new auth service: %v", err)
 	}
 	return service
+}
+
+type testHTTPShareSessionStore struct {
+	sessions map[string]bool
+	touched  map[string]int
+}
+
+func newTestHTTPShareSessionStore(sessionIDs ...string) *testHTTPShareSessionStore {
+	sessions := make(map[string]bool, len(sessionIDs))
+	for _, sessionID := range sessionIDs {
+		sessions[sessionID] = true
+	}
+	return &testHTTPShareSessionStore{
+		sessions: sessions,
+		touched:  make(map[string]int),
+	}
+}
+
+func (s *testHTTPShareSessionStore) HasSession(sessionID string) bool {
+	return s.sessions[sessionID]
+}
+
+func (s *testHTTPShareSessionStore) TouchSession(sessionID string) error {
+	s.touched[sessionID]++
+	return nil
 }

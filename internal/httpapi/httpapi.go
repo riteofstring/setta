@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/modes"
 )
 
 const apiPrefix = "/api"
@@ -51,10 +52,11 @@ type RuntimeAuth struct {
 }
 
 type Dependencies struct {
-	Logger   *slog.Logger
-	Info     InfoService
-	Auth     *auth.Service
-	Register func(chi.Router)
+	Logger     *slog.Logger
+	Info       InfoService
+	Auth       *auth.Service
+	ModePolicy modes.Policy
+	Register   func(chi.Router)
 }
 
 type errorResponse struct {
@@ -77,6 +79,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 
 	router := chi.NewRouter()
 	router.Use(requestIDMiddleware)
+	router.Use(modeContextMiddleware(deps.ModePolicy))
 	router.Use(recoveryMiddleware(deps.Logger))
 	router.Use(accessLogMiddleware(deps.Logger))
 
@@ -113,6 +116,34 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	})
 
 	return router, nil
+}
+
+func RequireIDEMode(policy modes.Policy) func(http.Handler) http.Handler {
+	return modeRequirementMiddleware(policy, policy.RequireIDE)
+}
+
+func RequireFullIDERuntime(policy modes.Policy) func(http.Handler) http.Handler {
+	return modeRequirementMiddleware(policy, policy.RequireFullIDE)
+}
+
+func RequireLauncherMode(policy modes.Policy) func(http.Handler) http.Handler {
+	return modeRequirementMiddleware(policy, policy.RequireLauncher)
+}
+
+func RequireShareSession(resolver modes.Resolver) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestInfo, err := resolver.ResolveRequest(r)
+			if err != nil {
+				if writeModesError(w, r, err) {
+					return
+				}
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+			next.ServeHTTP(w, withModesRequestInfo(r, requestInfo))
+		})
+	}
 }
 
 func bootstrapConsumeHandler(authService *auth.Service) http.HandlerFunc {
@@ -199,6 +230,72 @@ func authMiddleware(authService *auth.Service) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(auth.ContextWithRequestInfo(r.Context(), requestInfo)))
 		})
 	}
+}
+
+func modeContextMiddleware(policy modes.Policy) func(http.Handler) http.Handler {
+	resolvedPolicy := modes.NewPolicy(policy.Mode())
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			requestInfo, ok := modes.RequestInfoFromRequest(r)
+			if !ok {
+				requestInfo = modes.RequestInfo{Policy: resolvedPolicy}
+			} else {
+				requestInfo.Policy = resolvedPolicy
+			}
+			next.ServeHTTP(w, withModesRequestInfo(r, requestInfo))
+		})
+	}
+}
+
+func modeRequirementMiddleware(policy modes.Policy, require func() error) func(http.Handler) http.Handler {
+	resolvedPolicy := modes.NewPolicy(policy.Mode())
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := require(); err != nil {
+				if writeModesError(w, r, err) {
+					return
+				}
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+				return
+			}
+
+			requestInfo, ok := modes.RequestInfoFromRequest(r)
+			if !ok {
+				requestInfo = modes.RequestInfo{Policy: resolvedPolicy}
+			} else {
+				requestInfo.Policy = resolvedPolicy
+			}
+			next.ServeHTTP(w, withModesRequestInfo(r, requestInfo))
+		})
+	}
+}
+
+func writeModesError(w http.ResponseWriter, r *http.Request, err error) bool {
+	var violation *modes.Violation
+	if errors.As(err, &violation) {
+		writeError(w, r, violation.StatusCode, violation.Code, violation.Message)
+		return true
+	}
+
+	var missingShareSession *modes.MissingShareSessionError
+	if errors.As(err, &missingShareSession) {
+		writeError(w, r, http.StatusBadRequest, "missing_share_session", missingShareSession.Error())
+		return true
+	}
+
+	var unknownShareSession *modes.UnknownShareSessionError
+	if errors.As(err, &unknownShareSession) {
+		writeError(w, r, http.StatusNotFound, "unknown_share_session", unknownShareSession.Error())
+		return true
+	}
+
+	return false
+}
+
+func withModesRequestInfo(r *http.Request, requestInfo modes.RequestInfo) *http.Request {
+	return r.WithContext(modes.ContextWithRequestInfo(r.Context(), requestInfo))
 }
 
 func requestIDMiddleware(next http.Handler) http.Handler {

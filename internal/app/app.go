@@ -9,6 +9,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/httpapi"
+	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/runtime"
 )
@@ -41,7 +42,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			config:         cfg,
 			authCookieName: authService.AuthCookieBaseName(),
 		},
-		Auth: authService,
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(cfg.Server.Mode),
 	})
 	if err != nil {
 		return nil, err
