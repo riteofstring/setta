@@ -49,12 +49,17 @@ Current repo status as of 2026-03-07:
   - `frontend/src/components/AppHeader/WatchCodeToggleButton.tsx`
   - `frontend/src/components/Panes/Overview/WatchCode/WatchCodePane.tsx`
   - `frontend/src/utils/generatedEndpoints.ts`
-- the current Go repo has no Watch Code owner yet:
-  - there is no Go watch manager, Python callable parser, fsnotify observer, or
-    bound code-file reload owner
+- the current Go repo now has a Watch Code runtime owner through the app
+  handoff:
+  - `internal/watchcode` owns parser-backed callable discovery, deterministic
+    scan/delete/move planning, manager state, file-identity diffing, and the
+    long-lived polling runtime
+  - `internal/app` now starts and stops that runtime in IDE mode only
+  - saved main project-state snapshots now sync normalized Watch Code configs
+    into the runtime owner through the main runtime `AfterSave` hook
 
-That means the active gap has narrowed from state/transport foundation to the
-long-lived watcher/runtime owner itself.
+That means the active gap has narrowed past runtime ownership and into
+project-state mutation application.
 
 The active Slice 2 execution work is now narrowed in:
 
@@ -65,23 +70,19 @@ The active Slice 2 execution work is now narrowed in:
   - Slice 1 baseline parsing now reuses that shared parser owner
 - Slice 2 Step 2 is now in progress:
   - `internal/watchcode` owns config snapshot normalization, desired watch-dir
-    derivation, path matching, and missing-dir ancestor fallback
-  - watcher-local pending move state and scheduled scan/delete bookkeeping now
-    exist with stale-config cleanup
-  - file-event routing now owns create/modify/delete/move scheduling semantics
-- the remaining Slice 2 gap is the concrete watcher adapter and runtime
-  application before later section-mutation wiring
-- that runtime-owner gap is now narrowed in:
+    derivation, path matching, missing-dir ancestor fallback, file-event
+    routing, file-identity snapshots, and the polling runtime owner
+- the remaining Slice 2/3 gap is now the project-state mutation boundary:
+  - file update/delete callbacks still need Go-owned registry/baseline apply
+    helpers
+  - section create/remove/rename and callable-refresh reuse still need to move
+    behind those apply helpers
+- that next mutation boundary is now narrowed in:
+  - `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
+- the completed runtime-owner work remains captured in:
   - `docs/plans/go-backend-rewrite/phase-5-watch-code-file-identity-runtime-owner.md`
-  - the key decision there is to avoid heuristic rename pairing and use
-    file-identity snapshots for concrete move detection
-  - Step 1 there is now complete:
-    - tracked file snapshots and stable file identities exist in Go
-    - move detection is now derived from file identity instead of watcher
-      heuristics
-  - Step 2 there is now complete:
-    - the long-lived polling runtime owner exists in `internal/watchcode`
-    - diffed file events now route through the shared manager into callbacks
+  - file-identity snapshots remain the chosen move-detection owner
+  - app lifecycle + save-time runtime sync are now complete there
 
 ## Scope
 

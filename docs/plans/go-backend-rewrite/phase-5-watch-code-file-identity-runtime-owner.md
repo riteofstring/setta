@@ -6,9 +6,9 @@ This doc narrows the next bounded Watch Code step after the completed manager
 foundation in `phase-5-watch-code-scan-diff-and-manager-foundation.md`.
 
 Manager state, scan/delete/move planning, path matching, and file-event routing
-are now owned in Go. What is still missing is the concrete runtime owner that
-can turn real filesystem changes into those manager events and later project
-state mutations.
+are now owned in Go. This focused doc covered the concrete runtime owner that
+turns real filesystem changes into those manager events before later project
+state mutation wiring.
 
 ## Why A New Focused Doc Exists
 
@@ -57,10 +57,17 @@ Current repo status as of 2026-03-07:
   - the long-lived polling service now exists in `internal/watchcode`
   - diffed file events now flow through the shared manager before callbacks
   - scheduled scans/deletes now drain into explicit update/delete callbacks
-- the remaining active Watch Code gap is now the runtime owner itself:
-  - app wiring still does not start/shutdown the polling runtime
-  - saved project-state snapshots still do not sync configs into the runtime
-  - callback wiring into Go project-state apply helpers still does not exist
+- runtime-owner Step 3 is now complete:
+  - IDE app startup/shutdown now owns the polling runtime lifecycle
+  - saved main project-state snapshots now sync normalized watch configs into
+    the runtime owner
+  - focused `internal/app` coverage now proves startup, save-time sync, and
+    IDE-only startup policy
+- the remaining active Watch Code gap is now beyond the runtime owner:
+  - file update/delete callbacks still do not apply registry/baseline mutations
+    in Go project state
+  - section create/remove/rename and callable-refresh reuse are still Python-
+    owned
 
 ## Recommended Option
 
@@ -183,7 +190,7 @@ Completed in this chunk:
 
 ### Step 3: App Wiring Handoff
 
-Status: next in progress boundary.
+Status: complete on 2026-03-07.
 
 Deliver:
 
@@ -196,6 +203,14 @@ Acceptance:
 - the remaining work is narrowed to project-state apply callbacks and later
   callable-refresh/section-mutation reuse
 
+Completed in this chunk:
+
+- `internal/projectstate/watch_code.go`
+- `internal/watchcode/service.go`
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/watchcode ./internal/app -count=1 -timeout 180s`
+
 ## Verification Expectations
 
 - `internal/watchcode` unit tests for snapshot diff + identity handling
@@ -206,8 +221,10 @@ Acceptance:
 
 ## Next Recommended Step
 
-Execute Step 3 next:
+Execute the next focused doc:
 
-- start and stop the polling runtime from the IDE app
-- sync saved main project-state snapshots into the runtime config owner
-- leave the callback bodies bounded to the first Go project-state apply helpers
+- `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
+- implement Go-owned file update/delete apply helpers over the new runtime
+  callbacks
+- keep section mutation and callable refetch on the same authoritative
+  project-state path

@@ -43,9 +43,11 @@ Current repo status as of 2026-03-07:
     over the shared manager state
   - the new manager foundation keeps watcher state pure and testable before any
     fsnotify/observer integration
-- the remaining active Watch Code gap is the Step 2 manager/runtime owner:
-  - pending moves, debounce/delete scheduling, and file-event routing are still
-    not owned in Go
+- the remaining active Watch Code gap is now beyond the manager/runtime owner:
+  - file update/delete callbacks still need Go-owned project-state apply
+    helpers
+  - section create/remove/rename and callable-refresh reuse still sit above the
+    completed manager/runtime foundation
 
 ## Scope
 
@@ -179,6 +181,8 @@ That remaining runtime-owner step is now narrowed in:
 
 ### Step 3: Runtime Wiring Handoff
 
+Status: complete on 2026-03-07.
+
 Deliver:
 
 - a clear handoff from the manager foundation into later project-state mutation
@@ -190,6 +194,14 @@ Acceptance:
 
 - the remaining Slice 2/3 work is narrowed to runtime application and later
   integration hooks
+
+Completed in this chunk:
+
+- `internal/projectstate/watch_code.go`
+- `internal/watchcode/service.go`
+- `internal/app/app.go`
+- `internal/app/app_test.go`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/watchcode ./internal/app -count=1 -timeout 180s`
 
 ## Verification Expectations
 
@@ -216,7 +228,13 @@ For Step 2, add:
 
 ## Next Recommended Step
 
-Execute Step 2 next:
+Execute the next focused doc:
+
+- `docs/plans/go-backend-rewrite/phase-5-watch-code-projectstate-apply-and-section-mutation.md`
+- port Go-owned file update/delete apply helpers over the completed runtime
+  callbacks
+- leave notification and inline-edit integration for the later slices in that
+  doc
 
 - start Step 1 from the new runtime-owner doc:
   - start Step 3 from the new runtime-owner doc

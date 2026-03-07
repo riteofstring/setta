@@ -60,11 +60,13 @@ Use the docs in this order:
    - focused current-work plan for Slice 2 parser-backed Watch Code scan/delete/move planning and manager foundations
 28. `phase-5-watch-code-file-identity-runtime-owner.md`
    - focused current-work plan for the concrete Watch Code runtime owner using file-identity snapshots instead of heuristic watcher rename pairing
-29. `spike-mcp.md`
+29. `phase-5-watch-code-projectstate-apply-and-section-mutation.md`
+   - focused current-work plan for Go-owned Watch Code file apply helpers, section mutation, and callable refresh reuse above the completed runtime owner
+30. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-30. `spike-pty.md`
+31. `spike-pty.md`
    - PTY uncertainty-reduction plan
-31. `spike-lsp.md`
+32. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
