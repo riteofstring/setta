@@ -583,6 +583,18 @@ export async function route_stop_agent_run(
   return await post("/stopAgentRun", x);
 }
 
+export async function route_start_run_chain(
+  x: gt.StartRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/startRunChain", x);
+}
+
+export async function route_stop_run_chain(
+  x: gt.StopRunChainRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentRun>> {
+  return await post("/stopRunChain", x);
+}
+
 export async function route_stop_external_agent_run(
   x: gt.StopExternalAgentRunRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AgentRun>> {
@@ -997,7 +1009,7 @@ export async function route_set_text_block_text(
 
 export async function route_set_project_config_codegen_targets(
   x: gt.SetProjectConfigCodegenTargetsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
   return await post("/setProjectConfigCodegenTargets", x);
 }
 
