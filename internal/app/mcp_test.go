@@ -2,7 +2,10 @@ package app
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -15,6 +18,8 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/config"
+	"setta/internal/httpapi"
+	"setta/internal/mcpx"
 	"setta/internal/observability"
 )
 
@@ -155,6 +160,90 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	prepareAppCurrentSession(t, cfg)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
+
+	serverURL := "http://" + listener.Addr().String()
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, serverURL)
+	response, err := client.Post(
+		serverURL+"/api/mcpServerRuntimeStatus",
+		"application/json",
+		strings.NewReader(`{}`),
+	)
+	if err != nil {
+		t.Fatalf("post runtime status: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload httpapi.MCPRuntimeStatusResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode runtime status: %v", err)
+	}
+	if payload.LLMConfigPath != mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot) {
+		t.Fatalf("unexpected llm config path %q", payload.LLMConfigPath)
+	}
+	if payload.ActiveSettaFilesLocation != "local" {
+		t.Fatalf("expected local files location, got %q", payload.ActiveSettaFilesLocation)
+	}
+	if len(payload.Servers) != 1 {
+		t.Fatalf("expected one server status, got %d", len(payload.Servers))
+	}
+	if payload.Servers[0].ServerID != mcpx.DefaultServerID {
+		t.Fatalf("expected setta server id, got %q", payload.Servers[0].ServerID)
+	}
+	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
+	}
+	if payload.Servers[0].ToolCount != 2 {
+		t.Fatalf("expected tool count 2, got %d", payload.Servers[0].ToolCount)
+	}
+	if len(payload.ExternalServers) != 0 {
+		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
+	}
+}
+
 func mustAuthenticatedMCPHTTPClient(t *testing.T, app *App, serverURL string) *http.Client {
 	t.Helper()
 
@@ -185,4 +274,27 @@ func mustAuthenticatedMCPHTTPClient(t *testing.T, app *App, serverURL string) *h
 		Path:  "/",
 	}})
 	return &http.Client{Jar: jar}
+}
+
+func waitForAppMCPClientState(t *testing.T, app *App, want mcpx.RuntimeState) {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		client := app.MCPClient()
+		if client != nil {
+			statuses := client.RuntimeStatuses()
+			if len(statuses) == 1 && statuses[0].State == want {
+				return
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	client := app.MCPClient()
+	if client == nil {
+		t.Fatal("expected app MCP client")
+	}
+	statuses := client.RuntimeStatuses()
+	t.Fatalf("expected runtime state %q, got %#v", want, statuses)
 }

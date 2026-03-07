@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
@@ -50,6 +51,7 @@ type App struct {
 	watchCode     *watchcode.Service
 	boundCode     *boundcode.Service
 	mcpServer     *mcpx.Server
+	mcpClient     *mcpx.Client
 	handler       http.Handler
 }
 
@@ -71,11 +73,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	var mcpServer *mcpx.Server
+	var mcpClient *mcpx.Client
 	if modePolicy.IsIDE() {
 		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
 			Logger:        logger,
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		})
+		if err != nil {
+			return nil, err
+		}
+		mcpClient, err = newInternalMCPClient(cfg, logger, authService)
 		if err != nil {
 			return nil, err
 		}
@@ -474,6 +481,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
+			if err := httpapi.RegisterMCPRoutes(r, httpapi.MCPRouteDependencies{
+				ModePolicy:               modePolicy,
+				LLMConfigPath:            mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),
+				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
+				Client:                   mcpClient,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterLSPRoutes(r, httpapi.LSPRouteDependencies{
 				ModePolicy:   modePolicy,
 				ProjectState: projectRuntime,
@@ -487,6 +502,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if err != nil {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
+	}
+	if mcpClient != nil {
+		mcpClient.Start(context.Background())
 	}
 
 	return &App{
@@ -506,6 +524,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		watchCode:     watchCodeService,
 		boundCode:     boundCodeService,
 		mcpServer:     mcpServer,
+		mcpClient:     mcpClient,
 		handler:       handler,
 	}, nil
 }
@@ -542,6 +561,10 @@ func (a *App) MCPServer() *mcpx.Server {
 	return a.mcpServer
 }
 
+func (a *App) MCPClient() *mcpx.Client {
+	return a.mcpClient
+}
+
 func (a *App) Terminals() *terminals.Service {
 	return a.terminals
 }
@@ -565,6 +588,7 @@ func (a *App) ListenerBroadcaster() *realtime.ListenerBroadcaster {
 func (a *App) Shutdown(ctx context.Context) error {
 	return errors.Join(
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
+		closeMCPClient(a.mcpClient, ctx),
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
@@ -673,4 +697,55 @@ func boundCodeServiceInputs(inputs []projectstate.BoundCodeFileInput) []boundcod
 		})
 	}
 	return serviceInputs
+}
+
+func newInternalMCPClient(cfg config.Config, logger *slog.Logger, authService *auth.Service) (*mcpx.Client, error) {
+	serverConfigs, err := mcpx.LoadServerConfigs(
+		mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),
+		mcpx.LoadServerConfigsOptions{
+			SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return mcpx.NewClient(mcpx.ClientOptions{
+		Logger:  logger,
+		Servers: serverConfigs,
+		HeaderProvider: func(serverID string) (http.Header, error) {
+			if serverID != mcpx.DefaultServerID {
+				return nil, nil
+			}
+			return buildInternalMCPHeaders(authService)
+		},
+	})
+}
+
+func buildInternalMCPHeaders(authService *auth.Service) (http.Header, error) {
+	if authService == nil {
+		return nil, nil
+	}
+	session, ok := authService.CurrentSession()
+	if !ok {
+		return nil, auth.ErrMissingCurrentSession
+	}
+	token, _, err := authService.MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	cookieName, err := authService.CookieName(session.Metadata.ID)
+	if err != nil {
+		return nil, err
+	}
+	headers := http.Header{}
+	headers.Set("Cookie", cookieName+"="+token)
+	return headers, nil
+}
+
+func closeMCPClient(client *mcpx.Client, ctx context.Context) error {
+	if client == nil {
+		return nil
+	}
+	return client.Close(ctx)
 }

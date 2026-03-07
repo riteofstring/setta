@@ -26,22 +26,26 @@ external transport slice. Python remains the source of truth for:
 
 Current repo status as of 2026-03-07:
 
-- Go now owns Phase 6 Slice 1 and Slice 2 foundations:
+- Go now owns Phase 6 Slice 1, Slice 2, and Slice 3 foundations:
   - `internal/tools` registry and metadata normalization
   - `internal/mcpx` namespacing helpers for Setta's namespaced tool identity
   - `internal/mcpx/server.go` for the first Go-owned MCP SSE server runtime
+  - `internal/mcpx/config.go` for the minimal MCP server config loader over
+    `setta_files/llm_config.json`
+  - `internal/mcpx/client.go` for the first Go-owned internal MCP client
+    runtime
   - authenticated `/mcp` mounting in `internal/httpapi` via a root-level auth
     hook that keeps auth outside the SDK
+  - `/api/mcpServerRuntimeStatus` as a thin Go-owned runtime-status transport
   - one minimal Go-owned tool set:
     - `list_mcp_tools` as the init-like tool
     - `read_file_range` as the first discoverable regular tool
   - structured tool failures surfaced as MCP `CallToolResult` errors with
     Setta-owned error codes
+  - namespaced multi-server tool routing and per-server runtime status tracking
 - the MCP SDK is now pinned in `go.mod`
 - the first Go server transport is SSE-only
 - there is no Go-owned stdio bridge yet
-- there is no Go-owned namespaced tool registry or internal MCP client
-- there is no Go-owned runtime-status route yet
 - there is no Go-owned LLM/chat runtime yet, so MCP should be scoped as a
   foundation layer instead of being coupled to chat migration immediately
 - the MCP spike recommendation is now exercised in real code:
@@ -315,6 +319,55 @@ Acceptance:
 - disconnected servers fail explicitly and update runtime status
 - runtime status is a Go-owned source of truth, not a route-local adapter
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/mcpx/config.go` with:
+  - `mcpServers` loading from `setta_files/llm_config.json`
+  - default Setta self-server config when the file is missing/empty and the Go
+    runtime host/port is known
+  - Setta self-server URL normalization to the active Go runtime endpoint
+- added `internal/mcpx/client.go` with:
+  - transport support for `sse`, `streamable_http`, and `stdio`
+  - one connection loop per configured server
+  - namespaced tool catalogs split into init/discoverable sets
+  - explicit routing from `<serverId>__<toolName>` to the upstream tool name
+  - runtime status transitions and read-only reconnect retry
+- added `internal/httpapi/mcp_routes.go`
+  - `POST /api/mcpServerRuntimeStatus`
+  - full-IDE mode gate
+  - thin response shaping over runtime-owned statuses
+  - `externalServers: []` until the external-agent runtime moves to Go
+- wired `internal/app/app.go` to:
+  - construct the internal MCP client in IDE mode
+  - inject Setta self-auth headers at the app boundary
+  - start connection loops after handler construction
+  - stop the client during app shutdown
+- added focused tests in:
+  - `internal/mcpx/config_test.go`
+  - `internal/mcpx/client_test.go`
+  - `internal/httpapi/mcp_routes_test.go`
+  - `internal/app/mcp_test.go`
+
+Decisions:
+
+- keep `llm_config.json` loading narrow in Slice 3
+  - this slice only owns the MCP server registry, not broader LLM config
+    semantics
+- use the active Go host/port as the source of truth for the Setta server URL
+  - do not trust stale persisted loopback ports for self-connect
+- keep external runtime status explicitly out of scope
+  - the route returns `externalServers: []` instead of adding a temporary
+    compatibility adapter
+
+Verification:
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -count=1 -timeout 180s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi ./internal/app -run 'Test(MCPRuntimeStatusRoute|AppIDEMCPRuntimeStatusRoute|AppIDEMCPServer)' -count=1 -timeout 240s`
+
 ### Slice 4: Scoped Tool-Call Pilot
 
 Deliver:
@@ -341,8 +394,8 @@ Acceptance:
 
 ## Next Recommended Step
 
-- Implement Slice 3 next.
-- Reuse the completed `/mcp` SSE server as the first configured upstream in the
-  Go internal MCP client tests.
-- Keep namespaced routing and runtime-status ownership in Go before starting
-  scoped tool-call work.
+- Implement Slice 4 next.
+- Use the completed internal client/runtime-status layer as the source of truth
+  for scoped tool invocation.
+- Keep scope enforcement in Setta-owned metadata/context services instead of
+  pushing it into transport handlers.
