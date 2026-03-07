@@ -91,6 +91,36 @@ test("settings view modes keep visible sections when layout payload is partial",
   await waitForOverviewCount(page, 13);
 });
 
+test("settings minimap click recenters the viewport", async ({ page }) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const minimapViewportLayer = page.getByTestId("rf__minimap-viewport-layer");
+  await expect(minimapViewportLayer).toBeVisible();
+
+  const before = await getViewportTransform(page);
+  await minimapViewportLayer.click({ position: { x: 20, y: 20 } });
+  await page.waitForFunction(({ x, y }) => {
+    const viewport = document.querySelector(".react-flow__viewport");
+    if (!viewport) {
+      return false;
+    }
+    const transform = window.getComputedStyle(viewport).transform;
+    if (!transform || transform === "none") {
+      return false;
+    }
+    const matrix = new DOMMatrixReadOnly(transform);
+    return Math.abs(matrix.e - x) > 10 || Math.abs(matrix.f - y) > 10;
+  }, before);
+
+  const after = await getViewportTransform(page);
+  expect(
+    Math.abs(after.x - before.x) > 10 || Math.abs(after.y - before.y) > 10,
+  ).toBe(true);
+  expect(after.scale).toBeCloseTo(before.scale, 3);
+});
+
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
   await page.waitForFunction(
     (count) => document.querySelectorAll(".react-flow__node").length === count,
@@ -104,31 +134,48 @@ async function waitForOverviewCount(
 ): Promise<void> {
   await setOverviewTab(page, "Overview");
   await page.waitForFunction(
-    (count) =>
-      document.querySelectorAll("#OverviewPane li").length === count,
+    (count) => document.querySelectorAll("#OverviewPane li").length === count,
     expected,
   );
 }
 
 async function getMiniMapNodeCount(page: Page): Promise<number> {
-  return page.locator(".react-flow__minimap-node").count();
+  return page.evaluate(() => {
+    const nodeLayer = document.querySelector(
+      '[data-testid="rf__minimap-node-layer"]',
+    );
+    if (nodeLayer instanceof HTMLCanvasElement) {
+      const rawCount = nodeLayer.dataset.nodeCount;
+      const parsedCount = Number(rawCount);
+      if (Number.isFinite(parsedCount)) {
+        return parsedCount;
+      }
+    }
+    return document.querySelectorAll(".react-flow__minimap-node").length;
+  });
 }
 
 async function getViewportScale(page: Page): Promise<number> {
+  return (await getViewportTransform(page)).scale;
+}
+
+async function getViewportTransform(
+  page: Page,
+): Promise<{ scale: number; x: number; y: number }> {
   return page.evaluate(() => {
     const viewport = document.querySelector(".react-flow__viewport");
     if (!viewport) {
-      return 1;
+      return { x: 0, y: 0, scale: 1 };
     }
     const transform = window.getComputedStyle(viewport).transform;
     if (!transform || transform === "none") {
-      return 1;
+      return { x: 0, y: 0, scale: 1 };
     }
     const matrix = new DOMMatrixReadOnly(transform);
     if (!Number.isFinite(matrix.a) || matrix.a <= 0) {
-      return 1;
+      return { x: 0, y: 0, scale: 1 };
     }
-    return matrix.a;
+    return { x: matrix.e, y: matrix.f, scale: matrix.a };
   });
 }
 
@@ -163,7 +210,9 @@ function findViewModeId(
   payload: ProjectStateSingleConfigWithCompletedOpIds,
   name: string,
 ): string {
-  for (const viewMode of Object.values(payload.projectState.projectConfig.viewModes)) {
+  for (const viewMode of Object.values(
+    payload.projectState.projectConfig.viewModes,
+  )) {
     if (viewMode.name === name) {
       return viewMode.id;
     }
