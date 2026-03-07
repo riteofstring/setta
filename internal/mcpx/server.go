@@ -69,6 +69,7 @@ type projectStateProvider interface {
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
+	SetCodeSectionAttachedTerminal(ctx context.Context, projectID string, sectionID string, terminalSectionID *string, settingsDocument projectstate.Document) (projectstate.Snapshot, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateNewSectionVariant(ctx context.Context, projectID string, input projectstate.CreateNewSectionVariantInput) (projectstate.Snapshot, projectstate.CreateNewSectionVariantResult, error)
 	DeleteKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.DeleteKwargResult, error)
@@ -620,6 +621,49 @@ func newCreateChildSectionsViaIncrementerHandler(projectState projectStateProvid
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return result, nil
+	}
+}
+
+func newSetCodeSectionAttachedTerminalHandler(projectState projectStateProvider, settingsState settingsStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		terminalSectionID, err := readOptionalNullableStringPointerArgument(arguments, "terminalSectionId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural attached-terminal invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		settingsDocument := projectstate.Document{}
+		if settingsState != nil {
+			settingsDocument = settingsState.Snapshot().Document
+		}
+
+		if _, err := projectState.SetCodeSectionAttachedTerminal(ctx, projectConfigID, sectionID, terminalSectionID, settingsDocument); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
 	}
 }
 
@@ -2317,6 +2361,50 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"sectionIds"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_code_section_attached_terminal",
+				Description: "Attach a top-level terminal to a code section, or detach the current attached terminal by passing null.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeStructural,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId", "terminalSectionId"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"terminal", "attached", "code", "section", "structural"},
+				},
+				Handler: newSetCodeSectionAttachedTerminalHandler(projectState, settingsState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose code section attachment should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Code section id whose attached terminal should be updated.",
+					},
+					"terminalSectionId": map[string]any{
+						"type":        []string{"string", "null"},
+						"description": "Terminal section id to attach, or null to detach the current attached terminal.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
 			},
 		})
 

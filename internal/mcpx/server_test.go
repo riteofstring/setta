@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 43 {
-		t.Fatalf("expected 43 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 44 {
+		t.Fatalf("expected 44 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -149,6 +149,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var deleteSectionsTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
+	var setCodeSectionAttachedTerminalTool *sdkmcp.Tool
 	var setCodeTool *sdkmcp.Tool
 	var formatCodeTool *sdkmcp.Tool
 	var autoLayoutTopLevelSectionsTool *sdkmcp.Tool
@@ -204,6 +205,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_callable" {
 			setCallableTool = tool
+		}
+		if tool.Name == "set_code_section_attached_terminal" {
+			setCodeSectionAttachedTerminalTool = tool
 		}
 		if tool.Name == "set_code" {
 			setCodeTool = tool
@@ -332,6 +336,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_code",
 		"set_code_obj_display_name",
 		"set_code_obj_name",
+		"set_code_section_attached_terminal",
 		"set_code_section_diagnostic_code_suppression",
 		"set_code_section_diagnostics_mute",
 		"set_gen_code_prefix",
@@ -377,6 +382,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setCallableTool == nil {
 		t.Fatal("expected set_callable tool")
+	}
+	if setCodeSectionAttachedTerminalTool == nil {
+		t.Fatal("expected set_code_section_attached_terminal tool")
 	}
 	if setCodeTool == nil {
 		t.Fatal("expected set_code tool")
@@ -533,6 +541,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setCallableResultPaths := mustStructuredMap(t, setCallableMeta["resultIdPathsByType"])
 	if got := mustStringList(t, setCallableResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 2 || got[0] != "callableId" || got[1] != "childCodeObjs.codeObjId" {
 		t.Fatalf("expected set_callable code-object result paths, got %#v", got)
+	}
+	setCodeSectionAttachedTerminalMeta := mustStructuredMap(t, setCodeSectionAttachedTerminalTool.Meta[toolMetaNamespace])
+	if setCodeSectionAttachedTerminalMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_code_section_attached_terminal, got %#v", setCodeSectionAttachedTerminalMeta["accessType"])
+	}
+	setCodeSectionAttachedTerminalPaths := mustStructuredMap(t, setCodeSectionAttachedTerminalMeta["idPathsByType"])
+	if got := mustStringList(t, setCodeSectionAttachedTerminalPaths[string(tools.IDTypeSection)]); len(got) != 2 || got[0] != "sectionId" || got[1] != "terminalSectionId" {
+		t.Fatalf("expected set_code_section_attached_terminal section target paths, got %#v", got)
 	}
 	setCodeMeta := mustStructuredMap(t, setCodeTool.Meta[toolMetaNamespace])
 	if setCodeMeta["accessType"] != string(tools.AccessTypeWrite) {
@@ -788,8 +804,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 43 {
-		t.Fatalf("expected 43 registered tool names, got %#v", listNames)
+	if len(listNames) != 44 {
+		t.Fatalf("expected 44 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -4363,6 +4379,105 @@ func TestServerCreateChildSectionsAllowsUnscopedStructuralCallsAndTranslatesResu
 	}
 }
 
+func TestServerSetCodeSectionAttachedTerminalRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	terminalSectionID := mustSeedScopedTestTopLevelTerminal(t, projectRuntime)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_attached_terminal",
+		Arguments: map[string]any{
+			"projectConfigId":   "project-alpha",
+			"sectionId":         "allowed-section",
+			"terminalSectionId": terminalSectionID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_attached_terminal blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_code_section_attached_terminal call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetCodeSectionAttachedTerminalAllowsUnscopedStructuralCallsAndTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	terminalSectionID := mustSeedScopedTestTopLevelTerminal(t, projectRuntime)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+		terminalSectionID: "91",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Name: "set_code_section_attached_terminal",
+		Arguments: map[string]any{
+			"projectConfigId":   "11",
+			"sectionId":         "14",
+			"terminalSectionId": "91",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code_section_attached_terminal: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_code_section_attached_terminal success, got %#v", result.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_code_section_attached_terminal: %v", err)
+	}
+	_, _, codeImpl, err := project.ResolveSection("allowed-section")
+	if err != nil {
+		t.Fatalf("resolve allowed section after attach: %v", err)
+	}
+	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		t.Fatalf("expected attached terminal %q, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+
+	terminalSection, _, _, err := project.ResolveSection(terminalSectionID)
+	if err != nil {
+		t.Fatalf("resolve attached terminal section: %v", err)
+	}
+	if terminalSection.ParentSectionID != "allowed-section" {
+		t.Fatalf("expected attached terminal parent allowed-section, got %q", terminalSection.ParentSectionID)
+	}
+	if project.HasTopLevelSection(terminalSectionID) {
+		t.Fatalf("did not expect attached terminal %q to remain top-level", terminalSectionID)
+	}
+
+	parentPayload := mustDecodedProjectPayload(t, project.SectionImpls["allowed-impl"].Payload)
+	children := mustStringList(t, parentPayload["children"])
+	if len(children) != 1 || children[0] != terminalSectionID {
+		t.Fatalf("expected allowed-section children [%q], got %#v", terminalSectionID, children)
+	}
+}
+
 func TestServerCreateChildSectionsViaIncrementerAllowsUnscopedStructuralCallsAndTranslatesResultIDs(t *testing.T) {
 	t.Parallel()
 
@@ -6451,6 +6566,21 @@ func mustSeedScopedTestChildSection(t *testing.T, runtime *projectstate.Runtime,
 		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
 	}
 	return result.SectionIDs[0]
+}
+
+func mustSeedScopedTestTopLevelTerminal(t *testing.T, runtime *projectstate.Runtime) string {
+	t.Helper()
+
+	_, sectionID, err := runtime.CreateTemporaryTerminal("project-alpha", projectstate.TerminalSectionSeed{
+		SectionID: "attached-terminal",
+		VariantID: "attached-terminal-variant",
+		ImplID:    "attached-terminal-impl",
+		Name:      "Terminal",
+	})
+	if err != nil {
+		t.Fatalf("seed top-level terminal: %v", err)
+	}
+	return sectionID
 }
 
 func mustSetTestCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {

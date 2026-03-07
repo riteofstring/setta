@@ -3465,6 +3465,149 @@ func TestAppIDEMCPServerSupportsStructuralChildCreateOverAuthenticatedSSE(t *tes
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	terminalSectionID := mustSeedAppTopLevelTerminal(t, app.ProjectStates().Main())
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context unscoped: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected unscoped set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_attached_terminal",
+		Arguments: map[string]any{
+			"projectConfigId":   "project-alpha",
+			"sectionId":         "allowed-section",
+			"terminalSectionId": terminalSectionID,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_code_section_attached_terminal: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_code_section_attached_terminal success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_code_section_attached_terminal: %v", err)
+	}
+	_, _, codeImpl, err := project.ResolveSection("allowed-section")
+	if err != nil {
+		t.Fatalf("resolve allowed section after app attach: %v", err)
+	}
+	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		t.Fatalf("expected attached terminal %q after app mutation, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	terminalSectionID := mustSeedAppTopLevelTerminal(t, app.ProjectStates().Main())
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+		terminalSectionID: "91",
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_code_section_attached_terminal",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId":   "11",
+			"sectionId":         "14",
+			"terminalSectionId": "91",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_code_section_attached_terminal: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_code_section_attached_terminal success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_code_section_attached_terminal: %v", err)
+	}
+	_, _, codeImpl, err := project.ResolveSection("allowed-section")
+	if err != nil {
+		t.Fatalf("resolve allowed section after temp-id app attach: %v", err)
+	}
+	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		t.Fatalf("expected attached terminal %q after temp-id app mutation, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+}
+
 func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -6330,6 +6473,75 @@ func TestAppIDEMCPToolCallRouteSupportsStructuralChildCreate(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsSetCodeSectionAttachedTerminal(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	terminalSectionID := mustSeedAppTopLevelTerminal(t, app.ProjectStates().Main())
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_code_section_attached_terminal",
+			"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","terminalSectionId":"`+terminalSectionID+`"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"allowUnscoped":true
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_code_section_attached_terminal tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_code_section_attached_terminal tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_code_section_attached_terminal success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code_section_attached_terminal: %v", err)
+	}
+	_, _, codeImpl, err := project.ResolveSection("allowed-section")
+	if err != nil {
+		t.Fatalf("resolve allowed section after route attach: %v", err)
+	}
+	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		t.Fatalf("expected attached terminal %q after route mutation, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsIncrementerStructuralChildCreate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -6855,6 +7067,21 @@ func mustSeedAppChildSection(t *testing.T, runtime *projectstate.Runtime, parent
 		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
 	}
 	return result.SectionIDs[0]
+}
+
+func mustSeedAppTopLevelTerminal(t *testing.T, runtime *projectstate.Runtime) string {
+	t.Helper()
+
+	_, sectionID, err := runtime.CreateTemporaryTerminal("project-alpha", projectstate.TerminalSectionSeed{
+		SectionID: "attached-terminal",
+		VariantID: "attached-terminal-variant",
+		ImplID:    "attached-terminal-impl",
+		Name:      "Terminal",
+	})
+	if err != nil {
+		t.Fatalf("seed app top-level terminal: %v", err)
+	}
+	return sectionID
 }
 
 func mustSetAppCodeSectionReadOnly(t *testing.T, runtime *projectstate.Runtime, projectID string, sectionID string) {

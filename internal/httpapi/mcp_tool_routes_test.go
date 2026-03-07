@@ -3389,6 +3389,137 @@ func TestMCPToolCallRouteSupportsStructuralChildCreateWithUnscopedContext(t *tes
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetCodeSectionAttachedTerminal(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	terminalSectionID := mustSeedRouteTopLevelTerminal(t, projectRuntime)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_code_section_attached_terminal",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-section","terminalSectionId":"`+terminalSectionID+`"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_code_section_attached_terminal success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_code_section_attached_terminal: %v", err)
+	}
+	_, _, codeImpl, err := project.ResolveSection("allowed-section")
+	if err != nil {
+		t.Fatalf("resolve allowed section after route attach: %v", err)
+	}
+	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		t.Fatalf("expected attached terminal %q after route mutation, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+}
+
+func TestMCPToolCallRouteSetCodeSectionAttachedTerminalAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	terminalSectionID := mustSeedRouteTopLevelTerminal(t, projectRuntime)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":   "11",
+		"allowed-section": "14",
+		terminalSectionID: "91",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_code_section_attached_terminal",
+		"arguments":{"projectConfigId":"11","sectionId":"14","terminalSectionId":"91"},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"allowUnscoped":true
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_code_section_attached_terminal success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_code_section_attached_terminal: %v", err)
+	}
+	_, _, codeImpl, err := project.ResolveSection("allowed-section")
+	if err != nil {
+		t.Fatalf("resolve allowed section after temp-id route attach: %v", err)
+	}
+	if codeImpl.Code.AttachedTerminalSectionID != terminalSectionID {
+		t.Fatalf("expected attached terminal %q after temp-id route mutation, got %q", terminalSectionID, codeImpl.Code.AttachedTerminalSectionID)
+	}
+}
+
 func TestMCPToolCallRouteSupportsIncrementerStructuralChildCreateWithUnscopedContext(t *testing.T) {
 	t.Parallel()
 
@@ -4091,6 +4222,21 @@ func mustSeedRouteChildSection(t *testing.T, runtime *projectstate.Runtime, pare
 		t.Fatalf("expected one seeded child section under %q, got %#v", parentID, result.SectionIDs)
 	}
 	return result.SectionIDs[0]
+}
+
+func mustSeedRouteTopLevelTerminal(t *testing.T, runtime *projectstate.Runtime) string {
+	t.Helper()
+
+	_, sectionID, err := runtime.CreateTemporaryTerminal("project-alpha", projectstate.TerminalSectionSeed{
+		SectionID: "attached-terminal",
+		VariantID: "attached-terminal-variant",
+		ImplID:    "attached-terminal-impl",
+		Name:      "Terminal",
+	})
+	if err != nil {
+		t.Fatalf("seed route top-level terminal: %v", err)
+	}
+	return sectionID
 }
 
 func openMCPToolRouteDiagnosticsRegistry() *projectstate.LSPDiagnosticsRegistry {
