@@ -16,6 +16,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
+import { isWorkflowHandleId } from "./stateMachineEdges";
 
 export const AGENTIC_EDGE_HANDLE_IDS = {
   source: "agentic-edge-source",
@@ -75,6 +76,12 @@ export function isValidAgenticEdgeConnection(connection: Connection): boolean {
   if (!connection.source || !connection.target) {
     return false;
   }
+  if (
+    isWorkflowHandleId(connection.sourceHandle) ||
+    isWorkflowHandleId(connection.targetHandle)
+  ) {
+    return false;
+  }
   if (connection.source === connection.target) {
     return false;
   }
@@ -90,6 +97,12 @@ export function isValidAgenticEdgeConnection(connection: Connection): boolean {
 
 export function createAgenticEdgeFromConnection(connection: Connection): void {
   if (!connection.source || !connection.target) {
+    return;
+  }
+  if (
+    isWorkflowHandleId(connection.sourceHandle) ||
+    isWorkflowHandleId(connection.targetHandle)
+  ) {
     return;
   }
   const kind = resolveAgenticKindForConnection(connection);
