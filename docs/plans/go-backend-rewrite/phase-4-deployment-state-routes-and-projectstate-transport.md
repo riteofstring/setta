@@ -458,7 +458,6 @@ Tests:
 ## Next Recommended Step
 
 - This focused deployment-state transport doc is complete.
-- Return to
-  `docs/plans/go-backend-rewrite/phase-4-realtime-and-terminal-runtime.md`
-  and carve the next focused Phase 4 plan around the remaining producer-side
-  realtime event sources that still live only in Python.
+- Continue
+  `docs/plans/go-backend-rewrite/phase-4-listener-realtime-producer-migration.md`,
+  which now owns the remaining producer-side listener realtime slices.

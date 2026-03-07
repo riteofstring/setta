@@ -18,6 +18,8 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/observability"
+	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/wsapi"
 )
@@ -124,6 +126,117 @@ func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 
 	if frame := readAppRawFrame(t, conn); frame != wsapi.TerminalReadyMessage {
 		t.Fatalf("expected terminal ready marker, got %q", frame)
+	}
+}
+
+func TestAppServesListenerForceRefreshRoute(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.SchemaVersion = projectstate.CurrentSchemaVersion
+		document.DefaultProjectID = "project-alpha"
+		if document.Projects == nil {
+			document.Projects = map[string]projectstate.Project{}
+		}
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed listener project state: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-a", 1)+"?projectId=project-alpha",
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{cookieName + "=" + token},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", "")
+		if len(targets) == 1 && targets[0] == "listener-a" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if targets := app.ListenerBroadcaster().Registry().BootstrapConnectionIDs("project-alpha", ""); len(targets) != 1 || targets[0] != "listener-a" {
+		t.Fatalf("expected listener bootstrap for project-alpha, got %#v", targets)
+	}
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteForceRefreshListener,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	if err != nil {
+		t.Fatalf("new force refresh request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post listener force refresh: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, listenerConn, realtime.MessageTypeListenerForceRefresh, 1)
+
+	var content realtime.ListenerForceRefreshContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode listener force refresh content: %v", err)
+	}
+	if content.ProjectID != "project-alpha" {
+		t.Fatalf("expected project-alpha force refresh, got %q", content.ProjectID)
+	}
+
+	var projectState projectview.SingleConfig
+	if err := json.Unmarshal(content.ProjectState, &projectState); err != nil {
+		t.Fatalf("decode listener force refresh project state: %v", err)
+	}
+	if projectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha project config, got %q", projectState.ProjectConfig.ID)
 	}
 }
 

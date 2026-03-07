@@ -587,6 +587,6 @@ Return to the Phase 4 umbrella and scope the next bounded remaining gap:
 
 Immediate target:
 
-- carve a focused follow-up doc for the remaining producer-side realtime event
-  sources that still live only in Python, rather than widening `runCode`
-  further speculatively
+- continue
+  `docs/plans/go-backend-rewrite/phase-4-listener-realtime-producer-migration.md`
+  rather than widening `runCode` further speculatively

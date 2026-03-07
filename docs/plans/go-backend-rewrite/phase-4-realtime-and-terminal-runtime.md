@@ -18,6 +18,8 @@ Deployment session bootstrap and cleanup follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-deployment-session-transport-and-cleanup.md`.
 Deployment state/project-config follow-up work is tracked in
 `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`.
+Remaining producer-side listener realtime work is tracked in
+`docs/plans/go-backend-rewrite/phase-4-listener-realtime-producer-migration.md`.
 
 This phase should rebuild the product semantics described by the Python docs and
 tests without copying the Python websocket manager or terminal manager shapes.
@@ -105,10 +107,15 @@ Current repo status as of 2026-03-06:
   - `internal/app/deployment_cleanup.go`
   - explicit session reuse/replacement in `internal/deployments`
   - PTY + realtime teardown for expired deployment sessions
-- many producer-side realtime event sources and the remaining deployment/share run semantics still live only in Python across:
-  - `backend/setta/websockets/realtime_event_hub.py`
-  - `backend/setta/websockets/websocket_manager.py`
-  - `backend/setta/routers/websocket.py`
+- Go now also owns manual listener force refresh under:
+  - `internal/httpapi/listener_routes.go`
+  - `internal/app/app.go`
+  - runtime snapshot projection through `internal/projectview`
+- the remaining producer-side listener realtime sources still live only in
+  Python across:
+  - `backend/setta/websockets/msg_handlers/frontend_receiver.py`
+  - `backend/setta/project_state/artifacts.py`
+  - `backend/setta/plugins/manager.py`
 - deployment share/app state and project-config transport is now fully Go-owned
   under:
   - `internal/httpapi/deployment_routes.go`
@@ -604,12 +611,12 @@ Resolved In Slice 6:
 
 ## Next Recommended Step
 
-Create the next focused Phase 4 follow-up plan for the remaining realtime gap:
+Continue
+`docs/plans/go-backend-rewrite/phase-4-listener-realtime-producer-migration.md`
+with the next bounded slice:
 
-- inventory the frontend-visible producer-side realtime event sources that are
-  still emitted only from Python
-- choose the first bounded slice that moves one concrete producer boundary into
-  `internal/realtime` / `internal/wsapi`
+- frontend websocket listener-event ingress for `RealtimeUIChange` and
+  `RealtimeDependencyEvent`
 - keep `appDefinition` / `appSpec` as deployment-specific wrappers around the
-  projected single-config payload; that deployment transport slice is now
+  projected single-config payload; that deployment transport slice remains
   complete

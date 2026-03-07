@@ -163,6 +163,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 		},
 		Register: func(r chi.Router) {
+			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
+				ModePolicy:          modePolicy,
+				ShareSessions:       shareSessions,
+				ProjectState:        projectRuntime,
+				Deployment:          deploymentRuntime,
+				ListenerBroadcaster: listenerBroadcaster,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
 				ModePolicy: modePolicy,
 				Deployment: deploymentRuntime,

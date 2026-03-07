@@ -34,11 +34,13 @@ Use the docs in this order:
    - focused current-work plan for deployment session bootstrap/state transport and session cleanup ownership
 15. `phase-4-deployment-state-routes-and-projectstate-transport.md`
    - focused current-work plan for frontend-facing Go project-state transport and deployment state/project-config route migration
-16. `spike-mcp.md`
+16. `phase-4-listener-realtime-producer-migration.md`
+   - focused current-work plan for the remaining listener realtime producer boundaries
+17. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-17. `spike-pty.md`
+18. `spike-pty.md`
    - PTY uncertainty-reduction plan
-18. `spike-lsp.md`
+19. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
