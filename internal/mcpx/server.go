@@ -59,6 +59,7 @@ type toolDefinition struct {
 
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
+	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
 	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
 	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
@@ -742,6 +743,41 @@ func newSetCallableHandler(projectState projectStateProvider, callableSignatures
 			refetchParams,
 			callableSignatures,
 		)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newAddKwargHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped add_kwarg invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.AddKwarg(ctx, projectConfigID, sectionID)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -1636,6 +1672,49 @@ func defaultToolDefinitions(
 	}
 
 	if projectState != nil && lspDiagnostics != nil {
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "add_kwarg",
+				Description: "Create a new editable parameter entry in the targeted callable or dict section.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					ResultIDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeCodeObject: {"codeObjId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"param", "parameter", "kwarg", "create", "write"},
+				},
+				Handler: newAddKwargHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section should receive the new parameter.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Callable or dict section id that should receive the new parameter.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"codeObjId": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"codeObjId"},
+			},
+		})
+
 		if sectionNames != nil {
 			definitions = append(definitions, toolDefinition{
 				Spec: tools.Spec{
@@ -2529,6 +2608,9 @@ func normalizeProjectStateMutationError(err error) error {
 	case errors.Is(err, projectstate.ErrSectionNotFound),
 		errors.Is(err, projectstate.ErrCodeObjNotFound),
 		errors.Is(err, projectstate.ErrCallableSectionRequired),
+		errors.Is(err, projectstate.ErrAddKwargUnsupported),
+		errors.Is(err, projectstate.ErrAddKwargCallableUnset),
+		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),

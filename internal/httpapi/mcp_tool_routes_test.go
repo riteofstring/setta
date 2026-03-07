@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -408,6 +409,77 @@ func TestMCPToolCallRouteSupportsScopedWriteMutation(t *testing.T) {
 	callableSectionPayload := mustDecodedRouteProjectPayload(t, callableImpl.Payload)
 	if got := callableSectionPayload["callable"]; got != "allowed-callable-2" {
 		t.Fatalf("expected persisted callable allowed-callable-2, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, `{
+		"tool":"add_kwarg",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected add_kwarg success, got %#v", payload.StructuredContent)
+	}
+	addKwargPayload := mustStructuredMapForRoute(t, payload.StructuredContent)
+	addedCallableParamID, ok := addKwargPayload["codeObjId"].(string)
+	if !ok || addedCallableParamID == "" {
+		t.Fatalf("expected add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route add_kwarg: %v", err)
+	}
+	callableCodeObjPayload, addedCallableParam, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", addedCallableParamID)
+	if err != nil {
+		t.Fatalf("resolve added callable param after route add_kwarg: %v", err)
+	}
+	if addedCallableParam.Name != "param" {
+		t.Fatalf("expected added callable param placeholder name param, got %q", addedCallableParam.Name)
+	}
+	if got := callableCodeObjPayload["value"]; got != "" {
+		t.Fatalf("expected added callable param value to start empty, got %#v", got)
+	}
+
+	response = postMCPToolRoute(t, handler, fmt.Sprintf(`{
+		"tool":"set_param_name_and_value",
+		"arguments":{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","codeObjId":"%s","name":"key","value":"None"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`, addedCallableParamID))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload = decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected callable set_param_name_and_value success, got %#v", payload.StructuredContent)
+	}
+
+	project, err = projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route callable set_param_name_and_value: %v", err)
+	}
+	if got := project.CodeObjs[addedCallableParamID].Name; got != "key" {
+		t.Fatalf("expected added callable param name key, got %q", got)
+	}
+	callableCodeObjPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", addedCallableParamID)
+	if err != nil {
+		t.Fatalf("resolve added callable param after route rename/value: %v", err)
+	}
+	if got := callableCodeObjPayload["value"]; got != "None" {
+		t.Fatalf("expected added callable param value None, got %#v", got)
 	}
 
 	response = postMCPToolRoute(t, handler, `{

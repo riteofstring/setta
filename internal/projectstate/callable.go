@@ -439,7 +439,11 @@ func (p Project) resolveCurrentCodeObjectContext(
 }
 
 func (p *Project) setSectionCodeObjectVariant(sectionID string, codeObjID string, variantID string) error {
-	sectionPayload, err := p.currentCallableSectionPayload(sectionID)
+	section, variant, _, err := p.ResolveSection(strings.TrimSpace(sectionID))
+	if err != nil {
+		return err
+	}
+	sectionPayload, err := effectiveSectionPayload(*p, section.ID, variant.ID)
 	if err != nil {
 		return err
 	}

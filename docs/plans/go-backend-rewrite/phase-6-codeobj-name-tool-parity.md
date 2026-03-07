@@ -145,9 +145,10 @@ The highest-leverage move is therefore:
 - `set_param_name_and_value` has now landed as the next completed combined
   code-object write slice
 - `set_callable` has now landed as the callable selection/refetch follow-on
-- the next recommended step is a focused `add_kwarg` slice so new param
-  creation lands on the completed callable selection and combined rename/value
-  boundaries
+- `add_kwarg` has now landed as the param-creation follow-on
+- the next recommended step is a focused `change_param_impl` slice so newly
+  created params can switch control/value types on the completed creation plus
+  combined rename/value boundaries
 - keep `change_param_impl` and unrelated callable orchestration deferred until
   a dedicated slice narrows them into one owner
 - keep structural move/reparent semantics deferred until a dedicated

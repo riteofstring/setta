@@ -240,8 +240,9 @@ Do not own:
   rename/value boundary.
 - `set_callable` is now complete over the Go-owned callable/signature-help
   boundary.
-- The next recommended step is a focused `add_kwarg` slice so new param
-  creation lands on the completed callable selection and combined rename/value
-  boundaries.
+- `add_kwarg` is now complete over the Go-owned param-creation boundary.
+- The next recommended step is a focused `change_param_impl` slice so newly
+  created params can switch control/value types on the completed creation plus
+  combined rename/value boundaries.
 - Leave broader structural create/delete/move tools deferred until a dedicated
   structural plan narrows them into a bounded owner.

@@ -143,12 +143,14 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- implement a focused `add_kwarg` slice so new callable/global-var params land
-  on the completed callable selection and combined rename/value boundaries
-- keep param creation authoritative in `internal/projectstate` instead of
-  transport-local payload surgery
-- keep `change_param_impl` and broader callable presentation/layout follow-ons
-  deferred until their own bounded slices
+- `add_kwarg` is now complete over the Go-owned param-creation boundary
+- implement a focused `change_param_impl` slice so newly created params can
+  switch control/value types on the completed creation plus rename/value
+  boundaries
+- keep param-impl switching authoritative in `internal/projectstate` instead
+  of transport-local payload surgery
+- keep broader callable presentation/layout follow-ons deferred until their own
+  bounded slices
 
 ## Progress Notes
 
@@ -156,3 +158,5 @@ The highest-leverage move is therefore:
 - 2026-03-07: slice completed with MCP `set_callable` registration, shared
   callable-signature resolver wiring through app/server construction, nested
   child `codeObjId` temp-id translation, and authenticated route/SSE coverage.
+- 2026-03-07: follow-on `add_kwarg` slice completed; next recommended step
+  moved to `change_param_impl`.

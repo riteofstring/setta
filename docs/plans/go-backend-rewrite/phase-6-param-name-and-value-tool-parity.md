@@ -133,12 +133,12 @@ The highest-leverage move is therefore:
 
 ## Next Recommended Step
 
-- `set_callable` is now complete over the Go-owned callable/signature-help
-  boundary
-- implement a focused `add_kwarg` slice so new callable/global-var params land
-  on the completed callable selection and combined rename/value boundaries
-- keep `change_param_impl` and broader structural semantics deferred until
-  they can each move as bounded follow-ons
+- `add_kwarg` is now complete over the Go-owned param-creation boundary
+- implement a focused `change_param_impl` slice so newly created params can
+  switch control/value types on the completed creation plus rename/value
+  boundaries
+- keep broader structural semantics deferred until they can each move as
+  bounded follow-ons
 
 ## Progress Notes
 
@@ -150,3 +150,5 @@ The highest-leverage move is therefore:
   combined write boundary lives in `internal/projectstate`.
 - 2026-03-07: follow-on `set_callable` slice completed; next recommended step
   moved to `add_kwarg`.
+- 2026-03-07: follow-on `add_kwarg` slice completed; next recommended step
+  moved to `change_param_impl`.

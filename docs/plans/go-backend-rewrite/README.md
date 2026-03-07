@@ -116,11 +116,14 @@ Use the docs in this order:
 52. `phase-6-set-callable-tool-parity.md`
    - focused slice doc for Go-owned `set_callable` MCP parity over the
      completed callable/signature-help runtime and scoped MCP write boundary
-53. `spike-mcp.md`
+53. `phase-6-add-kwarg-tool-parity.md`
+   - focused slice doc for Go-owned `add_kwarg` MCP parity over the completed
+     callable selection plus combined param rename/value boundaries
+54. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-54. `spike-pty.md`
+55. `spike-pty.md`
    - PTY uncertainty-reduction plan
-55. `spike-lsp.md`
+56. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -136,8 +136,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 20 {
-		t.Fatalf("expected 20 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 21 {
+		t.Fatalf("expected 21 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -148,6 +148,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var deleteSectionsTool *sdkmcp.Tool
 	var createTopLevelSectionTool *sdkmcp.Tool
 	var setCallableTool *sdkmcp.Tool
+	var addKwargTool *sdkmcp.Tool
 	var summaryTool *sdkmcp.Tool
 	var diagnosticsTool *sdkmcp.Tool
 	var muteTool *sdkmcp.Tool
@@ -180,6 +181,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_callable" {
 			setCallableTool = tool
+		}
+		if tool.Name == "add_kwarg" {
+			addKwargTool = tool
 		}
 		if tool.Name == "get_latest_project_state_summary" {
 			summaryTool = tool
@@ -214,6 +218,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	sort.Strings(names)
 	expectedNames := []string{
+		"add_kwarg",
 		"create_child_sections",
 		"create_child_sections_via_incrementer",
 		"create_new_section_variant",
@@ -261,6 +266,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setCallableTool == nil {
 		t.Fatal("expected set_callable tool")
+	}
+	if addKwargTool == nil {
+		t.Fatal("expected add_kwarg tool")
 	}
 	createChildMeta := mustStructuredMap(t, createChildSectionsTool.Meta[toolMetaNamespace])
 	if createChildMeta["accessType"] != string(tools.AccessTypeStructural) {
@@ -355,6 +363,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, setCallableResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 2 || got[0] != "callableId" || got[1] != "childCodeObjs.codeObjId" {
 		t.Fatalf("expected set_callable code-object result paths, got %#v", got)
 	}
+	addKwargMeta := mustStructuredMap(t, addKwargTool.Meta[toolMetaNamespace])
+	if addKwargMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for add_kwarg, got %#v", addKwargMeta["accessType"])
+	}
+	addKwargPaths := mustStructuredMap(t, addKwargMeta["idPathsByType"])
+	if got := mustStringList(t, addKwargPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected add_kwarg sectionId target path, got %#v", got)
+	}
+	addKwargResultPaths := mustStructuredMap(t, addKwargMeta["resultIdPathsByType"])
+	if got := mustStringList(t, addKwargResultPaths[string(tools.IDTypeCodeObject)]); len(got) != 1 || got[0] != "codeObjId" {
+		t.Fatalf("expected add_kwarg codeObjId result path, got %#v", got)
+	}
 	settaMeta := mustStructuredMap(t, summaryTool.Meta[toolMetaNamespace])
 	if settaMeta["resultFilter"] != string(tools.ResultFilterProjectStateSummary) {
 		t.Fatalf("expected project-state result filter, got %#v", settaMeta["resultFilter"])
@@ -436,8 +456,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 20 {
-		t.Fatalf("expected 20 registered tool names, got %#v", listNames)
+	if len(listNames) != 21 {
+		t.Fatalf("expected 21 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1004,6 +1024,174 @@ func TestServerSetCallableUsesResolverWhenRefetchRequested(t *testing.T) {
 	}
 	if secondChild["codeObjId"] == "" || secondChild["codeObjId"] == "allowed-param-existing" {
 		t.Fatalf("expected synthesized child id, got %#v", secondChild["codeObjId"])
+	}
+}
+
+func TestServerAddKwargRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "add_kwarg",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-callable-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call add_kwarg allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed add_kwarg success, got %#v", allowedResult.StructuredContent)
+	}
+
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	codeObjID, ok := allowedPayload["codeObjId"].(string)
+	if !ok || codeObjID == "" {
+		t.Fatalf("expected created codeObjId string, got %#v", allowedPayload["codeObjId"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after add_kwarg: %v", err)
+	}
+	callablePayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-1")
+	if err != nil {
+		t.Fatalf("resolve active callable after add_kwarg: %v", err)
+	}
+	children := mustStringList(t, callablePayload["children"])
+	if len(children) != 1 || children[0] != codeObjID {
+		t.Fatalf("expected created callable child [%q], got %#v", codeObjID, children)
+	}
+	paramPayload, codeObj, _, paramImpl, err := project.ResolveSectionCodeObject("allowed-callable-section", codeObjID)
+	if err != nil {
+		t.Fatalf("resolve created callable param after add_kwarg: %v", err)
+	}
+	if codeObj.Name != "param" {
+		t.Fatalf("expected placeholder callable param name param, got %q", codeObj.Name)
+	}
+	if paramImpl.Type != "CodeParam" {
+		t.Fatalf("expected created callable param type CodeParam, got %q", paramImpl.Type)
+	}
+	if got := payloadRawStringField(paramPayload, "value"); got != "" {
+		t.Fatalf("expected created callable param value to start empty, got %q", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "add_kwarg",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-callable-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call add_kwarg blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked add_kwarg call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-callable-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+}
+
+func TestServerAddKwargTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":            "11",
+		"chat-1":                   "12",
+		"chat-section":             "13",
+		"allowed-callable-section": "24",
+		"blocked-callable-section": "25",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "add_kwarg",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "24",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id add_kwarg allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id add_kwarg success, got %#v", allowedResult.StructuredContent)
+	}
+
+	allowedPayload := mustStructuredMap(t, allowedResult.StructuredContent)
+	temporaryCodeObjID, ok := allowedPayload["codeObjId"].(string)
+	if !ok || temporaryCodeObjID == "" {
+		t.Fatalf("expected translated codeObjId string, got %#v", allowedPayload["codeObjId"])
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id add_kwarg: %v", err)
+	}
+	callablePayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-1")
+	if err != nil {
+		t.Fatalf("resolve active callable after temp-id add_kwarg: %v", err)
+	}
+	children := mustStringList(t, callablePayload["children"])
+	if len(children) != 1 {
+		t.Fatalf("expected one canonical callable child after temp-id add_kwarg, got %#v", children)
+	}
+	canonicalCodeObjID := children[0]
+	if temporaryCodeObjID == canonicalCodeObjID {
+		t.Fatalf("expected translated codeObjId distinct from canonical id %q", canonicalCodeObjID)
+	}
+	temporaryMap := readTemporaryIDMapForTest(t, temporaryIDMapPath)
+	if got := temporaryMap[canonicalCodeObjID]; got != temporaryCodeObjID {
+		t.Fatalf("expected temporary map %q -> %q, got %q", canonicalCodeObjID, temporaryCodeObjID, got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "add_kwarg",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "25",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id add_kwarg blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id add_kwarg call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "25" {
+		t.Fatalf("expected translated blockedSectionIds [25], got %#v", ids)
 	}
 }
 

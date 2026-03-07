@@ -95,8 +95,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 20 {
-		t.Fatalf("expected 20 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 21 {
+		t.Fatalf("expected 21 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -114,8 +114,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 20 {
-		t.Fatalf("expected 20 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 21 {
+		t.Fatalf("expected 21 registered tool names, got %d", len(rawNames))
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -488,6 +488,85 @@ func TestAppIDEMCPServerSupportsScopedWriteMutationOverAuthenticatedSSE(t *testi
 	callableSectionPayload := mustDecodedProjectPayloadValue(t, callableImpl.Payload)
 	if got := callableSectionPayload["callable"]; got != "allowed-callable-2" {
 		t.Fatalf("expected persisted callable allowed-callable-2, got %#v", got)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "add_kwarg",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-callable-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call add_kwarg: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected add_kwarg success, got %#v", result.StructuredContent)
+	}
+	addKwargPayload := mustStructuredMapValue(t, result.StructuredContent)
+	addedCallableParamID, ok := addKwargPayload["codeObjId"].(string)
+	if !ok || addedCallableParamID == "" {
+		t.Fatalf("expected add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after add_kwarg: %v", err)
+	}
+	callableRootPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 after add_kwarg: %v", err)
+	}
+	callableChildren := mustStringSliceValue(t, callableRootPayload["children"])
+	if len(callableChildren) != 2 {
+		t.Fatalf("expected two callable children after add_kwarg, got %#v", callableChildren)
+	}
+	canonicalAddedCallableParamID := callableChildren[1]
+	temporaryMap := readAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"))
+	if got := temporaryMap[canonicalAddedCallableParamID]; got != addedCallableParamID {
+		t.Fatalf("expected temporary map %q -> %q, got %q", canonicalAddedCallableParamID, addedCallableParamID, got)
+	}
+	addedCallableParamPayload, addedCallableParam, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", canonicalAddedCallableParamID)
+	if err != nil {
+		t.Fatalf("resolve added callable param after add_kwarg: %v", err)
+	}
+	if addedCallableParam.Name != "param" {
+		t.Fatalf("expected added callable param placeholder name param, got %q", addedCallableParam.Name)
+	}
+	if got := addedCallableParamPayload["value"]; got != "" {
+		t.Fatalf("expected added callable param value to start empty, got %#v", got)
+	}
+
+	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_param_name_and_value",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-callable-section",
+			"codeObjId":       addedCallableParamID,
+			"name":            "key",
+			"value":           "None",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call callable set_param_name_and_value: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected callable set_param_name_and_value success, got %#v", result.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after callable set_param_name_and_value: %v", err)
+	}
+	if got := project.CodeObjs[canonicalAddedCallableParamID].Name; got != "key" {
+		t.Fatalf("expected added callable param name key, got %q", got)
+	}
+	addedCallableParamPayload, _, _, _, err = project.ResolveSectionCodeObject("allowed-callable-section", canonicalAddedCallableParamID)
+	if err != nil {
+		t.Fatalf("resolve added callable param after callable rename/value: %v", err)
+	}
+	if got := addedCallableParamPayload["value"]; got != "None" {
+		t.Fatalf("expected added callable param value None, got %#v", got)
 	}
 
 	result, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -1329,6 +1408,80 @@ func TestAppIDEMCPServerSupportsTemporaryIDsOverAuthenticatedSSE(t *testing.T) {
 			"chatId":          "12",
 			"sectionId":       "13",
 		},
+		Name: "add_kwarg",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "25",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id add_kwarg: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id add_kwarg success, got %#v", writeResult.StructuredContent)
+	}
+	addKwargPayload := mustStructuredMapValue(t, writeResult.StructuredContent)
+	addedTempCodeObjID, ok := addKwargPayload["codeObjId"].(string)
+	if !ok || addedTempCodeObjID == "" {
+		t.Fatalf("expected temp-id add_kwarg codeObjId string, got %#v", addKwargPayload["codeObjId"])
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Name: "set_param_name_and_value",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "25",
+			"codeObjId":       addedTempCodeObjID,
+			"name":            "temp_key",
+			"value":           "None",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id callable set_param_name_and_value: %v", err)
+	}
+	if writeResult.IsError {
+		t.Fatalf("expected temp-id callable set_param_name_and_value success, got %#v", writeResult.StructuredContent)
+	}
+
+	project, err = app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id add_kwarg rename/value: %v", err)
+	}
+	callableRootPayload, _, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", "allowed-callable-2")
+	if err != nil {
+		t.Fatalf("resolve allowed-callable-2 after temp-id add_kwarg: %v", err)
+	}
+	callableChildren := mustStringSliceValue(t, callableRootPayload["children"])
+	if len(callableChildren) != 2 {
+		t.Fatalf("expected two callable children after temp-id add_kwarg, got %#v", callableChildren)
+	}
+	canonicalAddedCodeObjID := callableChildren[1]
+	temporaryMap := readAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"))
+	if got := temporaryMap[canonicalAddedCodeObjID]; got != addedTempCodeObjID {
+		t.Fatalf("expected temporary map %q -> %q, got %q", canonicalAddedCodeObjID, addedTempCodeObjID, got)
+	}
+	callableParamPayload, addedCallableParam, _, _, err := project.ResolveSectionCodeObject("allowed-callable-section", canonicalAddedCodeObjID)
+	if err != nil {
+		t.Fatalf("resolve added callable param after temp-id rename/value: %v", err)
+	}
+	if addedCallableParam.Name != "temp_key" {
+		t.Fatalf("expected added callable param name temp_key, got %q", addedCallableParam.Name)
+	}
+	if got := callableParamPayload["value"]; got != "None" {
+		t.Fatalf("expected added callable param value None, got %#v", got)
+	}
+
+	writeResult, err = session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
 		Name: "set_code_section_diagnostic_code_suppression",
 		Arguments: map[string]any{
 			"projectConfigId": "11",
@@ -1582,8 +1735,8 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 20 {
-		t.Fatalf("expected tool count 20, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != 21 {
+		t.Fatalf("expected tool count 21, got %d", payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
@@ -2635,6 +2788,20 @@ func writeAppTemporaryIDMap(t *testing.T, path string, payload map[string]string
 	}
 }
 
+func readAppTemporaryIDMap(t *testing.T, path string) map[string]string {
+	t.Helper()
+
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read temporary id map: %v", err)
+	}
+	decoded := map[string]string{}
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode temporary id map: %v", err)
+	}
+	return decoded
+}
+
 func mustStructuredMapValue(t *testing.T, value any) map[string]any {
 	t.Helper()
 
@@ -2679,6 +2846,34 @@ func mustStructuredListValue(t *testing.T, value any) []any {
 		t.Fatalf("decode structured list value: %v", err)
 	}
 	return decoded
+}
+
+func mustStringSliceValue(t *testing.T, value any) []string {
+	t.Helper()
+
+	switch typed := value.(type) {
+	case []string:
+		return typed
+	case []any:
+		output := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			stringValue, ok := entry.(string)
+			if ok {
+				output = append(output, stringValue)
+			}
+		}
+		return output
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatalf("marshal string slice value: %v", err)
+		}
+		var decoded []string
+		if err := json.Unmarshal(encoded, &decoded); err != nil {
+			t.Fatalf("decode string slice value: %v", err)
+		}
+		return decoded
+	}
 }
 
 func mustStructuredStringListValue(t *testing.T, value any) []string {

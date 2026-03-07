@@ -832,16 +832,47 @@ Reference:
 
 - `phase-6-set-callable-tool-parity.md`
 
+### Slice 19: Add Kwarg Tool Parity
+
+Deliver:
+
+- a Go-owned project-state owner for `add_kwarg`
+- callable-section param creation under the active callable
+- dict-section param creation with lazy root init and shared top-level param
+  reuse
+- a Go MCP `add_kwarg` write tool
+- structured MCP results returning the created `codeObjId`
+- result temp-id translation for the created `codeObjId`
+- focused project-state, MCP server, authenticated HTTP bridge, and IDE-mode
+  app coverage
+
+Acceptance:
+
+- Go MCP exposes `add_kwarg`
+- param creation semantics stay source-of-truth in `internal/projectstate`
+- MCP returns a created `codeObjId` that can feed the completed rename/value
+  tool directly
+- scoped writes fail closed through `sectionId` metadata targeting
+- temp-id translation rewrites returned `codeObjId` values
+- placeholder naming stays deterministic and valid under Go project-state
+  normalization
+
+Status:
+
+- complete
+
+Reference:
+
+- `phase-6-add-kwarg-tool-parity.md`
+
 ## Next Recommended Step
 
-- Slice 18 is now complete.
-- The next recommended step is a focused `add_kwarg` slice so new callable and
-  param entries land on the completed callable selection plus combined
-  rename/value boundaries.
-- Keep it scoped to explicit project-state ownership for param creation instead
-  of transport-local heuristics or broad callable orchestration.
-- Keep `change_param_impl` deferred until a dedicated param-impl slice narrows
-  type-switch semantics into one owner.
+- Slice 19 is now complete.
+- The next recommended step is a focused `change_param_impl` slice so newly
+  created params can switch control/value types on the completed creation plus
+  combined rename/value boundaries.
+- Keep it scoped to explicit project-state ownership for param-impl switching
+  instead of transport-local heuristics or broad callable orchestration.
 - Keep move/reparent semantics deferred until a dedicated structural plan
   slices them into a bounded owner.
 - Keep the IDE HTTP `createTopLevelSection` route deferred until a slice
