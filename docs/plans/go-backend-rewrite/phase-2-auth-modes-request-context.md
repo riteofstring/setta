@@ -54,6 +54,14 @@ This phase should deliver:
 - keep auth/session semantics in our code instead of pulling in a generic session framework
 - do not preserve the Python HTML bootstrap page unless it is needed by a real client integration
 - do not implement heuristic request trust or keyword-based mode decisions
+- keep session-scoped IDE auth cookie names:
+  - base cookie name defaults to `setta_auth`
+  - the actual cookie name is `<base>_<sessionId>`
+- resolve the current IDE session from explicit runtime metadata:
+  - use `SETTA_SESSION_ID`
+  - use `SETTA_SESSIONS_ROOT` when present
+  - otherwise read from `<runtimeRoot>/sessions`
+- gate IDE HTTP at the `/api/*` router boundary instead of scattering auth checks across handlers
 
 ## Implementation Slices
 
@@ -74,6 +82,38 @@ Acceptance:
 - bootstrap consume mints a valid auth cookie
 - protected API requests succeed after bootstrap consume
 - invalid/expired/replayed tokens fail cleanly
+
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/auth` for:
+  - bootstrap token mint/consume with nonce replay tracking
+  - signed auth cookie mint/validate
+  - current-session metadata/secret loading from the runtime sessions directory
+  - request-scoped auth context helpers
+- wired `POST /__setta__/bootstrap/consume`
+  - accepts JSON body token input
+  - accepts `Authorization: Bearer <token>`
+  - sets a session-scoped auth cookie on success
+- protected `/api/*` in IDE mode through middleware instead of per-handler checks
+- verified request auth context reaches later handlers
+
+Tests:
+
+- token round-trip, replay rejection, expiry rejection, and cookie round-trip in `internal/auth/service_test.go`
+- HTTP bootstrap consume and protected-route integration in `internal/httpapi/httpapi_test.go`
+- full Go suite passes with `./scripts/go.sh test ./...`
+
+Deferred:
+
+- bootstrap HTML page parity
+- auth cookie refresh window behavior
+- trusted frontend origin persistence
+- dev auto-auth
+- websocket auth entry points
 
 ### Slice 2: Request Auth Context And Refresh
 
@@ -152,6 +192,15 @@ contract that later request context, websocket auth, and share-mode policy can b
 
 ## Open Questions
 
-- Do we want the Go rewrite to keep session-scoped cookie names (`setta_auth_<sessionId>`) or switch to a single cookie name with the session id only inside the signed payload?
-- Should the initial Go bootstrap flow ship only the JSON consume endpoint, or do we need the HTML bootstrap page immediately for real local flows?
+- Do we need the HTML bootstrap page immediately for a real launcher/browser flow, or is the JSON consume endpoint still sufficient for the current phase?
 - When Phase 2 reaches share mode, do we keep share-session extraction in `internal/auth` or split it into `internal/modes` once mode policies become more complex?
+
+## Next Recommended Step
+
+Move to Slice 2.
+
+Specifically:
+
+- refresh near-expiry auth cookies on `/api/*` responses only
+- expose the request auth context as a stable dependency for later services and handlers
+- add a small auth status route only if a concrete frontend caller needs it during this phase
