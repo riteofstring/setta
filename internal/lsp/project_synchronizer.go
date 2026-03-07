@@ -15,11 +15,13 @@ import (
 type ProjectSynchronizerOptions struct {
 	SettaFilesRoot string
 	Service        *Service
+	Diagnostics    *projectstate.LSPDiagnosticsRegistry
 }
 
 type ProjectSynchronizer struct {
 	settaFilesRoot string
 	service        *Service
+	diagnostics    *projectstate.LSPDiagnosticsRegistry
 }
 
 func NewProjectSynchronizer(options ProjectSynchronizerOptions) (*ProjectSynchronizer, error) {
@@ -33,6 +35,7 @@ func NewProjectSynchronizer(options ProjectSynchronizerOptions) (*ProjectSynchro
 	return &ProjectSynchronizer{
 		settaFilesRoot: settaFilesRoot,
 		service:        options.Service,
+		diagnostics:    options.Diagnostics,
 	}, nil
 }
 
@@ -83,6 +86,7 @@ func (s *ProjectSynchronizer) buildDocuments(document projectstate.Document) (ma
 				Path:       path,
 				LanguageID: "python",
 				Content:    content,
+				Callback:   s.codeSectionDiagnosticsCallback(project.ID, sectionFile.SectionID),
 			}
 		}
 
@@ -117,6 +121,16 @@ func (s *ProjectSynchronizer) resolveSectionContent(path string, sectionFile pro
 		return "", fmt.Errorf("lsp: initialize empty python code section %q: %w", sectionFile.SectionID, err)
 	}
 	return "", nil
+}
+
+func (s *ProjectSynchronizer) codeSectionDiagnosticsCallback(projectID string, sectionID string) DiagnosticsCallback {
+	if s == nil || s.diagnostics == nil {
+		return nil
+	}
+
+	return func(params PublishDiagnosticsParams) {
+		s.diagnostics.UpdateCodeSection(projectID, sectionID, toProjectDiagnostics(params))
+	}
 }
 
 func (s *ProjectSynchronizer) generatedPythonDocuments(project projectstate.Project) (map[string]SyncedDocument, error) {
@@ -169,4 +183,56 @@ func (s *ProjectSynchronizer) resolveGeneratedPath(binding *projectstate.CodeFil
 		relativePath = binding.Path
 	}
 	return statefs.ResolveWithinRoot(s.settaFilesRoot, filepath.FromSlash(relativePath), "generated python path")
+}
+
+func toProjectDiagnostics(params PublishDiagnosticsParams) []projectstate.LSPDiagnostic {
+	diagnostics := make([]projectstate.LSPDiagnostic, 0, len(params.Diagnostics))
+	for _, diagnostic := range params.Diagnostics {
+		diagnostics = append(diagnostics, projectstate.LSPDiagnostic{
+			Message:  diagnostic.Message,
+			Severity: pointerIfPositive(diagnostic.Severity),
+			Code:     normalizeDiagnosticCode(diagnostic.Code),
+			Source:   pointerIfNonEmpty(diagnostic.Source),
+			Range: projectstate.LSPDiagnosticRange{
+				Start: projectstate.LSPDiagnosticPosition{
+					Line:      diagnostic.Range.Start.Line,
+					Character: diagnostic.Range.Start.Character,
+				},
+				End: projectstate.LSPDiagnosticPosition{
+					Line:      diagnostic.Range.End.Line,
+					Character: diagnostic.Range.End.Character,
+				},
+			},
+			URI: pointerIfNonEmpty(params.URI),
+		})
+	}
+	return diagnostics
+}
+
+func pointerIfPositive(value int) *int {
+	if value <= 0 {
+		return nil
+	}
+	output := value
+	return &output
+}
+
+func pointerIfNonEmpty(value string) *string {
+	if value == "" {
+		return nil
+	}
+	output := value
+	return &output
+}
+
+func normalizeDiagnosticCode(value any) any {
+	switch typed := value.(type) {
+	case float64:
+		if typed == float64(int(typed)) {
+			return int(typed)
+		}
+		return typed
+	default:
+		return typed
+	}
 }

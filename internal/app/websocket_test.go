@@ -89,6 +89,89 @@ func TestAppServesFrontendWebsocketRoute(t *testing.T) {
 	}
 }
 
+func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	seedAppLSPCodeSectionProjectWithSource(t, app, "__fixture_error__\n")
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save lsp diagnostics project: %v", err)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeLSPDiagnostics, 4)
+	var websocketPayload projectstate.LSPDiagnosticsPayload
+	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
+		t.Fatalf("decode websocket diagnostics payload: %v", err)
+	}
+	assertAppLSPDiagnosticsPayload(t, websocketPayload)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetLatestLSPDiagnostics,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	if err != nil {
+		t.Fatalf("new diagnostics request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post latest diagnostics: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var routePayload projectstate.LSPDiagnosticsPayload
+	if err := json.NewDecoder(response.Body).Decode(&routePayload); err != nil {
+		t.Fatalf("decode route diagnostics payload: %v", err)
+	}
+	assertAppLSPDiagnosticsPayload(t, routePayload)
+}
+
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -591,4 +674,22 @@ func readAppRawFrame(t *testing.T, conn *websocket.Conn) string {
 		t.Fatalf("read app websocket frame: %v", err)
 	}
 	return string(payload)
+}
+
+func assertAppLSPDiagnosticsPayload(t *testing.T, payload projectstate.LSPDiagnosticsPayload) {
+	t.Helper()
+
+	if payload.ProjectID != "project-alpha" {
+		t.Fatalf("unexpected diagnostics project id %q", payload.ProjectID)
+	}
+	sectionDiagnostics := payload.CodeSections["runner"]
+	if len(sectionDiagnostics) != 1 {
+		t.Fatalf("expected one runner diagnostic, got %#v", payload.CodeSections)
+	}
+	if sectionDiagnostics[0].Message != "Fixture TypeScript diagnostic" {
+		t.Fatalf("unexpected diagnostic message %q", sectionDiagnostics[0].Message)
+	}
+	if sectionDiagnostics[0].Code != "fixture-ts" {
+		t.Fatalf("unexpected diagnostic code %#v", sectionDiagnostics[0].Code)
+	}
 }

@@ -52,6 +52,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 
 	modePolicy := modes.NewPolicy(cfg.Server.Mode)
 	manager := runtime.New(context.Background(), logger)
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
 	authService, err := auth.NewService(auth.Options{
 		Mode:              cfg.Server.Mode,
 		RuntimeRoot:       cfg.Paths.RuntimeRoot,
@@ -67,6 +68,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		deploymentRuntime  *deployments.Runtime
 		projectRuntime     *projectstate.Runtime
 		codegenValidator   projectstate.CodegenTargetValidator
+		lspDiagnostics     *projectstate.LSPDiagnosticsRegistry
 		projectLSPSyncer   *lsp.ProjectSynchronizer
 		pythonMaterializer *codegen.PythonMaterializer
 		pluginMaterializer *codegen.PluginMaterializer
@@ -119,6 +121,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{
+			OnChange: func(payload projectstate.LSPDiagnosticsPayload) {
+				_, _ = websocketHub.BroadcastJSON(
+					context.Background(),
+					realtime.NewLSPDiagnosticsMessage(payload),
+					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+				)
+			},
+		})
 		pythonSession, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 		})
@@ -128,6 +139,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectLSPSyncer, err = lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			Service:        lsp.NewService(pythonSession),
+			Diagnostics:    lspDiagnostics,
 		})
 		if err != nil {
 			return nil, err
@@ -139,6 +151,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						return err
 					}
 					if err := projectLSPSyncer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+						return err
+					}
+					if err := lspDiagnostics.PruneDocument(snapshot.Document); err != nil {
 						return err
 					}
 					return pluginMaterializer.MaterializeDocument(ctx, snapshot.Document)
@@ -174,7 +189,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectResources(projectStates, deploymentRuntime), terminalService.Close(context.Background()))
 		return nil, err
 	}
-	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
 	})
@@ -269,6 +283,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ProjectState:                   projectRuntime,
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterLSPRoutes(r, httpapi.LSPRouteDependencies{
+				ModePolicy:   modePolicy,
+				ProjectState: projectRuntime,
+				Diagnostics:  lspDiagnostics,
 			}); err != nil {
 				panic(err)
 			}

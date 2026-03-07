@@ -35,8 +35,13 @@ Current repo status as of 2026-03-07:
   - canonical Python code-section bindings normalize inside `internal/projectstate`
   - file-backed Python sections keep their canonical on-disk source when the
     current project snapshot has binding metadata but no inline `"code"` field
+- Slice 2 is now in progress:
+  - Go owns project-scoped code-section diagnostics state and deduped snapshot
+    hydration for `getLatestLspDiagnostics`
+  - live Python code-section diagnostics now broadcast over the frontend
+    websocket as `LSPDiagnostics`
+  - generated-code diagnostics mapping is still pending
 - there are still no Go-owned HTTP routes for:
-  - `getLatestLspDiagnostics`
   - `textFieldCompletion`
   - `outputAccessorCompletion`
   - `codeAreaCompletion`
@@ -272,7 +277,7 @@ Acceptance:
 
 Status:
 
-- next
+- in progress
 
 ### Slice 3: Snapshot Completion Transport
 
@@ -357,11 +362,38 @@ Verification completed:
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -count=1`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/lsp ./internal/projectstate ./internal/app -count=1`
 
+## Slice 2 Notes
+
+Completed in code and tests:
+
+- `internal/projectstate` now owns a project-scoped LSP diagnostics registry
+  with deduped code-section payload snapshots
+- `internal/lsp` synchronizer now forwards publish-diagnostics notifications
+  for canonical Python code-section documents into that registry
+- `internal/realtime` now exposes `LSPDiagnostics` websocket messages for
+  frontend hydration
+- `internal/httpapi` now serves `getLatestLspDiagnostics` from the Go-owned
+  diagnostics registry with IDE-only gating
+- `internal/app` now wires save-hook diagnostics updates, section pruning, and
+  websocket broadcasts end-to-end
+
+Still pending in Slice 2:
+
+- generated Python diagnostics mapping into `genCode` and `unmappedGenCode`
+- generated-code stale-clear semantics when Python LSP is unavailable or the
+  target is removed
+
+Verification completed:
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/httpapi ./internal/lsp ./internal/realtime ./internal/app -count=1`
+
 ## Next Recommended Step
 
 Execute Slice 2 next:
 
-- add project-scoped diagnostics storage under `internal/projectstate`
-- wire `publishDiagnostics` callbacks from `internal/lsp` into that store
-- broadcast `LSPDiagnostics` updates through the existing realtime boundary
-- add `getLatestLspDiagnostics` route wiring before widening to completion
+- finish generated Python diagnostics mapping into `genCode` and
+  `unmappedGenCode`
+- clear generated-code diagnostics when Python LSP state disappears instead of
+  leaving stale payloads behind
+- keep the websocket and hydration route reading the same registry snapshot
+  before widening to completion

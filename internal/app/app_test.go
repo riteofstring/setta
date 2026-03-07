@@ -1292,6 +1292,12 @@ func seedAppRunCodeProject(t *testing.T, app *App, cfg config.Config, source str
 func seedAppLSPCodeSectionProject(t *testing.T, app *App) {
 	t.Helper()
 
+	seedAppLSPCodeSectionProjectWithSource(t, app, "print('runner')\n")
+}
+
+func seedAppLSPCodeSectionProjectWithSource(t *testing.T, app *App, source string) {
+	t.Helper()
+
 	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
 		document.Projects["project-alpha"] = projectstate.Project{
 			ID:   "project-alpha",
@@ -1320,13 +1326,13 @@ func seedAppLSPCodeSectionProject(t *testing.T, app *App) {
 					Code: &projectstate.CodeSectionImpl{
 						Language: projectstate.CodeLanguagePython,
 					},
-					Payload: projectstate.RawJSON(`{
-						"id":"runner-impl",
-						"type":"Code",
-						"code":"print('runner')\n",
-						"codeLanguage":"python",
-						"children":[]
-					}`),
+					Payload: mustAppJSON(t, map[string]any{
+						"id":           "runner-impl",
+						"type":         "Code",
+						"code":         source,
+						"codeLanguage": "python",
+						"children":     []string{},
+					}),
 				},
 			},
 		}
