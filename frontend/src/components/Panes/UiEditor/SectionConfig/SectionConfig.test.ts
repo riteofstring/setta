@@ -27,9 +27,6 @@ describe("sectionTypeSupportsAppearanceSettings", () => {
       SectionTypeEnum.Code,
       SectionTypeEnum.Chat,
       SectionTypeEnum.Browser,
-      SectionTypeEnum.StateMachineStart,
-      SectionTypeEnum.StateMachineGate,
-      SectionTypeEnum.StateMachineEnd,
     ];
 
     for (const sectionType of types) {
