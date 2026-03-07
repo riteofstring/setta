@@ -696,6 +696,134 @@ func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesSetProjectConfigCodegenTargetsRouteForPython(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:                 "project-alpha",
+			Name:               "Alpha",
+			TopLevelSectionIDs: []string{"section-1"},
+			SectionVariantMap: map[string]string{
+				"section-1": "section-variant-1",
+			},
+			Sections: map[string]projectstate.Section{
+				"section-1": {
+					ID:               "section-1",
+					Name:             "Greeting",
+					VariantIDs:       []string{"section-variant-1"},
+					DefaultVariantID: "section-variant-1",
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"section-variant-1": {
+					ID:     "section-variant-1",
+					ImplID: "section-impl-1",
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"section-impl-1": {
+					ID:   "section-impl-1",
+					Kind: projectstate.SectionKind("text_block"),
+					Payload: mustAppJSON(t, map[string]any{
+						"id":   "section-impl-1",
+						"type": "TextBlock",
+						"text": "hello world",
+					}),
+				},
+			},
+			ViewModes: map[string]projectstate.ViewMode{
+				"focus": {
+					ID: "focus",
+				},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetProjectConfigCodegenTargets,
+		strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"python","generateMetadata":true}]}`),
+	)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(&http.Cookie{
+		Name:  cookieName,
+		Value: token,
+	})
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post codegen targets: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload projectview.SingleConfig
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode project state response: %v", err)
+	}
+	if payload.SingletonSections.GenPythonCode == nil || *payload.SingletonSections.GenPythonCode != projectstate.GeneratedPythonCodeSectionID {
+		t.Fatalf("expected generated python singleton, got %#v", payload.SingletonSections.GenPythonCode)
+	}
+	if payload.SingletonSections.GenPythonMetadata == nil || *payload.SingletonSections.GenPythonMetadata != projectstate.GeneratedPythonMetadataSectionID {
+		t.Fatalf("expected generated python metadata singleton, got %#v", payload.SingletonSections.GenPythonMetadata)
+	}
+
+	codeVariantID := payload.ProjectConfig.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID]
+	codeImplID := payload.SectionVariants[codeVariantID].Impl
+	if !strings.Contains(string(payload.SectionImpls[codeImplID]), `state.Greeting = 'hello world'`) {
+		t.Fatalf("expected generated python body in response payload, got %q", string(payload.SectionImpls[codeImplID]))
+	}
+
+	projectRoot := projectstate.ProjectCodeSectionsRoot(cfg.Paths.SettaFilesRoot, "Alpha")
+	codePath := filepath.Join(projectRoot, projectstate.GeneratedPythonCodeFileName)
+	metaPath := filepath.Join(projectRoot, projectstate.GeneratedPythonMetadataFileName)
+	code, err := os.ReadFile(codePath)
+	if err != nil {
+		t.Fatalf("read generated python code: %v", err)
+	}
+	if !strings.Contains(string(code), "state.Greeting = 'hello world'") {
+		t.Fatalf("expected generated python code file:\n%s", string(code))
+	}
+	if _, err := os.Stat(metaPath); err != nil {
+		t.Fatalf("expected generated python metadata file, got %v", err)
+	}
+}
+
 func TestAppServesRunCodeRouteWithDrawSnapshots(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 

@@ -39,7 +39,7 @@ func TestRuntimeSetProjectCodegenTargetsPersistsPluginOnlyTargets(t *testing.T) 
 	}, CodegenTargetValidatorFunc(func(_ context.Context, target ProjectCodegenTarget) error {
 		validatedTargets = append(validatedTargets, target.Language)
 		return nil
-	}))
+	}), nil)
 	if err != nil {
 		t.Fatalf("set project codegen targets: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestRuntimeSetProjectCodegenTargetsRejectsDuplicateLanguages(t *testing.T) 
 	}, CodegenTargetValidatorFunc(func(context.Context, ProjectCodegenTarget) error {
 		validatorCalled.Store(true)
 		return nil
-	}))
+	}), nil)
 	if !errors.Is(err, ErrProjectCodegenTargetDuplicateLanguage) {
 		t.Fatalf("expected duplicate-language error, got %v", err)
 	}
@@ -108,7 +108,7 @@ func TestRuntimeSetProjectCodegenTargetsRequiresValidatorForPluginTargets(t *tes
 
 	_, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", []ProjectCodegenTarget{
 		{Language: "setta-fixture-backend-codegen:typescript"},
-	}, nil)
+	}, nil, nil)
 	if !errors.Is(err, ErrProjectCodegenTargetValidatorRequired) {
 		t.Fatalf("expected validator-required error, got %v", err)
 	}
@@ -129,7 +129,7 @@ func TestRuntimeSetProjectCodegenTargetsPropagatesValidatorFailure(t *testing.T)
 		{Language: "setta-fixture-backend-codegen:typescript"},
 	}, CodegenTargetValidatorFunc(func(context.Context, ProjectCodegenTarget) error {
 		return errors.New("plugin target invalid")
-	}))
+	}), nil)
 	if err == nil || err.Error() != "plugin target invalid" {
 		t.Fatalf("expected validator error, got %v", err)
 	}
@@ -155,7 +155,7 @@ func TestRuntimeSetProjectCodegenTargetsDisablesPythonTargetAndCleansUpGenerated
 	}
 	runtime := openTestRuntime(t, store)
 
-	snapshot, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", nil, nil)
+	snapshot, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", nil, nil, nil)
 	if err != nil {
 		t.Fatalf("disable python codegen target: %v", err)
 	}
@@ -196,8 +196,8 @@ func TestRuntimeSetProjectCodegenTargetsDisablesPythonTargetAndCleansUpGenerated
 	}
 }
 
-// Python target enablement and in-place edits should still fail explicitly until Go owns the missing generator/runtime work behind them.
-func TestRuntimeSetProjectCodegenTargetsRejectsPythonTargetMutation(t *testing.T) {
+// Python target edits now require an explicit generated-section reconciler because the mutation path must update singleton sections and bindings together.
+func TestRuntimeSetProjectCodegenTargetsRequiresReconcilerForPythonMutation(t *testing.T) {
 	t.Parallel()
 
 	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
@@ -217,12 +217,76 @@ func TestRuntimeSetProjectCodegenTargetsRejectsPythonTargetMutation(t *testing.T
 	}, CodegenTargetValidatorFunc(func(context.Context, ProjectCodegenTarget) error {
 		validatorCalled.Store(true)
 		return nil
-	}))
-	if !errors.Is(err, ErrProjectCodegenPythonMutationUnsupported) {
-		t.Fatalf("expected python-mutation-unsupported error, got %v", err)
+	}), nil)
+	if !errors.Is(err, ErrProjectCodegenPythonReconcilerRequired) {
+		t.Fatalf("expected python-reconciler-required error, got %v", err)
 	}
 	if validatorCalled.Load() {
 		t.Fatal("validator should not run for python target mutation")
+	}
+}
+
+// Python target enablement should update bindings and generated singleton sections from the active target state.
+func TestRuntimeSetProjectCodegenTargetsEnablesPythonTargetWithReconciledGeneratedSections(t *testing.T) {
+	t.Parallel()
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := codegenTargetsTestDocument()
+	document.Projects["project-alpha"] = projectWithPythonMutationFixtures()
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntime(t, store)
+
+	snapshot, err := runtime.SetProjectCodegenTargets(context.Background(), "project-alpha", []ProjectCodegenTarget{
+		{
+			Language: string(CodeLanguagePython),
+			Payload: RawJSON(`{
+				"language":"python",
+				"genCodePrefix":"import math",
+				"generateMetadata":true
+			}`),
+		},
+	}, nil, testPythonGeneratedSectionReconciler())
+	if err != nil {
+		t.Fatalf("enable python codegen target: %v", err)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	if project.GeneratedCodeBinding == nil {
+		t.Fatal("expected generated code binding")
+	}
+	if project.GeneratedCodeBinding.Path != GeneratedPythonCodeRelativePath(project.Name) {
+		t.Fatalf("unexpected generated code binding path %q", project.GeneratedCodeBinding.Path)
+	}
+	if project.GeneratedMetadataBinding == nil {
+		t.Fatal("expected generated metadata binding")
+	}
+	if got := project.SectionVariantMap[GeneratedPythonCodeSectionID]; got != GeneratedPythonCodeVariantID {
+		t.Fatalf("expected generated python section variant %q, got %q", GeneratedPythonCodeVariantID, got)
+	}
+	if got := project.SectionVariantMap[GeneratedPythonMetadataSectionID]; got != GeneratedPythonMetadataVariantID {
+		t.Fatalf("expected generated python metadata variant %q, got %q", GeneratedPythonMetadataVariantID, got)
+	}
+	if !reflect.DeepEqual(project.Sections[GeneratedPythonCodeSectionID].VariantIDs, []string{GeneratedPythonCodeVariantID}) {
+		t.Fatalf("expected generated python section variants to be canonical, got %#v", project.Sections[GeneratedPythonCodeSectionID].VariantIDs)
+	}
+	if !containsTopLevelSectionID(project.TopLevelSectionIDs, GeneratedPythonCodeSectionID) {
+		t.Fatalf("expected generated python section to be top-level, got %#v", project.TopLevelSectionIDs)
+	}
+	if !project.ViewModes["focus"].VisibilityBySectionID[GeneratedPythonCodeSectionID] {
+		t.Fatal("expected generated python section to be visible in view mode")
+	}
+	if _, ok := project.ViewModes["focus"].TopLevelSections[GeneratedPythonMetadataSectionID]; !ok {
+		t.Fatal("expected generated python metadata layout in view mode")
+	}
+
+	codeImpl := project.SectionImpls[GeneratedPythonCodeImplID]
+	if codeImpl.Generated == nil || codeImpl.Generated.Kind != GeneratedSectionKindPythonCode {
+		t.Fatalf("expected generated python code impl, got %#v", codeImpl.Generated)
+	}
+	if string(codeImpl.Payload) != `{"code":"python|import math|meta=true","codeFileBinding":{"access_mode":"write_only","autoBinding":false,"canonical_path":"code/sections/alpha/setta_gen.py"},"id":"gen-python-impl","type":"GenPythonCode"}` {
+		t.Fatalf("unexpected generated python payload %q", string(codeImpl.Payload))
 	}
 }
 
@@ -247,7 +311,7 @@ func TestRuntimeSetProjectCodegenTargetsAllowsPluginMutationWithUnchangedPythonT
 		},
 	}, CodegenTargetValidatorFunc(func(context.Context, ProjectCodegenTarget) error {
 		return nil
-	}))
+	}), nil)
 	if err != nil {
 		t.Fatalf("set mixed codegen targets: %v", err)
 	}
@@ -310,7 +374,7 @@ func TestRuntimeSetProjectCodegenTargetsTreatsDefaultedPythonPayloadAsUnchanged(
 		},
 	}, CodegenTargetValidatorFunc(func(context.Context, ProjectCodegenTarget) error {
 		return nil
-	}))
+	}), nil)
 	if err != nil {
 		t.Fatalf("set mixed codegen targets with defaulted python payload: %v", err)
 	}
@@ -340,6 +404,118 @@ func projectWithPythonCodegenTarget() Project {
 			},
 		},
 	}
+}
+
+func projectWithPythonMutationFixtures() Project {
+	return Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		ViewModes: map[string]ViewMode{
+			"focus": {
+				ID: "focus",
+			},
+		},
+	}
+}
+
+func testPythonGeneratedSectionReconciler() PythonCodegenSectionReconciler {
+	return PythonCodegenSectionReconcilerFunc(func(_ context.Context, project *Project) error {
+		if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+			return err
+		}
+		target, ok, err := project.PythonCodegenTarget()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
+		}
+		project.SectionVariantMap = map[string]string{
+			GeneratedPythonCodeSectionID: GeneratedPythonCodeVariantID,
+		}
+		project.Sections = map[string]Section{
+			GeneratedPythonCodeSectionID: {
+				ID:               GeneratedPythonCodeSectionID,
+				Name:             GeneratedPythonCodeSectionName,
+				VariantIDs:       []string{GeneratedPythonCodeVariantID},
+				DefaultVariantID: GeneratedPythonCodeVariantID,
+			},
+		}
+		project.SectionVariants = map[string]SectionVariant{
+			GeneratedPythonCodeVariantID: {
+				ID:     GeneratedPythonCodeVariantID,
+				ImplID: GeneratedPythonCodeImplID,
+			},
+		}
+		project.SectionImpls = map[string]SectionImpl{
+			GeneratedPythonCodeImplID: {
+				ID:      GeneratedPythonCodeImplID,
+				Kind:    SectionKindGenerated,
+				Payload: RawJSON(`{"code":"python|` + target.GenCodePrefix + `|meta=` + boolString(target.GenerateMetadata) + `","codeFileBinding":{"access_mode":"write_only","autoBinding":false,"canonical_path":"` + GeneratedPythonCodeRelativePath(project.Name) + `"},"id":"gen-python-impl","type":"GenPythonCode"}`),
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonCode,
+				},
+			},
+		}
+		project.TopLevelSectionIDs = []string{GeneratedPythonCodeSectionID}
+		project.TopLevelSections = map[string]TopLevelSectionLayout{
+			GeneratedPythonCodeSectionID: {},
+		}
+		if project.ViewModes == nil {
+			project.ViewModes = map[string]ViewMode{}
+		}
+		viewMode := project.ViewModes["focus"]
+		viewMode.ID = "focus"
+		viewMode.VisibilityBySectionID = map[string]bool{
+			GeneratedPythonCodeSectionID: true,
+		}
+		viewMode.TopLevelSections = map[string]TopLevelSectionLayout{
+			GeneratedPythonCodeSectionID: {},
+		}
+		if target.GenerateMetadata {
+			project.SectionVariantMap[GeneratedPythonMetadataSectionID] = GeneratedPythonMetadataVariantID
+			project.Sections[GeneratedPythonMetadataSectionID] = Section{
+				ID:               GeneratedPythonMetadataSectionID,
+				Name:             GeneratedPythonMetadataSectionName,
+				VariantIDs:       []string{GeneratedPythonMetadataVariantID},
+				DefaultVariantID: GeneratedPythonMetadataVariantID,
+			}
+			project.SectionVariants[GeneratedPythonMetadataVariantID] = SectionVariant{
+				ID:     GeneratedPythonMetadataVariantID,
+				ImplID: GeneratedPythonMetadataImplID,
+			}
+			project.SectionImpls[GeneratedPythonMetadataImplID] = SectionImpl{
+				ID:      GeneratedPythonMetadataImplID,
+				Kind:    SectionKindGenerated,
+				Payload: RawJSON(`{"code":"meta","codeFileBinding":{"access_mode":"write_only","autoBinding":false,"canonical_path":"` + GeneratedPythonMetadataRelativePath(project.Name) + `"},"id":"gen-python-metadata-impl","type":"GenPythonMetadata"}`),
+				Generated: &GeneratedSectionImpl{
+					Kind: GeneratedSectionKindPythonMetadata,
+				},
+			}
+			project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, GeneratedPythonMetadataSectionID)
+			project.TopLevelSections[GeneratedPythonMetadataSectionID] = TopLevelSectionLayout{}
+			viewMode.VisibilityBySectionID[GeneratedPythonMetadataSectionID] = true
+			viewMode.TopLevelSections[GeneratedPythonMetadataSectionID] = TopLevelSectionLayout{}
+		}
+		project.ViewModes["focus"] = viewMode
+		return nil
+	})
+}
+
+func containsTopLevelSectionID(sectionIDs []string, target string) bool {
+	for _, sectionID := range sectionIDs {
+		if sectionID == target {
+			return true
+		}
+	}
+	return false
+}
+
+func boolString(value bool) string {
+	if value {
+		return "true"
+	}
+	return "false"
 }
 
 func projectWithGeneratedPythonCodegenState() Project {

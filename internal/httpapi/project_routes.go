@@ -22,9 +22,10 @@ var (
 )
 
 type ProjectRouteDependencies struct {
-	ModePolicy             modes.Policy
-	ProjectState           *projectstate.Runtime
-	CodegenTargetValidator projectstate.CodegenTargetValidator
+	ModePolicy                     modes.Policy
+	ProjectState                   *projectstate.Runtime
+	CodegenTargetValidator         projectstate.CodegenTargetValidator
+	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 }
 
 type SetProjectConfigCodegenTargetsRequest struct {
@@ -42,6 +43,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 		}
 		if deps.CodegenTargetValidator == nil {
 			return fmt.Errorf("project codegen target validator is required in ide mode")
+		}
+		if deps.PythonCodegenSectionReconciler == nil {
+			return fmt.Errorf("project python generated-section reconciler is required in ide mode")
 		}
 	}
 
@@ -62,7 +66,7 @@ func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.H
 			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 			return
 		}
-		if deps.ProjectState == nil || deps.CodegenTargetValidator == nil {
+		if deps.ProjectState == nil || deps.CodegenTargetValidator == nil || deps.PythonCodegenSectionReconciler == nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
@@ -73,7 +77,13 @@ func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.H
 			return
 		}
 
-		snapshot, err := deps.ProjectState.SetProjectCodegenTargets(r.Context(), projectID, targets, deps.CodegenTargetValidator)
+		snapshot, err := deps.ProjectState.SetProjectCodegenTargets(
+			r.Context(),
+			projectID,
+			targets,
+			deps.CodegenTargetValidator,
+			deps.PythonCodegenSectionReconciler,
+		)
 		if err != nil {
 			writeSetProjectConfigCodegenTargetsError(w, r, err)
 			return
@@ -147,7 +157,7 @@ func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Req
 		errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
-		errors.Is(err, projectstate.ErrProjectCodegenPythonMutationUnsupported):
+		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_project_codegen_targets", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

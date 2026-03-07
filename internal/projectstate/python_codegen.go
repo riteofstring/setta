@@ -10,9 +10,17 @@ import (
 )
 
 const (
-	GeneratedPythonCodeFileName     = "setta_gen.py"
-	GeneratedPythonMetadataFileName = "setta_gen_meta.py"
-	DefaultPythonCodegenSuffix      = "state = SettaState()"
+	GeneratedPythonCodeFileName        = "setta_gen.py"
+	GeneratedPythonMetadataFileName    = "setta_gen_meta.py"
+	DefaultPythonCodegenSuffix         = "state = SettaState()"
+	GeneratedPythonCodeSectionID       = "gen-python-section"
+	GeneratedPythonCodeVariantID       = "gen-python-variant"
+	GeneratedPythonCodeImplID          = "gen-python-impl"
+	GeneratedPythonCodeSectionName     = "Generated Python"
+	GeneratedPythonMetadataSectionID   = "gen-python-metadata-section"
+	GeneratedPythonMetadataVariantID   = "gen-python-metadata-variant"
+	GeneratedPythonMetadataImplID      = "gen-python-metadata-impl"
+	GeneratedPythonMetadataSectionName = "Generated Python Metadata"
 )
 
 var (

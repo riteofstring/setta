@@ -246,9 +246,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterProjectRoutes(r, httpapi.ProjectRouteDependencies{
-				ModePolicy:             modePolicy,
-				ProjectState:           projectRuntime,
-				CodegenTargetValidator: codegenValidator,
+				ModePolicy:                     modePolicy,
+				ProjectState:                   projectRuntime,
+				CodegenTargetValidator:         codegenValidator,
+				PythonCodegenSectionReconciler: pythonMaterializer,
 			}); err != nil {
 				panic(err)
 			}

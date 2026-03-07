@@ -7,10 +7,12 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -43,7 +45,7 @@ func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testin
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(_ context.Context, target projectstate.ProjectCodegenTarget) error {
 		validatedTargets = append(validatedTargets, target.Language)
 		return nil
-	}))
+	}), nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -186,7 +188,7 @@ func TestRegisterProjectRoutesDisablesPythonCodegenAndReturnsCleanedProjectState
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
-	}))
+	}), nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -251,7 +253,7 @@ func TestRegisterProjectRoutesRejectsInvalidCodegenTargetPayload(t *testing.T) {
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
-	}))
+	}), nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -269,20 +271,56 @@ func TestRegisterProjectRoutesRejectsInvalidCodegenTargetPayload(t *testing.T) {
 	}
 }
 
-func TestRegisterProjectRoutesRejectsUnsupportedPythonMutation(t *testing.T) {
+func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSections(t *testing.T) {
 	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	materializer, err := codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new python materializer: %v", err)
+	}
 
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
 		Projects: map[string]projectstate.Project{
 			"project-alpha": {
-				ID:   "project-alpha",
-				Name: "Alpha",
-				CodegenTargets: []projectstate.ProjectCodegenTarget{
-					{
-						Language: string(projectstate.CodeLanguagePython),
-						Payload:  projectstate.RawJSON(`{"language":"python","generateMetadata":true}`),
+				ID:                 "project-alpha",
+				Name:               "Alpha",
+				TopLevelSectionIDs: []string{"section-1"},
+				SectionVariantMap: map[string]string{
+					"section-1": "section-variant-1",
+				},
+				Sections: map[string]projectstate.Section{
+					"section-1": {
+						ID:               "section-1",
+						Name:             "Greeting",
+						VariantIDs:       []string{"section-variant-1"},
+						DefaultVariantID: "section-variant-1",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"section-variant-1": {
+						ID:     "section-variant-1",
+						ImplID: "section-impl-1",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"section-impl-1": {
+						ID:   "section-impl-1",
+						Kind: projectstate.SectionKind("text_block"),
+						Payload: projectstate.RawJSON(
+							`{"id":"section-impl-1","type":"TextBlock","text":"hello world"}`,
+						),
+					},
+				},
+				ViewModes: map[string]projectstate.ViewMode{
+					"focus": {
+						ID: "focus",
 					},
 				},
 			},
@@ -299,28 +337,62 @@ func TestRegisterProjectRoutesRejectsUnsupportedPythonMutation(t *testing.T) {
 
 	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, projectstate.CodegenTargetValidatorFunc(func(context.Context, projectstate.ProjectCodegenTarget) error {
 		return nil
-	}))
+	}), materializer)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteSetProjectConfigCodegenTargets,
-		strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"python","generateMetadata":false}]}`),
+		strings.NewReader(`{"projectConfigId":"project-alpha","codegenTargets":[{"language":"python","genCodePrefix":"import math","generateMetadata":true}]}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
-	if !strings.Contains(response.Body.String(), `"code":"invalid_project_codegen_targets"`) {
-		t.Fatalf("expected invalid_project_codegen_targets error, got %q", response.Body.String())
+
+	var payload projectview.SingleConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode project state payload: %v", err)
+	}
+	if got := derefString(payload.SingletonSections.GenPythonCode); got != projectstate.GeneratedPythonCodeSectionID {
+		t.Fatalf("expected generated python singleton %q, got %q", projectstate.GeneratedPythonCodeSectionID, got)
+	}
+	if got := derefString(payload.SingletonSections.GenPythonMetadata); got != projectstate.GeneratedPythonMetadataSectionID {
+		t.Fatalf("expected generated python metadata singleton %q, got %q", projectstate.GeneratedPythonMetadataSectionID, got)
+	}
+	if payload.GenCodeBinding == nil {
+		t.Fatal("expected generated code binding in response")
+	}
+	if payload.GenCodeBinding.CanonicalPath != projectstate.GeneratedPythonCodeRelativePath("Alpha") {
+		t.Fatalf("unexpected generated code binding path %q", payload.GenCodeBinding.CanonicalPath)
+	}
+
+	codeVariantID := payload.ProjectConfig.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID]
+	codeImplID := payload.SectionVariants[codeVariantID].Impl
+	codePayload := string(payload.SectionImpls[codeImplID])
+	if !strings.Contains(codePayload, `"type":"GenPythonCode"`) {
+		t.Fatalf("expected generated python impl payload, got %q", codePayload)
+	}
+	if !strings.Contains(codePayload, `state.Greeting = 'hello world'`) {
+		t.Fatalf("expected generated python body assignment, got %q", codePayload)
+	}
+
+	metaVariantID := payload.ProjectConfig.SectionVariantMap[projectstate.GeneratedPythonMetadataSectionID]
+	metaImplID := payload.SectionVariants[metaVariantID].Impl
+	metaPayload := string(payload.SectionImpls[metaImplID])
+	if !strings.Contains(metaPayload, `"type":"GenPythonMetadata"`) {
+		t.Fatalf("expected generated python metadata impl payload, got %q", metaPayload)
+	}
+	if !strings.Contains(metaPayload, `class SettaGenMetadata:`) {
+		t.Fatalf("expected generated metadata code in payload, got %q", metaPayload)
 	}
 }
 
 func TestRegisterProjectRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newProjectRouteTestHandler(t, config.ModeShare, nil, nil)
+	handler := newProjectRouteTestHandler(t, config.ModeShare, nil, nil, nil)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -343,8 +415,14 @@ func newProjectRouteTestHandler(
 	mode config.Mode,
 	projectRuntime *projectstate.Runtime,
 	validator projectstate.CodegenTargetValidator,
+	pythonReconciler projectstate.PythonCodegenSectionReconciler,
 ) http.Handler {
 	t.Helper()
+	if pythonReconciler == nil {
+		pythonReconciler = projectstate.PythonCodegenSectionReconcilerFunc(func(context.Context, *projectstate.Project) error {
+			return nil
+		})
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -352,9 +430,10 @@ func newProjectRouteTestHandler(
 		ModePolicy: modes.NewPolicy(mode),
 		Register: func(r chi.Router) {
 			if err := RegisterProjectRoutes(r, ProjectRouteDependencies{
-				ModePolicy:             modes.NewPolicy(mode),
-				ProjectState:           projectRuntime,
-				CodegenTargetValidator: validator,
+				ModePolicy:                     modes.NewPolicy(mode),
+				ProjectState:                   projectRuntime,
+				CodegenTargetValidator:         validator,
+				PythonCodegenSectionReconciler: pythonReconciler,
 			}); err != nil {
 				t.Fatalf("register project routes: %v", err)
 			}
@@ -364,4 +443,11 @@ func newProjectRouteTestHandler(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

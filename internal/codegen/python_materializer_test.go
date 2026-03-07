@@ -68,6 +68,71 @@ func TestPythonMaterializerMaterializeProjectWritesCodeAndMetadata(t *testing.T)
 	}
 }
 
+// Route-time reconciliation should create authoritative generated singleton sections and remove metadata when the target disables it.
+func TestPythonMaterializerReconcileProjectPythonGeneratedSections(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := filepath.Join(t.TempDir(), "setta_files")
+	runtimeRoot := filepath.Join(settaFilesRoot, "runtime")
+	materializer, err := NewPythonMaterializer(PythonMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    runtimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new python materializer: %v", err)
+	}
+
+	project := singleSectionProject(
+		t,
+		"Greeting",
+		mustRawJSON(t, `{"id":"section-impl-1","type":"TextBlock","text":"hello world"}`),
+		mustRawJSON(t, `{"language":"python","genCodePrefix":"import math","generateMetadata":true}`),
+		nil,
+	)
+	project.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{
+		"section-1": {X: 10, Y: 20},
+	}
+	project.ViewModes = map[string]projectstate.ViewMode{
+		"focus": {
+			ID: "focus",
+		},
+	}
+
+	if err := materializer.ReconcileProjectPythonGeneratedSections(context.Background(), &project); err != nil {
+		t.Fatalf("reconcile generated python sections: %v", err)
+	}
+
+	if project.GeneratedCodeBinding == nil || project.GeneratedCodeBinding.Path != "code/sections/alpha/setta_gen.py" {
+		t.Fatalf("expected generated code binding, got %#v", project.GeneratedCodeBinding)
+	}
+	if project.GeneratedMetadataBinding == nil || project.GeneratedMetadataBinding.Path != "code/sections/alpha/setta_gen_meta.py" {
+		t.Fatalf("expected generated metadata binding, got %#v", project.GeneratedMetadataBinding)
+	}
+	if !strings.Contains(string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload), `"type":"GenPythonCode"`) {
+		t.Fatalf("expected generated python impl payload, got %q", string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload))
+	}
+	if !strings.Contains(string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload), `class SettaState:`) {
+		t.Fatalf("expected generated body in payload, got %q", string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload))
+	}
+	if strings.Contains(string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload), `import math`) {
+		t.Fatalf("expected generated body only in payload, got %q", string(project.SectionImpls[projectstate.GeneratedPythonCodeImplID].Payload))
+	}
+	if !project.ViewModes["focus"].VisibilityBySectionID[projectstate.GeneratedPythonMetadataSectionID] {
+		t.Fatal("expected metadata section visibility in view mode")
+	}
+
+	project.CodegenTargets[0].Payload = mustRawJSON(t, `{"language":"python","generateMetadata":false}`)
+	if err := materializer.ReconcileProjectPythonGeneratedSections(context.Background(), &project); err != nil {
+		t.Fatalf("reconcile generated python sections without metadata: %v", err)
+	}
+	if project.GeneratedMetadataBinding != nil {
+		t.Fatalf("expected generated metadata binding removal, got %#v", project.GeneratedMetadataBinding)
+	}
+	if _, ok := project.Sections[projectstate.GeneratedPythonMetadataSectionID]; ok {
+		t.Fatal("expected generated metadata section removal")
+	}
+}
+
 // Runtime password secrets should flow into generated code through the real password store instead of test-only injection.
 func TestPythonMaterializerMaterializeProjectReadsRuntimePasswordStore(t *testing.T) {
 	t.Parallel()

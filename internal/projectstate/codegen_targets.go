@@ -10,13 +10,17 @@ import (
 )
 
 var (
-	ErrProjectCodegenTargetDuplicateLanguage   = errors.New("project codegen target language must be unique")
-	ErrProjectCodegenTargetValidatorRequired   = errors.New("project codegen target validator is required for plugin targets")
-	ErrProjectCodegenPythonMutationUnsupported = errors.New("python codegen target enablement and in-place edits are not supported in Go yet")
+	ErrProjectCodegenTargetDuplicateLanguage  = errors.New("project codegen target language must be unique")
+	ErrProjectCodegenTargetValidatorRequired  = errors.New("project codegen target validator is required for plugin targets")
+	ErrProjectCodegenPythonReconcilerRequired = errors.New("project python generated-section reconciler is required when python codegen is enabled")
 )
 
 type CodegenTargetValidator interface {
 	ValidateProjectCodegenTarget(context.Context, ProjectCodegenTarget) error
+}
+
+type PythonCodegenSectionReconciler interface {
+	ReconcileProjectPythonGeneratedSections(context.Context, *Project) error
 }
 
 type CodegenTargetValidatorFunc func(context.Context, ProjectCodegenTarget) error
@@ -25,7 +29,19 @@ func (f CodegenTargetValidatorFunc) ValidateProjectCodegenTarget(ctx context.Con
 	return f(ctx, target)
 }
 
-func (d *Document) SetProjectCodegenTargets(ctx context.Context, projectID string, targets []ProjectCodegenTarget, validator CodegenTargetValidator) error {
+type PythonCodegenSectionReconcilerFunc func(context.Context, *Project) error
+
+func (f PythonCodegenSectionReconcilerFunc) ReconcileProjectPythonGeneratedSections(ctx context.Context, project *Project) error {
+	return f(ctx, project)
+}
+
+func (d *Document) SetProjectCodegenTargets(
+	ctx context.Context,
+	projectID string,
+	targets []ProjectCodegenTarget,
+	validator CodegenTargetValidator,
+	pythonReconciler PythonCodegenSectionReconciler,
+) error {
 	if d == nil {
 		return ErrProjectNotFound
 	}
@@ -42,22 +58,29 @@ func (d *Document) SetProjectCodegenTargets(ctx context.Context, projectID strin
 	if err != nil {
 		return err
 	}
-	if err := applySupportedPythonCodegenMutation(&project, normalizedTargets); err != nil {
+	previousTargets := cloneProjectCodegenTargets(project.CodegenTargets)
+	project.CodegenTargets = cloneProjectCodegenTargets(normalizedTargets)
+	if err := applySupportedPythonCodegenMutation(ctx, &project, previousTargets, pythonReconciler); err != nil {
 		return err
 	}
 
-	project.CodegenTargets = cloneProjectCodegenTargets(normalizedTargets)
 	d.Projects[project.ID] = project
 	return nil
 }
 
-func (r *Runtime) SetProjectCodegenTargets(ctx context.Context, projectID string, targets []ProjectCodegenTarget, validator CodegenTargetValidator) (Snapshot, error) {
+func (r *Runtime) SetProjectCodegenTargets(
+	ctx context.Context,
+	projectID string,
+	targets []ProjectCodegenTarget,
+	validator CodegenTargetValidator,
+	pythonReconciler PythonCodegenSectionReconciler,
+) (Snapshot, error) {
 	if r == nil {
 		return Snapshot{}, ErrRuntimeClosed
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetProjectCodegenTargets(ctx, projectID, targets, validator); err != nil {
+		if err := document.SetProjectCodegenTargets(ctx, projectID, targets, validator, pythonReconciler); err != nil {
 			return document, err
 		}
 		return document, nil
@@ -92,30 +115,46 @@ func normalizeCodegenTargetsForMutation(ctx context.Context, targets []ProjectCo
 	return normalizedTargets, nil
 }
 
-func applySupportedPythonCodegenMutation(project *Project, next []ProjectCodegenTarget) error {
+func applySupportedPythonCodegenMutation(
+	ctx context.Context,
+	project *Project,
+	previous []ProjectCodegenTarget,
+	pythonReconciler PythonCodegenSectionReconciler,
+) error {
 	if project == nil {
 		return ErrProjectNotFound
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
-	previousPython, previousHasPython := pythonCodegenTarget(project.CodegenTargets)
-	nextPython, nextHasPython := pythonCodegenTarget(next)
+	previousPython, previousHasPython := pythonCodegenTarget(previous)
+	nextPython, nextHasPython := pythonCodegenTarget(project.CodegenTargets)
 	switch {
 	case !previousHasPython && !nextHasPython:
 		return nil
 	case previousHasPython && !nextHasPython:
 		cleanupRemovedPythonCodegen(project)
 		return nil
-	case previousHasPython && nextHasPython:
-		equal, err := projectCodegenTargetsEqual(previousPython, nextPython)
-		if err != nil {
+	default:
+		if pythonReconciler == nil {
+			equal := false
+			var err error
+			if previousHasPython && nextHasPython {
+				equal, err = projectCodegenTargetsEqual(previousPython, nextPython)
+				if err != nil {
+					return err
+				}
+			}
+			if equal {
+				return project.ReconcilePythonGeneratedBindings()
+			}
+			return ErrProjectCodegenPythonReconcilerRequired
+		}
+		if err := project.ReconcilePythonGeneratedBindings(); err != nil {
 			return err
 		}
-		if equal {
-			return project.ReconcilePythonGeneratedBindings()
-		}
-		return ErrProjectCodegenPythonMutationUnsupported
-	default:
-		return ErrProjectCodegenPythonMutationUnsupported
+		return pythonReconciler.ReconcileProjectPythonGeneratedSections(ctx, project)
 	}
 }
 
@@ -124,15 +163,31 @@ func cleanupRemovedPythonCodegen(project *Project) {
 		return
 	}
 
-	removedSectionIDs := generatedPythonSectionIDs(*project)
-	removedSections := make(map[string]struct{}, len(removedSectionIDs))
+	RemoveSections(project, GeneratedPythonSectionIDs(*project))
+	project.GeneratedCodeBinding = nil
+	project.GeneratedMetadataBinding = nil
+}
+
+func RemoveSections(project *Project, sectionIDs []string) {
+	if project == nil || len(sectionIDs) == 0 {
+		return
+	}
+
+	removedSections := make(map[string]struct{}, len(sectionIDs))
 	removedVariantIDs := make(map[string]struct{})
 	removedImplIDs := make(map[string]struct{})
 
-	for _, sectionID := range removedSectionIDs {
-		removedSections[sectionID] = struct{}{}
+	for _, sectionID := range sectionIDs {
+		trimmedSectionID := strings.TrimSpace(sectionID)
+		if trimmedSectionID == "" {
+			continue
+		}
+		if _, ok := removedSections[trimmedSectionID]; ok {
+			continue
+		}
+		removedSections[trimmedSectionID] = struct{}{}
 
-		section, ok := project.Sections[sectionID]
+		section, ok := project.Sections[trimmedSectionID]
 		if !ok {
 			continue
 		}
@@ -149,8 +204,6 @@ func cleanupRemovedPythonCodegen(project *Project) {
 	if _, ok := removedSections[project.EntryCodeBlockID]; ok {
 		project.EntryCodeBlockID = ""
 	}
-	project.GeneratedCodeBinding = nil
-	project.GeneratedMetadataBinding = nil
 	project.TopLevelSectionIDs = filterStringSlice(project.TopLevelSectionIDs, removedSections)
 	project.ActiveIDs = filterStringSlice(project.ActiveIDs, removedSections)
 	project.Edges = filterEdgesBySectionIDs(project.Edges, removedSections)
@@ -185,7 +238,7 @@ func cleanupRemovedPythonCodegen(project *Project) {
 	}
 }
 
-func generatedPythonSectionIDs(project Project) []string {
+func GeneratedPythonSectionIDs(project Project) []string {
 	sectionIDs := make([]string, 0, len(project.Sections))
 	for sectionID, section := range project.Sections {
 		if !sectionReferencesGeneratedPython(project, section) {
