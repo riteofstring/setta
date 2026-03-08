@@ -257,9 +257,13 @@ function resolveManagedChatRunType(
 export function ChatArea({
   sectionId,
   surfaceId,
+  controlledChatId,
+  setControlledChatId,
 }: {
   sectionId: string;
   surfaceId?: string;
+  controlledChatId?: string | null;
+  setControlledChatId?: (next: ChatSectionChatIdUpdate) => void;
 }) {
   const {
     managed,
@@ -307,6 +311,8 @@ export function ChatArea({
       <ManagedChatArea
         sectionId={sectionId}
         surfaceId={surfaceId}
+        controlledChatId={controlledChatId}
+        setControlledChatId={setControlledChatId}
         engineConfigId={engineConfigId}
         transcriptionProfileId={transcriptionProfileId}
         agentProfileId={agentProfileId}
@@ -1032,6 +1038,8 @@ function ManagedChatHistoryPanel({
 type ManagedChatAreaProps = {
   sectionId: string;
   surfaceId?: string;
+  controlledChatId?: ChatSectionChatId;
+  setControlledChatId?: (next: ChatSectionChatIdUpdate) => void;
   engineConfigId: string | null;
   transcriptionProfileId: string | null;
   agentProfileId: string | null;
@@ -1044,6 +1052,8 @@ type ManagedChatAreaProps = {
 function ManagedChatArea({
   sectionId,
   surfaceId,
+  controlledChatId,
+  setControlledChatId,
   engineConfigId,
   transcriptionProfileId,
   agentProfileId,
@@ -1097,7 +1107,7 @@ function ManagedChatArea({
     setZeroScopeBannerDismissed(true);
   }, [zeroScopeBannerSessionKey]);
   const showZeroScopeBanner = !hasAnyAgenticEdge && !zeroScopeBannerDismissed;
-  const chatId = useProjectState((state) => {
+  const sectionChatId = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,
       sectionId,
@@ -1105,6 +1115,8 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
+  const chatId =
+    controlledChatId !== undefined ? controlledChatId : sectionChatId;
   const [showHistory, setShowHistory] = useState(false);
   const lastChatIdRef = useRef<string | null>(null);
   const notifiedExternalEngineIssueRef = useRef<string | null>(null);
@@ -1336,6 +1348,14 @@ function ManagedChatArea({
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
+      if (setControlledChatId) {
+        const resolved = typeof next === "function" ? next(chatId) : next;
+        if (resolved === chatId) {
+          return;
+        }
+        setControlledChatId(resolved);
+        return;
+      }
       const currentState = useProjectState.getState();
       const currentChatId = getCurrEffectiveSectionImplOfType(
         currentState,
@@ -1360,7 +1380,7 @@ function ManagedChatArea({
           }),
       });
     },
-    [projectConfigId, sectionId],
+    [chatId, projectConfigId, sectionId, setControlledChatId],
   );
 
   const handleNewChatStart = useCallback(() => {

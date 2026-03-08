@@ -809,6 +809,7 @@ export const RouteEnum = {
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
   SET_PROJECT_CHAT_WINDOWING_STATE: "/setProjectChatWindowingState",
+  SET_PROJECT_CHAT_WINDOW_CHAT_ID: "/setProjectChatWindowChatId",
   GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
   SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
   SET_SOCIAL_URL: "/setSocialUrl",
@@ -11003,6 +11004,17 @@ const SetParentDefaultChildSectionTypeRequestSchema = z.object({
 
 export type SetParentDefaultChildSectionTypeRequestInput = z.input<
   typeof SetParentDefaultChildSectionTypeRequestSchema
+>;
+
+const SetProjectChatWindowChatIdRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  instanceId: IDSchema,
+  chatId: z.union([IDSchema, z.null()]),
+});
+
+export type SetProjectChatWindowChatIdRequestInput = z.input<
+  typeof SetProjectChatWindowChatIdRequestSchema
 >;
 
 const SetProjectChatWindowingStateRequestSchema = z.object({

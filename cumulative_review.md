@@ -483,3 +483,30 @@ Verification:
 - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed: 12 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "standalone window-space owner rebinding resets stale local section thread state"` passed: 1 test.
 - CDP verification on the live dev instance confirmed that after clearing a standalone window’s local section thread and rebinding the same saved window id to a different section owner, the route rendered the new owner’s saved reply instead of preserving stale local thread state from the prior owner.
+
+## 2026-03-10 12:07:24 PDT
+
+Implemented the last consolidated review fixes for read-only project-chat authority and standalone `section_mode` thread restore, then added backend, frontend, and browser regressions around both paths.
+
+What changed:
+- Added a dedicated backend mutation for project-chat window thread ownership: `set_project_chat_window_chat_id(...)` in the manager layer plus `/setProjectChatWindowChatId` in the router/types/endpoints. This path is explicitly gated by `allowLLM`, not by `allowLayoutChanges`, so it matches the actual permission boundary for chat access rather than layout editing.
+- Kept the existing layout mutation route for true layout edits only. Create/move/resize/minimize/maximize/close/save still flow through `set_project_chat_windowing_state(...)`, while per-window `chatId` reassignment now persists independently.
+- Changed frontend project-chat windowing actions so read-only deployments still update local focus/z-order and can persist thread selection through the dedicated chat-id route. Rejected chat-id writes now roll back through the existing optimistic mutation path without coupling that rollback to layout permission checks.
+- Threaded controlled chat ownership through the shared managed section-chat surface. `UnifiedChatSurface` now passes owner-local `projectChatId` control into `ChatArea`, and `ChatArea`/`ManagedChatArea` use that controlled `chatId` when present instead of always reading and writing the workspace section binding.
+- This makes standalone saved window-space section windows authoritative over their own saved `window.chatId` in `section_mode`, the same way they already were in `project_ai_mode`, so reopening a saved layout no longer falls back to the live workspace section thread.
+- Regenerated frontend/backend endpoint and type bindings after adding the new route so the transport layer stays source-of-truth aligned with the backend.
+
+UX before/after:
+- Before: a read-only share or deployment session could render an existing project-chat window, but the first thread selection/send could fail behind a layout `403`, and overlapping chat windows could refuse to come to the front because focus was treated as a forbidden layout edit. After: read-only sessions still block real layout mutations, but existing chat windows can select/create threads and be focused normally.
+- Before: reopening a standalone saved section window in `section_mode` could silently show the live workspace section conversation instead of the saved thread, so the same saved layout reopened to different content depending on external workspace state. After: standalone restore uses the saved window-owned `chatId`, so the reopened section window reliably shows the thread that was saved with that layout.
+
+DX before/after:
+- Before: layout authority, chat-thread authority, and focus behavior were entangled in one project-chat windowing mutation path, which made permission failures look arbitrary and made the bug hard to isolate. After: the permission model is split along actual ownership boundaries, so layout writes, chat ownership, and local focus each have a clear contract.
+- Before: `window.chatId` was persisted through standalone window-space state, but the managed section-chat renderer ignored it in `section_mode`, so state inspection suggested the right thread would restore even though the UI used a different owner at render time. After: workspace-backed surfaces still use canonical section state, while standalone hosts can intentionally override that with their own controlled saved thread id.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_project_chat_windowing.py tests/routers/test_share_policy_routes.py` passed: 29 tests.
+- `pnpm -C frontend exec vitest run src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts` passed: 6 files, 92 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts -g "read-only deployments keep visible project chat windows focusable"` passed: 1 test.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "standalone section windows keep their saved section-mode thread when the workspace thread changes"` passed: 1 test.
+- CDP verification was attempted but could not run because `chrome-devtools-mcp` could not connect to Chrome on `127.0.0.1:9320`. The automated Playwright regressions above cover the affected browser flows until the debug Chrome session is available again.

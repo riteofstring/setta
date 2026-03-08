@@ -252,6 +252,39 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain('data-project-chat-controlled="true"');
   });
 
+  it("keeps saved chat ownership for standalone section windows in section mode", () => {
+    const markup = renderToStaticMarkup(
+      <StandaloneWindowSpaceSurface
+        windowSpace={createWindowSpaceConfig({
+          id: "space-id",
+          name: "Research Board",
+          windowsById: {
+            "section-window": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.section,
+              sectionIdOrNull: "section-1",
+              mode: ChatWindowModeEnum.section_mode,
+              title: null,
+              chatId: "saved-thread",
+              zIndex: 3,
+              normalizedBounds: {
+                x: 0,
+                y: 0,
+                width: 0.5,
+                height: 0.75,
+              },
+            },
+          },
+          order: ["section-window"],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-window-surface"');
+    expect(markup).toContain('data-chat-mode-override="section_mode"');
+    expect(markup).toContain('data-project-chat-id="saved-thread"');
+    expect(markup).toContain('data-project-chat-controlled="true"');
+  });
+
   it("renders only one standalone section host when saved data duplicates a section binding", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface

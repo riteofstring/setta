@@ -15,6 +15,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeSetProjectChatWindowingStateMock = vi.fn();
+const routeSetProjectChatWindowChatIdMock = vi.fn();
 
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: {
@@ -28,6 +29,8 @@ vi.mock("forks/xyflow/core/store", () => ({
 }));
 
 vi.mock("utils/generatedEndpoints", () => ({
+  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+    routeSetProjectChatWindowChatIdMock(...args),
   route_set_project_chat_windowing_state: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
 }));
@@ -50,6 +53,7 @@ describe("project chat windowing rollback", () => {
   beforeEach(() => {
     resetProjectStores();
     routeSetProjectChatWindowingStateMock.mockReset();
+    routeSetProjectChatWindowChatIdMock.mockReset();
     usePendingOperations.setState({ pending: [] });
     useAIStore.setState({ activeChatId: undefined });
     useProjectState.setState((state) => {
@@ -101,7 +105,7 @@ describe("project chat windowing rollback", () => {
 
   it("rolls back chat assignment and active chat selection on a handled rejection", async () => {
     useAIStore.setState({ activeChatId: "chat-before" });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+    routeSetProjectChatWindowChatIdMock.mockResolvedValue({
       data: { detail: "Forbidden" },
       status: 403,
       hasResponse: true,

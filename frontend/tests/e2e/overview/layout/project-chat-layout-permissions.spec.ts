@@ -39,6 +39,79 @@ async function seedReadOnlyProjectChatLayout(page: Page): Promise<void> {
   });
 }
 
+async function seedReadOnlyVisibleProjectChatWindows(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const { useLocalStorage, useProjectState, useShareSession } = await import(
+      "/src/state/definitions.ts"
+    );
+    const {
+      ChatWindowModeEnum,
+      ChatWindowPlacementEnum,
+      createProjectChatWindowingState,
+    } = await import("/src/utils/generatedTypes.ts");
+
+    useLocalStorage.setState({
+      overviewTab: "ProjectAIChat",
+      overviewVis: true,
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        order: ["project-chat-window-1", "project-chat-window-2"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            chatId: "chat-a",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 1,
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 420,
+              height: 320,
+            },
+          },
+          "project-chat-window-2": {
+            instanceId: "project-chat-window-2",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            chatId: "chat-b",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 2,
+            bounds: {
+              x: 260,
+              y: 140,
+              width: 420,
+              height: 320,
+            },
+          },
+        },
+      });
+    });
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-test",
+      sessionRunCount: 0,
+      sharePolicy: {
+        allowLLM: true,
+        allowLayoutChanges: false,
+        allowParamChanges: false,
+        allowVariantChanges: false,
+        allowRun: false,
+        allowMultipleRuns: false,
+      },
+      shareDeploymentName: "deployment",
+      shareDeploymentVersion: "v1",
+      deploymentMode: "share",
+    });
+  });
+}
+
 test("read-only deployments do not auto-create project chat windows or expose layout controls", async ({
   page,
 }) => {
@@ -58,6 +131,48 @@ test("read-only deployments do not auto-create project chat windows or expose la
         return useProjectState.getState().projectChatWindowing.order.length;
       }),
     ).resolves.toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("read-only deployments keep visible project chat windows focusable", async ({
+  page,
+}) => {
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await seedReadOnlyVisibleProjectChatWindows(page);
+
+    const backgroundWindow = page.locator(
+      '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="project-chat-window-1"]',
+    );
+    const frontWindow = page.locator(
+      '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="project-chat-window-2"]',
+    );
+
+    await expect(backgroundWindow).toBeVisible();
+    await expect(frontWindow).toBeVisible();
+    await backgroundWindow.dispatchEvent("pointerdown");
+
+    // Read-only mode should still allow local z-order updates for already-visible windows.
+    await expect
+      .poll(async () => {
+        return await page.evaluate(async () => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          const windowing = useProjectState.getState().projectChatWindowing;
+          return {
+            first:
+              windowing.instancesById["project-chat-window-1"]?.zIndex ?? 0,
+            second:
+              windowing.instancesById["project-chat-window-2"]?.zIndex ?? 0,
+          };
+        });
+      })
+      .toEqual({
+        first: 3,
+        second: 2,
+      });
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

@@ -751,6 +751,13 @@ class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
     defaultChildSectionType: SectionType
 
 
+class ListenerSetProjectChatWindowChatIdRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    instanceId: ID
+    chatId: ID | None
+
+
 class ListenerSetProjectChatWindowingStateRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1553,6 +1560,11 @@ class RouterEndpointAPI:
         return await self._caller(
             "route_set_parent_default_child_section_type", payload
         )
+
+    async def set_project_chat_window_chat_id(
+        self, payload: ListenerSetProjectChatWindowChatIdRequestPayload
+    ) -> ProjectChatWindowingState:
+        return await self._caller("route_set_project_chat_window_chat_id", payload)
 
     async def set_project_chat_windowing_state(
         self, payload: ListenerSetProjectChatWindowingStateRequestPayload

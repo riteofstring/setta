@@ -199,6 +199,8 @@ export function UnifiedChatSurface({
         key={`${remountKey}:${sectionId}`}
         sectionId={sectionId}
         surfaceId={surfaceId}
+        controlledChatId={projectChatId}
+        setControlledChatId={setProjectChatId}
       />
     </div>
   );

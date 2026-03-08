@@ -2124,6 +2124,160 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone section windows keep their saved section-mode thread when the workspace thread changes", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const { sectionId: chatSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "Standalone Section Mode Chat",
+      );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: chatSectionId,
+        managed: true,
+        engineConfigId: null,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await showSectionInProjectChatWindow(page, chatSectionId, "floating");
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return findProjectChatWindowIdForSection(state, chatSectionId) ?? "";
+        })
+        .not.toBe("");
+      const sectionWindowId =
+        findProjectChatWindowIdForSection(
+          await readProjectChatWindowingState(page),
+          chatSectionId,
+        ) ?? "";
+      if (!sectionWindowId) {
+        throw new Error("Expected a floating section window before saving.");
+      }
+
+      await seedProjectChatWindowThreads(page, [
+        {
+          instanceId: sectionWindowId,
+          chatId: "saved-section-thread",
+          assistantText: "Saved section thread marker",
+        },
+      ]);
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected a saved standalone window space.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      await page.evaluate(
+        async ({
+          projectConfigId,
+          sectionId,
+          chatId,
+        }: {
+          projectConfigId: string;
+          sectionId: string;
+          chatId: string;
+        }) => {
+          const { route_set_chat_section_chat_id } = await import(
+            "/src/utils/generatedEndpoints.ts"
+          );
+          await route_set_chat_section_chat_id({
+            projectConfigId,
+            sectionId,
+            chatId,
+          });
+        },
+        {
+          projectConfigId: projectContext.projectConfigId,
+          sectionId: chatSectionId,
+          chatId: "workspace-thread",
+        },
+      );
+
+      const fixtures: ProjectChatThreadFixture[] = [
+        {
+          instanceId: sectionWindowId,
+          chatId: "saved-section-thread",
+          assistantText: "Saved section thread marker",
+        },
+        {
+          instanceId: "workspace-section-window",
+          chatId: "workspace-thread",
+          assistantText: "Workspace section thread marker",
+        },
+      ];
+      await seedProjectChatDetails(page, fixtures, "workspace-thread");
+      await clearProjectChatWindowingState(
+        page,
+        projectContext.projectConfigId,
+      );
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await seedProjectChatDetails(
+        standalonePage,
+        fixtures,
+        "workspace-thread",
+      );
+
+      const standaloneSectionWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
+      );
+
+      // The saved standalone window should reopen its saved thread instead of falling back to the live section thread.
+      await expect(standaloneSectionWindow).toBeVisible();
+      await expect(
+        standaloneSectionWindow.locator(
+          '[data-chat-surface-mode="section_mode"]',
+        ),
+      ).toBeVisible();
+      await expect(standaloneSectionWindow).toContainText(
+        "Saved section thread marker",
+      );
+      await expect(standaloneSectionWindow).not.toContainText(
+        "Workspace section thread marker",
+      );
+    } finally {
+      await standalonePage.close();
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone window-space owner rebinding resets stale local section thread state", async ({
     page,
   }) => {

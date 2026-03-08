@@ -29,11 +29,20 @@ vi.mock("components/Section/Layouts/ChatArea", () => ({
   ChatArea: ({
     sectionId,
     surfaceId,
+    controlledChatId,
+    setControlledChatId,
   }: {
     sectionId: string;
     surfaceId?: string;
+    controlledChatId?: string | null;
+    setControlledChatId?: unknown;
   }) => (
-    <div data-testid="mock-section-chat" data-surface-id={surfaceId ?? ""}>
+    <div
+      data-testid="mock-section-chat"
+      data-surface-id={surfaceId ?? ""}
+      data-controlled-chat-id={controlledChatId ?? ""}
+      data-controlled-chat={setControlledChatId ? "true" : "false"}
+    >
       section chat:{sectionId}
     </div>
   ),
@@ -210,6 +219,22 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain(
       'data-surface-id="workspace-section:project-1:section-123"',
     );
+  });
+
+  it("forwards controlled chat ownership to section-mode chat hosts", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.section_mode}
+        host="standalone_page"
+        sectionId="section-123"
+        surfaceId="standalone-window-space:project-1:space-1:window-1"
+        projectChatId="saved-thread"
+        setProjectChatId={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('data-controlled-chat-id="saved-thread"');
+    expect(markup).toContain('data-controlled-chat="true"');
   });
 
   it("shows a clear warning when git-graph mode is routed through the wrong surface", () => {
