@@ -199,6 +199,7 @@ export function AreaSwitch({
   projectChatId,
   setProjectChatId,
   projectChatSurfaceId,
+  onProjectChatBlockedErrorCodeChange,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -210,6 +211,7 @@ export function AreaSwitch({
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   projectChatSurfaceId?: string;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
 }) {
   if (isMinimized) {
     return null;
@@ -260,6 +262,9 @@ export function AreaSwitch({
           projectChatId={projectChatId}
           setProjectChatId={setProjectChatId}
           surfaceId={projectChatSurfaceId}
+          onProjectChatBlockedErrorCodeChange={
+            onProjectChatBlockedErrorCodeChange
+          }
         />
       );
     case SectionTypeEnum.Browser:
@@ -334,6 +339,7 @@ function ChatSectionArea({
   projectChatId,
   setProjectChatId,
   surfaceId,
+  onProjectChatBlockedErrorCodeChange,
 }: {
   sectionId: string;
   host: ChatWindowPlacement | "section_layout" | "standalone_page";
@@ -341,6 +347,7 @@ function ChatSectionArea({
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   surfaceId?: string;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
 }) {
   const derivedMode = useProjectState((state) =>
     modeOverride === undefined
@@ -363,6 +370,7 @@ function ChatSectionArea({
       }
       projectChatId={projectChatId}
       setProjectChatId={setProjectChatId}
+      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
     />
   );
 }

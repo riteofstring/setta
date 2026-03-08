@@ -1149,7 +1149,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextWindowing.nextInstanceNumber).toBe(9);
   });
 
-  it("restores the saved floating layout while preserving non-floating windows", () => {
+  it("restores the saved floating layout while preserving unrelated live windows", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1190,6 +1190,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
             instanceId: "project-chat-window-88",
             placement: ChatWindowPlacementEnum.floating,
             title: "Transient Window",
+            chatId: "chat-live-floating",
           },
         },
       }),
@@ -1204,6 +1205,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
 
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([
       "project-chat-window-99",
+      "project-chat-window-88",
       "project-chat-window-2",
     ]);
     expect(
@@ -1227,7 +1229,12 @@ describe("restoreWindowSpaceInWorkspace", () => {
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-88"
       ],
-    ).toBeUndefined();
+    ).toMatchObject({
+      instanceId: "project-chat-window-88",
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Transient Window",
+      chatId: "chat-live-floating",
+    });
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
   });
 
@@ -1377,6 +1384,90 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
     expect(nextState.instancesById["project-chat-window-3"]).toBeUndefined();
     expect(nextState.nextInstanceNumber).toBe(3);
+  });
+
+  it("replaces an existing floating section host when the restored layout owns the same section", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "restored-section-window": {
+                surfaceKind: "section",
+                sectionIdOrNull: "section-1",
+                mode: ChatWindowModeEnum.section_mode,
+                title: null,
+                chatId: "chat-saved-section",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["restored-section-window"],
+          },
+        },
+      }),
+      sections: {
+        "section-1": createCore({
+          id: "section-1",
+          name: "Research Notes",
+        }),
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["live-section-window", "unrelated-floating-window"],
+        instancesById: {
+          "live-section-window": {
+            instanceId: "live-section-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            title: "Live Section Chat",
+            chatId: "chat-live-section",
+          },
+          "unrelated-floating-window": {
+            instanceId: "unrelated-floating-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Unrelated Floating Chat",
+            chatId: "chat-unrelated",
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.instancesById["live-section-window"]).toBeUndefined();
+    expect(nextState.instancesById["restored-section-window"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: "section-1",
+      chatId: "chat-saved-section",
+    });
+    expect(nextState.instancesById["unrelated-floating-window"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Unrelated Floating Chat",
+      chatId: "chat-unrelated",
+    });
+    expect(nextState.order).toEqual([
+      "unrelated-floating-window",
+      "restored-section-window",
+    ]);
   });
 
   it("preserves an existing non-floating section host when a saved floating section chat collides with it", () => {

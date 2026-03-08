@@ -1027,6 +1027,78 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("restoring a saved window space preserves unrelated live floating windows", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    try {
+      const savedWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Saved Window",
+      );
+      await setProjectChatWindowBounds(page, savedWindowId, {
+        x: 40,
+        y: 40,
+        width: 420,
+        height: 280,
+      });
+
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const liveWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Live Window",
+      );
+      await setProjectChatWindowBounds(page, liveWindowId, {
+        x: 700,
+        y: 80,
+        width: 360,
+        height: 260,
+      });
+      await setProjectChatWindowBounds(page, savedWindowId, {
+        x: 260,
+        y: 320,
+        width: 360,
+        height: 240,
+      });
+
+      await page.getByTestId("window-space-open").click();
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          const savedWindow = state.instancesById[savedWindowId];
+          const liveWindow = state.instancesById[liveWindowId];
+          return (
+            savedWindow?.bounds.x === 40 &&
+            savedWindow?.bounds.y === 40 &&
+            state.order.includes(savedWindowId) &&
+            state.order.includes(liveWindowId) &&
+            liveWindow?.placement === "floating"
+          );
+        })
+        .toBe(true);
+
+      await expect(
+        page.locator(
+          `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${savedWindowId}"]`,
+        ),
+      ).toBeVisible();
+      await expect(
+        page.locator(
+          `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${liveWindowId}"]`,
+        ),
+      ).toBeVisible();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("saves a floating layout as a window space and reopens it by URL without mutating workspace windowing state", async ({
     page,
   }) => {

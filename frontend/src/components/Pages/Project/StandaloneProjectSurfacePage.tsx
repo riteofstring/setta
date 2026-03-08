@@ -1,3 +1,8 @@
+import {
+  canUseManagedChatLLM,
+  standaloneSectionRequiresManagedChat,
+  standaloneWindowSpaceRequiresManagedChat,
+} from "components/Chat/sharePolicyChatAccess";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import {
   buildStandalonePageProjectChatSurfaceId,
@@ -13,7 +18,11 @@ import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import { useEffect, useMemo, useState, type SetStateAction } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
-import { useAIStore, useProjectState } from "state/definitions";
+import {
+  useAIStore,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import { useLoadProjectConfig } from "state/hooks/project";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
@@ -179,6 +188,22 @@ function StandaloneSurfaceShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+function StandaloneManagedChatBlockedSurface() {
+  return (
+    <StandaloneSurfaceShell>
+      <div
+        className="relative min-h-0 flex-1"
+        data-testid="standalone-managed-chat-blocked"
+      >
+        <NotFound
+          title="Managed Chat Unavailable"
+          description="This deployment does not allow LLM access for standalone managed chat surfaces."
+        />
+      </div>
+    </StandaloneSurfaceShell>
+  );
+}
+
 type StandaloneProjectSurfacePageLoadState = {
   doneLoading: boolean;
   is404: boolean;
@@ -212,12 +237,29 @@ export function StandaloneProjectSurfacePageWithLoadState({
     shallow,
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const sectionTypesById = useProjectState(
+    (state) =>
+      Object.fromEntries(
+        Object.entries(state.sections).map(([sectionId, section]) => [
+          sectionId,
+          section.type,
+        ]),
+      ),
+    shallow,
+  );
   const standaloneWindowSpace = useProjectState((state) => {
     if (target.kind !== "window_space") {
       return null;
     }
     return state.projectConfig.windowSpaces[target.windowSpaceId] ?? null;
   }, shallow);
+  const { isDeploymentMode, allowLLM } = useShareSession(
+    (state) => ({
+      isDeploymentMode: state.isDeploymentMode,
+      allowLLM: state.sharePolicy?.allowLLM ?? false,
+    }),
+    shallow,
+  );
   const agentRuns = useAIStore((state) => state.agentRuns);
   const projectChatHistoryEntries = useMemo(
     () =>
@@ -252,14 +294,41 @@ export function StandaloneProjectSurfacePageWithLoadState({
     chatId: null,
     errorCode: null,
   });
+  const [standaloneManagedChatDenied, setStandaloneManagedChatDenied] =
+    useState(false);
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
+  const canUseManagedChat = canUseManagedChatLLM({
+    isDeploymentMode,
+    allowLLM,
+  });
   const standaloneProjectChatId =
     target.kind === "project_chat_thread" ? target.chatId : null;
   const standaloneProjectChatThreadMissing =
     target.kind === "project_chat_thread" &&
     standaloneProjectChatBlockedState.chatId === standaloneProjectChatId &&
     standaloneProjectChatBlockedState.errorCode === "chat_not_found";
+  const standaloneSurfaceIdentity =
+    target.kind === "section"
+      ? `section:${target.sectionId}`
+      : target.kind === "window_space"
+        ? `window-space:${target.windowSpaceId}`
+        : target.kind;
+  const standaloneTargetRequiresManagedChat =
+    target.kind === "project_chat" || target.kind === "project_chat_thread"
+      ? true
+      : target.kind === "section"
+        ? standaloneSectionRequiresManagedChat(target.sectionType)
+        : target.kind === "window_space" && standaloneWindowSpace
+          ? standaloneWindowSpaceRequiresManagedChat(
+              standaloneWindowSpace,
+              sectionTypesById,
+            )
+          : false;
+  const shouldBlockStandaloneManagedChat =
+    ((!canUseManagedChat || standaloneManagedChatDenied) &&
+      standaloneTargetRequiresManagedChat) ||
+    standaloneProjectChatBlockedState.errorCode === "llm_disallowed";
 
   useEffect(() => {
     setStandaloneProjectChatBlockedState((current) => {
@@ -272,6 +341,10 @@ export function StandaloneProjectSurfacePageWithLoadState({
       };
     });
   }, [standaloneProjectChatId]);
+
+  useEffect(() => {
+    setStandaloneManagedChatDenied(false);
+  }, [standaloneProjectChatId, standaloneSurfaceIdentity]);
 
   useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
@@ -319,6 +392,10 @@ export function StandaloneProjectSurfacePageWithLoadState({
     return <NotFound />;
   }
 
+  if (shouldBlockStandaloneManagedChat) {
+    return <StandaloneManagedChatBlockedSurface />;
+  }
+
   if (target.kind === "project_chat" || target.kind === "project_chat_thread") {
     if (standaloneProjectChatThreadMissing) {
       return (
@@ -357,6 +434,9 @@ export function StandaloneProjectSurfacePageWithLoadState({
                 errorCode,
               };
             });
+            if (errorCode === "llm_disallowed") {
+              setStandaloneManagedChatDenied(true);
+            }
           }}
           dataTestId={
             target.kind === "project_chat_thread"
@@ -421,6 +501,11 @@ export function StandaloneProjectSurfacePageWithLoadState({
         <StandaloneWindowSpaceSurface
           key={`${projectConfigId}:${standaloneWindowSpace.id}`}
           windowSpace={standaloneWindowSpace}
+          onProjectChatBlockedErrorCodeChange={(errorCode) => {
+            if (errorCode === "llm_disallowed") {
+              setStandaloneManagedChatDenied(true);
+            }
+          }}
         />
       </StandaloneSurfaceShell>
     );
@@ -441,6 +526,11 @@ export function StandaloneProjectSurfacePageWithLoadState({
             projectConfigId,
             target.sectionId,
           )}
+          onProjectChatBlockedErrorCodeChange={(errorCode) => {
+            if (errorCode === "llm_disallowed") {
+              setStandaloneManagedChatDenied(true);
+            }
+          }}
           bodyOverride={
             target.sectionType === SectionTypeEnum.Group ||
             target.sectionType === SectionTypeEnum.ListRoot ? (

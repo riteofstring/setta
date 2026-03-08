@@ -366,6 +366,9 @@ describe("project chat slash-command resolution", () => {
 
 describe("getProjectChatBlockedReasonMessage", () => {
   it("returns deterministic blocked copy for each hydration error code", () => {
+    expect(getProjectChatBlockedReasonMessage("llm_disallowed")).toContain(
+      "no longer allows LLM access",
+    );
     expect(getProjectChatBlockedReasonMessage("chat_not_found")).toContain(
       "not found during hydration",
     );

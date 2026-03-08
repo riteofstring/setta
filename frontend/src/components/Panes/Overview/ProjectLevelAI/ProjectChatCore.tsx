@@ -142,6 +142,9 @@ export function getDefaultProjectChatPermissionMode(
 export function getProjectChatBlockedReasonMessage(
   errorCode: ProjectChatBlockedErrorCode,
 ): string {
+  if (errorCode === "llm_disallowed") {
+    return "This deployment no longer allows LLM access for managed chat, so this thread cannot hydrate here.";
+  }
   if (errorCode === "chat_not_found") {
     return "This thread was not found during hydration. You can still continue chatting from here.";
   }

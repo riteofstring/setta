@@ -997,6 +997,22 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
+  it("classifies 403 hydration failures as llm_disallowed terminal outcomes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 403,
+      hasResponse: true,
+      data: { detail: "Deployment policy disallows LLM access." },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-llm-blocked");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 403,
+      errorCode: "llm_disallowed",
+    });
+  });
+
   it("maps unknown terminal hydration codes to the generic terminal code", async () => {
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 409,
@@ -1071,6 +1087,25 @@ describe("stopProjectChatResponse", () => {
       outcome: "terminal_failure",
       status: 404,
       errorCode: "chat_not_found",
+    });
+  });
+
+  it("classifies external 403 hydration failures as llm_disallowed terminal outcomes", async () => {
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 403,
+      hasResponse: true,
+      data: { detail: "Deployment policy disallows LLM access." },
+    });
+
+    const outcome = await getExternalAgentChatHydrationOutcome(
+      "external-chat-blocked",
+      "project-external",
+    );
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 403,
+      errorCode: "llm_disallowed",
     });
   });
 

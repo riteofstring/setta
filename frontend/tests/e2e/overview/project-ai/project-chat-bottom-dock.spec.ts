@@ -647,6 +647,55 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
   }
 });
 
+test("the Project AI manager reopens minimized windows", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const dockPanel = page
+      .getByTestId("project-chat-bottom-dock-window-panel")
+      .first();
+    const instanceId = await dockPanel.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!instanceId) {
+      throw new Error("Expected project chat instance id.");
+    }
+
+    await dockPanel.getByTestId("project-chat-window-minimize").click();
+    await expect(
+      page.locator(
+        `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${instanceId}"]`,
+      ),
+    ).toHaveCount(0);
+
+    const reopenButton = page.locator(
+      `[data-testid="project-chat-manager-reopen"][data-chat-window-instance-id="${instanceId}"]`,
+    );
+    await expect(reopenButton).toBeVisible();
+    await expect(
+      page.locator(
+        `[data-testid="project-chat-manager-hide"][data-chat-window-instance-id="${instanceId}"]`,
+      ),
+    ).toHaveCount(0);
+
+    await reopenButton.click();
+
+    await expect(
+      page.locator(
+        `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${instanceId}"]`,
+      ),
+    ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat bottom dock narrows into a single visible window and collapses chats into a menu", async ({
   page,
 }) => {

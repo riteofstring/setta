@@ -356,8 +356,10 @@ export function applyStandaloneWindowSpaceHydration({
 
 export function StandaloneWindowSpaceSurface({
   windowSpace,
+  onProjectChatBlockedErrorCodeChange,
 }: {
   windowSpace: WindowSpaceConfig;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
@@ -675,6 +677,9 @@ export function StandaloneWindowSpaceSurface({
                   );
                 },
               }}
+              onProjectChatBlockedErrorCodeChange={
+                onProjectChatBlockedErrorCodeChange
+              }
             />
           ) : (
             <ProjectChatWindowSurface
@@ -727,6 +732,9 @@ export function StandaloneWindowSpaceSurface({
                       ),
                     );
                   }}
+                  onProjectChatBlockedErrorCodeChange={
+                    onProjectChatBlockedErrorCodeChange
+                  }
                 />
               )}
             </ProjectChatWindowSurface>

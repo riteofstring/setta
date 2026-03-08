@@ -638,14 +638,12 @@ export function createProjectChatWindowingStateFromWindowSpace(
 function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
+  supersededFloatingInstanceIds: Set<string>,
 ): ProjectChatWindowingState {
   const usedInstanceIds = new Set(
-    Object.entries(currentWindowing.instancesById)
-      .filter(
-        ([, instance]) =>
-          instance.placement !== ChatWindowPlacementEnum.floating,
-      )
-      .map(([instanceId]) => instanceId),
+    Object.keys(currentWindowing.instancesById).filter(
+      (instanceId) => !supersededFloatingInstanceIds.has(instanceId),
+    ),
   );
   const processedRestoredInstanceIds = new Set<string>();
   const remappedInstancesById: ProjectChatWindowingState["instancesById"] = {};
@@ -768,6 +766,38 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   });
 }
 
+function resolveWorkspaceFloatingWindowsSupersededByRestore(
+  restoredFloatingWindowing: ProjectChatWindowingState,
+  currentWindowing: ProjectChatWindowingState,
+): Set<string> {
+  const restoredSectionIds = new Set(
+    Object.values(restoredFloatingWindowing.instancesById)
+      .map((instance) => instance.sectionIdOrNull)
+      .filter((sectionId): sectionId is string => sectionId !== null),
+  );
+  const supersededFloatingInstanceIds = new Set<string>();
+
+  for (const [instanceId, instance] of Object.entries(
+    currentWindowing.instancesById,
+  )) {
+    if (instance.placement !== ChatWindowPlacementEnum.floating) {
+      continue;
+    }
+    if (restoredFloatingWindowing.instancesById[instanceId]) {
+      supersededFloatingInstanceIds.add(instanceId);
+      continue;
+    }
+    if (
+      instance.sectionIdOrNull !== null &&
+      restoredSectionIds.has(instance.sectionIdOrNull)
+    ) {
+      supersededFloatingInstanceIds.add(instanceId);
+    }
+  }
+
+  return supersededFloatingInstanceIds;
+}
+
 export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   const state = useProjectState.getState();
   const windowSpaces = getProjectWindowSpaces(state.projectConfig);
@@ -781,13 +811,21 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   const restoredFloatingWindowing =
     createProjectChatWindowingStateFromWindowSpace(windowSpace, state);
   const currentWindowing = state.projectChatWindowing;
+  const restoredFloatingWindowingWithoutNonFloatingSectionCollisions =
+    dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
+      restoredFloatingWindowing,
+      currentWindowing,
+    );
+  const supersededFloatingInstanceIds =
+    resolveWorkspaceFloatingWindowsSupersededByRestore(
+      restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
+      currentWindowing,
+    );
   const remappedRestoredFloatingWindowing = dedupeRestoredSectionBindings(
     remapRestoredWindowSpaceInstanceIdsForWorkspace(
-      dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
-        restoredFloatingWindowing,
-        currentWindowing,
-      ),
+      restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
       currentWindowing,
+      supersededFloatingInstanceIds,
     ),
   );
   const preservedInstancesById: ProjectChatWindowingState["instancesById"] = {};
@@ -797,7 +835,7 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
     const instance = currentWindowing.instancesById[instanceId];
     if (
       !instance ||
-      instance.placement === ChatWindowPlacementEnum.floating ||
+      supersededFloatingInstanceIds.has(instanceId) ||
       remappedRestoredFloatingWindowing.instancesById[instanceId]
     ) {
       continue;
@@ -810,7 +848,7 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
     currentWindowing.instancesById,
   )) {
     if (
-      instance.placement === ChatWindowPlacementEnum.floating ||
+      supersededFloatingInstanceIds.has(instanceId) ||
       remappedRestoredFloatingWindowing.instancesById[instanceId] ||
       preservedInstancesById[instanceId]
     ) {

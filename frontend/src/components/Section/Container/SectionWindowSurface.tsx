@@ -32,6 +32,7 @@ type SectionWindowSurfaceProps = {
   projectChatSurfaceId?: string;
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
   bodyOverride?: React.ReactNode;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
@@ -48,6 +49,7 @@ export function SectionWindowSurface({
   projectChatSurfaceId,
   projectChatId,
   setProjectChatId,
+  onProjectChatBlockedErrorCodeChange,
   bodyOverride = null,
   headerProps,
 }: SectionWindowSurfaceProps) {
@@ -159,6 +161,9 @@ export function SectionWindowSurface({
               projectChatSurfaceId={projectChatSurfaceId}
               projectChatId={projectChatId}
               setProjectChatId={setProjectChatId}
+              onProjectChatBlockedErrorCodeChange={
+                onProjectChatBlockedErrorCodeChange
+              }
             />
           )}
         </div>

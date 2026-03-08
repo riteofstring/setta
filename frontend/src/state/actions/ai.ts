@@ -2053,6 +2053,7 @@ export type ChatHydrationOutcomeType =
   | "terminal_failure";
 
 export type ChatHydrationErrorCode =
+  | "llm_disallowed"
   | "chat_not_found"
   | "chat_runtime_ambiguous"
   | "terminal_hydration_failure";
@@ -2068,6 +2069,9 @@ type ProjectChatHydrationRunType = "llm_chat" | "external_agent";
 function parseChatHydrationErrorCode(
   value: string | null,
 ): ChatHydrationErrorCode | null {
+  if (value === "llm_disallowed") {
+    return "llm_disallowed";
+  }
   if (value === "chat_not_found") {
     return "chat_not_found";
   }
@@ -2080,7 +2084,7 @@ function parseChatHydrationErrorCode(
 function classifyChatHydrationOutcomeType(
   status: number | undefined,
 ): ChatHydrationOutcomeType {
-  if (status === 404 || status === 409) {
+  if (status === 403 || status === 404 || status === 409) {
     return "terminal_failure";
   }
   return "transient_failure";
@@ -2099,7 +2103,10 @@ function buildChatHydrationFailureOutcome(response: {
     status: response.status,
     errorCode:
       outcome === "terminal_failure"
-        ? parsedErrorCode ?? "terminal_hydration_failure"
+        ? parsedErrorCode ??
+          (response.status === 403
+            ? "llm_disallowed"
+            : "terminal_hydration_failure")
         : parsedErrorCode,
   };
 }
