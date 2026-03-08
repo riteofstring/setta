@@ -207,12 +207,13 @@ Do not include:
 
 ## Recommended Next Step
 
-Write a dedicated Phase 11 Stage 6 plan for the still-remaining plugin
-source-acquisition, lockfile, and restart surface:
+Stage 6 planning now lives in
+`phase-11-plugin-lock-write-stage6.md`.
+
+After the bounded `lock write` slice lands, the remaining follow-on work is:
 
 1. `install`
 2. `update`
 3. `pin`
-4. `lock write`
-5. `lock apply`
-6. `restart`
+4. `lock apply`
+5. `restart`

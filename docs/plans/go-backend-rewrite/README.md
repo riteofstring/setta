@@ -387,11 +387,15 @@ Use the docs in this order:
 126. `phase-11-plugin-authoring-and-local-link-stage5.md`
   - focused implementation-plan doc for the self-contained plugin
     authoring/local-link slice: Go-owned `init`, `validate`, and `link`
-127. `spike-mcp.md`
+127. `phase-11-plugin-lock-write-stage6.md`
+  - focused implementation-plan doc for the first unblocked lockfile slice:
+    Go-owned `setta plugins lock write` over the completed discovery and
+    install-metadata owners
+128. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-128. `spike-pty.md`
+129. `spike-pty.md`
    - PTY uncertainty-reduction plan
-129. `spike-lsp.md`
+130. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

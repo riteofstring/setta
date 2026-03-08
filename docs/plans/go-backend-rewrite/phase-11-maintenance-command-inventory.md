@@ -168,13 +168,16 @@ Phase 11 Stage 4 is now complete in
 Phase 11 Stage 5 is now complete in
 `phase-11-plugin-authoring-and-local-link-stage5.md`.
 
-The remaining plugin surface should stay explicitly out of scope until a
-separate follow-on plan lands:
+Phase 11 Stage 6 is now planned in
+`phase-11-plugin-lock-write-stage6.md`.
 
+The remaining plugin surface stays split across one unblocked lockfile slice
+and a still-blocked source-acquisition slice:
+
+- `plugins lock write`
 - `plugins install`
 - `plugins update`
 - `plugins pin`
-- `plugins lock write`
 - `plugins lock apply`
 - `plugins restart`
 
@@ -225,6 +228,12 @@ separate follow-on plan lands:
     symlink install metadata, and PEP 440 Setta-version checks
   - the remaining Python-owned maintenance surface is now the plugin
     source-acquisition, lockfile, and restart cluster
+- 2026-03-08: added the dedicated plugin Stage 6 plan.
+  - the next bounded slice is now explicitly `setta plugins lock write`
+  - remote install/update/pin and `lock apply` remain blocked on the missing
+    production candidate-provider path
+  - `plugins restart` still stays separate until a later stage scopes it
+    intentionally
 
 ## Verification
 
