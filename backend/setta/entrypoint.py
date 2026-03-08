@@ -27,6 +27,9 @@ _GO_OWNED_SUBCOMMANDS = {
             "init",
             "validate",
             "list",
+            "install",
+            "update",
+            "pin",
             "rescan",
             "restart-required",
             "link",
@@ -39,7 +42,7 @@ _GO_OWNED_SUBCOMMANDS = {
 }
 _GO_OWNED_NESTED_SUBCOMMANDS = {
     "plugins": {
-        "lock": frozenset({"write"}),
+        "lock": frozenset({"write", "apply"}),
     }
 }
 _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(

@@ -17,6 +17,24 @@ type pluginsFlags struct {
 	jsonOutput bool
 }
 
+type pluginsInstallFlags struct {
+	jsonOutput      bool
+	scope           string
+	globalScope     bool
+	settaFilesScope bool
+	noEnable        bool
+	force           bool
+	installer       plugins.PluginInstallerBackend
+}
+
+type pluginsUpdateFlags struct {
+	jsonOutput      bool
+	scope           string
+	globalScope     bool
+	settaFilesScope bool
+	to              string
+}
+
 type pluginsInitFlags struct {
 	template string
 	outDir   string
@@ -35,6 +53,11 @@ type pluginsEnableDisableFlags struct {
 	jsonOutput bool
 }
 
+type pluginsLockApplyFlags struct {
+	jsonOutput bool
+	check      bool
+}
+
 type pluginsRescanJSON struct {
 	ServerMode       config.Mode `json:"serverMode"`
 	InstalledPlugins int         `json:"installedPlugins"`
@@ -45,7 +68,7 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	if len(args) == 0 {
 		return &ExitError{
 			Code: 2,
-			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, rescan, restart-required, link, enable, disable, uninstall, rollback, lock)"),
+			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, install, update, pin, rescan, restart-required, link, enable, disable, uninstall, rollback, lock)"),
 		}
 	}
 
@@ -56,6 +79,12 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 		return runPluginsValidate(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "list":
 		return runPluginsList(args[1:], global, stdout, stderr, envLookup, cwd)
+	case "install":
+		return runPluginsInstall(args[1:], global, stdout, stderr, envLookup, cwd)
+	case "update":
+		return runPluginsUpdate(args[1:], global, stdout, stderr, envLookup, cwd)
+	case "pin":
+		return runPluginsPin(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "rescan":
 		return runPluginsRescan(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "restart-required":
@@ -84,13 +113,15 @@ func runPluginsLock(args []string, global globalFlags, stdout io.Writer, stderr 
 	if len(args) == 0 {
 		return &ExitError{
 			Code: 2,
-			Err:  fmt.Errorf("missing plugins lock subcommand (supported: write)"),
+			Err:  fmt.Errorf("missing plugins lock subcommand (supported: write, apply)"),
 		}
 	}
 
 	switch args[0] {
 	case "write":
 		return runPluginsLockWrite(args[1:], global, stdout, stderr, envLookup, cwd)
+	case "apply":
+		return runPluginsLockApply(args[1:], global, stdout, stderr, envLookup, cwd)
 	default:
 		return &ExitError{
 			Code: 2,
@@ -117,6 +148,44 @@ func runPluginsLockWrite(args []string, global globalFlags, stdout io.Writer, st
 		return writeJSONPayload(stdout, result)
 	}
 	_, err = fmt.Fprintf(stdout, "Wrote lockfile %s with %d plugin entries\n", result.LockfilePath, result.PluginCount)
+	return err
+}
+
+func runPluginsLockApply(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, err := parsePluginsLockApplyFlags("plugins lock apply", args)
+	if err != nil {
+		return err
+	}
+
+	service, err := resolvePluginsService(global, envLookup, cwd)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	result, err := service.ApplyLockfile(context.Background(), parsed.check)
+	if err != nil {
+		return asPluginsCommandError(err)
+	}
+	if parsed.jsonOutput {
+		return writeJSONPayload(stdout, result)
+	}
+	if _, err := fmt.Fprintf(stdout, "Lockfile: %s\n", result.LockfilePath); err != nil {
+		return err
+	}
+	if len(result.PlannedChanges) == 0 {
+		if _, err := fmt.Fprintln(stdout, "No plugin changes needed."); err != nil {
+			return err
+		}
+	} else {
+		if _, err := fmt.Fprintln(stdout, "Planned changes:"); err != nil {
+			return err
+		}
+		for _, item := range result.PlannedChanges {
+			if _, err := fmt.Fprintf(stdout, "- %s\n", item); err != nil {
+				return err
+			}
+		}
+	}
+	_, err = fmt.Fprintf(stdout, "Applied: %s\n", boolToYesNo(result.Applied))
 	return err
 }
 
@@ -160,6 +229,125 @@ func runPluginsValidate(args []string, global globalFlags, stdout io.Writer, std
 	}
 	_, err = fmt.Fprintf(stdout, "Plugin manifest is valid: %s\n", pluginFolder)
 	return err
+}
+
+func runPluginsInstall(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, sourceSpec, err := parsePluginsInstallArgs("plugins install", args)
+	if err != nil {
+		return err
+	}
+	resolvedScope, err := resolvePluginsScopeFlag(pluginsScopedMutationFlags{
+		scope:           parsed.scope,
+		globalScope:     parsed.globalScope,
+		settaFilesScope: parsed.settaFilesScope,
+	})
+	if err != nil {
+		return err
+	}
+
+	service, err := resolvePluginsService(global, envLookup, cwd)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	result, err := service.Install(context.Background(), plugins.InstallOptions{
+		SourceSpec: sourceSpec,
+		Scope:      resolvedScope,
+		Installer:  installerPointer(parsed.installer),
+		Enable:     !parsed.noEnable,
+		Force:      parsed.force,
+	})
+	if err != nil {
+		return asPluginsCommandError(err)
+	}
+	if parsed.jsonOutput {
+		return writeJSONPayload(stdout, buildPluginsInstallCommandJSON(result))
+	}
+	if _, err := fmt.Fprintf(stdout, "Installed %s %s to %s (%s)\n", result.PluginID, result.Version, result.SourceScope, result.SourcePath); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(stdout, "Source: %s\n", result.CanonicalSourceKey); err != nil {
+		return err
+	}
+	if result.RestartRequired {
+		_, err := fmt.Fprintln(stdout, "Backend restart required.")
+		return err
+	}
+	return nil
+}
+
+func runPluginsUpdate(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, pluginID, err := parsePluginsUpdateArgs("plugins update", args)
+	if err != nil {
+		return err
+	}
+	result, err := runPluginsUpdateLike(parsed, pluginID, global, envLookup, cwd)
+	if err != nil {
+		return err
+	}
+	if parsed.jsonOutput {
+		return writeJSONPayload(stdout, result)
+	}
+	if _, err := fmt.Fprintf(stdout, "Updated %s: %s -> %s\n", result.PluginID, result.FromVersion, result.ToVersion); err != nil {
+		return err
+	}
+	if result.RestartRequired {
+		_, err := fmt.Fprintln(stdout, "Backend restart required.")
+		return err
+	}
+	return nil
+}
+
+func runPluginsPin(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, pluginID, sourceSpecOrVersion, err := parsePluginsPinArgs("plugins pin", args)
+	if err != nil {
+		return err
+	}
+	result, err := runPluginsUpdateLike(pluginsUpdateFlags{
+		jsonOutput:      parsed.jsonOutput,
+		scope:           parsed.scope,
+		globalScope:     parsed.globalScope,
+		settaFilesScope: parsed.settaFilesScope,
+		to:              sourceSpecOrVersion,
+	}, pluginID, global, envLookup, cwd)
+	if err != nil {
+		return err
+	}
+	if parsed.jsonOutput {
+		return writeJSONPayload(stdout, result)
+	}
+	if _, err := fmt.Fprintf(stdout, "Pinned %s: %s -> %s\n", result.PluginID, result.FromVersion, result.ToVersion); err != nil {
+		return err
+	}
+	if result.RestartRequired {
+		_, err := fmt.Fprintln(stdout, "Backend restart required.")
+		return err
+	}
+	return nil
+}
+
+func runPluginsUpdateLike(parsed pluginsUpdateFlags, pluginID string, global globalFlags, envLookup func(string) (string, bool), cwd string) (plugins.PluginUpdateResult, error) {
+	resolvedScope, err := resolvePluginsScopeFlag(pluginsScopedMutationFlags{
+		scope:           parsed.scope,
+		globalScope:     parsed.globalScope,
+		settaFilesScope: parsed.settaFilesScope,
+	})
+	if err != nil {
+		return plugins.PluginUpdateResult{}, err
+	}
+
+	service, err := resolvePluginsService(global, envLookup, cwd)
+	if err != nil {
+		return plugins.PluginUpdateResult{}, &ExitError{Code: 2, Err: err}
+	}
+	result, err := service.Update(context.Background(), plugins.UpdateOptions{
+		PluginID: pluginID,
+		Scope:    resolvedScope,
+		To:       parsed.to,
+	})
+	if err != nil {
+		return plugins.PluginUpdateResult{}, asPluginsCommandError(err)
+	}
+	return result, nil
 }
 
 func runPluginsList(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
@@ -461,6 +649,62 @@ func parsePluginsFlags(name string, args []string, stderr io.Writer) (pluginsFla
 	return parsed, nil
 }
 
+func parsePluginsInstallArgs(name string, args []string) (pluginsInstallFlags, string, error) {
+	parsed := pluginsInstallFlags{
+		installer: plugins.PluginInstallerBackendAuto,
+	}
+	sourceSpec := ""
+	for index := 0; index < len(args); index++ {
+		token := strings.TrimSpace(args[index])
+		switch {
+		case token == "--json":
+			parsed.jsonOutput = true
+		case token == "--global":
+			parsed.globalScope = true
+		case token == "--setta-files":
+			parsed.settaFilesScope = true
+		case token == "--no-enable":
+			parsed.noEnable = true
+		case token == "--force":
+			parsed.force = true
+		case token == "--scope":
+			if index+1 >= len(args) {
+				return pluginsInstallFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("missing value for --scope")}
+			}
+			index++
+			parsed.scope = strings.TrimSpace(args[index])
+		case strings.HasPrefix(token, "--scope="):
+			parsed.scope = strings.TrimSpace(strings.TrimPrefix(token, "--scope="))
+		case token == "--installer":
+			if index+1 >= len(args) {
+				return pluginsInstallFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("missing value for --installer")}
+			}
+			index++
+			installer, err := parsePluginInstallerBackend(args[index])
+			if err != nil {
+				return pluginsInstallFlags{}, "", err
+			}
+			parsed.installer = installer
+		case strings.HasPrefix(token, "--installer="):
+			installer, err := parsePluginInstallerBackend(strings.TrimPrefix(token, "--installer="))
+			if err != nil {
+				return pluginsInstallFlags{}, "", err
+			}
+			parsed.installer = installer
+		case strings.HasPrefix(token, "-"):
+			return pluginsInstallFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("unknown option %q", token)}
+		case sourceSpec != "":
+			return pluginsInstallFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one source spec", name)}
+		default:
+			sourceSpec = token
+		}
+	}
+	if sourceSpec == "" {
+		return pluginsInstallFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one source spec", name)}
+	}
+	return parsed, sourceSpec, nil
+}
+
 func parsePluginsInitFlags(name string, args []string) (pluginsInitFlags, string, error) {
 	parsed := pluginsInitFlags{template: "full"}
 	pluginID := ""
@@ -495,6 +739,85 @@ func parsePluginsInitFlags(name string, args []string) (pluginsInitFlags, string
 		return pluginsInitFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one plugin id", name)}
 	}
 	return parsed, pluginID, nil
+}
+
+func parsePluginsUpdateArgs(name string, args []string) (pluginsUpdateFlags, string, error) {
+	var parsed pluginsUpdateFlags
+	pluginID := ""
+	for index := 0; index < len(args); index++ {
+		token := strings.TrimSpace(args[index])
+		switch {
+		case token == "--json":
+			parsed.jsonOutput = true
+		case token == "--global":
+			parsed.globalScope = true
+		case token == "--setta-files":
+			parsed.settaFilesScope = true
+		case token == "--scope":
+			if index+1 >= len(args) {
+				return pluginsUpdateFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("missing value for --scope")}
+			}
+			index++
+			parsed.scope = strings.TrimSpace(args[index])
+		case strings.HasPrefix(token, "--scope="):
+			parsed.scope = strings.TrimSpace(strings.TrimPrefix(token, "--scope="))
+		case token == "--to":
+			if index+1 >= len(args) {
+				return pluginsUpdateFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("missing value for --to")}
+			}
+			index++
+			parsed.to = strings.TrimSpace(args[index])
+		case strings.HasPrefix(token, "--to="):
+			parsed.to = strings.TrimSpace(strings.TrimPrefix(token, "--to="))
+		case strings.HasPrefix(token, "-"):
+			return pluginsUpdateFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("unknown option %q", token)}
+		case pluginID != "":
+			return pluginsUpdateFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one plugin id", name)}
+		default:
+			pluginID = token
+		}
+	}
+	if pluginID == "" {
+		return pluginsUpdateFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one plugin id", name)}
+	}
+	return parsed, pluginID, nil
+}
+
+func parsePluginsPinArgs(name string, args []string) (pluginsScopedMutationFlags, string, string, error) {
+	var parsed pluginsScopedMutationFlags
+	pluginID := ""
+	sourceSpecOrVersion := ""
+	for index := 0; index < len(args); index++ {
+		token := strings.TrimSpace(args[index])
+		switch {
+		case token == "--json":
+			parsed.jsonOutput = true
+		case token == "--global":
+			parsed.globalScope = true
+		case token == "--setta-files":
+			parsed.settaFilesScope = true
+		case token == "--scope":
+			if index+1 >= len(args) {
+				return pluginsScopedMutationFlags{}, "", "", &ExitError{Code: 2, Err: fmt.Errorf("missing value for --scope")}
+			}
+			index++
+			parsed.scope = strings.TrimSpace(args[index])
+		case strings.HasPrefix(token, "--scope="):
+			parsed.scope = strings.TrimSpace(strings.TrimPrefix(token, "--scope="))
+		case strings.HasPrefix(token, "-"):
+			return pluginsScopedMutationFlags{}, "", "", &ExitError{Code: 2, Err: fmt.Errorf("unknown option %q", token)}
+		case pluginID == "":
+			pluginID = token
+		case sourceSpecOrVersion == "":
+			sourceSpecOrVersion = token
+		default:
+			return pluginsScopedMutationFlags{}, "", "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one plugin id and one source spec or version", name)}
+		}
+	}
+	if pluginID == "" || sourceSpecOrVersion == "" {
+		return pluginsScopedMutationFlags{}, "", "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one plugin id and one source spec or version", name)}
+	}
+	return parsed, pluginID, sourceSpecOrVersion, nil
 }
 
 func parsePluginsValidateArgs(name string, args []string) (string, error) {
@@ -536,6 +859,25 @@ func parsePluginsEnableDisableArgs(name string, args []string) (pluginsEnableDis
 		return pluginsEnableDisableFlags{}, "", &ExitError{Code: 2, Err: fmt.Errorf("%s requires exactly one plugin id", name)}
 	}
 	return parsed, pluginID, nil
+}
+
+func parsePluginsLockApplyFlags(name string, args []string) (pluginsLockApplyFlags, error) {
+	var parsed pluginsLockApplyFlags
+	for _, rawToken := range args {
+		token := strings.TrimSpace(rawToken)
+		switch token {
+		case "--json":
+			parsed.jsonOutput = true
+		case "--check":
+			parsed.check = true
+		default:
+			if strings.HasPrefix(token, "-") {
+				return pluginsLockApplyFlags{}, &ExitError{Code: 2, Err: fmt.Errorf("unknown option %q", token)}
+			}
+			return pluginsLockApplyFlags{}, &ExitError{Code: 2, Err: fmt.Errorf("%s does not accept positional arguments", name)}
+		}
+	}
+	return parsed, nil
 }
 
 func parsePluginsScopedMutationFlags(name string, args []string, _ io.Writer) (pluginsScopedMutationFlags, string, error) {
@@ -649,12 +991,18 @@ func resolvePluginsService(global globalFlags, envLookup func(string) (string, b
 		return nil, err
 	}
 
+	candidateProvider := plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
+		PackageManagerRuntime: pythonRuntime,
+		SettaFilesRoot:        commandCfg.Paths.SettaFilesRoot,
+	})
+
 	return plugins.NewService(plugins.ServiceOptions{
 		WorkspaceRoot:         commandCfg.Paths.WorkspaceRoot,
 		SettaFilesRoot:        commandCfg.Paths.SettaFilesRoot,
 		SettaHome:             commandCfg.Paths.SettaHome,
 		ServerMode:            commandCfg.Server.Mode,
 		RestartCommand:        "setta",
+		CandidateProvider:     candidateProvider,
 		PackageManagerRuntime: pythonRuntime,
 	})
 }
@@ -702,4 +1050,29 @@ func buildPluginsInstallCommandJSON(result plugins.PluginInstallResult) map[stri
 		"state":                 result.State,
 		"restartRequired":       result.RestartRequired,
 	}
+}
+
+func parsePluginInstallerBackend(raw string) (plugins.PluginInstallerBackend, error) {
+	switch strings.TrimSpace(raw) {
+	case string(plugins.PluginInstallerBackendAuto):
+		return plugins.PluginInstallerBackendAuto, nil
+	case string(plugins.PluginInstallerBackendPip):
+		return plugins.PluginInstallerBackendPip, nil
+	case string(plugins.PluginInstallerBackendUV):
+		return plugins.PluginInstallerBackendUV, nil
+	default:
+		return "", &ExitError{Code: 2, Err: fmt.Errorf("invalid plugin installer backend %q (supported: auto, pip, uv)", raw)}
+	}
+}
+
+func installerPointer(installer plugins.PluginInstallerBackend) *plugins.PluginInstallerBackend {
+	resolvedInstaller := installer
+	return &resolvedInstaller
+}
+
+func boolToYesNo(value bool) string {
+	if value {
+		return "yes"
+	}
+	return "no"
 }

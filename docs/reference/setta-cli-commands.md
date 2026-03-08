@@ -287,6 +287,7 @@ Subcommands:
   - Ownership: Go.
 - `setta plugins install <source_spec> [--scope ...] [--installer auto|pip|uv] [--no-enable] [--force] [--json]`
   - Install plugin source into a selected scope.
+  - Ownership: Go.
 - `setta plugins link <local_plugin_root> [--scope ...] [--no-enable] [--force] [--json]`
   - Link a local folder as an installed plugin (development workflow).
   - Ownership: Go.
@@ -302,8 +303,10 @@ Subcommands:
   - Ownership: Go.
 - `setta plugins update <plugin_id> [--scope ...] [--to <source_spec_or_version>] [--json]`
   - Update an installed plugin to latest or to a pinned target.
+  - Ownership: Go.
 - `setta plugins pin <plugin_id> <source_spec_or_version> [--scope ...] [--json]`
   - Shortcut for targeted update/pin.
+  - Ownership: Go.
 - `setta plugins rollback <plugin_id> [--scope ...] [--json]`
   - Restore previous installed version from plugin history snapshots.
   - Ownership: Go.
@@ -312,8 +315,10 @@ Subcommands:
   - Ownership: Go.
 - `setta plugins lock apply [--check] [--json]`
   - Compare/apply lockfile desired state against current installs.
+  - Ownership: Go.
 - `setta plugins restart [--json]`
   - Request programmatic backend restart when available.
+  - Ownership: Python.
 - `setta plugins restart-required [--json]`
   - List plugins pending backend restart and restart capability details.
   - Ownership: Go.

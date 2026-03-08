@@ -208,8 +208,8 @@ Do not include:
     and nested entrypoint dispatch for `plugins lock write`
   - package-manager-managed entries and shadowed entries are now excluded by
     the Go-owned lockfile writer, matching the current Python behavior
-  - the remaining Python-owned plugin surface is now `install`, `update`,
-    `pin`, `lock apply`, and `restart`
+  - the remaining Python-owned plugin surface at this stage was `install`,
+    `update`, `pin`, `lock apply`, and `restart`
 
 ## Verification
 
@@ -219,14 +219,9 @@ Do not include:
 
 ## Recommended Next Step
 
-The follow-on plan for the still-blocked plugin source-acquisition and
-convergence surface now lives in
-`phase-11-plugin-source-acquisition-and-convergence-stage7.md`:
+The follow-on source-acquisition and convergence work is now complete in
+`phase-11-plugin-source-acquisition-and-convergence-stage7.md`.
 
-1. `install`
-2. `update`
-3. `pin`
-4. `lock apply`
-
-Keep `plugins restart` separate unless that stage also lands a real Go restart
-hook or explicitly scopes a manual-only CLI transport.
+The only remaining plugin CLI gap after Stage 7 is `plugins restart`.
+Recommended follow-on: keep it separate until a later stage either lands a
+real Go restart hook or explicitly decides to ship a manual-only transport.

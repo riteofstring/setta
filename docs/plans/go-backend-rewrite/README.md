@@ -392,9 +392,10 @@ Use the docs in this order:
     Go-owned `setta plugins lock write` over the completed discovery and
     install-metadata owners
 128. `phase-11-plugin-source-acquisition-and-convergence-stage7.md`
-  - focused implementation-plan doc for the remaining candidate-provider-backed
+  - focused implementation-plan doc for the completed candidate-provider-backed
     plugin source acquisition and lockfile convergence slice: Go-owned
-    `setta plugins install|update|pin|lock apply`
+    `setta plugins install|update|pin|lock apply`, leaving only
+    `plugins restart` separate
 129. `spike-mcp.md`
    - MCP uncertainty-reduction plan
 130. `spike-pty.md`

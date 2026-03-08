@@ -49,10 +49,15 @@ As of 2026-03-08:
   - `setta plugins lock write` in `internal/settacmd`
   - nested Python-entrypoint dispatch for that completed lockfile-write
     subcommand
+- Go now also owns the plugin source-acquisition/convergence slice:
+  - production candidate-provider wiring in `internal/settacmd` into
+    `internal/plugins`
+  - thin `setta plugins install|update|pin` routing in `internal/settacmd`
+  - thin `setta plugins lock apply` routing in `internal/settacmd`
+  - selective Python-entrypoint dispatch for those completed subcommands
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
-  - the remaining `plugins` source-acquisition, lock-apply, and restart
-    commands
+  - `plugins restart`
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
@@ -130,10 +135,8 @@ As of 2026-03-08:
      - `init`
      - `validate`
      - `link`
-   - Go does not yet own the remaining CLI-facing plugin behaviors:
-     - install/update/pin source acquisition
-     - lockfile apply
-     - programmatic restart acceptance/rejection
+   - Go does not yet own the remaining CLI-facing plugin behavior:
+     - `plugins restart`
    - rewrite implication:
      - plugin CLI parity should be its own dedicated slice, not bundled with
        `backups` or `export-db`
@@ -181,16 +184,12 @@ Phase 11 Stage 6 is now planned in
 Phase 11 Stage 6 is now complete in
 `phase-11-plugin-lock-write-stage6.md`.
 
-Phase 11 Stage 7 is now planned in
+Phase 11 Stage 7 is now complete in
 `phase-11-plugin-source-acquisition-and-convergence-stage7.md`.
 
-The remaining plugin surface stays split across the planned
-source-acquisition/convergence slice and the separate restart command:
+The only remaining Python-owned plugin command is the separate restart
+surface:
 
-- `plugins install`
-- `plugins update`
-- `plugins pin`
-- `plugins lock apply`
 - `plugins restart`
 
 ## Progress Notes
@@ -258,6 +257,11 @@ source-acquisition/convergence slice and the separate restart command:
   - the stage is centered on the missing production candidate-provider wiring
     plus shared lockfile convergence ownership
   - `plugins restart` remains intentionally separate
+- 2026-03-08: completed the plugin Stage 7 slice.
+  - `setta plugins install|update|pin|lock apply` are now Go-owned
+  - the shipped Go CLI now wires the production candidate provider into the
+    shared plugin service
+  - the only remaining Python-owned plugin command is `plugins restart`
 
 ## Verification
 

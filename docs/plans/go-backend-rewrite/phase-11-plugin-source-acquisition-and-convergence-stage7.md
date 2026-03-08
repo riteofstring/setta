@@ -42,19 +42,14 @@ As of 2026-03-08:
   - `Rollback`
   - scoped metadata/history persistence
   - pending-restart bookkeeping
-- the shipped Go CLI still does not wire a production candidate provider into
-  `internal/plugins`
-  - `internal/settacmd.resolvePluginsService` constructs
-    `plugins.NewService(...)` without `CandidateProvider`
-  - shipped `install`/`update`/`pin` would currently fail with
-    `PLUGIN_SOURCE_FETCH_FAILED` instead of performing real source acquisition
-- Go does not yet own lockfile convergence/apply
-- Python still owns the remaining plugin commands:
-  - `install`
-  - `update`
-  - `pin`
-  - `lock apply`
-  - `restart`
+- Go now also owns the completed source-acquisition/convergence slice:
+  - production `CandidateProvider` ownership for GitHub and PyPI plugin
+    sources in `internal/plugins`
+  - shared lockfile `ApplyLockfile` convergence ownership in `internal/plugins`
+  - shipped `setta plugins install|update|pin|lock apply` transport in
+    `internal/settacmd`
+  - selective Python entrypoint dispatch for those completed subcommands
+- Python now owns only the remaining `plugins restart` command
 
 ## Inputs
 
@@ -252,12 +247,38 @@ Do not include:
   - the stage is centered on a real production `CandidateProvider` plus
     lockfile convergence ownership
   - `plugins restart` remains intentionally separate
+- 2026-03-08: completed the production source-acquisition and shared
+  convergence ownership.
+  - Go now resolves real GitHub and PyPI plugin candidates through the
+    explicit `CandidateProvider` boundary
+  - Go now owns lockfile load/validation, drift planning, package-manager
+    skip rules, disabled-state preservation, and one-final-rescan apply flow
+- 2026-03-08: completed the shipped CLI and entrypoint handoff for the Stage 7
+  commands.
+  - `resolvePluginsService(...)` now wires the production candidate provider
+  - `setta plugins install|update|pin|lock apply` are now Go-owned in the
+    packaged CLI
+  - `backend/setta/entrypoint.py` now routes those completed subcommands to Go
+  - `plugins restart` stays on Python intentionally
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
+- `git diff --check`
 
 ## Recommended Next Step
 
-Implement this Stage 7 slice in order:
+Plan the remaining `plugins restart` slice explicitly instead of folding it
+into another command batch.
 
-1. land the production candidate provider and supporting acquisition helpers
-2. add shared `lock apply` convergence ownership in `internal/plugins`
-3. expose `install`, `update`, `pin`, and `lock apply` through the shipped Go
-   CLI and partial Python entrypoint dispatch
+Recommended option: keep `plugins restart` on Python until the shipped Go
+local runtime exposes a real restart boundary.
+
+Rationale:
+
+- `restart-required` already exposes the manual-capability truth from Go
+- a manual-only wrapper would add command-surface churn without reducing the
+  real ownership gap
+- a later dedicated stage can decide cleanly between a real Go hook and an
+  intentionally manual-only transport

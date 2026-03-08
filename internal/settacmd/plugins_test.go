@@ -1,8 +1,10 @@
 package settacmd
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -251,6 +253,190 @@ func TestRunPluginsLinkJSONIncludesInstallPayload(t *testing.T) {
 	}
 }
 
+// Plugins install should keep the Python CLI text/JSON contract while resolving real PyPI source acquisition through the shipped Go CLI.
+func TestRunPluginsInstallTextAndJSON(t *testing.T) {
+	t.Setenv("SETTA_PYTHON", resolveSettacmdTestPython(t))
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelForSettacmdTest(t, artifactDir, "setta-fixture-frontend", "0.1.0")
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	textCWD := filepath.Join(t.TempDir(), "text-workspace")
+	if err := os.MkdirAll(textCWD, 0o755); err != nil {
+		t.Fatalf("mkdir text cwd: %v", err)
+	}
+	stdout, stderr, err := runPluginsSettaCommand(t, textCWD, "plugins", "install", "pypi:setta-fixture-frontend==0.1.0")
+	if err != nil {
+		t.Fatalf("run plugins install text: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	expectedSourcePath := filepath.Join(textCWD, ".setta_plugins", "setta-fixture-frontend")
+	if !strings.Contains(stdout, "Installed setta-fixture-frontend 0.1.0 to workspace ("+expectedSourcePath+")") {
+		t.Fatalf("unexpected text output %q", stdout)
+	}
+	if !strings.Contains(stdout, "Source: pypi:setta-fixture-frontend") {
+		t.Fatalf("expected canonical source line, got %q", stdout)
+	}
+
+	jsonCWD := filepath.Join(t.TempDir(), "json-workspace")
+	if err := os.MkdirAll(jsonCWD, 0o755); err != nil {
+		t.Fatalf("mkdir json cwd: %v", err)
+	}
+	jsonStdout, jsonStderr, err := runPluginsSettaCommand(t, jsonCWD, "plugins", "install", "pypi:setta-fixture-frontend==0.1.0", "--json")
+	if err != nil {
+		t.Fatalf("run plugins install json: %v", err)
+	}
+	if jsonStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", jsonStderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonStdout), &payload); err != nil {
+		t.Fatalf("decode install json: %v", err)
+	}
+	if got := payload["pluginId"]; got != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin id %#v", got)
+	}
+	if got := payload["version"]; got != "0.1.0" {
+		t.Fatalf("unexpected version %#v", got)
+	}
+	if got := payload["sourceScopeLabel"]; got != "workspace" {
+		t.Fatalf("unexpected source scope label %#v", got)
+	}
+	if got := payload["canonicalSourceKey"]; got != "pypi:setta-fixture-frontend" {
+		t.Fatalf("unexpected canonical source key %#v", got)
+	}
+	if got := payload["trustStatus"]; got != "unverified" {
+		t.Fatalf("unexpected trust status %#v", got)
+	}
+	if got := payload["state"]; got != "active" {
+		t.Fatalf("unexpected plugin state %#v", got)
+	}
+}
+
+// Plugins update/pin should preserve the Python CLI wording while using the Go-owned mutation service for version retargeting.
+func TestRunPluginsUpdateAndPinTextAndJSON(t *testing.T) {
+	t.Setenv("SETTA_PYTHON", resolveSettacmdTestPython(t))
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelForSettacmdTest(t, artifactDir, "setta-fixture-frontend", "0.1.0")
+	buildLocalPyPIWheelForSettacmdTest(t, artifactDir, "setta-fixture-frontend", "0.2.0")
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	cwd := t.TempDir()
+	if _, _, err := runPluginsSettaCommand(t, cwd, "plugins", "install", "pypi:setta-fixture-frontend==0.1.0", "--json"); err != nil {
+		t.Fatalf("seed plugin install: %v", err)
+	}
+
+	updateStdout, updateStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "update", "setta-fixture-frontend", "--to", "0.2.0")
+	if err != nil {
+		t.Fatalf("run plugins update text: %v", err)
+	}
+	if updateStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", updateStderr)
+	}
+	if !strings.Contains(updateStdout, "Updated setta-fixture-frontend: 0.1.0 -> 0.2.0") {
+		t.Fatalf("unexpected update output %q", updateStdout)
+	}
+
+	pinStdout, pinStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "pin", "setta-fixture-frontend", "0.1.0", "--json")
+	if err != nil {
+		t.Fatalf("run plugins pin json: %v", err)
+	}
+	if pinStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", pinStderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(pinStdout), &payload); err != nil {
+		t.Fatalf("decode pin json: %v", err)
+	}
+	if got := payload["pluginId"]; got != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin id %#v", got)
+	}
+	if got := payload["fromVersion"]; got != "0.2.0" {
+		t.Fatalf("unexpected fromVersion %#v", got)
+	}
+	if got := payload["toVersion"]; got != "0.1.0" {
+		t.Fatalf("unexpected toVersion %#v", got)
+	}
+	if got := payload["restartRequired"]; got != false {
+		t.Fatalf("unexpected restartRequired %#v", got)
+	}
+}
+
+// Plugins lock apply should keep the Python check/apply text and JSON transport while delegating convergence to the Go service.
+func TestRunPluginsLockApplyCheckTextAndApplyJSON(t *testing.T) {
+	t.Setenv("SETTA_PYTHON", resolveSettacmdTestPython(t))
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelForSettacmdTest(t, artifactDir, "setta-fixture-frontend", "0.1.0")
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	cwd := t.TempDir()
+	lockfilePath := filepath.Join(cwd, ".setta_plugins", "plugins.lock.json")
+	writeJSONFileForSettacmdTest(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{
+			{
+				"pluginId":           "setta-fixture-frontend",
+				"version":            "0.1.0",
+				"canonicalSourceKey": "pypi:setta-fixture-frontend",
+				"scope":              "workspace",
+				"sourceSpec":         "pypi:setta-fixture-frontend==0.1.0",
+				"installerBackend":   "pip",
+			},
+		},
+	})
+
+	checkStdout, checkStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock", "apply", "--check")
+	if err != nil {
+		t.Fatalf("run plugins lock apply check: %v", err)
+	}
+	if checkStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", checkStderr)
+	}
+	if !strings.Contains(checkStdout, "Lockfile: "+lockfilePath) {
+		t.Fatalf("expected lockfile path, got %q", checkStdout)
+	}
+	if !strings.Contains(checkStdout, "Planned changes:") {
+		t.Fatalf("expected planned changes header, got %q", checkStdout)
+	}
+	if !strings.Contains(checkStdout, "- install setta-fixture-frontend in workspace") {
+		t.Fatalf("expected install planned change, got %q", checkStdout)
+	}
+	if !strings.Contains(checkStdout, "Applied: no") {
+		t.Fatalf("expected dry-run applied=no output, got %q", checkStdout)
+	}
+
+	applyStdout, applyStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock", "apply", "--json")
+	if err != nil {
+		t.Fatalf("run plugins lock apply json: %v", err)
+	}
+	if applyStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", applyStderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(applyStdout), &payload); err != nil {
+		t.Fatalf("decode lock apply json: %v", err)
+	}
+	if got := payload["lockfilePath"]; got != lockfilePath {
+		t.Fatalf("unexpected lockfile path %#v", got)
+	}
+	if got := payload["applied"]; got != true {
+		t.Fatalf("expected applied=true, got %#v", got)
+	}
+	plannedChanges, ok := payload["plannedChanges"].([]any)
+	if !ok || len(plannedChanges) != 1 || plannedChanges[0] != "install setta-fixture-frontend in workspace" {
+		t.Fatalf("unexpected planned changes %#v", payload["plannedChanges"])
+	}
+	if _, err := os.Stat(filepath.Join(cwd, ".setta_plugins", "setta-fixture-frontend")); err != nil {
+		t.Fatalf("expected plugin root after lock apply: %v", err)
+	}
+}
+
 // Plugins lock write should emit the canonical lockfile path/count contract in both text and JSON modes.
 func TestRunPluginsLockWriteTextAndJSON(t *testing.T) {
 	t.Parallel()
@@ -316,7 +502,7 @@ func TestRunPluginsLockRequiresSubcommand(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected plugins lock error")
 	}
-	if DisplayError(err) != "missing plugins lock subcommand (supported: write)" {
+	if DisplayError(err) != "missing plugins lock subcommand (supported: write, apply)" {
 		t.Fatalf("unexpected plugins lock error %q", DisplayError(err))
 	}
 }
@@ -517,9 +703,12 @@ func runPluginsSettaCommand(t *testing.T, cwd string, args ...string) (string, s
 				return settaHome, true
 			}
 			if key == "SETTA_PYTHON" {
+				if value, ok := os.LookupEnv(key); ok {
+					return value, true
+				}
 				return pythonWrapper, true
 			}
-			return "", false
+			return os.LookupEnv(key)
 		},
 	})
 	return stdout.String(), stderr.String(), err
@@ -695,4 +884,91 @@ func installPackageManagerDistributionFixtureForSettacmdTest(t *testing.T, packa
 		t.Fatalf("write record: %v", err)
 	}
 	return sitePackages
+}
+
+func buildLocalPyPIWheelForSettacmdTest(t *testing.T, artifactDir string, packageName string, version string) string {
+	t.Helper()
+
+	sourceRoot := filepath.Join(t.TempDir(), "plugin-root")
+	writeFrontendPluginFixture(t, sourceRoot, packageName, "Setta Fixture Frontend", version)
+
+	if err := os.MkdirAll(artifactDir, 0o755); err != nil {
+		t.Fatalf("mkdir artifact dir: %v", err)
+	}
+	wheelName := fmt.Sprintf("%s-%s-py3-none-any.whl", strings.ReplaceAll(packageName, "-", "_"), version)
+	artifactPath := filepath.Join(artifactDir, wheelName)
+
+	file, err := os.Create(artifactPath)
+	if err != nil {
+		t.Fatalf("create wheel artifact: %v", err)
+	}
+	archive := zip.NewWriter(file)
+	err = filepath.Walk(sourceRoot, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+		relativePath, err := filepath.Rel(sourceRoot, path)
+		if err != nil {
+			return err
+		}
+		writer, err := archive.Create(filepath.ToSlash(relativePath))
+		if err != nil {
+			return err
+		}
+		payload, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		_, err = writer.Write(payload)
+		return err
+	})
+	if err != nil {
+		t.Fatalf("write wheel payload: %v", err)
+	}
+
+	distInfoName := fmt.Sprintf("%s-%s.dist-info", strings.ReplaceAll(packageName, "-", "_"), version)
+	metadataWriter, err := archive.Create(filepath.ToSlash(filepath.Join(distInfoName, "METADATA")))
+	if err != nil {
+		t.Fatalf("create wheel metadata: %v", err)
+	}
+	if _, err := metadataWriter.Write([]byte(strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: " + packageName,
+		"Version: " + version,
+		"Summary: Setta fixture plugin",
+		"",
+	}, "\n"))); err != nil {
+		t.Fatalf("write wheel metadata: %v", err)
+	}
+	wheelWriter, err := archive.Create(filepath.ToSlash(filepath.Join(distInfoName, "WHEEL")))
+	if err != nil {
+		t.Fatalf("create wheel manifest: %v", err)
+	}
+	if _, err := wheelWriter.Write([]byte(strings.Join([]string{
+		"Wheel-Version: 1.0",
+		"Generator: settacmd-tests",
+		"Root-Is-Purelib: true",
+		"Tag: py3-none-any",
+		"",
+	}, "\n"))); err != nil {
+		t.Fatalf("write wheel manifest: %v", err)
+	}
+	recordWriter, err := archive.Create(filepath.ToSlash(filepath.Join(distInfoName, "RECORD")))
+	if err != nil {
+		t.Fatalf("create wheel record: %v", err)
+	}
+	if _, err := recordWriter.Write([]byte("")); err != nil {
+		t.Fatalf("write wheel record: %v", err)
+	}
+
+	if err := archive.Close(); err != nil {
+		t.Fatalf("close wheel archive: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("close wheel file: %v", err)
+	}
+	return artifactPath
 }

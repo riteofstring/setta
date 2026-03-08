@@ -90,16 +90,31 @@ def test_resolve_go_dispatch_command_routes_completed_plugins_lock_write_to_go()
     assert command == "plugins"
 
 
-def test_resolve_go_dispatch_command_keeps_unported_plugins_subcommands_on_python() -> None:
-    # Source-acquisition and restart work still stay on the Python CLI path for now.
+def test_resolve_go_dispatch_command_routes_completed_plugins_source_acquisition_subcommands_to_go() -> None:
+    # The Stage 7 source-acquisition slice now routes install/update/pin to Go.
     command = resolve_go_dispatch_command(["plugins", "install", "github:owner/repo#v1"])
+    update_command = resolve_go_dispatch_command(
+        ["plugins", "update", "setta-fixture-frontend", "--to", "0.2.0"]
+    )
+    pin_command = resolve_go_dispatch_command(
+        ["plugins", "pin", "setta-fixture-frontend", "0.1.0"]
+    )
 
-    assert command is None
+    assert command == "plugins"
+    assert update_command == "plugins"
+    assert pin_command == "plugins"
 
 
-def test_resolve_go_dispatch_command_keeps_plugins_lock_apply_on_python() -> None:
-    # Lock apply remains on Python until the candidate-provider-backed convergence slice lands.
+def test_resolve_go_dispatch_command_routes_completed_plugins_lock_apply_to_go() -> None:
+    # The Stage 7 convergence slice now routes plugins lock apply to Go.
     command = resolve_go_dispatch_command(["plugins", "lock", "apply", "--check"])
+
+    assert command == "plugins"
+
+
+def test_resolve_go_dispatch_command_keeps_plugins_restart_on_python() -> None:
+    # Restart ownership is still intentionally separate from the Stage 7 plugin slice.
+    command = resolve_go_dispatch_command(["plugins", "restart", "--json"])
 
     assert command is None
 
@@ -381,6 +396,64 @@ def test_python_module_entrypoint_dispatches_go_owned_plugins_lock_write_command
     assert (
         args_capture_path.read_text(encoding="utf-8").strip()
         == "plugins lock write --json"
+    )
+
+
+def test_python_module_entrypoint_dispatches_go_owned_plugins_install_command(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "plugins", "install", "github:acme/demo#v1"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip()
+        == "plugins install github:acme/demo#v1"
+    )
+
+
+def test_python_module_entrypoint_dispatches_go_owned_plugins_lock_apply_command(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "plugins", "lock", "apply", "--check"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip()
+        == "plugins lock apply --check"
     )
 
 
