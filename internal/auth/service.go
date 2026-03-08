@@ -14,6 +14,10 @@ const (
 	defaultBootstrapTokenTTL = 10 * time.Minute
 	defaultAuthCookieTTL     = 12 * time.Hour
 	defaultAuthRefreshWindow = time.Hour
+
+	DefaultAuthCookieName    = defaultAuthCookieName
+	DefaultBootstrapTokenTTL = defaultBootstrapTokenTTL
+	DefaultAuthCookieTTL     = defaultAuthCookieTTL
 )
 
 var (
@@ -279,6 +283,14 @@ func normalizeCookieName(raw string, fallback string) string {
 		return fallback
 	}
 	return builder.String()
+}
+
+func NormalizeCookieBaseName(raw string) string {
+	return normalizeCookieName(raw, defaultAuthCookieName)
+}
+
+func CookieName(baseName string, sessionID string) (string, error) {
+	return authCookieName(NormalizeCookieBaseName(baseName), sessionID)
 }
 
 func isHTTPTokenChar(ch rune) bool {

@@ -20,12 +20,19 @@ As of 2026-03-08:
   - bootstrap token and auth-cookie semantics in `internal/auth`
   - bootstrap URL creation in `internal/launcher/open_workspace.go`
   - launcher-origin proof helpers in `internal/frontendorigins/service.go`
+- Go now also owns the first bounded CLI slice in:
+  - `cmd/setta-cli/main.go`
+  - `internal/settacli/cli.go`
+  - `internal/settacli/cli_test.go`
+  - `internal/auth/service.go`
+  - this slice covers:
+    - local `status --connect-info`
+    - local `status --list-sessions`
+    - local `auth`
 - Python still owns the user-facing CLI in `backend/setta/start.py`
-- the largest low-risk CLI gap is the local read-only session/auth helper
-  cluster:
-  - `setta status --connect-info`
-  - `setta status --list-sessions`
-  - `setta auth`
+- the next bounded CLI gap is likely the tool-facing cluster:
+  - `setta tools`
+  - `setta api`
 
 ## Inputs
 
@@ -143,8 +150,24 @@ Do not include in this slice:
 - 2026-03-08: created this doc after closing Phase 7 and confirming that the
   remaining Python surface is CLI/distribution scope rather than backend
   runtime scope.
+- 2026-03-08: completed Stage 1 from this doc by adding the new
+  `cmd/setta-cli` entrypoint, the first Go CLI runner in
+  `internal/settacli/cli.go`, shared session/auth helpers over
+  `internal/localsessions` and `internal/auth`, and focused Go coverage in
+  `internal/settacli/cli_test.go`. This landing preserves the documented JSON
+  payloads for local `status --connect-info`, local `status --list-sessions`,
+  and local `auth`, including IDE-default session filtering and stale-session
+  rejection for unrelated processes.
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacli ./cmd/setta-cli -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/auth ./internal/localsessions -count=1 -timeout 300s`
 
 ## Recommended Next Step
 
-Implement Stage 1 from this doc: add `cmd/setta-cli` with the local read-only
-`status` and `auth` commands over the existing Go session/auth runtime owners.
+Create a dedicated follow-up doc for the tool-facing CLI slice and implement
+the next bounded owner on top of the completed auth/session foundation:
+
+- `setta tools`
+- `setta api`
