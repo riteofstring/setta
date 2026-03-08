@@ -323,25 +323,33 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   - Go `LLMStreamingResponse` message types in `internal/realtime`
   - concrete live chat overlay/store in `internal/managedchat`
   - managed runtime lifecycle hooks in `internal/agentruns.Runtime`
+- 2026-03-09: landed the fifth executable Phase 18 slice in Go for the first
+  bounded managed provider executor:
+  - bounded `internal/managedllm` OpenAI chat-completions executor
+  - real IDE app wiring for managed `/getLLMResponse` and managed
+    `/startAgentRun`
+  - cancellation persistence in `internal/agentruns` so stopped runs keep
+    partial outputs
 - 2026-03-09: the remaining managed-chat dependency inside this phase is now
-  the provider executor follow-on behind the landed send/hydrate/stop/live
-  transport foundations.
+  the explicit MCP/tool-call and robust reasoning follow-on behind the landed
+  send/hydrate/stop/live/provider foundations.
 
 ## Verification
 
 - `./scripts/go.sh test ./internal/managedchat -run 'TestServiceStartChat(BuildsManagedInputsAndCombinedPrompt|ContinueFromChatSeedsExternalSourceHistory|BranchEditMissingMessageReturnsNotFound|ReturnsExecutorUnavailableWhenStarterDisabled)' -count=1`
 - `./scripts/go.sh test ./internal/realtime ./internal/managedchat ./internal/agentruns ./internal/app -run 'Test(NewLLMStreamingResponseMessage|LiveRuntimeApplyChunkBroadcastsAndStoresState|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RuntimeStartRunActivatesAndClearsLiveTracker|ServiceGetChatUsesLiveOverlayWhenRunning|AppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor))' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterAIRoutesStarts(ExternalAgentChat|ManagedChat)|TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'TestAppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor)' -count=1`
+- `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/managedllm ./internal/agentruns ./internal/managedchat -run 'Test(AppServesManagedChatSendThroughManagedExecutor|AppWiresManagedAgentRunFoundationInIDEMode|AppServesManagedAgentRunRoutesWithManagedExecutor|Executor|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RegisterAIRoutes)' -count=1`
 
 ## Next Recommended Step
 
-- plug a real managed provider executor into the landed `internal/managedchat`
-  start boundary, keyed by `llmconfig.Config.Provider`
-- emit streamed managed chat chunks through the landed concrete live runtime
-  instead of creating a parallel provider-owned state cache
-- keep explicit unsupported-provider and unavailable-runtime errors; do not
-  guess compatibility from model names or other heuristics
+- add MCP/tool-call execution over the landed managed provider/runtime
+  boundary so managed chats can use the same resolved server IDs as the
+  persisted Go runtime
+- resolve managed `thinking=true` with an explicit provider-native or product
+  decision instead of model-name heuristics
+- keep transport layers thin; the remaining work is executor/runtime semantics,
+  not more route movement
 
 ## Recommended Design
 

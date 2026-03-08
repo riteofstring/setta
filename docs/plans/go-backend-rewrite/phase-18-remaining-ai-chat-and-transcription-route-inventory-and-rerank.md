@@ -31,14 +31,20 @@ Current Go state relevant to this inventory:
     `/respondExternalAgentQuestion`
 - `internal/agentruns`
   - owns managed run storage and a managed active-run runtime foundation
-  - still leaves the real IDE app wiring disabled until a managed executor is
-    wired
+  - now owns the bounded managed execution request path used by the real IDE
+    app wiring
 - `internal/managedchat`
   - now owns managed chat send/hydrate/stop semantics above the landed
     managed-run foundations
   - now owns request validation, history lookup, prompt shaping,
     `llmConfig` / `contextUsage` shaping, and latest-running-run stop
     behavior above the landed managed-run foundations
+  - now hydrates and streams through the concrete managed live runtime while
+    execution is active
+- `internal/managedllm`
+  - now owns the first bounded managed provider executor
+  - currently supports OpenAI chat-completions text streaming only and fails
+    tools/attachments/unsupported reasoning explicitly
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -83,10 +89,10 @@ Question this inventory answers:
 
 ## Findings
 
-### 1. Managed chat send/hydrate/stop is still a live direct frontend gap
+### 1. Managed chat route ownership is no longer the active direct frontend gap
 
-The remaining active managed-chat dependency is not just a missing route name.
-It is a partially Python-owned route cluster:
+The landed follow-on work closed the route-ownership gap for the managed chat
+cluster:
 
 - `POST /getLLMResponse` for the managed `setta_llm` branch
 - `POST /getLLMChat`
@@ -105,18 +111,18 @@ Current callers:
 
 Current Go status:
 
-- `internal/httpapi/ai_routes.go` intentionally routes `/getLLMResponse` only
-  into `internal/externalagents.SendService`
-- that service explicitly requires `EngineType.external_agent`
-- no Go route currently owns `/getLLMChat` or `/stopLLMChat`
-- the landed `internal/agentruns` managed runtime foundation exists, but the
-  real app still wires it as unavailable until a managed executor exists
+- `internal/httpapi/ai_routes.go` owns thin managed/external dispatch for
+  `/getLLMResponse`
+- Go owns `/getLLMChat` and `/stopLLMChat`
+- the real IDE app now wires managed send/start through the bounded
+  `internal/managedllm` executor
 
 Implication:
 
-- this is the highest-leverage remaining direct frontend AI gap
-- the next slice must treat managed chat as runtime work over the existing Go
-  managed-run foundations, not as a thin transport cleanup
+- the remaining managed-chat work is executor/runtime semantics, not route
+  movement
+- the highest-leverage follow-on is the explicit MCP/tool-call and reasoning
+  work behind the now-landed managed send/hydrate/stop/provider foundations
 
 ### 2. Chat-section persistence is the adjacent direct dependency and should move with managed chat
 

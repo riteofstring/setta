@@ -39,11 +39,12 @@ scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat transport is now Go-owned for the current direct frontend managed and
-external route surface, but managed provider execution and websocket/runtime
-parity are still incomplete. The rewrite still does not plan to recreate a
-broad LiteLLM-equivalent managed runtime in Go, and the remaining managed-chat
-follow-on is now the provider-backed executor behind the landed
-`/getLLMResponse` send owner and the landed managed live chat runtime.
+external route surface, and managed OpenAI text execution is now wired through
+Go as well. The rewrite still does not plan to recreate a broad
+LiteLLM-equivalent managed runtime in Go, and the remaining managed-chat
+follow-on is now the explicit MCP/tool-call and robust reasoning work behind
+the landed `/getLLMResponse` send owner, the landed managed live chat runtime,
+and the bounded OpenAI executor.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -71,6 +72,14 @@ websocket stream foundation:
 - Go `LLMStreamingResponse` websocket message types in `internal/realtime`
 - concrete live managed chat overlay/store in `internal/managedchat`
 - managed runtime lifecycle hooks in `internal/agentruns.Runtime`
+
+The fifth Phase 18 slice is now landed for the first bounded managed provider
+executor:
+
+- bounded `internal/managedllm` OpenAI chat-completions executor
+- real IDE app wiring for managed `/getLLMResponse` and managed
+  `startAgentRun`
+- stop/cancellation ordering that preserves partial outputs on managed stops
 
 The separate transcription-session runtime remains a later bounded AI follow-on
 instead of being bundled into that managed-chat slice. The current bounded

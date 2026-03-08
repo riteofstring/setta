@@ -20,9 +20,11 @@ Already landed in Phase 18:
 - Go-owned managed `POST /stopLLMChat` stop behavior
 - Go-owned chat-section persistence transport
 
-Still missing for managed `setta_llm` chats:
+Remaining direct gaps for managed `setta_llm` chats:
 
-- a real provider-backed executor behind `internal/agentruns.Executor`
+- MCP/tool-call execution over explicit resolved server IDs
+- a robust non-heuristic path for managed `thinking=true`
+- additional provider adapters only if the active managed surface requires them
 
 Landed during Slice 1:
 
@@ -33,6 +35,19 @@ Landed during Slice 1:
   `internal/agentruns.Runtime`
 - real IDE app wiring so `internal/managedchat.Service` now hydrates through
   the concrete live runtime instead of a stub-only boundary
+
+Landed during Slice 2:
+
+- bounded `internal/managedllm` executor implementation over OpenAI
+  chat-completions streaming
+- managed live chunk emission through the landed `internal/managedchat`
+  runtime instead of a provider-owned state cache
+- explicit unsupported behavior for providers, tools, attachments, and
+  reasoning without provider-native config
+- real IDE app wiring so managed `POST /getLLMResponse` and managed
+  `startAgentRun` now execute through the Go-owned executor path
+- `internal/agentruns` cancellation persistence and `Runtime.StopRun`
+  ordering that preserve partial executor outputs on stop
 
 Repo findings that shaped this follow-on:
 
@@ -136,6 +151,8 @@ Status: landed on 2026-03-09.
 
 First bounded provider-backed managed executor over the landed live runtime.
 
+Status: landed on 2026-03-09.
+
 ### Slice 3
 
 Provider/tool-call follow-ons only if the bounded provider slice proves they
@@ -153,14 +170,18 @@ are required for the current direct managed chat product surface.
   providers behind generic abstractions too early
 - broadcast managed chat chunks to IDE frontend websocket clients through the
   shared websocket hub because these AI routes are IDE-only today
+- keep provider selection and reasoning support explicit; do not guess from
+  blank providers or model-name heuristics
+- resolve MCP server IDs through `llmconfig.AllConfigs.ResolveMCPServerIDs`
+  inside `internal/agentruns` so tool support decisions use the same
+  source-of-truth config path as the rest of the runtime
 
 ## Open Questions
 
-- whether the first provider executor should start as OpenAI-compatible only or
-  whether Anthropic support is required in the same slice by active managed
-  product paths
-- whether tool-call streaming needs to land in the same executor slice or can
-  remain a follow-on after plain assistant streaming is working end-to-end
+- whether the next bounded follow-on should prioritize MCP/tool-call support or
+  managed `thinking=true` alignment first for the active product surface
+- whether Anthropic support is required before the bounded OpenAI slice proves
+  insufficient for the active managed surface
 
 ## Verification
 
@@ -168,10 +189,9 @@ Slice 1 verification:
 
 - `./scripts/go.sh test ./internal/realtime ./internal/managedchat ./internal/agentruns ./internal/app -run 'Test(NewLLMStreamingResponseMessage|LiveRuntime|RuntimeStartRunActivatesLiveTracker|ServiceGetChatUsesLiveRuntimeOverlay|App.*Managed.*)' -count=1`
 
-Planned verification for Slice 2:
+Slice 2 verification:
 
-- focused executor tests for provider request shaping, cancellation, streamed
-  chunk emission, persisted outputs, and unsupported-provider errors
+- `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/managedllm ./internal/agentruns ./internal/managedchat -run 'Test(AppServesManagedChatSendThroughManagedExecutor|AppWiresManagedAgentRunFoundationInIDEMode|AppServesManagedAgentRunRoutesWithManagedExecutor|Executor|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RegisterAIRoutes)' -count=1`
 
 ## Progress Notes
 
@@ -187,12 +207,17 @@ Planned verification for Slice 2:
 - 2026-03-09: landed Slice 1 with Go `LLMStreamingResponse` messages, a
   concrete managed live runtime, runtime lifecycle hooks, and hydrate-overlay
   coverage through the real app wiring.
+- 2026-03-09: landed Slice 2 with a bounded OpenAI managed executor, real IDE
+  app wiring, route-level end-to-end coverage, and cancellation ordering that
+  preserves partial outputs on stop.
 
 ## Next Recommended Step
 
-Implement Slice 2:
+Implement Slice 3:
 
-- plug the first bounded provider executor into `internal/agentruns.Executor`
-- emit managed chat chunks through the landed live runtime instead of creating
-  a parallel provider-owned state cache
-- keep unsupported providers explicit until they are actually implemented
+- add MCP/tool-call execution over the already-resolved `MCPServerIDs` path
+  instead of creating a second config-resolution route
+- preserve the landed bounded-provider approach; expand only the explicit
+  provider/runtime contracts required by the current managed product surface
+- resolve managed `thinking=true` through explicit provider-native config or a
+  separate bounded product/default decision, not model-name heuristics
