@@ -3,10 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
+  route_append_transcription_audio,
   route_create_project_config,
   route_delete_sections,
   route_delete_selected_params,
   route_force_refresh_listener,
+  route_get_agent_profiles,
+  route_get_agent_runs,
   route_get_app_catalog,
   route_get_app_definition,
   route_get_app_gen_skill_content,
@@ -17,6 +20,9 @@ import {
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
   route_get_listener_coverage,
+  route_get_llm_chat,
+  route_get_llm_config,
+  route_get_llm_response,
   route_get_mcp_server_runtime_status,
   route_get_password_param_value,
   route_group_sections,
@@ -29,13 +35,16 @@ import {
   route_restart_language_server,
   route_set_active_ids,
   route_set_app_definition,
+  route_set_chat_section_state,
+  route_set_llm_api_keys,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
   route_set_viewport,
+  route_start_transcription_session,
   route_toggle_param_selected,
+  route_type_check,
   route_ungroup_groups,
   route_unselect_all_params,
-  route_type_check,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
 } from "./generatedEndpoints";
@@ -693,6 +702,241 @@ describe("generatedEndpoints project chat skills and mcp helpers", () => {
       body: JSON.stringify({
         chatId: "chat-1",
         engineConfigId: "engine-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints ai settings and chat helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("loads llm config from the backend origin", async () => {
+    await route_get_llm_config();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/llm/config`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        credentials: "include",
+        headers: {},
+      }),
+    );
+  });
+
+  it("posts llm api key mutations with the expected revision payload", async () => {
+    await route_set_llm_api_keys({
+      apiKeys: {
+        OPENAI_API_KEY: "secret",
+      },
+      expectedRevision: 2,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/llm/apiKeys`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        apiKeys: {
+          OPENAI_API_KEY: "secret",
+        },
+        expectedRevision: 2,
+      }),
+    });
+  });
+
+  it("loads agent profile lists from the backend origin", async () => {
+    await route_get_agent_profiles();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAgentProfiles`,
+    );
+  });
+
+  it("loads agent runs from the backend origin", async () => {
+    await route_get_agent_runs();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAgentRuns`,
+    );
+  });
+
+  it("posts transcription session starts with the active profile and language", async () => {
+    await route_start_transcription_session({
+      transcriptionProfileId: "transcription-1",
+      language: "en",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/startTranscriptionSession`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        transcriptionProfileId: "transcription-1",
+        language: "en",
+      }),
+    });
+  });
+
+  it("posts llm chat hydration reads with the chat and project ids", async () => {
+    await route_get_llm_chat({
+      chatId: "chat-1",
+      projectConfigId: "project-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getLLMChat`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        chatId: "chat-1",
+        projectConfigId: "project-1",
+      }),
+    });
+  });
+
+  it("posts llm response requests with the current chat execution payload", async () => {
+    await route_get_llm_response({
+      chatId: "chat-1",
+      continueFromChatId: null,
+      message: {
+        id: "message-1",
+        role: "user",
+        content: [{ type: "text", text: "Ship it." }],
+      },
+      engineConfigId: "engine-1",
+      agentProfileId: null,
+      thinking: true,
+      projectConfigId: "project-1",
+      sectionId: null,
+      frontendAffinityToken: "affinity-1",
+      allowUnscoped: true,
+      branchParentChatId: null,
+      branchFromMessageId: null,
+      appSpecStreamingEnabled: false,
+      permissionMode: "minimal",
+      searchEnabled: true,
+      appGenerationMode: null,
+      appGenerationReferenceImageUrl: null,
+      appGenerationReferenceImageNotes: null,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getLLMResponse`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        chatId: "chat-1",
+        continueFromChatId: null,
+        message: {
+          id: "message-1",
+          role: "user",
+          content: [{ type: "text", text: "Ship it." }],
+        },
+        engineConfigId: "engine-1",
+        agentProfileId: null,
+        thinking: true,
+        projectConfigId: "project-1",
+        sectionId: null,
+        frontendAffinityToken: "affinity-1",
+        allowUnscoped: true,
+        branchParentChatId: null,
+        branchFromMessageId: null,
+        appSpecStreamingEnabled: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        appGenerationMode: null,
+        appGenerationReferenceImageUrl: null,
+        appGenerationReferenceImageNotes: null,
+      }),
+    });
+  });
+
+  it("posts chat-section state persistence with the canonical request shape", async () => {
+    await route_set_chat_section_state({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      frontendOpId: "frontend-op-1",
+      state: {
+        messages: [],
+        inputText: "",
+        waitingForResponse: false,
+        toolCallArguments: {},
+        activeBranchId: null,
+        branches: [],
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setChatSectionState`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        frontendOpId: "frontend-op-1",
+        state: {
+          messages: [],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+          activeBranchId: null,
+          branches: [],
+        },
+      }),
+    });
+  });
+
+  it("posts transcription audio appends with the canonical PCM payload", async () => {
+    await route_append_transcription_audio({
+      sessionId: "session-1",
+      audioPcm16Base64: "AQIDBA==",
+      sampleRateHz: 24_000,
+      channels: 1,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/appendTranscriptionAudio`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: "session-1",
+        audioPcm16Base64: "AQIDBA==",
+        sampleRateHz: 24_000,
+        channels: 1,
       }),
     });
   });

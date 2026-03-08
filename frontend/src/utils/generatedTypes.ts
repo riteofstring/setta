@@ -2,6 +2,43 @@
 
 export type ObjectValues<T> = T[keyof T];
 
+export const SettaNotificationTypeEnum = {
+  error: "error",
+  warning: "warning",
+  info: "info",
+  save: "save",
+} as const;
+export type SettaNotificationType = ObjectValues<
+  typeof SettaNotificationTypeEnum
+>;
+
+export type SettaNotification = {
+  id: string;
+  projectConfigId: string;
+  type: SettaNotificationType;
+  message: string;
+  temporary: boolean;
+  timestamp: string;
+  metadata: Record<string, unknown>;
+  read_status: boolean;
+};
+export function createSettaNotification(
+  options: Partial<SettaNotification> = {},
+): SettaNotification {
+  return options as SettaNotification;
+}
+
+export type ChatContextUsage = {
+  contextWindowTokens?: number | null;
+  contextUsedTokens?: number | null;
+  estimated: boolean;
+};
+export function createChatContextUsage(
+  options: Partial<ChatContextUsage> = {},
+): ChatContextUsage {
+  return options as ChatContextUsage;
+}
+
 export type APIKeys = Record<string, string>;
 
 export type LLMConfig = {
@@ -3724,6 +3761,384 @@ export function createListenerCoverageSnapshot(
   options: Partial<ListenerCoverageSnapshot> = {},
 ): ListenerCoverageSnapshot {
   return options as ListenerCoverageSnapshot;
+}
+
+export type ManagedAPIKeysSnapshot = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
+export function createManagedAPIKeysSnapshot(
+  options: Partial<ManagedAPIKeysSnapshot> = {},
+): ManagedAPIKeysSnapshot {
+  return options as ManagedAPIKeysSnapshot;
+}
+
+export type SetLLMAPIKeysRequestInput = {
+  apiKeys: APIKeys;
+  expectedRevision: number;
+};
+export function createSetLLMAPIKeysRequestInput(
+  options: Partial<SetLLMAPIKeysRequestInput> = {},
+): SetLLMAPIKeysRequestInput {
+  return options as SetLLMAPIKeysRequestInput;
+}
+
+export type AgentProfileListResponse = Array<AgentProfile>;
+
+export type CreateAgentProfileRequestInput = {
+  name?: string | null;
+  description?: string | null;
+  systemPrompt?: string | null;
+  enableBackgroundSummaryFill?: boolean | null;
+  enableLlmChatTitles?: boolean | null;
+  engineConfigId?: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope?: string | null;
+};
+export function createCreateAgentProfileRequestInput(
+  options: Partial<CreateAgentProfileRequestInput> = {},
+): CreateAgentProfileRequestInput {
+  return options as CreateAgentProfileRequestInput;
+}
+
+export type AgentProfileResponse = AgentProfile;
+
+export type UpdateAgentProfileRequestInput = {
+  profile: AgentProfile;
+};
+
+export type DeleteAgentProfileRequestInput = {
+  profileId: string;
+};
+export function createDeleteAgentProfileRequestInput(
+  options: Partial<DeleteAgentProfileRequestInput> = {},
+): DeleteAgentProfileRequestInput {
+  return options as DeleteAgentProfileRequestInput;
+}
+
+export type AgentRunListResponse = Array<AgentRun>;
+
+export type EngineConfigListResponse = Array<EngineConfig>;
+
+export type UpdateEngineConfigRequestInput = {
+  config: EngineConfig;
+};
+
+export type EngineConfigResponse = EngineConfig;
+
+export type PromptTemplateListResponse = Array<PromptTemplate>;
+
+export type CreatePromptTemplateRequestInput = {
+  name?: string | null;
+  description?: string | null;
+  template?: string | null;
+  format?: PromptFormat | null;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+export function createCreatePromptTemplateRequestInput(
+  options: Partial<CreatePromptTemplateRequestInput> = {},
+): CreatePromptTemplateRequestInput {
+  return options as CreatePromptTemplateRequestInput;
+}
+
+export type UpdatePromptTemplateRequestInput = {
+  template: PromptTemplate;
+};
+export function createUpdatePromptTemplateRequestInput(
+  options: Partial<UpdatePromptTemplateRequestInput> = {},
+): UpdatePromptTemplateRequestInput {
+  return options as UpdatePromptTemplateRequestInput;
+}
+
+export type DeletePromptTemplateRequestInput = {
+  templateId: string;
+};
+export function createDeletePromptTemplateRequestInput(
+  options: Partial<DeletePromptTemplateRequestInput> = {},
+): DeletePromptTemplateRequestInput {
+  return options as DeletePromptTemplateRequestInput;
+}
+
+export type ExternalAgentConfigListResponse = Array<ExternalAgentConfig>;
+
+export type ExternalAgentPreflightStatusListResponse =
+  Array<ExternalAgentPreflightStatus>;
+
+export type CreateExternalAgentConfigRequestInput = {
+  name?: string | null;
+  description?: string | null;
+  toolType?: ExternalAgentToolType | null;
+  pluginAdapterId?: string | null;
+  runMode?: ExternalAgentRunMode | null;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode?: ExternalAgentSettingsMode | null;
+  settingsSources?: Array<ClaudeSettingsSource> | null;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
+  settingsAllowSettaEdits?: boolean | null;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy?: ExternalAgentWorkingDirStrategy | null;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+export function createCreateExternalAgentConfigRequestInput(
+  options: Partial<CreateExternalAgentConfigRequestInput> = {},
+): CreateExternalAgentConfigRequestInput {
+  return options as CreateExternalAgentConfigRequestInput;
+}
+
+export type UpdateExternalAgentConfigRequestInput = {
+  config: ExternalAgentConfig;
+};
+export function createUpdateExternalAgentConfigRequestInput(
+  options: Partial<UpdateExternalAgentConfigRequestInput> = {},
+): UpdateExternalAgentConfigRequestInput {
+  return options as UpdateExternalAgentConfigRequestInput;
+}
+
+export type DeleteExternalAgentConfigRequestInput = {
+  configId: string;
+};
+export function createDeleteExternalAgentConfigRequestInput(
+  options: Partial<DeleteExternalAgentConfigRequestInput> = {},
+): DeleteExternalAgentConfigRequestInput {
+  return options as DeleteExternalAgentConfigRequestInput;
+}
+
+export type TranscriptionProfileListResponse = Array<TranscriptionProfile>;
+
+export type CreateTranscriptionProfileRequestInput = {
+  name: string;
+  transcriptionLlmConfigId: string;
+  transportMode: TranscriptionTransportMode;
+  chunkMs: number;
+  language?: string | null;
+};
+
+export type TranscriptionProfileResponse = TranscriptionProfile;
+
+export type UpdateTranscriptionProfileRequestInput = {
+  profile: TranscriptionProfile;
+};
+
+export type DeleteTranscriptionProfileRequestInput = {
+  profileId: string;
+};
+export function createDeleteTranscriptionProfileRequestInput(
+  options: Partial<DeleteTranscriptionProfileRequestInput> = {},
+): DeleteTranscriptionProfileRequestInput {
+  return options as DeleteTranscriptionProfileRequestInput;
+}
+
+export type StartTranscriptionSessionRequest = {
+  transcriptionProfileId: string;
+  language: string | null;
+};
+export function createStartTranscriptionSessionRequest(
+  options: Partial<StartTranscriptionSessionRequest> = {},
+): StartTranscriptionSessionRequest {
+  return options as StartTranscriptionSessionRequest;
+}
+
+export type StartTranscriptionSessionResponse = {
+  sessionId: string;
+  resolvedTransportMode: string;
+  chunkMs: number;
+};
+export function createStartTranscriptionSessionResponse(
+  options: Partial<StartTranscriptionSessionResponse> = {},
+): StartTranscriptionSessionResponse {
+  return options as StartTranscriptionSessionResponse;
+}
+
+export type AppendTranscriptionAudioRequest = {
+  sessionId: string;
+  audioPcm16Base64: string;
+  sampleRateHz: number;
+  channels: number;
+};
+export function createAppendTranscriptionAudioRequest(
+  options: Partial<AppendTranscriptionAudioRequest> = {},
+): AppendTranscriptionAudioRequest {
+  return options as AppendTranscriptionAudioRequest;
+}
+
+export type TranscriptionSessionDeltaResponse = {
+  appendText: string;
+  fullText: string;
+  isFinal: boolean;
+};
+export function createTranscriptionSessionDeltaResponse(
+  options: Partial<TranscriptionSessionDeltaResponse> = {},
+): TranscriptionSessionDeltaResponse {
+  return options as TranscriptionSessionDeltaResponse;
+}
+
+export type StopTranscriptionSessionRequest = {
+  sessionId: string;
+};
+export function createStopTranscriptionSessionRequest(
+  options: Partial<StopTranscriptionSessionRequest> = {},
+): StopTranscriptionSessionRequest {
+  return options as StopTranscriptionSessionRequest;
+}
+
+export type CancelTranscriptionSessionRequest = {
+  sessionId: string;
+};
+export function createCancelTranscriptionSessionRequest(
+  options: Partial<CancelTranscriptionSessionRequest> = {},
+): CancelTranscriptionSessionRequest {
+  return options as CancelTranscriptionSessionRequest;
+}
+
+export type CancelTranscriptionSessionResponse = {
+  ok: boolean;
+};
+export function createCancelTranscriptionSessionResponse(
+  options: Partial<CancelTranscriptionSessionResponse> = {},
+): CancelTranscriptionSessionResponse {
+  return options as CancelTranscriptionSessionResponse;
+}
+
+export type GetLLMResponseRequest = {
+  chatId: string | null;
+  continueFromChatId: string | null;
+  message: Record<string, unknown>;
+  engineConfigId: string;
+  agentProfileId: string | null;
+  thinking: boolean;
+  projectConfigId: string;
+  sectionId: string | null;
+  frontendAffinityToken: string | null;
+  allowUnscoped: boolean;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  appSpecStreamingEnabled: boolean;
+  permissionMode: string;
+  searchEnabled: boolean;
+  appGenerationMode: string | null;
+  appGenerationReferenceImageUrl: string | null;
+  appGenerationReferenceImageNotes: string | null;
+};
+export function createGetLLMResponseRequest(
+  options: Partial<GetLLMResponseRequest> = {},
+): GetLLMResponseRequest {
+  return options as GetLLMResponseRequest;
+}
+
+export type GetLLMResponseResponse = string;
+
+export type GetLLMChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+export function createGetLLMChatRequest(
+  options: Partial<GetLLMChatRequest> = {},
+): GetLLMChatRequest {
+  return options as GetLLMChatRequest;
+}
+
+export type GetLLMChatResponse = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  llmConfig?: LLMConfig | null;
+  contextUsage?: ChatContextUsage | null;
+};
+
+export type StopLLMChatRequest = {
+  chatId: string;
+};
+export function createStopLLMChatRequest(
+  options: Partial<StopLLMChatRequest> = {},
+): StopLLMChatRequest {
+  return options as StopLLMChatRequest;
+}
+
+export type StopLLMChatResponse = {
+  alreadyStopped: boolean;
+  stoppedRunId?: string | null;
+  stoppedMessageId?: string | null;
+};
+export function createStopLLMChatResponse(
+  options: Partial<StopLLMChatResponse> = {},
+): StopLLMChatResponse {
+  return options as StopLLMChatResponse;
+}
+
+export type GetExternalAgentChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+export function createGetExternalAgentChatRequest(
+  options: Partial<GetExternalAgentChatRequest> = {},
+): GetExternalAgentChatRequest {
+  return options as GetExternalAgentChatRequest;
+}
+
+export type ExternalAgentChatResponse = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  contextUsage?: ChatContextUsage | null;
+};
+
+export type StopExternalAgentRunRequest = {
+  runId: string;
+};
+export function createStopExternalAgentRunRequest(
+  options: Partial<StopExternalAgentRunRequest> = {},
+): StopExternalAgentRunRequest {
+  return options as StopExternalAgentRunRequest;
+}
+
+export type AgentRunResponse = AgentRun;
+
+export type RespondExternalAgentApprovalRequest = {
+  approvalId: string;
+  approved: boolean;
+};
+export function createRespondExternalAgentApprovalRequest(
+  options: Partial<RespondExternalAgentApprovalRequest> = {},
+): RespondExternalAgentApprovalRequest {
+  return options as RespondExternalAgentApprovalRequest;
+}
+
+export type RespondExternalAgentQuestionRequest = {
+  toolCallId: string;
+  answers: Record<string, string>;
+};
+export function createRespondExternalAgentQuestionRequest(
+  options: Partial<RespondExternalAgentQuestionRequest> = {},
+): RespondExternalAgentQuestionRequest {
+  return options as RespondExternalAgentQuestionRequest;
+}
+
+export type SetChatSectionStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  state: ChatSectionState;
+};
+
+export type SetChatSectionChatIDRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chatId: string | null;
+};
+export function createSetChatSectionChatIDRequest(
+  options: Partial<SetChatSectionChatIDRequest> = {},
+): SetChatSectionChatIDRequest {
+  return options as SetChatSectionChatIDRequest;
 }
 
 export const AppCatalogPropTypeEnum = {

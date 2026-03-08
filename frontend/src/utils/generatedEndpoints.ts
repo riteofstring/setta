@@ -202,6 +202,191 @@ export async function route_get_listener_coverage(
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
   return await post(GoHTTPRoutes.getListenerCoverage, x);
 }
+export async function route_get_llm_config(): Promise<
+  ResponseDataAndStatus<gt.AllLLMConfigs>
+> {
+  return await get(GoHTTPRoutes.getLLMConfig);
+}
+export async function route_set_llm_config(
+  x: gt.AllLLMConfigs,
+): Promise<ResponseDataAndStatus<gt.AllLLMConfigs>> {
+  return await post(GoHTTPRoutes.setLLMConfig, x);
+}
+export async function route_get_llm_api_keys(): Promise<
+  ResponseDataAndStatus<gt.ManagedAPIKeysSnapshot>
+> {
+  return await get(GoHTTPRoutes.getLLMAPIKeys);
+}
+export async function route_set_llm_api_keys(
+  x: gt.SetLLMAPIKeysRequestInput,
+): Promise<ResponseDataAndStatus<gt.ManagedAPIKeysSnapshot>> {
+  return await post(GoHTTPRoutes.setLLMAPIKeys, x);
+}
+export async function route_get_agent_profiles(): Promise<
+  ResponseDataAndStatus<gt.AgentProfileListResponse>
+> {
+  return await get(GoHTTPRoutes.getAgentProfiles);
+}
+export async function route_create_agent_profile(
+  x: gt.CreateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
+  return await post(GoHTTPRoutes.createAgentProfile, x);
+}
+export async function route_update_agent_profile(
+  x: gt.UpdateAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.AgentProfileResponse>> {
+  return await post(GoHTTPRoutes.updateAgentProfile, x);
+}
+export async function route_delete_agent_profile(
+  x: gt.DeleteAgentProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.deleteAgentProfile, x);
+}
+export async function route_get_agent_runs(): Promise<
+  ResponseDataAndStatus<gt.AgentRunListResponse>
+> {
+  return await get(GoHTTPRoutes.getAgentRuns);
+}
+export async function route_get_engine_configs(): Promise<
+  ResponseDataAndStatus<gt.EngineConfigListResponse>
+> {
+  return await get(GoHTTPRoutes.getEngineConfigs);
+}
+export async function route_update_engine_config(
+  x: gt.UpdateEngineConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.EngineConfigResponse>> {
+  return await post(GoHTTPRoutes.updateEngineConfig, x);
+}
+export async function route_get_prompt_templates(): Promise<
+  ResponseDataAndStatus<gt.PromptTemplateListResponse>
+> {
+  return await get(GoHTTPRoutes.getPromptTemplates);
+}
+export async function route_create_prompt_template(
+  x: gt.CreatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post(GoHTTPRoutes.createPromptTemplate, x);
+}
+export async function route_update_prompt_template(
+  x: gt.UpdatePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PromptTemplate>> {
+  return await post(GoHTTPRoutes.updatePromptTemplate, x);
+}
+export async function route_delete_prompt_template(
+  x: gt.DeletePromptTemplateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.deletePromptTemplate, x);
+}
+export async function route_get_external_agent_configs(): Promise<
+  ResponseDataAndStatus<gt.ExternalAgentConfigListResponse>
+> {
+  return await get(GoHTTPRoutes.getExternalAgentConfigs);
+}
+export async function route_get_external_agent_health(): Promise<
+  ResponseDataAndStatus<gt.ExternalAgentPreflightStatusListResponse>
+> {
+  return await get(GoHTTPRoutes.getExternalAgentHealth);
+}
+export async function route_create_external_agent_config(
+  x: gt.CreateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post(GoHTTPRoutes.createExternalAgentConfig, x);
+}
+export async function route_update_external_agent_config(
+  x: gt.UpdateExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentConfig>> {
+  return await post(GoHTTPRoutes.updateExternalAgentConfig, x);
+}
+export async function route_delete_external_agent_config(
+  x: gt.DeleteExternalAgentConfigRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.deleteExternalAgentConfig, x);
+}
+export async function route_get_transcription_profiles(): Promise<
+  ResponseDataAndStatus<gt.TranscriptionProfileListResponse>
+> {
+  return await get(GoHTTPRoutes.getTranscriptionProfiles);
+}
+export async function route_create_transcription_profile(
+  x: gt.CreateTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfileResponse>> {
+  return await post(GoHTTPRoutes.createTranscriptionProfile, x);
+}
+export async function route_update_transcription_profile(
+  x: gt.UpdateTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfileResponse>> {
+  return await post(GoHTTPRoutes.updateTranscriptionProfile, x);
+}
+export async function route_delete_transcription_profile(
+  x: gt.DeleteTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.deleteTranscriptionProfile, x);
+}
+export async function route_start_transcription_session(
+  x: gt.StartTranscriptionSessionRequest,
+): Promise<ResponseDataAndStatus<gt.StartTranscriptionSessionResponse>> {
+  return await post(GoHTTPRoutes.startTranscriptionSession, x);
+}
+export async function route_append_transcription_audio(
+  x: gt.AppendTranscriptionAudioRequest,
+): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
+  return await post(GoHTTPRoutes.appendTranscriptionAudio, x);
+}
+export async function route_stop_transcription_session(
+  x: gt.StopTranscriptionSessionRequest,
+): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
+  return await post(GoHTTPRoutes.stopTranscriptionSession, x);
+}
+export async function route_cancel_transcription_session(
+  x: gt.CancelTranscriptionSessionRequest,
+): Promise<ResponseDataAndStatus<gt.CancelTranscriptionSessionResponse>> {
+  return await post(GoHTTPRoutes.cancelTranscriptionSession, x);
+}
+export async function route_get_llm_response(
+  x: gt.GetLLMResponseRequest,
+): Promise<ResponseDataAndStatus<gt.GetLLMResponseResponse>> {
+  return await post(GoHTTPRoutes.getLLMResponse, x);
+}
+export async function route_get_llm_chat(
+  x: gt.GetLLMChatRequest,
+): Promise<ResponseDataAndStatus<gt.GetLLMChatResponse>> {
+  return await post(GoHTTPRoutes.getLLMChat, x);
+}
+export async function route_stop_llm_chat(
+  x: gt.StopLLMChatRequest,
+): Promise<ResponseDataAndStatus<gt.StopLLMChatResponse>> {
+  return await post(GoHTTPRoutes.stopLLMChat, x);
+}
+export async function route_get_external_agent_chat(
+  x: gt.GetExternalAgentChatRequest,
+): Promise<ResponseDataAndStatus<gt.ExternalAgentChatResponse>> {
+  return await post(GoHTTPRoutes.getExternalAgentChat, x);
+}
+export async function route_stop_external_agent_run(
+  x: gt.StopExternalAgentRunRequest,
+): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
+  return await post(GoHTTPRoutes.stopExternalAgentRun, x);
+}
+export async function route_respond_external_agent_approval(
+  x: gt.RespondExternalAgentApprovalRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.respondExternalAgentApproval, x);
+}
+export async function route_respond_external_agent_question(
+  x: gt.RespondExternalAgentQuestionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.respondExternalAgentQuestion, x);
+}
+export async function route_set_chat_section_state(
+  x: gt.SetChatSectionStateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setChatSectionState, x);
+}
+export async function route_set_chat_section_chat_id(
+  x: gt.SetChatSectionChatIDRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setChatSectionChatId, x);
+}
 export async function route_get_app_catalog(): Promise<
   ResponseDataAndStatus<gt.AppCatalogResponse>
 > {

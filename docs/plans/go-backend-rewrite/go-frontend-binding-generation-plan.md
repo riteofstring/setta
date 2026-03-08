@@ -210,9 +210,19 @@ Current landed wedge:
         - `PromptFormat`
         - `PromptTemplate`
         - `createPromptTemplate`
-      - this slice is type/helper coverage only; the broader project-level AI
-        action and route wrapper cutover remains open until the missing
-        canonical AI endpoint surface lands
+      - project-level AI transport/action support used by the current
+        `state/actions/ai` and notification callers
+        - managed API-key snapshot payloads
+        - notification enum/object support
+          - `SettaNotificationType`
+          - `SettaNotification`
+        - request payloads for agent-profile CRUD, engine-config update,
+          transcription-profile CRUD, prompt-template CRUD,
+          external-agent-config CRUD, and chat-section state persistence
+        - transport payloads for agent/profile/run/config/profile list reads,
+          managed/external chat hydration, managed-chat stop results,
+          transcription session start/delta responses, and string chat-id
+          responses from `getLLMResponse`
   - app-config pane contract types
     - `AppCatalogResponse` and the catalog component/action/prop payloads
     - `AppDefinition`, `AppRoute`, and the app-definition read/mutation
@@ -368,6 +378,46 @@ Current landed wedge:
     - `route_plugins_disable`
     - `route_plugins_config`
     - `route_plugins_restart`
+  - project-level AI endpoint wrappers used by the current action layer
+    - config/settings transport
+      - `route_get_llm_config`
+      - `route_set_llm_config`
+      - `route_get_llm_api_keys`
+      - `route_set_llm_api_keys`
+      - `route_get_agent_profiles`
+      - `route_create_agent_profile`
+      - `route_update_agent_profile`
+      - `route_delete_agent_profile`
+      - `route_get_agent_runs`
+      - `route_get_engine_configs`
+      - `route_update_engine_config`
+      - `route_get_prompt_templates`
+      - `route_create_prompt_template`
+      - `route_update_prompt_template`
+      - `route_delete_prompt_template`
+      - `route_get_external_agent_configs`
+      - `route_get_external_agent_health`
+      - `route_create_external_agent_config`
+      - `route_update_external_agent_config`
+      - `route_delete_external_agent_config`
+      - `route_get_transcription_profiles`
+      - `route_create_transcription_profile`
+      - `route_update_transcription_profile`
+      - `route_delete_transcription_profile`
+    - transcription/chat transport
+      - `route_start_transcription_session`
+      - `route_append_transcription_audio`
+      - `route_stop_transcription_session`
+      - `route_cancel_transcription_session`
+      - `route_get_llm_response`
+      - `route_get_llm_chat`
+      - `route_stop_llm_chat`
+      - `route_get_external_agent_chat`
+      - `route_stop_external_agent_run`
+      - `route_respond_external_agent_approval`
+      - `route_respond_external_agent_question`
+      - `route_set_chat_section_state`
+      - `route_set_chat_section_chat_id`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -391,6 +441,12 @@ Current landed wedge:
     including `buildLLMConfigGroups`, `resolveProviderDictationAvailability`,
     `ProjectLLMSettings`, and `projectChatSkillsMcpViewerUtils`, now consume
     canonical Go-generated AI settings/config types and enums
+  - `state/actions/ai`, `state/actions/notifications`, and the current
+    project-level AI settings pane now consume canonical Go-generated AI
+    route wrappers and boundary types for LLM config/API keys, agent-profile,
+    engine-config, prompt-template, external-agent-config, transcription,
+    managed/external chat hydrate-stop-submit flows, and chat-section state
+    persistence
   - `ParamInput` and the app-mode password reveal path in `appRegistry` are
     now covered by the canonical Go-generated password-value helper binding
   - `AppRenderer` and `ChatMessages` are now covered by canonical

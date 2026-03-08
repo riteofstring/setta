@@ -167,6 +167,12 @@ func newTypeConverter() *typeConverter {
 				{Name: "project", Value: "project"},
 				{Name: "local", Value: "local"},
 			},
+			reflect.TypeOf(SettaNotificationType("")): {
+				{Name: "error", Value: "error"},
+				{Name: "warning", Value: "warning"},
+				{Name: "info", Value: "info"},
+				{Name: "save", Value: "save"},
+			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
 			reflect.TypeOf(SectionDependencyKey{}): {
@@ -229,6 +235,81 @@ func newTypeConverter() *typeConverter {
 				Name: "AIRuntimeSupport",
 				Kind: "raw",
 				Raw:  aiRuntimeFrontendSupportRawTS,
+			},
+			reflect.TypeOf(AgentProfileResponse{}): {
+				Name:  "AgentProfileResponse",
+				Kind:  "alias",
+				Alias: "AgentProfile",
+			},
+			reflect.TypeOf(AgentProfileListResponse{}): {
+				Name:  "AgentProfileListResponse",
+				Kind:  "alias",
+				Alias: "Array<AgentProfile>",
+			},
+			reflect.TypeOf(AgentRunResponse{}): {
+				Name:  "AgentRunResponse",
+				Kind:  "alias",
+				Alias: "AgentRun",
+			},
+			reflect.TypeOf(AgentRunListResponse{}): {
+				Name:  "AgentRunListResponse",
+				Kind:  "alias",
+				Alias: "Array<AgentRun>",
+			},
+			reflect.TypeOf(EngineConfigResponse{}): {
+				Name:  "EngineConfigResponse",
+				Kind:  "alias",
+				Alias: "EngineConfig",
+			},
+			reflect.TypeOf(EngineConfigListResponse{}): {
+				Name:  "EngineConfigListResponse",
+				Kind:  "alias",
+				Alias: "Array<EngineConfig>",
+			},
+			reflect.TypeOf(TranscriptionProfileResponse{}): {
+				Name:  "TranscriptionProfileResponse",
+				Kind:  "alias",
+				Alias: "TranscriptionProfile",
+			},
+			reflect.TypeOf(TranscriptionProfileListResponse{}): {
+				Name:  "TranscriptionProfileListResponse",
+				Kind:  "alias",
+				Alias: "Array<TranscriptionProfile>",
+			},
+			reflect.TypeOf(UpdateAgentProfileRequestInput{}): {
+				Name: "UpdateAgentProfileRequestInput",
+				Kind: "raw",
+				Raw:  updateAgentProfileRequestInputRawTS,
+			},
+			reflect.TypeOf(UpdateEngineConfigRequestInput{}): {
+				Name: "UpdateEngineConfigRequestInput",
+				Kind: "raw",
+				Raw:  updateEngineConfigRequestInputRawTS,
+			},
+			reflect.TypeOf(CreateTranscriptionProfileRequestInput{}): {
+				Name: "CreateTranscriptionProfileRequestInput",
+				Kind: "raw",
+				Raw:  createTranscriptionProfileRequestInputRawTS,
+			},
+			reflect.TypeOf(UpdateTranscriptionProfileRequestInput{}): {
+				Name: "UpdateTranscriptionProfileRequestInput",
+				Kind: "raw",
+				Raw:  updateTranscriptionProfileRequestInputRawTS,
+			},
+			reflect.TypeOf(SetChatSectionStateRequestInput{}): {
+				Name: "SetChatSectionStateRequestInput",
+				Kind: "raw",
+				Raw:  setChatSectionStateRequestInputRawTS,
+			},
+			reflect.TypeOf(GetLLMChatResponse{}): {
+				Name: "GetLLMChatResponse",
+				Kind: "raw",
+				Raw:  getLLMChatResponseRawTS,
+			},
+			reflect.TypeOf(ExternalAgentChatResponse{}): {
+				Name: "ExternalAgentChatResponse",
+				Kind: "raw",
+				Raw:  externalAgentChatResponseRawTS,
 			},
 			reflect.TypeOf(PluginListEntry{}): {
 				Name: "PluginListEntry",
