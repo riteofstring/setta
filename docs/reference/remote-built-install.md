@@ -1,6 +1,6 @@
 # Remote Install of Built Package
 
-After running `./build.sh`, the deployable artifacts live in `dist/`. Upload the wheel to the remote server and install it with `uv`.
+After running `./build.sh`, the deployable artifacts live in `dist/`. That build path now stages the frontend/static bundle and then packages the Python distribution through the shared Go-binary distribution helper. Upload the wheel to the remote server and install it with `uv`.
 
 ## Steps
 

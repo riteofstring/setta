@@ -423,6 +423,23 @@ boundary:
 - retarget root wrappers like `build.sh` around that boundary before touching
   broader release/install glue
 
+The first Slice 4A sub-slice is now also landed:
+
+- `scripts/build_python_distribution_with_go_binaries.sh` now supports a
+  reusable `--skip-cleanup` mode for callers that have already prepared build
+  inputs
+- `build.sh` now stages frontend/static assets and then delegates package
+  building to that shared helper instead of calling `python -m build`
+  directly
+- focused `tests/start/test_distribution_script_wiring.py` coverage now guards
+  the root wrapper contract plus the shared helper behavior
+
+The next Phase 25 decision is now narrower again:
+
+- either land one bounded follow-on for deterministic artifact selection in
+  `verify_install.sh` / `install_built_setta.sh`
+- or rerank instead of broadening distribution/install work by inertia
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.

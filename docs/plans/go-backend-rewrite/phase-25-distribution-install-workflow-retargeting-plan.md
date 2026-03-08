@@ -53,6 +53,18 @@ Current gap:
 - the docs still describe some of those wrappers in terms of raw
   `python -m build` behavior rather than the shared helper boundary
 
+Completed during the first Slice 4A sub-slice:
+
+- `scripts/build_python_distribution_with_go_binaries.sh` now supports
+  `--skip-cleanup` so callers can reuse the explicit package-builder boundary
+  after preparing assets
+- `build.sh` now stages frontend/static assets and then packages through that
+  shared helper instead of calling `python -m build` directly
+- focused root-wrapper coverage now exists in
+  `tests/start/test_distribution_script_wiring.py`
+- developer-facing build/install docs now describe the shared package-builder
+  boundary instead of raw `python -m build`
+
 ## Inputs
 
 - `phase-25-legacy-startup-and-distribution-boundary-plan.md`
@@ -96,6 +108,8 @@ That split is unnecessary technical debt:
 
 ### Slice 4A: Root wrapper convergence over the packaged distribution helper
 
+Status: first sub-slice completed
+
 Deliverables:
 
 - make `build.sh` package through
@@ -134,6 +148,8 @@ Non-goals:
 - converge wrappers onto that boundary instead of inventing another packaging
   abstraction
 - keep the first slice small and script-focused
+- keep `build.sh` as the asset-preparation owner and the shared helper as the
+  package-build owner
 
 ## Verification
 
@@ -144,9 +160,11 @@ For Slice 4A:
 
 ## Next Recommended Step
 
-Execute Slice 4A first:
+Continue with the remaining narrow Slice 4A / 4B boundary:
 
-1. make the packaged-distribution helper reusable from `build.sh` without
-   wiping newly prepared frontend/static assets
-2. retarget `build.sh` to that helper
-3. add focused script-wiring coverage and sync docs
+1. decide whether `verify_install.sh` and `install_built_setta.sh` should
+   share an explicit artifact-resolution helper instead of ad hoc `find` /
+   glob logic
+2. if that cleanup is still worth landing, keep it bounded to deterministic
+   artifact selection and wrapper cleanup behavior
+3. otherwise rerank instead of inventing broader distribution churn

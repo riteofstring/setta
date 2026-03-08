@@ -67,6 +67,15 @@ Completed during Slice 3 inventory step:
 - direct `tests/start/*` imports of `setta.start` remain legacy anchors rather
   than automatic proof of active workflow reachability
 
+Completed during the first Slice 4 distribution/install sub-slice:
+
+- the shared package-builder boundary in
+  `scripts/build_python_distribution_with_go_binaries.sh` is now reusable from
+  repo-root wrappers via `--skip-cleanup`
+- `build.sh` now stages frontend/static assets and then delegates packaging to
+  that shared helper instead of calling `python -m build` directly
+- focused root-wrapper tests now cover the shared build/install script contract
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior

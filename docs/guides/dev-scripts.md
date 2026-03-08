@@ -48,13 +48,13 @@ Use these first for day-to-day work.
 - `./format_code.sh`
   - Formats Python via Ruff (requires env activation; see notes below).
 - `./build.sh`
-  - Builds the production frontend and bundles the backend wheel.
+  - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
 - `./build_and_upload.sh`
   - Builds + uploads release artifacts.
 - `./cleanup.sh`
   - Removes stale build artifacts before packaging/publishing.
 - `./verify_install.sh`
-  - Release smoke test (builds + installs sdist via `uv pip`).
+  - Release smoke test (runs the full `build.sh` path, then installs the built sdist via `uv pip`).
 - `./install_built_setta.sh`
   - Builds Setta and installs the latest wheel into an isolated uv venv.
   - Default install root: `.venv_for_built_setta` (override with `--install-root`).
