@@ -15,7 +15,7 @@ import React, {
 } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
-import { getActiveSectionUIIds, useActiveSectionUI } from "state/activeSectionUI";
+import { useProjectState } from "state/definitions";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
 import type { Rect } from "../types";
@@ -27,7 +27,10 @@ function _NodesSelection({ x, y, width, height }: Rect) {
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const { isSorting, isMovingFree } = useDndMode();
-  const activeIds = useActiveSectionUI((state) => state.activeIds, _.isEqual);
+  const activeIds = useProjectState(
+    (state) => state.projectConfig.activeIds,
+    _.isEqual,
+  );
   const nodeRef = useRef<HTMLDivElement>(null);
   const primarySelectionId =
     activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;
@@ -53,7 +56,7 @@ function _NodesSelection({ x, y, width, height }: Rect) {
   });
 
   const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
-    const activeSectionIds = getActiveSectionUIIds();
+    const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
     const selectedNodeIds = getNodes()
       .filter((n) => activeSectionIds.includes(n.id))
       .map((n) => n.id);
