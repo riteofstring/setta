@@ -1,7 +1,5 @@
-import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
@@ -135,7 +133,7 @@ function buildPolicyContext(
 export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
 ): ActiveSectionControllerResult {
-  const activeIds = getActiveSectionUIIds();
+  const activeIds = useProjectState.getState().projectConfig.activeIds;
   const isSelectingParams = useMisc.getState().isSelectingParams;
   const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 
@@ -152,11 +150,7 @@ export function applyActiveSectionChange(
     setActiveSectionIds(decision.nextActiveIds);
   }
 
-  const skipBenchmarkZIndexReorder =
-    getRequestedSettingsAllSettingsBenchmarkStageFromWindow() ===
-    "full-no-zindex";
-
-  if (decision.updateZIndex && !skipBenchmarkZIndexReorder) {
+  if (decision.updateZIndex) {
     const zIndexTargets = getZIndexTargets(intent);
     if (zIndexTargets.length > 0) {
       setZIndices(zIndexTargets, false);
