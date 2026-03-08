@@ -33,13 +33,18 @@ const (
 )
 
 type RouteDependencies struct {
-	Transport              Dependencies
-	WebsocketHub           *realtime.WebsocketHub
-	UISettingRevealResults *realtime.UISettingRevealResultHub
-	ListenerBroadcaster    *realtime.ListenerBroadcaster
-	ListenerProducer       *realtime.ListenerProducer
-	Terminals              *terminals.Service
-	FrontendIDSource       func() (string, error)
+	Transport               Dependencies
+	WebsocketHub            *realtime.WebsocketHub
+	UISettingRevealResults  *realtime.UISettingRevealResultHub
+	ListenerBroadcaster     *realtime.ListenerBroadcaster
+	ListenerEndpointInvoker ListenerEndpointInvoker
+	ListenerProducer        *realtime.ListenerProducer
+	Terminals               *terminals.Service
+	FrontendIDSource        func() (string, error)
+}
+
+type ListenerEndpointInvoker interface {
+	InvokeListenerEndpoint(context.Context, string, map[string]any) (any, error)
 }
 
 type frontendEnvelope struct {
@@ -50,6 +55,12 @@ type frontendEnvelope struct {
 type listenerEnvelope struct {
 	MessageType string          `json:"messageType"`
 	Content     json.RawMessage `json:"content"`
+}
+
+type listenerInboundMessage struct {
+	MessageType string
+	Register    *realtime.ListenerRegisterContent
+	RouterCall  *realtime.ListenerRouterEndpointCallContent
 }
 
 type frontendCurrentAddressUpdate struct {
@@ -421,7 +432,17 @@ func serveListenerConnection(
 		}
 		switch message.MessageType {
 		case realtime.MessageTypeListenerRegister:
-			if err := handleListenerRegister(ctx, connection.ID, projectID, info.Modes.ShareSessionID, message.Content, deps); err != nil {
+			if message.Register == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if err := handleListenerRegister(ctx, connection.ID, projectID, info.Modes.ShareSessionID, *message.Register, deps); err != nil {
+				return err
+			}
+		case realtime.MessageTypeListenerRouterCall:
+			if message.RouterCall == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if err := handleListenerRouterEndpointCall(ctx, connection.ID, *message.RouterCall, deps); err != nil {
 				return err
 			}
 		default:
@@ -525,24 +546,33 @@ func serveTerminalConnection(
 	}
 }
 
-func decodeListenerMessage(payload []byte) (realtime.ListenerRegisterMessage, error) {
+func decodeListenerMessage(payload []byte) (listenerInboundMessage, error) {
 	var envelope listenerEnvelope
 	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return realtime.ListenerRegisterMessage{}, err
+		return listenerInboundMessage{}, err
 	}
 
 	switch envelope.MessageType {
 	case realtime.MessageTypeListenerRegister:
 		var content realtime.ListenerRegisterContent
 		if err := json.Unmarshal(envelope.Content, &content); err != nil {
-			return realtime.ListenerRegisterMessage{}, err
+			return listenerInboundMessage{}, err
 		}
-		return realtime.ListenerRegisterMessage{
+		return listenerInboundMessage{
 			MessageType: envelope.MessageType,
-			Content:     content,
+			Register:    &content,
+		}, nil
+	case realtime.MessageTypeListenerRouterCall:
+		var content realtime.ListenerRouterEndpointCallContent
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return listenerInboundMessage{}, err
+		}
+		return listenerInboundMessage{
+			MessageType: envelope.MessageType,
+			RouterCall:  &content,
 		}, nil
 	default:
-		return realtime.ListenerRegisterMessage{
+		return listenerInboundMessage{
 			MessageType: envelope.MessageType,
 		}, nil
 	}
@@ -600,6 +630,134 @@ func handleListenerRegister(
 		connectionID,
 	)
 	return err
+}
+
+func handleListenerRouterEndpointCall(
+	ctx context.Context,
+	connectionID string,
+	content realtime.ListenerRouterEndpointCallContent,
+	deps RouteDependencies,
+) error {
+	registration, ok := deps.ListenerBroadcaster.Registry().Registration(connectionID)
+	if !ok {
+		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+			ProjectConfigID: strings.TrimSpace(content.ProjectConfigID),
+			CallID:          strings.TrimSpace(content.CallID),
+			OK:              false,
+			Error:           "listener_not_registered",
+			Details: map[string]any{
+				"websocketId": connectionID,
+			},
+		}, deps)
+	}
+
+	projectID := registration.ProjectID
+	receivedProjectID := strings.TrimSpace(content.ProjectConfigID)
+	if receivedProjectID != projectID {
+		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+			ProjectConfigID: projectID,
+			CallID:          strings.TrimSpace(content.CallID),
+			OK:              false,
+			Error:           "project_config_mismatch",
+			Details: map[string]any{
+				"expectedProjectConfigId": projectID,
+				"receivedProjectConfigId": receivedProjectID,
+			},
+		}, deps)
+	}
+
+	endpointName := strings.TrimSpace(content.EndpointName)
+	if endpointName == "" {
+		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+			ProjectConfigID: projectID,
+			CallID:          strings.TrimSpace(content.CallID),
+			OK:              false,
+			Error:           "listener_call_invalid_operation",
+			Details: map[string]any{
+				"message": "endpointName must be non-empty",
+			},
+		}, deps)
+	}
+
+	payload := cloneListenerPayload(content.Payload)
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	if rawProjectID, ok := payload["projectConfigId"]; !ok {
+		payload["projectConfigId"] = projectID
+	} else if payloadProjectID, ok := rawProjectID.(string); ok && strings.TrimSpace(payloadProjectID) != projectID {
+		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+			ProjectConfigID: projectID,
+			CallID:          strings.TrimSpace(content.CallID),
+			OK:              false,
+			Error:           "project_config_mismatch",
+			Details: map[string]any{
+				"expectedProjectConfigId": projectID,
+				"receivedProjectConfigId": strings.TrimSpace(payloadProjectID),
+			},
+		}, deps)
+	}
+
+	result, err := invokeListenerEndpoint(ctx, endpointName, payload, deps)
+	if err != nil {
+		return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+			ProjectConfigID: projectID,
+			CallID:          strings.TrimSpace(content.CallID),
+			OK:              false,
+			Error:           "listener_call_failed",
+			Details: map[string]any{
+				"message": err.Error(),
+			},
+		}, deps)
+	}
+
+	return sendListenerRouterEndpointResult(ctx, connectionID, realtime.ListenerRouterEndpointResultContent{
+		ProjectConfigID: projectID,
+		CallID:          strings.TrimSpace(content.CallID),
+		OK:              true,
+		Result:          result,
+	}, deps)
+}
+
+func invokeListenerEndpoint(
+	ctx context.Context,
+	endpointName string,
+	payload map[string]any,
+	deps RouteDependencies,
+) (any, error) {
+	if deps.ListenerEndpointInvoker == nil {
+		return nil, fmt.Errorf("unknown listener endpoint: %s", endpointName)
+	}
+	return deps.ListenerEndpointInvoker.InvokeListenerEndpoint(ctx, endpointName, payload)
+}
+
+func sendListenerRouterEndpointResult(
+	ctx context.Context,
+	connectionID string,
+	content realtime.ListenerRouterEndpointResultContent,
+	deps RouteDependencies,
+) error {
+	if content.Details == nil {
+		content.Details = map[string]any{}
+	}
+	_, err := deps.WebsocketHub.SendJSON(
+		ctx,
+		realtime.NewListenerRouterEndpointResultMessage(content),
+		connectionID,
+	)
+	return err
+}
+
+func cloneListenerPayload(values map[string]any) map[string]any {
+	if values == nil {
+		return nil
+	}
+
+	cloned := make(map[string]any, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func touchShareSession(info modes.RequestInfo, store modes.ShareSessionStore) error {

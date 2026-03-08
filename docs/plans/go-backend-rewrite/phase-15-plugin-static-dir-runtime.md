@@ -136,10 +136,12 @@ This slice should cover only:
 ## Open Questions
 
 - No blocking question remains inside this bounded slice.
-- Deferred follow-ons remain:
-  - plugin listener-endpoint registration/dispatch
-  - `host.read_project_state` support inside live backend workers
-  - plugin runtime refresh after install/link/rescan/update flows
+- The listener-endpoint registration/dispatch and
+  `host.read_project_state` follow-ons that were deferred here landed later in:
+  - `phase-15-plugin-read-project-state-and-listener-registration-runtime.md`
+  - `phase-15-plugin-listener-endpoint-websocket-dispatch.md`
+- The remaining deferred follow-on from this slice is plugin runtime refresh
+  after install/link/rescan/update flows.
 
 ## Next Recommended Step
 
@@ -148,6 +150,6 @@ Do not broaden plugin backend-host ownership speculatively.
 The next plugin follow-on should only be pulled forward when a concrete caller
 requires one of:
 
-1. plugin listener-endpoint dispatch
-2. `host.read_project_state` inside live backend workers
-3. plugin runtime refresh/hot-reload after mutation flows
+1. plugin runtime refresh/hot-reload after mutation flows
+2. built-in listener endpoint dispatch with a Go-owned source of truth
+3. listener temporary-id negotiation on the Go websocket route

@@ -220,6 +220,68 @@ func TestBackendRouteRuntimeSupportsProjectStateReadsAndListenerRegistrations(t 
 	}
 }
 
+// Backend fixture plugins should invoke registered listener endpoints through the live worker runtime.
+func TestBackendRouteRuntimeInvokesFixtureListenerEndpoints(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+
+	projectRuntime := newWorkerHostTestProjectRuntime(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "fixture-project",
+		Projects: map[string]projectstate.Project{
+			"fixture-project": {
+				ID:   "fixture-project",
+				Name: "Fixture Project",
+			},
+		},
+	})
+	reader, err := NewRuntimeProjectStateReader(RuntimeProjectStateReaderOptions{
+		ProjectState: projectRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new project state reader: %v", err)
+	}
+
+	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+		Broadcaster:  realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{}),
+		ProjectState: projectRuntime,
+	})
+
+	runtime := mustNewBackendRouteRuntimeWithOptions(t, roots, config.ModeIDE, reader, listenerProducer)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close backend route runtime: %v", err)
+		}
+	}()
+
+	result, err := runtime.InvokeListenerEndpoint(context.Background(), "fixture_listener_endpoint", map[string]any{
+		"projectConfigId": "fixture-project",
+		"sectionId":       "fixture-section",
+		"payload":         "hello",
+	})
+	if err != nil {
+		t.Fatalf("invoke listener endpoint: %v", err)
+	}
+
+	response, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected listener endpoint response map, got %#v", result)
+	}
+	if response["ok"] != true || response["projectConfigId"] != "fixture-project" || response["sectionId"] != "fixture-section" {
+		t.Fatalf("unexpected listener endpoint response %#v", response)
+	}
+
+	_, err = runtime.InvokeListenerEndpoint(context.Background(), "missing_listener_endpoint", map[string]any{
+		"projectConfigId": "fixture-project",
+	})
+	if err == nil {
+		t.Fatal("expected missing listener endpoint to fail")
+	}
+	if !strings.Contains(err.Error(), "unknown listener endpoint: missing_listener_endpoint") {
+		t.Fatalf("expected unknown listener endpoint error, got %v", err)
+	}
+}
+
 // Static-dir-only backend plugins should capture mount registrations, close their worker session, and resolve files later without a live worker.
 func TestBackendRouteRuntimeResolvesStaticOnlyFixtureAssets(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)

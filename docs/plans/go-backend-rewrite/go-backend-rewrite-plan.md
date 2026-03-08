@@ -661,9 +661,23 @@ The next bounded plugin backend follow-on tracked in
   routes, MCP tools, and static dirs
 - backend worker listener emits now flow through the Go listener producer, which
   closes the remaining backend fixture transport gap under the Go runtime
-- actual listener-endpoint websocket dispatch, built-in endpoint-name conflict
-  validation, and mutation-time runtime refresh remain deferred until a
-  concrete caller requires them
+- built-in endpoint-name conflict validation and mutation-time runtime refresh
+  remained deferred at the end of that slice
+
+The next bounded plugin backend follow-on tracked in
+`phase-15-plugin-listener-endpoint-websocket-dispatch.md` is now also landed:
+
+- Go now owns plugin listener-endpoint websocket dispatch on the existing
+  `/ws/listeners/{listenerID}` route in IDE mode
+- the listener websocket transport now routes
+  `ListenerRouterEndpointCall` through the live Go backend runtime and returns
+  `ListenerRouterEndpointResult`
+- plugin listener payloads now inherit the canonical websocket project id when
+  they omit `projectConfigId`, and mismatches fail explicitly before worker
+  execution
+- built-in listener endpoint dispatch, listener temporary-id negotiation, and
+  mutation-time runtime refresh remain deferred until a concrete caller
+  requires one of those surfaces
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

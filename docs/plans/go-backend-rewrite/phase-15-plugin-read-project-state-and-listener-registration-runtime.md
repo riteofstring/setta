@@ -11,6 +11,10 @@ mutation-time runtime refresh.
 
 Landed on 2026-03-09.
 
+The listener-endpoint websocket follow-on that this doc left deferred is now
+tracked and landed separately in
+`phase-15-plugin-listener-endpoint-websocket-dispatch.md`.
+
 Go now owns:
 
 - worker-host `host.read_project_state`
@@ -64,8 +68,6 @@ Python manager for:
 
 ## Deferred
 
-- listener-router websocket dispatch for plugin-owned listener endpoints
-- plugin listener-endpoint invocation transport
 - mutation-time backend runtime refresh after plugin install/link/rescan/update
   flows
 - built-in listener-endpoint-name conflict validation
@@ -85,6 +87,5 @@ Do not widen plugin backend-host work speculatively.
 
 The next concrete follow-on should only start when a caller requires one of:
 
-- plugin listener-endpoint websocket dispatch
 - backend runtime refresh after plugin mutation flows
 - any remaining share/app-mode backend-host ownership that cannot stay deferred

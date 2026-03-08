@@ -1198,6 +1198,121 @@ func TestAppServesListenerCoverageRoute(t *testing.T) {
 	}
 }
 
+func TestAppListenerWebsocketDispatchesPluginListenerEndpoint(t *testing.T) {
+	// The real IDE app should invoke plugin listener endpoints over the Go listener websocket and still deliver emitted dependency events.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "fixture-project",
+		Projects: map[string]projectstate.Project{
+			"fixture-project": {
+				ID:   "fixture-project",
+				Name: "Fixture Project",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save app project document: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	listenerConn, _, err := websocket.Dial(
+		context.Background(),
+		"ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(wsapi.RouteListenerByID, "{listenerID}", "listener-a", 1)+"?projectId=fixture-project",
+		&websocket.DialOptions{
+			HTTPHeader: http.Header{
+				"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("dial listener websocket route: %v", err)
+	}
+	defer listenerConn.CloseNow()
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRegister","content":{"callbacks":{"cb-a":{"dependencies":["fixture-section"],"dependencyMode":"realtime_only"}}}}`)); err != nil {
+		t.Fatalf("write listener register message: %v", err)
+	}
+	if ack := readAppRouteEnvelope(t, listenerConn); ack.MessageType != realtime.MessageTypeListenerRegisterAck {
+		t.Fatalf("expected listener register ack, got %q", ack.MessageType)
+	}
+
+	if err := listenerConn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"ListenerRouterEndpointCall","content":{"projectConfigId":"fixture-project","callId":"call-1","endpointName":"fixture_listener_endpoint","payload":{"sectionId":"fixture-section","payload":"hello"}}}`)); err != nil {
+		t.Fatalf("write listener router endpoint call: %v", err)
+	}
+
+	var (
+		resultContent     realtime.ListenerRouterEndpointResultContent
+		dependencyContent realtime.ListenerDependencyEventContent
+		foundResult       bool
+		foundDependency   bool
+	)
+	for range 4 {
+		envelope := readAppRouteEnvelope(t, listenerConn)
+		switch envelope.MessageType {
+		case realtime.MessageTypeListenerRouterResult:
+			if err := json.Unmarshal(envelope.Content, &resultContent); err != nil {
+				t.Fatalf("decode listener router endpoint result: %v", err)
+			}
+			foundResult = true
+		case realtime.MessageTypeListenerDependencyEvent:
+			if err := json.Unmarshal(envelope.Content, &dependencyContent); err != nil {
+				t.Fatalf("decode listener dependency event: %v", err)
+			}
+			foundDependency = true
+		}
+		if foundResult && foundDependency {
+			break
+		}
+	}
+	if !foundResult {
+		t.Fatal("expected listener router endpoint result message")
+	}
+	if !foundDependency {
+		t.Fatal("expected listener dependency event message")
+	}
+	if resultContent.ProjectConfigID != "fixture-project" || resultContent.CallID != "call-1" || !resultContent.OK {
+		t.Fatalf("unexpected listener router endpoint result %#v", resultContent)
+	}
+
+	resultPayload, ok := resultContent.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected listener router endpoint result payload map, got %#v", resultContent.Result)
+	}
+	if resultPayload["ok"] != true || resultPayload["projectConfigId"] != "fixture-project" || resultPayload["sectionId"] != "fixture-section" {
+		t.Fatalf("unexpected listener endpoint payload %#v", resultPayload)
+	}
+
+	if dependencyContent.ProjectID != "fixture-project" || dependencyContent.Sequence == 0 {
+		t.Fatalf("unexpected dependency event content %#v", dependencyContent)
+	}
+	if len(dependencyContent.DependencyEvents) != 1 {
+		t.Fatalf("expected one dependency event, got %#v", dependencyContent.DependencyEvents)
+	}
+	if dependencyContent.DependencyEvents[0].DependencyKey != "fixture-section" {
+		t.Fatalf("expected fixture-section dependency key, got %#v", dependencyContent.DependencyEvents[0].DependencyKey)
+	}
+	if string(dependencyContent.DependencyEvents[0].Payload) != `{"type":"Literal","payload":"hello"}` {
+		t.Fatalf("unexpected dependency payload %s", string(dependencyContent.DependencyEvents[0].Payload))
+	}
+}
+
 func TestAppRunCodeDrawSnapshotsBroadcastBinaryListenerRealtimeEvent(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 

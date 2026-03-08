@@ -999,11 +999,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					ModePolicy:    modePolicy,
 					ShareSessions: shareSessions,
 				},
-				WebsocketHub:           websocketHub,
-				UISettingRevealResults: uiSettingRevealResults,
-				ListenerBroadcaster:    listenerBroadcaster,
-				ListenerProducer:       listenerProducer,
-				Terminals:              terminalService,
+				WebsocketHub:            websocketHub,
+				UISettingRevealResults:  uiSettingRevealResults,
+				ListenerBroadcaster:     listenerBroadcaster,
+				ListenerEndpointInvoker: pluginBackendRoutes,
+				ListenerProducer:        listenerProducer,
+				Terminals:               terminalService,
 			}); err != nil {
 				panic(err)
 			}

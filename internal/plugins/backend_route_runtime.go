@@ -41,14 +41,15 @@ type BackendRouteRuntime struct {
 	listenerProducer *realtime.ListenerProducer
 	projectStateRead ProjectStateReader
 
-	routes      []BackendRoute
-	mcpTools    []RegisteredMCPTool
-	staticDirs  []RegisteredBackendStaticDir
-	listeners   []RegisteredBackendListenerEndpoint
-	sessions    map[string]*StartedWorkerSession
-	routeByID   map[string]BackendRoute
-	mcpToolByID map[string]RegisteredMCPTool
-	staticByPID map[string][]RegisteredBackendStaticDir
+	routes         []BackendRoute
+	mcpTools       []RegisteredMCPTool
+	staticDirs     []RegisteredBackendStaticDir
+	listeners      []RegisteredBackendListenerEndpoint
+	sessions       map[string]*StartedWorkerSession
+	routeByID      map[string]BackendRoute
+	mcpToolByID    map[string]RegisteredMCPTool
+	listenerByName map[string]RegisteredBackendListenerEndpoint
+	staticByPID    map[string][]RegisteredBackendStaticDir
 }
 
 type BackendRoute struct {
@@ -86,6 +87,11 @@ type BackendMCPToolCallError struct {
 	Message string
 }
 
+type BackendListenerEndpointCallError struct {
+	Code    string
+	Message string
+}
+
 func (e *BackendRouteProxyError) Error() string {
 	if e == nil {
 		return ""
@@ -100,6 +106,19 @@ func (e *BackendRouteProxyError) Error() string {
 }
 
 func (e *BackendMCPToolCallError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if strings.TrimSpace(e.Code) == "" {
+		return e.Message
+	}
+	if strings.TrimSpace(e.Message) == "" {
+		return e.Code
+	}
+	return e.Code + ": " + e.Message
+}
+
+func (e *BackendListenerEndpointCallError) Error() string {
 	if e == nil {
 		return ""
 	}
@@ -143,6 +162,7 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 		sessions:         map[string]*StartedWorkerSession{},
 		routeByID:        map[string]BackendRoute{},
 		mcpToolByID:      map[string]RegisteredMCPTool{},
+		listenerByName:   map[string]RegisteredBackendListenerEndpoint{},
 		staticByPID:      map[string][]RegisteredBackendStaticDir{},
 	}
 	if len(runtimePlugins) == 0 {
@@ -362,6 +382,94 @@ func (r *BackendRouteRuntime) InvokeMCPTool(ctx context.Context, toolName string
 	return decoded, nil
 }
 
+func (r *BackendRouteRuntime) InvokeListenerEndpoint(ctx context.Context, endpointName string, payload map[string]any) (any, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if r == nil {
+		return nil, &BackendListenerEndpointCallError{
+			Code:    workerRPCTransportErrorCode,
+			Message: fmt.Sprintf("unknown listener endpoint: %s", strings.TrimSpace(endpointName)),
+		}
+	}
+
+	registration, ok := r.listenerByName[strings.TrimSpace(endpointName)]
+	if !ok {
+		return nil, &BackendListenerEndpointCallError{
+			Code:    workerRPCTransportErrorCode,
+			Message: fmt.Sprintf("unknown listener endpoint: %s", strings.TrimSpace(endpointName)),
+		}
+	}
+
+	route, ok := r.routeByID[registration.PluginID+":"+registration.RouteID]
+	if !ok {
+		return nil, &BackendListenerEndpointCallError{
+			Code:    workerRPCTransportErrorCode,
+			Message: fmt.Sprintf("listener endpoint route missing for %s", strings.TrimSpace(endpointName)),
+		}
+	}
+
+	session := r.session(registration.PluginID)
+	if session == nil || session.Session == nil {
+		return nil, backendListenerEndpointUnavailableError(registration.PluginID, registration.EndpointName)
+	}
+
+	jsonBody := cloneStringAnyMap(payload)
+	if jsonBody == nil {
+		jsonBody = map[string]any{}
+	}
+
+	responsePayload, err := session.Session.Call(ctx, "plugin.invoke_route", map[string]any{
+		"routeId":     route.RouteID,
+		"pathParams":  map[string]string{},
+		"queryParams": map[string]any{},
+		"jsonBody":    jsonBody,
+	})
+	if err != nil {
+		var workerErr *WorkerRPCError
+		switch {
+		case errors.Is(err, ErrWorkerSessionClosed):
+			return nil, backendListenerEndpointUnavailableError(registration.PluginID, registration.EndpointName)
+		case errors.As(err, &workerErr):
+			return nil, &BackendListenerEndpointCallError{
+				Code:    strings.TrimSpace(workerErr.Code),
+				Message: strings.TrimSpace(workerErr.Message),
+			}
+		default:
+			return nil, &BackendListenerEndpointCallError{
+				Code:    workerRPCTransportErrorCode,
+				Message: fmt.Sprintf("Plugin worker listener endpoint call failed for %s:%s: %v", registration.PluginID, registration.EndpointName, err),
+			}
+		}
+	}
+
+	response, err := decodeBackendRouteResponse(responsePayload, route)
+	if err != nil {
+		var proxyErr *BackendRouteProxyError
+		if errors.As(err, &proxyErr) {
+			return nil, &BackendListenerEndpointCallError{
+				Code:    strings.TrimSpace(proxyErr.Code),
+				Message: strings.TrimSpace(proxyErr.Message),
+			}
+		}
+		return nil, &BackendListenerEndpointCallError{
+			Code:    workerRPCTransportErrorCode,
+			Message: err.Error(),
+		}
+	}
+
+	if response.StatusCode < http.StatusOK || response.StatusCode > http.StatusMultipleChoices-1 {
+		return nil, &BackendListenerEndpointCallError{
+			Code:    workerRPCTransportErrorCode,
+			Message: fmt.Sprintf("Plugin listener endpoint %s returned status %d.", registration.EndpointName, response.StatusCode),
+		}
+	}
+	if !response.BodyPresent {
+		return nil, nil
+	}
+	return response.Body, nil
+}
+
 func (r *BackendRouteRuntime) ResolveStaticAssetPath(pluginID string, assetPath string) (string, error) {
 	if r == nil {
 		return "", newServiceError(ServiceErrorCodeNotFound, "Plugin static assets unavailable: %s", strings.TrimSpace(pluginID))
@@ -486,6 +594,7 @@ func (r *BackendRouteRuntime) startPlugin(
 	}
 	for _, registration := range listenerRegistrations {
 		r.listeners = append(r.listeners, registration)
+		r.listenerByName[registration.EndpointName] = registration
 	}
 	for _, registration := range staticDirRegistrations {
 		r.staticDirs = append(r.staticDirs, registration)
@@ -627,6 +736,13 @@ func backendMCPToolUnavailableError(pluginID string, toolName string) error {
 	return &BackendMCPToolCallError{
 		Code:    workerRPCTransportErrorCode,
 		Message: fmt.Sprintf("Plugin backend MCP tool is unavailable for %s:%s.", strings.TrimSpace(pluginID), strings.TrimSpace(toolName)),
+	}
+}
+
+func backendListenerEndpointUnavailableError(pluginID string, endpointName string) error {
+	return &BackendListenerEndpointCallError{
+		Code:    workerRPCTransportErrorCode,
+		Message: fmt.Sprintf("Plugin backend listener endpoint is unavailable for %s:%s.", strings.TrimSpace(pluginID), strings.TrimSpace(endpointName)),
 	}
 }
 

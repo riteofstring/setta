@@ -5,6 +5,8 @@ import "encoding/json"
 const (
 	MessageTypeListenerRegister        = "ListenerRegister"
 	MessageTypeListenerRegisterAck     = "ListenerRegisterAck"
+	MessageTypeListenerRouterCall      = "ListenerRouterEndpointCall"
+	MessageTypeListenerRouterResult    = "ListenerRouterEndpointResult"
 	MessageTypeListenerRealtimeEvent   = "ListenerRealtimeEvent"
 	MessageTypeListenerDependencyEvent = "ListenerDependencyEvent"
 	MessageTypeListenerForceRefresh    = "ListenerForceRefresh"
@@ -44,6 +46,32 @@ type ListenerRegisterAckContent struct {
 type ListenerRegisterAckMessage struct {
 	MessageType string                     `json:"messageType"`
 	Content     ListenerRegisterAckContent `json:"content"`
+}
+
+type ListenerRouterEndpointCallContent struct {
+	ProjectConfigID string         `json:"projectConfigId"`
+	CallID          string         `json:"callId"`
+	EndpointName    string         `json:"endpointName"`
+	Payload         map[string]any `json:"payload"`
+}
+
+type ListenerRouterEndpointCallMessage struct {
+	MessageType string                            `json:"messageType"`
+	Content     ListenerRouterEndpointCallContent `json:"content"`
+}
+
+type ListenerRouterEndpointResultContent struct {
+	ProjectConfigID string         `json:"projectConfigId"`
+	CallID          string         `json:"callId"`
+	OK              bool           `json:"ok"`
+	Result          any            `json:"result,omitempty"`
+	Error           string         `json:"error,omitempty"`
+	Details         map[string]any `json:"details,omitempty"`
+}
+
+type ListenerRouterEndpointResultMessage struct {
+	MessageType string                              `json:"messageType"`
+	Content     ListenerRouterEndpointResultContent `json:"content"`
 }
 
 type ListenerDependencyEvent struct {
@@ -98,6 +126,13 @@ func NewListenerRealtimeEventMessage(content ListenerRealtimeEventContent) Liste
 func NewListenerRegisterAckMessage(content ListenerRegisterAckContent) ListenerRegisterAckMessage {
 	return ListenerRegisterAckMessage{
 		MessageType: MessageTypeListenerRegisterAck,
+		Content:     content,
+	}
+}
+
+func NewListenerRouterEndpointResultMessage(content ListenerRouterEndpointResultContent) ListenerRouterEndpointResultMessage {
+	return ListenerRouterEndpointResultMessage{
+		MessageType: MessageTypeListenerRouterResult,
 		Content:     content,
 	}
 }

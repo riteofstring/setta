@@ -638,12 +638,15 @@ Use the docs in this order:
   - focused completed-slice doc for Go-owned worker-host
     `read_project_state`, listener-endpoint registration capture, and backend
     fixture project-state reads over the live IDE runtime
-175. `spike-mcp.md`
+175. `phase-15-plugin-listener-endpoint-websocket-dispatch.md`
+  - focused completed-slice doc for Go-owned plugin listener-endpoint
+    websocket dispatch over the live listener route and backend runtime
+176. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-176. `spike-pty.md`
+177. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-177. `spike-lsp.md`
+178. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

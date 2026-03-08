@@ -133,6 +133,22 @@ func (r *ListenerRegistry) RemoveConnection(connectionID string) {
 	delete(r.registrations, connectionID)
 }
 
+func (r *ListenerRegistry) Registration(connectionID string) (ListenerRegistration, bool) {
+	connectionID = strings.TrimSpace(connectionID)
+	if connectionID == "" {
+		return ListenerRegistration{}, false
+	}
+
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	registration, ok := r.registrations[connectionID]
+	if !ok {
+		return ListenerRegistration{}, false
+	}
+	return cloneListenerRegistration(registration), true
+}
+
 func (r *ListenerRegistry) DropShareSession(shareSessionID string) {
 	shareSessionID = strings.TrimSpace(shareSessionID)
 	if shareSessionID == "" {

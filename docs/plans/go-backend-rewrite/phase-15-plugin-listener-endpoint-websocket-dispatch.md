@@ -12,7 +12,7 @@ work, or mutation-time backend runtime refresh.
 
 ## Status
 
-Planned on 2026-03-09.
+Landed on 2026-03-09.
 
 ## Scope
 
@@ -67,11 +67,11 @@ This slice covers:
   - the Go listener route has no current init/temporary-id negotiation surface
   - this slice keeps canonical project ids only
 
-## Planned Implementation
+## Implementation
 
 ### Slice 1: Plugin Runtime Invocation Surface
 
-Deliver:
+Completed:
 
 - add a typed plugin listener-endpoint invocation method to
   `internal/plugins.BackendRouteRuntime`
@@ -79,8 +79,6 @@ Deliver:
   registrations
 - execute the registered backend route through the existing worker session
   boundary
-
-Acceptance:
 
 - unknown endpoint names fail from the runtime with a deterministic
   `unknown listener endpoint: <name>` error
@@ -90,7 +88,7 @@ Acceptance:
 
 ### Slice 2: Listener Websocket Dispatch
 
-Deliver:
+Completed:
 
 - add listener router endpoint call/result message types in `internal/realtime`
 - extend `internal/wsapi` listener decoding and dispatch
@@ -101,8 +99,6 @@ Deliver:
   - `listener_call_invalid_operation`
   - generic `listener_call_failed`
 
-Acceptance:
-
 - listener endpoint calls require prior `ListenerRegister`
 - successful plugin endpoint calls return `ListenerRouterEndpointResult`
 - plugin payloads inherit the websocket project id when omitted
@@ -110,7 +106,7 @@ Acceptance:
 
 ### Slice 3: App Wiring And Tests
 
-Deliver:
+Completed:
 
 - wire the app’s plugin backend runtime into `internal/wsapi`
 - add wsapi route tests for:
@@ -119,12 +115,30 @@ Deliver:
   - project id injection / mismatch handling
 - add an app websocket test using the real backend fixture plugin
 
-Acceptance:
-
 - the real IDE app can call a plugin listener endpoint over the Go listener
   websocket and observe the result payload
 - plugin-emitted dependency events from that listener endpoint still flow
   through the existing Go listener producer path
+
+## Decisions
+
+- kept the Go listener route bootstrap as the only source of truth for project
+  scope in this slice
+  - `projectId` from the existing websocket route remains canonical
+  - plugin payloads inherit that id only when they omit `projectConfigId`
+- kept plugin listener endpoint execution in the backend runtime instead of
+  re-encoding it in the websocket transport
+- kept unknown plugin listener endpoints on the generic
+  `listener_call_failed` websocket error surface with an explicit
+  `unknown listener endpoint: <name>` detail message
+  - this matches the current plugin-only failure boundary without inventing a
+    broader built-in endpoint registry first
+
+## Verification
+
+- `./scripts/go.sh test ./internal/plugins -run 'TestBackendRouteRuntime(InvokesFixtureListenerEndpoints|SupportsProjectStateReadsAndListenerRegistrations)' -count=1`
+- `./scripts/go.sh test ./internal/wsapi -run 'TestRegisterRoutesListener(EndpointCall(RequiresRegistration|DispatchesPluginEndpointAndInjectsProjectID|RejectsPayloadProjectMismatch|ReturnsUnknownPluginEndpointError)|RegistersCallbacksAndReceivesRealtimeMessages)' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestApp(ListenerWebsocketDispatchesPluginListenerEndpoint|ServesListenerCoverageRoute|ServesPluginBackendProjectStateAndListenerRoutes)' -count=1`
 
 ## Deferred
 
@@ -132,3 +146,15 @@ Acceptance:
 - listener temporary-id remapping
 - Python listener websocket route convergence
 - plugin runtime refresh after install/link/enable/disable/update flows
+
+## Next Recommended Step
+
+Do not widen listener websocket work speculatively.
+
+The next concrete follow-on should only start when a caller requires one of:
+
+- built-in listener-router endpoint dispatch with a Go-owned source of truth
+- listener temporary-id negotiation on the Go websocket route
+- plugin backend runtime refresh after install/link/enable/disable/update flows
+- any remaining share/app-mode plugin backend-host ownership that cannot stay
+  deferred
