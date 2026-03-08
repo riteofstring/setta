@@ -125,6 +125,7 @@ const (
 	RouteSetGenCodeSuffix                  = "/setGenCodeSuffix"
 	RouteSetWatchCodeEnabled               = "/setWatchCodeEnabled"
 	RouteSetWatchCodeInputs                = "/setWatchCodeInputs"
+	RouteChangeParamImpl                   = "/changeParamImpl"
 	RouteSetParamEnteredValue              = "/setParamEnteredValue"
 	RouteUpdateParamImplConfig             = "/updateParamImplConfig"
 	RouteSetCodeObjName                    = "/setCodeObjName"
@@ -983,6 +984,14 @@ type SetWatchCodeInputsRequest struct {
 	WatchCodeFiles   []string                       `json:"watchCodeFiles"`
 }
 
+type ChangeParamImplRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	ParamInfoID  string  `json:"paramInfoId"`
+	SelectedID   string  `json:"selectedId"`
+}
+
 type SetParamEnteredValueRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -1177,6 +1186,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGenCodeSuffix, setGenCodeSuffixHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeInputs, setWatchCodeInputsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteChangeParamImpl, changeParamImplHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateParamImplConfig, updateParamImplConfigHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeObjName, setCodeObjNameHandler(deps))
@@ -1244,6 +1254,53 @@ func getPasswordParamValueHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 		writeJSON(w, http.StatusOK, GetPasswordParamValueResponse{Value: value})
+	}
+}
+
+func changeParamImplHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ChangeParamImplRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		paramInfoID := strings.TrimSpace(payload.ParamInfoID)
+		if paramInfoID == "" {
+			writeError(w, r, http.StatusBadRequest, "param_info_id_required", "Param info id is required.")
+			return
+		}
+		selectedID := strings.TrimSpace(payload.SelectedID)
+		if selectedID == "" {
+			writeError(w, r, http.StatusBadRequest, "selected_id_required", "Selected impl or code object type is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ChangeParamImpl(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			paramInfoID,
+			selectedID,
+		); err != nil {
+			writeChangeParamImplError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
 	}
 }
 
@@ -5073,6 +5130,31 @@ func writeGetPasswordParamValueError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
 	case errors.Is(err, projectstate.ErrPasswordParamRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "password_param_required", "Param info must resolve to a password param.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeChangeParamImplError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrCodeObjIDRequired):
+		writeError(w, r, http.StatusBadRequest, "param_info_id_required", "Param info id is required.")
+	case errors.Is(err, projectstate.ErrChangeParamImplSelectedRequired):
+		writeError(w, r, http.StatusBadRequest, "selected_id_required", "Selected impl or code object type is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound):
+		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
+	case errors.Is(err, projectstate.ErrChangeParamImplUnsupported),
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeUnknown),
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed):
+		writeError(w, r, http.StatusUnprocessableEntity, "change_param_impl_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

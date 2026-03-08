@@ -379,6 +379,115 @@ func TestRegisterProjectRoutesParamValueAndConfigMutationsRejectInvalidInputs(t 
 	}
 }
 
+func TestRegisterProjectRoutesChangeParamImplPersistsAndHydrates(t *testing.T) {
+	t.Parallel()
+
+	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	}, projectstate.RuntimeOptions{
+		PasswordSecrets: passwordSecrets,
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteChangeParamImpl,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child","selectedId":"PasswordParam","frontendOpId":"frontend-op-change-param"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 change-param-impl response, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after change-param-impl: %v", err)
+	}
+	sharedChildPayload, _, _, sharedChildImpl, err := project.ResolveSectionCodeObject("dict-a", "shared-child")
+	if err != nil {
+		t.Fatalf("resolve shared-child after change-param-impl: %v", err)
+	}
+	if sharedChildImpl.Type != "PasswordParam" {
+		t.Fatalf("expected shared-child impl PasswordParam, got %q", sharedChildImpl.Type)
+	}
+	if got, _ := sharedChildPayload["value"].(string); got != "" {
+		t.Fatalf("expected shared-child value redacted after password conversion, got %q", got)
+	}
+	if got, _ := sharedChildPayload["hasSecret"].(bool); !got {
+		t.Fatalf("expected shared-child hasSecret=true after password conversion, got %#v", sharedChildPayload)
+	}
+
+	passwordRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetPasswordParamValue,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child"}`),
+	)
+	passwordRequest.Header.Set("Content-Type", "application/json")
+	passwordResponse := httptest.NewRecorder()
+	handler.ServeHTTP(passwordResponse, passwordRequest)
+	if passwordResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 password response, got %d with body %q", passwordResponse.Code, passwordResponse.Body.String())
+	}
+
+	var passwordPayload GetPasswordParamValueResponse
+	if err := json.Unmarshal(passwordResponse.Body.Bytes(), &passwordPayload); err != nil {
+		t.Fatalf("decode password payload: %v", err)
+	}
+	if passwordPayload.Value != "seed" {
+		t.Fatalf("expected migrated password value seed, got %q", passwordPayload.Value)
+	}
+}
+
+func TestRegisterProjectRoutesChangeParamImplRejectsInvalidSelection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteChangeParamImpl,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child","selectedId":"ButtonParam"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 change-param-impl response, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"change_param_impl_invalid"`) {
+		t.Fatalf("expected change_param_impl_invalid response body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesDeleteSectionVariantOrAskReturnsWorkspacePathForJSONSourceVariant(t *testing.T) {
 	t.Parallel()
 

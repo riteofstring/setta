@@ -169,7 +169,7 @@ Current landed wedge:
     watch-code route constants
   - current child-section helper route constants
   - current section-variant delete helper route constants
-  - current param value/config, code-object naming/display,
+  - current param-impl/value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
   - current clipboard copy/paste route constants
   - current group-orientation and section-data helper route constants
@@ -292,8 +292,9 @@ Current landed wedge:
       - `SetChartAreaDataPathRequestInput`
       - `SetChartTypeRequestInput`
       - `SetChartSettingsRequestInput`
-    - current param value/config, code-object naming/display,
+    - current param-impl/value/config, code-object naming/display,
       python-codegen prefix/suffix, and attached-terminal helper payloads
+      - `ChangeParamImplRequest`
       - `SetParamEnteredValueRequestInput`
       - `UpdateParamImplConfigRequestInput`
       - `SetCodeSectionAttachedTerminalRequestInput`
@@ -811,6 +812,8 @@ Current landed wedge:
     - `MCPRuntimeStatusResponse`
   - password reveal helper endpoint wrapper
     - `route_get_password_param_value`
+  - param-impl switching helper endpoint wrapper
+    - `route_change_param_impl`
   - password reveal helper contract types
     - `GetPasswordParamValueRequestInput`
     - `GetPasswordParamValueResponse`

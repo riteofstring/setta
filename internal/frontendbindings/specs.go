@@ -498,6 +498,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_PASSWORD_PARAM_VALUE",
 				},
 				{
+					Name:     "changeParamImpl",
+					Path:     httpapi.RouteChangeParamImpl,
+					EnumName: "CHANGE_PARAM_IMPL",
+				},
+				{
 					Name:     "setParamEnteredValue",
 					Path:     httpapi.RouteSetParamEnteredValue,
 					EnumName: "SET_PARAM_ENTERED_VALUE",
@@ -1978,6 +1983,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getPasswordParamValue",
 			RequestType:     reflect.TypeOf(GetPasswordParamValueRequestInput{}),
 			ResponseType:    reflect.TypeOf(GetPasswordParamValueResponse{}),
+		},
+		{
+			FunctionName:    "route_change_param_impl",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "changeParamImpl",
+			RequestType:     reflect.TypeOf(httpapi.ChangeParamImplRequest{}),
 		},
 		{
 			FunctionName:    "route_set_param_entered_value",

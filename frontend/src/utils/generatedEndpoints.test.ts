@@ -120,6 +120,7 @@ import {
   route_set_chart_area_data_path,
   route_set_chart_settings,
   route_set_chart_type,
+  route_change_param_impl,
   route_set_chat_section_settings,
   route_set_chat_section_state,
   route_set_code,
@@ -4694,6 +4695,36 @@ describe("generatedEndpoints helper routes", () => {
     fetchMock.mockReset();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("posts param-impl change helper writes with the canonical request shape", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("null", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await route_change_param_impl({
+      projectConfigId: "project-alpha",
+      sectionId: "section-1",
+      paramInfoId: "param-1",
+      selectedId: "SliderParam",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/changeParamImpl`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-1",
+        paramInfoId: "param-1",
+        selectedId: "SliderParam",
+      }),
+    });
   });
 
   it("posts the section-variant delete prompt helper and preserves string responses", async () => {

@@ -6634,6 +6634,18 @@ export function createGetPasswordParamValueResponse(options: Partial<GetPassword
 }
 
 
+export type ChangeParamImplRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  selectedId: string;
+};
+export function createChangeParamImplRequest(options: Partial<ChangeParamImplRequest> = {}): ChangeParamImplRequest {
+  return options as ChangeParamImplRequest;
+}
+
+
 export type SetParamEnteredValueRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

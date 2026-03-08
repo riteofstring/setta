@@ -539,6 +539,12 @@ export async function route_get_password_param_value(x: gt.GetPasswordParamValue
 }
 
 
+export async function route_change_param_impl(x: gt.ChangeParamImplRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.changeParamImpl, x);
+}
+
+
 export async function route_set_param_entered_value(x: gt.SetParamEnteredValueRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setParamEnteredValue, x);
