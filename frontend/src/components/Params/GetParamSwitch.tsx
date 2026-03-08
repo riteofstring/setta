@@ -1,12 +1,22 @@
-import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
-import _ from "lodash";
-import { matchSorter } from "match-sorter";
 import {
+  useSettingsAllSettingsBenchmark,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
+import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
+import { matchSorter } from "match-sorter";
+import { useMemo } from "react";
+import {
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  isBaseParamCodeObjImpl,
+  isBaseParentCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { ParamSwitch } from "./ParamSwitch";
 
 export function GetParamSwitch({
@@ -26,41 +36,108 @@ export function GetParamSwitch({
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 }) {
-  // TODO: make this more efficient
-  const filteredIds = useProjectState((x) => {
-    let matches = paramIds;
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+  const benchmark = useSettingsAllSettingsBenchmark();
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "get-param-switch",
+    `${sectionId}:${listKey}:${isTopLevel ? "top" : "nested"}:${paramIds[0] ?? "none"}:${paramIds[paramIds.length - 1] ?? "none"}:${paramIds.length}`,
+  );
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
-    );
+    ),
+  );
+  const {
+    codeObjs,
+    codeObjVariants,
+    codeObjImpls,
+    sectionVariants,
+    sectionImpls,
+    sections,
+    showParamDisplayNames,
+    projectSectionVariantMap,
+  } = useProjectState(
+    (state) => ({
+      codeObjs: state.codeObjs,
+      codeObjVariants: state.codeObjVariants,
+      codeObjImpls: state.codeObjImpls,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
+      sections: state.sections,
+      showParamDisplayNames: state.projectConfig.showParamDisplayNames,
+      projectSectionVariantMap: state.projectConfig.sectionVariantMap,
+    }),
+    shallow,
+  );
+  const filteredIds = useMemo(() => {
+    const state = useProjectState.getState();
+    let matches = paramIds;
 
-    if (impl.paramFilter) {
+    if (paramsImpl.paramFilter) {
       const requiredParamIdsWithNames = Object.keys(
         requiredParamIdsToPaths,
       ).map((id) => ({
         id,
-        name: getParamDisplayName(x, sectionId, id),
+        name: getParamDisplayName(state, sectionId, id),
       }));
 
-      matches = matchSorter(requiredParamIdsWithNames, impl.paramFilter, {
+      matches = matchSorter(requiredParamIdsWithNames, paramsImpl.paramFilter, {
         keys: ["name"],
       });
     }
 
-    const filteredRequired = new Set();
-    for (const m of matches) {
-      const path = requiredParamIdsToPaths[m.hasOwnProperty("id") ? m.id : m];
+    const filteredRequired = new Set<string>();
+    for (const match of matches) {
+      const path =
+        requiredParamIdsToPaths[
+          Object.prototype.hasOwnProperty.call(match, "id") ? match.id : match
+        ];
       if (!path) {
         continue;
       }
-      for (const p of path) {
-        filteredRequired.add(p);
+      for (const pathPart of path) {
+        filteredRequired.add(pathPart);
       }
     }
 
-    return paramIds.filter((p) => filteredRequired.has(p) || isTempParam(p));
-  }, _.isEqual);
+    const visibleParamIds = paramIds.filter(
+      (paramId) => filteredRequired.has(paramId) || isTempParam(paramId),
+    );
+
+    if (benchmark.paramStructureScope !== "parent-only") {
+      return visibleParamIds;
+    }
+
+    return visibleParamIds.filter((paramId) => {
+      if (isTempParam(paramId)) {
+        return false;
+      }
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        state,
+        sectionId,
+        paramId,
+        isBaseParamCodeObjImpl,
+      );
+      return (
+        isBaseParentCodeObjImpl(codeObjImpl) && codeObjImpl.children.length > 0
+      );
+    });
+  }, [
+    benchmark.paramStructureScope,
+    codeObjImpls,
+    codeObjVariants,
+    codeObjs,
+    paramIds,
+    paramsImpl,
+    projectSectionVariantMap,
+    requiredParamIdsToPaths,
+    sectionId,
+    sectionImpls,
+    sections,
+    sectionVariants,
+    showParamDisplayNames,
+  ]);
 
   return filteredIds.map((paramId, idx) => (
     <ParamSwitch
