@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
 	binarypayload "setta/internal/binary"
@@ -319,12 +320,46 @@ func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	}
 }
 
-func TestAppServesManagedChatSendAsUnavailableWithoutExecutor(t *testing.T) {
-	// The real IDE app should route managed /getLLMResponse requests into the Go
-	// owner and surface an explicit 503 until a managed executor is wired.
+func TestAppServesManagedChatSendThroughManagedExecutor(t *testing.T) {
+	// The real IDE app should run managed chat sends through the Go-owned
+	// provider executor and persist the streamed assistant reply.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+
+	type providerRequest struct {
+		Path          string
+		Authorization string
+		Body          map[string]any
+	}
+	providerRequests := make(chan providerRequest, 1)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests <- providerRequest{
+			Path:          r.URL.Path,
+			Authorization: r.Header.Get("Authorization"),
+			Body:          body,
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Go owned\"}}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":21,\"completion_tokens\":2,\"total_tokens\":23}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer provider.Close()
 
 	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
 		Configs: map[string]llmconfig.Config{
@@ -332,6 +367,7 @@ func TestAppServesManagedChatSendAsUnavailableWithoutExecutor(t *testing.T) {
 				ID:        "primary",
 				Model:     "gpt-4o-mini",
 				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
 				APIKeyEnv: "OPENAI_API_KEY",
 			},
 		},
@@ -408,22 +444,105 @@ func TestAppServesManagedChatSendAsUnavailableWithoutExecutor(t *testing.T) {
 		t.Fatalf("send managed chat: %v", err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusServiceUnavailable {
+	if response.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(response.Body)
-		t.Fatalf("expected 503, got %d with body %q", response.StatusCode, string(body))
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
 	}
 
-	var payload struct {
-		Error struct {
-			Code   string `json:"code"`
-			Detail string `json:"detail"`
-		} `json:"error"`
+	var chatID string
+	if err := json.NewDecoder(response.Body).Decode(&chatID); err != nil {
+		t.Fatalf("decode send chat id: %v", err)
 	}
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
-		t.Fatalf("decode send error payload: %v", err)
+	if strings.TrimSpace(chatID) == "" {
+		t.Fatal("expected managed chat id")
 	}
-	if payload.Error.Code != "agent_runner_unavailable" {
-		t.Fatalf("expected agent_runner_unavailable, got %#v", payload)
+
+	type hydratePayload struct {
+		Messages           []map[string]any `json:"messages"`
+		WaitingForResponse bool             `json:"waitingForResponse"`
+		LLMConfig          *struct {
+			ID string `json:"id"`
+		} `json:"llmConfig"`
+	}
+	var hydrated hydratePayload
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		hydrateRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetLLMChat,
+			strings.NewReader(`{"chatId":"`+chatID+`","projectConfigId":"project-alpha"}`),
+		)
+		if err != nil {
+			t.Fatalf("new hydrate request: %v", err)
+		}
+		hydrateRequest.Header.Set("Content-Type", "application/json")
+		hydrateRequest.AddCookie(authCookie)
+
+		hydrateResponse, err := http.DefaultClient.Do(hydrateRequest)
+		if err != nil {
+			t.Fatalf("hydrate managed chat: %v", err)
+		}
+		defer hydrateResponse.Body.Close()
+		if hydrateResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(hydrateResponse.Body)
+			t.Fatalf("expected hydrate 200, got %d with body %q", hydrateResponse.StatusCode, string(body))
+		}
+		if err := json.NewDecoder(hydrateResponse.Body).Decode(&hydrated); err != nil {
+			t.Fatalf("decode hydrate payload: %v", err)
+		}
+		return !hydrated.WaitingForResponse && len(hydrated.Messages) == 2
+	})
+
+	if hydrated.LLMConfig == nil || hydrated.LLMConfig.ID != "primary" {
+		t.Fatalf("expected hydrated llm config primary, got %#v", hydrated.LLMConfig)
+	}
+	if appTestMessageText(hydrated.Messages[1]) != "Go owned reply" {
+		t.Fatalf("unexpected assistant reply %#v", hydrated.Messages[1])
+	}
+
+	runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	runType := "llm_chat"
+	projectID := "project-alpha"
+	completedRunID := ""
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		runs, err := runStore.ListByMetadata(agentruns.RunFilter{
+			RunType:         &runType,
+			ChatID:          &chatID,
+			ProjectConfigID: &projectID,
+		})
+		if err != nil {
+			t.Fatalf("list managed runs: %v", err)
+		}
+		for _, run := range runs {
+			if run.Status == agentruns.RunStatusCompleted {
+				completedRunID = run.ID
+				return true
+			}
+		}
+		return false
+	})
+	if strings.TrimSpace(completedRunID) == "" {
+		t.Fatal("expected completed managed run id")
+	}
+	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), completedRunID); err != nil {
+		t.Fatalf("wait for managed runtime completion: %v", err)
+	}
+
+	select {
+	case captured := <-providerRequests:
+		if captured.Path != "/v1/chat/completions" {
+			t.Fatalf("unexpected provider path %q", captured.Path)
+		}
+		if captured.Authorization != "Bearer secret" {
+			t.Fatalf("unexpected provider authorization %q", captured.Authorization)
+		}
+		if captured.Body["model"] != "gpt-4o-mini" {
+			t.Fatalf("unexpected provider model %#v", captured.Body["model"])
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for provider request")
 	}
 }
 
@@ -672,17 +791,6 @@ func TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion(t *testing.T) {
 		}
 	})
 
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
-	}
-
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
@@ -795,17 +903,6 @@ func TestAppLinkRefreshesPluginLanguageServerRouter(t *testing.T) {
 			t.Fatalf("shutdown app: %v", err)
 		}
 	})
-
-	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
-		document.DefaultProjectID = "project-alpha"
-		document.Projects["project-alpha"] = projectstate.Project{
-			ID:   "project-alpha",
-			Name: "Alpha",
-		}
-		return document, nil
-	}); err != nil {
-		t.Fatalf("seed app project: %v", err)
-	}
 
 	repoRoot := appTestRepoRoot(t)
 	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-language-server-e2e")
@@ -2667,14 +2764,14 @@ func TestAppWiresManagedAgentRunFoundationInIDEMode(t *testing.T) {
 	if app.AgentRuns() == nil {
 		t.Fatal("expected managed agent run service")
 	}
-	if !app.AgentRuns().Disabled() {
-		t.Fatal("expected managed agent run service to be disabled before an executor is wired")
+	if app.AgentRuns().Disabled() {
+		t.Fatal("expected managed agent run service to be wired")
 	}
 	if app.ManagedAgentRuntime() == nil {
 		t.Fatal("expected managed agent run runtime")
 	}
-	if !app.ManagedAgentRuntime().Disabled() {
-		t.Fatal("expected managed agent run runtime to be disabled before an executor is wired")
+	if app.ManagedAgentRuntime().Disabled() {
+		t.Fatal("expected managed agent run runtime to be wired")
 	}
 	if app.RunChainRuntime() == nil {
 		t.Fatal("expected run-chain runtime")
@@ -2684,10 +2781,74 @@ func TestAppWiresManagedAgentRunFoundationInIDEMode(t *testing.T) {
 	}
 }
 
-func TestAppServesManagedAgentRunRoutesAsUnavailableWithoutExecutor(t *testing.T) {
+func TestAppServesManagedAgentRunRoutesWithManagedExecutor(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
+	t.Setenv("OPENAI_API_KEY", "secret")
+
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "missing flusher", http.StatusInternalServerError)
+			return
+		}
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Managed agent\"}}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\" reply\"},\"finish_reason\":\"stop\"}]}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":8,\"completion_tokens\":2,\"total_tokens\":10}}\n\n")
+		flusher.Flush()
+		_, _ = io.WriteString(w, "data: [DONE]\n\n")
+	}))
+	defer provider.Close()
+
+	if err := llmconfig.Save(llmconfig.Path(cfg.Paths.SettaFilesRoot), llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:        "primary",
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				BaseURL:   provider.URL + "/v1",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}); err != nil {
+		t.Fatalf("save llm config: %v", err)
+	}
+
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	managedConfigID := "primary"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &managedConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine config: %v", err)
+	}
+
+	profileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new profile store: %v", err)
+	}
+	engineConfigID := "engine-managed"
+	if err := profileStore.Write([]agentprofiles.Profile{
+		{
+			ID:             "profile-alpha",
+			Name:           "Alpha",
+			EngineConfigID: &engineConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write agent profile: %v", err)
+	}
 
 	app, err := New(cfg, observability.NewLogger(0, io.Discard))
 	if err != nil {
@@ -2699,44 +2860,87 @@ func TestAppServesManagedAgentRunRoutesAsUnavailableWithoutExecutor(t *testing.T
 		}
 	})
 
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
 	authCookie := newAppTestAuthCookie(t, app)
-	requests := []struct {
-		path string
-		body string
-	}{
-		{
-			path: httpapi.RouteStartAgentRun,
-			body: `{"profileId":"profile-alpha","inputs":{"allowUnscoped":true}}`,
-		},
-		{
-			path: httpapi.RouteStopAgentRun,
-			body: `{"runId":"run-alpha"}`,
-		},
+	startRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteStartAgentRun,
+		strings.NewReader(`{"profileId":"profile-alpha","inputs":{"allowUnscoped":true,"prompt":"Plan this task."}}`),
+	)
+	if err != nil {
+		t.Fatalf("new start run request: %v", err)
+	}
+	startRequest.Header.Set("Content-Type", "application/json")
+	startRequest.AddCookie(authCookie)
+
+	startResponse, err := http.DefaultClient.Do(startRequest)
+	if err != nil {
+		t.Fatalf("start managed agent run: %v", err)
+	}
+	defer startResponse.Body.Close()
+	if startResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(startResponse.Body)
+		t.Fatalf("expected start run 200, got %d with body %q", startResponse.StatusCode, string(body))
 	}
 
-	for _, tc := range requests {
-		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+tc.path, strings.NewReader(tc.body))
-		if err != nil {
-			t.Fatalf("new request for %s: %v", tc.path, err)
-		}
-		request.Header.Set("Content-Type", "application/json")
-		request.AddCookie(authCookie)
+	var started agentruns.Run
+	if err := json.NewDecoder(startResponse.Body).Decode(&started); err != nil {
+		t.Fatalf("decode started run: %v", err)
+	}
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running managed run, got %#v", started)
+	}
 
-		response, err := http.DefaultClient.Do(request)
+	var loaded agentruns.Run
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		getRequest, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteGetAgentRun,
+			strings.NewReader(`{"runId":"`+started.ID+`"}`),
+		)
 		if err != nil {
-			t.Fatalf("post %s: %v", tc.path, err)
+			t.Fatalf("new get run request: %v", err)
 		}
-		body, _ := io.ReadAll(response.Body)
-		response.Body.Close()
-		if response.StatusCode != http.StatusServiceUnavailable {
-			t.Fatalf("expected 503 for %s, got %d with body %q", tc.path, response.StatusCode, string(body))
+		getRequest.Header.Set("Content-Type", "application/json")
+		getRequest.AddCookie(authCookie)
+
+		getResponse, err := http.DefaultClient.Do(getRequest)
+		if err != nil {
+			t.Fatalf("get managed run: %v", err)
 		}
-		if !strings.Contains(string(body), `"code":"managed_agent_run_unavailable"`) {
-			t.Fatalf("expected managed_agent_run_unavailable for %s, got %q", tc.path, string(body))
+		defer getResponse.Body.Close()
+		if getResponse.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(getResponse.Body)
+			t.Fatalf("expected get run 200, got %d with body %q", getResponse.StatusCode, string(body))
 		}
+		if err := json.NewDecoder(getResponse.Body).Decode(&loaded); err != nil {
+			t.Fatalf("decode managed run: %v", err)
+		}
+		return loaded.Status == agentruns.RunStatusCompleted
+	})
+	if _, err := app.ManagedAgentRuntime().WaitForRun(context.Background(), started.ID); err != nil {
+		t.Fatalf("wait for managed runtime completion: %v", err)
+	}
+
+	messages, ok := loaded.Outputs["messages"].([]any)
+	if !ok || len(messages) != 2 {
+		t.Fatalf("expected prompt and assistant outputs, got %#v", loaded.Outputs["messages"])
+	}
+	if message, ok := messages[1].(map[string]any); !ok || appTestMessageText(message) != "Managed agent reply" {
+		t.Fatalf("unexpected managed agent output %#v", loaded.Outputs["messages"])
 	}
 }
 
@@ -4354,6 +4558,41 @@ func TestAppRunCodeRouteRejectsUnsupportedCLIID(t *testing.T) {
 	if !strings.Contains(string(body), `"code":"unsupported_run_code_cli"`) {
 		t.Fatalf("expected unsupported_run_code_cli error, got %q", string(body))
 	}
+}
+
+func waitForAppCondition(t *testing.T, timeout time.Duration, check func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if check() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting for condition")
+}
+
+func appTestMessageText(message map[string]any) string {
+	content, ok := message["content"].([]any)
+	if !ok {
+		return ""
+	}
+	for _, entry := range content {
+		block, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		blockType, _ := block["type"].(string)
+		if strings.TrimSpace(blockType) != "text" {
+			continue
+		}
+		text, _ := block["text"].(string)
+		if text != "" {
+			return text
+		}
+	}
+	return ""
 }
 
 func testConfig(t *testing.T) config.Config {

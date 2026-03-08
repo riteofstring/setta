@@ -34,6 +34,7 @@ import (
 	"setta/internal/lspcompletion"
 	"setta/internal/lspsignature"
 	"setta/internal/managedchat"
+	"setta/internal/managedllm"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/observability"
@@ -719,11 +720,15 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		managedLiveRuntime = managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
+			Broadcaster: websocketHub,
+		})
 		agentRunService, err = agentruns.NewService(agentruns.ServiceOptions{
 			ProjectState:           projectRuntime,
 			Engines:                engineStore,
 			Runs:                   agentRunStore,
 			LLM:                    llmRuntime,
+			Executor:               managedllm.NewExecutor(managedllm.ExecutorOptions{Live: managedLiveRuntime}),
 			TemporaryIDs:           temporaryIDs,
 			CompletionGuardEnabled: true,
 		})
@@ -731,9 +736,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		managedLiveRuntime = managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
-			Broadcaster: websocketHub,
-		})
 		agentRunRuntime, err = agentruns.NewRuntime(agentruns.RuntimeOptions{
 			Service:        agentRunService,
 			LiveRunTracker: managedLiveRuntime,
