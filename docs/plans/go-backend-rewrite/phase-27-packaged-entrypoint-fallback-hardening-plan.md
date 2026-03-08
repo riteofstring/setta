@@ -31,6 +31,16 @@ What remains active at the start of this slice:
 - shipped Go CLI behavior for root/plugins help and invalid root argv shapes
   is not yet the explicit source of truth for the packaged module entrypoint
 
+Completed during this slice:
+
+- `internal/settacmd` now owns explicit root, `plugins`, and `plugins lock`
+  usage rendering for the packaged CLI boundary
+- Go root/plugins invalid argv handling now prints usage once and returns
+  typed non-zero exit codes without falling back to Python Click output
+- `backend/setta/entrypoint.py` now dispatches root help, bare `plugins`,
+  `plugins lock`, and invalid root argv shapes to the packaged Go binary
+- focused Go and Python regression coverage now guards that boundary
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -91,8 +101,15 @@ Out of scope:
 
 - none for this bounded slice
 
+## Verification
+
+- `./scripts/go.sh test ./internal/settacmd -run 'TestRun(VersionPrintsVersion|RootHelpPrintsUsage|DelegatesToolsToSettacli|RejectsUnknownCommand|RejectsUnknownGlobalFlagOnce)|TestRunPlugins(HelpNavigationPrintsUsage|LockHelpNavigationPrintsUsage|RejectsUnknownSubcommandWithUsage|LockRejectsUnknownSubcommandWithUsage)|TestParseGlobalFlagsSupportsWorkspaceAlias' -count=1`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_module_entrypoint.py`
+
 ## Next Recommended Step
 
-If this slice lands cleanly, update the Phase 25/26 docs to record that the
-remaining active packaged `setta.start` fallback is now narrower still, and
-rerank whether any legacy `start.py` ownership worth touching remains at all.
+Do not broaden this into general CLI help normalization by inertia.
+
+The next honest step is a rerank of whether any caller-backed or
+workflow-backed `backend/setta/start.py` ownership worth touching remains at
+all now that the last active packaged entrypoint fallback has moved to Go.

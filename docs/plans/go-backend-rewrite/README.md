@@ -760,12 +760,16 @@ Use the docs in this order:
   - focused rerank doc showing that the startup/distribution track is now
     effectively closed for the current clean-break scope and does not select a
     new implementation slice
-207. `spike-mcp.md`
+207. `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
+  - focused closeout doc for the landed packaged module-entrypoint follow-on:
+    Go-owned root/plugins help and invalid-root-argv handling over the thin
+    Python dispatcher boundary
+208. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-208. `spike-pty.md`
+209. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-209. `spike-lsp.md`
+210. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

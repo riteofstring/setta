@@ -31,6 +31,12 @@ What this doc adds:
   implementation slice is actually selected
 - an explicit closeout boundary for the startup/distribution track
 
+Historical note:
+
+- the deliberate packaged-entrypoint fallback follow-on mentioned here was
+  later selected and landed in
+  `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -149,12 +155,18 @@ Rerank implication:
 
 ## Next Recommended Step
 
-No new implementation slice is selected from this rerank.
+Use this doc as the pre-Phase-27 rerank checkpoint, not as the latest state.
 
-If rewrite work continues, only reopen this area when one of these becomes
-concrete:
+The startup/distribution track remains closed for the current clean-break
+scope, and the only deliberate follow-on that this doc left open is now also
+landed:
+
+- `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
+
+If rewrite work continues from here, only reopen this broader area when one of
+these becomes concrete:
 
 - a real release/native-installer failure mode
 - a deliberate product decision to change the Python package artifact boundary
-- a deliberate decision to move the remaining `setta.start` root-help /
-  invalid-command fallback out of Python
+- a newly proven still-reachable legacy `setta.start` workflow outside the
+  landed Phase 27 packaged-entrypoint slice

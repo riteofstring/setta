@@ -91,6 +91,16 @@ Completed during the third Slice 4 distribution/install sub-slice:
 - `verify_install.sh` now also cleans on failure
 - focused wrapper tests now cover failure propagation and cleanup ordering
 
+Completed after the Phase 26 rerank:
+
+- `phase-27-packaged-entrypoint-fallback-hardening-plan.md` now records the
+  landed bounded packaged-entrypoint follow-on
+- root help, bare `plugins`, `plugins lock`, and invalid root argv handling
+  are now Go-owned through `internal/settacmd` plus
+  `backend/setta/entrypoint.py`
+- the active packaged `setta.start` fallback identified in Slice 3 is no
+  longer the current ownership gap
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
@@ -277,15 +287,15 @@ For later slices:
 
 ## Next Recommended Step
 
-Slice 3 inventory is now complete.
+The narrow packaged-entrypoint fallback slice is now complete.
 
-If rewrite work continues, do not open broad `start.py` cleanup by default.
+If rewrite work continues, do not reopen broad `start.py` cleanup by default.
+Rerank from the now-landed Phase 27 state instead:
 
-Choose explicitly between:
-
-- one narrow fallback-hardening slice for root help, bare `plugins`, and
-  unknown-command handling at the entrypoint boundary
-- or Slice 4 distribution/install workflow retargeting
+- treat `phase-27-packaged-entrypoint-fallback-hardening-plan.md` as the
+  closeout record for the last active packaged entrypoint fallback
+- only open another startup/legacy-Python slice if a concrete still-reachable
+  workflow or shipped surface remains after that landing
 
 Use these docs as the current source of truth:
 
@@ -295,7 +305,10 @@ Use these docs as the current source of truth:
 - use `phase-25-dev-startup-command-boundary-plan.md` as the record of the now
   landed source/dev startup hardening slice
 - use `phase-25-start-py-reachability-inventory-and-rerank.md` as the record
-  of the now-narrowed remaining `setta.start` reachability
+  of the inventory step that selected the later landed fallback-hardening
+  slice
+- use `phase-27-packaged-entrypoint-fallback-hardening-plan.md` as the record
+  of the now-landed packaged entrypoint fallback closeout
 
 The focused Slice 4 implementation plan is now:
 

@@ -4,7 +4,10 @@ This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher to the
 packaged Go binary for the current shipped command surface. Legacy
 `backend/setta/start.py` behavior remains as fallback/dev-oriented code rather
-than as the owner of the commands documented here.
+than as the owner of the commands documented here. Root help, bare
+`setta plugins` / `setta plugins lock` navigation, and invalid root argv now
+also resolve through the packaged Go CLI boundary rather than falling back to
+Click.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime

@@ -24,6 +24,12 @@ Completed before this doc:
 - explicit dev startup boundary hardening in
   `phase-25-dev-startup-command-boundary-plan.md`
 
+Later follow-on now landed:
+
+- `phase-27-packaged-entrypoint-fallback-hardening-plan.md` moved the
+  inventoried root-help / bare-plugins / invalid-root-argv packaged fallback
+  from `setta.start` to the Go-owned packaged CLI boundary
+
 What this doc adds:
 
 - a concrete post-Slice-2 inventory of the still-reachable `setta.start`
@@ -164,16 +170,16 @@ The remaining honest options are now explicit:
 - do not invent a broad `start.py` reduction implementation slice without a
   clearer product or packaging reason
 
+Historical note:
+
+- the narrow fallback-hardening option listed here was later selected and
+  recorded in `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
+
 ## Next Recommended Step
 
-Do not reopen broad `start.py` cleanup by default.
+Use this doc as the historical inventory input for the now-landed Phase 27
+slice, not as the current remaining-state doc.
 
-If rewrite work continues, pick one of these explicitly:
-
-- open a narrow entrypoint fallback-hardening slice for root help, bare
-  `plugins`, and unknown-command handling
-- or move directly to Phase 25 Slice 4 distribution/install workflow
-  retargeting
-
-The current evidence favors the second option unless CLI root-help ownership
-is itself a priority.
+If rewrite work continues from here, rerank whether any still-reachable
+`backend/setta/start.py` ownership remains worth touching after that landed
+fallback-hardening step.

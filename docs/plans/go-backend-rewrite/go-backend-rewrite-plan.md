@@ -411,6 +411,16 @@ The next honest Phase 25 decision is therefore no longer "clean up
 for that small root-level edge set or to move directly to the distribution /
 install workflow track.
 
+That narrow packaged-entrypoint fallback-hardening slice is now also landed in
+`phase-27-packaged-entrypoint-fallback-hardening-plan.md`:
+
+- `backend/setta/entrypoint.py` now dispatches root help, bare `plugins`,
+  `plugins lock`, and invalid root argv shapes to the packaged Go binary
+- `internal/settacmd` now owns explicit root/plugins/lock help rendering and
+  usage-once invalid argv handling for that packaged boundary
+- focused Go and Python regression coverage now guards the module-entrypoint
+  fallback boundary without reopening broad Click parity work
+
 That distribution/install follow-on is now narrowed in
 `phase-25-distribution-install-workflow-retargeting-plan.md`.
 The first bounded Slice 4 target is not a packaging-format rewrite. It is
@@ -1903,6 +1913,8 @@ Do not weaken this rule during the rewrite.
      `phase-25-remaining-python-ownership-inventory-and-rerank.md`
    - the next optional rewrite-track plan is recorded in
      `phase-25-legacy-startup-and-distribution-boundary-plan.md`
+   - the bounded packaged-entrypoint fallback closeout slice is recorded in
+     `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1922,6 +1934,8 @@ Do not weaken this rule during the rewrite.
      - legacy Python startup/fallback ownership
      - source/dev startup wiring
      - distribution/install workflow glue
+   - the last active packaged `python -m setta` fallback edge recorded during
+     Phase 25 is now Go-owned after the landed Phase 27 slice
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise
