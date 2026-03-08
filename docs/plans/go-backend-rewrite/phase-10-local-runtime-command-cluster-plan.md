@@ -45,6 +45,7 @@ As of 2026-03-08:
 
 - `docs/plans/go-backend-rewrite/phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`
 - `docs/plans/go-backend-rewrite/phase-9-native-installer-bundled-package-stage2.md`
+- `docs/plans/go-backend-rewrite/phase-10-default-local-ide-start-stage2.md`
 - `docs/reference/setta-cli-commands.md`
 - `backend/setta/start.py`
 - `tests/start/test_launch.py`
@@ -193,6 +194,10 @@ That slice should:
   - `setta launch` now routes through `cmd/setta` / `internal/settacmd`
   - the thin Python wrapper now dispatches `launch` to the packaged Go binary
   - Go now owns the local launch JSON/error contract for packaged installs
+- 2026-03-08: added the focused Stage 2 plan for the next bounded slice.
+  - default no-subcommand `setta` local IDE start now has an explicit
+    implementation boundary over the sibling `setta-server` runtime
+  - `--reload` is explicitly out of scope for the shipped Go CLI slice
 
 ## Open Questions
 

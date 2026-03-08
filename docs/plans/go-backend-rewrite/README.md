@@ -357,11 +357,14 @@ Use the docs in this order:
   - focused implementation-plan doc for the next Go-owned local runtime CLI
     cluster: `launch` first, then default `setta`, `share`, and `app`, while
     keeping `backups`/`plugins`/`export-db` explicitly out of scope
-118. `spike-mcp.md`
+118. `phase-10-default-local-ide-start-stage2.md`
+  - focused implementation-plan doc for the Go-owned default local `setta`
+    start path over the sibling `setta-server` runtime boundary
+119. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-119. `spike-pty.md`
+120. `spike-pty.md`
    - PTY uncertainty-reduction plan
-120. `spike-lsp.md`
+121. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
