@@ -64,6 +64,12 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 	if t == timeType {
 		return "string", nil
 	}
+	if t.Name() != "" && t.PkgPath() != "" {
+		if err := c.ensureDeclaration(t); err != nil {
+			return "", err
+		}
+		return t.Name(), nil
+	}
 
 	switch t.Kind() {
 	case reflect.Pointer:
@@ -73,30 +79,12 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		}
 		return inner + " | null", nil
 	case reflect.String:
-		if t.Name() != "" && t.PkgPath() != "" {
-			if err := c.ensureDeclaration(t); err != nil {
-				return "", err
-			}
-			return t.Name(), nil
-		}
 		return "string", nil
 	case reflect.Bool:
-		if t.Name() != "" && t.PkgPath() != "" {
-			if err := c.ensureDeclaration(t); err != nil {
-				return "", err
-			}
-			return t.Name(), nil
-		}
 		return "boolean", nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
-		if t.Name() != "" && t.PkgPath() != "" {
-			if err := c.ensureDeclaration(t); err != nil {
-				return "", err
-			}
-			return t.Name(), nil
-		}
 		return "number", nil
 	case reflect.Slice, reflect.Array:
 		inner, err := c.renderTypeExpr(t.Elem())
@@ -115,12 +103,6 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		}
 		return fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr), nil
 	case reflect.Struct:
-		if t.Name() != "" && t.PkgPath() != "" {
-			if err := c.ensureDeclaration(t); err != nil {
-				return "", err
-			}
-			return t.Name(), nil
-		}
 		properties, err := c.structProperties(t)
 		if err != nil {
 			return "", err
@@ -194,6 +176,32 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Name:  t.Name(),
 			Kind:  "alias",
 			Alias: "number",
+		})
+		return nil
+	case reflect.Slice, reflect.Array:
+		inner, err := c.renderTypeExpr(t.Elem())
+		if err != nil {
+			return err
+		}
+		c.declarations = append(c.declarations, TypeDeclaration{
+			Name:  t.Name(),
+			Kind:  "alias",
+			Alias: fmt.Sprintf("Array<%s>", inner),
+		})
+		return nil
+	case reflect.Map:
+		keyExpr, err := c.renderMapKeyExpr(t.Key())
+		if err != nil {
+			return err
+		}
+		valueExpr, err := c.renderTypeExpr(t.Elem())
+		if err != nil {
+			return err
+		}
+		c.declarations = append(c.declarations, TypeDeclaration{
+			Name:  t.Name(),
+			Kind:  "alias",
+			Alias: fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr),
 		})
 		return nil
 	default:

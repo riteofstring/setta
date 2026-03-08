@@ -568,6 +568,9 @@ export function createAttachmentDownloadURLEntry(options: Partial<AttachmentDown
 }
 
 
+export type GetAttachmentDownloadURLsResponse = Array<AttachmentDownloadURLEntry>;
+
+
 export type AppCatalogPropType = "string" | "number" | "dimension" | "boolean";
 
 

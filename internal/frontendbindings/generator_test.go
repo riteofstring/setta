@@ -3,6 +3,7 @@ package frontendbindings
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -18,6 +19,7 @@ func TestBuild(t *testing.T) {
 	assertGoldenFile(t, "generated_go_routes.ts", bindings.RoutesTS)
 	assertGoldenFile(t, "generated_go_types.ts", bindings.TypesTS)
 	assertGoldenFile(t, "generated_go_endpoints.ts", bindings.EndpointsTS)
+	assertEndpointTypeReferencesResolve(t, bindings.TypesTS, bindings.EndpointsTS)
 }
 
 func assertGoldenFile(t *testing.T, name string, actual string) {
@@ -31,5 +33,30 @@ func assertGoldenFile(t *testing.T, name string, actual string) {
 	expected := strings.TrimSpace(string(expectedBytes))
 	if strings.TrimSpace(actual) != expected {
 		t.Fatalf("unexpected generated output for %s:\n%s", name, actual)
+	}
+}
+
+func assertEndpointTypeReferencesResolve(t *testing.T, typesTS string, endpointsTS string) {
+	t.Helper()
+
+	typeDeclPattern := regexp.MustCompile(`(?m)^export type ([A-Za-z0-9_]+) = `)
+	endpointRefPattern := regexp.MustCompile(`gt\.([A-Za-z0-9_]+)`)
+
+	declared := map[string]struct{}{}
+	for _, match := range typeDeclPattern.FindAllStringSubmatch(typesTS, -1) {
+		declared[match[1]] = struct{}{}
+	}
+
+	missing := []string{}
+	for _, match := range endpointRefPattern.FindAllStringSubmatch(endpointsTS, -1) {
+		name := match[1]
+		if _, ok := declared[name]; ok {
+			continue
+		}
+		missing = append(missing, name)
+	}
+
+	if len(missing) > 0 {
+		t.Fatalf("generated endpoint references missing type declarations: %v", missing)
 	}
 }
