@@ -2653,6 +2653,7 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(ProjectCodegenPythonTarget{}),
 		reflect.TypeOf(ProjectCodegenPluginTarget{}),
 		reflect.TypeOf(ProjectCodegenTarget{}),
+		reflect.TypeOf(ProjectConfig{}),
 		reflect.TypeOf(ChatRole("")),
 		reflect.TypeOf(ChatPermissionMode("")),
 		reflect.TypeOf(ChatDictationMode("")),

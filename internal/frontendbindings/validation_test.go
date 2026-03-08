@@ -2551,6 +2551,52 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestProjectConfigSupportContractsUseConverterDeclarations(t *testing.T) {
+	converter := newTypeConverter()
+	if err := converter.AddRootType(reflect.TypeOf(ProjectConfig{})); err != nil {
+		t.Fatalf("AddRootType(%s) error = %v", reflect.TypeOf(ProjectConfig{}).String(), err)
+	}
+
+	declaration := requireDeclaration(t, converter.Declarations(), "ProjectConfig")
+	if declaration.Kind != "object" {
+		t.Fatalf("ProjectConfig declaration kind = %q, want %q", declaration.Kind, "object")
+	}
+
+	expected := []TypeProperty{
+		{Name: "id", TypeExpr: "string", Optional: false},
+		{Name: "name", TypeExpr: "string", Optional: false},
+		{Name: "showParamDisplayNames", TypeExpr: "boolean", Optional: false},
+		{Name: "allowJsonSourceKeyEdits", TypeExpr: "boolean", Optional: false},
+		{Name: "previewImgColor", TypeExpr: "string", Optional: true},
+		{Name: "viewport", TypeExpr: "Viewport | null", Optional: true},
+		{Name: "viewportInitialized", TypeExpr: "boolean", Optional: false},
+		{Name: "viewModes", TypeExpr: "Record<string, ViewMode>", Optional: false},
+		{Name: "activeViewModeId", TypeExpr: "string | null", Optional: true},
+		{Name: "isEditingViewMode", TypeExpr: "boolean", Optional: false},
+		{Name: "codegenTargets", TypeExpr: "Array<ProjectCodegenTarget>", Optional: false},
+		{Name: "watchCodeEnabled", TypeExpr: "boolean", Optional: false},
+		{Name: "watchCodeFolders", TypeExpr: "Array<WatchCodeFolder>", Optional: false},
+		{Name: "watchCodeFiles", TypeExpr: "Array<string>", Optional: false},
+		{Name: "watchCodeRegistry", TypeExpr: "Record<string, WatchCodeRegistryEntry>", Optional: false},
+		{Name: "watchCodeBaselineByPath", TypeExpr: "Record<string, Array<string>>", Optional: false},
+		{Name: "entryCodeBlockId", TypeExpr: "string | null", Optional: true},
+		{Name: "topLevelSections", TypeExpr: "Record<string, TopLevelSectionLayout>", Optional: false},
+		{Name: "sectionVariantMap", TypeExpr: "Record<string, string>", Optional: false},
+		{Name: "activeIds", TypeExpr: "Array<string>", Optional: false},
+		{Name: "edges", TypeExpr: "Array<Edge>", Optional: false},
+		{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>", Optional: false},
+	}
+	if !reflect.DeepEqual(declaration.Properties, expected) {
+		t.Fatalf("ProjectConfig properties = %#v, want %#v", declaration.Properties, expected)
+	}
+	if declaration.CreateExpr == "" {
+		t.Fatalf("ProjectConfig CreateExpr should be present")
+	}
+	if declaration.FactoryTS != "" {
+		t.Fatalf("ProjectConfig FactoryTS should be empty, got %q", declaration.FactoryTS)
+	}
+}
+
 func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string

@@ -396,6 +396,8 @@ type ProjectCodegenPluginTarget struct{}
 
 type ProjectCodegenTarget struct{}
 
+type ProjectConfig struct{}
+
 type ClipboardProjectStateCoreWithSectionVariantMap struct{}
 
 type CreateTopLevelSectionRequestInput struct {
@@ -1405,62 +1407,6 @@ export function createVariant(options: Partial<Variant> = {}): Variant {
       nonPresetImpls: [],
       modifier: {},
       isFrozen: false,
-    },
-    options,
-  );
-}
-
-export type ProjectConfig = {
-  id: string;
-  name: string;
-  showParamDisplayNames: boolean;
-  allowJsonSourceKeyEdits: boolean;
-  previewImgColor?: string;
-  viewport?: Viewport | null;
-  viewportInitialized: boolean;
-  viewModes: Record<string, ViewMode>;
-  activeViewModeId?: string | null;
-  isEditingViewMode: boolean;
-  codegenTargets: Array<ProjectCodegenTarget>;
-  watchCodeEnabled: boolean;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
-  watchCodeBaselineByPath: Record<string, Array<string>>;
-  entryCodeBlockId?: string | null;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  sectionVariantMap: Record<string, string>;
-  activeIds: Array<string>;
-  edges: Array<Edge>;
-  agenticEdges: Array<AgenticEdge>;
-};
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      previewImgColor: "",
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      topLevelSections: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
     },
     options,
   );
