@@ -6,6 +6,7 @@ import {
   route_append_transcription_audio,
   route_binary_download,
   route_binary_upload,
+  route_add_kwarg,
   route_check_if_file_exists,
   route_check_workspace_initialized,
   route_create_file,
@@ -13,6 +14,7 @@ import {
   route_create_top_level_section,
   route_create_view_mode,
   route_delete_artifacts,
+  route_delete_kwarg,
   route_delete_sections,
   route_delete_selected_params,
   route_delete_view_mode,
@@ -362,6 +364,38 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         sectionId: "callable-section",
         paramInfoIds: ["param-a", "param-b"],
+      }),
+    });
+  });
+
+  it("posts kwarg add/remove writes with the current request shape", async () => {
+    await route_add_kwarg({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+    });
+
+    await route_delete_kwarg({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/addKwarg`);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteKwarg`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
       }),
     });
   });

@@ -24,6 +24,8 @@ const (
 	RouteCreateTopLevelSection            = "/createTopLevelSection"
 	RouteDeleteSections                   = "/deleteSections"
 	RouteDeleteSelectedParams             = "/deleteSelectedParams"
+	RouteAddKwarg                         = "/addKwarg"
+	RouteDeleteKwarg                      = "/deleteKwarg"
 	RouteCreateViewMode                   = "/createViewMode"
 	RouteSetActiveViewMode                = "/setActiveViewMode"
 	RouteToggleIsEditingViewMode          = "/toggleIsEditingViewMode"
@@ -170,6 +172,16 @@ type DeleteSelectedParamsRequest struct {
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamInfoIDs []string `json:"paramInfoIds"`
+}
+
+type AddKwargRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
+}
+
+type DeleteKwargRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
 }
 
 type CreateTopLevelSectionRequest struct {
@@ -624,6 +636,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteJSONSourceFileAndVariant, deleteJSONSourceFileAndVariantHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSections, deleteSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSelectedParams, deleteSelectedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAddKwarg, addKwargHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteKwarg, deleteKwargHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTopLevelSection, createTopLevelSectionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateViewMode, createViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
@@ -911,6 +925,68 @@ func deleteSelectedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			},
 		); err != nil {
 			writeParamSelectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func addKwargHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[AddKwargRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, _, err := deps.ProjectState.AddKwarg(projectMutationContext(r.Context(), nil), projectID, sectionID); err != nil {
+			writeKwargMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteKwargHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteKwargRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, _, err := deps.ProjectState.DeleteKwarg(projectMutationContext(r.Context(), nil), projectID, sectionID); err != nil {
+			writeKwargMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2875,6 +2951,22 @@ func writeParamSelectionMutationError(w http.ResponseWriter, r *http.Request, er
 		writeError(w, r, http.StatusUnprocessableEntity, "param_selection_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeKwargMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrAddKwargUnsupported),
+		errors.Is(err, projectstate.ErrAddKwargCallableUnset),
+		errors.Is(err, projectstate.ErrAddKwargParentTypeUnsupported),
+		errors.Is(err, projectstate.ErrDeleteKwargUnsupported),
+		errors.Is(err, projectstate.ErrDeleteKwargCallableUnset),
+		errors.Is(err, projectstate.ErrDeleteKwargNoParams),
+		errors.Is(err, projectstate.ErrDeleteKwargRootMissing),
+		errors.Is(err, projectstate.ErrDeleteKwargParentUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "kwarg_mutation_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
 	}
 }
 

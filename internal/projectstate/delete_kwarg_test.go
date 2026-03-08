@@ -86,6 +86,48 @@ func TestProjectDeleteKwargRemovesLastSharedDictParamAcrossSections(t *testing.T
 	}
 }
 
+// GlobalVariables shares the same kwargs controls as Dict, so delete_kwarg
+// must remove the last child from the global top-level param root.
+func TestProjectDeleteKwargSupportsGlobalVariables(t *testing.T) {
+	t.Parallel()
+
+	project, err := edgeIOTestProject().Normalized()
+	if err != nil {
+		t.Fatalf("normalize global delete_kwarg project: %v", err)
+	}
+
+	result, err := project.DeleteKwarg("global-section")
+	if err != nil {
+		t.Fatalf("delete kwarg from global-section: %v", err)
+	}
+	if result.CodeObjID != "global-param" {
+		t.Fatalf("expected deleted global codeObjId global-param, got %q", result.CodeObjID)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("global-section", "global-root")
+	if err != nil {
+		t.Fatalf("resolve global root after delete_kwarg: %v", err)
+	}
+	if children := payloadStringArrayField(rootPayload, "children"); len(children) != 0 {
+		t.Fatalf("expected global root children to be empty, got %#v", children)
+	}
+
+	section, variant, _, err := project.ResolveSection("global-section")
+	if err != nil {
+		t.Fatalf("resolve global-section after delete_kwarg: %v", err)
+	}
+	sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
+	if err != nil {
+		t.Fatalf("effective global payload after delete_kwarg: %v", err)
+	}
+	if _, ok := payloadStringMapField(sectionPayload, "codeObjVariantMap")[result.CodeObjID]; ok {
+		t.Fatalf("did not expect deleted global param in codeObjVariantMap, got %#v", payloadStringMapField(sectionPayload, "codeObjVariantMap"))
+	}
+	if _, ok := project.CodeObjs[result.CodeObjID]; ok {
+		t.Fatalf("expected deleted global param to be pruned, got %#v", project.CodeObjs[result.CodeObjID])
+	}
+}
+
 // Convenience deletion should still clear edge-input state and incoming edges
 // for the removed last child instead of leaving stale section-local references.
 func TestProjectDeleteKwargCleansRemovedEdgeInputState(t *testing.T) {

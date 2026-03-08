@@ -228,7 +228,7 @@ func (p Project) resolveDeleteSelectedParamsContext(sectionID string) (string, m
 	switch sectionType := canonicalSectionType(payloadStringField(payload, "type"), impl); sectionType {
 	case "Callable":
 		return sectionType, payload, payloadStringField(payload, "callable"), nil
-	case "Dict":
+	case "Dict", "GlobalVariables":
 		return sectionType, payload, payloadStringField(payload, "topLevelParamId"), nil
 	default:
 		return "", nil, "", fmt.Errorf("%w: section=%q type=%q", ErrDeleteSelectedParamsUnsupported, sectionID, sectionType)
@@ -343,7 +343,7 @@ func (p *Project) removeDeletedParamsFromSectionVariantMaps(
 	}
 
 	affectedSectionIDs := []string{sectionID}
-	if sectionType == "Dict" {
+	if isKwargDictLikeSectionType(sectionType) {
 		sharedSectionIDs, err := p.dictSectionIDsForTopLevelParam(rootCodeObjID)
 		if err != nil {
 			return err

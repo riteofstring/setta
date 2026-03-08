@@ -47,6 +47,16 @@ export async function route_delete_selected_params(x: gt.DeleteSelectedParamsReq
   return await post(GoHTTPRoutes.deleteSelectedParams, x);
 
 }
+export async function route_add_kwarg(x: gt.AddKwargRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.addKwarg, x);
+
+}
+export async function route_delete_kwarg(x: gt.DeleteKwargRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteKwarg, x);
+
+}
 export async function route_create_top_level_section(x: gt.CreateTopLevelSectionRequestInput): Promise<ResponseDataAndStatus<gt.CreateTopLevelSectionResponse>> {
 
   return await post(GoHTTPRoutes.createTopLevelSection, x);

@@ -81,7 +81,7 @@ func (p *Project) DeleteKwarg(sectionID string) (DeleteKwargResult, error) {
 		if rootCodeObjID == "" {
 			return DeleteKwargResult{}, fmt.Errorf("%w: section=%q", ErrDeleteKwargCallableUnset, trimmedSectionID)
 		}
-	case "Dict":
+	case "Dict", "GlobalVariables":
 		rootCodeObjID = payloadStringField(sectionPayload, "topLevelParamId")
 		if rootCodeObjID == "" {
 			return DeleteKwargResult{}, fmt.Errorf("%w: section=%q", ErrDeleteKwargNoParams, trimmedSectionID)

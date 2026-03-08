@@ -109,6 +109,69 @@ func TestProjectDeleteSelectedParamsRemovesSharedDictParamAndSectionState(t *tes
 	}
 }
 
+// GlobalVariables uses the same caller-backed kwargs controls, so deleting
+// selected params must prune the global param and clear section-local state.
+func TestProjectDeleteSelectedParamsSupportsGlobalVariables(t *testing.T) {
+	t.Parallel()
+
+	project, err := edgeIOTestProject().Normalized()
+	if err != nil {
+		t.Fatalf("normalize global delete-selected project: %v", err)
+	}
+	if err := project.setCurrentSectionField("global-section", "pinnedParams", []string{"global-param"}); err != nil {
+		t.Fatalf("set global pinned params: %v", err)
+	}
+	if err := project.setCurrentSectionField("global-section", "selectedParams", []string{"global-param"}); err != nil {
+		t.Fatalf("set global selected params: %v", err)
+	}
+	if err := project.setCurrentSectionField("global-section", "edgeInputParams", []string{"global-param"}); err != nil {
+		t.Fatalf("set global edgeInputParams: %v", err)
+	}
+
+	result, err := project.DeleteSelectedParams(DeleteSelectedParamsInput{
+		SectionID:    "global-section",
+		ParamInfoIDs: []string{"global-param"},
+	})
+	if err != nil {
+		t.Fatalf("DeleteSelectedParams global-section returned error: %v", err)
+	}
+	if !reflect.DeepEqual(result.ParamInfoIDs, []string{"global-param"}) {
+		t.Fatalf("expected deleted ids [global-param], got %#v", result.ParamInfoIDs)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("global-section", "global-root")
+	if err != nil {
+		t.Fatalf("resolve global-root after delete: %v", err)
+	}
+	if children := payloadStringArrayField(rootPayload, "children"); len(children) != 0 {
+		t.Fatalf("expected global-root children to be empty, got %#v", children)
+	}
+
+	section, variant, _, err := project.ResolveSection("global-section")
+	if err != nil {
+		t.Fatalf("resolve global-section after delete: %v", err)
+	}
+	sectionPayload, err := effectiveSectionPayload(project, section.ID, variant.ID)
+	if err != nil {
+		t.Fatalf("effective payload global-section after delete: %v", err)
+	}
+	if got := payloadStringArrayField(sectionPayload, "pinnedParams"); len(got) != 0 {
+		t.Fatalf("expected pinnedParams cleared, got %#v", got)
+	}
+	if got := payloadStringArrayField(sectionPayload, "selectedParams"); len(got) != 0 {
+		t.Fatalf("expected selectedParams cleared, got %#v", got)
+	}
+	if got := payloadStringArrayField(sectionPayload, "edgeInputParams"); len(got) != 0 {
+		t.Fatalf("expected edgeInputParams cleared, got %#v", got)
+	}
+	if _, ok := payloadStringMapField(sectionPayload, "codeObjVariantMap")["global-param"]; ok {
+		t.Fatalf("did not expect deleted global param in codeObjVariantMap, got %#v", payloadStringMapField(sectionPayload, "codeObjVariantMap"))
+	}
+	if _, ok := project.CodeObjs["global-param"]; ok {
+		t.Fatalf("expected deleted global param code object to be pruned, got %#v", project.CodeObjs["global-param"])
+	}
+}
+
 // Callable param deletion should remove the created child and prune its
 // code-object records while leaving existing protected params intact.
 func TestProjectDeleteSelectedParamsRemovesCallableParam(t *testing.T) {

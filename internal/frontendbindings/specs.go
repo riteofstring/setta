@@ -107,6 +107,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DELETE_SELECTED_PARAMS",
 				},
 				{
+					Name:     "addKwarg",
+					Path:     httpapi.RouteAddKwarg,
+					EnumName: "ADD_KWARG",
+				},
+				{
+					Name:     "deleteKwarg",
+					Path:     httpapi.RouteDeleteKwarg,
+					EnumName: "DELETE_KWARG",
+				},
+				{
 					Name:     "createTopLevelSection",
 					Path:     httpapi.RouteCreateTopLevelSection,
 					EnumName: "CREATE_TOP_LEVEL_SECTION",
@@ -877,6 +887,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteSelectedParams",
 			RequestType:     reflect.TypeOf(DeleteSelectedParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_add_kwarg",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "addKwarg",
+			RequestType:     reflect.TypeOf(AddKwargRequestInput{}),
+		},
+		{
+			FunctionName:    "route_delete_kwarg",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteKwarg",
+			RequestType:     reflect.TypeOf(DeleteKwargRequestInput{}),
 		},
 		{
 			FunctionName:    "route_create_top_level_section",

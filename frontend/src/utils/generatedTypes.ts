@@ -5291,6 +5291,24 @@ export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSe
 }
 
 
+export type AddKwargRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createAddKwargRequestInput(options: Partial<AddKwargRequestInput> = {}): AddKwargRequestInput {
+  return options as AddKwargRequestInput;
+}
+
+
+export type DeleteKwargRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createDeleteKwargRequestInput(options: Partial<DeleteKwargRequestInput> = {}): DeleteKwargRequestInput {
+  return options as DeleteKwargRequestInput;
+}
+
+
 export type Position = {
   x: number;
   y: number;

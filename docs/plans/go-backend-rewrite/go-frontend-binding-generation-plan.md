@@ -702,6 +702,11 @@ Current landed wedge:
     `sectionInfos`, `SelectionContextMenu`, `DeleteOrHideButton`,
     `UngroupButton`, `KwargsControls`, and `PluginArea` now consume canonical
     Go-generated project-state mutation bindings
+  - `KwargsControls` now consumes canonical Go-generated `addKwarg` and
+    `deleteKwarg` bindings for the current arg add/remove slice, and the
+    supporting Go runtime now treats `GlobalVariables` as the same dict-like
+    caller-backed surface already used by the current param-selection and
+    edge-input mutation slices
   - `KwargsControls` and `EdgePortsSettings` now consume canonical
     Go-generated `setSectionEdgeInputs` and `setSectionEdgeOutputs` bindings
     for the current edge-input/output mutation slice, including the

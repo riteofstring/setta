@@ -19,6 +19,10 @@ const (
 	nestedParamCodeObjType = "NestedParam"
 )
 
+func isKwargDictLikeSectionType(sectionType string) bool {
+	return sectionType == "Dict" || sectionType == "GlobalVariables"
+}
+
 type AddKwargResult struct {
 	CodeObjID string `json:"codeObjId"`
 }
@@ -79,7 +83,7 @@ func (p *Project) AddKwarg(sectionID string) (AddKwargResult, error) {
 	switch sectionType {
 	case "Callable":
 		codeObjID, err = p.addKwargToCallableSection(trimmedSectionID, sectionPayload)
-	case "Dict":
+	case "Dict", "GlobalVariables":
 		codeObjID, err = p.addKwargToDictSection(trimmedSectionID, sectionPayload)
 	default:
 		return AddKwargResult{}, fmt.Errorf("%w: section=%q type=%q", ErrAddKwargUnsupported, trimmedSectionID, sectionType)
@@ -99,11 +103,8 @@ func (p Project) resolveAddKwargSectionContext(sectionID string) (string, map[st
 	if err != nil {
 		return "", nil, err
 	}
-	sectionType := payloadStringField(payload, "type")
-	if sectionType == "" {
-		sectionType = fallbackSectionType(impl)
-	}
-	if sectionType != "Callable" && sectionType != "Dict" {
+	sectionType := canonicalSectionType(payloadStringField(payload, "type"), impl)
+	if sectionType != "Callable" && !isKwargDictLikeSectionType(sectionType) {
 		return "", nil, fmt.Errorf("%w: section=%q type=%q", ErrAddKwargUnsupported, sectionID, sectionType)
 	}
 	return sectionType, payload, nil
@@ -220,7 +221,7 @@ func (p Project) dictSectionIDsForTopLevelParam(topLevelParamID string) ([]strin
 			}
 			return nil, err
 		}
-		if sectionType != "Dict" {
+		if !isKwargDictLikeSectionType(sectionType) {
 			continue
 		}
 		if payloadStringField(payload, "topLevelParamId") == topLevelParamID {

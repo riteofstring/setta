@@ -91,6 +91,48 @@ func TestProjectAddKwargSharesDictParamAcrossSections(t *testing.T) {
 	}
 }
 
+// GlobalVariables shares the same kwargs controls as Dict, so add_kwarg must
+// append a new editable child under the global top-level param root.
+func TestProjectAddKwargSupportsGlobalVariables(t *testing.T) {
+	t.Parallel()
+
+	project, err := edgeIOTestProject().Normalized()
+	if err != nil {
+		t.Fatalf("normalize global add_kwarg project: %v", err)
+	}
+
+	result, err := project.AddKwarg("global-section")
+	if err != nil {
+		t.Fatalf("add kwarg to global-section: %v", err)
+	}
+	if result.CodeObjID == "" {
+		t.Fatal("expected created global param id")
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("global-section", "global-root")
+	if err != nil {
+		t.Fatalf("resolve global root after add_kwarg: %v", err)
+	}
+	children := payloadStringArrayField(rootPayload, "children")
+	if len(children) != 2 || children[0] != "global-param" || children[1] != result.CodeObjID {
+		t.Fatalf("unexpected global children %#v", children)
+	}
+
+	createdPayload, createdCodeObj, _, createdImpl, err := project.ResolveSectionCodeObject("global-section", result.CodeObjID)
+	if err != nil {
+		t.Fatalf("resolve created global param: %v", err)
+	}
+	if createdCodeObj.Name != "param" {
+		t.Fatalf("expected placeholder global param name param, got %q", createdCodeObj.Name)
+	}
+	if createdImpl.Type != codeParamType {
+		t.Fatalf("expected created global param type CodeParam, got %q", createdImpl.Type)
+	}
+	if !payloadBoolField(createdPayload, "coreNameEditable") {
+		t.Fatalf("expected created global param to be editable, got %#v", createdPayload)
+	}
+}
+
 // Dict sections without a root should lazily create the NestedParam parent
 // before appending the first editable CodeParam child.
 func TestProjectAddKwargInitializesMissingDictRoot(t *testing.T) {

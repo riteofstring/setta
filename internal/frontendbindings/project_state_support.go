@@ -35,6 +35,16 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
+type AddKwargRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	SectionID       string `json:"sectionId"`
+}
+
+type DeleteKwargRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	SectionID       string `json:"sectionId"`
+}
+
 type Position struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`

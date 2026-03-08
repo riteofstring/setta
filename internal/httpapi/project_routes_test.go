@@ -1805,6 +1805,188 @@ func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesAddKwargPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	response := post(RouteAddKwarg, `{"projectConfigId":"project-alpha","sectionId":"dict-a"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteAddKwarg, response.Code, response.Body.String())
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	sharedRootSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-root"].SharedModifier)
+	sharedChildren := decodeProjectRouteStringArray(sharedRootSharedModifier["children"])
+	if len(sharedChildren) != 3 || sharedChildren[0] != "shared-child" || sharedChildren[1] != "shared-secret" {
+		t.Fatalf("expected shared-root children to append one new param, got %#v", sharedChildren)
+	}
+	if _, ok := payload.ProjectState.CodeObjs[sharedChildren[2]]; !ok {
+		t.Fatalf("expected created shared child %q to be present in code objects", sharedChildren[2])
+	}
+
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	codeObjVariantMap, ok := dictPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected dict codeObjVariantMap object, got %#v", dictPayload["codeObjVariantMap"])
+	}
+	if _, ok := codeObjVariantMap[sharedChildren[2]]; !ok {
+		t.Fatalf("expected created shared child %q to be present in codeObjVariantMap, got %#v", sharedChildren[2], codeObjVariantMap)
+	}
+}
+
+func TestRegisterProjectRoutesDeleteKwargPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	response := post(RouteDeleteKwarg, `{"projectConfigId":"project-alpha","sectionId":"dict-a"}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteDeleteKwarg, response.Code, response.Body.String())
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	sharedRootSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-root"].SharedModifier)
+	if children := decodeProjectRouteStringArray(sharedRootSharedModifier["children"]); !reflect.DeepEqual(children, []string{"shared-child"}) {
+		t.Fatalf("expected shared-root children [shared-child] after deleteKwarg, got %#v", children)
+	}
+
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	codeObjVariantMap, ok := dictPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected dict codeObjVariantMap object, got %#v", dictPayload["codeObjVariantMap"])
+	}
+	if _, ok := codeObjVariantMap["shared-secret"]; ok {
+		t.Fatalf("expected deleted shared-secret to be removed from codeObjVariantMap, got %#v", codeObjVariantMap)
+	}
+	if _, ok := payload.ProjectState.CodeObjs["shared-secret"]; ok {
+		t.Fatalf("expected shared-secret code object to be pruned after deleteKwarg")
+	}
+}
+
+func TestRegisterProjectRoutesKwargMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteAddKwarg,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"kwarg_mutation_invalid"`,
+		},
+		{
+			route:        RouteDeleteKwarg,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"kwarg_mutation_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
