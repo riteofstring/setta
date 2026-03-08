@@ -933,6 +933,154 @@ func newTypeConverter() *typeConverter {
   );
 }`,
 			),
+			reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}): objectDeclaration(
+				"CodeSectionDiagnosticsIgnoreState",
+				TypeProperty{Name: "muted", TypeExpr: "boolean"},
+				TypeProperty{Name: "suppressedCodes", TypeExpr: "Array<string | number>"},
+			),
+			reflect.TypeOf(UserDefaultCodeSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultCodeSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseCodeSectionDefaults(),
+      codeLanguage: CodeLanguageEnum.python,
+      diagnosticsIgnoreState: {
+        muted: false,
+        suppressedCodes: [],
+      },
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "code", TypeExpr: "string"},
+				TypeProperty{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null"},
+				TypeProperty{Name: "attachedTerminalSectionId", TypeExpr: "string | null"},
+				TypeProperty{Name: "codeLanguage", TypeExpr: "string"},
+				TypeProperty{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState"},
+			),
+			reflect.TypeOf(CodeSectionImpl{}): aliasDeclarationWithFactory(
+				"CodeSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Code;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  codeFileBinding?: CodeFileBinding | null;
+  attachedTerminalSectionId?: string | null;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+}`,
+				`export function createCodeSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeSectionImpl>
+    | Partial<CodeSectionImpl> = {},
+  overrides?: Partial<CodeSectionImpl>,
+): CodeSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeSectionImpl,
+    CodeSectionImpl
+  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Code,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      code: resolved.defaults.code,
+      codeLanguage: resolved.defaults.codeLanguage,
+      codeFileBinding: resolved.defaults.codeFileBinding,
+      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
+      diagnosticsIgnoreState: cloneGeneratedValue(
+        resolved.defaults.diagnosticsIgnoreState,
+      ),
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(UserDefaultTerminalSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultTerminalSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(TerminalSectionImpl{}): aliasDeclarationWithFactory(
+				"TerminalSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Terminal;
+}`,
+				`export function createTerminalSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTerminalSectionImpl>
+    | Partial<TerminalSectionImpl> = {},
+  overrides?: Partial<TerminalSectionImpl>,
+): TerminalSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTerminalSectionImpl,
+    TerminalSectionImpl
+  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Terminal,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(BaseSectionImplUnion{}): aliasDeclaration(
+				"BaseSectionImplUnion",
+				`CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | TextBlockSectionImpl
+  | CodeSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | BrowserSectionImpl
+  | ChartSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl
+  | BaseSectionImpl`,
+			),
 			reflect.TypeOf(JSONValue{}): aliasDeclaration(
 				"JSONValue",
 				"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",

@@ -2037,6 +2037,91 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 }`,
 			hasFactoryTS: true,
 		},
+		{
+			name: "CodeSectionDiagnosticsIgnoreState",
+			root: reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "muted", TypeExpr: "boolean", Optional: false},
+				{Name: "suppressedCodes", TypeExpr: "Array<string | number>", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultCodeSectionImpl",
+			root: reflect.TypeOf(UserDefaultCodeSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "code", TypeExpr: "string", Optional: false},
+				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: false},
+				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: false},
+				{Name: "codeLanguage", TypeExpr: "string", Optional: false},
+				{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "CodeSectionImpl",
+			root: reflect.TypeOf(CodeSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Code;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  codeFileBinding?: CodeFileBinding | null;
+  attachedTerminalSectionId?: string | null;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+}`,
+			hasFactoryTS: true,
+		},
+		{
+			name: "UserDefaultTerminalSectionImpl",
+			root: reflect.TypeOf(UserDefaultTerminalSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "TerminalSectionImpl",
+			root: reflect.TypeOf(TerminalSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Terminal;
+}`,
+			hasFactoryTS: true,
+		},
+		{
+			name: "BaseSectionImplUnion",
+			root: reflect.TypeOf(BaseSectionImplUnion{}),
+			kind: "alias",
+			alias: `CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | TextBlockSectionImpl
+  | CodeSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | BrowserSectionImpl
+  | ChartSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl
+  | BaseSectionImpl`,
+		},
 	}
 
 	for _, tt := range tests {

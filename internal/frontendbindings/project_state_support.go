@@ -587,6 +587,18 @@ type UserDefaultTextBlockSectionImpl struct{}
 
 type TextBlockSectionImpl struct{}
 
+type CodeSectionDiagnosticsIgnoreState struct{}
+
+type UserDefaultCodeSectionImpl struct{}
+
+type CodeSectionImpl struct{}
+
+type UserDefaultTerminalSectionImpl struct{}
+
+type TerminalSectionImpl struct{}
+
+type BaseSectionImplUnion struct{}
+
 type UserDefaultTaskBoardSectionImpl struct{}
 
 type TaskBoardSectionImpl struct{}
@@ -1815,11 +1827,6 @@ function resolveGeneratedFactoryInputs<
   };
 }
 
-export type CodeSectionDiagnosticsIgnoreState = {
-  muted: boolean;
-  suppressedCodes: Array<string | number>;
-};
-
 export type BaseCodeObjImpl = {
   type: CodeObjType;
   id: string;
@@ -2173,59 +2180,6 @@ export type UserDefaultCallableSectionImpl = {
   hideParams: boolean;
 };
 
-export type CodeSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Code;
-  children: Array<string>;
-  code: string;
-  codeLanguage: string;
-  codeFileBinding?: CodeFileBinding | null;
-  attachedTerminalSectionId?: string | null;
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-};
-
-export type UserDefaultCodeSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-  codeLanguage: string;
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-};
-
-export type TerminalSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Terminal;
-};
-
-export type UserDefaultTerminalSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-};
-
-export type BaseSectionImplUnion =
-  | CallableSectionImpl
-  | DictSectionImpl
-  | ListRootSectionImpl
-  | TextBlockSectionImpl
-  | CodeSectionImpl
-  | TerminalSectionImpl
-  | ChatSectionImpl
-  | BrowserSectionImpl
-  | ChartSectionImpl
-  | TaskBoardSectionImpl
-  | SpreadsheetSectionImpl
-  | BaseSectionImpl;
-
 function createGeneratedBaseSectionDefaults(): {
   isFrozen: boolean;
   tagColor: string | null;
@@ -2424,101 +2378,6 @@ export function createCallableSectionImpl(
       edgeOutputPorts: resolved.defaults.edgeOutputPorts,
       callable: null,
       hideParams: resolved.defaults.hideParams,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultCodeSectionImpl(
-  options: Partial<UserDefaultCodeSectionImpl> = {},
-): UserDefaultCodeSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseCodeSectionDefaults(),
-      codeLanguage: CodeLanguageEnum.python,
-      diagnosticsIgnoreState: {
-        muted: false,
-        suppressedCodes: [],
-      },
-    },
-    options,
-  );
-}
-
-export function createCodeSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeSectionImpl>
-    | Partial<CodeSectionImpl> = {},
-  overrides?: Partial<CodeSectionImpl>,
-): CodeSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeSectionImpl,
-    CodeSectionImpl
-  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Code,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      code: resolved.defaults.code,
-      codeLanguage: resolved.defaults.codeLanguage,
-      codeFileBinding: resolved.defaults.codeFileBinding,
-      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
-      diagnosticsIgnoreState: resolved.defaults.diagnosticsIgnoreState,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultTerminalSectionImpl(
-  options: Partial<UserDefaultTerminalSectionImpl> = {},
-): UserDefaultTerminalSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-    },
-    options,
-  );
-}
-
-export function createTerminalSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTerminalSectionImpl>
-    | Partial<TerminalSectionImpl> = {},
-  overrides?: Partial<TerminalSectionImpl>,
-): TerminalSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTerminalSectionImpl,
-    TerminalSectionImpl
-  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Terminal,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
     },
     resolved.overrides,
   );

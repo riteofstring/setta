@@ -13,6 +13,7 @@ import {
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createListRootSectionImpl,
+  createTerminalSectionImpl,
   createDictSectionImpl,
   createSectionSize,
   createTextBlockSectionImpl,
@@ -22,6 +23,7 @@ import {
   createUserDefaultCodeSectionImpl,
   createUserDefaultDictSectionImpl,
   createUserDefaultListRootSectionImpl,
+  createUserDefaultTerminalSectionImpl,
   createUserDefaultTextBlockSectionImpl,
   createViewModeConfig,
   isBaseDictSectionImpl,
@@ -60,6 +62,10 @@ describe("generated project state factories", () => {
       createUserDefaultCodeSectionImpl({
         code: "echo hi",
         codeLanguage: CodeLanguageEnum.bash,
+        diagnosticsIgnoreState: {
+          muted: true,
+          suppressedCodes: ["E1", 404],
+        },
       }),
       {
         id: "code-impl",
@@ -72,6 +78,10 @@ describe("generated project state factories", () => {
     expect(sectionImpl.code).toBe("echo hi");
     expect(sectionImpl.codeLanguage).toBe(CodeLanguageEnum.bash);
     expect(sectionImpl.children).toEqual(["terminal-1"]);
+    expect(sectionImpl.diagnosticsIgnoreState).toEqual({
+      muted: true,
+      suppressedCodes: ["E1", 404],
+    });
   });
 
   it("exports list-root helpers with canonical defaults and overrides", () => {
@@ -109,6 +119,22 @@ describe("generated project state factories", () => {
     expect(sectionImpl.textDisplayMode).toBe(TextBlockDisplayModeEnum.Edit);
     expect(sectionImpl.headingAsSectionName).toBe(true);
     expect(sectionImpl.text).toBe("Updated");
+  });
+
+  it("exports terminal helpers with canonical defaults and overrides", () => {
+    const sectionImpl = createTerminalSectionImpl(
+      createUserDefaultTerminalSectionImpl({
+        isFrozen: true,
+      }),
+      {
+        id: "terminal-impl",
+      },
+    );
+
+    expect(sectionImpl.type).toBe(SectionTypeEnum.Terminal);
+    expect(sectionImpl.id).toBe("terminal-impl");
+    expect(sectionImpl.isFrozen).toBe(true);
+    expect(sectionImpl.size).toEqual({ width: 250, height: 150 });
   });
 
   it("builds callable and code-param helpers from canonical defaults", () => {
