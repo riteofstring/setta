@@ -644,12 +644,16 @@ Use the docs in this order:
 176. `phase-15-plugin-backend-runtime-refresh-after-mutations.md`
   - focused completed-slice doc for live IDE-mode refresh of plugin backend
     route/tool/static/listener ownership after plugin-set mutations
-177. `spike-mcp.md`
+177. `phase-15-plugin-language-server-runtime-refresh-after-plugin-mutations.md`
+  - focused completed-slice doc for live IDE-mode refresh of plugin-defined
+    language-server specs after plugin-set mutations over the shared preview
+    snapshot boundary
+178. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-178. `spike-pty.md`
+179. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-178. `spike-lsp.md`
+180. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

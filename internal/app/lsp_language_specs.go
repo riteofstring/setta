@@ -22,6 +22,16 @@ func snapshotAppLanguageServerSpecs(
 	if err != nil {
 		return nil, err
 	}
+	return appLanguageServerSpecsForSnapshot(snapshot, backend)
+}
+
+func appLanguageServerSpecsForSnapshot(
+	snapshot plugins.DiscoverySnapshot,
+	backend plugins.BackendRegistrationSource,
+) ([]lsp.LanguageServerSpec, error) {
+	if backend == nil {
+		return nil, nil
+	}
 
 	specs := make([]lsp.LanguageServerSpec, 0)
 	for _, entry := range snapshot.Plugins {

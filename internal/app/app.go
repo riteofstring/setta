@@ -112,6 +112,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		settingsStateRuntime  *settingsstate.Runtime
 		codegenValidator      projectstate.CodegenTargetValidator
 		lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
+		lspRouter             *lsp.Router
 		projectLSPSyncer      *lsp.ProjectSynchronizer
 		lspCompletion         *lspcompletion.Service
 		lspSignature          *lspsignature.Service
@@ -325,7 +326,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
-		lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
+		lspRouter, err = lsp.NewRouter(lsp.RouterOptions{
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 			LookupEnv:     os.LookupEnv,
 			Environ:       os.Environ,
@@ -944,6 +945,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			projectStateRead: pluginProjectStateReader,
 			serverMode:       cfg.Server.Mode,
 			holder:           pluginBackendRoutes,
+			lspRouter:        lspRouter,
+			backendRegs:      pluginBackendRegs,
 		}
 		pluginRouteService = newPluginMutationRuntimeService(pluginMutationService, pluginRuntimeRefresh)
 	}

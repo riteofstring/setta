@@ -65,7 +65,9 @@ This slice covers only:
 ## Non-Goals
 
 - plugin config-write-triggered backend runtime reload
-- plugin-defined language-server runtime refresh
+- plugin-defined language-server runtime refresh in this slice
+  - that later landed separately in
+    `phase-15-plugin-language-server-runtime-refresh-after-plugin-mutations.md`
 - plugin-defined external-agent adapter runtime refresh
 - plugin-defined codegen-target runtime refresh
 - built-in listener endpoint dispatch
@@ -164,12 +166,16 @@ This slice covers only:
 ## Deferred
 
 - plugin config-write-triggered backend runtime reload
-- plugin-defined language-server runtime refresh
 - plugin-defined external-agent adapter runtime refresh
 - plugin-defined codegen-target runtime refresh
 - built-in listener endpoint dispatch
 - listener temporary-id negotiation
 - share/app-mode plugin backend-host ownership changes
+
+The later follow-on
+`phase-15-plugin-language-server-runtime-refresh-after-plugin-mutations.md`
+closed the plugin language-server hot-refresh gap without widening the rest of
+this backend runtime-refresh boundary.
 
 ## Next Recommended Step
 
@@ -179,7 +185,6 @@ The next plugin follow-on should only be pulled forward when a concrete caller
 requires one of:
 
 1. plugin config-write-triggered backend runtime reload
-2. plugin-defined language-server, external-agent adapter, or codegen-target
-   hot refresh
+2. plugin-defined external-agent adapter or codegen-target hot refresh
 3. built-in listener endpoint dispatch with a Go-owned source of truth
 4. listener temporary-id negotiation on the Go websocket route

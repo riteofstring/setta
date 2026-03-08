@@ -352,8 +352,160 @@ func TestAppPluginLanguageServerRoutesDiagnosticsAndCompletion(t *testing.T) {
 	}
 }
 
+func TestAppLinkRefreshesPluginLanguageServerRouter(t *testing.T) {
+	// Linking a plugin language server after app startup should refresh the live
+	// LSP router so completion and diagnostics work without restarting the app.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed app project: %v", err)
+	}
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-language-server-e2e")
+	localPluginRoot := filepath.Join(t.TempDir(), "backend-language-server-e2e")
+	copyAppTestDir(t, sourceRoot, localPluginRoot)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postJSON := func(path string, body any, responseBody any) {
+		t.Helper()
+
+		requestBody := mustAppJSON(t, body)
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, bytes.NewReader(requestBody))
+		if err != nil {
+			t.Fatalf("new request %s: %v", path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			payload, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected %s 200, got %d with body %q", path, response.StatusCode, string(payload))
+		}
+		if responseBody == nil {
+			return
+		}
+		if err := json.NewDecoder(response.Body).Decode(responseBody); err != nil {
+			t.Fatalf("decode %s response: %v", path, err)
+		}
+	}
+
+	var linkPayload struct {
+		PluginID         string `json:"pluginId"`
+		State            string `json:"state"`
+		RestartRequired  bool   `json:"restartRequired"`
+		SourceScopeLabel string `json:"sourceScopeLabel"`
+	}
+	postJSON(httpapi.RoutePluginsLink, map[string]any{
+		"localPluginRoot": localPluginRoot,
+		"scope":           "workspace",
+		"enable":          true,
+		"force":           false,
+	}, &linkPayload)
+	if linkPayload.PluginID != "setta-fixture-backend-language-server-e2e" {
+		t.Fatalf("unexpected link payload %#v", linkPayload)
+	}
+	if linkPayload.State != "active" || linkPayload.RestartRequired {
+		t.Fatalf("expected live language-server link payload, got %#v", linkPayload)
+	}
+	if linkPayload.SourceScopeLabel != "workspace" {
+		t.Fatalf("expected workspace link scope, got %#v", linkPayload)
+	}
+
+	settingsDocument, err := settingsstate.DefaultDocument()
+	if err != nil {
+		t.Fatalf("default settings document: %v", err)
+	}
+	settingsDocument["fixtureDslLanguageServer"] = map[string]any{
+		"analysis": map[string]any{
+			"emitDiagnostics": true,
+		},
+	}
+	postJSON(httpapi.RouteSaveSettings, httpapi.SaveSettingsRequest{
+		Settings: settingsDocument,
+	}, nil)
+
+	var createResponse projectstate.CreateTopLevelSectionResult
+	postJSON(httpapi.RouteCreateTopLevelSection, map[string]any{
+		"projectConfigId": "project-alpha",
+		"implType":        "Code",
+		"implOverrides": map[string]any{
+			"type":         "Code",
+			"codeLanguage": "fixturedsl",
+		},
+	}, &createResponse)
+	if createResponse.SectionID == "" {
+		t.Fatalf("expected created section id, got %#v", createResponse)
+	}
+
+	postJSON(httpapi.RouteSetCode, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sectionId":       createResponse.SectionID,
+		"code":            "const value = __fixture_error__;\n",
+	}, nil)
+
+	var completions []struct {
+		Label string `json:"label"`
+		Type  string `json:"type"`
+	}
+	postJSON(httpapi.RouteCodeAreaCompletion, map[string]any{
+		"projectConfigId": "project-alpha",
+		"sectionId":       createResponse.SectionID,
+		"fullText":        "fixture.",
+		"position":        8,
+	}, &completions)
+	if len(completions) != 1 || completions[0].Label != "fixtureCompletion" {
+		t.Fatalf("unexpected plugin code area completions after link %#v", completions)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var diagnostics projectstate.LSPDiagnosticsPayload
+		postJSON(httpapi.RouteGetLatestLSPDiagnostics, map[string]any{
+			"projectConfigId": "project-alpha",
+		}, &diagnostics)
+		sectionDiagnostics := diagnostics.CodeSections[createResponse.SectionID]
+		if len(sectionDiagnostics) == 1 && sectionDiagnostics[0].Message == "Fixture TypeScript diagnostic" {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for linked plugin diagnostics, last payload %#v", diagnostics.CodeSections)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
 func TestSnapshotAppLanguageServerSpecsIncludesPluginRegistration(t *testing.T) {
 	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
 	prepareAppPluginWorkerRuntime(t)
 	installAppPluginFixture(t, cfg, "backend-language-server-e2e", "setta-fixture-backend-language-server-e2e")
 

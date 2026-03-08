@@ -693,8 +693,25 @@ landed:
   server during those mutation flows
 - the refresh boundary now builds the next runtime from a post-refresh preview
   snapshot before committing persisted pending-restart cleanup
-- plugin-defined language-server, external-agent, and codegen-target hot
-  refresh remain deferred until a separate concrete caller requires them
+- plugin-defined external-agent and codegen-target hot refresh plus
+  config-write-triggered backend reload remained deferred at the end of that
+  slice
+
+The bounded plugin language-server hot-refresh follow-on tracked in
+`phase-15-plugin-language-server-runtime-refresh-after-plugin-mutations.md` is
+now also landed:
+
+- the live IDE app now refreshes plugin-defined language-server specs from the
+  same post-mutation preview snapshot already used for backend route/tool/
+  static/listener refresh
+- the app-owned LSP router now replaces only plugin-provided additional specs
+  and explicitly tears down removed or changed plugin services
+- language-server snapshot loading now tolerates mixed backend plugins that
+  also register unrelated backend surfaces such as MCP tools, static dirs, and
+  listener endpoints
+- plugin-defined external-agent adapter and codegen-target hot refresh plus
+  config-write-triggered backend reload remain deferred until a separate
+  concrete caller requires them
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

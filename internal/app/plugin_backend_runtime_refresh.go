@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"setta/internal/config"
+	"setta/internal/lsp"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/realtime"
@@ -20,6 +21,8 @@ type pluginBackendRuntimeRefresher struct {
 	projectStateRead plugins.ProjectStateReader
 	serverMode       config.Mode
 	holder           *plugins.BackendRuntimeHolder
+	lspRouter        *lsp.Router
+	backendRegs      plugins.BackendRegistrationSource
 
 	mu              sync.Mutex
 	mcpServer       *mcpx.Server
@@ -222,10 +225,25 @@ func (r *pluginBackendRuntimeRefresher) Refresh(ctx context.Context) (plugins.Di
 		return plugins.DiscoverySnapshot{}, err
 	}
 
+	var nextLanguageServerSpecs []lsp.LanguageServerSpec
+	if r.lspRouter != nil && r.backendRegs != nil {
+		nextLanguageServerSpecs, err = appLanguageServerSpecsForSnapshot(previewSnapshot, r.backendRegs)
+		if err != nil {
+			_ = nextRuntime.Close()
+			return plugins.DiscoverySnapshot{}, err
+		}
+	}
+
 	nextTools := pluginMCPToolRegistrations(nextRuntime)
 	nextToolNames := toolRegistrationNames(nextTools)
 	if r.mcpServer != nil {
 		if err := r.mcpServer.ReplaceTools(r.pluginToolNames, nextTools); err != nil {
+			_ = nextRuntime.Close()
+			return plugins.DiscoverySnapshot{}, err
+		}
+	}
+	if r.lspRouter != nil && r.backendRegs != nil {
+		if err := r.lspRouter.ReplaceAdditionalSpecs(ctx, nextLanguageServerSpecs); err != nil {
 			_ = nextRuntime.Close()
 			return plugins.DiscoverySnapshot{}, err
 		}
