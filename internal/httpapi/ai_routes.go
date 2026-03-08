@@ -11,11 +11,14 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
+	"setta/internal/managedchat"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
 
 const RouteGetLLMResponse = "/getLLMResponse"
+const RouteGetLLMChat = "/getLLMChat"
+const RouteStopLLMChat = "/stopLLMChat"
 const RouteGetExternalAgentChat = "/getExternalAgentChat"
 const RouteGetAIFollowSnapshot = "/getAIFollowSnapshot"
 const RouteStopExternalAgentRun = "/stopExternalAgentRun"
@@ -24,6 +27,7 @@ const RouteRespondExternalAgentQuestion = "/respondExternalAgentQuestion"
 
 type AIRouteDependencies struct {
 	ModePolicy          modes.Policy
+	ManagedChats        *managedchat.Service
 	ExternalAgentSend   *externalagents.SendService
 	ExternalAgentChats  *externalagents.Service
 	ExternalAgentFollow *externalagents.FollowService
@@ -56,11 +60,20 @@ type GetExternalAgentChatRequest struct {
 	ProjectConfigID *string `json:"projectConfigId"`
 }
 
+type GetLLMChatRequest struct {
+	ChatID          string  `json:"chatId"`
+	ProjectConfigID *string `json:"projectConfigId"`
+}
+
 type GetExternalAgentChatResponse struct {
 	Messages           []map[string]any                 `json:"messages"`
 	WaitingForResponse bool                             `json:"waitingForResponse"`
 	ToolCallArguments  map[string]string                `json:"toolCallArguments"`
 	ContextUsage       *externalagents.ChatContextUsage `json:"contextUsage"`
+}
+
+type StopLLMChatRequest struct {
+	ChatID string `json:"chatId"`
 }
 
 type GetAIFollowSnapshotRequest struct {
@@ -86,6 +99,9 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 		return fmt.Errorf("router is required")
 	}
 	if deps.ModePolicy.IsIDE() {
+		if deps.ManagedChats == nil {
+			return fmt.Errorf("managed chat service is required in ide mode")
+		}
 		if deps.ExternalAgentSend == nil {
 			return fmt.Errorf("external agent send service is required in ide mode")
 		}
@@ -101,6 +117,8 @@ func RegisterAIRoutes(router chi.Router, deps AIRouteDependencies) error {
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMResponse, getLLMResponseHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLLMChat, getLLMChatHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopLLMChat, stopLLMChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentChat, getExternalAgentChatHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAIFollowSnapshot, getAIFollowSnapshotHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopExternalAgentRun, stopExternalAgentRunHandler(deps))
@@ -147,6 +165,69 @@ func getLLMResponseHandler(deps AIRouteDependencies) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, result.ChatID)
+	}
+}
+
+func getLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[GetLLMChatRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		chatID := strings.TrimSpace(payload.ChatID)
+		if chatID == "" {
+			writeError(w, r, http.StatusBadRequest, "chat_id_required", "Chat id is required.")
+			return
+		}
+		if payload.ProjectConfigID != nil && strings.TrimSpace(*payload.ProjectConfigID) == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ManagedChats == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		hydrated, err := deps.ManagedChats.GetChat(chatID, payload.ProjectConfigID)
+		switch {
+		case errors.Is(err, managedchat.ErrChatNotFound):
+			writeError(w, r, http.StatusNotFound, "chat_not_found", "Chat not found.")
+			return
+		case err != nil:
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, hydrated)
+	}
+}
+
+func stopLLMChatHandler(deps AIRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[StopLLMChatRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		chatID := strings.TrimSpace(payload.ChatID)
+		if chatID == "" {
+			writeError(w, r, http.StatusBadRequest, "chat_id_required", "Chat id is required.")
+			return
+		}
+		if deps.ManagedChats == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		stopped, err := deps.ManagedChats.StopChat(chatID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, stopped)
 	}
 }
 

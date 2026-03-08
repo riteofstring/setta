@@ -17,6 +17,8 @@ import (
 	"setta/internal/config"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
+	"setta/internal/llmconfig"
+	"setta/internal/managedchat"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -125,7 +127,7 @@ func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLLMResponse,
@@ -181,7 +183,7 @@ func TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend(t
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLLMResponse,
@@ -219,7 +221,7 @@ func TestRegisterAIRoutesRejectsInvalidAppGenerationModeForExternalSend(t *testi
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLLMResponse,
@@ -257,7 +259,7 @@ func TestRegisterAIRoutesRejectsOversizedReferenceImageURLForExternalSend(t *tes
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	body, err := json.Marshal(map[string]any{
 		"chatId":                         nil,
 		"message":                        map[string]any{"id": "user-1", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Create a new app."}}},
@@ -306,7 +308,7 @@ func TestRegisterAIRoutesReturnsConflictForExternalChatEngineMismatch(t *testing
 		t.Fatalf("save managed run: %v", err)
 	}
 
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLLMResponse,
@@ -346,7 +348,7 @@ func TestRegisterAIRoutesBlocksExternalSendOnPreflightFailure(t *testing.T) {
 			Issues:    []string{"Missing env vars: OPENAI_API_KEY"},
 		},
 	})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetLLMResponse,
@@ -384,7 +386,7 @@ func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	fixture.seedHydrationRun(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -448,7 +450,7 @@ func TestRegisterAIRoutesReturnsExternalAIFollowSnapshot(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("set live follow state: %v", err)
 	}
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime, fixture.follow)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime, fixture.follow)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetAIFollowSnapshot,
@@ -481,7 +483,7 @@ func TestRegisterAIRoutesRejectsMissingProjectIDForAIFollowSnapshot(t *testing.T
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime, fixture.follow)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime, fixture.follow)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetAIFollowSnapshot,
@@ -524,7 +526,7 @@ func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 	if err := fixture.store.Save(run); err != nil {
 		t.Fatalf("save run: %v", err)
 	}
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -555,7 +557,7 @@ func TestRegisterAIRoutesReturnsTypedNotFound(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -583,7 +585,7 @@ func TestRegisterAIRoutesRejectsMissingChatID(t *testing.T) {
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	fixture.seedHydrationRun(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -609,7 +611,7 @@ func TestRegisterAIRoutesRejectsMissingChatID(t *testing.T) {
 func TestRegisterAIRoutesBlocksShareMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newAIRouteTestHandler(t, config.ModeShare, nil, nil, nil)
+	handler := newAIRouteTestHandler(t, config.ModeShare, nil, nil, nil, nil)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -635,7 +637,7 @@ func TestRegisterAIRoutesStopsExternalAgentRun(t *testing.T) {
 		t.Fatalf("activate run: %v", err)
 	}
 
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteStopExternalAgentRun,
@@ -665,7 +667,7 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingExternalRunStop(t *testing.T) 
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteStopExternalAgentRun,
@@ -699,7 +701,7 @@ func TestRegisterAIRoutesRespondsToExternalAgentApproval(t *testing.T) {
 		t.Fatalf("register approval: %v", err)
 	}
 
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRespondExternalAgentApproval,
@@ -725,7 +727,7 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingApproval(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRespondExternalAgentApproval,
@@ -766,7 +768,7 @@ func TestRegisterAIRoutesRespondsToExternalAgentQuestion(t *testing.T) {
 		t.Fatalf("register question: %v", err)
 	}
 
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRespondExternalAgentQuestion,
@@ -792,7 +794,7 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingQuestion(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRespondExternalAgentQuestion,
@@ -815,7 +817,112 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingQuestion(t *testing.T) {
 	}
 }
 
-func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime, follows ...*externalagents.FollowService) http.Handler {
+// The managed chat hydrate route should return Go-owned persisted chat state
+// without routing through the external-agent branch.
+func TestRegisterAIRoutesGetsManagedChat(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	fixture.seedManagedHydrationRun(t)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMChat,
+		strings.NewReader(`{"chatId":"chat-managed","projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload managedchat.HydratedChat
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode managed chat response: %v", err)
+	}
+	if len(payload.Messages) != 2 {
+		t.Fatalf("expected managed chat messages, got %#v", payload.Messages)
+	}
+	if payload.LLMConfig == nil || payload.LLMConfig.ID != "primary" {
+		t.Fatalf("expected primary llm config, got %#v", payload.LLMConfig)
+	}
+	if payload.ContextUsage == nil || payload.ContextUsage.ContextUsedTokens == nil || *payload.ContextUsage.ContextUsedTokens != 21 {
+		t.Fatalf("expected managed context usage payload, got %#v", payload.ContextUsage)
+	}
+}
+
+// The managed chat hydrate route should map the new Go owner directly into the
+// frontend's existing payload shape, including llmConfig/contextUsage fields.
+func TestRegisterAIRoutesReturnsNotFoundForMissingManagedChat(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMChat,
+		strings.NewReader(`{"chatId":"missing-managed","projectConfigId":"project-alpha"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode managed chat error: %v", err)
+	}
+	if payload.Error.Code != "chat_not_found" {
+		t.Fatalf("expected chat_not_found, got %#v", payload)
+	}
+}
+
+// The stop route should cancel the latest running managed chat through the
+// managed runtime even though send/executor work is still deferred.
+func TestRegisterAIRoutesStopsManagedChat(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	run := fixture.seedManagedRunningRun(t)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteStopLLMChat,
+		strings.NewReader(`{"chatId":"chat-managed-stop"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload managedchat.StopResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode stop managed chat response: %v", err)
+	}
+	if payload.AlreadyStopped {
+		t.Fatalf("expected active stop result, got %#v", payload)
+	}
+	if payload.StoppedRunID == nil || *payload.StoppedRunID != run.ID {
+		t.Fatalf("expected stopped run id %q, got %#v", run.ID, payload.StoppedRunID)
+	}
+	persisted, err := fixture.store.Load(run.ID)
+	if err != nil {
+		t.Fatalf("load stopped run: %v", err)
+	}
+	if persisted.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected cancelled managed run, got %#v", persisted.Status)
+	}
+}
+
+func newAIRouteTestHandler(t *testing.T, mode config.Mode, managed *managedchat.Service, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime, follows ...*externalagents.FollowService) http.Handler {
 	t.Helper()
 
 	var follow *externalagents.FollowService
@@ -839,6 +946,7 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.
 		Register: func(r chi.Router) {
 			if err := RegisterAIRoutes(r, AIRouteDependencies{
 				ModePolicy:          modes.NewPolicy(mode),
+				ManagedChats:        managed,
 				ExternalAgentSend:   send,
 				ExternalAgentChats:  service,
 				ExternalAgentFollow: follow,
@@ -856,6 +964,7 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.
 
 type aiRouteFixture struct {
 	store   *agentruns.RunStore
+	managed *managedchat.Service
 	runtime *externalagents.Runtime
 	service *externalagents.Service
 	send    *externalagents.SendService
@@ -897,6 +1006,20 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	if err != nil {
 		t.Fatalf("open project runtime: %v", err)
 	}
+	llmRuntime, err := llmconfig.NewRuntime(llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"primary": {
+				ID:        "primary",
+				Model:     "gpt-4o-mini",
+				Provider:  "openai",
+				APIKeyEnv: "OPENAI_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("new llm runtime: %v", err)
+	}
 	commandPath := "/usr/local/bin/codex"
 	configID := "external-config"
 	if err := externalConfigStore.Write([]externalagentconfigs.Config{
@@ -913,6 +1036,12 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	}
 	engineID := "engine-external"
 	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-managed",
+			Name:             "Managed Engine",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: stringPtr("primary"),
+		},
 		{
 			ID:                    engineID,
 			Name:                  "External Engine",
@@ -936,6 +1065,33 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	})
 	if err != nil {
 		t.Fatalf("new follow service: %v", err)
+	}
+	managedRunService, err := agentruns.NewService(agentruns.ServiceOptions{
+		ProjectState: projectRuntime,
+		Engines:      engineStore,
+		Runs:         store,
+		LLM:          llmRuntime,
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new managed run service: %v", err)
+	}
+	managedRunRuntime, err := agentruns.NewRuntime(agentruns.RuntimeOptions{
+		Service: managedRunService,
+	})
+	if err != nil {
+		t.Fatalf("new managed runtime: %v", err)
+	}
+	managedService, err := managedchat.NewService(managedchat.ServiceOptions{
+		Runs:    store,
+		Engines: engineStore,
+		LLM:     llmRuntime,
+		Stopper: managedRunRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new managed chat service: %v", err)
 	}
 	runtime, err := externalagents.NewRuntime(externalagents.RuntimeOptions{
 		Runs:   store,
@@ -989,6 +1145,7 @@ func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixtu
 	}
 	return aiRouteFixture{
 		store:   store,
+		managed: managedService,
 		runtime: runtime,
 		service: service,
 		send:    send,
@@ -1041,6 +1198,106 @@ func (f aiRouteFixture) seedHydrationRun(t *testing.T) {
 	}
 }
 
+func (f aiRouteFixture) seedManagedHydrationRun(t *testing.T) {
+	t.Helper()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+		"messages": []any{
+			map[string]any{
+				"id":   "user-managed",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Hello managed"},
+				},
+				"attachments": []any{},
+			},
+		},
+	}, time.Date(2026, 3, 8, 11, 0, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusCompleted
+	finishedAt := time.Date(2026, 3, 8, 11, 0, 5, 0, time.UTC)
+	run.FinishedAt = &finishedAt
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{
+				"id":   "user-managed",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Hello managed"},
+				},
+				"attachments": []any{},
+			},
+			map[string]any{
+				"id":   "assistant-managed",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Managed reply"},
+				},
+				"attachments": []any{},
+				"tool_calls":  nil,
+			},
+		},
+		"usage": map[string]any{
+			"promptTokens":     21,
+			"completionTokens": 3,
+			"totalTokens":      24,
+		},
+	}
+	if err := f.store.Save(run); err != nil {
+		t.Fatalf("save managed run: %v", err)
+	}
+}
+
+func (f aiRouteFixture) seedManagedRunningRun(t *testing.T) agentruns.Run {
+	t.Helper()
+
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         managedchat.RunTypeManagedChat,
+		"chatId":          "chat-managed-stop",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-managed",
+		"messages": []any{
+			map[string]any{
+				"id":   "user-stop",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Stop this"},
+				},
+				"attachments": []any{},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusRunning
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{
+				"id":   "user-stop",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Stop this"},
+				},
+				"attachments": []any{},
+			},
+			map[string]any{
+				"id":   "assistant-stop",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Partial reply"},
+				},
+				"attachments": []any{},
+				"tool_calls":  nil,
+			},
+		},
+	}
+	if err := f.store.Save(run); err != nil {
+		t.Fatalf("save managed running run: %v", err)
+	}
+	return run
+}
+
 func (f aiRouteFixture) seedRun(runID string, status agentruns.RunStatus) agentruns.Run {
 	run := agentruns.NewRun(nil, map[string]any{
 		"runType":         externalagents.RunTypeExternalAgent,
@@ -1083,4 +1340,8 @@ func cloneRouteAnyValue(value any) any {
 	default:
 		return typed
 	}
+}
+
+func stringPtr(value string) *string {
+	return &value
 }

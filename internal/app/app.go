@@ -33,6 +33,7 @@ import (
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/lspsignature"
+	"setta/internal/managedchat"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/observability"
@@ -149,6 +150,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		agentRunRuntime       *agentruns.Runtime
+		managedChatService    *managedchat.Service
 		appGenSkillService    *appgenskills.Service
 		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
@@ -735,6 +737,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		managedChatService, err = managedchat.NewService(managedchat.ServiceOptions{
+			Runs:    agentRunStore,
+			Engines: engineStore,
+			LLM:     llmRuntime,
+			Stopper: agentRunRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
 			Tools:        mcpClient,
 			TemporaryIDs: temporaryIDs,
@@ -1180,6 +1192,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
 				ModePolicy:          modePolicy,
+				ManagedChats:        managedChatService,
 				ExternalAgentSend:   externalAgentSend,
 				ExternalAgentChats:  externalAgentChats,
 				ExternalAgentFollow: externalAgentFollow,

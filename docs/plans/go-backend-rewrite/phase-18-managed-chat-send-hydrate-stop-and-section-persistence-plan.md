@@ -32,13 +32,20 @@ Landed during this phase:
   - explicit permission-mode and dictation-mode validation
   - `frontendOpId` optimistic-update completion reuse through
     `getLatestProjectState`
+- Go-owned managed chat hydration and stop over
+  `internal/managedchat` plus `internal/httpapi/ai_routes.go` for:
+  - `POST /getLLMChat`
+  - `POST /stopLLMChat`
+  - latest-run chat hydration over persisted managed runs
+  - `llmConfig` lookup from current engine/LLM bindings when still valid
+  - `contextUsage` resolution from persisted run outputs
+  - latest-running-run cancellation with `stoppedMessageId` shaping
+  - real IDE app wiring without requiring the later managed send executor
 
 Active direct frontend dependency that still triggers the remaining work in
 this phase:
 
 - `POST /getLLMResponse` for the managed `setta_llm` branch
-- `POST /getLLMChat`
-- `POST /stopLLMChat`
 
 Current callers are concentrated in:
 
@@ -56,12 +63,18 @@ Current Go state relevant to this phase:
 
 - `internal/httpapi/ai_routes.go`
   - owns `/getLLMResponse` for the external-agent branch only
-  - does not own `/getLLMChat` or `/stopLLMChat`
+  - now owns `/getLLMChat` and `/stopLLMChat` for managed chats
 - `internal/agentruns`
   - owns managed run storage, engine resolution, persisted lifecycle updates,
     and a managed active-run runtime foundation
   - the real IDE app still leaves managed execution unavailable until an
     executor is wired
+- `internal/managedchat`
+  - now owns managed chat hydration, latest-run selection, `llmConfig` /
+    `contextUsage` shaping, and latest-running-run stop responses above the
+    landed managed-run stores/runtime
+  - exposes an optional live-overlay boundary so the later executor slice can
+    add in-flight chat state without broadening `internal/agentruns`
 - `internal/projectstate` plus `internal/httpapi/project_routes.go`
   - now own `POST /setChatSectionSettings`, `POST /setChatSectionState`, and
     `POST /setChatSectionChatId` over the existing effective-payload mutation
@@ -258,6 +271,49 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   chat caller path
 - return an explicit typed unsupported-provider error for configs whose
   provider adapter has not been landed yet
+
+## Decisions Made
+
+- land managed hydration/stop before managed send because those routes close a
+  live frontend gap without waiting on provider execution
+- keep managed chat semantics in `internal/managedchat` above
+  `internal/agentruns` instead of broadening route handlers or the run store
+- do not gate `POST /stopLLMChat` on executor availability; reuse the existing
+  managed runtime cancellation path so persisted running runs can still be
+  cancelled deterministically
+- keep live managed-chat overlay state as an optional dependency for the later
+  executor/send slice instead of inventing placeholder runtime state now
+
+## Open Questions
+
+- which concrete provider adapter should be the first managed executor
+  implementation for the remaining managed `POST /getLLMResponse` slice
+- whether branch-edit and `continueFromChatId` support should land together
+  with the first provider-backed send adapter or be split if the executor work
+  proves larger than expected
+
+## Progress Notes
+
+- 2026-03-09: landed the first executable Phase 18 slice in Go for
+  `/setChatSectionSettings`, `/setChatSectionState`, and
+  `/setChatSectionChatId`.
+- 2026-03-09: landed the second executable Phase 18 slice in Go for
+  `/getLLMChat` and `/stopLLMChat` over the new `internal/managedchat`
+  boundary.
+- 2026-03-09: the remaining direct frontend managed-chat dependency inside
+  this phase is now the managed `setta_llm` branch of `POST /getLLMResponse`.
+
+## Verification
+
+- `./scripts/go.sh test ./internal/managedchat ./internal/httpapi ./internal/app -run 'Test(ServiceGetChat|ServiceStopChat|RegisterAIRoutes|AppServesManagedChatHydrateAndStopRoutes)' -count=1`
+
+## Next Recommended Step
+
+- implement the managed `setta_llm` branch of `POST /getLLMResponse` over a
+  bounded executor adapter keyed by `llmconfig.Config.Provider`
+- feed any live in-flight managed chat state from that executor into
+  `internal/managedchat` through its optional live-overlay boundary instead of
+  broadening route or store responsibilities
 - do not guess compatibility from model names or other heuristics
 
 ## Recommended Design

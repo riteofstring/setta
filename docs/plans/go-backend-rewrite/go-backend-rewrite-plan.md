@@ -27,22 +27,20 @@ Prefer the Go stdlib or well established Go libraries for this rewrite.
 
 ## Current Status
 
-As of 2026-03-09, the phase docs through the first landed Phase 18 slice and
-the recorded spike outcomes describe a repo state where the deployment/
+As of 2026-03-09, the phase docs through the current landed Phase 18 slices
+and the recorded spike outcomes describe a repo state where the deployment/
 launcher runtime slices, the shipped CLI migration slices, the MCP/tooling
 foundations, the bounded plugin runtime surface, the direct frontend LLM
-settings transport, the direct app-gen skills/custom-skill transport, and the
-chat-section persistence transport are complete for their bounded scopes.
+settings transport, the direct app-gen skills/custom-skill transport, the
+chat-section persistence transport, and managed chat hydrate/stop transport
+are complete for their bounded scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat routing is still partially Python-owned. The rewrite still does not
-plan to recreate a broad LiteLLM-equivalent managed runtime in Go, but the
-remaining direct frontend managed-chat surface has now been reranked into a
-bounded Phase 18 follow-on over the landed managed-run foundations:
-
-- managed `setta_llm` `/getLLMResponse`
-- `/getLLMChat`
-- `/stopLLMChat`
+plan to recreate a broad LiteLLM-equivalent managed runtime in Go, and the
+remaining direct frontend managed-chat gap is now the managed `setta_llm`
+branch of `/getLLMResponse` over the landed Phase 18 read/stop slices and the
+landed managed-run foundations.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -50,6 +48,12 @@ chat-section persistence cluster:
 - `/setChatSectionSettings`
 - `/setChatSectionState`
 - `/setChatSectionChatId`
+
+The second Phase 18 slice is now landed for the direct managed-chat hydrate /
+stop reads over the landed managed-run foundations:
+
+- `/getLLMChat`
+- `/stopLLMChat`
 
 The separate transcription-session runtime remains a later bounded AI follow-on
 instead of being bundled into that managed-chat slice. The current bounded

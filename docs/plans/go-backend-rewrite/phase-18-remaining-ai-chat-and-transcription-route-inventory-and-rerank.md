@@ -25,6 +25,7 @@ Current Go state relevant to this inventory:
 
 - `internal/httpapi/ai_routes.go`
   - owns `/getLLMResponse` for the external-agent branch only
+  - now owns managed `/getLLMChat` and `/stopLLMChat`
   - owns `/getExternalAgentChat`, `/getAIFollowSnapshot`,
     `/stopExternalAgentRun`, `/respondExternalAgentApproval`, and
     `/respondExternalAgentQuestion`
@@ -32,6 +33,9 @@ Current Go state relevant to this inventory:
   - owns managed run storage and a managed active-run runtime foundation
   - still leaves the real IDE app wiring disabled until a managed executor is
     wired
+- `internal/managedchat`
+  - now owns managed chat hydration, `llmConfig` / `contextUsage` shaping, and
+    latest-running-run stop behavior above the landed managed-run foundations
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -223,13 +227,17 @@ Rerank:
   `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`.
 - 2026-03-09: landed the first executable Phase 18 slice in Go for
   `/setChatSectionSettings`, `/setChatSectionState`, and
-  `/setChatSectionChatId`, leaving managed send/hydrate/stop as the remaining
-  direct frontend gap inside this phase.
+  `/setChatSectionChatId`.
+- 2026-03-09: landed the second executable Phase 18 slice in Go for
+  `/getLLMChat` and `/stopLLMChat`, leaving managed
+  `POST /getLLMResponse` send/executor work as the remaining direct frontend
+  gap inside this phase.
 
 ## Verification
 
 - inventory follow-on now has landed evidence in:
   - `./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeChatSectionMutations|TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload' -count=1`
+  - `./scripts/go.sh test ./internal/managedchat ./internal/httpapi ./internal/app -run 'Test(ServiceGetChat|ServiceStopChat|RegisterAIRoutes|AppServesManagedChatHydrateAndStopRoutes)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
@@ -237,8 +245,8 @@ Rerank:
 
 - use
   `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
-  as the next executable Phase 18 slice for the remaining managed send /
-  hydrate / stop work
+  as the remaining executable Phase 18 slice for the managed `setta_llm`
+  branch of `POST /getLLMResponse`
 - defer transcription-session runtime work to a separate bounded follow-on
   unless implementation of the managed chat slice proves a hard shared
   dependency
