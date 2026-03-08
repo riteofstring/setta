@@ -634,12 +634,15 @@ Use the docs in this order:
 173. `phase-15-plugin-lock-transport.md`
   - focused completed-slice doc for Go-owned plugin lockfile write/apply
     transport over the existing shared plugin lockfile service
-174. `spike-mcp.md`
+174. `phase-15-plugin-read-project-state-and-listener-registration-runtime.md`
+  - focused current-work doc for worker-host `read_project_state` plus
+    listener-endpoint registration capture needed by the shared backend fixture
+175. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-175. `spike-pty.md`
+176. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-176. `spike-lsp.md`
+177. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

@@ -651,6 +651,16 @@ The bounded plugin backend static-dir follow-on tracked in
   refresh remain deferred until a concrete caller requires one of those
   surfaces
 
+The next bounded plugin backend follow-on is now opened in
+`phase-15-plugin-read-project-state-and-listener-registration-runtime.md`:
+
+- the target is worker-host `host.read_project_state` plus
+  `host.register_listener_endpoint` registration capture
+- this is the smallest slice that lets the shared backend fixture register
+  cleanly in Go without widening into listener-router websocket dispatch
+- actual listener-endpoint invocation/dispatch and mutation-time runtime
+  refresh remain deferred outside that slice
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:
