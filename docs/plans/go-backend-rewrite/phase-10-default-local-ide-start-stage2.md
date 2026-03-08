@@ -24,12 +24,12 @@ As of 2026-03-08:
   - `internal/localsessions`
 - Go already owns `setta launch`, which proves the shipped CLI can resolve and
   start the sibling `setta-server` executable for local IDE sessions.
-- Python still owns the default no-subcommand `setta` path in
-  `backend/setta/start.py`, including:
-  - runtime-path resolution and validation
-  - startup message rendering
-  - browser auto-open policy
-  - the current user-facing `--reload` option
+- Go now owns the default no-subcommand `setta` path across:
+  - `cmd/setta`
+  - `cmd/setta-server`
+  - `backend/setta/entrypoint.py`
+  - focused tests in `internal/settacmd`, `cmd/setta-server`, and
+    `tests/start/test_module_entrypoint.py`
 
 ## Inputs
 
@@ -53,10 +53,10 @@ in Go.
 
 The gap is the user-facing contract for the default local `setta` path:
 
-1. `cmd/setta` still treats "no command" as an error.
-2. `backend/setta/entrypoint.py` still leaves no-subcommand invocation on the
-   Python side.
-3. `cmd/setta-server` can run the IDE server, but it does not yet own the
+1. `cmd/setta` previously treated "no command" as an error.
+2. `backend/setta/entrypoint.py` previously left no-subcommand invocation on
+   the Python side.
+3. `cmd/setta-server` previously could run the IDE server, but did not yet own the
    startup UX that users expect from `setta`:
    - startup message
    - bootstrap URL/token display
@@ -134,16 +134,30 @@ Do not include:
 - turning `cmd/setta` into a second backend runtime
 - preserving Python Click help text as the command source of truth
 
+## Progress Notes
+
+- 2026-03-08: completed this Stage 2 slice.
+  - `cmd/setta` now treats no subcommand as the default local IDE start path
+  - the shipped Python wrapper now dispatches no-subcommand local start to Go
+  - `cmd/setta-server` now emits startup output, builds bootstrap URLs from the
+    created session, and auto-opens the browser when appropriate
+  - the shipped Go CLI rejects `--reload` explicitly for this path
+
+## Open Questions
+
+- root `--help` still remains outside this slice's implementation scope
+- `share` and `app` remain the next local-runtime migrations
+
 ## Verification
 
 - `git diff --check`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd ./cmd/setta-server -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./cmd/setta-server -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 
 ## Recommended Next Step
 
-Implement this stage as the next bounded Phase 10 slice, then move to the
-remaining local-runtime commands:
+Move to the remaining local-runtime commands:
 
 1. `share`
 2. `app`

@@ -107,6 +107,9 @@ func run(args []string) (err error) {
 			err = cleanupErr
 		}
 	}()
+	if err := emitLocalStartupOutput(cfg, localSession, noOpen, os.Stdout, os.Stderr, localStartupDependencies{}); err != nil {
+		return err
+	}
 
 	server := &http.Server{
 		Addr:    listener.Addr().String(),

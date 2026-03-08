@@ -60,10 +60,8 @@ That means the next coherent unit is:
 ## Out Of Scope
 
 - porting remaining Python local commands into Go:
-  - default `setta`
   - `share`
   - `app`
-  - `launch`
   - `backups`
   - `plugins`
   - `export-db`

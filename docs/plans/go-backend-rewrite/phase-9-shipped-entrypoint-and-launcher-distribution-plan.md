@@ -60,7 +60,6 @@ As of 2026-03-08:
   - platform launcher install/uninstall scripts
   - `scripts/release/*`
 - unrelated local command groups still remain Python-owned:
-  - default `setta` local server start
   - `share`
   - `app`
   - `backups`
@@ -115,7 +114,7 @@ routing, packaging, and script integration.
 ## Boundary Choice
 
 Do not combine this track with the unrelated Python local command groups
-(`backups`, `plugins`, default local `setta`, `share`, `app`,
+(`backups`, `plugins`, `share`, `app`,
 `export-db`) unless a concrete dependency forces it.
 
 The first bounded owner should be:

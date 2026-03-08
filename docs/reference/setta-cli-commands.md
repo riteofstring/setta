@@ -4,7 +4,7 @@ This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
 Go-owned commands are handed off to packaged Go binaries, while the remaining
 Python-owned local commands still route through `backend/setta/start.py`
-(`setta`, `share`, `app`, `backups`, `plugins`, and `export-db`).
+(`share`, `app`, `backups`, `plugins`, and `export-db`).
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -81,7 +81,6 @@ Starts the backend server in the current workspace, creates a session entry,
 prints a bootstrap URL + token, and (when possible) auto-opens the browser.
 
 Options:
-- `--reload` enables live-reload (Uvicorn).
 - `--host` sets the bind host (default: `127.0.0.1`).
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
@@ -94,6 +93,7 @@ Options:
 - `--setta-files-location {auto,local,global}` controls local/global resolution
   mode when no explicit root is set.
 - `--runtime-root PATH` overrides runtime root.
+- `--reload` is not supported by the shipped Go CLI.
 Env equivalents:
 `SETTA_WORKSPACE_ROOT`, `SETTA_PROFILE`, `SETTA_PROFILE_LOOKUP_HOME`,
 `SETTA_HOME`, `SETTA_FILES_ROOT`, `SETTA_FILES_LOCATION`, and

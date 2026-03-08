@@ -29,7 +29,6 @@ As of 2026-03-08:
   - `internal/workspacelaunch`
 - Python still owns the remaining local command groups in
   `backend/setta/start.py`:
-  - default `setta` local IDE server start
   - `share`
   - `app`
   - `backups`
@@ -40,6 +39,12 @@ As of 2026-03-08:
   - `internal/settacmd`
   - `backend/setta/entrypoint.py`
   - Go-owned `setta launch` local session bootstrap dispatch
+- Go now also owns the default local IDE start path in:
+  - `cmd/setta`
+  - `cmd/setta-server`
+  - `backend/setta/entrypoint.py`
+  - Go-owned default no-subcommand local `setta` start over the sibling
+    `setta-server` runtime
 
 ## Inputs
 
@@ -198,6 +203,12 @@ That slice should:
   - default no-subcommand `setta` local IDE start now has an explicit
     implementation boundary over the sibling `setta-server` runtime
   - `--reload` is explicitly out of scope for the shipped Go CLI slice
+- 2026-03-08: completed the second bounded implementation slice.
+  - default no-subcommand `setta` now routes through `cmd/setta`
+  - the thin Python wrapper now dispatches no-subcommand local start to the
+    packaged Go binary
+  - `cmd/setta-server` now owns startup output and browser-open behavior for
+    local IDE mode
 
 ## Open Questions
 
@@ -213,9 +224,7 @@ That slice should:
 
 Implement the next bounded Phase 10 slice from this doc:
 
-1. port default `setta` local IDE start onto the Go-owned backend runtime
-2. keep transport thin by routing long-lived server startup through the sibling
-   `setta-server` executable instead of re-owning server internals in
-   `cmd/setta`
-3. after default `setta` lands, move `share` and `app` as the remaining
-   local-runtime cluster
+1. port `share` onto the Go-owned backend runtime
+2. port `app` onto the Go-owned backend runtime
+3. keep `backups`, `plugins`, and `export-db` explicitly out of scope until
+   the local-runtime cluster is complete

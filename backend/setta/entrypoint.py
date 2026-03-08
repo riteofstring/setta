@@ -21,14 +21,18 @@ _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
     {
         "-w",
         "--workspace",
+        "--host",
+        "--port",
         "--profile",
         "--profile-lookup-home",
         "--setta-home",
         "--setta-files-root",
         "--setta-files-location",
         "--runtime-root",
+        "--log-level",
     }
 )
+_GO_GLOBAL_FLAG_OPTIONS = frozenset({"--no-open", "--reload"})
 _GO_BINARY_OVERRIDE_ENV = "SETTA_GO_CLI_BIN"
 
 
@@ -61,12 +65,15 @@ def resolve_go_dispatch_command(argv: list[str]) -> str | None:
                 index += 1
                 continue
             if index + 1 >= len(argv):
-                return None
+                return ""
             index += 2
+            continue
+        if option_name in _GO_GLOBAL_FLAG_OPTIONS:
+            index += 1
             continue
         return None
 
-    return None
+    return ""
 
 
 def run_go_dispatch(argv: list[str]) -> int:

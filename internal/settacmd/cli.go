@@ -74,6 +74,11 @@ type globalFlags struct {
 	settaFilesLocation string
 	runtimeRoot        string
 	profile            string
+	host               string
+	port               string
+	logLevel           string
+	noOpen             bool
+	reload             bool
 }
 
 func Run(args []string, options RunOptions) error {
@@ -111,7 +116,7 @@ func Run(args []string, options RunOptions) error {
 		return err
 	}
 	if len(remaining) == 0 {
-		return fmt.Errorf("missing command (supported: version, launch, launcher, status, auth, tools, api, stop, connect)")
+		return runDefaultStart(global, stdin, stdout, stderr, envLookup)
 	}
 
 	switch remaining[0] {
@@ -143,13 +148,19 @@ func parseGlobalFlags(args []string, stderr io.Writer) (globalFlags, []string, e
 	var parsed globalFlags
 	flags := flag.NewFlagSet("setta", flag.ContinueOnError)
 	flags.SetOutput(stderr)
+	flags.BoolVar(&parsed.reload, "reload", false, "Reload is not supported in the Go CLI.")
+	flags.StringVar(&parsed.host, "host", "", "Listen host.")
+	flags.StringVar(&parsed.port, "port", "", "Listen port.")
 	flags.StringVar(&parsed.workspaceRoot, "workspace", "", "Workspace root.")
+	flags.StringVar(&parsed.workspaceRoot, "w", "", "Workspace root.")
 	flags.StringVar(&parsed.profile, "profile", "", "Runtime profile name.")
 	flags.StringVar(&parsed.settaHome, "setta-home", "", "Setta home.")
 	flags.StringVar(&parsed.profileLookupHome, "profile-lookup-home", "", "Setta profile lookup home.")
 	flags.StringVar(&parsed.settaFilesRoot, "setta-files-root", "", "Explicit setta_files root.")
 	flags.StringVar(&parsed.settaFilesLocation, "setta-files-location", "", "setta_files location mode: auto, local, or global.")
 	flags.StringVar(&parsed.runtimeRoot, "runtime-root", "", "Runtime root.")
+	flags.StringVar(&parsed.logLevel, "log-level", "", "Log level.")
+	flags.BoolVar(&parsed.noOpen, "no-open", false, "Skip automatic browser opening.")
 	if err := flags.Parse(args); err != nil {
 		return globalFlags{}, nil, err
 	}

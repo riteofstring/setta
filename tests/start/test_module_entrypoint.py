@@ -48,6 +48,22 @@ def test_resolve_go_dispatch_command_leaves_python_owned_commands_local() -> Non
     assert command is None
 
 
+def test_resolve_go_dispatch_command_routes_root_start_without_subcommand() -> None:
+    # The default local start path is now Go-owned even when no subcommand token appears.
+    command = resolve_go_dispatch_command(
+        ["--workspace", "/tmp/workspace", "--host", "0.0.0.0", "--no-open"]
+    )
+
+    assert command == ""
+
+
+def test_resolve_go_dispatch_command_routes_empty_argv_to_go_root() -> None:
+    # A bare `setta` invocation is now the Go-owned default local start path.
+    command = resolve_go_dispatch_command([])
+
+    assert command == ""
+
+
 def test_python_module_entrypoint_dispatches_go_owned_version_command(
     tmp_path: Path,
 ) -> None:
@@ -98,3 +114,32 @@ def test_python_module_entrypoint_dispatches_go_owned_launch_command(
     assert result.returncode == 0, (result.stderr or result.stdout).strip()
     assert "setta version from go" in result.stdout
     assert args_capture_path.read_text(encoding="utf-8").strip() == "launch --json"
+
+
+def test_python_module_entrypoint_dispatches_go_owned_default_start_command(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "--no-open", "--host", "0.0.0.0"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip()
+        == "--no-open --host 0.0.0.0"
+    )

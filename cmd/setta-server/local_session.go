@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/localsessions"
 )
@@ -19,6 +20,8 @@ const (
 type localProcessSession struct {
 	registry             *localsessions.Registry
 	sessionID            string
+	metadata             auth.SessionMetadata
+	secret               []byte
 	previousSessionID    string
 	hadPreviousSessionID bool
 	previousSessionsRoot string
@@ -59,6 +62,11 @@ func maybeBootstrapLocalSession(cfg config.Config, listener net.Listener) (*loca
 	if err != nil {
 		return nil, err
 	}
+	secret, err := registry.LoadSecret(metadata)
+	if err != nil {
+		_ = registry.DeleteSession(metadata.ID)
+		return nil, err
+	}
 
 	sessionID, hadSessionID := os.LookupEnv(sessionIDEnv)
 	sessionsRoot, hadSessionsRoot := os.LookupEnv(sessionsRootEnv)
@@ -79,6 +87,8 @@ func maybeBootstrapLocalSession(cfg config.Config, listener net.Listener) (*loca
 	return &localProcessSession{
 		registry:             registry,
 		sessionID:            metadata.ID,
+		metadata:             metadata,
+		secret:               secret,
 		previousSessionID:    sessionID,
 		hadPreviousSessionID: hadSessionID,
 		previousSessionsRoot: sessionsRoot,
