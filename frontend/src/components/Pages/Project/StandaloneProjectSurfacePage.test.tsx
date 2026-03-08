@@ -172,7 +172,10 @@ function MockUnifiedChatSurface({
     onProjectChatBlockedErrorCodeChange?.(
       hoisted.state.projectChatBlockedErrorCode,
     );
-  }, [onProjectChatBlockedErrorCodeChange]);
+  }, [
+    onProjectChatBlockedErrorCodeChange,
+    hoisted.state.projectChatBlockedErrorCode,
+  ]);
 
   return (
     <div
@@ -208,7 +211,23 @@ vi.mock("components/Section/Container/ManyNestedSections", () => ({
 }));
 
 vi.mock("components/Section/Container/SectionWindowSurface", () => ({
-  SectionWindowSurface: () => <div data-testid="mock-section-window-surface" />,
+  SectionWindowSurface: ({
+    onProjectChatBlockedErrorCodeChange,
+  }: {
+    onProjectChatBlockedErrorCodeChange?:
+      | ((errorCode: string | null) => void)
+      | undefined;
+  }) => {
+    useEffect(() => {
+      onProjectChatBlockedErrorCodeChange?.(
+        hoisted.state.projectChatBlockedErrorCode,
+      );
+    }, [
+      onProjectChatBlockedErrorCodeChange,
+      hoisted.state.projectChatBlockedErrorCode,
+    ]);
+    return <div data-testid="mock-section-window-surface" />;
+  },
 }));
 
 vi.mock("components/Utils/FloatingBox", () => ({
@@ -265,9 +284,23 @@ vi.mock("../NotFound/NotFound", () => ({
 }));
 
 vi.mock("./StandaloneWindowSpaceSurface", () => ({
-  StandaloneWindowSpaceSurface: () => (
-    <div data-testid="mock-standalone-window-space-surface" />
-  ),
+  StandaloneWindowSpaceSurface: ({
+    onProjectChatBlockedErrorCodeChange,
+  }: {
+    onProjectChatBlockedErrorCodeChange?:
+      | ((errorCode: string | null) => void)
+      | undefined;
+  }) => {
+    useEffect(() => {
+      onProjectChatBlockedErrorCodeChange?.(
+        hoisted.state.projectChatBlockedErrorCode,
+      );
+    }, [
+      onProjectChatBlockedErrorCodeChange,
+      hoisted.state.projectChatBlockedErrorCode,
+    ]);
+    return <div data-testid="mock-standalone-window-space-surface" />;
+  },
 }));
 
 function LocationProbe() {
@@ -963,5 +996,206 @@ describe("StandaloneProjectSurfacePage", () => {
         '[data-testid="standalone-project-chat-thread-surface"]',
       ),
     ).toBeNull();
+  });
+
+  it("reopens a standalone project chat route when deployment policy allows LLM again on the same mounted page", async () => {
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: true,
+      },
+    };
+    hoisted.state.projectChatBlockedErrorCode = "llm_disallowed";
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/chat-alpha"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).not.toBeNull();
+
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: false,
+      },
+    };
+    hoisted.state.projectChatBlockedErrorCode = null;
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/chat-alpha"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).not.toBeNull();
+
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: true,
+      },
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/chat-alpha"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).toBeNull();
+    const surface = host.querySelector(
+      '[data-testid="standalone-project-chat-thread-surface"]',
+    );
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-project-chat-id")).toBe("chat-alpha");
+  });
+
+  it("reopens a standalone window-space route when deployment policy allows LLM again", async () => {
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: true,
+      },
+    };
+    hoisted.state.projectChatBlockedErrorCode = "llm_disallowed";
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {
+          "space-1": createWindowSpaceConfig({
+            id: "space-1",
+            name: "Research Board",
+            windowsById: {
+              "chat-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                sectionIdOrNull: null,
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Research Chat",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0,
+                  y: 0,
+                  width: 0.5,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["chat-window"],
+          }),
+        },
+        sectionVariantMap: {},
+      },
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/research_board"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).not.toBeNull();
+    expect(
+      host.querySelector(
+        '[data-testid="mock-standalone-window-space-surface"]',
+      ),
+    ).toBeNull();
+
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: false,
+      },
+    };
+    hoisted.state.projectChatBlockedErrorCode = null;
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/research_board"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).not.toBeNull();
+
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: true,
+      },
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/research_board"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector(
+        '[data-testid="mock-standalone-window-space-surface"]',
+      ),
+    ).not.toBeNull();
   });
 });

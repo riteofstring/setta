@@ -757,6 +757,146 @@ describe("window-space optimistic rollback", () => {
     ).toBe("Alpha");
     expect(usePendingOperations.getState().pending).toEqual([]);
   });
+
+  it("replays a later accepted delete after an earlier rename fails out of order", async () => {
+    let resolveRenameWrite:
+      | ((value: {
+          data: { detail: string } | null;
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+          "beta-id": createWindowSpaceConfig({
+            id: "beta-id",
+            name: "Beta",
+            sortIndex: 1,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeSetWindowSpaceNameMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRenameWrite = resolve;
+      }),
+    );
+    routeDeleteWindowSpaceMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    setWindowSpaceName("project-id", "alpha-id", "Renamed Alpha");
+    deleteWindowSpace("project-id", "beta-id");
+    await flushOptimisticMutation();
+
+    resolveRenameWrite?.({
+      data: { detail: "Forbidden" },
+      status: 403,
+      hasResponse: true,
+    });
+    await flushOptimisticMutation();
+
+    const windowSpaces = useProjectState.getState().projectConfig.windowSpaces;
+    expect(windowSpaces["alpha-id"]?.name).toBe("Alpha");
+    expect(windowSpaces["alpha-id"]?.sortIndex).toBe(0);
+    expect(windowSpaces["beta-id"]).toBeUndefined();
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+  });
+
+  it("replays a later accepted reorder after an earlier rename fails out of order", async () => {
+    let resolveRenameWrite:
+      | ((value: {
+          data: { detail: string } | null;
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+          "beta-id": createWindowSpaceConfig({
+            id: "beta-id",
+            name: "Beta",
+            sortIndex: 1,
+            windowsById: {},
+            order: [],
+          }),
+          "gamma-id": createWindowSpaceConfig({
+            id: "gamma-id",
+            name: "Gamma",
+            sortIndex: 2,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeSetWindowSpaceNameMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRenameWrite = resolve;
+      }),
+    );
+    routeSetWindowSpaceSortOrderMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    setWindowSpaceName("project-id", "alpha-id", "Renamed Alpha");
+    persistWindowSpaceSortOrder("project-id", [
+      "gamma-id",
+      "alpha-id",
+      "beta-id",
+    ]);
+    await flushOptimisticMutation();
+
+    resolveRenameWrite?.({
+      data: { detail: "Forbidden" },
+      status: 403,
+      hasResponse: true,
+    });
+    await flushOptimisticMutation();
+
+    const orderedWindowSpaces = Object.values(
+      useProjectState.getState().projectConfig.windowSpaces,
+    )
+      .sort((a, b) => a.sortIndex - b.sortIndex)
+      .map((windowSpace) => ({
+        id: windowSpace.id,
+        name: windowSpace.name,
+      }));
+    expect(orderedWindowSpaces).toEqual([
+      { id: "gamma-id", name: "Gamma" },
+      { id: "alpha-id", name: "Alpha" },
+      { id: "beta-id", name: "Beta" },
+    ]);
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+  });
 });
 
 describe("createWindowSpaceFromCurrentFloatingWindows", () => {

@@ -16,7 +16,13 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useEffect, useMemo, useState, type SetStateAction } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type SetStateAction,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import {
@@ -308,8 +314,16 @@ export function StandaloneProjectSurfacePageWithLoadState({
     chatId: null,
     errorCode: null,
   });
-  const [standaloneManagedChatDenied, setStandaloneManagedChatDenied] =
-    useState(false);
+  const [
+    standaloneManagedChatBlockedState,
+    setStandaloneManagedChatBlockedState,
+  ] = useState<{
+    surfaceIdentity: string | null;
+    errorCode: string | null;
+  }>({
+    surfaceIdentity: null,
+    errorCode: null,
+  });
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
   const canUseManagedChat = canUseManagedChatLLM({
@@ -343,10 +357,32 @@ export function StandaloneProjectSurfacePageWithLoadState({
               managedChatAuthorityState,
             )
           : false;
+  const standaloneManagedChatDenied =
+    standaloneManagedChatBlockedState.surfaceIdentity ===
+      standaloneSurfaceIdentity &&
+    standaloneManagedChatBlockedState.errorCode === "llm_disallowed";
   const shouldBlockStandaloneManagedChat =
-    ((!canUseManagedChat || standaloneManagedChatDenied) &&
-      standaloneTargetRequiresManagedChat) ||
-    standaloneProjectChatBlockedState.errorCode === "llm_disallowed";
+    (!canUseManagedChat && standaloneTargetRequiresManagedChat) ||
+    standaloneManagedChatDenied;
+  const previousCanUseManagedChat = useRef(canUseManagedChat);
+
+  const setStandaloneManagedChatBlockedErrorCode = (
+    errorCode: string | null,
+  ) => {
+    const nextErrorCode = errorCode === "llm_disallowed" ? errorCode : null;
+    setStandaloneManagedChatBlockedState((current) => {
+      if (
+        current.surfaceIdentity === standaloneSurfaceIdentity &&
+        current.errorCode === nextErrorCode
+      ) {
+        return current;
+      }
+      return {
+        surfaceIdentity: standaloneSurfaceIdentity,
+        errorCode: nextErrorCode,
+      };
+    });
+  };
 
   useEffect(() => {
     setStandaloneProjectChatBlockedState((current) => {
@@ -365,8 +401,31 @@ export function StandaloneProjectSurfacePageWithLoadState({
   }, [projectConfigId, standaloneProjectChatId]);
 
   useEffect(() => {
-    setStandaloneManagedChatDenied(false);
-  }, [standaloneProjectChatId, standaloneSurfaceIdentity]);
+    setStandaloneManagedChatBlockedState((current) => {
+      if (current.surfaceIdentity === standaloneSurfaceIdentity) {
+        return current;
+      }
+      return {
+        surfaceIdentity: standaloneSurfaceIdentity,
+        errorCode: null,
+      };
+    });
+  }, [standaloneSurfaceIdentity]);
+
+  useEffect(() => {
+    if (!previousCanUseManagedChat.current && canUseManagedChat) {
+      setStandaloneManagedChatBlockedState((current) => {
+        if (current.errorCode !== "llm_disallowed") {
+          return current;
+        }
+        return {
+          surfaceIdentity: standaloneSurfaceIdentity,
+          errorCode: null,
+        };
+      });
+    }
+    previousCanUseManagedChat.current = canUseManagedChat;
+  }, [canUseManagedChat, standaloneSurfaceIdentity]);
 
   useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
@@ -458,9 +517,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
                 errorCode,
               };
             });
-            if (errorCode === "llm_disallowed") {
-              setStandaloneManagedChatDenied(true);
-            }
+            setStandaloneManagedChatBlockedErrorCode(errorCode);
           }}
           dataTestId={
             target.kind === "project_chat_thread"
@@ -525,11 +582,9 @@ export function StandaloneProjectSurfacePageWithLoadState({
         <StandaloneWindowSpaceSurface
           key={`${projectConfigId}:${standaloneWindowSpace.id}`}
           windowSpace={standaloneWindowSpace}
-          onProjectChatBlockedErrorCodeChange={(errorCode) => {
-            if (errorCode === "llm_disallowed") {
-              setStandaloneManagedChatDenied(true);
-            }
-          }}
+          onProjectChatBlockedErrorCodeChange={
+            setStandaloneManagedChatBlockedErrorCode
+          }
         />
       </StandaloneSurfaceShell>
     );
@@ -550,11 +605,9 @@ export function StandaloneProjectSurfacePageWithLoadState({
             projectConfigId,
             target.sectionId,
           )}
-          onProjectChatBlockedErrorCodeChange={(errorCode) => {
-            if (errorCode === "llm_disallowed") {
-              setStandaloneManagedChatDenied(true);
-            }
-          }}
+          onProjectChatBlockedErrorCodeChange={
+            setStandaloneManagedChatBlockedErrorCode
+          }
           bodyOverride={
             target.sectionType === SectionTypeEnum.Group ||
             target.sectionType === SectionTypeEnum.ListRoot ? (

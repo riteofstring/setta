@@ -3855,6 +3855,55 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone managed project chat route reopens when deployment policy allows LLM again", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const standaloneChatUrl = buildStandaloneUrl(
+        page.url(),
+        `/${encodeURIComponent(projectConfigName)}/chat`,
+      );
+
+      await page.goto(standaloneChatUrl, {
+        waitUntil: "domcontentloaded",
+      });
+      await expect(
+        page.getByTestId("standalone-project-chat-surface"),
+      ).toBeVisible();
+
+      await setDeploymentSharePolicy(page, {
+        allowLLM: false,
+        allowLayoutChanges: false,
+      });
+      await expect(
+        page.getByTestId("standalone-managed-chat-blocked"),
+      ).toBeVisible();
+      await expect(page.getByTestId("standalone-project-chat-surface")).toHaveCount(
+        0,
+      );
+
+      await setDeploymentSharePolicy(page, {
+        allowLLM: true,
+        allowLayoutChanges: false,
+      });
+      await expect(
+        page.getByTestId("standalone-managed-chat-blocked"),
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId("standalone-project-chat-surface"),
+      ).toBeVisible();
+      await expect(page).toHaveURL(standaloneChatUrl);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("shows an error notification when saving a window space fails", async ({
     page,
   }) => {

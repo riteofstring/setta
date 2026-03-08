@@ -5203,7 +5203,6 @@ class BaseProjectManager(ABC):
             return
         if reservation.has_started_run:
             raise ValueError("Linked chat reservation success reported more than once.")
-        reservation.has_started_run = True
         project_state = self.get_single_config_state(project_config_id)
         if section_id in project_state.sections:
             section_impl = get_curr_effective_section_impl(project_state, section_id)
@@ -5215,6 +5214,7 @@ class BaseProjectManager(ABC):
                 await self._update_and_broadcast_project_state_no_name_validation(
                     project_state
                 )
+        reservation.has_started_run = True
 
     @enqueue_method
     async def release_linked_chat_section_chat_start_failure(

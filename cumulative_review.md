@@ -784,3 +784,33 @@ Verification:
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/database/test_dbe_project_payload_validation.py tests/project_state/test_project_chat_windowing_persistence.py -q` passed: 17 tests.
 - `source activate.sh && python -m ruff check backend/setta/types/project_state.py backend/setta/database/db_objs.py tests/database/test_dbe_project_payload_validation.py tests/project_state/test_project_chat_windowing_persistence.py` passed.
 - No Playwright or CDP verification was added for this change because it only affects backend persistence validation and has no direct UI surface.
+
+## 2026-03-10 21:59:52 PDT
+
+Implemented the three remaining consolidated regressions from the transient top-level review docs: replay-safe optimistic rollback for project chat windowing and saved window spaces, authoritative standalone managed-chat admission recovery, and exception-safe linked-chat start promotion.
+
+What changed:
+- Updated `frontend/src/state/actions/sectionInfos.ts` so optimistic failure handling no longer just removes a failed pending op and restores stale local state. Failed ops now remove themselves, run their rollback, and immediately replay later surviving optimistic reducers in original order.
+- Reworked `frontend/src/state/actions/projectChatWindowing.ts` so persisted project-chat windowing writes are reducer-based instead of full-snapshot replacements. Pending windowing ops now recompute from the latest base state during replay, with stable created window ids carried through create/show flows so out-of-order failures do not resurrect stale earlier mutations.
+- Added explicit out-of-order rollback regressions in `frontend/src/state/actions/projectChatWindowing.rollback.test.ts` and `frontend/src/state/actions/windowSpaces.test.ts` covering the concrete failure mode from review: mutation A fails after mutation B already succeeded, and only mutation A should disappear.
+- Replaced the sticky standalone managed-chat denial latch in `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` with current-surface blocked-error tracking keyed by active standalone identity plus current deployment policy. The standalone route now clears `llm_disallowed` state when the mounted surface changes or when policy transitions back to `allowLLM=true`.
+- Extended `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` and `frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` so the same mounted standalone managed-chat route is proven to reopen when deployment policy changes from denied back to allowed.
+- Changed `backend/setta/project_state/base_project_manager.py` so linked-chat reservations are only marked `has_started_run=True` after the section chat binding persistence step succeeds.
+- Wrapped the post-`commit_mcp_run_start(...)` linked-chat bind promotion in `backend/setta/agentic/linked_chat_invocation.py` so any exception during binding persistence returns a structured `binding_start_failed` error and always releases the reservation/binding claim before retry.
+- Added backend coverage in `tests/routers/test_mcp_linked_chat_tool.py` for the exact partial-start failure case where the run starts, binding persistence throws, the reservation is cleaned up, any temporary chat binding is cleared, and a second invocation is admitted immediately.
+
+UX before/after:
+- Before: an earlier failed optimistic focus/layout/window-space mutation could overwrite a later accepted mutation and leave the UI showing stale windowing or saved-space state until backend sync corrected it. After: only the failed mutation is reverted; later accepted local state stays visible immediately.
+- Before: standalone managed-chat routes could remain blocked on the same mounted page after policy recovered because the page held onto a stale denial bit. After: the route reopens in place as soon as authoritative policy allows LLM access again.
+- Before: one transient post-start persistence failure in linked chat could strand a target in an effectively busy state or leave a ghost thread binding behind. After: failed start promotion fully releases state and the next invocation can run normally.
+
+DX before/after:
+- Before: optimistic rollback correctness depended on mutation-specific whole-snapshot bookkeeping, which made overlapping async windowing writes race-prone and difficult to reason about. After: the shared optimistic helper owns ordered replay semantics and project chat windowing writes participate as replay-safe reducers.
+- Before: standalone managed-chat admission had two sources of truth, current share policy and a write-only UI denial latch. After: the standalone route reasons from current policy plus current surface error state only.
+- Before: linked-chat start semantics crossed admission, reservation, run start, and binding persistence with a non-atomic success flip, which made failure cleanup easy to miss. After: the reservation only becomes “started” after persistence succeeds and the failure path is explicit in both manager and invocation-layer tests.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/windowSpaces.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` passed: 43 tests.
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/routers/test_mcp_linked_chat_tool.py` passed: 28 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone managed project chat route reopens when deployment policy allows LLM again"` passed: 1 test.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/reef_still/chat` confirmed the same standalone managed-chat route blocked under `allowLLM=false` and reopened in place when `allowLLM=true`, without navigation or reload.

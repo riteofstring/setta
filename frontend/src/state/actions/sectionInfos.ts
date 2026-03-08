@@ -1787,6 +1787,39 @@ function removePendingOp(opId: string) {
   }));
 }
 
+function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
+  const pendingBeforeRemoval = usePendingOperations.getState().pending;
+  const failedOpIndex = pendingBeforeRemoval.findIndex(
+    (opInfo) => opInfo.opId === opId,
+  );
+  removePendingOp(opId);
+  if (failedOpIndex < 0) {
+    return [];
+  }
+  const remainingOpIds = new Set(
+    usePendingOperations.getState().pending.map((opInfo) => opInfo.opId),
+  );
+  return pendingBeforeRemoval
+    .slice(failedOpIndex + 1)
+    .filter((opInfo) => remainingOpIds.has(opInfo.opId));
+}
+
+function rollbackOptimisticProjectStateUpdate(
+  opId: string,
+  rollback?: (state: ZustandProjectState) => void,
+) {
+  const replayOps = removePendingOpAndGetReplayOps(opId);
+  if (!rollback) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    rollback(state);
+    for (const opInfo of replayOps) {
+      opInfo.apply(state);
+    }
+  });
+}
+
 function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
@@ -1803,13 +1836,15 @@ export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
   rollback,
+  reapply,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
+  reapply?: (state: ZustandProjectState) => void;
 }) {
   useProjectState.setState(apply);
-  const opId = addPendingOp(apply);
+  const opId = addPendingOp(reapply ?? apply);
   const result = send(opId);
   if (result instanceof Promise) {
     void result
@@ -1818,17 +1853,11 @@ export function dispatchOptimisticProjectStateUpdate({
         if (isResponseDataAndStatus(res) && res200(res)) {
           acknowledgePendingOp(opId);
         } else if (isResponseDataAndStatus(res)) {
-          removePendingOp(opId);
-          if (rollback) {
-            useProjectState.setState(rollback);
-          }
+          rollbackOptimisticProjectStateUpdate(opId, rollback);
         }
       })
       .catch(() => {
-        removePendingOp(opId);
-        if (rollback) {
-          useProjectState.setState(rollback);
-        }
+        rollbackOptimisticProjectStateUpdate(opId, rollback);
       });
   }
   return opId;

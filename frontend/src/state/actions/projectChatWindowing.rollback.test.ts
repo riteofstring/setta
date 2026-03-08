@@ -122,4 +122,45 @@ describe("project chat windowing rollback", () => {
     expect(useAIStore.getState().activeChatId).toBe("chat-before");
     expect(usePendingOperations.getState().pending).toEqual([]);
   });
+
+  it("replays a later accepted chat-id update after an earlier focus write fails out of order", async () => {
+    let resolveFocusWrite:
+      | ((value: {
+          data: { detail: string } | null;
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+    routeSetProjectChatWindowingStateMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveFocusWrite = resolve;
+      }),
+    );
+    routeSetProjectChatWindowChatIdMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+    useAIStore.setState({ activeChatId: "chat-peer" });
+
+    focusProjectChatWindow("project-chat-window-1", 1234);
+    setProjectChatWindowChatId("project-chat-window-1", "chat-after");
+    await flushOptimisticMutation();
+
+    resolveFocusWrite?.({
+      data: { detail: "Forbidden" },
+      status: 403,
+      hasResponse: true,
+    });
+    await flushOptimisticMutation();
+
+    const windowing = useProjectState.getState().projectChatWindowing;
+    expect(windowing.instancesById["project-chat-window-1"]?.chatId).toBe(
+      "chat-after",
+    );
+    expect(windowing.instancesById["project-chat-window-1"]?.zIndex).toBe(1);
+    expect(useAIStore.getState().activeChatId).toBe("chat-after");
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+  });
 });

@@ -346,12 +346,25 @@ async def invoke_linked_chat(
                 message=str(exc),
             )
         commit_mcp_run_start(ctx, run_start_authorization)
-        await _mark_linked_chat_section_binding_started(
-            manager,
-            agentic_context.project_config_id,
-            target_section_id,
-            chat_id,
-        )
+        try:
+            await _mark_linked_chat_section_binding_started(
+                manager,
+                agentic_context.project_config_id,
+                target_section_id,
+                chat_id,
+            )
+        except Exception as exc:
+            await _release_linked_chat_section_binding_failure(
+                manager,
+                agentic_context.project_config_id,
+                target_section_id,
+                chat_id,
+            )
+            return _build_error_result(
+                target_section_id=target_section_id,
+                reason="binding_start_failed",
+                message=str(exc),
+            )
         try:
             completed_run = await runner.wait_for_run(run.id)
         finally:
@@ -404,12 +417,25 @@ async def invoke_linked_chat(
                 message=str(exc),
             )
         commit_mcp_run_start(ctx, run_start_authorization)
-        await _mark_linked_chat_section_binding_started(
-            manager,
-            agentic_context.project_config_id,
-            target_section_id,
-            chat_id,
-        )
+        try:
+            await _mark_linked_chat_section_binding_started(
+                manager,
+                agentic_context.project_config_id,
+                target_section_id,
+                chat_id,
+            )
+        except Exception as exc:
+            await _release_linked_chat_section_binding_failure(
+                manager,
+                agentic_context.project_config_id,
+                target_section_id,
+                chat_id,
+            )
+            return _build_error_result(
+                target_section_id=target_section_id,
+                reason="binding_start_failed",
+                message=str(exc),
+            )
         try:
             completed_run = await runner.wait_for_run(run.id)
         finally:
