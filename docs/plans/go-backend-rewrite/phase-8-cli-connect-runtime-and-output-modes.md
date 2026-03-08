@@ -139,8 +139,9 @@ Do not include in this slice:
 
 ## Recommended Next Step
 
-Close out Phase 8 with a short inventory doc or update to the existing
-Phase 7/Phase 8 boundaries that records what CLI/distribution surface still
-remains in Python after the completed `status`, `auth`, `tools`, `api`,
-`stop`, and `connect` migrations. The main remaining decisions should now be
-launcher/distribution ownership rather than SSH helper behavior.
+Phase 8 closeout is now tracked in
+`phase-8-cli-closeout-and-launcher-distribution-boundary.md`.
+
+If work continues beyond the completed helper-command slices, take the next
+plan from that doc: shipped entrypoint plus launcher/distribution ownership,
+not another SSH-helper follow-up.

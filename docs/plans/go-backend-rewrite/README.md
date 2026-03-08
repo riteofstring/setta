@@ -337,11 +337,15 @@ Use the docs in this order:
 112. `phase-8-cli-connect-runtime-and-output-modes.md`
   - focused implementation-plan doc for the Go `cmd/setta-cli` `connect` /
     `c` slice above the completed SSH runtime and remote `stop` foundation
-113. `spike-mcp.md`
+113. `phase-8-cli-closeout-and-launcher-distribution-boundary.md`
+  - focused closeout/inventory doc for the remaining Python-owned shipped
+    entrypoint, launcher, and distribution surface after the completed Go CLI
+    helper-command slices
+114. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-114. `spike-pty.md`
+115. `spike-pty.md`
    - PTY uncertainty-reduction plan
-115. `spike-lsp.md`
+116. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

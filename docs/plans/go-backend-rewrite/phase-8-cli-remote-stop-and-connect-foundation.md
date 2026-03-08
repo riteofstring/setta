@@ -157,7 +157,6 @@ Do not include in this stage:
 
 ## Recommended Next Step
 
-The SSH helper cluster tracked by this doc is complete. The next useful planning
-step is a closeout/inventory update for the remaining Python-owned CLI and
-distribution surface outside the completed `status`, `auth`, `tools`, `api`,
-`stop`, and `connect` migrations.
+The SSH helper cluster tracked by this doc is complete. The closeout/inventory
+follow-up now lives in
+`phase-8-cli-closeout-and-launcher-distribution-boundary.md`.

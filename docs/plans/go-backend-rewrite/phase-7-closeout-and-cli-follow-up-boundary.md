@@ -80,12 +80,8 @@ As of 2026-03-08:
 
 Do not open another Phase 7 backend slice.
 
-If product priorities require CLI/distribution migration, create a separate
-post-backend plan for:
-
-- a dedicated `cmd/setta-cli`
-- launcher/distribution script ownership
-- any remaining CLI surfaces not already migrated into Go
+The post-backend CLI/distribution closeout is now tracked in
+`phase-8-cli-closeout-and-launcher-distribution-boundary.md`.
 
 Otherwise move the rewrite effort to stabilization, verification, and release
 readiness for the completed Go backend runtime.
