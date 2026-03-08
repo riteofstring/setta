@@ -82,11 +82,13 @@ As of 2026-03-08:
      - alias `c`
    - the supporting runtime logic is in Go, not in Python shims
 
-2. The shipped top-level product entrypoint is still Python
-   - `pyproject.toml` still publishes:
-     - `setta = "setta.start:cli"`
-   - this means released installs still enter through Click even when the
-     underlying runtime/helper behavior already exists in Go
+2. The shipped top-level product entrypoint was still fully Python-owned at
+   Phase 8 closeout time
+   - follow-up note:
+     - Phase 9 later moved the published entrypoint to
+       `setta = "setta.entrypoint:main"`
+     - the current shipped boundary is a thin Python wrapper that dispatches
+       Go-owned launcher/helper commands into packaged Go binaries
 
 3. The remaining Python CLI surface is not one thing
    - launcher/distribution surface:

@@ -345,11 +345,15 @@ Use the docs in this order:
   - focused implementation-plan doc for the next rewrite track: Go-owned
     shipped `setta` entrypoint plus launcher/distribution ownership over the
     completed Go backend and helper-command foundations
-115. `spike-mcp.md`
+115. `phase-9-packaged-go-entrypoint-and-distribution-stage1b.md`
+  - focused implementation-plan doc for the coupled packaged-binary and thin
+    Python-entrypoint dispatch slice needed to make launcher distribution
+    actually bind to the Go-owned `cmd/setta` contract
+116. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-116. `spike-pty.md`
+117. `spike-pty.md`
    - PTY uncertainty-reduction plan
-117. `spike-lsp.md`
+118. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

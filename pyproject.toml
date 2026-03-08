@@ -48,7 +48,7 @@ Homepage = "https://setta.dev"
 GitHub = "https://github.com/settadev/setta"
 
 [project.scripts]
-setta = "setta.start:cli"
+setta = "setta.entrypoint:main"
 
 [project.optional-dependencies]
 dev = [
@@ -82,4 +82,5 @@ artifacts = [
     "backend/setta/vendor/node/**",
     "backend/setta/plugins/schemas/**",
     "backend/setta/launcher_artifacts/assets/**",
+    "backend/setta/go_bin/**",
 ]

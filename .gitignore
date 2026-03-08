@@ -57,6 +57,7 @@ gcf.log
 auth.json
 mcp-tools.json
 docs/temporary/
+backend/setta/go_bin/
 backend/setta/vendor/node/
 .tools/
 .claude

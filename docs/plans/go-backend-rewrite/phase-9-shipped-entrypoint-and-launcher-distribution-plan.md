@@ -38,13 +38,15 @@ As of 2026-03-08:
     - `launcher repair`
     - `launcher remove`
     - `launcher update`
-- Python still owns the shipped user-facing `setta` entrypoint:
-  - `pyproject.toml` publishes `setta = "setta.start:cli"`
-  - `backend/setta/__main__.py` also enters through `setta.start`
+- Go now also owns the shipped launcher/helper command contract at the published
+  Python entrypoints:
+  - `pyproject.toml` now publishes `setta = "setta.entrypoint:main"`
+  - `backend/setta/__main__.py` now also enters through `setta.entrypoint`
+  - the Python entrypoint is now a thin explicit wrapper, not the owner of the
+    Go-owned launcher/helper command semantics
 - Python still owns the shipped launcher entrypoint path in `backend/setta/start.py`,
-  but only as a legacy duplicate of the now-Go-owned command tree:
-  - `launcher`
-  - `launcher setup|status|repair|remove|update`
+  but only as the temporary owner of still-Python local command groups
+  behind the thin wrapper boundary
 - installer/release scripts still bind to that Python command tree:
   - `scripts/install_desktop_launcher.sh`
   - `scripts/install_desktop_launcher.ps1`
@@ -64,6 +66,7 @@ As of 2026-03-08:
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
 - `docs/plans/go-backend-rewrite/phase-8-cli-closeout-and-launcher-distribution-boundary.md`
+- `docs/plans/go-backend-rewrite/phase-9-packaged-go-entrypoint-and-distribution-stage1b.md`
 - `docs/reference/setta-cli-commands.md`
 - `pyproject.toml`
 - `build.sh`
@@ -231,18 +234,34 @@ the actual Go command tree that installer scripts can target next.
 - 2026-03-08: the remaining Stage 1 boundary is now packaging/module-entrypoint
   ownership plus installer-script retargeting. The open rewrite gap is
   distribution wiring, not launcher runtime semantics.
+- 2026-03-08: narrowed the next active slice into
+  `phase-9-packaged-go-entrypoint-and-distribution-stage1b.md`. The practical
+  dependency is that installer-script retargeting and Python-entrypoint switch
+  have to land together around packaged Go binary delivery; shell-argument-only
+  script changes are not enough.
+- 2026-03-08: completed the packaged-binary and thin-wrapper Stage 1B slice.
+  Current-platform builds now package `cmd/setta` plus `cmd/setta-server`
+  under `backend/setta/go_bin`, the published `setta` and `python -m setta`
+  entrypoints dispatch the Go-owned command set through that packaged binary,
+  and the launcher-smoke workflow now builds local package artifacts through the
+  Go-binary distribution helper instead of raw `python -m build`.
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd ./internal/launcher ./cmd/setta -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py tests/start/test_desktop_launcher_install_scripts.py -q`
+- `source activate.sh && ./scripts/build_python_distribution_with_go_binaries.sh --sdist`
+- `tar -tzf dist/setta-0.0.18.tar.gz | rg 'backend/setta/go_bin/(setta|setta-server)$'`
+- `source activate.sh && python -m setta version`
 - `git diff --check`
 
 ## Recommended Next Step
 
 Implement the remaining Stage 1 distribution slice from this doc:
 
-1. retarget launcher install/smoke scripts to the Go `cmd/setta` contract
-2. switch the shipped Python entrypoint/module-entrypoint path to exec the Go
-   binary or dispatch directly into the Go-owned router
-3. keep unrelated local Python command groups out of scope unless packaging
+1. refresh any remaining launcher bootstrap/native-installer paths that still
+   assume pre-Go package-build conventions
+2. inventory whether the still-Python local commands should remain behind the
+   thin wrapper or move into a later Go CLI slice
+3. keep unrelated local Python command groups out of scope unless distribution
    work proves they are a direct dependency

@@ -149,6 +149,10 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: scripts/go_version.txt
+
       - uses: astral-sh/setup-uv@v3
 
       - name: Resolve package spec for smoke tests
@@ -160,7 +164,7 @@ jobs:
           fi
 
           python -m pip install build
-          python -m build
+          ./scripts/build_python_distribution_with_go_binaries.sh
           package_spec="$(find dist -maxdepth 1 -type f -name '*.tar.gz' | head -n 1)"
           if [[ -z "${package_spec}" ]]; then
             echo "Could not find built source distribution under dist/." >&2
