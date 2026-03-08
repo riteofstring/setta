@@ -752,12 +752,16 @@ Use the docs in this order:
   - focused Slice 3 inventory doc showing that the remaining reachable
     `setta.start` surface is now a small entrypoint fallback edge set rather
     than a broad active startup dependency
-205. `spike-mcp.md`
+205. `phase-25-distribution-install-workflow-retargeting-plan.md`
+  - focused Slice 4 implementation plan for converging repo-root
+    build/install wrappers on the explicit packaged-distribution helper
+    without changing the Python artifact boundary
+206. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-206. `spike-pty.md`
+207. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-207. `spike-lsp.md`
+208. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

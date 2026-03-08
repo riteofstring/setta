@@ -272,3 +272,7 @@ Use these docs as the current source of truth:
   landed source/dev startup hardening slice
 - use `phase-25-start-py-reachability-inventory-and-rerank.md` as the record
   of the now-narrowed remaining `setta.start` reachability
+
+The focused Slice 4 implementation plan is now:
+
+- `phase-25-distribution-install-workflow-retargeting-plan.md`

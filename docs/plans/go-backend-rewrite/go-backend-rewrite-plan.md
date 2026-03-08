@@ -411,6 +411,18 @@ The next honest Phase 25 decision is therefore no longer "clean up
 for that small root-level edge set or to move directly to the distribution /
 install workflow track.
 
+That distribution/install follow-on is now narrowed in
+`phase-25-distribution-install-workflow-retargeting-plan.md`.
+The first bounded Slice 4 target is not a packaging-format rewrite. It is
+wrapper convergence around the already-landed explicit package-builder
+boundary:
+
+- keep Python sdist/wheel artifacts as the deliberate distribution format
+- treat `scripts/build_python_distribution_with_go_binaries.sh` as the
+  canonical local/release package builder
+- retarget root wrappers like `build.sh` around that boundary before touching
+  broader release/install glue
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.
