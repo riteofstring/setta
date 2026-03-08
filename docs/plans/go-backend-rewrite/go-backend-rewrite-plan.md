@@ -482,6 +482,15 @@ landed:
 - the module graph no longer carries the transitive `go-version` and
   `xerrors` baggage that existed only for that dependency path
 
+The bounded SSH dependency cleanup tracked in
+`phase-7-ssh-arg-parser-dependency-cleanup.md` is now also landed:
+
+- Go no longer depends on `github.com/google/shlex` for SSH argument parsing
+- `internal/sshx` now owns the bounded shell-style splitter used by
+  `ParseSSHArgs(...)`
+- the module graph no longer carries a direct dependency solely for that
+  SSH foundation helper
+
 ## Current Reality
 
 The backend seams that matter most for planning are:

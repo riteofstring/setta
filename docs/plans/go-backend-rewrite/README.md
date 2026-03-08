@@ -359,6 +359,9 @@ Use the docs in this order:
   - focused historical implementation-plan doc for the completed remote
     `/launch` integration and trust-persistence rollback slice on top of the
     completed SSH runtime
+- `phase-7-ssh-arg-parser-dependency-cleanup.md`
+  - focused completed-slice doc for the bounded SSH arg-splitter owner and
+    removal of the previous `google/shlex` dependency
 108. `phase-7-closeout-and-cli-follow-up-boundary.md`
   - focused Phase 7 closeout doc that separates the remaining Python CLI and
     distribution surface from the completed backend rewrite

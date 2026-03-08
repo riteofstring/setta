@@ -11,7 +11,6 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.21
 	github.com/gofrs/flock v0.12.1
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	github.com/pelletier/go-toml/v2 v2.2.4

@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/google/shlex"
 )
 
 const JSONPayloadPrefix = "__SETTA_JSON_B64__"
@@ -64,7 +62,7 @@ func ParseSSHArgs(raw string) ([]string, error) {
 	if trimmed == "" {
 		return nil, nil
 	}
-	args, err := shlex.Split(trimmed)
+	args, err := splitShellArgs(trimmed)
 	if err != nil {
 		return nil, &Error{
 			Code:    "InvalidSshArgs",

@@ -30,6 +30,46 @@ func TestParseSSHArgsRejectsUnclosedQuote(t *testing.T) {
 	requireSSHErrorCode(t, err, "InvalidSshArgs")
 }
 
+func TestParseSSHArgsHandlesEscapedSpacesAndQuotedProxyCommand(t *testing.T) {
+	t.Parallel()
+
+	args, err := ParseSSHArgs(`-i ~/.ssh/id_ed25519 -o UserKnownHostsFile=/tmp/known\ hosts -o ProxyCommand='ssh -W %h:%p jump'`)
+	if err != nil {
+		t.Fatalf("parse escaped ssh args: %v", err)
+	}
+	want := []string{
+		"-i",
+		"~/.ssh/id_ed25519",
+		"-o",
+		"UserKnownHostsFile=/tmp/known hosts",
+		"-o",
+		"ProxyCommand=ssh -W %h:%p jump",
+	}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("unexpected escaped ssh args:\n got: %#v\nwant: %#v", args, want)
+	}
+}
+
+func TestParseSSHArgsConcatenatesQuotedAndUnquotedFragments(t *testing.T) {
+	t.Parallel()
+
+	args, err := ParseSSHArgs(`-o ProxyCommand=prefix"quoted value"suffix`)
+	if err != nil {
+		t.Fatalf("parse concatenated quoted args: %v", err)
+	}
+	want := []string{"-o", "ProxyCommand=prefixquoted valuesuffix"}
+	if !reflect.DeepEqual(args, want) {
+		t.Fatalf("unexpected concatenated ssh args:\n got: %#v\nwant: %#v", args, want)
+	}
+}
+
+func TestParseSSHArgsRejectsDanglingEscape(t *testing.T) {
+	t.Parallel()
+
+	_, err := ParseSSHArgs(`-o UserKnownHostsFile=/tmp/known\`)
+	requireSSHErrorCode(t, err, "InvalidSshArgs")
+}
+
 func TestApplyControlSocketArgsAddsDefaultsWhenMissing(t *testing.T) {
 	t.Parallel()
 
