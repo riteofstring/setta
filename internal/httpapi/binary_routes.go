@@ -11,7 +11,10 @@ import (
 	"setta/internal/modes"
 )
 
-const RouteBinaryUpload = "/binary/upload"
+const (
+	RouteBinaryUpload   = "/binary/upload"
+	RouteBinaryDownload = "/binary/{contentId}"
+)
 
 type BinaryRouteDependencies struct {
 	ModePolicy modes.Policy
@@ -27,6 +30,7 @@ func RegisterBinaryRoutes(router chi.Router, deps BinaryRouteDependencies) error
 	}
 
 	router.With(RequireFullIDERuntime(deps.ModePolicy)).Post(RouteBinaryUpload, binaryUploadHandler(deps.Store))
+	router.With(RequireFullIDERuntime(deps.ModePolicy)).Get(RouteBinaryDownload, binaryDownloadHandler(deps.Store))
 	return nil
 }
 
@@ -68,6 +72,35 @@ func binaryUploadHandler(store *binarypayload.Store) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, ref)
+	}
+}
+
+func binaryDownloadHandler(store *binarypayload.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		contentID := chi.URLParam(r, "contentId")
+		path, err := store.ResolvePath(contentID)
+		if err != nil {
+			writeBinaryDownloadError(w, r, err)
+			return
+		}
+
+		mediaType := "application/octet-stream"
+		if ref, err := store.ResolveRef(contentID); err == nil && strings.TrimSpace(ref.MimeType) != "" {
+			mediaType = ref.MimeType
+		}
+		w.Header().Set("Content-Type", mediaType)
+		http.ServeFile(w, r, path)
+	}
+}
+
+func writeBinaryDownloadError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, binarypayload.ErrContentIDRequired), errors.Is(err, binarypayload.ErrInvalidContentID):
+		writeError(w, r, http.StatusBadRequest, "invalid_binary_content_id", "Invalid binary content id.")
+	case errors.Is(err, binarypayload.ErrPayloadNotFound):
+		writeError(w, r, http.StatusNotFound, "binary_payload_not_found", "Binary payload not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
 }
 

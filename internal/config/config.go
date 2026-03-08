@@ -774,7 +774,7 @@ func validateExistingDir(path string, label string) error {
 	return nil
 }
 
-func buildFilesRootFromBase(baseRoot string, workspaceRoot string) string {
+func BuildFilesRootFromBase(baseRoot string, workspaceRoot string) string {
 	sanitizedLeaf := sanitizeLeaf(filepath.Base(workspaceRoot))
 	if len(sanitizedLeaf) > 48 {
 		sanitizedLeaf = strings.TrimRight(sanitizedLeaf[:48], "._-")
@@ -784,6 +784,10 @@ func buildFilesRootFromBase(baseRoot string, workspaceRoot string) string {
 	}
 	sum := sha256.Sum256([]byte(workspaceRoot))
 	return filepath.Join(baseRoot, fmt.Sprintf("%s-%s", sanitizedLeaf, hex.EncodeToString(sum[:4])))
+}
+
+func buildFilesRootFromBase(baseRoot string, workspaceRoot string) string {
+	return BuildFilesRootFromBase(baseRoot, workspaceRoot)
 }
 
 func sanitizeLeaf(value string) string {

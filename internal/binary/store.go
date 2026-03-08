@@ -231,6 +231,24 @@ func (s *Store) ResolveRef(contentID string) (ContentRef, error) {
 	}, nil
 }
 
+func (s *Store) ResolvePath(contentID string) (string, error) {
+	if s == nil {
+		return "", fmt.Errorf("binary store is required")
+	}
+	normalizedID, err := normalizeContentID(contentID)
+	if err != nil {
+		return "", err
+	}
+	path := s.contentPath(normalizedID)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("%w: %q", ErrPayloadNotFound, normalizedID)
+		}
+		return "", fmt.Errorf("stat binary payload: %w", err)
+	}
+	return path, nil
+}
+
 func (s *Store) writeMetadata(ref ContentRef, durable bool) error {
 	payload := metadataPayload{
 		ByteLength: ref.ByteLength,

@@ -118,6 +118,94 @@ func TestRegisterBinaryRoutesRejectsInvalidDurableFlag(t *testing.T) {
 	}
 }
 
+func TestRegisterBinaryRoutesServesDownloadedPayload(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+	ref, err := store.StoreBytes([]byte("download-body"), "text/plain", false)
+	if err != nil {
+		t.Fatalf("store payload: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Store:      store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	// Binary download should stream the stored payload bytes back over the Go route.
+	request := httptest.NewRequest(http.MethodGet, "/api/binary/"+ref.ContentID, nil)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if body := response.Body.String(); body != "download-body" {
+		t.Fatalf("expected downloaded body %q, got %q", "download-body", body)
+	}
+	if got := response.Header().Get("Content-Type"); !strings.Contains(got, "text/plain") {
+		t.Fatalf("expected text/plain content type, got %q", got)
+	}
+}
+
+func TestRegisterBinaryRoutesRejectsInvalidDownloadContentID(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	store, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:       authService,
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Register: func(r chi.Router) {
+			if err := RegisterBinaryRoutes(r, BinaryRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Store:      store,
+			}); err != nil {
+				t.Fatalf("register binary routes: %v", err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/api/binary/..", nil)
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_binary_content_id"`) {
+		t.Fatalf("expected invalid_binary_content_id error, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterBinaryRoutesBlocksDeploymentMode(t *testing.T) {
 	t.Parallel()
 
