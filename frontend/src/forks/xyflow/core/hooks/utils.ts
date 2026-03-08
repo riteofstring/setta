@@ -1,7 +1,6 @@
 import type { RefObject } from "react";
 
-import { getActiveSectionUIIds } from "state/activeSectionUI";
-import { ZustandNodeInternalsState } from "state/definitions";
+import { useProjectState, ZustandNodeInternalsState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import type { NodeDragItem } from "../types";
 
@@ -27,7 +26,8 @@ export function getDragItems(
   mousePos: Position,
   nodeId?: string,
 ): NodeDragItem[] {
-  const activeSections = getActiveSectionUIIds();
+  const { activeIds: activeSections } =
+    useProjectState.getState().projectConfig;
   const draggedNodeIsActive = activeSections.includes(nodeId);
   return Array.from(nodeInternals.values())
     .filter(
