@@ -189,6 +189,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  projectStateFrontendSupportRawTS,
 			},
+			reflect.TypeOf(AIRuntimeSupport{}): {
+				Name: "AIRuntimeSupport",
+				Kind: "raw",
+				Raw:  aiRuntimeFrontendSupportRawTS,
+			},
 			reflect.TypeOf(PluginListEntry{}): {
 				Name: "PluginListEntry",
 				Kind: "raw",

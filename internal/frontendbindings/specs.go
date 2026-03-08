@@ -820,6 +820,7 @@ func CurrentEndpoints() []EndpointSpec {
 
 func CurrentAdditionalTypeRoots() []reflect.Type {
 	return []reflect.Type{
+		reflect.TypeOf(AIRuntimeSupport{}),
 		reflect.TypeOf(DependencyKeyType("")),
 		reflect.TypeOf(SectionDependencyKey{}),
 		reflect.TypeOf(SectionParamDependencyKey{}),

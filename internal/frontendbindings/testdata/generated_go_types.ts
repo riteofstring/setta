@@ -2,6 +2,235 @@
 
 export type ObjectValues<T> = T[keyof T];
 
+
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+export type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
+export type EngineConfigDefaults = {
+  thinking?: boolean | null;
+};
+export function createEngineConfigDefaults(
+  options: Partial<EngineConfigDefaults> = {},
+): EngineConfigDefaults {
+  return mergeGeneratedOptions(
+    {
+      thinking: null,
+    },
+    options,
+  );
+}
+
+export type EngineConfig = {
+  id: string;
+  name: string;
+  engineType: EngineType;
+  settaLlmConfigId?: string | null;
+  externalAgentConfigId?: string | null;
+  defaults: EngineConfigDefaults;
+};
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
+  const defaults = createEngineConfigDefaults();
+  return {
+    ...mergeGeneratedOptions(
+      {
+        id: "",
+        name: "",
+        engineType: EngineTypeEnum.setta_llm,
+        settaLlmConfigId: null,
+        externalAgentConfigId: null,
+        defaults,
+      },
+      options,
+    ),
+    defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
+  };
+}
+
+export type AgentProfile = {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  enableBackgroundSummaryFill: boolean;
+  enableLlmChatTitles: boolean;
+  engineConfigId?: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope?: string | null;
+};
+
+export const TranscriptionTransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+export type TranscriptionTransportMode = ObjectValues<
+  typeof TranscriptionTransportModeEnum
+>;
+
+export type TranscriptionProfile = {
+  id: string;
+  name: string;
+  transcriptionLlmConfigId: string;
+  transportMode: TranscriptionTransportMode;
+  chunkMs: number;
+  supportsRealtimeTranscription: boolean;
+  language?: string | null;
+};
+
+export const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
+
+export type RunEvent = {
+  id: string;
+  timestamp: string;
+  type: string;
+  payload?: Record<string, unknown>;
+};
+export function createRunEvent(options: Partial<RunEvent> = {}): RunEvent {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      timestamp: "",
+      type: "",
+      payload: {},
+    },
+    options,
+  );
+}
+
+export type AgentRun = {
+  id: string;
+  profileId?: string | null;
+  status: AgentRunStatus;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  inputs?: Record<string, unknown> | null;
+  outputs?: Record<string, unknown> | null;
+  toolCalls: Array<Record<string, unknown>>;
+  cost?: number | null;
+  events: Array<RunEvent>;
+};
+export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      profileId: null,
+      status: AgentRunStatusEnum.queued,
+      startedAt: null,
+      finishedAt: null,
+      inputs: null,
+      outputs: null,
+      toolCalls: [],
+      cost: null,
+      events: [],
+    },
+    options,
+  );
+}
+
+export type AgentRunList = Array<AgentRun>;
+
+export const StreamingEventTypeEnum = {
+  MESSAGE_START: "message_start",
+  DELTA: "delta",
+  TOOL_CALL_DELTA: "tool_call_delta",
+  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
+  TOOL_RESULT: "tool_result",
+  MESSAGE_STOP: "message_stop",
+  MESSAGE_FINALIZED: "message_finalized",
+} as const;
+export type StreamingEventType = ObjectValues<typeof StreamingEventTypeEnum>;
+
+export type MessageTextDelta = {
+  type: "text_delta";
+  index: number;
+  text: string;
+};
+
+export type MessageThinkingDelta = {
+  type: "thinking_delta";
+  index: number;
+  thinking: string;
+  summary?: string | null;
+  signature?: string | null;
+};
+
+export type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
+
+export type MessageStartEvent = {
+  type: typeof StreamingEventTypeEnum.MESSAGE_START;
+  message: BaseChatMessageUnion;
+};
+
+export type MessageDeltaEvent = {
+  type: typeof StreamingEventTypeEnum.DELTA;
+  message_id: string;
+  content?: Array<MessageContentDelta> | null;
+};
+
+export type ToolCallDeltaEvent = {
+  type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
+  message_id: string;
+  tool_call_id: string;
+  arguments_delta: string;
+  tool_name?: string | null;
+};
+
+export type ToolResultEvent = {
+  type: typeof StreamingEventTypeEnum.TOOL_RESULT;
+  result: ToolChatMessage;
+};
+
+export type ToolArgumentPreviewDeltaEvent = {
+  type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
+  message_id: string;
+  tool_call_id: string;
+  tool_name: string;
+  arguments_delta: string;
+  preview_kind: string;
+  target_ids_by_type: Record<string, Array<string>>;
+  preview_value_delta: string;
+};
+
+export type MessageStopEvent = {
+  type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
+  message_id: string;
+};
+
+export type MessageFinalizedEvent = {
+  type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
+  message: BaseChatMessageUnion;
+};
+
+export type LLMStreamingResponseChunk =
+  | MessageStartEvent
+  | MessageDeltaEvent
+  | ToolCallDeltaEvent
+  | ToolResultEvent
+  | ToolArgumentPreviewDeltaEvent
+  | MessageStopEvent
+  | MessageFinalizedEvent;
+
+export type LLMStreamingResponse = {
+  chatId: string;
+  chunk: LLMStreamingResponseChunk;
+  sectionId?: string | null;
+  projectConfigId?: string | null;
+};
+
+
+
 export const DependencyKeyTypeEnum = {
   Section: "Section",
   SectionParam: "SectionParam",
@@ -355,6 +584,102 @@ export const ParamNameTypeEnum = {
 } as const;
 export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
 
+export const ButtonActionModeEnum = {
+  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
+  HTTP_REQUEST: "HTTP_REQUEST",
+  SETTA_API: "SETTA_API",
+} as const;
+export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
+
+export const HttpRequestMethodEnum = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  PATCH: "PATCH",
+  DELETE: "DELETE",
+  HEAD: "HEAD",
+  OPTIONS: "OPTIONS",
+} as const;
+export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
+export type DropzoneMode = ObjectValues<typeof DropzoneModeEnum>;
+
+export const TextParamInputUITypeEnum = {
+  plain: "plain",
+  time: "time",
+  date: "date",
+} as const;
+export type TextParamInputUIType = ObjectValues<
+  typeof TextParamInputUITypeEnum
+>;
+
+export const TimeDisplayFormatEnum = {
+  twenty_four_hour: "twenty_four_hour",
+  twelve_hour: "twelve_hour",
+} as const;
+export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
+
+export const TimeControlModeEnum = {
+  input: "input",
+  display: "display",
+} as const;
+export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
+
+export const TimeDisplayFontEnum = {
+  clock: "clock",
+  monospace: "monospace",
+  system: "system",
+} as const;
+export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
+
+export const DateDisplayFormatEnum = {
+  iso: "iso",
+  us: "us",
+  eu: "eu",
+  long: "long",
+} as const;
+export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
+
+export const DateControlModeEnum = {
+  input: "input",
+  calendar: "calendar",
+} as const;
+export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
+
+export const DateSelectionModeEnum = {
+  single: "single",
+  multiple: "multiple",
+} as const;
+export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
+
+export const DateCalendarWeekStartEnum = {
+  sunday: "sunday",
+  monday: "monday",
+} as const;
+export type DateCalendarWeekStart = ObjectValues<
+  typeof DateCalendarWeekStartEnum
+>;
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+export type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
+
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+export type AgenticEdgeContextMode = ObjectValues<
+  typeof AgenticEdgeContextModeEnum
+>;
+
 export const RunSnapshotModeEnum = {
   ephemeral: "ephemeral",
   always: "always",
@@ -473,13 +798,31 @@ export type AgenticEdge = {
   id: string;
   sourceSectionId: string;
   targetSectionId: string;
-  kind: string;
-  contextMode?: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode | null;
   style?: Record<string, unknown>;
   hidden?: boolean;
   zIndex?: number;
   selected?: boolean;
 };
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      sourceSectionId: "",
+      targetSectionId: "",
+      kind: AgenticEdgeKindEnum.section_chat,
+      contextMode: null,
+      style: {},
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  );
+}
 
 export type WatchCodeFolder = {
   path: string;
@@ -951,9 +1294,221 @@ export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
   defaultVal: string;
   value: string;
 };
-export type BaseCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl;
-export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl;
-export type BaseParamCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl;
+
+export type ColorPickerChoice = {
+  color: string;
+  description: string;
+};
+
+export type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeCallable;
+  children: Array<string>;
+};
+
+export type TextParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  uiType: TextParamInputUIType;
+};
+
+export type DateParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DateParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  dateDisplayFormat: DateDisplayFormat;
+  dateControlMode: DateControlMode;
+  dateSelectionMode: DateSelectionMode;
+  dateCalendarWeekStart: DateCalendarWeekStart;
+  dateIncludesTime: boolean;
+};
+
+export type TimeParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TimeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  timeControlMode: TimeControlMode;
+  timeDisplayFormat: TimeDisplayFormat;
+  timeDisplayTransparent: boolean;
+  timeDisplayScale: number;
+  timeDisplayFont: TimeDisplayFont;
+};
+
+export type ButtonParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.ButtonParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  label: string;
+  actionMode: ButtonActionMode;
+  requestMethod: HttpRequestMethod;
+  requestUrl: string;
+  requestHeaderKey: string;
+  requestHeaderValue: string;
+  requestBody: string;
+};
+
+export type SliderParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SliderParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+};
+
+export type RotaryParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.RotaryParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+};
+
+export type SwitchParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SwitchParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
+export type ColorPickerParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.ColorPickerParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  colorChoices: Array<ColorPickerChoice>;
+};
+
+export type DropdownParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropdownParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  choices: Array<string>;
+};
+
+export type PasswordParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.PasswordParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  hasSecret: boolean;
+};
+
+export type TextAreaParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextAreaParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+
+export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropzoneParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  mode: DropzoneMode;
+  maxAttachments?: number | null;
+  placeholder: string;
+};
+
+export type NestedParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.NestedParam;
+  children: Array<string>;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+};
+
+export type BaseCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
+export type BaseChildlessCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl;
+export type BaseParamCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
 
 export type UserDefaultCodeParamCodeObjImpl = {
   coreNameType: ParamNameType;

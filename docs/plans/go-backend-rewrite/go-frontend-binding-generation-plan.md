@@ -142,15 +142,50 @@ Current landed wedge:
       - section/default factories for `Callable`, `Dict`, `ListRoot`,
         `TextBlock`, `Code`, `Terminal`, `Chat`, `TaskBoard`, and
         `Spreadsheet`
-      - code-object factories for `CodeParam`
+      - current code-object helper/type coverage for `CodeParam` plus the
+        caller-used param-UI impl shapes for `CodeCallable`, `TextParam`,
+        `DateParam`, `TimeParam`, `ButtonParam`, `SliderParam`,
+        `RotaryParam`, `SwitchParam`, `ColorPickerParam`,
+        `DropdownParam`, `PasswordParam`, `TextAreaParam`,
+        `DropzoneParam`, and `NestedParam`
       - chat message/tool-call helpers and chat section state/branch payloads
+      - agentic-edge enums/helper support
+        - `AgenticEdgeKind`
+        - `AgenticEdgeContextMode`
+        - `createAgenticEdge`
       - runtime enums used by the current helper callers, including
         `CodeLanguage`, `ConfigLanguage`, `TextBlockFormat`,
         `TextBlockDisplayMode`, `ChatRole`, `ChatPermissionMode`,
         `ChatDictationMode`, `TaskBoardViewMode`,
         `TaskBoardTaskRecurrence`, `TaskBoardRecurringWeekday`,
         `TaskBoardRecurringMonth`, `SpreadsheetGridDensity`,
-        `ParamNameType`, and `ParameterPassingStyle`
+        `ParamNameType`, `ParameterPassingStyle`,
+        `ButtonActionMode`, `HttpRequestMethod`, `DropzoneMode`,
+        `TextParamInputUIType`, `TimeDisplayFormat`, `TimeControlMode`,
+        `TimeDisplayFont`, `DateDisplayFormat`, `DateControlMode`,
+        `DateSelectionMode`, and `DateCalendarWeekStart`
+    - current shared AI runtime/helper types used by current callers
+      - `EngineType`
+      - `EngineConfigDefaults`
+      - `EngineConfig`
+      - `createEngineConfig`
+      - `AgentProfile`
+      - `TranscriptionTransportMode`
+      - `TranscriptionProfile`
+      - `AgentRunStatus`
+      - `RunEvent`
+      - `createRunEvent`
+      - `AgentRun`
+      - `createAgentRun`
+      - `StreamingEventType`
+      - `MessageStartEvent`
+      - `MessageDeltaEvent`
+      - `ToolCallDeltaEvent`
+      - `ToolResultEvent`
+      - `ToolArgumentPreviewDeltaEvent`
+      - `MessageStopEvent`
+      - `MessageFinalizedEvent`
+      - `LLMStreamingResponse`
   - app-config pane contract types
     - `AppCatalogResponse` and the catalog component/action/prop payloads
     - `AppDefinition`, `AppRoute`, and the app-definition read/mutation
