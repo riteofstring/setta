@@ -26,8 +26,10 @@ Remaining direct gaps for managed `setta_llm` chats:
   landed app-spec patch preview and tool-result follow surfaces
 - additional provider adapters only if the active managed surface requires
   them
-- broader provider-native managed reasoning defaults only if the active
-  product surface still needs them beyond explicit config and early rejection
+- any concrete managed provider/runtime path that can explicitly expose
+  reasoning output to the current frontend thinking surface; the current
+  OpenAI executor remains non-reasoning-exposing, so managed callers now gate
+  `thinking` off instead of defaulting into backend rejection
 
 Landed during Slice 1:
 
@@ -75,6 +77,15 @@ Landed during Slice 4:
 - preview metadata on the Go `stream_app_definition` tool definition
 - real IDE app websocket coverage proving managed tool previews reach the
   existing frontend `LLMStreamingResponse` consumer path
+
+Landed during Slice 5:
+
+- frontend/runtime managed thinking availability boundary for the current Go
+  rewrite surface
+- project chat now hides the thinking control for managed `setta_llm` engines
+  instead of defaulting into typed `thinking_unsupported` failures
+- managed section chat submit/edit paths now force `thinking=false` while the
+  current OpenAI-only executor remains non-reasoning-exposing
 
 Repo findings that shaped this follow-on:
 
@@ -201,6 +212,12 @@ results.
 
 Status: landed on 2026-03-09.
 
+### Slice 6
+
+Managed thinking availability boundary for current Go-managed callers.
+
+Status: landed on 2026-03-10.
+
 ## Decisions Made
 
 - treat the managed live runtime as a direct dependency of provider execution
@@ -215,6 +232,8 @@ Status: landed on 2026-03-09.
   shared websocket hub because these AI routes are IDE-only today
 - keep provider selection and reasoning support explicit; do not guess from
   blank providers or model-name heuristics
+- keep managed thinking unavailable in current managed callers until a
+  concrete provider/runtime path can expose reasoning output explicitly
 - resolve MCP server IDs through `llmconfig.AllConfigs.ResolveMCPServerIDs`
   inside `internal/agentruns` so tool support decisions use the same
   source-of-truth config path as the rest of the runtime

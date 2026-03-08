@@ -363,10 +363,18 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   - bounded metadata-driven result-follow emission in `internal/managedllm`
     after successful Setta MCP tool calls
   - real IDE app websocket coverage for canonical result-follow delivery
-- 2026-03-09: the remaining managed-chat follow-on inside this phase is now
+- 2026-03-10: landed the tenth executable Phase 18 slice for the current
+  managed thinking availability boundary:
+  - project chat now hides the thinking control for managed `setta_llm`
+    engines
+  - managed project-chat and section-chat send/edit paths now force
+    `thinking=false` for the current Go-managed runtime
+  - the current OpenAI-only managed executor no longer defaults normal callers
+    into typed `thinking_unsupported` failures
+- 2026-03-10: the remaining managed-chat follow-on inside this phase is now
   any extra preview kinds beyond the landed app-spec patch path, or any
-  optional broader provider-native reasoning defaults, not route movement or
-  basic tool execution ownership.
+  concrete managed provider/runtime addition that can explicitly expose
+  reasoning output, not route movement or basic tool execution ownership.
 
 ## Verification
 
@@ -379,14 +387,16 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 - `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
+- `pnpm -C frontend exec vitest run src/components/Chat/engineUtils.test.ts src/components/Chat/ChatInput.test.tsx`
 
 ## Next Recommended Step
 
 - add extra preview kinds only if a concrete current frontend caller still
   needs websocket surfaces beyond the landed app-spec patch preview and
   tool-result follow slices
-- add broader provider-native managed reasoning defaults only if the active
-  surface still needs more than explicit config plus early rejection
+- add a concrete managed provider/runtime path that can explicitly expose
+  reasoning output only if the active surface still needs managed visible
+  thinking beyond the landed availability boundary
 - otherwise rerank the adjacent transcription-session runtime slice instead of
   broadening managed chat by default
 

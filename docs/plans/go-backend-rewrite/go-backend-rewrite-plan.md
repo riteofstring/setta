@@ -44,11 +44,13 @@ Go as well. The rewrite still does not plan to recreate a broad
 LiteLLM-equivalent managed runtime in Go. The remaining managed-chat
 follow-on is now narrower: any broader preview-kind coverage beyond the
 landed app-spec patch `tool_argument_preview_delta` path and landed managed
-`AIFollowToolResultUpdate` path, plus any optional broader provider-native
-managed reasoning defaults beyond the landed explicit-config / explicit-reject
-`thinking=true` behavior behind the landed `/getLLMResponse` send owner, the
-landed managed live chat runtime, the bounded OpenAI executor, and the bounded
-MCP tool path.
+`AIFollowToolResultUpdate` path, plus any concrete provider/runtime addition
+needed to expose managed reasoning output beyond the landed explicit-config /
+explicit-reject backend behavior. Current project-chat and section-chat
+callers now gate managed `thinking` off instead of defaulting into backend
+rejection behind the landed `/getLLMResponse` send owner, the landed managed
+live chat runtime, the bounded OpenAI executor, and the bounded MCP tool
+path.
 
 The separate transcription-session runtime is now Go-owned for the current
 direct frontend caller surface. `internal/transcriptionsessions`, thin AI route
@@ -136,6 +138,16 @@ realtime ownership:
   profiles
 - capability-driven `transportMode=auto` resolution without Python-style
   heuristic realtime-to-file fallback
+
+The tenth Phase 18 slice is now landed for the current managed thinking
+availability boundary:
+
+- project chat now hides the thinking control for managed `setta_llm` engines
+- managed project-chat and section-chat send/edit paths now force
+  `thinking=false` for the current Go-managed runtime
+- normal managed callers no longer default into typed
+  `thinking_unsupported` failures while managed visible reasoning remains
+  unimplemented
 
 The current bounded Go-owned Phase 12 surface now includes:
 

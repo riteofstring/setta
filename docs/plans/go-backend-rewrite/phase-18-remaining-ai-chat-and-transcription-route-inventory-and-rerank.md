@@ -52,8 +52,12 @@ Current Go state relevant to this inventory:
   - now rejects unsupported managed `thinking=true` requests at start time
     unless the selected config already declares explicit provider-native
     reasoning params
-  - still leaves only broader preview-kind coverage and broader
-    provider-native reasoning defaults as explicit managed-chat follow-ons
+  - project chat and section chat now gate managed `thinking` off for the
+    current Go runtime instead of defaulting managed callers into typed
+    `thinking_unsupported`
+  - still leaves only broader preview-kind coverage and any concrete
+    provider/runtime addition that can expose reasoning output as explicit
+    managed-chat follow-ons
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -134,8 +138,8 @@ Implication:
 - the remaining managed-chat work is executor/runtime semantics, not route
   movement
 - the highest-leverage remaining managed follow-on is now any still-needed
-  broader preview-kind coverage plus optional broader provider-native
-  reasoning defaults behind the now-landed
+  broader preview-kind coverage plus any concrete provider/runtime addition
+  that can expose reasoning output behind the now-landed
   send/hydrate/stop/provider/tool/follow foundations
 
 ### 2. Chat-section persistence is the adjacent direct dependency and should move with managed chat
