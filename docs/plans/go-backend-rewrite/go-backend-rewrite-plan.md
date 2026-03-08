@@ -91,10 +91,19 @@ landed:
 - Claude external MCP runtime-status seeding from `mcpConfig`, runtime capture
   from SDK `system_message`, and persisted snapshot parity
 
-The current next step is now the bounded Codex raw non-`response_item`
-tool-item follow-on tracked in
-`phase-12-codex-raw-tool-item-parity.md`, then a final reassessment of whether
-Phase 12 is effectively complete for the external-agent surface.
+The bounded Codex follow-on tracked in
+`phase-12-codex-raw-tool-item-parity.md` is now also landed:
+
+- Codex raw non-`response_item` tool-item persistence for command execution,
+  file changes, MCP tool calls, and the Python-tracked generic item types
+- buffered command/file output-delta aggregation when terminal item payloads
+  omit aggregated output or diff fields
+- persisted `tool_result` run events for those raw Codex tool outputs
+
+The current next step is now a final reassessment of whether any concrete
+user-facing Codex or external-agent runtime gap remains. If that inventory
+finds no additional product-visible gap, Phase 12 is effectively complete for
+the external-agent surface.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

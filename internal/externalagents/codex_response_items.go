@@ -357,6 +357,8 @@ func unwrapCodexTextBlockPayload(raw any) (string, bool) {
 
 func formatToolResultContent(result any) string {
 	switch typed := result.(type) {
+	case nil:
+		return ""
 	case string:
 		return typed
 	default:

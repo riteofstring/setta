@@ -36,24 +36,36 @@ Completed before this slice:
 - Claude rich item/tool-result and MCP status parity in
   `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md`
 
-Still missing before this slice:
+Completed in this slice:
 
-- Go Codex persistence for raw non-`response_item` tool items already modeled
-  by the Python Codex parser:
-  - `commandExecution`
-  - `fileChange`
-  - `mcpToolCall`
-  - generic item types:
-    - `collabToolCall`
-    - `webSearch`
-    - `imageView`
-    - `enteredReviewMode`
-    - `exitedReviewMode`
-    - `compacted`
-- buffered output-delta handling for raw Codex command/file items before
-  terminal completion payloads arrive
-- focused Go tests that prove those raw Codex items survive into persisted
-  `messages` and `tool_result` run events
+- `internal/externalagents/codex_raw_items.go` plus
+  `internal/externalagents/codex_executor.go`
+  - Go-owned raw non-`response_item` Codex item handling for:
+    - `commandExecution`
+    - `fileChange`
+    - `mcpToolCall`
+    - generic item types already modeled in the Python parser/tests
+  - per-run assistant-message tracking so raw tool calls attach to the active
+    assistant message when one is open
+  - synthetic assistant-message adoption when raw tool items arrive before the
+    assistant text delta that should own them
+  - buffered command/file output-delta aggregation when terminal completion
+    payloads omit aggregated output or diff fields
+  - persisted tool-result messages and `tool_result` run events over the
+    existing runtime/run-store path
+- focused tests in:
+  - `internal/externalagents/codex_executor_test.go`
+    - raw command/file/MCP/generic item persistence
+    - buffered output/diff closeout
+    - synthetic assistant-message reuse for raw tool-call attachment
+
+Still missing after this slice:
+
+- any additional Codex item classes beyond the Python-tracked raw and
+  `response_item` surfaces that prove user-facing in real runtime output
+- any remaining external-agent websocket/event closeout only if the current
+  frontend still depends on behavior not covered by the now-landed canonical
+  persisted/live chat path
 
 ## Scope
 
@@ -130,14 +142,14 @@ This slice should deliver:
 
 ## Landing Outcome
 
-1. Add Go-owned Codex raw tool-item persistence for the Python-proven item
+1. Landed Go-owned Codex raw tool-item persistence for the Python-proven item
    types.
-2. Reuse the existing runtime/chat/run-event path instead of introducing
+2. Reused the existing runtime/chat/run-event path instead of introducing
    Codex-only storage.
-3. Add focused executor tests that prove persisted message and `tool_result`
-   closeout for raw Codex items.
-4. Reassess whether Phase 12 is effectively complete for the external-agent
-   surface after this landing.
+3. Added focused executor tests that prove persisted message and `tool_result`
+   closeout for raw Codex items plus buffered output/diff handling.
+4. Narrowed the remaining Phase 12 work to final inventory/closeout instead of
+   another known executor or parser slice.
 
 ## Verification
 
@@ -153,17 +165,19 @@ This slice should deliver:
   executor or MCP architecture work
 - use protocol-native item fields as the source of truth rather than inferring
   tool semantics from free-form text
+- preserve raw tool-call ownership on the active assistant message when
+  possible, and adopt synthetic placeholder messages when assistant text arrives
+  later in the same turn
 
 ## Open Questions
 
-- whether raw Codex tool items need placeholder-message reuse semantics that
-  match the Python stream parser exactly, or whether canonical persisted tool
-  call/result preservation is the only user-visible requirement
-  - recommendation: preserve canonical persisted tool calls/results first and
-    only broaden into stricter stream-shape matching if a concrete UX gap
-    remains
+- whether any additional Codex item families outside the Python-tracked raw and
+  `response_item` surfaces still create a user-visible gap after this landing
+  - recommendation: do not broaden Phase 12 further unless concrete runtime
+    output shows a real product gap
 
 ## Next Recommended Step
 
-- land this bounded Codex raw tool-item slice, then reassess whether any Phase
-  12 work remains beyond final inventory/closeout
+- reassess whether any concrete user-facing Codex gap remains; if not, treat
+  the external-agent Phase 12 surface as effectively complete and move to final
+  closeout/inventory work

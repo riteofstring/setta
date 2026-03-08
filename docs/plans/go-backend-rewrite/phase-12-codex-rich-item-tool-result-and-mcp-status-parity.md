@@ -165,6 +165,7 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land the bounded Codex raw non-`response_item` tool-item follow-on tracked in
-  `phase-12-codex-raw-tool-item-parity.md` before deciding whether Phase 12 is
-  effectively complete
+- with the bounded Codex raw non-`response_item` tool-item follow-on now
+  landed in `phase-12-codex-raw-tool-item-parity.md`, reassess whether any
+  concrete user-facing Codex/runtime gap still remains before broadening
+  Phase 12 further

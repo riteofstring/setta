@@ -277,6 +277,7 @@ func (e *CodexExecutor) runLoop(
 		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 		return
 	}
+	eventState := newCodexEventState()
 	if err := e.persistLiveState(request.Run.ID, state, threadID); err != nil {
 		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 		return
@@ -291,7 +292,7 @@ func (e *CodexExecutor) runLoop(
 			}
 			return
 		}
-		finished, err := e.handleEvent(request, session, payload, &state)
+		finished, err := e.handleEvent(request, session, payload, &state, eventState)
 		if err != nil {
 			_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 			return
@@ -307,6 +308,7 @@ func (e *CodexExecutor) handleEvent(
 	session *codexSession,
 	payload map[string]any,
 	state *ChatState,
+	eventState *codexEventState,
 ) (bool, error) {
 	if currentLiveState, err := e.runtime.GetLiveChatState(request.Run.ID); err == nil && currentLiveState != nil {
 		*state = *currentLiveState.Clone()
@@ -383,9 +385,23 @@ func (e *CodexExecutor) handleEvent(
 		return true, nil
 	}
 
-	if applied, err := applyCodexAssistantEvent(state, payload); err != nil {
+	if applied, toolResult, err := applyCodexStreamEvent(state, eventState, payload); err != nil {
 		return false, err
 	} else if applied {
+		if toolResult != nil {
+			run, err := e.runs.Load(request.Run.ID)
+			if err != nil {
+				return false, err
+			}
+			appendRunEvent(&run, "tool_result", map[string]any{
+				"toolCallId": toolResult.ToolCallID,
+				"toolName":   toolResult.ToolName,
+				"isError":    toolResult.IsError,
+			}, e.timeNow())
+			if err := e.runs.Save(run); err != nil {
+				return false, err
+			}
+		}
 		if err := e.persistLiveState(request.Run.ID, *state, session.threadID()); err != nil {
 			return false, err
 		}
@@ -1239,53 +1255,6 @@ func codexApprovalID(raw any) string {
 		return strconv.FormatInt(value, 10)
 	}
 	return ""
-}
-
-func applyCodexAssistantEvent(state *ChatState, payload map[string]any) (bool, error) {
-	if state == nil {
-		return false, nil
-	}
-	method := strings.TrimSpace(stringValue(payload["method"]))
-	switch method {
-	case "item/assistantMessage/delta", "item/agentMessage/delta":
-		params, ok := mapValue(payload["params"])
-		if !ok {
-			return false, nil
-		}
-		messageID := strings.TrimSpace(stringValue(params["itemId"]))
-		delta, ok := mapValue(params["delta"])
-		if !ok {
-			return false, nil
-		}
-		text := stringValue(delta["text"])
-		if messageID == "" || text == "" {
-			return false, nil
-		}
-		appendAssistantDelta(state, messageID, text)
-		return true, nil
-	case "item/completed":
-		params, ok := mapValue(payload["params"])
-		if !ok {
-			return false, nil
-		}
-		item, ok := mapValue(params["item"])
-		if !ok {
-			return false, nil
-		}
-		itemType := strings.TrimSpace(stringValue(item["type"]))
-		if itemType != "assistantMessage" && itemType != "agentMessage" && itemType != "message" {
-			return false, nil
-		}
-		messageID := strings.TrimSpace(stringValue(item["id"]))
-		text := extractCodexMessageText(item)
-		if messageID == "" {
-			return false, nil
-		}
-		upsertAssistantMessage(state, messageID, text)
-		return true, nil
-	default:
-		return false, nil
-	}
 }
 
 func extractCodexResponseItemText(payload map[string]any) string {

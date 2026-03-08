@@ -67,8 +67,8 @@ Current repo status as of 2026-03-09:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - any still-user-facing residual Codex non-`response_item` rich-item gaps
-    after the now-landed Codex/OpenCode/Claude MCP/tool-result parity slices
+  - any still-user-facing residual Codex gap that remains after the now-landed
+    Codex/OpenCode/Claude parity slices plus the Codex raw tool-item follow-on
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
   - the active runtime, stop route, approval/question routes, send-route
@@ -82,10 +82,10 @@ Current repo status as of 2026-03-09:
   - the Claude follow-on in
     `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md` is now
     complete
-  - the remaining bounded gap is now the Codex raw non-`response_item`
-    tool-item closeout tracked in
-    `phase-12-codex-raw-tool-item-parity.md`, not another executor or launcher
-    slice
+  - the Codex raw non-`response_item` tool-item follow-on in
+    `phase-12-codex-raw-tool-item-parity.md` is now complete
+  - the remaining work is now final Phase 12 inventory/closeout, not another
+    known executor, launcher, or parser slice
 
 ## Scope
 
@@ -213,7 +213,8 @@ It should include:
 
 Missing Go owners:
 
-- richer Codex/OpenCode/Claude MCP and tool-result item parity
+- any still-user-facing residual external-agent runtime behavior that proves to
+  be missing after the now-landed Codex/OpenCode/Claude parity slices
 - any remaining external-agent websocket/event streaming closeout that the
   current frontend UX still depends on
 

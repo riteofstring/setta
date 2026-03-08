@@ -374,6 +374,184 @@ func TestCodexExecutorPersistsRichResponseItemsAndMCPStatusSnapshot(t *testing.T
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestCodexExecutorPersistsRawToolItemsAndBufferedOutput(t *testing.T) {
+	t.Parallel()
+
+	fixture := newCodexExecutorFixture(t, "raw")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Run raw Codex tools"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start raw codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 5 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+
+	assistantFound := false
+	commandResultFound := false
+	fileResultFound := false
+	mcpResultFound := false
+	genericResultFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		switch role {
+		case "assistant":
+			if extractMessageText(message) != "Raw tools finished." {
+				continue
+			}
+			rawToolCalls, ok := message["tool_calls"].([]any)
+			if !ok || len(rawToolCalls) != 4 {
+				t.Fatalf("expected four tool calls on raw assistant message, got %#v", message)
+			}
+			expectedNames := map[string]string{
+				"cmd-raw-1":  codexCommandExecutionToolName,
+				"file-raw-1": codexFileChangeToolName,
+				"mcp-raw-1":  "mcp__setta__echo",
+				"web-raw-1":  "webSearch",
+			}
+			for _, rawToolCall := range rawToolCalls {
+				toolCall, ok := rawToolCall.(map[string]any)
+				if !ok {
+					continue
+				}
+				toolCallID := stringValue(toolCall["id"])
+				function, _ := mapValue(toolCall["function"])
+				if expectedNames[toolCallID] != stringValue(function["name"]) {
+					t.Fatalf("unexpected raw tool call payload %#v", toolCall)
+				}
+			}
+			assistantFound = true
+		case "tool":
+			switch stringValue(message["tool_call_id"]) {
+			case "cmd-raw-1":
+				resultPayload, _ := mapValue(message["result"])
+				if stringValue(resultPayload["aggregated_output"]) != "command output\n" {
+					t.Fatalf("expected buffered command output, got %#v", message)
+				}
+				commandResultFound = true
+			case "file-raw-1":
+				resultPayload, _ := mapValue(message["result"])
+				if stringValue(resultPayload["diff"]) != "--- a/file.txt\n+++ b/file.txt\n" {
+					t.Fatalf("expected buffered file diff, got %#v", message)
+				}
+				fileResultFound = true
+			case "mcp-raw-1":
+				if stringValue(message["tool_name"]) != "mcp__setta__echo" {
+					t.Fatalf("expected normalized MCP tool name, got %#v", message)
+				}
+				mcpResultFound = true
+			case "web-raw-1":
+				if stringValue(message["tool_name"]) != "webSearch" {
+					t.Fatalf("expected generic tool result, got %#v", message)
+				}
+				genericResultFound = true
+			}
+		}
+	}
+	if !assistantFound {
+		t.Fatalf("expected assistant message with raw tool calls, got %#v", messages)
+	}
+	if !commandResultFound || !fileResultFound || !mcpResultFound || !genericResultFound {
+		t.Fatalf("expected all raw tool result messages, got %#v", messages)
+	}
+
+	toolResultEventIDs := map[string]bool{}
+	for _, event := range persisted.Events {
+		if event.Type != "tool_result" {
+			continue
+		}
+		toolResultEventIDs[stringValue(event.Payload["toolCallId"])] = true
+	}
+	for _, expectedID := range []string{"cmd-raw-1", "file-raw-1", "mcp-raw-1", "web-raw-1"} {
+		if !toolResultEventIDs[expectedID] {
+			t.Fatalf("expected raw tool_result event for %s, got %#v", expectedID, persisted.Events)
+		}
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestApplyCodexStreamEventReusesSyntheticToolMessageForAssistantDelta(t *testing.T) {
+	t.Parallel()
+
+	state := &ChatState{
+		Messages:           []map[string]any{},
+		ToolCallArguments:  map[string]string{},
+		WaitingForResponse: true,
+	}
+	eventState := newCodexEventState()
+
+	applied, toolResult, err := applyCodexStreamEvent(state, eventState, map[string]any{
+		"method": "item/started",
+		"params": map[string]any{
+			"item": map[string]any{
+				"id":        "mcp-raw-attach",
+				"type":      "mcpToolCall",
+				"server":    "setta",
+				"tool":      "echo",
+				"arguments": map[string]any{"text": "ping"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply raw MCP start: %v", err)
+	}
+	if !applied || toolResult != nil {
+		t.Fatalf("unexpected raw MCP start result applied=%v toolResult=%#v", applied, toolResult)
+	}
+
+	applied, toolResult, err = applyCodexStreamEvent(state, eventState, map[string]any{
+		"method": "item/assistantMessage/delta",
+		"params": map[string]any{
+			"itemId": "assistant-real-1",
+			"delta":  map[string]any{"text": "Attached text"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("apply assistant delta after synthetic tool message: %v", err)
+	}
+	if !applied || toolResult != nil {
+		t.Fatalf("unexpected assistant delta result applied=%v toolResult=%#v", applied, toolResult)
+	}
+
+	if len(state.Messages) != 1 {
+		t.Fatalf("expected one merged assistant message, got %#v", state.Messages)
+	}
+	message := state.Messages[0]
+	if stringValue(message["id"]) != "assistant-real-1" {
+		t.Fatalf("expected synthetic message id to be adopted, got %#v", message)
+	}
+	if extractMessageText(message) != "Attached text" {
+		t.Fatalf("expected assistant delta text to land on adopted message, got %#v", message)
+	}
+	rawToolCalls, ok := message["tool_calls"].([]any)
+	if !ok || len(rawToolCalls) != 1 {
+		t.Fatalf("expected adopted tool call on assistant message, got %#v", message)
+	}
+}
+
 type codexExecutorFixture struct {
 	send     *SendService
 	runtime  *Runtime
@@ -643,6 +821,11 @@ func runCodexFixtureProcess(scenario string) error {
 					return err
 				}
 			case "rich":
+			case "raw":
+				if err := emitCodexRawTurn(writer); err != nil {
+					return err
+				}
+				return nil
 			default:
 				if err := emitAssistantTurn(writer, "assistant-1", "Hello from Codex"); err != nil {
 					return err
@@ -768,6 +951,161 @@ func emitCodexRichTurn(writer *bufio.Writer) error {
 						"type": "output_text",
 						"text": "Created the top-level section.",
 					},
+				},
+			},
+		},
+		{
+			"method": "turn/completed",
+			"params": map[string]any{
+				"status": "completed",
+				"turn":   map[string]any{"status": "completed"},
+			},
+		},
+	}
+	for _, payload := range payloads {
+		content, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+		if _, err := writer.Write(append(content, '\n')); err != nil {
+			return err
+		}
+		if err := writer.Flush(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func emitCodexRawTurn(writer *bufio.Writer) error {
+	payloads := []map[string]any{
+		{
+			"method": "turn/started",
+			"params": map[string]any{},
+		},
+		{
+			"method": "item/started",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":   "assistant-raw-1",
+					"type": "assistantMessage",
+					"role": "assistant",
+				},
+			},
+		},
+		{
+			"method": "item/started",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":      "cmd-raw-1",
+					"type":    "commandExecution",
+					"command": "ls",
+				},
+			},
+		},
+		{
+			"method": "item.commandExecution.outputDelta",
+			"params": map[string]any{
+				"itemId": "cmd-raw-1",
+				"delta":  "command output\n",
+			},
+		},
+		{
+			"method": "item/completed",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":       "cmd-raw-1",
+					"type":     "commandExecution",
+					"command":  "ls",
+					"status":   "completed",
+					"exitCode": 0,
+				},
+			},
+		},
+		{
+			"method": "item/started",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":   "file-raw-1",
+					"type": "fileChange",
+					"path": "/tmp/file.txt",
+				},
+			},
+		},
+		{
+			"method": "item.fileChange.outputDelta",
+			"params": map[string]any{
+				"itemId": "file-raw-1",
+				"delta":  "--- a/file.txt\n+++ b/file.txt\n",
+			},
+		},
+		{
+			"method": "item/completed",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":     "file-raw-1",
+					"type":   "fileChange",
+					"path":   "/tmp/file.txt",
+					"status": "completed",
+				},
+			},
+		},
+		{
+			"method": "item/started",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":        "mcp-raw-1",
+					"type":      "mcpToolCall",
+					"server":    "setta",
+					"tool":      "echo",
+					"arguments": map[string]any{"text": "ping"},
+				},
+			},
+		},
+		{
+			"method": "item/completed",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":        "mcp-raw-1",
+					"type":      "mcpToolCall",
+					"server":    "setta",
+					"tool":      "echo",
+					"arguments": map[string]any{"text": "ping"},
+					"result":    map[string]any{"text": "pong"},
+					"status":    "completed",
+				},
+			},
+		},
+		{
+			"method": "item/started",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":    "web-raw-1",
+					"type":  "webSearch",
+					"input": map[string]any{"query": "site:setta"},
+				},
+			},
+		},
+		{
+			"method": "item/completed",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":     "web-raw-1",
+					"type":   "webSearch",
+					"input":  map[string]any{"query": "site:setta"},
+					"output": map[string]any{"status": "ok"},
+					"status": "completed",
+				},
+			},
+		},
+		{
+			"method": "item/completed",
+			"params": map[string]any{
+				"item": map[string]any{
+					"id":      "assistant-raw-1",
+					"type":    "assistantMessage",
+					"role":    "assistant",
+					"content": []any{map[string]any{"text": "Raw tools finished."}},
 				},
 			},
 		},
