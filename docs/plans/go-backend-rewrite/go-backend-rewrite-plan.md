@@ -20,19 +20,24 @@ the shipped CLI migration slices, and the MCP/tooling foundations are complete
 for their bounded scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
-AI/chat routing is still mostly Python-owned, but the rewrite no longer plans
-to recreate managed `setta_llm` in Go. A first bounded Phase 12 read slice now
-exists in Go for external-agent chat hydration:
+AI/chat routing is still partially Python-owned, but the rewrite no longer
+plans to recreate managed `setta_llm` in Go. The current bounded Go-owned
+Phase 12 surface now includes:
 
 - `internal/externalagents`
   - persisted external-run lookup, latest-run selection, durable chat-state
     reconstruction, placeholder filtering, and context-usage normalization
+  - active-run registry, live chat overlay storage, cancellation ownership, and
+    approval-response dispatch foundations
 - `internal/httpapi/ai_routes.go`
-  - thin Go transport for `/getExternalAgentChat`
+  - thin Go transport for:
+    - `/getExternalAgentChat`
+    - `/stopExternalAgentRun`
+    - `/respondExternalAgentApproval`
 
 The remaining Phase 12 target is the active external-agent runtime plus the
-send/stop/approval route surface still owned in `backend/setta/routers/ai.py`,
-`backend/setta/routers/agentic.py`, and
+external-agent send route and adapter-backed execution path still owned in
+`backend/setta/routers/ai.py`, `backend/setta/routers/agentic.py`, and
 `backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md` and the focused
 follow-on doc `phase-12-external-agent-active-runtime-stop-approval-and-send.md`.

@@ -33,8 +33,13 @@ Current repo status as of 2026-03-08:
     - latest-run selection by event/finished/start timestamps
     - durable chat-state reconstruction and response-placeholder filtering
     - external `contextUsage` normalization from canonical run outputs
+    - active-run registry, live chat overlay storage, cancellation ownership,
+      and approval-response dispatch foundations
   - `internal/httpapi/ai_routes.go`
-    - thin Go transport for `/getExternalAgentChat`
+    - thin Go transport for:
+      - `/getExternalAgentChat`
+      - `/stopExternalAgentRun`
+      - `/respondExternalAgentApproval`
 - Python still owns the external-agent AI/chat path in:
   - `backend/setta/routers/ai.py`
   - `backend/setta/routers/agentic.py`
@@ -45,14 +50,15 @@ Current repo status as of 2026-03-08:
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
   - the `EngineType.external_agent` branch of `route_get_llm_response`
-  - `route_stop_external_agent_run`
-  - `route_respond_external_agent_approval`
-  - the live in-memory runtime needed to overlay active chat state, stop runs,
-    and broker approvals
+  - the adapter-backed execution runtime that produces live chat updates and
+    approval prompts during an active run
+  - `route_respond_external_agent_question`
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
-  - the remaining bounded gap is the active runtime plus send/stop/approval
-    transport, not another CLI or launcher slice
+  - the active runtime, stop route, and approval-response route foundations are
+    implemented in Go
+  - the remaining bounded gap is the send path plus real adapter execution, not
+    another CLI or launcher slice
 
 ## Scope
 
@@ -180,12 +186,11 @@ It should include:
 
 Missing Go owners:
 
-- external-agent adapter registry and active runtime owner
-- live chat-state registry for active external runs
-- approval request/response runtime boundary
+- external-agent adapter registry and execution runtime
+- active approval request production and question waiters
 - external-agent websocket/event streaming owner
-- AI HTTP routes for external send/stop
-- Go ownership of the user-facing external-agent approval transport
+- the external-agent send route
+- `respondExternalAgentQuestion`
 
 ## Completed In This Slice
 
@@ -212,6 +217,10 @@ Missing Go owners:
   - context-usage normalization
   - placeholder filtering
   - typed route-not-found and bad-request behavior
+  - active-run live overlay retrieval
+  - runtime cancellation persistence
+  - approval-response dispatch and persistence
+  - stop/approval route transport behavior
 
 ## Working Decisions
 
@@ -296,6 +305,8 @@ Missing Go owners:
   - LSP bootstrap failures (`lsp: initialize failed (0): EOF`)
   - missing formatter executable (`Ruff executable was not found on PATH.`)
   - unrelated remote-launch and UI-setting test expectations
+- compile-only app wiring check passes:
+  - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Open Questions
 
@@ -333,19 +344,25 @@ Missing Go owners:
 - 2026-03-08: landed the first bounded Go-owned external-agent route:
   persisted `/getExternalAgentChat` hydration over the new
   `internal/externalagents` read service.
+- 2026-03-08: landed the active runtime foundation plus Go-owned
+  `/stopExternalAgentRun` and `/respondExternalAgentApproval` transport over
+  the new runtime.
 
 ## Verification
 
 - `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
+- `./scripts/go.sh test ./internal/app -run '^$'`
 - `./scripts/go.sh test ./internal/app`
   - fails in the current environment due missing LSP/formatting dependencies
     and unrelated runtime expectations; see Verification Notes above
 
 ## Recommended Next Step
 
-Implement the focused active-runtime follow-on doc:
+Implement the remaining send/execution slice from the focused follow-on doc:
 
 - `phase-12-external-agent-active-runtime-stop-approval-and-send.md`
 - keep `internal/externalagents` as the durable hydration/read owner
-- add a composed active-runtime sibling for live execution, stop, and approval
+- add adapter-backed execution that produces the live state and approvals the
+  new runtime now owns
+- land the external-agent branch of `getLLMResponse`
 - do not broaden into managed `setta_llm` or transcription work

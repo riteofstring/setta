@@ -107,6 +107,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		watchCodeService      *watchcode.Service
 		boundCodeService      *boundcode.Service
 		externalAgentChats    *externalagents.Service
+		externalAgentRuntime  *externalagents.Runtime
 		watchCodeWarnings     *watchCodeWarningTracker
 		codeUpdates           *codeUpdateService
 		renameRefactors       *renameRefactorService
@@ -522,8 +523,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
+			Runs: runStore,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentChats, err = externalagents.NewService(externalagents.ServiceOptions{
 			Runs: runStore,
+			Live: externalAgentRuntime,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -773,6 +782,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
 				ModePolicy:         modePolicy,
 				ExternalAgentChats: externalAgentChats,
+				ExternalAgentRuns:  externalAgentRuntime,
 			}); err != nil {
 				panic(err)
 			}

@@ -201,6 +201,88 @@ func TestServiceGetChatResolvesExternalContextUsage(t *testing.T) {
 	}
 }
 
+func TestServiceGetChatOverlaysActiveLiveStateFromRuntime(t *testing.T) {
+	t.Parallel()
+
+	store, runtime := buildRuntimeFixture(t)
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         RunTypeExternalAgent,
+		"chatId":          "chat-live",
+		"projectConfigId": "project-alpha",
+		"messages": []any{
+			map[string]any{
+				"id":   "user-1",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Persisted"},
+				},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	run.ID = "run-live"
+	run.Status = agentruns.RunStatusRunning
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{"id": "user-1", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Persisted"}}},
+		},
+	}
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save persisted run: %v", err)
+	}
+	if err := runtime.ActivateRun(run.ID, &stubRunController{}); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+	if err := runtime.SetLiveChatState(run.ID, ChatState{
+		Messages: []map[string]any{
+			{
+				"id":   "user-1",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Persisted"},
+				},
+			},
+			{
+				"id":   "assistant-live",
+				"role": "assistant",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Live overlay"},
+				},
+			},
+		},
+		WaitingForResponse: true,
+		ToolCallArguments: map[string]string{
+			"tool-call-1": "{\"path\":\"internal/externalagents/runtime.go\"}",
+		},
+	}); err != nil {
+		t.Fatalf("set live chat state: %v", err)
+	}
+
+	service, err := NewService(ServiceOptions{
+		Runs: store,
+		Live: runtime,
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	hydrated, err := service.GetChat("chat-live", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if len(hydrated.Messages) != 2 {
+		t.Fatalf("expected live overlay to add second message, got %d", len(hydrated.Messages))
+	}
+	lastMessage := hydrated.Messages[1]
+	content := lastMessage["content"].([]any)
+	textPayload := content[0].(map[string]any)
+	if textPayload["text"] != "Live overlay" {
+		t.Fatalf("expected live overlay content, got %#v", textPayload["text"])
+	}
+	if got := hydrated.ToolCallArguments["tool-call-1"]; got != "{\"path\":\"internal/externalagents/runtime.go\"}" {
+		t.Fatalf("unexpected tool call arguments %q", got)
+	}
+}
+
 func TestServiceGetChatFiltersResponsePlaceholderMessages(t *testing.T) {
 	t.Parallel()
 

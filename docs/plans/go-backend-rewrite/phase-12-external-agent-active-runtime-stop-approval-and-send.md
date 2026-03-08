@@ -26,14 +26,26 @@ Completed before this slice:
 - `internal/httpapi/ai_routes.go`
   - thin `/getExternalAgentChat` transport
 
+Completed in this slice:
+
+- `internal/externalagents/runtime.go`
+  - active run registry
+  - live chat overlay storage behind the existing hydration provider interface
+  - cancellation ownership over persisted external runs
+  - approval registration and approval-response dispatch
+- `internal/httpapi/ai_routes.go`
+  - thin `/stopExternalAgentRun` transport
+  - thin `/respondExternalAgentApproval` transport
+- `internal/app/app.go`
+  - runtime wiring so the hydration read path can consume live overlays from
+    the same active runtime owner
+
 Still missing:
 
-- active run registry for external-agent execution
-- live chat overlays for active runs
-- cancellation handles and `stopExternalAgentRun`
-- approval/question waiters and `respondExternalAgentApproval`
 - the external-agent branch of `getLLMResponse`
 - Go-owned adapter execution for the supported external agents
+- active approval/question production during live execution
+- `respondExternalAgentQuestion`
 
 ## Scope
 
@@ -136,6 +148,25 @@ It should preserve the current rewrite constraints:
    - ensure the supported adapters are all wired through the new runtime before
      considering the Python send path removable
 
+## Completed In This Slice
+
+- added the composed active runtime sibling as planned
+- kept `internal/externalagents.Service` read-only and reused its
+  `LiveChatStateProvider` boundary
+- implemented stop ownership against persisted runs plus active controllers
+- implemented approval-response dispatch and event persistence
+- added focused tests for:
+  - live overlay retrieval
+  - cancellation persistence and cleanup
+  - approval dispatch and event persistence
+  - stop/approval HTTP transport behavior
+
+## Verification
+
+- passed:
+  - `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
+  - `./scripts/go.sh test ./internal/app -run '^$'`
+
 ## Verification Targets
 
 - `internal/externalagents` runtime tests for:
@@ -166,6 +197,8 @@ It should preserve the current rewrite constraints:
 
 ## Next Recommended Step
 
-- implement the active runtime foundation first
-- do not start with send-route transport alone; it depends on live execution,
-  cancellation, and approval ownership to be product-correct
+- implement the external-agent send path next
+- use the completed runtime as the execution owner; do not add a parallel send
+  path that bypasses it
+- start with adapter/runtime interfaces and a bounded test adapter, then land
+  the `getLLMResponse` external-agent branch over that owner
