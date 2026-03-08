@@ -1,10 +1,13 @@
 # Setta CLI Commands
 
-This doc covers the commands exposed by the `setta` CLI (implemented in
-`backend/setta/start.py`). Local commands operate on a workspace root (code
-operations) and a `setta_files` root (state/runtime). By default both roots
-follow the current working directory and the default Setta home, but you can
-override runtime identity and roots with:
+This doc covers the commands exposed by the shipped `setta` CLI. The published
+entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
+Go-owned commands are handed off to packaged Go binaries, while the remaining
+local Python-owned commands still route through `backend/setta/start.py`.
+Local commands operate on a workspace root (code operations) and a
+`setta_files` root (state/runtime). By default both roots follow the current
+working directory and the default Setta home, but you can override runtime
+identity and roots with:
 `--workspace`, `--profile`, `--setta-home`, `--setta-files-root`,
 `--setta-files-location`, and `--runtime-root` (or matching env vars).
 `setta_files` resolution still follows local/global rules from

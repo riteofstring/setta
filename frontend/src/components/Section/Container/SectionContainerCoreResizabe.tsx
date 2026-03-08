@@ -1,11 +1,5 @@
-import type { SettingsAllSettingsBenchmarkStage } from "components/Pages/Project/settingsAllSettingsBenchmark";
-import {
-  useSettingsAllSettingsBenchmark,
-  useSettingsAllSettingsBenchmarkRenderCounter,
-} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -39,13 +33,13 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
-import { SettingsAllSettingsBenchmarkSnapdomSectionBody } from "./SettingsAllSettingsBenchmarkSnapdomSectionBody";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
+  isActiveSection: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
@@ -53,20 +47,16 @@ type SectionContainerCoreResizableProps = {
   hideHeader?: boolean;
 };
 
-function _SectionContainerCoreResizable({
+export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
+  isActiveSection,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
   hasSectionStyleTheme,
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
-  useSettingsAllSettingsBenchmarkRenderCounter(
-    "section-core-resizable",
-    sectionId,
-  );
   const {
     isMinimized,
     isYouTube,
@@ -106,27 +96,6 @@ function _SectionContainerCoreResizable({
   const metaControlLayoutClassName = isMetaControl
     ? "grid-cols-1 grid-rows-1"
     : undefined;
-  const shouldRenderFullSectionBody = benchmark.renderFullSectionBody;
-  const shouldRenderHeader =
-    !hideHeader && (!benchmark.active || benchmark.renderSectionHeader);
-  const shouldRenderIncrementer =
-    isRoot && (!benchmark.active || benchmark.renderFullSectionBody);
-  const shouldRenderAreaSwitch =
-    !isMinimized &&
-    (!benchmark.active ||
-      benchmark.renderFullSectionBody ||
-      benchmark.renderSectionBody);
-  const shouldRenderBenchmarkShell =
-    benchmark.active && !benchmark.renderFullSectionBody && !isMetaControl;
-  const sectionBody = shouldRenderAreaSwitch ? (
-    <AreaSwitch
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      bgColor={bgColor}
-      isMinimized={isMinimized}
-      isUserView={isUserView}
-    />
-  ) : null;
 
   return (
     <CustomResizable
@@ -134,6 +103,7 @@ function _SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -171,46 +141,26 @@ function _SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : shouldRenderHeader ? (
+      ) : hideHeader ? null : (
         <SectionHeader
           sectionId={sectionId}
+          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
-      ) : null}
-      {shouldRenderIncrementer && (
-        <Incrementer sectionId={sectionId} isRoot={isRoot} />
       )}
-      {shouldRenderAreaSwitch ? (
-        <SettingsAllSettingsBenchmarkSnapdomSectionBody sectionId={sectionId}>
-          {sectionBody}
-        </SettingsAllSettingsBenchmarkSnapdomSectionBody>
-      ) : shouldRenderBenchmarkShell ? (
-        <BenchmarkSectionBodyPlaceholder stage={benchmark.stage} />
-      ) : null}
+      {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
+      <AreaSwitch
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
     </CustomResizable>
-  );
-}
-
-export const SectionContainerCoreResizable = React.memo(
-  _SectionContainerCoreResizable,
-);
-
-function BenchmarkSectionBodyPlaceholder({
-  stage,
-}: {
-  stage: SettingsAllSettingsBenchmarkStage;
-}) {
-  return (
-    <div
-      className="section-row-pin-main flex min-h-12 w-full items-center justify-center px-3 py-3 text-[0.6rem] uppercase tracking-[0.18em] text-setta-300 dark:text-setta-600"
-      data-settings-benchmark-placeholder={stage}
-    >
-      {stage === "frame-only" ? "Frame only" : "Header only"}
-    </div>
   );
 }
 
