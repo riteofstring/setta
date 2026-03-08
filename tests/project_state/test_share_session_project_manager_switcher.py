@@ -37,7 +37,6 @@ def _write_share_project(
     project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)

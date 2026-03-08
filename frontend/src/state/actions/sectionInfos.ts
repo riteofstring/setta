@@ -68,7 +68,6 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
-import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -993,7 +992,6 @@ function getComparableProjectState(
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
-    projectChatWindowing: state.projectChatWindowing,
   });
 }
 
@@ -1057,9 +1055,6 @@ export function processProjectStateUpdateFromBackend(
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
-  );
-  reconcileProjectChatWindowingEphemeralState(
-    sanitizedProjectState.projectChatWindowing,
   );
   runWithAtomicallyPublishedProjectStores(
     {

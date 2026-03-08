@@ -40,7 +40,6 @@ class _StubProjectManagerSwitcher:
         project_config = ProjectConfig(id=project_config_id)
         project_state_backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
-            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         return _StubProjectManager(project_state_backend)
