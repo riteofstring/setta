@@ -208,3 +208,53 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/agentic/external_adapters/sidecars/__pycache__/ignored.pyc",
     }
     assert names.isdisjoint(unexpected_names)
+
+
+def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
+    tmp_path: Path,
+) -> None:
+    # The default wheel install should only depend on the Python tools and
+    # sidecar SDK that the packaged runtime still uses directly.
+    project_root = _write_minimal_distribution_project(
+        tmp_path,
+        include_go_binaries=True,
+    )
+    outdir = tmp_path / "dist"
+
+    result = _build_wheel(project_root, outdir)
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta-0.0.0-*.whl"))
+    assert len(wheel_paths) == 1
+
+    with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
+        metadata = wheel_archive.read("setta-0.0.0.dist-info/METADATA").decode("utf-8")
+
+    requires_lines = {
+        line for line in metadata.splitlines() if line.startswith("Requires-Dist:")
+    }
+    default_requires = {
+        line for line in requires_lines if "extra ==" not in line
+    }
+    source_requires = {
+        line for line in requires_lines if "extra == 'source'" in line
+    }
+
+    assert default_requires == {
+        "Requires-Dist: claude-agent-sdk==0.1.21",
+        "Requires-Dist: basedpyright==1.25.0",
+        "Requires-Dist: ruff==0.12.12",
+    }
+
+    assert "Requires-Dist: click==8.2.1" not in default_requires
+    assert "Requires-Dist: fastapi==0.115.12" not in default_requires
+    assert "Requires-Dist: uvicorn==0.34.3" not in default_requires
+    assert "Requires-Dist: mcp==1.25.0" not in default_requires
+    assert "Requires-Dist: litellm==1.80.15" not in default_requires
+
+    assert "Provides-Extra: source" in metadata
+    assert "Requires-Dist: click==8.2.1; extra == 'source'" in source_requires
+    assert "Requires-Dist: fastapi==0.115.12; extra == 'source'" in source_requires
+    assert "Requires-Dist: mcp==1.25.0; extra == 'source'" in source_requires
