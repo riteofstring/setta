@@ -1221,7 +1221,6 @@ export function AppConfigPane() {
         const targetChatId = engineSelection.forceNewChat
           ? null
           : activeChatId ?? null;
-        const hiddenGenerationSurfaceId = `app-config-hidden-generation:${projectConfigId}`;
         await submitMessage(
           targetChatId,
           prompt,
@@ -1230,7 +1229,6 @@ export function AppConfigPane() {
           engineSelection.engineConfigId,
           engineSelection.isExternalEngine,
           {
-            pendingSurfaceId: hiddenGenerationSurfaceId,
             appGeneration: {
               mode,
               referenceImageUrl: null,
@@ -1239,7 +1237,7 @@ export function AppConfigPane() {
           },
         );
         if (targetChatId === null) {
-          clearPendingChatDetails(hiddenGenerationSurfaceId);
+          clearPendingChatDetails();
         }
         if (engineSelection.forceNewChat) {
           setGenerationHint(

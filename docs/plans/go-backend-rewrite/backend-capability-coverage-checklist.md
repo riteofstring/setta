@@ -1,0 +1,148 @@
+# Backend Capability Coverage Checklist
+
+Snapshot date: 2026-03-10.
+
+Companion caller-backed checklist:
+`docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`.
+
+Audit/maintenance plan:
+`docs/plans/go-backend-rewrite/backend-capability-coverage-checklist-audit-plan.md`.
+
+This checklist answers a different question than the caller-backed checklist:
+where does backend capability ownership live in the repo, regardless of whether
+every current caller already reaches the Go transport?
+
+Together, these two docs are the complete backend coverage checklist for the
+current repo scope:
+
+- `caller-backed-backend-surface-checklist.md`
+  - whether the active caller reaches Go today
+- `backend-capability-coverage-checklist.md`
+  - whether the capability/runtime/service ownership lives in Go, Python, a
+    shared boundary, or a deliberately deferred area
+
+Scope note: "complete" here means complete for the current repo's active
+backend/runtime surface and deliberate boundaries. Archived dead history,
+vendor payloads, and third-party provider internals are out of scope except
+where they are an explicit runtime dependency boundary.
+
+How to read the statuses:
+
+- `Go-owned`: Go owns the active runtime/service implementation for this
+  capability area.
+- `Shared boundary`: Go owns the main implementation, but Python and/or an
+  external runtime still participates by design.
+- `Python-owned`: the active implementation still lives under `backend/setta`.
+- `Deferred`: the capability is intentionally outside the current rewrite
+  scope.
+- `External`: the capability depends on non-Setta providers, processes, or OS
+  services rather than a Setta-owned implementation.
+
+Primary sources used for this checklist:
+
+- `internal/*`
+- `cmd/*`
+- `backend/setta/*`
+- `docs/plans/go-backend-rewrite/CURRENT.md`
+- `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
+- `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`
+
+## 1. Runtime, process, and distribution
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Packaged server/runtime entrypoints plus Go CLI helpers | `cmd/setta` and `cmd/setta-server` are the packaged Go entrypoints, while `cmd/setta-cli`, `internal/app`, `internal/runtime`, `internal/settacmd`, and `internal/settacli` own the broader Go command/runtime surface. |
+| Shared boundary | Packaged bootstrap wrappers and build/install shell around Go binaries | Go is the packaged runtime target, but root shell/python packaging wrappers still participate in build/install flow orchestration. |
+| Python-owned | Frontend route/type binding generation for backend contracts | `frontend/src/utils/generatedEndpoints.ts` and `frontend/src/utils/generatedTypes.ts` still derive from Python route/schema generation today, including many Go-owned transport surfaces; moving Go-owned HTTP/websocket contracts onto a Go-owned source of truth remains one of the selected follow-ons in `CURRENT.md` and `go-backend-rewrite-plan.md`. |
+| Python-owned | Dev reload/startup loop | Dev-only startup and reload remain explicit Python boundaries through `backend/setta/dev_start.py`, `backend/setta/server.py`, and related startup helpers. |
+| Go-owned | Runtime support packages | `internal/buildinfo`, `internal/config`, `internal/backendlogs`, `internal/observability`, `internal/settadocs`, and `internal/devworktree` are Go-owned support areas. |
+
+## 2. Auth, sessions, modes, and trusted origins
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Auth/session/bootstrap/cookies | `internal/auth` owns bootstrap token exchange, auth-cookie sessions, and request auth context. |
+| Go-owned | Mode resolution and share/local-session policy | `internal/modes` plus `internal/localsessions` own mode gates and deployment/share-session behavior. |
+| Go-owned | Trusted frontend origins and launcher handoff trust | `internal/frontendorigins` plus `internal/workspacelaunch` own launcher-origin trust and handoff semantics. |
+
+## 3. Launcher, workspace launch, deployments, and SSH
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Launcher home and launcher-management runtime | `internal/launcher` owns recent workspaces, filesystem roots, directory browse/open, and launcher management state. |
+| Go-owned | Workspace launch orchestration | `internal/workspacelaunch` owns launch intents and local launch flow orchestration. |
+| Go-owned | SSH-backed launch plumbing | `internal/sshx` is the active Go owner for SSH/tunnel launch support used by workspace launch. |
+| Go-owned | Deployment publish/catalog/runtime/session policy | `internal/deployments` plus `internal/shareartifacts` and `internal/runs` own publish, catalog, session bootstrap, and deployment runtime policy. |
+
+## 4. Transport, realtime, and terminals
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Registered HTTP API surface | `internal/httpapi` plus registration in `internal/app` are the active Go transport owners. |
+| Go-owned | Replacement websocket surface and realtime hub | `internal/wsapi` and `internal/realtime` own `/ws/frontend`, listener sockets, terminal sockets, frontend affinity, connection registry, and realtime fanout. |
+| Go-owned | Terminal PTY runtime | `internal/terminals` owns PTY lifecycle, interrupt/delete handling, and terminal websocket runtime. |
+| Python-owned | Python-era websocket transport families still present in runtime | Legacy `/frontend`, `/share/frontend`, terminal `/{projectConfigId}/{sectionId}/{id}`, `/cli`, and `/pythonScript/{id}` websocket families still live under `backend/setta/routers/websocket.py` and `backend/setta/websockets/**`. |
+
+## 5. Project state, persistence, artifacts, and file/data surfaces
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Core project state and project shell | `internal/projectstate`, `internal/projectview`, `internal/projectshell`, `internal/settingsstate`, `internal/chatsections`, and `internal/notifications` own the main project/runtime state slice. |
+| Go-owned | Artifact, binary, attachment, file-browser, and git-read services | `internal/artifacts`, `internal/binary`, `internal/chatattachments`, `internal/filebrowser`, `internal/gitread`, and `internal/shareartifacts` are Go-owned. |
+| Go-owned | State filesystem and project backup helpers | `internal/statefs` and `internal/projectbackup` are Go-owned support capabilities. |
+| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including default-project helpers (`getDefaultConfigName`, `setAsDefaultProject`), attachment URL helpers, `loadAvailableArtifacts`, `createFile`, `deleteJsonSourceFileAndVariant`, `appendDrawAreaLayerItem`, `getPasswordParamValue`, `killSubprocesses`, `docstringToMarkdown`, and `revealPathInOsFileExplorer`. |
+
+## 6. Code intelligence, formatting, and execution planning
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | LSP server/runtime ownership | `internal/lsp` owns language-server registration and runtime orchestration in the rewrite scope. |
+| Go-owned | Diagnostics/completion/signature help/watch-code/format/codegen/pythonenv helpers | `internal/lspcompletion`, `internal/lspsignature`, `internal/watchcode`, `internal/codeformat`, `internal/boundcode`, `internal/codegen`, and `internal/pythonenv` are Go-owned. |
+| Go-owned | Run planning and run-chain runtime | `internal/runs` and `internal/runchains` own the active run/runtime orchestration slice. |
+| Python-owned | Legacy helper/admin execution surface | Python still owns the omitted helper/admin and detached transport surface such as `typeCheck`, `restartLanguageServer`, `setTypeErrorIgnore`, `runDetached`, and old CLI/python-script transports. |
+
+## 7. MCP, app-spec, UI settings, and app generation
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | MCP server/client/tool registry/search | `internal/mcpx` and `internal/tools` are the active Go owners. |
+| Go-owned | UI-setting runtime and reveal routing | `internal/uisettings` plus `internal/realtime` own reveal/result behavior and routing. |
+| Go-owned | App-spec store/patch/diagnostics and app-gen skills | `internal/appspec` and `internal/appgenskills` are the active Go owners. |
+| Shared boundary | Legacy app-definition REST plus app-spec streaming/helper HTTP boundary | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST routes and `streamAppSpec` generation stream that the app-config pane still calls; older helpers like `updateAppDefinition` and `listAppComponents` also remain Python-owned even without proven current non-test callers. |
+| Go-owned | LLM config and managed API-key storage | `internal/llmconfig` is Go-owned. |
+
+## 8. AI, agentic runtime, and transcription
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Agent profile/prompt template/engine/external-agent config stores | `internal/agentprofiles`, `internal/prompttemplates`, `internal/agentruns`, and `internal/externalagentconfigs` are Go-owned. |
+| Shared boundary | Managed chat and external-agent execution runtime | `internal/managedchat`, `internal/managedllm`, and `internal/externalagents` own the main runtime, but provider APIs and some runner processes remain explicit external boundaries; for OpenAI-owned provider edges, the selected direction is to converge on `github.com/openai/openai-go/v3` rather than keep growing bespoke transport code. |
+| Go-owned | Agentic summary cache and follow-on runtime helpers | `internal/agenticsummarycache` plus related AI runtime plumbing are Go-owned. |
+| Go-owned | Transcription profiles and sessions | `internal/transcriptionprofiles` and `internal/transcriptionsessions` are Go-owned; another selected follow-on is to move Go-owned OpenAI provider interaction details onto `github.com/openai/openai-go/v3`. |
+| Python-owned | Legacy direct chat CRUD/metadata transport surface | Python still owns the older direct chat CRUD/metadata route family even though the newer managed/external-agent runtime is Go-owned. |
+
+## 9. Plugins and extensibility
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Go-owned | Plugin discovery/install/status/config/lock/runtime refresh | `internal/plugins` is the active owner for plugin package/runtime management. |
+| Go-owned | Plugin backend routes, MCP tools, static assets, registrations, and listener endpoints | Plugin backend transport/runtime integration lives in `internal/plugins` plus Go `httpapi`/`wsapi` registration. |
+| Go-owned | Plugin-defined codegen and language-server integration | Plugin codegen target visibility and plugin-defined language-server runtime/refresh are Go-owned. |
+| Deferred | Plugin-defined external-agent execution | The rewrite docs still treat plugin-backed external-agent execution as intentionally out of scope. |
+
+## 10. Explicit retained Python and external boundaries
+
+| Status | Capability | Notes |
+| --- | --- | --- |
+| Python-owned | Dev-only backend startup/reload | This remains a deliberate Python boundary rather than a missed rewrite slice. |
+| Python-owned | Omitted legacy HTTP/websocket surfaces still serving real callers | The caller-backed checklist is the source of truth for which current callers still hit those Python surfaces. |
+| Shared boundary | Python sidecars/tool executables invoked by Go | Some runtime paths still intentionally shell out to Python or other sidecars rather than re-implementing everything inside Go. |
+| External | Provider/tool runtime dependencies | LLM providers, Claude/OpenCode/Codex runners, PTY/SSH/runtime OS services, and similar external systems remain explicit runtime dependencies rather than Setta-owned code. |
+
+## Maintenance Rule
+
+When backend ownership changes:
+
+- update `caller-backed-backend-surface-checklist.md` if active caller reachability changed
+- update `backend-capability-coverage-checklist.md` if runtime/service/package ownership changed
+- update `CURRENT.md` if the canonical doc list, selected follow-ons, or workflow guidance changed
