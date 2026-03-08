@@ -5,18 +5,16 @@ package terminals
 import (
 	"errors"
 	"fmt"
-	"os"
-
-	goPty "github.com/aymanbagabas/go-pty"
 	"golang.org/x/sys/unix"
+	"os"
 )
 
 func interruptTerminalSession(session *session) (bool, error) {
-	if session == nil || session.cmd == nil || session.cmd.Process == nil {
+	if session == nil || session.pty == nil {
 		return false, nil
 	}
 
-	shellProcessGroup := session.cmd.Process.Pid
+	shellProcessGroup := session.pty.ProcessPID()
 	if shellProcessGroup <= 0 {
 		return false, nil
 	}
@@ -42,15 +40,14 @@ func interruptTerminalSession(session *session) (bool, error) {
 	return true, nil
 }
 
-func foregroundProcessGroup(ptyInstance goPty.Pty) (int, error) {
-	unixPty, ok := ptyInstance.(goPty.UnixPty)
-	if !ok {
+func foregroundProcessGroup(ptyInstance ptySession) (int, error) {
+	if ptyInstance == nil {
 		return 0, ErrInterruptUnsupported
 	}
 
 	processGroup := 0
 	var ioctlErr error
-	if err := unixPty.Control(func(fd uintptr) {
+	if err := ptyInstance.Control(func(fd uintptr) {
 		processGroup, ioctlErr = unix.IoctlGetInt(int(fd), unix.TIOCGPGRP)
 	}); err != nil {
 		return 0, err

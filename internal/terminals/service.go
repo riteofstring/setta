@@ -16,8 +16,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	goPty "github.com/aymanbagabas/go-pty"
 )
 
 const (
@@ -89,6 +87,16 @@ func (a *Attachment) Close() {
 	})
 }
 
+type ptySession interface {
+	Read([]byte) (int, error)
+	Write([]byte) (int, error)
+	Resize(columns int, rows int) error
+	Close() error
+	Wait() error
+	ProcessPID() int
+	Control(fn func(fd uintptr)) error
+}
+
 type Service struct {
 	logger           *slog.Logger
 	historyLimit     int
@@ -113,8 +121,7 @@ type session struct {
 	createdAt      time.Time
 
 	cancel context.CancelFunc
-	pty    goPty.Pty
-	cmd    *goPty.Cmd
+	pty    ptySession
 
 	waitDone    chan struct{}
 	cleanupOnce sync.Once
@@ -221,27 +228,11 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 		return existing.info(), false, nil
 	}
 
-	ptyInstance, err := goPty.New()
-	if err != nil {
-		return SessionInfo{}, false, fmt.Errorf("open pty: %w", err)
-	}
-
 	sessionCtx, cancel := context.WithCancel(context.Background())
-	cmd := ptyInstance.CommandContext(sessionCtx, normalized.Command[0], normalized.Command[1:]...)
-	cmd.Dir = normalized.Dir
-	if len(normalized.Env) > 0 {
-		cmd.Env = append([]string(nil), normalized.Env...)
-	}
-
-	if err := cmd.Start(); err != nil {
+	ptyInstance, err := openPTYSession(sessionCtx, normalized)
+	if err != nil {
 		cancel()
-		_ = ptyInstance.Close()
-		return SessionInfo{}, false, fmt.Errorf("start terminal command: %w", err)
-	}
-	if err := ptyInstance.Resize(normalized.Columns, normalized.Rows); err != nil {
-		cancel()
-		_ = ptyInstance.Close()
-		return SessionInfo{}, false, fmt.Errorf("resize terminal: %w", err)
+		return SessionInfo{}, false, err
 	}
 
 	promptReady := make(chan struct{})
@@ -261,7 +252,6 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 		createdAt:      time.Now().UTC(),
 		cancel:         cancel,
 		pty:            ptyInstance,
-		cmd:            cmd,
 		waitDone:       make(chan struct{}),
 		columns:        normalized.Columns,
 		rows:           normalized.Rows,
@@ -595,7 +585,7 @@ func (s *Service) readLoop(session *session) {
 
 func (s *Service) waitLoop(session *session) {
 	defer close(session.waitDone)
-	if err := session.cmd.Wait(); err != nil && !isExpectedWaitError(err) {
+	if err := session.pty.Wait(); err != nil && !isExpectedWaitError(err) {
 		s.logger.Debug("terminal process exited with error",
 			slog.String("terminal_id", session.id),
 			slog.Any("error", err),

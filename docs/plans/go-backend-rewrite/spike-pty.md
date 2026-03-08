@@ -9,22 +9,24 @@ The rewrite no longer needs to decide whether a Go PTY layer is viable. That
 decision is already represented by the `internal/terminals` runtime and the
 Phase 4 follow-up docs that built on it.
 
-What changed is the library recommendation. The current code landed on
-`go-pty`, but the rewrite docs now prefer `creack/pty` for the Unix PTY path
-because it is the more conservative and widely used choice.
+What changed is the library outcome. The original Phase 4 terminal runtime
+landed on `go-pty`, and the bounded Unix follow-up has now moved that path to
+`creack/pty` while keeping Windows explicit.
 
 ## Status
 
-Current repo status as of 2026-03-08:
+Current repo status as of 2026-03-09:
 
-- `github.com/aymanbagabas/go-pty` is still pinned in `go.mod`
 - `internal/terminals/service.go` owns PTY-backed terminal session lifecycle
+- the Unix PTY backend now lives in
+  `internal/terminals/pty_backend_unix.go` over `github.com/creack/pty`
+- Windows compilation remains explicit through
+  `internal/terminals/pty_backend_windows.go`
 - `internal/wsapi/routes.go` and `internal/httpapi/terminal_routes.go` keep the
   websocket and HTTP layers thin above that service
 - the focused Phase 4 terminal/runtime migration docs are complete
-- the current rewrite recommendation is to move the Unix PTY path to
-  `github.com/creack/pty` before treating the PTY library choice as fully
-  settled
+- the bounded Unix PTY library follow-up is now landed for the current rewrite
+  scope
 
 ## Recommendation
 
@@ -71,10 +73,10 @@ The current Go direction intentionally keeps:
 
 macOS and Linux viability are proven by the core terminal service coverage.
 
-The updated rewrite recommendation no longer treats Windows PTY handling as a
-free consequence of the base PTY wrapper choice. If Windows terminal parity
-still matters for the rewrite target, it should land as an explicit follow-up
-over the Unix-first `creack/pty` path.
+The landed Unix backend move keeps the earlier recommendation intact: Windows
+PTY handling is not a free consequence of the Unix library choice. If Windows
+terminal parity still matters for the rewrite target, it should land as an
+explicit later follow-up.
 
 ## Exit Criteria Result
 
@@ -97,9 +99,12 @@ The original spike exit criteria are satisfied well enough to proceed:
 
 ## Next Step
 
-Treat PTY viability as proven, but treat the library choice as a small
-follow-up rather than fully closed.
+Treat PTY viability and the Unix library choice as closed for the current
+rewrite scope.
 
-Future terminal work should start from the completed Phase 4 docs plus a
-bounded `go-pty` to `creack/pty` follow-up inside `internal/terminals`, not
-from reopening the broader terminal architecture.
+Future terminal work should start from the completed Phase 4 docs and only
+reopen this area for:
+
+- explicit Windows PTY work
+- caller-backed terminal features like `cliId`
+- detached-run transport

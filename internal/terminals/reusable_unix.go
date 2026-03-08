@@ -5,11 +5,11 @@ package terminals
 import "fmt"
 
 func sessionIsReusable(session *session) (bool, error) {
-	if session == nil || session.cmd == nil || session.cmd.Process == nil {
+	if session == nil || session.pty == nil {
 		return false, nil
 	}
 
-	shellProcessGroup := session.cmd.Process.Pid
+	shellProcessGroup := session.pty.ProcessPID()
 	if shellProcessGroup <= 0 {
 		return false, nil
 	}

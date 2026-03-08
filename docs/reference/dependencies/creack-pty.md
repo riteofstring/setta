@@ -1,12 +1,12 @@
 # creack/pty
 
 - Module: `github.com/creack/pty`
-- Local status: planned follow-up candidate, not yet pinned directly in `go.mod`
+- Local status: direct dependency for the Unix PTY backend
 - Official package page observed on 2026-03-08: `v1.1.24`
 - Official package docs: https://pkg.go.dev/github.com/creack/pty
 - Official repo: https://github.com/creack/pty
 
-## Why It Is A Candidate
+## Why It Exists In This Rewrite
 
 - conservative Unix PTY lifecycle package for the rewrite terminal runtime
 - better ecosystem-confidence fit for the Unix path than a smaller
@@ -25,6 +25,10 @@ Likely paired with:
 
 - `os/exec.Cmd`
 - `*os.File` as the PTY handle
+
+Current repo call sites:
+
+- `internal/terminals/pty_backend_unix.go`
 
 ## Usage Rules For This Repo
 

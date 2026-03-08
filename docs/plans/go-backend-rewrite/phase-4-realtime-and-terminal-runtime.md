@@ -620,10 +620,10 @@ Tests:
 Later planning note:
 
 - this historical landing used `github.com/aymanbagabas/go-pty`
-- the current rewrite recommendation has since moved to
+- the bounded Unix follow-up has now landed on
   `github.com/creack/pty` for the Unix PTY path, with Windows PTY handling
-  treated as an explicit follow-up instead of being inherited from the base
-  wrapper choice
+  still treated as an explicit separate follow-up instead of being inherited
+  from the base wrapper choice
 
 Deferred:
 

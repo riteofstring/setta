@@ -432,11 +432,11 @@ That focused follow-on is now landed:
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
-shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the remaining
-real callers and product dependencies, not by reopening the completed
-external-agent runtime or Phase 13 settings surfaces. The next bounded priority
-is no longer inventory or transport cleanup; those are now complete. The
+shape is also proven, and the bounded Unix PTY-library follow-up recorded in
+`spike-pty.md` is now landed. New work should start from the remaining real
+callers and product dependencies, not by reopening the completed external-agent
+runtime or Phase 13 settings surfaces. The next bounded priority is no longer
+inventory or transport cleanup; those are now complete. The
 bounded agentic runtime route surface is also now complete for the current
 clean-break scope. The closeout inventory tracked in
 `phase-14-run-chain-caller-and-progress-closeout.md` then confirmed:
@@ -905,14 +905,14 @@ Outcome:
 
 Status:
 
-- follow-up selected
+- complete
 
 Outcome:
 
-- current code uses `github.com/aymanbagabas/go-pty` behind
+- current code now uses `github.com/creack/pty` for the Unix PTY path behind
   `internal/terminals`
-- current rewrite recommendation is to move the Unix PTY path to
-  `github.com/creack/pty`
+- Windows compilation remains explicit and separate from the Unix backend
+  choice
 - keep attach/detach/history, resize, termination, scope filtering, and input
   policy custom
 - keep websocket and HTTP transport layers thin above the PTY owner
@@ -1022,9 +1022,9 @@ Do not weaken this rule during the rewrite.
    agentic route inventory plus its reranked outcome do not disappear from
    planning context.
 2. Treat MCP, LSP, and file-state choices as locked unless a concrete new
-   requirement breaks them, and keep the PTY discussion bounded to the planned
-   `go-pty` to `creack/pty` Unix follow-up rather than reopening terminal
-   architecture more broadly.
+   requirement breaks them, and keep any remaining PTY discussion bounded to
+   explicit Windows follow-up or caller-backed terminal features rather than
+   reopening terminal architecture more broadly.
 3. Start any future agentic follow-on from the Phase 14 runtime-mutation plan,
    the Phase 14 run-chain closeout inventory, and real caller analysis, not by
    reopening completed Phase 12 runtime work or early spikes.

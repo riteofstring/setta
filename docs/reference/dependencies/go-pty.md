@@ -1,7 +1,7 @@
 # go-pty
 
 - Module: `github.com/aymanbagabas/go-pty`
-- Local status: pinned in `go.mod`
+- Local status: pinned in `go.mod` for the Windows-specific PTY backend only
 - Local version: `v0.2.2`
 - Retrieved: 2026-03-07
 - Official package docs: https://pkg.go.dev/github.com/aymanbagabas/go-pty
@@ -9,16 +9,16 @@
 
 ## Why It Exists In This Rewrite
 
-- PTY abstraction for Unix PTYs and Windows ConPTY
-- avoids baking platform-specific PTY setup into repo-owned terminal logic
+- current Windows-specific PTY backend path
+- keeps Windows compilation explicit while the Unix runtime uses `creack/pty`
 - keeps `internal/terminals` focused on session ownership and policy
 
 Current planning note:
 
-- this file describes the PTY dependency currently used by the codebase
-- the rewrite docs now recommend a follow-up move to `github.com/creack/pty`
-  for the Unix PTY path because it is the more conservative ecosystem choice
-- keep this note until the code and `go.mod` actually change
+- the bounded Unix `creack/pty` migration is now landed
+- this file remains relevant because Windows compilation still uses `go-pty`
+- any future removal now depends on an explicit Windows PTY follow-up, not the
+  Unix backend choice
 
 ## APIs We Use Now
 
@@ -30,12 +30,9 @@ Current planning note:
 - `Pty.Write`
 - `Pty.Resize`
 - `Pty.Close`
-- `UnixPty` type assertion in Unix-only interrupt handling
-
 Current repo call sites:
 
-- `internal/terminals/service.go`
-- `internal/terminals/interrupt_unix.go`
+- `internal/terminals/pty_backend_windows.go`
 
 ## Usage Rules For This Repo
 
@@ -55,7 +52,7 @@ Current repo call sites:
 
 ## Gotchas
 
-- keep platform-specific foreground-process-group logic behind Unix-only files
+- keep Windows-specific PTY handling isolated from the Unix backend
 - do not spread `go-pty` types across unrelated packages
 - terminal reuse decisions must come from repo-owned runtime state, not PTY
   heuristics

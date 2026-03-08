@@ -24,16 +24,19 @@ Completed before this slice:
 - PTY spike closeout recommending a bounded Unix `go-pty` to `creack/pty`
   follow-up
 
-Current Go state before this slice:
+Current Go state after this slice:
 
-- `internal/terminals/service.go` still imports and depends directly on
-  `github.com/aymanbagabas/go-pty`
-- Unix-only foreground-process-group helpers in:
-  - `internal/terminals/interrupt_unix.go`
-  - `internal/terminals/reusable_unix.go`
-  still depend on the `go-pty` type surface
-- `github.com/creack/pty` is already present in `go.mod`, but only as an
-  indirect dependency
+- `internal/terminals` now uses a repo-owned PTY session interface instead of
+  depending directly on a vendor PTY type surface in `service.go`
+- Unix PTY lifecycle now runs through `github.com/creack/pty` in:
+  - `internal/terminals/pty_backend_unix.go`
+- Unix-only interrupt and reusable-session checks now operate through the
+  repo-owned PTY interface instead of a `go-pty` type assertion
+- Windows compilation stays explicit through:
+  - `internal/terminals/pty_backend_windows.go`
+  which keeps the current `go-pty` backend path isolated until a separate
+  Windows PTY decision is chosen
+- `github.com/creack/pty` is now a direct dependency in `go.mod`
 
 ## Scope
 
@@ -110,9 +113,11 @@ This slice covers:
 
 - 2026-03-09: opened the focused Unix PTY backend migration slice after the
   earlier terminal-runtime and stabilization work was complete.
+- 2026-03-09: landed the repo-owned PTY backend interface plus the Unix
+  `creack/pty` backend while keeping Windows PTY handling explicit.
 
 ## Next Recommended Step
 
-- land the internal PTY interface plus Unix `creack/pty` backend
-- update the PTY spike and dependency docs so the library recommendation no
-  longer lags the code
+- treat the Unix PTY library decision as closed for the current rewrite scope
+- only reopen terminal backend work for a concrete Windows PTY follow-up or a
+  caller-backed terminal feature like `cliId` or detached-run transport
