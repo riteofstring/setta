@@ -757,3 +757,30 @@ Verification:
 - `pnpm -C frontend exec vitest run src/utils/sectionSlugPaths.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/router.test.tsx` passed: 3 files, 28 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "renamed slug"` passed: 1 test.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098` created a disposable standalone text section route, confirmed the old slug rendered `Section Not Found` after rename, and confirmed the new slug rendered the renamed standalone section surface.
+
+## 2026-03-10 21:18:36 PDT
+
+Implemented the follow-up fix that removes loader-side project-state repair and restores strict authoritative backend validation for per-project chat windowing.
+
+What changed:
+- Removed `normalize_project_state_backend_payload(...)` from `backend/setta/types/project_state.py`. The backend model no longer synthesizes `projectChatWindowingByProjectConfigId` entries for missing project configs during reads.
+- Simplified `DBE.read_project()` and `DBE.read_project_required()` in `backend/setta/database/db_objs.py` so they validate the payload as-is and never rewrite `project.json` during a read.
+- Replaced the prior backfill tests with fail-fast contract tests covering three boundaries: direct `ProjectStateBackend.model_validate(...)`, `DBE.read_project_required()`, and manager reload via `load_initial_state()`.
+- Added a canonical-writer non-regression test proving `create_project_config(...)` still seeds and persists an empty authoritative `ProjectChatWindowingState()` for newly created project configs.
+
+UX before/after:
+- Before: a malformed or legacy project missing `projectChatWindowingByProjectConfigId` could appear to load successfully because the backend fabricated empty windowing state and wrote the repaired payload back to disk during read.
+- After: malformed persisted state fails immediately with the real missing-windowing error, and the original payload remains unchanged for diagnosis or explicit migration.
+- Before: a broken saved layout could be silently collapsed into an empty persisted layout as a side effect of opening the workspace.
+- After: opening the workspace is side-effect free with respect to schema repair, so invalid state stays visible until corrected at an intentional write or migration boundary.
+
+DX before/after:
+- Before: engineers had to reason about two competing sources of truth: strict backend validation and a hidden loader upgrade path that could mutate persisted state during reads.
+- After: there is one contract. Canonical writers seed required windowing state; readers validate and fail fast.
+- Before: tests codified repair-on-read behavior, which made it easy to reintroduce backward-compatibility shims under the guise of harmless normalization.
+- After: the regression tests lock the desired invariant directly and assert that failed reads do not modify `project.json`.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/database/test_dbe_project_payload_validation.py tests/project_state/test_project_chat_windowing_persistence.py -q` passed: 17 tests.
+- `source activate.sh && python -m ruff check backend/setta/types/project_state.py backend/setta/database/db_objs.py tests/database/test_dbe_project_payload_validation.py tests/project_state/test_project_chat_windowing_persistence.py` passed.
+- No Playwright or CDP verification was added for this change because it only affects backend persistence validation and has no direct UI surface.

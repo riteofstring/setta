@@ -21,7 +21,6 @@ from setta.types.notifications import SettaNotification
 from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
-    normalize_project_state_backend_payload,
 )
 from setta.types.share_deployment import DeploymentManifest
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
@@ -212,10 +211,7 @@ class DBE:
 
     def read_project(self):
         payload = self.read_json(self.project)
-        return self._load_project_state_from_payload(
-            payload,
-            persist_upgraded_payload=self.project.exists(),
-        )
+        return self._load_project_state_from_payload(payload)
 
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump(mode="json"))
@@ -226,27 +222,15 @@ class DBE:
         payload = json.loads(self.project.read_text(encoding="utf-8"))
         if not payload:
             raise ValueError(f"Project file is empty: {self.project}")
-        return self._load_project_state_from_payload(
-            payload,
-            persist_upgraded_payload=True,
-        )
+        return self._load_project_state_from_payload(payload)
 
     def _load_project_state_from_payload(
         self,
         payload: Any,
-        *,
-        persist_upgraded_payload: bool,
     ) -> ProjectStateBackend:
         if not isinstance(payload, dict):
             raise TypeError("Project payload must be a JSON object.")
-        normalized_payload, payload_changed = normalize_project_state_backend_payload(
-            payload
-        )
-        project_state = ProjectStateBackend.model_validate(normalized_payload)
-        serialized = project_state.model_dump(mode="json")
-        if persist_upgraded_payload and (payload_changed or serialized != payload):
-            self.write_json(self.project, serialized)
-        return project_state
+        return ProjectStateBackend.model_validate(payload)
 
     def read_deployment_manifest(self) -> DeploymentManifest:
         if not self.deployment_manifest.exists():

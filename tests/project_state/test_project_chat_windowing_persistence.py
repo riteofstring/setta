@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 from setta.agentic.store import save_engine_configs
 from setta.llm.config import save_llm_config
 from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
@@ -38,7 +39,6 @@ from setta.types.project_state import (
     ProjectChatWindowInstance,
     ProjectStateBackend,
     ProjectStateSingleConfig,
-    normalize_project_state_backend_payload,
 )
 from setta.types.section_impls import (
     ChatDictationMode,
@@ -179,27 +179,26 @@ def test_project_state_backend_normalizes_authoritative_windowing_payloads() -> 
     )
 
 
-def test_normalize_project_state_backend_payload_backfills_missing_windowing_entries() -> (
-    None
-):
+def test_project_state_backend_rejects_missing_windowing_entries() -> None:
     project_config = ProjectConfig(id="cfg-1", name="legacy-windowing")
-    normalized_payload, did_change = normalize_project_state_backend_payload(
-        {
-            "projectConfigs": {
-                project_config.id: project_config.model_dump(mode="json"),
-            },
-            "defaultProjectConfigId": project_config.id,
-        }
-    )
-
-    assert did_change is True
-    assert normalized_payload["projectChatWindowingByProjectConfigId"] == {
-        project_config.id: ProjectChatWindowingState().model_dump(mode="json")
-    }
+    # Backend payloads must already contain authoritative windowing state for each
+    # project config.
+    with pytest.raises(
+        ValidationError,
+        match="Missing project chat windowing state for project config ids: cfg-1",
+    ):
+        ProjectStateBackend.model_validate(
+            {
+                "projectConfigs": {
+                    project_config.id: project_config.model_dump(mode="json"),
+                },
+                "defaultProjectConfigId": project_config.id,
+            }
+        )
 
 
 @pytest.mark.asyncio
-async def test_load_project_config_backfills_missing_authoritative_windowing() -> None:
+async def test_load_initial_state_rejects_missing_authoritative_windowing() -> None:
     async with real_project_manager() as fixture:
         manager = fixture.manager
         project_config_id = manager.project_state_backend.defaultProjectConfigId
@@ -209,13 +208,44 @@ async def test_load_project_config_backfills_missing_authoritative_windowing() -
         persisted_payload.pop("projectChatWindowingByProjectConfigId", None)
         fixture.dbe.write_json(fixture.dbe.project, persisted_payload)
 
-        manager.project_state_backend = manager.load_initial_state()
-        loaded_project_state = await manager.load_project_config(project_config_id)
+        # Reloading from disk should fail fast and leave the malformed payload
+        # untouched so the broken contract stays visible to callers.
+        with pytest.raises(
+            ValidationError,
+            match=(
+                "Missing project chat windowing state for project config ids: "
+                f"{project_config_id}"
+            ),
+        ):
+            manager.load_initial_state()
 
-        assert loaded_project_state.projectChatWindowing == ProjectChatWindowingState()
+        assert fixture.dbe.read_json(fixture.dbe.project) == persisted_payload
+
+
+@pytest.mark.asyncio
+async def test_create_project_config_seeds_authoritative_windowing() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        existing_ids = set(manager.project_state_backend.projectConfigs.keys())
+
+        await manager.create_project_config("bg-blue-500/60 dark:bg-blue-600/30")
+
+        new_ids = set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+        if len(new_ids) != 1:
+            raise AssertionError("Expected exactly one new project config.")
+        new_project_config_id = next(iter(new_ids))
+
+        assert (
+            manager.project_state_backend.projectChatWindowingByProjectConfigId[
+                new_project_config_id
+            ]
+            == ProjectChatWindowingState()
+        )
+
+        manager.perform_manual_save()
         assert fixture.dbe.read_json(fixture.dbe.project)[
             "projectChatWindowingByProjectConfigId"
-        ] == {project_config_id: ProjectChatWindowingState().model_dump(mode="json")}
+        ][new_project_config_id] == ProjectChatWindowingState().model_dump(mode="json")
 
 
 @pytest.mark.asyncio
