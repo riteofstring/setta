@@ -270,6 +270,20 @@ func newTypeConverter() *typeConverter {
 				Kind:  "alias",
 				Alias: "LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
 			},
+			reflect.TypeOf(RunCodeRequestInput{}): {
+				Name: "RunCodeRequestInput",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "projectConfigId", TypeExpr: "string"},
+					{Name: "sectionId", TypeExpr: "string | null"},
+					{Name: "terminalSectionId", TypeExpr: "string | null", Optional: true},
+					{Name: "cliId", TypeExpr: "string | null", Optional: true},
+					{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode | null", Optional: true},
+					{Name: "drawSnapshotsBySectionId", TypeExpr: "Record<string, BinaryContentRef> | null", Optional: true},
+					{Name: "sectionVariantOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
+					{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
+				},
+			},
 			reflect.TypeOf(ProjectStateSingleConfig{}): {
 				Name: "ProjectStateSingleConfig",
 				Kind: "raw",

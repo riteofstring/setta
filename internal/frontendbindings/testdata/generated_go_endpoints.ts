@@ -197,6 +197,16 @@ export async function route_get_password_param_value(x: gt.GetPasswordParamValue
   return await post(GoHTTPRoutes.getPasswordParamValue, x);
 
 }
+export async function route_kill_subprocesses(x: gt.KillSubprocessesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.killSubprocesses, x);
+
+}
+export async function route_run_code(x: gt.RunCodeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.runCode, x);
+
+}
 export async function route_get_attachment_download_url(x: gt.GetAttachmentDownloadURLRequestInput): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
 
   return await post(GoHTTPRoutes.getAttachmentDownloadUrl, x);

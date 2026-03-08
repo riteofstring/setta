@@ -257,6 +257,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_PASSWORD_PARAM_VALUE",
 				},
 				{
+					Name:     "killSubprocesses",
+					Path:     httpapi.RouteKillSubprocesses,
+					EnumName: "KILL_SUBPROCESSES",
+				},
+				{
+					Name:     "runCode",
+					Path:     httpapi.RouteRunCode,
+					EnumName: "RUN_CODE",
+				},
+				{
 					Name:     "getAttachmentDownloadUrl",
 					Path:     httpapi.RouteGetAttachmentDownloadURL,
 					EnumName: "GET_ATTACHMENT_DOWNLOAD_URL",
@@ -1051,6 +1061,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getPasswordParamValue",
 			RequestType:     reflect.TypeOf(GetPasswordParamValueRequestInput{}),
 			ResponseType:    reflect.TypeOf(GetPasswordParamValueResponse{}),
+		},
+		{
+			FunctionName:    "route_kill_subprocesses",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "killSubprocesses",
+			RequestType:     reflect.TypeOf(KillSubprocessesRequestInput{}),
+		},
+		{
+			FunctionName:    "route_run_code",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "runCode",
+			RequestType:     reflect.TypeOf(RunCodeRequestInput{}),
 		},
 		{
 			FunctionName:    "route_get_attachment_download_url",

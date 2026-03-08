@@ -4898,6 +4898,29 @@ export function createGetPasswordParamValueResponse(options: Partial<GetPassword
 }
 
 
+export type KillSubprocessesRequestInput = {
+  projectConfigId: string;
+};
+export function createKillSubprocessesRequestInput(options: Partial<KillSubprocessesRequestInput> = {}): KillSubprocessesRequestInput {
+  return options as KillSubprocessesRequestInput;
+}
+
+
+export type RunCodeRequestInput = {
+  projectConfigId: string;
+  sectionId: string | null;
+  terminalSectionId?: string | null;
+  cliId?: string | null;
+  runSnapshotMode?: RunSnapshotMode | null;
+  drawSnapshotsBySectionId?: Record<string, BinaryContentRef> | null;
+  sectionVariantOverrides?: Record<string, string> | null;
+  paramOverrides?: Record<string, string> | null;
+};
+export function createRunCodeRequestInput(options: Partial<RunCodeRequestInput> = {}): RunCodeRequestInput {
+  return options as RunCodeRequestInput;
+}
+
+
 export type GetAttachmentDownloadURLRequestInput = {
   artifactId: string;
   projectConfigId: string | null;

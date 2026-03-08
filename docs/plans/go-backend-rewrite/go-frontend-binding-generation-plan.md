@@ -661,6 +661,10 @@ Current landed wedge:
     now covered by the canonical Go-generated password-value helper binding
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
+  - `runOrImportCode`, `RunButton`, and `AppRenderer` now consume canonical
+    Go-generated terminal HTTP bindings for `runCode` and
+    `killSubprocesses`; the deferred deployment/share/app terminal websocket
+    viewing gap remains unchanged
   - `triggerListenerForceRefresh`, `fetchListenerCoverageSnapshot`, and the
     current listener-coverage dependency-key helpers now consume canonical
     Go-generated listener bindings and dependency contracts

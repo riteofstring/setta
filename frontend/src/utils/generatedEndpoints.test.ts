@@ -46,6 +46,7 @@ import {
   route_get_password_param_value,
   route_group_sections,
   route_import_files_to_artifacts,
+  route_kill_subprocesses,
   route_load_all_project_metadata,
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
@@ -57,6 +58,7 @@ import {
   route_plugins_restart,
   route_plugins_runtime,
   route_restart_language_server,
+  route_run_code,
   route_set_active_ids,
   route_set_active_view_mode,
   route_set_app_definition,
@@ -1335,6 +1337,82 @@ describe("generatedEndpoints ai settings and chat helpers", () => {
         audioPcm16Base64: "AQIDBA==",
         sampleRateHz: 24_000,
         channels: 1,
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints terminal helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts stop-code requests through killSubprocesses", async () => {
+    await route_kill_subprocesses({
+      projectConfigId: "project-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/killSubprocesses`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+      }),
+    });
+  });
+
+  it("posts run-code requests with nullable execution overrides", async () => {
+    await route_run_code({
+      projectConfigId: "project-1",
+      sectionId: null,
+      terminalSectionId: null,
+      cliId: null,
+      runSnapshotMode: null,
+      drawSnapshotsBySectionId: null,
+      sectionVariantOverrides: {
+        "section-1": "variant-1",
+      },
+      paramOverrides: {
+        "section-1:param-1": "override",
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/runCode`);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: null,
+        terminalSectionId: null,
+        cliId: null,
+        runSnapshotMode: null,
+        drawSnapshotsBySectionId: null,
+        sectionVariantOverrides: {
+          "section-1": "variant-1",
+        },
+        paramOverrides: {
+          "section-1:param-1": "override",
+        },
       }),
     });
   });
