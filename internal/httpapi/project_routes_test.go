@@ -2331,6 +2331,164 @@ func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesParamMoveMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": paramMoveRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteIndentParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramIds":["selected-a","selected-b"]}`,
+		},
+		{
+			route: RouteUnindentParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramIds":["selected-b"]}`,
+		},
+		{
+			route: RouteMoveParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramIds":["selected-a"],"newParentId":"root-param","newIndex":0}`,
+		},
+		{
+			route: RouteMoveParamGroups,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","moves":[{"paramIds":["selected-a"],"newParentId":"root-param","newIndex":3}]}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-section"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	codeObjVariantMap, ok := dictPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected codeObjVariantMap object, got %#v", dictPayload["codeObjVariantMap"])
+	}
+	rootSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["root-param"].SharedModifier)
+	if got := decodeProjectRouteStringArray(rootSharedModifier["children"]); !reflect.DeepEqual(got, []string{"parent-param", "selected-b", "other-param", "selected-a"}) {
+		t.Fatalf("expected final root order [parent-param selected-b other-param selected-a], got %#v", got)
+	}
+
+	parentVariantID, ok := codeObjVariantMap["parent-param"].(string)
+	if !ok {
+		t.Fatalf("expected parent-param variant id string, got %#v", codeObjVariantMap["parent-param"])
+	}
+	parentImplID := payload.ProjectState.CodeObjVariants[parentVariantID].Impl
+	parentImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjImpls[parentImplID])
+	if got := parentImplPayload["type"]; got != "NestedParam" {
+		t.Fatalf("expected parent-param impl type NestedParam after indent, got %#v", got)
+	}
+	parentSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["parent-param"].SharedModifier)
+	if got := decodeProjectRouteStringArray(parentSharedModifier["children"]); len(got) != 0 {
+		t.Fatalf("expected parent-param children to be empty after move-out, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesParamMoveMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": paramMoveRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteIndentParams,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramIds":["selected-a"," "]}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"param_ids_invalid"`,
+		},
+		{
+			route:        RouteMoveParams,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramIds":["selected-a"],"newParentId":"missing-param","newIndex":0}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"new_parent_not_found"`,
+		},
+		{
+			route:        RouteMoveParamGroups,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-section","moves":[{"paramIds":["selected-a"],"newParentId":"selected-a","newIndex":0}]}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"param_move_invalid"`,
+		},
+		{
+			route:        RouteMoveParams,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-section","paramIds":["selected-a"],"newParentId":"root-param","newIndex":-1}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"new_index_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesAddKwargPersistsLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -4241,6 +4399,16 @@ func decodeProjectRouteRawObject(t *testing.T, payload json.RawMessage) map[stri
 	return object
 }
 
+func mustMarshalProjectRouteObject(t *testing.T, value map[string]any) json.RawMessage {
+	t.Helper()
+
+	payload, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("marshal route test payload: %v", err)
+	}
+	return payload
+}
+
 func decodeProjectRouteStringArray(value any) []string {
 	entries, ok := value.([]any)
 	if !ok {
@@ -4984,6 +5152,124 @@ func sectionEdgeRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize section edge route project: %v", err)
+	}
+	return project
+}
+
+func paramMoveRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:                 "project-alpha",
+		Name:               "Alpha",
+		TopLevelSectionIDs: []string{"dict-section"},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"dict-section": {X: 10, Y: 20, ZIndex: 1},
+		},
+		SectionVariantMap: map[string]string{
+			"dict-section": "dict-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"dict-section": {
+				ID:               "dict-section",
+				Name:             "Dict",
+				VariantIDs:       []string{"dict-variant"},
+				DefaultVariantID: "dict-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"dict-variant": {ID: "dict-variant", ImplID: "dict-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"dict-impl": {
+				ID:   "dict-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{
+					"id":              "dict-impl",
+					"type":            "Dict",
+					"topLevelParamId": "root-param",
+					"paramFilter":     "",
+					"selectedParams":  []string{},
+					"edgeInputParams": []string{},
+					"codeObjVariantMap": map[string]string{
+						"root-param":   "root-param-variant",
+						"parent-param": "parent-param-variant",
+						"selected-a":   "selected-a-variant",
+						"selected-b":   "selected-b-variant",
+						"other-param":  "other-param-variant",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"root-param": {
+				ID:               "root-param",
+				Name:             "root",
+				VariantIDs:       []string{"root-param-variant"},
+				DefaultVariantID: "root-param-variant",
+			},
+			"parent-param": {
+				ID:               "parent-param",
+				Name:             "parent",
+				VariantIDs:       []string{"parent-param-variant"},
+				DefaultVariantID: "parent-param-variant",
+			},
+			"selected-a": {
+				ID:               "selected-a",
+				Name:             "selected_a",
+				VariantIDs:       []string{"selected-a-variant"},
+				DefaultVariantID: "selected-a-variant",
+			},
+			"selected-b": {
+				ID:               "selected-b",
+				Name:             "selected_b",
+				VariantIDs:       []string{"selected-b-variant"},
+				DefaultVariantID: "selected-b-variant",
+			},
+			"other-param": {
+				ID:               "other-param",
+				Name:             "other",
+				VariantIDs:       []string{"other-param-variant"},
+				DefaultVariantID: "other-param-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"root-param-variant":   {ID: "root-param-variant", ImplID: "root-param-impl"},
+			"parent-param-variant": {ID: "parent-param-variant", ImplID: "parent-param-impl"},
+			"selected-a-variant":   {ID: "selected-a-variant", ImplID: "selected-a-impl"},
+			"selected-b-variant":   {ID: "selected-b-variant", ImplID: "selected-b-impl"},
+			"other-param-variant":  {ID: "other-param-variant", ImplID: "other-param-impl"},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"root-param-impl": {
+				ID:      "root-param-impl",
+				Type:    "NestedParam",
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{"id": "root-param-impl", "type": "NestedParam", "children": []string{"parent-param", "selected-a", "selected-b", "other-param"}}),
+			},
+			"parent-param-impl": {
+				ID:      "parent-param-impl",
+				Type:    "CodeParam",
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{"id": "parent-param-impl", "type": "CodeParam", "coreNameEditable": true, "coreNameType": "TEXT", "passingStyle": "DEFAULT", "typeAnnotation": "", "value": "parent"}),
+			},
+			"selected-a-impl": {
+				ID:      "selected-a-impl",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{"id": "selected-a-impl", "type": "TextParam", "coreNameEditable": true, "coreNameType": "TEXT", "passingStyle": "DEFAULT", "typeAnnotation": "", "value": "a"}),
+			},
+			"selected-b-impl": {
+				ID:      "selected-b-impl",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{"id": "selected-b-impl", "type": "TextParam", "coreNameEditable": true, "coreNameType": "TEXT", "passingStyle": "DEFAULT", "typeAnnotation": "", "value": "b"}),
+			},
+			"other-param-impl": {
+				ID:      "other-param-impl",
+				Type:    "TextParam",
+				Payload: mustMarshalProjectRouteObject(t, map[string]any{"id": "other-param-impl", "type": "TextParam", "coreNameEditable": true, "coreNameType": "TEXT", "passingStyle": "DEFAULT", "typeAnnotation": "", "value": "other"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize param move route test project: %v", err)
 	}
 	return project
 }

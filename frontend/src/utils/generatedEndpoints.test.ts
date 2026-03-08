@@ -48,6 +48,7 @@ import {
   route_get_password_param_value,
   route_group_sections,
   route_import_files_to_artifacts,
+  route_indent_params,
   route_kill_subprocesses,
   route_load_all_project_metadata,
   route_load_cached_brush_strokes,
@@ -55,6 +56,8 @@ import {
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
   route_load_project_config,
+  route_move_param_groups,
+  route_move_params,
   route_plugins_config,
   route_plugins_install,
   route_plugins_restart,
@@ -100,6 +103,7 @@ import {
   route_transfer_file_browser_entry,
   route_type_check,
   route_ungroup_groups,
+  route_unindent_params,
   route_unselect_all_params,
   route_update_artifacts,
   route_update_param_impl_config,
@@ -371,6 +375,94 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         sectionId: "callable-section",
         paramInfoIds: ["param-a", "param-b"],
+      }),
+    });
+  });
+
+  it("posts param move and indent writes with the canonical request shapes", async () => {
+    await route_move_params({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      paramIds: ["param-a", "param-b"],
+      newParentId: "parent-param",
+      newIndex: 1,
+    });
+
+    await route_move_param_groups({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      moves: [
+        {
+          paramIds: ["param-a"],
+          newParentId: "root-param",
+          newIndex: 2,
+        },
+      ],
+    });
+
+    await route_indent_params({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      paramIds: ["param-a", "param-b"],
+    });
+
+    await route_unindent_params({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      paramIds: ["param-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/moveParams`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        paramIds: ["param-a", "param-b"],
+        newParentId: "parent-param",
+        newIndex: 1,
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/moveParamGroups`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        moves: [
+          {
+            paramIds: ["param-a"],
+            newParentId: "root-param",
+            newIndex: 2,
+          },
+        ],
+      }),
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/indentParams`,
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        paramIds: ["param-a", "param-b"],
+      }),
+    });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/unindentParams`,
+    );
+    expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        paramIds: ["param-b"],
       }),
     });
   });

@@ -152,6 +152,11 @@ Current landed wedge:
     - current structure/param-selection mutation payloads
       - `DeleteSectionsRequestInput`
       - `DeleteSelectedParamsRequestInput`
+      - `MoveParamGroup`
+      - `MoveParamsRequestInput`
+      - `MoveParamGroupsRequestInput`
+      - `IndentParamsRequestInput`
+      - `UnindentParamsRequestInput`
       - `GroupSectionsRequestInput`
       - `UngroupGroupsRequestInput`
       - `ToggleParamSelectedRequestInput`

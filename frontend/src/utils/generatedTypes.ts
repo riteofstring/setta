@@ -5283,6 +5283,67 @@ export function createDeleteSelectedParamsRequestInput(
   return options as DeleteSelectedParamsRequestInput;
 }
 
+export type MoveParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+  newParentId: string;
+  newIndex: number;
+};
+export function createMoveParamsRequestInput(
+  options: Partial<MoveParamsRequestInput> = {},
+): MoveParamsRequestInput {
+  return options as MoveParamsRequestInput;
+}
+
+export type MoveParamGroup = {
+  paramIds: Array<string>;
+  newParentId: string;
+  newIndex: number;
+};
+export function createMoveParamGroup(
+  options: Partial<MoveParamGroup> = {},
+): MoveParamGroup {
+  return options as MoveParamGroup;
+}
+
+export type MoveParamGroupsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  moves: Array<MoveParamGroup>;
+};
+export function createMoveParamGroupsRequestInput(
+  options: Partial<MoveParamGroupsRequestInput> = {},
+): MoveParamGroupsRequestInput {
+  return options as MoveParamGroupsRequestInput;
+}
+
+export type IndentParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+};
+export function createIndentParamsRequestInput(
+  options: Partial<IndentParamsRequestInput> = {},
+): IndentParamsRequestInput {
+  return options as IndentParamsRequestInput;
+}
+
+export type UnindentParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramIds: Array<string>;
+};
+export function createUnindentParamsRequestInput(
+  options: Partial<UnindentParamsRequestInput> = {},
+): UnindentParamsRequestInput {
+  return options as UnindentParamsRequestInput;
+}
+
 export type AddKwargRequestInput = {
   projectConfigId: string;
   sectionId: string;

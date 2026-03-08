@@ -35,6 +35,42 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
+type MoveParamGroup struct {
+	ParamIDs    []string `json:"paramIds"`
+	NewParentID string   `json:"newParentId"`
+	NewIndex    int      `json:"newIndex"`
+}
+
+type MoveParamsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	ParamIDs        []string `json:"paramIds"`
+	NewParentID     string   `json:"newParentId"`
+	NewIndex        int      `json:"newIndex"`
+}
+
+type MoveParamGroupsRequestInput struct {
+	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
+	ProjectConfigID string           `json:"projectConfigId"`
+	SectionID       string           `json:"sectionId"`
+	Moves           []MoveParamGroup `json:"moves"`
+}
+
+type IndentParamsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	ParamIDs        []string `json:"paramIds"`
+}
+
+type UnindentParamsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	ParamIDs        []string `json:"paramIds"`
+}
+
 type AddKwargRequestInput struct {
 	ProjectConfigID string `json:"projectConfigId"`
 	SectionID       string `json:"sectionId"`

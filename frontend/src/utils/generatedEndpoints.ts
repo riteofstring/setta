@@ -52,6 +52,26 @@ export async function route_delete_selected_params(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRoutes.deleteSelectedParams, x);
 }
+export async function route_move_params(
+  x: gt.MoveParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.moveParams, x);
+}
+export async function route_move_param_groups(
+  x: gt.MoveParamGroupsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.moveParamGroups, x);
+}
+export async function route_indent_params(
+  x: gt.IndentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.indentParams, x);
+}
+export async function route_unindent_params(
+  x: gt.UnindentParamsRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.unindentParams, x);
+}
 export async function route_add_kwarg(
   x: gt.AddKwargRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

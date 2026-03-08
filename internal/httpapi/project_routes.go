@@ -24,6 +24,10 @@ const (
 	RouteCreateTopLevelSection            = "/createTopLevelSection"
 	RouteDeleteSections                   = "/deleteSections"
 	RouteDeleteSelectedParams             = "/deleteSelectedParams"
+	RouteMoveParams                       = "/moveParams"
+	RouteMoveParamGroups                  = "/moveParamGroups"
+	RouteIndentParams                     = "/indentParams"
+	RouteUnindentParams                   = "/unindentParams"
 	RouteAddKwarg                         = "/addKwarg"
 	RouteDeleteKwarg                      = "/deleteKwarg"
 	RouteCreateViewMode                   = "/createViewMode"
@@ -191,6 +195,42 @@ type DeleteSelectedParamsRequest struct {
 	ProjectID    string   `json:"projectConfigId"`
 	SectionID    string   `json:"sectionId"`
 	ParamInfoIDs []string `json:"paramInfoIds"`
+}
+
+type MoveParamsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionID    string   `json:"sectionId"`
+	ParamIDs     []string `json:"paramIds"`
+	NewParentID  string   `json:"newParentId"`
+	NewIndex     int      `json:"newIndex"`
+}
+
+type MoveParamGroupRequest struct {
+	ParamIDs    []string `json:"paramIds"`
+	NewParentID string   `json:"newParentId"`
+	NewIndex    int      `json:"newIndex"`
+}
+
+type MoveParamGroupsRequest struct {
+	FrontendOpID *string                 `json:"frontendOpId"`
+	ProjectID    string                  `json:"projectConfigId"`
+	SectionID    string                  `json:"sectionId"`
+	Moves        []MoveParamGroupRequest `json:"moves"`
+}
+
+type IndentParamsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionID    string   `json:"sectionId"`
+	ParamIDs     []string `json:"paramIds"`
+}
+
+type UnindentParamsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionID    string   `json:"sectionId"`
+	ParamIDs     []string `json:"paramIds"`
 }
 
 type AddKwargRequest struct {
@@ -692,6 +732,10 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteJSONSourceFileAndVariant, deleteJSONSourceFileAndVariantHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSections, deleteSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSelectedParams, deleteSelectedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteMoveParams, moveParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteMoveParamGroups, moveParamGroupsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteIndentParams, indentParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUnindentParams, unindentParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAddKwarg, addKwargHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteKwarg, deleteKwargHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTopLevelSection, createTopLevelSectionHandler(deps))
@@ -1186,6 +1230,148 @@ func deleteSelectedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			},
 		); err != nil {
 			writeParamSelectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func moveParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[MoveParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.MoveParams(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.MoveParamsInput{
+				SectionID:   payload.SectionID,
+				ParamIDs:    payload.ParamIDs,
+				NewParentID: payload.NewParentID,
+				NewIndex:    payload.NewIndex,
+			},
+		); err != nil {
+			writeParamMoveMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func moveParamGroupsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[MoveParamGroupsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		moves := make([]projectstate.MoveParamGroupInput, 0, len(payload.Moves))
+		for _, move := range payload.Moves {
+			moves = append(moves, projectstate.MoveParamGroupInput{
+				ParamIDs:    move.ParamIDs,
+				NewParentID: move.NewParentID,
+				NewIndex:    move.NewIndex,
+			})
+		}
+		if _, err := deps.ProjectState.MoveParamGroups(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.MoveParamGroupsInput{
+				SectionID: payload.SectionID,
+				Moves:     moves,
+			},
+		); err != nil {
+			writeParamMoveMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func indentParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[IndentParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.IndentParams(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.IndentParamsInput{
+				SectionID: payload.SectionID,
+				ParamIDs:  payload.ParamIDs,
+			},
+		); err != nil {
+			writeParamMoveMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func unindentParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[UnindentParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.UnindentParams(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.UnindentParamsInput{
+				SectionID: payload.SectionID,
+				ParamIDs:  payload.ParamIDs,
+			},
+		); err != nil {
+			writeParamMoveMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3365,6 +3551,47 @@ func writeParamSelectionMutationError(w http.ResponseWriter, r *http.Request, er
 		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentMissing),
 		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentUnsupported):
 		writeError(w, r, http.StatusUnprocessableEntity, "param_selection_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeParamMoveMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrParamMoveParamIDBlank):
+		writeError(w, r, http.StatusBadRequest, "param_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrParamMoveNewParentRequired):
+		writeError(w, r, http.StatusBadRequest, "new_parent_id_required", "New parent id is required.")
+	case errors.Is(err, projectstate.ErrParamMoveNewIndexNegative):
+		writeError(w, r, http.StatusBadRequest, "new_index_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound),
+		errors.Is(err, projectstate.ErrParamMoveParamNotFound):
+		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
+	case errors.Is(err, projectstate.ErrParamMoveNewParentNotFound):
+		writeError(w, r, http.StatusNotFound, "new_parent_not_found", "New parent not found.")
+	case errors.Is(err, projectstate.ErrParamMoveUnsupported),
+		errors.Is(err, projectstate.ErrParamMoveRootMissing),
+		errors.Is(err, projectstate.ErrParamMoveFilterActive),
+		errors.Is(err, projectstate.ErrParamMoveParamUnsupported),
+		errors.Is(err, projectstate.ErrParamMoveParentMissing),
+		errors.Is(err, projectstate.ErrParamMoveParentUnsupported),
+		errors.Is(err, projectstate.ErrParamMoveSelectionSpansParents),
+		errors.Is(err, projectstate.ErrParamMoveAncestorSelection),
+		errors.Is(err, projectstate.ErrParamMoveNewParentSelected),
+		errors.Is(err, projectstate.ErrParamMoveNewParentDescendant),
+		errors.Is(err, projectstate.ErrParamMoveNewIndexOutOfRange),
+		errors.Is(err, projectstate.ErrParamMoveParentMissingFromGrand),
+		errors.Is(err, projectstate.ErrChangeParamImplUnsupported),
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed):
+		writeError(w, r, http.StatusUnprocessableEntity, "param_move_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

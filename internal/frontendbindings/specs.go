@@ -107,6 +107,26 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DELETE_SELECTED_PARAMS",
 				},
 				{
+					Name:     "moveParams",
+					Path:     httpapi.RouteMoveParams,
+					EnumName: "MOVE_PARAMS",
+				},
+				{
+					Name:     "moveParamGroups",
+					Path:     httpapi.RouteMoveParamGroups,
+					EnumName: "MOVE_PARAM_GROUPS",
+				},
+				{
+					Name:     "indentParams",
+					Path:     httpapi.RouteIndentParams,
+					EnumName: "INDENT_PARAMS",
+				},
+				{
+					Name:     "unindentParams",
+					Path:     httpapi.RouteUnindentParams,
+					EnumName: "UNINDENT_PARAMS",
+				},
+				{
 					Name:     "addKwarg",
 					Path:     httpapi.RouteAddKwarg,
 					EnumName: "ADD_KWARG",
@@ -922,6 +942,34 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteSelectedParams",
 			RequestType:     reflect.TypeOf(DeleteSelectedParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_move_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "moveParams",
+			RequestType:     reflect.TypeOf(MoveParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_move_param_groups",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "moveParamGroups",
+			RequestType:     reflect.TypeOf(MoveParamGroupsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_indent_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "indentParams",
+			RequestType:     reflect.TypeOf(IndentParamsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_unindent_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "unindentParams",
+			RequestType:     reflect.TypeOf(UnindentParamsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_add_kwarg",
