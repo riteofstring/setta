@@ -36,8 +36,8 @@ Current repo status as of 2026-03-09:
 - registration-load failures stay plugin-scoped as
   `PLUGIN_BACKEND_REGISTER_FAILED` status errors instead of failing the entire
   runtime/status read
-- `registeredLanguageServers` and `registeredExternalAgentAdapters` remain
-  intentionally empty and deferred
+- the later combined backend registration follow-on is now landed in
+  `phase-15-plugin-backend-language-server-and-external-agent-registration-runtime.md`
 
 ## Scope
 
@@ -135,12 +135,10 @@ This slice covered only:
 
 - the bounded local-link transport follow-on is now landed in
   `phase-15-plugin-link-transport.md`
+- the combined backend registration follow-on is now landed in
+  `phase-15-plugin-backend-language-server-and-external-agent-registration-runtime.md`
 - keep `POST /plugins/lock/*` deferred unless they become caller-backed or a
   bounded dependency requires them
-- if plugin backend runtime work resumes, only take the next higher-level
-  registration slice when a concrete caller needs it
-  - likely candidates are language-server or external-agent registration
-    ownership
 - do not introduce a broad backend plugin supervisor until a real lifetime or
   multi-registration dependency makes it necessary
 

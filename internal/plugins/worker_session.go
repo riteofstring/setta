@@ -145,6 +145,7 @@ func StartWorkerSession(options WorkerSessionOptions) (*WorkerSession, error) {
 		Host:   options.Host,
 		Worker: WorkerContext{
 			PluginID:              pluginID,
+			PluginRoot:            options.PluginRoot,
 			EffectiveCapabilities: append([]string(nil), options.EffectiveCapabilities...),
 		},
 		NextRequestID: options.NextRequestID,

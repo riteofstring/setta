@@ -548,14 +548,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	var agentRunService *agentruns.Service
 	var pluginMutationService *plugins.Service
-	var pluginCodegenRuntime plugins.BackendCodegenRegistrationSource
+	var pluginBackendRegistrations plugins.BackendRegistrationSource
 	var pythonPackages *pythonenv.Runtime
 	pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
 	if err != nil {
 		logger.Warn("python package inspection runtime unavailable", "error", err)
 	}
 	if pluginWorkerRuntime != nil {
-		pluginCodegenRuntime, err = plugins.NewBackendCodegenRegistrationLoader(plugins.BackendCodegenRegistrationLoaderOptions{
+		pluginBackendRegistrations, err = plugins.NewBackendRegistrationLoader(plugins.BackendRegistrationLoaderOptions{
 			RuntimeProvider: pluginWorkerRuntime,
 			ServerMode:      cfg.Server.Mode,
 		})
@@ -565,11 +565,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 	}
 	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-		BackendCodegenRuntime: pluginCodegenRuntime,
-		WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
-		SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
-		SettaHome:             cfg.Paths.SettaHome,
-		ServerMode:            cfg.Server.Mode,
+		BackendRuntimeRegistrations: pluginBackendRegistrations,
+		WorkspaceRoot:               cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot:              cfg.Paths.SettaFilesRoot,
+		SettaHome:                   cfg.Paths.SettaHome,
+		ServerMode:                  cfg.Server.Mode,
 		CandidateProvider: plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
 			PackageManagerRuntime: pythonPackages,
 			SettaFilesRoot:        cfg.Paths.SettaFilesRoot,

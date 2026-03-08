@@ -541,8 +541,6 @@ The first higher-level backend plugin runtime follow-on tracked in
 - plugin-scoped backend registration failures now surface as
   `PLUGIN_BACKEND_REGISTER_FAILED` status errors instead of failing the entire
   runtime/status read
-- `registeredLanguageServers` and `registeredExternalAgentAdapters` remain
-  deferred until a concrete caller needs them
 
 The bounded plugin local-link transport follow-on tracked in
 `phase-15-plugin-link-transport.md` is now landed:
@@ -555,6 +553,26 @@ The bounded plugin local-link transport follow-on tracked in
   `sourceScopeLabel`, `trustStatus`, and `trustWarning` fields
 - the route is now available for the existing plugin E2E/manual flows that use
   linked local fixtures, while `POST /plugins/lock/*` remains deferred
+
+The next higher-level backend plugin runtime follow-on tracked in
+`phase-15-plugin-backend-language-server-and-external-agent-registration-runtime.md`
+is now landed:
+
+- Go now owns worker-backed backend registration loading in plugin
+  runtime/status payloads for:
+  - `registeredLanguageServers`
+  - `registeredExternalAgentAdapters`
+  - `registeredCodegenTargets`
+- `internal/plugins` now uses one bounded backend registration loader instead of
+  a codegen-only snapshot path
+- worker host dispatch now normalizes and persists backend language-server and
+  external-agent adapter registrations in addition to codegen registrations
+- the real IDE app now wires that combined registration owner into plugin
+  runtime/status reads
+- bounded plugin-pane E2E coverage now exists for both plugin external-agent
+  and plugin language-server runtime visibility
+- full plugin-defined language-server execution/runtime ownership remains
+  deferred to the later LSP/runtime phases
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

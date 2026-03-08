@@ -614,9 +614,13 @@ Use the docs in this order:
 168. `phase-15-plugin-link-transport.md`
   - focused completed-slice doc for Go-owned local plugin link transport over
     the existing shared plugin authoring/link service
-169. `spike-mcp.md`
+169. `phase-15-plugin-backend-language-server-and-external-agent-registration-runtime.md`
+  - focused completed-slice doc for the combined Go-owned worker-backed backend
+    registration loader that now surfaces plugin language-server and external-
+    agent adapter registrations in runtime/status payloads
+170. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-170. `spike-pty.md`
+171. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
 171. `spike-lsp.md`

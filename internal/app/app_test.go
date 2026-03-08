@@ -351,12 +351,14 @@ func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	}
 }
 
-func TestAppServesPluginRuntimeWithBackendCodegenRegistrations(t *testing.T) {
-	// The real app should surface worker-backed backend codegen registrations through plugin runtime.
+func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
+	// The real app should surface worker-backed backend language-server, external-agent, and codegen registrations through plugin runtime.
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppCurrentSession(t, cfg)
 	prepareAppPluginWorkerRuntime(t)
+	installAppPluginFixture(t, cfg, "backend-language-server", "setta-fixture-backend-language-server")
+	installAppPluginFixture(t, cfg, "backend-external-agent", "setta-fixture-backend-external-agent")
 	installAppBackendCodegenFixture(t, cfg)
 
 	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
@@ -393,8 +395,25 @@ func TestAppServesPluginRuntimeWithBackendCodegenRegistrations(t *testing.T) {
 	var runtimePayload struct {
 		Status struct {
 			Plugins []struct {
-				PluginID                 string `json:"pluginId"`
-				State                    string `json:"state"`
+				PluginID                  string `json:"pluginId"`
+				State                     string `json:"state"`
+				RegisteredLanguageServers []struct {
+					Name        string   `json:"name"`
+					Language    string   `json:"language"`
+					Command     string   `json:"command"`
+					Args        []string `json:"args"`
+					SettingsKey *string  `json:"settingsKey"`
+				} `json:"registeredLanguageServers"`
+				RegisteredExternalAgentAdapters []struct {
+					AdapterID       string   `json:"adapterId"`
+					PluginID        string   `json:"pluginId"`
+					Name            string   `json:"name"`
+					RunModes        []string `json:"runModes"`
+					Command         string   `json:"command"`
+					Args            []string `json:"args"`
+					EnvVarWhitelist []string `json:"envVarWhitelist"`
+					DefaultModel    *string  `json:"defaultModel"`
+				} `json:"registeredExternalAgentAdapters"`
 				RegisteredCodegenTargets []struct {
 					TargetID        string `json:"targetId"`
 					PluginID        string `json:"pluginId"`
@@ -411,14 +430,127 @@ func TestAppServesPluginRuntimeWithBackendCodegenRegistrations(t *testing.T) {
 	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
 		t.Fatalf("decode plugin runtime payload: %v", err)
 	}
-	if len(runtimePayload.Status.Plugins) != 1 {
-		t.Fatalf("expected one plugin in runtime status payload, got %#v", runtimePayload.Status.Plugins)
+	if len(runtimePayload.Status.Plugins) != 3 {
+		t.Fatalf("expected three plugins in runtime status payload, got %#v", runtimePayload.Status.Plugins)
 	}
 
-	statusEntry := runtimePayload.Status.Plugins[0]
-	if statusEntry.PluginID != "setta-fixture-backend-codegen" || statusEntry.State != "active" {
-		t.Fatalf("unexpected plugin runtime status entry %#v", statusEntry)
+	findEntry := func(pluginID string) struct {
+		PluginID                  string `json:"pluginId"`
+		State                     string `json:"state"`
+		RegisteredLanguageServers []struct {
+			Name        string   `json:"name"`
+			Language    string   `json:"language"`
+			Command     string   `json:"command"`
+			Args        []string `json:"args"`
+			SettingsKey *string  `json:"settingsKey"`
+		} `json:"registeredLanguageServers"`
+		RegisteredExternalAgentAdapters []struct {
+			AdapterID       string   `json:"adapterId"`
+			PluginID        string   `json:"pluginId"`
+			Name            string   `json:"name"`
+			RunModes        []string `json:"runModes"`
+			Command         string   `json:"command"`
+			Args            []string `json:"args"`
+			EnvVarWhitelist []string `json:"envVarWhitelist"`
+			DefaultModel    *string  `json:"defaultModel"`
+		} `json:"registeredExternalAgentAdapters"`
+		RegisteredCodegenTargets []struct {
+			TargetID        string `json:"targetId"`
+			PluginID        string `json:"pluginId"`
+			Language        string `json:"language"`
+			Name            string `json:"name"`
+			DefaultFileName string `json:"defaultFileName"`
+		} `json:"registeredCodegenTargets"`
+		Errors []struct {
+			Code string `json:"code"`
+		} `json:"errors"`
+	} {
+		t.Helper()
+		for _, entry := range runtimePayload.Status.Plugins {
+			if entry.PluginID == pluginID {
+				return entry
+			}
+		}
+		t.Fatalf("expected runtime entry for %q", pluginID)
+		return struct {
+			PluginID                  string `json:"pluginId"`
+			State                     string `json:"state"`
+			RegisteredLanguageServers []struct {
+				Name        string   `json:"name"`
+				Language    string   `json:"language"`
+				Command     string   `json:"command"`
+				Args        []string `json:"args"`
+				SettingsKey *string  `json:"settingsKey"`
+			} `json:"registeredLanguageServers"`
+			RegisteredExternalAgentAdapters []struct {
+				AdapterID       string   `json:"adapterId"`
+				PluginID        string   `json:"pluginId"`
+				Name            string   `json:"name"`
+				RunModes        []string `json:"runModes"`
+				Command         string   `json:"command"`
+				Args            []string `json:"args"`
+				EnvVarWhitelist []string `json:"envVarWhitelist"`
+				DefaultModel    *string  `json:"defaultModel"`
+			} `json:"registeredExternalAgentAdapters"`
+			RegisteredCodegenTargets []struct {
+				TargetID        string `json:"targetId"`
+				PluginID        string `json:"pluginId"`
+				Language        string `json:"language"`
+				Name            string `json:"name"`
+				DefaultFileName string `json:"defaultFileName"`
+			} `json:"registeredCodegenTargets"`
+			Errors []struct {
+				Code string `json:"code"`
+			} `json:"errors"`
+		}{}
 	}
+
+	languageServerEntry := findEntry("setta-fixture-backend-language-server")
+	if languageServerEntry.State != "active" {
+		t.Fatalf("unexpected language-server runtime status entry %#v", languageServerEntry)
+	}
+	if len(languageServerEntry.RegisteredLanguageServers) != 1 {
+		t.Fatalf("expected one backend language-server registration, got %#v", languageServerEntry.RegisteredLanguageServers)
+	}
+	languageServer := languageServerEntry.RegisteredLanguageServers[0]
+	if languageServer.Name != "setta-fixture-backend-language-server:typescript" || languageServer.Language != "typescript" {
+		t.Fatalf("unexpected backend language-server registration payload %#v", languageServer)
+	}
+	if languageServer.Command == "" || len(languageServer.Args) != 1 || languageServer.Args[0] != "--stdio" {
+		t.Fatalf("unexpected backend language-server command payload %#v", languageServer)
+	}
+	if languageServer.SettingsKey == nil || *languageServer.SettingsKey != "typescriptLanguageServer" {
+		t.Fatalf("unexpected backend language-server settings key %#v", languageServer.SettingsKey)
+	}
+
+	externalAgentEntry := findEntry("setta-fixture-backend-external-agent")
+	if externalAgentEntry.State != "active" {
+		t.Fatalf("unexpected external-agent runtime status entry %#v", externalAgentEntry)
+	}
+	if len(externalAgentEntry.RegisteredExternalAgentAdapters) != 1 {
+		t.Fatalf("expected one backend external-agent registration, got %#v", externalAgentEntry.RegisteredExternalAgentAdapters)
+	}
+	externalAgent := externalAgentEntry.RegisteredExternalAgentAdapters[0]
+	if externalAgent.AdapterID != "setta-fixture-backend-external-agent:fixture-agent" {
+		t.Fatalf("unexpected backend external-agent adapter id %#v", externalAgent.AdapterID)
+	}
+	if externalAgent.PluginID != "setta-fixture-backend-external-agent" || externalAgent.Name != "Fixture External Agent" {
+		t.Fatalf("unexpected backend external-agent registration payload %#v", externalAgent)
+	}
+	if len(externalAgent.RunModes) != 1 || externalAgent.RunModes[0] != "sdk" {
+		t.Fatalf("unexpected backend external-agent run modes %#v", externalAgent.RunModes)
+	}
+	if externalAgent.Command == "" || len(externalAgent.Args) != 1 {
+		t.Fatalf("unexpected backend external-agent command payload %#v", externalAgent)
+	}
+	if len(externalAgent.EnvVarWhitelist) != 1 || externalAgent.EnvVarWhitelist[0] != "FIXTURE_EXTERNAL_AGENT_TOKEN" {
+		t.Fatalf("unexpected backend external-agent env whitelist %#v", externalAgent.EnvVarWhitelist)
+	}
+	if externalAgent.DefaultModel == nil || *externalAgent.DefaultModel != "fixture-model" {
+		t.Fatalf("unexpected backend external-agent default model %#v", externalAgent.DefaultModel)
+	}
+
+	statusEntry := findEntry("setta-fixture-backend-codegen")
 	if len(statusEntry.RegisteredCodegenTargets) != 1 {
 		t.Fatalf("expected one backend codegen registration, got %#v", statusEntry.RegisteredCodegenTargets)
 	}
@@ -3226,9 +3358,15 @@ func prepareAppPluginWorkerRuntime(t *testing.T) {
 func installAppBackendCodegenFixture(t *testing.T, cfg config.Config) {
 	t.Helper()
 
+	installAppPluginFixture(t, cfg, "backend-codegen", "setta-fixture-backend-codegen")
+}
+
+func installAppPluginFixture(t *testing.T, cfg config.Config, fixtureName string, pluginID string) {
+	t.Helper()
+
 	repoRoot := appTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-codegen")
-	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-backend-codegen")
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", fixtureName)
+	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", pluginID)
 	copyAppTestDir(t, sourceRoot, targetRoot)
 }
 

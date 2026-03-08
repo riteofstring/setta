@@ -542,13 +542,13 @@ func mustNewPluginMutationServiceWithStore(t *testing.T, roots filesystemResolve
 	t.Helper()
 
 	service, err := NewService(ServiceOptions{
-		Store:                 store,
-		WorkspaceRoot:         roots.workspaceRoot,
-		SettaFilesRoot:        roots.settaFilesRoot,
-		SettaHome:             roots.settaHome,
-		ServerMode:            mode,
-		CandidateProvider:     provider,
-		BackendCodegenRuntime: nil,
+		Store:                       store,
+		WorkspaceRoot:               roots.workspaceRoot,
+		SettaFilesRoot:              roots.settaFilesRoot,
+		SettaHome:                   roots.settaHome,
+		ServerMode:                  mode,
+		CandidateProvider:           provider,
+		BackendRuntimeRegistrations: nil,
 	})
 	if err != nil {
 		t.Fatalf("new plugin mutation service: %v", err)
@@ -561,17 +561,17 @@ func mustNewPluginMutationServiceWithCodegenRuntime(
 	roots filesystemResolverTestRoots,
 	provider CandidateProvider,
 	mode config.Mode,
-	codegenRuntime BackendCodegenRegistrationSource,
+	backendRuntime BackendRegistrationSource,
 ) *Service {
 	t.Helper()
 
 	service, err := NewService(ServiceOptions{
-		WorkspaceRoot:         roots.workspaceRoot,
-		SettaFilesRoot:        roots.settaFilesRoot,
-		SettaHome:             roots.settaHome,
-		ServerMode:            mode,
-		CandidateProvider:     provider,
-		BackendCodegenRuntime: codegenRuntime,
+		WorkspaceRoot:               roots.workspaceRoot,
+		SettaFilesRoot:              roots.settaFilesRoot,
+		SettaHome:                   roots.settaHome,
+		ServerMode:                  mode,
+		CandidateProvider:           provider,
+		BackendRuntimeRegistrations: backendRuntime,
 	})
 	if err != nil {
 		t.Fatalf("new plugin mutation service: %v", err)
@@ -579,11 +579,11 @@ func mustNewPluginMutationServiceWithCodegenRuntime(
 	return service
 }
 
-func mustNewBackendCodegenRegistrationLoader(t *testing.T, mode config.Mode) *BackendCodegenRegistrationLoader {
+func mustNewBackendRegistrationLoader(t *testing.T, mode config.Mode) *BackendRegistrationLoader {
 	t.Helper()
 
 	repoRoot := workerRPCTestRepoRoot(t)
-	loader, err := NewBackendCodegenRegistrationLoader(BackendCodegenRegistrationLoaderOptions{
+	loader, err := NewBackendRegistrationLoader(BackendRegistrationLoaderOptions{
 		RuntimeProvider: WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
 			return WorkerRuntime{
 				PythonBinary:     workerRPCTestPythonBinary(t, repoRoot),
@@ -594,7 +594,7 @@ func mustNewBackendCodegenRegistrationLoader(t *testing.T, mode config.Mode) *Ba
 		ServerMode: mode,
 	})
 	if err != nil {
-		t.Fatalf("new backend codegen registration loader: %v", err)
+		t.Fatalf("new backend registration loader: %v", err)
 	}
 	return loader
 }

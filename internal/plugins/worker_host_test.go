@@ -285,6 +285,139 @@ func TestWorkerHostRegisterCodegenTargetNormalizesRegistration(t *testing.T) {
 	}
 }
 
+// Language-server registration should resolve plugin-relative launch commands and retain args/settings metadata.
+func TestWorkerHostRegisterLanguageServerNormalizesRegistration(t *testing.T) {
+	t.Parallel()
+
+	pluginRoot := t.TempDir()
+	commandPath := filepath.Join(pluginRoot, "backend", "fixture-language-server.sh")
+	if err := os.MkdirAll(filepath.Dir(commandPath), 0o755); err != nil {
+		t.Fatalf("mkdir language-server fixture dir: %v", err)
+	}
+	if err := os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write language-server fixture command: %v", err)
+	}
+
+	registry := NewLanguageServerRegistry()
+	host, err := NewWorkerHost(WorkerHostOptions{
+		LanguageServerRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterLanguageServer(context.Background(), WorkerContext{
+		PluginID:              "fixture-plugin",
+		PluginRoot:            pluginRoot,
+		EffectiveCapabilities: []string{CapabilityRegisterLanguageServer},
+	}, RegisterLanguageServerRequest{
+		Provider: &workerLanguageServerRegistrationPayload{
+			Language:    "typescript",
+			Command:     "./backend/fixture-language-server.sh",
+			Args:        []string{"--stdio"},
+			SettingsKey: stringPointer("typescriptLanguageServer"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("register language server: %v", err)
+	}
+
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 language server registration, got %d", len(registrations))
+	}
+	registration := registrations[0]
+	if registration.PluginID != "fixture-plugin" {
+		t.Fatalf("expected fixture-plugin, got %q", registration.PluginID)
+	}
+	if registration.Name != "fixture-plugin:typescript" {
+		t.Fatalf("expected fixture-plugin:typescript, got %q", registration.Name)
+	}
+	if registration.Language != "typescript" {
+		t.Fatalf("expected typescript language, got %q", registration.Language)
+	}
+	if registration.Command != commandPath {
+		t.Fatalf("expected resolved language-server command %q, got %q", commandPath, registration.Command)
+	}
+	if len(registration.Args) != 1 || registration.Args[0] != "--stdio" {
+		t.Fatalf("unexpected language-server args %#v", registration.Args)
+	}
+	if registration.SettingsKey == nil || *registration.SettingsKey != "typescriptLanguageServer" {
+		t.Fatalf("unexpected language-server settings key %#v", registration.SettingsKey)
+	}
+}
+
+// External-agent registration should resolve plugin-relative launch commands and normalize run-mode/env metadata.
+func TestWorkerHostRegisterExternalAgentAdapterNormalizesRegistration(t *testing.T) {
+	t.Parallel()
+
+	pluginRoot := t.TempDir()
+	commandPath := filepath.Join(pluginRoot, "backend", "fixture-external-agent.sh")
+	if err := os.MkdirAll(filepath.Dir(commandPath), 0o755); err != nil {
+		t.Fatalf("mkdir external-agent fixture dir: %v", err)
+	}
+	if err := os.WriteFile(commandPath, []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write external-agent fixture command: %v", err)
+	}
+
+	registry := NewExternalAgentAdapterRegistry()
+	host, err := NewWorkerHost(WorkerHostOptions{
+		ExternalAgentAdapterRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterExternalAgentAdapter(context.Background(), WorkerContext{
+		PluginID:              "fixture-plugin",
+		PluginRoot:            pluginRoot,
+		EffectiveCapabilities: []string{CapabilityRegisterExternalAgentAdapter},
+	}, RegisterExternalAgentAdapterRequest{
+		Adapter: &workerExternalAgentAdapterRegistrationPayload{
+			ID:              "fixture-agent",
+			Name:            "Fixture External Agent",
+			RunModes:        []string{"server", "sdk", "sdk"},
+			Command:         "./backend/fixture-external-agent.sh",
+			Args:            []string{"--stdio"},
+			EnvVarWhitelist: []string{"B_TOKEN", "A_TOKEN", "A_TOKEN", ""},
+			DefaultModel:    stringPointer("fixture-model"),
+		},
+	})
+	if err != nil {
+		t.Fatalf("register external agent adapter: %v", err)
+	}
+
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 external-agent registration, got %d", len(registrations))
+	}
+	registration := registrations[0]
+	if registration.AdapterID != "fixture-plugin:fixture-agent" {
+		t.Fatalf("expected namespaced adapter id, got %q", registration.AdapterID)
+	}
+	if registration.PluginID != "fixture-plugin" {
+		t.Fatalf("expected fixture-plugin, got %q", registration.PluginID)
+	}
+	if registration.Name != "Fixture External Agent" {
+		t.Fatalf("expected fixture external agent name, got %q", registration.Name)
+	}
+	if registration.Command != commandPath {
+		t.Fatalf("expected resolved external-agent command %q, got %q", commandPath, registration.Command)
+	}
+	if len(registration.RunModes) != 2 || registration.RunModes[0] != "sdk" || registration.RunModes[1] != "server" {
+		t.Fatalf("unexpected external-agent run modes %#v", registration.RunModes)
+	}
+	if len(registration.Args) != 1 || registration.Args[0] != "--stdio" {
+		t.Fatalf("unexpected external-agent args %#v", registration.Args)
+	}
+	if len(registration.EnvVarWhitelist) != 2 || registration.EnvVarWhitelist[0] != "A_TOKEN" || registration.EnvVarWhitelist[1] != "B_TOKEN" {
+		t.Fatalf("unexpected external-agent env whitelist %#v", registration.EnvVarWhitelist)
+	}
+	if registration.DefaultModel == nil || *registration.DefaultModel != "fixture-model" {
+		t.Fatalf("unexpected external-agent default model %#v", registration.DefaultModel)
+	}
+}
+
 func newWorkerHostTestDeploymentRuntime(t *testing.T, now *time.Time) *deployments.Runtime {
 	t.Helper()
 

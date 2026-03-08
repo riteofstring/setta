@@ -263,18 +263,18 @@ func TestServiceRestartProgrammaticFailureReturnsServiceError(t *testing.T) {
 }
 
 // Backend registration startup failures should stay plugin-scoped inside status payloads.
-func TestServiceStatusSurfacesPluginScopedBackendCodegenRegistrationErrors(t *testing.T) {
+func TestServiceStatusSurfacesPluginScopedBackendRegistrationErrors(t *testing.T) {
 	roots := newFilesystemResolverTestRoots(t)
-	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-language-server")
 
-	loader, err := NewBackendCodegenRegistrationLoader(BackendCodegenRegistrationLoaderOptions{
+	loader, err := NewBackendRegistrationLoader(BackendRegistrationLoaderOptions{
 		RuntimeProvider: WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
 			return WorkerRuntime{}, errors.New("worker runtime unavailable")
 		}),
 		ServerMode: config.ModeIDE,
 	})
 	if err != nil {
-		t.Fatalf("new backend codegen registration loader: %v", err)
+		t.Fatalf("new backend registration loader: %v", err)
 	}
 
 	service := mustNewPluginMutationServiceWithCodegenRuntime(t, roots, nil, config.ModeIDE, loader)
@@ -283,7 +283,13 @@ func TestServiceStatusSurfacesPluginScopedBackendCodegenRegistrationErrors(t *te
 		t.Fatalf("load status: %v", err)
 	}
 
-	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend-codegen", PluginRuntimeStateActive)
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend-language-server", PluginRuntimeStateActive)
+	if len(entry.RegisteredLanguageServers) != 0 {
+		t.Fatalf("expected failed registration load to leave no language servers, got %#v", entry.RegisteredLanguageServers)
+	}
+	if len(entry.RegisteredExternalAgentAdapters) != 0 {
+		t.Fatalf("expected failed registration load to leave no external agent adapters, got %#v", entry.RegisteredExternalAgentAdapters)
+	}
 	if len(entry.RegisteredCodegenTargets) != 0 {
 		t.Fatalf("expected failed registration load to leave no codegen targets, got %#v", entry.RegisteredCodegenTargets)
 	}

@@ -82,8 +82,10 @@ type statusEntryRuntimeDigestPayload struct {
 }
 
 type pluginStatusRuntimeDetails struct {
-	registeredCodegenTargets []PluginRegisteredCodegenTarget
-	errors                   []PluginErrorInfo
+	registeredLanguageServers       []PluginRegisteredLanguageServer
+	registeredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter
+	registeredCodegenTargets        []PluginRegisteredCodegenTarget
+	errors                          []PluginErrorInfo
 }
 
 func (s *Service) Status() (StatusResponse, error) {
@@ -221,8 +223,8 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatu
 		RequestedCapabilities:           append([]string(nil), entry.RequestedCapabilities...),
 		EffectiveCapabilities:           append([]string(nil), entry.EffectiveCapabilities...),
 		BlockedCapabilities:             append([]PluginBlockedCapability(nil), entry.BlockedCapabilities...),
-		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
-		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
+		RegisteredLanguageServers:       append([]PluginRegisteredLanguageServer(nil), details.registeredLanguageServers...),
+		RegisteredExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), details.registeredExternalAgentAdapters...),
 		RegisteredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), details.registeredCodegenTargets...),
 		EnablementSource:                cloneOptionalEnablementSource(entry.EnablementSource),
 		RestartRequired:                 entry.RestartRequired,
@@ -236,8 +238,8 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin, details plug
 		RequestedCapabilities:           append([]string(nil), entry.RequestedCapabilities...),
 		EffectiveCapabilities:           append([]string(nil), entry.EffectiveCapabilities...),
 		BlockedCapabilities:             append([]PluginBlockedCapability(nil), entry.BlockedCapabilities...),
-		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
-		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
+		RegisteredLanguageServers:       append([]PluginRegisteredLanguageServer(nil), details.registeredLanguageServers...),
+		RegisteredExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), details.registeredExternalAgentAdapters...),
 		RegisteredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), details.registeredCodegenTargets...),
 		Errors:                          append(append([]PluginErrorInfo(nil), entry.Errors...), details.errors...),
 	}
@@ -250,22 +252,27 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin, details plug
 }
 
 func (s *Service) loadStatusRuntimeDetailsLocked(snapshot DiscoverySnapshot) map[string]pluginStatusRuntimeDetails {
-	if s == nil || s.codegenRuntime == nil {
+	if s == nil || s.backendRuntime == nil {
 		return map[string]pluginStatusRuntimeDetails{}
 	}
 
 	detailsByPluginID := make(map[string]pluginStatusRuntimeDetails, len(snapshot.Plugins))
 	for _, entry := range snapshot.Plugins {
-		if !shouldLoadBackendCodegenRegistrations(entry) {
+		if !shouldLoadBackendRegistrations(entry) {
 			continue
 		}
-		snapshot := s.codegenRuntime.SnapshotCodegenRegistrations(context.Background(), entry)
-		if len(snapshot.Registrations) == 0 && len(snapshot.Errors) == 0 {
+		snapshot := s.backendRuntime.SnapshotBackendRegistrations(context.Background(), entry)
+		if len(snapshot.LanguageServers) == 0 &&
+			len(snapshot.ExternalAgentAdapters) == 0 &&
+			len(snapshot.CodegenTargets) == 0 &&
+			len(snapshot.Errors) == 0 {
 			continue
 		}
 		detailsByPluginID[entry.PluginID] = pluginStatusRuntimeDetails{
-			registeredCodegenTargets: append([]PluginRegisteredCodegenTarget(nil), snapshot.Registrations...),
-			errors:                   append([]PluginErrorInfo(nil), snapshot.Errors...),
+			registeredLanguageServers:       append([]PluginRegisteredLanguageServer(nil), snapshot.LanguageServers...),
+			registeredExternalAgentAdapters: append([]PluginRegisteredExternalAgentAdapter(nil), snapshot.ExternalAgentAdapters...),
+			registeredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), snapshot.CodegenTargets...),
+			errors:                          append([]PluginErrorInfo(nil), snapshot.Errors...),
 		}
 	}
 	return detailsByPluginID
