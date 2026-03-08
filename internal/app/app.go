@@ -19,6 +19,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/frontendorigins"
 	"setta/internal/httpapi"
@@ -108,6 +109,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		boundCodeService      *boundcode.Service
 		externalAgentChats    *externalagents.Service
 		externalAgentRuntime  *externalagents.Runtime
+		externalAgentSend     *externalagents.SendService
 		watchCodeWarnings     *watchCodeWarningTracker
 		codeUpdates           *codeUpdateService
 		renameRefactors       *renameRefactorService
@@ -481,6 +483,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		externalConfigStore, err := externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		llmConfigs, err := llmconfig.Load(
 			llmconfig.Path(cfg.Paths.SettaFilesRoot),
 			llmconfig.LoadOptions{
@@ -533,6 +547,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalAgentChats, err = externalagents.NewService(externalagents.ServiceOptions{
 			Runs: runStore,
 			Live: externalAgentRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
+			ProjectState: projectRuntime,
+			Engines:      engineStore,
+			Runs:         runStore,
+			Profiles:     agentProfileStore,
+			Configs:      externalConfigStore,
+			Runtime:      externalAgentRuntime,
+			Preflight:    externalPreflightChecker,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -781,6 +808,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
 				ModePolicy:         modePolicy,
+				ExternalAgentSend:  externalAgentSend,
 				ExternalAgentChats: externalAgentChats,
 				ExternalAgentRuns:  externalAgentRuntime,
 			}); err != nil {

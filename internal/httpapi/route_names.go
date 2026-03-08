@@ -71,6 +71,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteSetProjectConfigCodegenTargets):          {},
 	bareRouteName(RouteSetWatchCodeEnabled):                     {},
 	bareRouteName(RouteSetWatchCodeInputs):                      {},
+	bareRouteName(RouteGetLLMResponse):                          {},
 	bareRouteName(RouteGetExternalAgentChat):                    {},
 	bareRouteName(RouteStopExternalAgentRun):                    {},
 	bareRouteName(RouteRespondExternalAgentApproval):            {},

@@ -27,7 +27,10 @@ Current repo status as of 2026-03-08:
   - `internal/mcpx` for scoped MCP transport and tool execution
   - `internal/httpapi`, `internal/realtime`, and `internal/app` for thin route
     wiring and websocket fanout infrastructure
-- Go now also owns the first bounded external-agent read slice:
+- Go now also owns the first bounded external-agent route/runtime slice:
+  - `internal/externalagentconfigs`
+    - read access to `external_agents.json`
+    - bounded preflight checker interface and a minimal concrete checker
   - `internal/externalagents`
     - persisted external-run lookup by metadata
     - latest-run selection by event/finished/start timestamps
@@ -35,8 +38,12 @@ Current repo status as of 2026-03-08:
     - external `contextUsage` normalization from canonical run outputs
     - active-run registry, live chat overlay storage, cancellation ownership,
       and approval-response dispatch foundations
+    - Go-owned send-path validation, history shaping, persisted running-run
+      creation, and runtime activation for the external-agent branch of
+      `getLLMResponse`
   - `internal/httpapi/ai_routes.go`
     - thin Go transport for:
+      - `/getLLMResponse` (external-agent branch only)
       - `/getExternalAgentChat`
       - `/stopExternalAgentRun`
       - `/respondExternalAgentApproval`
@@ -49,16 +56,15 @@ Current repo status as of 2026-03-08:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - the `EngineType.external_agent` branch of `route_get_llm_response`
   - the adapter-backed execution runtime that produces live chat updates and
     approval prompts during an active run
   - `route_respond_external_agent_question`
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
-  - the active runtime, stop route, and approval-response route foundations are
-    implemented in Go
-  - the remaining bounded gap is the send path plus real adapter execution, not
-    another CLI or launcher slice
+  - the active runtime, stop route, approval-response route, and external-agent
+    send-route foundations are implemented in Go
+  - the remaining bounded gap is now real adapter execution plus question/event
+    ownership, not another CLI or launcher slice
 
 ## Scope
 
@@ -186,10 +192,9 @@ It should include:
 
 Missing Go owners:
 
-- external-agent adapter registry and execution runtime
+- external-agent adapter registry and real execution runtime
 - active approval request production and question waiters
 - external-agent websocket/event streaming owner
-- the external-agent send route
 - `respondExternalAgentQuestion`
 
 ## Completed In This Slice
@@ -211,12 +216,27 @@ Missing Go owners:
       `toolCallArguments`, and `contextUsage`
 - wired the first AI route into `internal/app/app.go` and
   `internal/httpapi/route_names.go`
+- added `internal/externalagentconfigs`
+  - Go-owned reads for `external_agents.json`
+  - bounded preflight checker interface plus a minimal concrete checker
+- added `internal/externalagents/send.go`
+  - explicit external-agent send service above `internal/agentruns`,
+    `internal/agentprofiles`, `internal/projectstate`, and the completed
+    runtime owner
+  - persisted running-run creation and runtime activation for the
+    external-agent branch of `/getLLMResponse`
+- extended `internal/httpapi/ai_routes.go`
+  - thin `/getLLMResponse` transport for the external-agent engine branch
 - added focused Go tests for:
   - persisted hydration
   - latest-run selection
   - context-usage normalization
   - placeholder filtering
   - typed route-not-found and bad-request behavior
+  - external-agent config reads
+  - external-agent send-path validation, continuation seeding, and conflict
+    handling
+  - external-agent preflight failures and send-route transport behavior
   - active-run live overlay retrieval
   - runtime cancellation persistence
   - approval-response dispatch and persistence

@@ -11,6 +11,46 @@ path with explicit state resolution, validation, persisted running-run
 creation, runtime activation, and a bounded executor interface that later
 adapter work can plug into.
 
+## Current Status
+
+Completed in this slice:
+
+- `internal/externalagentconfigs`
+  - Go-owned read store for `external_agents.json`
+  - bounded preflight checker interface plus a minimal concrete system checker
+- `internal/externalagents/send.go`
+  - Go-owned external-agent send service above the completed runtime
+  - request validation for:
+    - `sectionId` versus `allowUnscoped`
+    - branch-edit combinations
+    - `continueFromChatId`
+    - `frontendAffinityToken`
+    - external chat engine/project compatibility
+  - execution-input shaping for:
+    - `permissionMode`
+    - `searchEnabled`
+    - Codex reasoning defaults
+    - approval/sandbox overrides
+  - persisted running-run creation, `run_started` event persistence, and live
+    runtime activation
+- `internal/httpapi/ai_routes.go`
+  - thin `/getLLMResponse` transport for the external-agent engine branch
+- `internal/app/app.go`
+  - app wiring for the new config store, preflight checker, and send service
+- focused Go tests for:
+  - external-agent config read storage
+  - send-path history seeding and conflict validation
+  - preflight gating
+  - runtime activation after send
+
+Still missing after this slice:
+
+- real Codex, Claude Code, and OpenCode executors behind the new bounded
+  interface
+- live adapter delta/tool/approval/question production during execution
+- `respondExternalAgentQuestion`
+- websocket/event fanout closeout for active runs
+
 ## Why This Slice Exists
 
 The broader follow-on doc
@@ -115,16 +155,45 @@ This slice should explicitly include request-shape and history behavior for:
 
 ## Landing Order
 
-1. Add the external-agent config read package plus tests.
-2. Add the bounded preflight interface and minimal checker shape.
-3. Add the external-agent send service plus focused unit tests.
-4. Add `/getLLMResponse` external-agent transport tests and app wiring.
-5. Update Phase 12 docs with what remains for real adapters.
+Completed in order:
+
+1. Added the external-agent config read package plus tests.
+2. Added the bounded preflight interface and minimal checker shape.
+3. Added the external-agent send service plus focused unit tests.
+4. Added `/getLLMResponse` external-agent transport tests and app wiring.
+5. Updated the Phase 12 docs with what remains for real adapters.
 
 ## Verification Targets
 
 - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
 - `./scripts/go.sh test ./internal/app -run '^$'`
+
+## Verification
+
+- passed:
+  - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
+  - `./scripts/go.sh test ./internal/app -run '^$'`
+
+## Decisions Made
+
+- kept `internal/externalagents.Service` read-only and introduced a composed
+  send owner instead of folding send logic into hydration
+- used `external_agents.json` as the Go-side source of truth for external-agent
+  config lookup instead of routing config resolution back through Python
+- kept preflight behind an explicit checker interface so real adapter work can
+  replace the current minimal concrete checker without changing the route or
+  send-service shape
+- landed persisted running-run creation plus runtime activation now, and left
+  real executor streaming/completion behavior for the next slice
+
+## Next Recommended Step
+
+- wire real Codex, Claude Code, and OpenCode executors through the bounded
+  `internal/externalagents` executor interface
+- make those executors own live delta production, approval/question creation,
+  and terminal completion/failure persistence
+- land `respondExternalAgentQuestion` only after the runtime has a real
+  question-production path to route to
 
 ## Expected Remaining Gap After This Slice
 

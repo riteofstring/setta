@@ -24,31 +24,38 @@ AI/chat routing is still partially Python-owned, but the rewrite no longer
 plans to recreate managed `setta_llm` in Go. The current bounded Go-owned
 Phase 12 surface now includes:
 
+- `internal/externalagentconfigs`
+  - read access to `external_agents.json`
+  - bounded preflight checker interface and a minimal concrete checker
 - `internal/externalagents`
   - persisted external-run lookup, latest-run selection, durable chat-state
     reconstruction, placeholder filtering, and context-usage normalization
   - active-run registry, live chat overlay storage, cancellation ownership, and
     approval-response dispatch foundations
+  - external-agent send-path validation, history shaping, persisted running-run
+    creation, and runtime activation foundations
 - `internal/httpapi/ai_routes.go`
   - thin Go transport for:
+    - `/getLLMResponse` (external-agent branch only)
     - `/getExternalAgentChat`
     - `/stopExternalAgentRun`
     - `/respondExternalAgentApproval`
 
-The remaining Phase 12 target is the active external-agent runtime plus the
-external-agent send route and adapter-backed execution path still owned in
+The remaining Phase 12 target is now the real adapter-backed execution path and
+the remaining active interaction surface still owned in
 `backend/setta/routers/ai.py`, `backend/setta/routers/agentic.py`, and
 `backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
-`phase-12-managed-chat-runtime-and-ai-route-foundation.md` and the focused
-follow-on doc `phase-12-external-agent-active-runtime-stop-approval-and-send.md`.
+`phase-12-managed-chat-runtime-and-ai-route-foundation.md`,
+`phase-12-external-agent-active-runtime-stop-approval-and-send.md`, and
+`phase-12-external-agent-send-route-foundation.md`.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
-concrete Phase 12 gap above the completed hydration read path, not by reopening
-completed foundation choices.
+concrete Phase 12 gap above the completed hydration and send-route foundations,
+not by reopening completed foundation choices.
 
 ## Current Reality
 

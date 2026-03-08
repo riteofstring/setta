@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -11,10 +12,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/config"
+	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/modes"
+	"setta/internal/projectstate"
 )
 
 type aiRouteStubController struct {
@@ -25,6 +29,44 @@ type aiRouteStubController struct {
 type aiRouteApprovalCall struct {
 	ApprovalID string
 	Approved   bool
+}
+
+type aiRouteStubExecutor struct {
+	last     *externalagents.StartRequest
+	response externalagents.StartResponse
+	err      error
+}
+
+func (s *aiRouteStubExecutor) Start(_ context.Context, request externalagents.StartRequest) (externalagents.StartResponse, error) {
+	cloned := request
+	cloned.Inputs = cloneRouteAnyMap(request.Inputs)
+	s.last = &cloned
+	if s.err != nil {
+		return externalagents.StartResponse{}, s.err
+	}
+	return s.response, nil
+}
+
+type aiRouteStubPreflightChecker struct {
+	status externalagentconfigs.Status
+	err    error
+}
+
+func (s aiRouteStubPreflightChecker) Check(config externalagentconfigs.Config) (externalagentconfigs.Status, error) {
+	if s.err != nil {
+		return externalagentconfigs.Status{}, s.err
+	}
+	status := s.status
+	if status.ConfigID == "" {
+		status.ConfigID = config.ID
+		status.Name = config.Name
+		status.ToolType = config.ToolType
+		status.RunMode = config.RunMode
+		status.Supported = true
+		status.Available = true
+		status.Issues = []string{}
+	}
+	return status, nil
 }
 
 func (s *aiRouteStubController) Cancel() error {
@@ -40,12 +82,193 @@ func (s *aiRouteStubController) SendApprovalResponse(approvalID string, approved
 	return nil
 }
 
+func TestRegisterAIRoutesStartsExternalAgentChat(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new section."}]},
+			"engineConfigId":"engine-external",
+			"agentProfileId":null,
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"frontendAffinityToken":"  frontend-external  ",
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var chatID string
+	if err := json.Unmarshal(response.Body.Bytes(), &chatID); err != nil {
+		t.Fatalf("decode chat id: %v", err)
+	}
+	if chatID == "" {
+		t.Fatal("expected chat id")
+	}
+	runs, err := fixture.store.List()
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one persisted run, got %#v", runs)
+	}
+	if got := runs[0].Inputs["frontendAffinityToken"]; got != "frontend-external" {
+		t.Fatalf("unexpected frontendAffinityToken %#v", got)
+	}
+	state, err := fixture.runtime.GetLiveChatState(runs[0].ID)
+	if err != nil {
+		t.Fatalf("get live chat state: %v", err)
+	}
+	if state == nil || !state.WaitingForResponse {
+		t.Fatalf("expected active waiting state, got %#v", state)
+	}
+}
+
+func TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new section."}]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"frontendAffinityToken":"   ",
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "frontend_affinity_token_invalid" {
+		t.Fatalf("expected frontend affinity token error, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesReturnsConflictForExternalChatEngineMismatch(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeManagedChat,
+		"chatId":          "chat-conflict",
+		"projectConfigId": "project-alpha",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 8, 12, 0, 0, 0, time.UTC))
+	if err := fixture.store.Save(run); err != nil {
+		t.Fatalf("save managed run: %v", err)
+	}
+
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":"chat-conflict",
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Hello"}]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":true
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d with body %q", response.Code, response.Body.String())
+	}
+}
+
+func TestRegisterAIRoutesBlocksExternalSendOnPreflightFailure(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{
+		preflightStatus: &externalagentconfigs.Status{
+			ConfigID:  "external-config",
+			Name:      "Codex app-server",
+			ToolType:  externalagentconfigs.ToolTypeCodex,
+			RunMode:   externalagentconfigs.RunModeAppServer,
+			Supported: true,
+			Available: false,
+			Issues:    []string{"Missing env vars: OPENAI_API_KEY"},
+		},
+	})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new section."}]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "external_agent_preflight_failed" {
+		t.Fatalf("expected preflight failure code, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	fixture.seedHydrationRun(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -78,7 +301,7 @@ func TestRegisterAIRoutesHydratesExternalAgentChat(t *testing.T) {
 func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	run := agentruns.NewRun(nil, map[string]any{
 		"runType":         externalagents.RunTypeExternalAgent,
 		"chatId":          "chat-usage",
@@ -95,7 +318,7 @@ func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 	if err := fixture.store.Save(run); err != nil {
 		t.Fatalf("save run: %v", err)
 	}
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 
 	request := httptest.NewRequest(
 		http.MethodPost,
@@ -125,8 +348,8 @@ func TestRegisterAIRoutesReturnsContextUsage(t *testing.T) {
 func TestRegisterAIRoutesReturnsTypedNotFound(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -152,9 +375,9 @@ func TestRegisterAIRoutesReturnsTypedNotFound(t *testing.T) {
 func TestRegisterAIRoutesRejectsMissingChatID(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	fixture.seedHydrationRun(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -180,7 +403,7 @@ func TestRegisterAIRoutesRejectsMissingChatID(t *testing.T) {
 func TestRegisterAIRoutesBlocksShareMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newAIRouteTestHandler(t, config.ModeShare, nil, nil)
+	handler := newAIRouteTestHandler(t, config.ModeShare, nil, nil, nil)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteGetExternalAgentChat,
@@ -199,14 +422,14 @@ func TestRegisterAIRoutesBlocksShareMode(t *testing.T) {
 func TestRegisterAIRoutesStopsExternalAgentRun(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	run := fixture.seedRun("run-stop", agentruns.RunStatusRunning)
 	controller := &aiRouteStubController{}
 	if err := fixture.runtime.ActivateRun(run.ID, controller); err != nil {
 		t.Fatalf("activate run: %v", err)
 	}
 
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteStopExternalAgentRun,
@@ -235,8 +458,8 @@ func TestRegisterAIRoutesStopsExternalAgentRun(t *testing.T) {
 func TestRegisterAIRoutesReturnsNotFoundForMissingExternalRunStop(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteStopExternalAgentRun,
@@ -255,7 +478,7 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingExternalRunStop(t *testing.T) 
 func TestRegisterAIRoutesRespondsToExternalAgentApproval(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
 	run := fixture.seedRun("run-approval", agentruns.RunStatusRunning)
 	controller := &aiRouteStubController{}
 	if err := fixture.runtime.ActivateRun(run.ID, controller); err != nil {
@@ -270,7 +493,7 @@ func TestRegisterAIRoutesRespondsToExternalAgentApproval(t *testing.T) {
 		t.Fatalf("register approval: %v", err)
 	}
 
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRespondExternalAgentApproval,
@@ -295,8 +518,8 @@ func TestRegisterAIRoutesRespondsToExternalAgentApproval(t *testing.T) {
 func TestRegisterAIRoutesReturnsNotFoundForMissingApproval(t *testing.T) {
 	t.Parallel()
 
-	fixture := newAIRouteFixture(t)
-	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.service, fixture.runtime)
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteRespondExternalAgentApproval,
@@ -319,7 +542,7 @@ func TestRegisterAIRoutesReturnsNotFoundForMissingApproval(t *testing.T) {
 	}
 }
 
-func newAIRouteTestHandler(t *testing.T, mode config.Mode, service *externalagents.Service, runtime *externalagents.Runtime) http.Handler {
+func newAIRouteTestHandler(t *testing.T, mode config.Mode, send *externalagents.SendService, service *externalagents.Service, runtime *externalagents.Runtime) http.Handler {
 	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
@@ -329,6 +552,7 @@ func newAIRouteTestHandler(t *testing.T, mode config.Mode, service *externalagen
 		Register: func(r chi.Router) {
 			if err := RegisterAIRoutes(r, AIRouteDependencies{
 				ModePolicy:         modes.NewPolicy(mode),
+				ExternalAgentSend:  send,
 				ExternalAgentChats: service,
 				ExternalAgentRuns:  runtime,
 			}); err != nil {
@@ -346,14 +570,77 @@ type aiRouteFixture struct {
 	store   *agentruns.RunStore
 	runtime *externalagents.Runtime
 	service *externalagents.Service
+	send    *externalagents.SendService
 }
 
-func newAIRouteFixture(t *testing.T) aiRouteFixture {
+type aiRouteFixtureOptions struct {
+	executorErr     error
+	preflightStatus *externalagentconfigs.Status
+}
+
+func newAIRouteFixture(t *testing.T, options aiRouteFixtureOptions) aiRouteFixture {
 	t.Helper()
 
-	store, err := agentruns.NewRunStore(t.TempDir())
+	root := t.TempDir()
+	store, err := agentruns.NewRunStore(root)
 	if err != nil {
 		t.Fatalf("new run store: %v", err)
+	}
+	engineStore, err := agentruns.NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	externalConfigStore, err := externalagentconfigs.NewStore(root)
+	if err != nil {
+		t.Fatalf("new external config store: %v", err)
+	}
+	agentProfileStore, err := agentprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {ID: "project-alpha", Name: "Alpha"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	commandPath := "/usr/local/bin/codex"
+	configID := "external-config"
+	if err := externalConfigStore.Write([]externalagentconfigs.Config{
+		{
+			ID:                 configID,
+			Name:               "Codex app-server",
+			ToolType:           externalagentconfigs.ToolTypeCodex,
+			RunMode:            externalagentconfigs.RunModeAppServer,
+			CommandPath:        &commandPath,
+			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		},
+	}); err != nil {
+		t.Fatalf("write external configs: %v", err)
+	}
+	engineID := "engine-external"
+	if err := engineStore.Write([]agentruns.EngineConfig{
+		{
+			ID:                    engineID,
+			Name:                  "External Engine",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: &configID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+	if err := agentProfileStore.Write([]agentprofiles.Profile{
+		{
+			ID:             "profile-alpha",
+			Name:           "Alpha",
+			EngineConfigID: &engineID,
+		},
+	}); err != nil {
+		t.Fatalf("write profiles: %v", err)
 	}
 	runtime, err := externalagents.NewRuntime(externalagents.RuntimeOptions{
 		Runs: store,
@@ -371,10 +658,44 @@ func newAIRouteFixture(t *testing.T) aiRouteFixture {
 	if err != nil {
 		t.Fatalf("new service: %v", err)
 	}
+	preflightStatus := options.preflightStatus
+	if preflightStatus == nil {
+		preflightStatus = &externalagentconfigs.Status{
+			ConfigID:  configID,
+			Name:      "Codex app-server",
+			ToolType:  externalagentconfigs.ToolTypeCodex,
+			RunMode:   externalagentconfigs.RunModeAppServer,
+			Supported: true,
+			Available: true,
+			Issues:    []string{},
+		}
+	}
+	send, err := externalagents.NewSendService(externalagents.SendServiceOptions{
+		ProjectState: projectRuntime,
+		Engines:      engineStore,
+		Runs:         store,
+		Profiles:     agentProfileStore,
+		Configs:      externalConfigStore,
+		Runtime:      runtime,
+		Preflight: aiRouteStubPreflightChecker{
+			status: *preflightStatus,
+		},
+		Executor: &aiRouteStubExecutor{
+			response: externalagents.StartResponse{Controller: &aiRouteStubController{}},
+			err:      options.executorErr,
+		},
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 9, 9, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new send service: %v", err)
+	}
 	return aiRouteFixture{
 		store:   store,
 		runtime: runtime,
 		service: service,
+		send:    send,
 	}
 }
 
@@ -437,4 +758,32 @@ func (f aiRouteFixture) seedRun(runID string, status agentruns.RunStatus) agentr
 		panic(err)
 	}
 	return run
+}
+
+func cloneRouteAnyMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = cloneRouteAnyValue(value)
+	}
+	return cloned
+}
+
+func cloneRouteAnyValue(value any) any {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case map[string]any:
+		return cloneRouteAnyMap(typed)
+	case []any:
+		cloned := make([]any, 0, len(typed))
+		for _, entry := range typed {
+			cloned = append(cloned, cloneRouteAnyValue(entry))
+		}
+		return cloned
+	default:
+		return typed
+	}
 }

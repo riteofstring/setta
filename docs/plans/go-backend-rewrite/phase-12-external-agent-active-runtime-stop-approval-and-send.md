@@ -33,16 +33,25 @@ Completed in this slice:
   - live chat overlay storage behind the existing hydration provider interface
   - cancellation ownership over persisted external runs
   - approval registration and approval-response dispatch
+- `internal/externalagentconfigs`
+  - Go-owned read store for `external_agents.json`
+  - bounded preflight checker interface plus a minimal concrete checker
+- `internal/externalagents/send.go`
+  - Go-owned external-agent send service layered over the completed runtime
+  - persisted running-run creation, `run_started` event persistence, and live
+    runtime activation
+  - explicit validation and history shaping for the external-agent branch of
+    `getLLMResponse`
 - `internal/httpapi/ai_routes.go`
+  - thin `/getLLMResponse` transport for the external-agent engine branch
   - thin `/stopExternalAgentRun` transport
   - thin `/respondExternalAgentApproval` transport
 - `internal/app/app.go`
-  - runtime wiring so the hydration read path can consume live overlays from
-    the same active runtime owner
+  - runtime wiring so the hydration read path and send path share the same Go
+    runtime owner and external-agent config source of truth
 
 Still missing:
 
-- the external-agent branch of `getLLMResponse`
 - Go-owned adapter execution for the supported external agents
 - active approval/question production during live execution
 - `respondExternalAgentQuestion`
@@ -154,9 +163,18 @@ It should preserve the current rewrite constraints:
 - added the composed active runtime sibling as planned
 - kept `internal/externalagents.Service` read-only and reused its
   `LiveChatStateProvider` boundary
+- added `internal/externalagentconfigs` for Go-owned external-agent config
+  lookup and bounded preflight checking
+- added `internal/externalagents/send.go` so the external-agent branch of
+  `getLLMResponse` now resolves state, validates inputs, persists the running
+  run, and activates the completed runtime in Go
 - implemented stop ownership against persisted runs plus active controllers
 - implemented approval-response dispatch and event persistence
 - added focused tests for:
+  - external-agent config reads and preflight gating
+  - external-agent send-path validation, continuation seeding, and conflict
+    handling
+  - `/getLLMResponse` transport over the new send service
   - live overlay retrieval
   - cancellation persistence and cleanup
   - approval dispatch and event persistence
@@ -165,7 +183,7 @@ It should preserve the current rewrite constraints:
 ## Verification
 
 - passed:
-  - `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
+  - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
   - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Verification Targets
@@ -198,11 +216,11 @@ It should preserve the current rewrite constraints:
 
 ## Next Recommended Step
 
-- execute the bounded send-route foundation in
-  `phase-12-external-agent-send-route-foundation.md`
+- wire real Codex, Claude Code, and OpenCode executors through the bounded
+  send-service/runtime interface now used by `/getLLMResponse`
 - keep the completed runtime as the execution owner; do not add a parallel send
   path that bypasses it
-- stop after the Go-owned send route, persisted running-run creation, runtime
-  activation, and bounded executor interface are in place
-- leave real Codex, Claude Code, and OpenCode execution wiring for the
-  follow-on slice after this foundation lands
+- make the next slice own live execution outputs, approval/question production,
+  and completion/failure persistence
+- land `respondExternalAgentQuestion` after the runtime has a real question
+  production path
