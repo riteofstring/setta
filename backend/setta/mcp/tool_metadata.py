@@ -121,6 +121,7 @@ def get_tool_search_category(fn: Callable[..., Any]) -> str | None:
 class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
     accessType: ToolAccessType = "structural"
+    retryOnDisconnect: bool = True
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     defaultTargetSingletonSection: str | None = None
     resultFilter: ToolResultFilterType | None = None
@@ -133,6 +134,7 @@ class SettaToolAnnotations(ToolAnnotations):
 
 class ToolAccessMetadata(BaseModel):
     accessType: ToolAccessType
+    retryOnDisconnect: bool = True
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     defaultTargetSingletonSection: str | None = None
 

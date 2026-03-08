@@ -49,6 +49,7 @@ class _DummyProjectManager:
             codeObjImpls=project_state_single.codeObjImpls,
             codeObjVariants=project_state_single.codeObjVariants,
             projectConfigs={project_state_single.projectConfig.id: project_state_single.projectConfig},
+            projectChatWindowingByProjectConfigId={project_state_single.projectConfig.id: {}},
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
         self.history = History(backend)

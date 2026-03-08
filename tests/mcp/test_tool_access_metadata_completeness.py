@@ -1,3 +1,4 @@
+from setta.mcp.tools.agentic_tools import invoke_linked_chat
 from setta.mcp.tool_metadata import SettaToolType, get_tool_access
 from setta.mcp.tool_registry import build_setta_tool_manager, ensure_setta_mcp_tools_loaded
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
@@ -55,3 +56,10 @@ def test_discoverable_setta_tools_have_explicit_access_metadata() -> None:
     assert missing_access == []
     assert missing_targets == []
 
+
+def test_invoke_linked_chat_is_not_marked_read_only() -> None:
+    access = get_tool_access(invoke_linked_chat)
+
+    assert access is not None
+    assert access.accessType == "read"
+    assert access.retryOnDisconnect is False

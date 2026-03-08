@@ -1,4 +1,5 @@
 import copy
+from enum import Enum
 
 from pydantic import (
     BaseModel,
@@ -27,10 +28,12 @@ from setta.types.helpers_lvl2 import (
     get_section_path_full_name,
 )
 from setta.types.id import ID
+from setta.types.project_chat_windowing import normalize_project_chat_windowing
 from setta.types.project_config import (
     ProjectCodegenLanguage,
     ProjectConfig,
     ViewModeConfig,
+    WindowSpaceSurfaceKind,
     get_python_codegen_target,
     project_config_has_codegen_language,
 )
@@ -108,6 +111,54 @@ class SingletonSections(BaseModel, extra="forbid"):
     GenPythonMetadata: ID | None = None
 
 
+class ChatWindowPlacement(str, Enum):
+    bottom_docked = "bottom_docked"
+    floating = "floating"
+    maximized = "maximized"
+    canvas_section = "canvas_section"
+
+
+class ChatWindowMode(str, Enum):
+    project_ai_mode = "project_ai_mode"
+    section_mode = "section_mode"
+    git_graph_mode = "git_graph_mode"
+
+
+class ChatWindowBounds(BaseModel, extra="forbid"):
+    x: float = 120.0
+    y: float = 120.0
+    width: float = 820.0
+    height: float = 520.0
+
+
+class ChatWindowDockMetrics(BaseModel, extra="forbid"):
+    widthFraction: float | None = None
+    preferredWidthPx: float | None = None
+
+
+class ProjectChatWindowInstance(BaseModel, extra="forbid"):
+    instanceId: ID
+    placement: ChatWindowPlacement = ChatWindowPlacement.bottom_docked
+    isMinimized: bool = False
+    isClosed: bool = False
+    isMaximized: bool = False
+    bounds: ChatWindowBounds = Field(default_factory=ChatWindowBounds)
+    dockMetrics: ChatWindowDockMetrics = Field(default_factory=ChatWindowDockMetrics)
+    zIndex: int = 0
+    lastPlacementBeforeMaximize: ChatWindowPlacement | None = None
+    mode: ChatWindowMode = ChatWindowMode.project_ai_mode
+    sectionIdOrNull: ID | None = None
+    title: str | None = None
+    lastFocusedAt: int = 0
+    chatId: ID | None = None
+
+
+class ProjectChatWindowingState(BaseModel, extra="forbid"):
+    instancesById: dict[ID, ProjectChatWindowInstance] = Field(default_factory=dict)
+    order: list[ID] = Field(default_factory=list)
+    nextInstanceNumber: int = 1
+
+
 class ProjectStateCore(BaseModel, extra="forbid"):
     sections: dict[ID, Core] = Field(default_factory=dict)
     sectionImpls: dict[ID, BaseSectionImplUnionWithDiscriminator] = Field(
@@ -126,12 +177,19 @@ class ProjectStateBackend(
     extra="forbid",
 ):
     projectConfigs: dict[ID, ProjectConfig] = Field(default_factory=dict)
+    projectChatWindowingByProjectConfigId: dict[ID, ProjectChatWindowingState] = Field(
+        default_factory=dict
+    )
     defaultProjectConfigId: ID | None = None
     appDefinition: AppDefinition | None = None
 
     @model_validator(mode="after")
     def _validate_default_project_id(self):
         return self.validate_default_project_id()
+
+    @model_validator(mode="after")
+    def _validate_project_chat_windowing(self):
+        return self.validate_project_chat_windowing()
 
     def validate_default_project_id(self):
         if self.projectConfigs:
@@ -146,6 +204,20 @@ class ProjectStateBackend(
             self.defaultProjectConfigId = None
         return self
 
+    def validate_project_chat_windowing(self):
+        missing_project_config_ids = [
+            project_config_id
+            for project_config_id in self.projectConfigs
+            if project_config_id not in self.projectChatWindowingByProjectConfigId
+        ]
+        if missing_project_config_ids:
+            missing_ids = ", ".join(missing_project_config_ids)
+            raise ValueError(
+                "Missing project chat windowing state for project config ids: "
+                f"{missing_ids}"
+            )
+        return self
+
 
 class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     projectConfig: ProjectConfig
@@ -154,6 +226,9 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     shownParamIds: dict[ID, ShownParamIds] = Field(default_factory=dict)
     requiredDecodedImages: list[str] = Field(default_factory=list)
     genCodeBinding: CodeFileBinding | None = None
+    projectChatWindowing: ProjectChatWindowingState = Field(
+        default_factory=ProjectChatWindowingState
+    )
     _section_slug_cache: tuple[dict[ID, str], dict[str, list[ID]]] | None = PrivateAttr(
         default=None
     )
@@ -186,6 +261,14 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     def _validate_view_modes(self):
         return self.validate_view_modes()
 
+    @model_validator(mode="after")
+    def _validate_project_chat_windowing(self):
+        return self.validate_project_chat_windowing()
+
+    @model_validator(mode="after")
+    def _validate_window_spaces(self):
+        return self.validate_window_spaces()
+
     def validate_for_update(
         self,
         *,
@@ -200,6 +283,8 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 allow_reserved_project_name=allow_reserved_project_name
             )
         self.validate_view_modes()
+        self.validate_project_chat_windowing()
+        self.validate_window_spaces()
         self.validate_shown_param_ids()
         self.validate_required_decoded_images()
         if validate_code_file_bindings:
@@ -490,6 +575,50 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         project_config.topLevelSections = active_view_mode.topLevelSections
         project_config.viewport = active_view_mode.viewport
         project_config.viewportInitialized = active_view_mode.viewportInitialized
+        return self
+
+    def validate_window_spaces(self):
+        project_config = self.projectConfig
+        section_ids = set(self.sections.keys())
+        for window_space in project_config.windowSpaces.values():
+            next_windows_by_id = {}
+            for instance_id, window in window_space.windowsById.items():
+                if window.surfaceKind == WindowSpaceSurfaceKind.section:
+                    section_id = window.sectionIdOrNull
+                    if section_id is None or section_id not in section_ids:
+                        continue
+                next_windows_by_id[instance_id] = window
+            if len(next_windows_by_id) != len(window_space.windowsById):
+                window_space.windowsById = next_windows_by_id
+
+            next_order: list[ID] = []
+            seen: set[ID] = set()
+            for instance_id in window_space.order:
+                if instance_id not in window_space.windowsById or instance_id in seen:
+                    continue
+                seen.add(instance_id)
+                next_order.append(instance_id)
+            for instance_id in window_space.windowsById.keys():
+                if instance_id in seen:
+                    continue
+                seen.add(instance_id)
+                next_order.append(instance_id)
+            window_space.order = next_order
+
+        sort_indices = [
+            window_space.sortIndex
+            for window_space in project_config.windowSpaces.values()
+        ]
+        if len(set(sort_indices)) != len(sort_indices):
+            for idx, window_space in enumerate(project_config.windowSpaces.values()):
+                window_space.sortIndex = idx
+        return self
+
+    def validate_project_chat_windowing(self):
+        normalize_project_chat_windowing(
+            self.projectChatWindowing,
+            set(self.sections.keys()),
+        )
         return self
 
 
