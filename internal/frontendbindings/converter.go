@@ -16,7 +16,6 @@ type TypeDeclaration struct {
 	TypeParams      string
 	Properties      []TypeProperty
 	EnumValues      []EnumValue
-	Raw             string
 	CreateExpr      string
 	FactoryTS       string
 	Exported        bool
@@ -80,14 +79,6 @@ func aliasDeclarationWithFactory(name string, alias string, factoryTS string) Ty
 	declaration := aliasDeclaration(name, alias)
 	declaration.FactoryTS = factoryTS
 	return declaration
-}
-
-func rawDeclaration(name string, raw string) TypeDeclaration {
-	return TypeDeclaration{
-		Name: name,
-		Kind: "raw",
-		Raw:  raw,
-	}
 }
 
 func localAliasDeclaration(name string, typeParams string, alias string) TypeDeclaration {

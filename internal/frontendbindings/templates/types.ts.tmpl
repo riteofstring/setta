@@ -223,8 +223,6 @@ export function {{ .Name }}(
 }
 {{ else if eq .Kind "const" }}
 {{ if .Exported }}export {{ end }}const {{ .Name }} = {{ .ConstExpr }};
-{{ else if eq .Kind "raw" }}
-{{ .Raw }}
 {{ end }}
 
 {{- end }}
