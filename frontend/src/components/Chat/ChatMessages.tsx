@@ -5158,7 +5158,7 @@ function AssistantActivityActionsAnchor({
       {children}
       {actions ? (
         <div
-          className="absolute left-full top-1/2 ml-1.5 -translate-y-1/2"
+          className="absolute left-full top-1/2 z-[20] ml-1.5 -translate-y-1/2"
           data-chat-actions-anchor="right"
         >
           {actions}
@@ -5215,7 +5215,7 @@ function AssistantMessageGroup({
         {children}
         {actions ? (
           <div
-            className="absolute left-full top-1/2 ml-1.5 -translate-y-1/2"
+            className="absolute left-full top-1/2 z-[20] ml-1.5 -translate-y-1/2"
             data-chat-actions-anchor="right"
           >
             {actions}
@@ -5276,7 +5276,7 @@ function UserChatBubble({
           {children}
           {actions ? (
             <div
-              className="absolute right-full top-1/2 mr-1.5 -translate-y-1/2"
+              className="absolute right-full top-1/2 z-[20] mr-1.5 -translate-y-1/2"
               data-chat-actions-anchor="left"
             >
               {actions}
@@ -5318,7 +5318,7 @@ function SystemChatBubble({
           {children}
           {actions ? (
             <div
-              className="absolute left-full top-1/2 ml-1.5 -translate-y-1/2"
+              className="absolute left-full top-1/2 z-[20] ml-1.5 -translate-y-1/2"
               data-chat-actions-anchor="right"
             >
               {actions}
@@ -5366,7 +5366,7 @@ function ChatMessageActions({
 
   return (
     <div
-      className="pointer-events-none inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
+      className="pointer-events-none relative z-[1] inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
       data-chat-message-actions="true"
     >
       <button
@@ -6407,7 +6407,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   const toolResultMessages = allMessagesForToolResults ?? messages;
   const toolArgs = toolCallArguments ?? {};
   const wrapperClassName =
-    `flex min-h-0 flex-1 flex-col-reverse overflow-y-auto pr-1 ${className ?? ""}`.trim();
+    `flex min-h-0 min-w-0 flex-1 flex-col-reverse overflow-x-hidden overflow-y-auto pr-1 ${className ?? ""}`.trim();
   const previousActiveSearchMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {

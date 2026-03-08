@@ -23,17 +23,21 @@ export const OverviewTabNameEnum = {
   Plugins: "Plugins",
   FileBrowser: "FileBrowser",
   Git: "Git",
-  WatchCode: "WatchCode",
   App: "App",
   RunInstructions: "RunInstructions",
   ViewModes: "ViewModes",
   Notifications: "Notifications",
-  BackendLogs: "BackendLogs",
   ProjectAIChat: "ProjectAIChat",
-  ProjectAISettings: "ProjectAISettings",
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
+export const OverviewNotificationsPaneTabEnum = {
+  Notifications: "notifications",
+  BackendLogs: "backend_logs",
+} as const;
+export type OverviewNotificationsPaneTab = ObjectValues<
+  typeof OverviewNotificationsPaneTabEnum
+>;
 type PluginOverviewTabName = `PluginPane:${string}:${string}`;
 export type OverviewTabKey = OverviewTabName | PluginOverviewTabName;
 const overviewTabNameValues = new Set<string>(
@@ -57,14 +61,11 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Plugins]: "Plugins",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.Git]: "Git",
-  [OverviewTabNameEnum.WatchCode]: "Watch Code",
   [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",
-  [OverviewTabNameEnum.BackendLogs]: "Backend Logs",
   [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
-  [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
 } as const satisfies Record<OverviewTabName, string>;
 
 const PLUGIN_OVERVIEW_TAB_PREFIX = "PluginPane";
@@ -176,13 +177,6 @@ export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [
 export const INDEX_ROUTER_PATH = "/";
 export const HOME_ROUTER_PATH = "/home";
 export const PROJECT_CONFIG_ROUTER_PATH = "/:projectConfigName";
-const PROJECT_CHAT_STANDALONE_ROUTE_SEGMENT = "chat";
-const PROJECT_SECTION_STANDALONE_ROUTE_SEGMENT = "section";
-export const PROJECT_WINDOW_SPACE_STANDALONE_ROUTE_SEGMENT = "windowspace";
-export const PROJECT_CHAT_STANDALONE_ROUTER_PATH = `/:projectConfigName/${PROJECT_CHAT_STANDALONE_ROUTE_SEGMENT}`;
-export const PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH = `/:projectConfigName/${PROJECT_CHAT_STANDALONE_ROUTE_SEGMENT}/:chatId`;
-export const SECTION_STANDALONE_ROUTER_PATH = `/:projectConfigName/${PROJECT_SECTION_STANDALONE_ROUTE_SEGMENT}/:sectionSlug`;
-export const WINDOW_SPACE_STANDALONE_ROUTER_PATH = `/:projectConfigName/${PROJECT_WINDOW_SPACE_STANDALONE_ROUTE_SEGMENT}/:windowSpaceSlug`;
 export const VIEW_MODE_ROUTER_PATH = "/:projectConfigName/view/:viewModeName";
 export const WORKSPACE_LAUNCH_ROUTER_PATH = "/launching";
 export const SETTINGS_ROUTER_PATH = `/${C.SETTINGS_PROJECT_NAME}`;
@@ -212,11 +206,6 @@ export const PAGE_LOAD_TYPES = {
 export const NO_DRAG_CLASS_NAME = "nodrag";
 export const NO_WHEEL_CLASS_NAME = "nowheel";
 export const NO_PAN_CLASS_NAME = "nopan";
-export const APP_PANE_Z_INDEX_CLASS_NAME = "z-[30]";
-export const APP_CHROME_Z_INDEX_CLASS_NAME = "z-[32]";
-export const APP_MENU_Z_INDEX_CLASS_NAME = "z-[35]";
-export const APP_FLOATING_BOX_Z_INDEX_CLASS_NAME = "z-[80]";
-export const MODAL_OVERLAY_Z_INDEX_CLASS_NAME = "z-[90]";
 export const SETTA_PREVENT_SECTION_ACTIVE_CSS =
   "setta-prevent-section-active-css";
 export const SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER =

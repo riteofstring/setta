@@ -1885,6 +1885,8 @@ function mergeChatSectionState(
   const mergedMessages = reconcileHydratedChatMessages({
     backendMessages: incoming.messages ?? [],
     localMessages: currentState.messages ?? [],
+    // Preserve local-only activity rows so thought/tool sequencing is not
+    // flattened by a hydration refresh while the local stream is still active.
     preserveLocalOnlyMessages: preserveWaitingForResponse,
   });
   const nextWaitingForResponse = preserveWaitingForResponse
@@ -2275,7 +2277,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data ?? chatId ?? null;
+      const returnedChatId = res.data.chatId;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2420,7 +2422,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data ?? null;
+    const returnedChatId = res.data.chatId;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {

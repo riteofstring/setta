@@ -104,11 +104,16 @@ Tool enforcement details:
 - `llm_config.json` stays in `setta_files/`, while managed key values are stored in workspace `.env` (`./.env`). Setta tracks managed ownership with `SETTA_MANAGED_LLM_API_KEY_NAMES`, and both `DotEnvWatcher` and `LLMConfigWatcher` sync key snapshots into runtime + websocket state (`LLMApiKeysUpdated`) with revision/corruption metadata.
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
-- `ProjectChat.tsx` hydrates LLM/API-key state and now switches between three views: active chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and the Skills/MCP side viewer (`ProjectChatSkillsMcpViewer`).
+- `ProjectChat.tsx` hydrates LLM/API-key state and now switches between active chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and session-local auxiliary views inside Project AI Chat itself (`Skills`, `MCP`, `Slash Commands`, and `AI Settings`).
 - `ProjectChatCore` pulls chat details from the zustand `useAIStore`. `ChatMessageList`/`ChatMessage` filter out tool-only messages, stitch assistant streams together, and surface edit + branch switcher controls using branch metadata derived from agent runs.
 - Empty-chat state includes a create-project starter action. It seeds a normal project-creation prompt when a codebase exists, and uses a question-first starter prompt when no codebase is detected (`projectChatStarterPrompts.ts`).
-- `ProjectChatSkillsMcpViewer` is read-only discovery UI for workspace/user skills and configured MCP servers. It calls `/getAppGenSkills`, `/getAppGenSkillContent`, `/settaHomeInfo`, and `/mcpServerRuntimeStatus` (scoped by the active `chatId`/`engineConfigId` when present), then optionally reveals roots in the OS file explorer through `/revealPathInOsFileExplorer`.
+- `ProjectChatSkillsMcpViewer` now handles three aux surfaces:
+  - `Skills`: discovery plus rendered/raw markdown preview, editability metadata, custom-skill create/save flows, and root-path reveal helpers.
+  - `MCP`: configured MCP servers plus runtime status scoped by the active `chatId`/`engineConfigId` when present.
+  - `Slash Commands`: built-in Setta commands, runtime native external-agent commands, and per-project custom prompt commands.
+- The viewer calls `/getAppGenSkills`, `/getAppGenSkillContent`, `/upsertAppGenCustomSkill`, `/settaHomeInfo`, and `/mcpServerRuntimeStatus`, then optionally reveals roots in the OS file explorer through `/revealPathInOsFileExplorer`.
 - `ChatInput` manages optimistic user submissions and attachments via `submitMessage`. `ChatMessageEditor` powers user-message edits and calls `submitEditedMessage`, which POSTs `/getLLMResponse` with `branchParentChatId`/`branchFromMessageId` to create a new branch chat. Pressing the send button while a response is inflight issues `/stopLLMChat`; the stop response includes `alreadyStopped`, `stoppedRunId`, and `stoppedMessageId` so the UI can reconcile interruption markers.
+- Project chat slash-command handling now separates recognized commands from executable commands. This lets the composer keep temporarily unavailable external-agent native commands local, reload authority, and then retry resolution instead of sending the slash text as a normal prompt.
 - Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.
 
 ## Third-party access
