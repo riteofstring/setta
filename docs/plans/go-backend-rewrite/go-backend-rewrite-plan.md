@@ -1923,6 +1923,10 @@ Do not weaken this rule during the rewrite.
      `phase-29-post-phase-28-startup-and-distribution-rerank.md`
    - the broader post-Phase-29 closeout rerank is recorded in
      `phase-30-post-phase-29-broader-rewrite-rerank.md`
+   - the packaged Python surface/dependency rerank is recorded in
+     `phase-31-packaged-python-surface-and-dependency-rerank.md`
+   - the focused packaged Python boundary slimdown plan is recorded in
+     `phase-31-packaged-python-boundary-slimdown-plan.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1958,8 +1962,14 @@ Do not weaken this rule during the rewrite.
      launcher-ownership phase
    - there is no new startup/distribution implementation slice selected by the
      current evidence alone
-   - there is no new evidence-backed implementation slice selected by the
-     current repo state alone
+   - the broader runtime/ownership rewrite is closed for the current scope,
+     but the packaged Python boundary now does select a new follow-on track:
+     - wheel contents are still implicitly `backend/setta`
+     - the current Python dependency surface is broader than the active
+       packaged-user boundary because it still carries dev-only reload and
+       legacy/reference Python runtime baggage
+     - the next honest work is packaged Python boundary/dependency slimming,
+       not another backend route/runtime phase
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise

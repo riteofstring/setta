@@ -209,3 +209,10 @@ Do not broaden the rewrite by inertia.
 If work continues, the next honest step is a new focused phase selected by a
 concrete issue or product decision. There is no evidence-backed implementation
 slice to open from the current repo state alone.
+
+That later rerank is now recorded in:
+
+- `phase-31-packaged-python-surface-and-dependency-rerank.md`
+
+Use this doc as the historical closeout for the broader runtime/ownership
+track. Phase 31 is the separate follow-on for the packaged Python boundary.

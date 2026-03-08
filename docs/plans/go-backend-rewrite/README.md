@@ -777,12 +777,19 @@ Use the docs in this order:
     Go-owned boundaries, so the remaining Python launcher, installer, and
     dev-reload surfaces do not currently select another evidence-backed
     rewrite phase
-211. `spike-mcp.md`
+211. `phase-31-packaged-python-surface-and-dependency-rerank.md`
+  - focused rerank doc showing that the next remaining evidence-backed track
+    is no longer backend/runtime ownership; it is the shipped Python package
+    surface and dependency boundary
+212. `phase-31-packaged-python-boundary-slimdown-plan.md`
+  - focused implementation-plan doc for narrowing wheel contents and then
+    splitting packaged-user dependencies from source/dev-only Python baggage
+213. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-212. `spike-pty.md`
+214. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-213. `spike-lsp.md`
+215. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
