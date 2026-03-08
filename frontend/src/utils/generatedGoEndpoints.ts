@@ -90,38 +90,132 @@ export type LaunchResponse = {
   error: WorkspaceLaunchErrorPayload | null;
 };
 
-export async function route_get_backend_init_status(): Promise<
-  ResponseDataAndStatus<BackendInitStatusResponse>
-> {
+export type LauncherHomeErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type LauncherRecentWorkspacePayload = {
+  workspaceRoot: string;
+  pinned: boolean;
+  lastUsedAt: number;
+};
+
+export type LauncherRecentWorkspaceRequestInput = {
+  settaHome?: string | null;
+  workspaceRoot: string;
+  pinned?: boolean | null;
+};
+
+export type PinLauncherRecentWorkspaceRequestInput = {
+  settaHome?: string | null;
+  workspaceRoot: string;
+  pinned: boolean;
+};
+
+export type LauncherRecentWorkspacesResponse = {
+  ok: boolean;
+  workspaces: Array<LauncherRecentWorkspacePayload>;
+  error: LauncherHomeErrorPayload | null;
+};
+
+export type LauncherFilesystemRootsResponse = {
+  ok: boolean;
+  roots: Array<string>;
+};
+
+export type LauncherDirectoryEntryPayload = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+};
+
+export type LauncherListDirectoryRequestInput = {
+  path?: string | null;
+  cursor?: string | null;
+  pageSize?: number | null;
+};
+
+export type LauncherListDirectoryResponse = {
+  ok: boolean;
+  currentPath: string | null;
+  parentPath: string | null;
+  entries: Array<LauncherDirectoryEntryPayload>;
+  nextCursor: string | null;
+  hasMore: boolean;
+  truncated: boolean;
+  error: LauncherHomeErrorPayload | null;
+};
+
+export type LauncherOpenWorkspaceRequestInput = {
+  workspaceRoot: string;
+  settaHome?: string | null;
+  profile?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: "auto" | "local" | "global" | null;
+  runtimeRoot?: string | null;
+  createIfMissing?: boolean;
+};
+
+export type LauncherOpenWorkspaceResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: "local" | "global" | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  error: LauncherHomeErrorPayload | null;
+};
+
+export async function route_get_backend_init_status(): Promise<ResponseDataAndStatus<BackendInitStatusResponse>> {
   return await get(GoHTTPRoutes.getBackendInitStatus);
 }
 
-export async function route_get_auth_refresh_status(): Promise<
-  ResponseDataAndStatus<AuthRefreshStatusResponse>
-> {
+export async function route_get_auth_refresh_status(): Promise<ResponseDataAndStatus<AuthRefreshStatusResponse>> {
   return await get(GoHTTPRoutes.getAuthRefreshStatus);
 }
 
-export async function route_get_server_mode(): Promise<
-  ResponseDataAndStatus<ServerModeResponse>
-> {
+export async function route_get_server_mode(): Promise<ResponseDataAndStatus<ServerModeResponse>> {
   return await get(GoHTTPRoutes.getServerMode);
 }
 
-export async function route_get_setta_home_info(): Promise<
-  ResponseDataAndStatus<SettaHomeInfoResponse>
-> {
+export async function route_get_setta_home_info(): Promise<ResponseDataAndStatus<SettaHomeInfoResponse>> {
   return await get(GoHTTPRoutes.getSettaHomeInfo);
 }
 
-export async function route_create_workspace_launch_intent(
-  x: CreateWorkspaceLaunchIntentRequestInput,
-): Promise<ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>> {
+export async function route_create_workspace_launch_intent(x: CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>> {
   return await post(GoHTTPRoutes.createWorkspaceLaunchIntent, x);
 }
 
-export async function route_launch(
-  x: LaunchRequestInput,
-): Promise<ResponseDataAndStatus<LaunchResponse>> {
+export async function route_launch(x: LaunchRequestInput): Promise<ResponseDataAndStatus<LaunchResponse>> {
   return await post(GoHTTPRoutes.launch, x);
+}
+
+export async function route_get_launcher_recent_workspaces(setta_home: string | null): Promise<ResponseDataAndStatus<LauncherRecentWorkspacesResponse>> {
+  return await get(GoHTTPRoutes.getLauncherRecentWorkspaces, { setta_home });
+}
+
+export async function route_remove_launcher_recent_workspace(x: LauncherRecentWorkspaceRequestInput): Promise<ResponseDataAndStatus<LauncherRecentWorkspacesResponse>> {
+  return await post(GoHTTPRoutes.removeLauncherRecentWorkspace, x);
+}
+
+export async function route_pin_launcher_recent_workspace(x: PinLauncherRecentWorkspaceRequestInput): Promise<ResponseDataAndStatus<LauncherRecentWorkspacesResponse>> {
+  return await post(GoHTTPRoutes.pinLauncherRecentWorkspace, x);
+}
+
+export async function route_get_launcher_filesystem_roots(): Promise<ResponseDataAndStatus<LauncherFilesystemRootsResponse>> {
+  return await get(GoHTTPRoutes.getLauncherFilesystemRoots);
+}
+
+export async function route_list_launcher_directory(x: LauncherListDirectoryRequestInput): Promise<ResponseDataAndStatus<LauncherListDirectoryResponse>> {
+  return await post(GoHTTPRoutes.listLauncherDirectory, x);
+}
+
+export async function route_open_launcher_workspace(x: LauncherOpenWorkspaceRequestInput): Promise<ResponseDataAndStatus<LauncherOpenWorkspaceResponse>> {
+  return await post(GoHTTPRoutes.openLauncherWorkspace, x);
 }

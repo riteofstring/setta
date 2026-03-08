@@ -44,6 +44,9 @@ Start with explicit route ownership wedges, not full schema reflection.
     `serverMode`, and `settaHomeInfo`
   - current landed wedge: active workspace-launch endpoint wrappers plus
     request/response types for `createWorkspaceLaunchIntent` and `launch`
+  - current landed wedge: active launcher-home endpoint wrappers plus
+    request/response types for recent-workspace reads/mutations,
+    filesystem-root reads, directory listing, and open-workspace
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals
