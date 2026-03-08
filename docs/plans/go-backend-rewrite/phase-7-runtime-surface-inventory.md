@@ -19,6 +19,8 @@ Current repo status as of 2026-03-08:
   - plugin discovery/mutation/runtime owners used by the completed MCP slice
   - deployment session/state read routes in `internal/httpapi/deployment_routes.go`
   - deployment runtime/session storage in `internal/deployments/runtime.go`
+  - deployment catalog/list/latest reads and version allocation in
+    `internal/deployments/catalog.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
   - launcher installation and status management
@@ -109,17 +111,15 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Move to the dedicated deployment publication/listing implementation-plan doc in
-`phase-7-deployment-publish-and-list-runtime.md`.
+Move to the dedicated share-deployment publish implementation-plan doc in
+`phase-7-share-deployment-publish-owner.md`.
 
 That is now the highest-leverage next step because:
 
+- Stage 1 deployment catalog/version allocation is complete
 - Go already owns `internal/deployments` plus deployment read/session routes
-- that makes publish/list parity a smaller extension of an existing Go runtime
-  owner than the launcher stack, which still lacks a clear Go route/runtime
-  boundary
-- launcher/bootstrap work still appears to span more OS integration, auth
-  handoff, and frontend-origin trust behavior
+- share deployment publish is now the smallest remaining deployment-runtime
+  owner before app deployment publish and IDE transport
 
 ## Progress Notes
 
@@ -127,6 +127,9 @@ That is now the highest-leverage next step because:
   that the best bounded entry slice is share/app deployment publication and
   metadata listing above the already completed Go deployment session/state
   runtime.
+- 2026-03-08: completed Stage 1 of that deployment slice by adding a Go-owned
+  deployment catalog and version allocator in `internal/deployments/catalog.go`;
+  next recommended step is the share deployment publish owner.
 
 ## Verification
 

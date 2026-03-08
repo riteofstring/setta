@@ -16,13 +16,13 @@ Current repo status as of 2026-03-08:
 - Phase 7 runtime inventory is now the active rewrite handoff
 - Go already owns:
   - deployment manifest and policy loading in `internal/deployments`
+  - deployment catalog/list/latest reads plus version allocation in
+    `internal/deployments/catalog.go`
   - deployment runtime/session overlays in `internal/deployments/runtime.go`
   - deployment session/state/project-config read routes in
     `internal/httpapi/deployment_routes.go`
   - app-spec store and validation owners in `internal/appspec`
 - Go does not yet own:
-  - deployment root/version allocation for IDE-side publication
-  - deployment metadata catalog/list/latest reads in IDE mode
   - share deployment publication
   - app deployment publication
   - thin IDE HTTP routes for those publish/list/latest flows
@@ -116,9 +116,8 @@ This slice should cover:
      app-definition work
 
 2. Missing owner seams
-   - there is no Go deployment catalog for listing published deployments
-   - there is no Go publish owner for deployment version allocation, snapshot
-     copy/rebase, or listener/app-spec materialization
+   - there is no Go publish owner for deployment snapshot copy/rebase or
+     listener/app-spec materialization
    - there are no IDE-mode Go routes for deployment publish/list/latest
 
 ## Working Decisions
@@ -138,11 +137,13 @@ This slice should cover:
 1. Deployment catalog and version-allocation owner
    - add typed metadata listing/latest helpers under `internal/deployments`
    - add deployment-name normalization plus next-version allocation
+   - status: complete in `internal/deployments/catalog.go`
 
 2. Share deployment publish owner
    - define an input/output boundary for publishing from a project snapshot
    - implement policy defaults, listener copy, path rebasing, and deployment
      asset/structured-data materialization
+   - next focused slice: move to `phase-7-share-deployment-publish-owner.md`
 
 3. App deployment publish extension
    - layer app-definition/app-spec requirements and app-spec copy/rebase on top
@@ -174,6 +175,13 @@ This slice should cover:
   `internal/deployments` or share a lower-level filesystem catalog helper with
   later launcher/runtime inventory work
 
+## Progress Notes
+
+- 2026-03-08: completed Stage 1 by adding a Go-owned deployment catalog and
+  version allocator in `internal/deployments/catalog.go`, including newest-first
+  list/version selection, latest-version lookup, deployment-name normalization,
+  and focused catalog tests.
+
 ## Verification Targets
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
@@ -181,6 +189,6 @@ This slice should cover:
 
 ## Next Recommended Step
 
-Implement Stage 1 of this slice: deployment catalog and version allocation in
-`internal/deployments`, then add focused tests before exposing any new IDE
-transport.
+Implement Stage 2 of this slice: the Go-owned share deployment publish owner in
+`phase-7-share-deployment-publish-owner.md`, then layer app deployment publish
+and thin IDE transport on top of the completed catalog owner.
