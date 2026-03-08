@@ -84,6 +84,40 @@ def test_project_state_window_spaces_collapse_duplicate_section_windows():
     assert window_space.order == ["section-window-b"]
 
 
+def test_project_state_window_spaces_clear_inert_section_titles() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.TextBlock,
+        Position(),
+    )
+    project_state.projectConfig.windowSpaces = {
+        "space-id": WindowSpaceConfig(
+            id="space-id",
+            name="Research Board",
+            sortIndex=0,
+            windowsById={
+                "section-window": WindowSpaceWindow(
+                    surfaceKind=WindowSpaceSurfaceKind.section,
+                    sectionIdOrNull=section_id,
+                    title="Saved Section Chat",
+                )
+            },
+            order=["section-window"],
+        )
+    }
+
+    project_state.validate_window_spaces()
+
+    assert (
+        project_state.projectConfig.windowSpaces["space-id"]
+        .windowsById["section-window"]
+        .title
+        is None
+    )
+
+
 def test_copy_project_config_remaps_window_space_section_ids():
     source_section_id = "section-old"
     target_section_id = "section-new"

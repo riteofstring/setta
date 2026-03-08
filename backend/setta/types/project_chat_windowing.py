@@ -58,6 +58,8 @@ def normalize_project_chat_windowing(
         section_id = instance.sectionIdOrNull
         if section_id is not None and section_id not in section_ids:
             continue
+        if section_id is not None and instance.title is not None:
+            instance.title = None
         if section_id is not None:
             current_best_instance_id = winning_instance_id_by_section_id.get(section_id)
             current_best_instance = (

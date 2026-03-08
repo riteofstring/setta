@@ -15,10 +15,7 @@ import {
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  route_set_project_chat_windowing_state,
-  route_set_section_name,
-} from "utils/generatedEndpoints";
+import { route_set_project_chat_windowing_state } from "utils/generatedEndpoints";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -1044,6 +1041,7 @@ export function moveProjectChatWindowToCanvasSectionInState(
         ...current,
         sectionIdOrNull: sectionId,
         mode,
+        title: null,
         isClosed: false,
         isMinimized: false,
       };
@@ -1152,6 +1150,7 @@ export function showSectionInProjectChatWindowInState(
     return {
       ...current,
       sectionIdOrNull: sectionId,
+      title: null,
       isClosed: false,
       isMinimized: false,
       bounds: resolvedBounds,
@@ -1165,8 +1164,12 @@ export function setProjectChatWindowTitleInState(
   instanceId: string,
   title: string | null,
 ): ProjectChatWindowingState {
-  const normalizedTitle = title?.trim() ? title.trim() : null;
   return withUpdatedWindow(state, instanceId, (current) => {
+    const normalizedTitle = current.sectionIdOrNull
+      ? null
+      : title?.trim()
+        ? title.trim()
+        : null;
     if (current.title === normalizedTitle) {
       return current;
     }
@@ -1574,6 +1577,7 @@ export async function bootProjectChatWindowToCanvasSection(
         ...(canvasSectionSize ? { size: canvasSectionSize } : {}),
       },
       position: resolveProjectChatCanvasBootPosition(instanceId),
+      name: currentInstance.title?.trim() ? currentInstance.title.trim() : null,
     });
     if (!created) {
       return null;
@@ -1586,13 +1590,6 @@ export async function bootProjectChatWindowToCanvasSection(
       );
     }
     sectionId = created.sectionId;
-    if (currentInstance.title?.trim()) {
-      await route_set_section_name({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        name: currentInstance.title.trim(),
-      });
-    }
   }
 
   const latestWindowing = getProjectChatWindowingStateFromStore(

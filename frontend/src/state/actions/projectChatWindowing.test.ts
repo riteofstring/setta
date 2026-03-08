@@ -503,6 +503,27 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.title).toBe("Coast Bear");
   });
 
+  it("drops custom titles for section-backed windows", () => {
+    const baseInstance = createProjectChatWindowInstance({
+      instanceId: "chat-window-a",
+      sectionIdOrNull: "section-1",
+      title: "Old Section Title",
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: { [baseInstance.instanceId]: baseInstance },
+      order: [baseInstance.instanceId],
+      nextInstanceNumber: 2,
+    });
+
+    const next = setProjectChatWindowTitleInState(
+      initial,
+      baseInstance.instanceId,
+      "Ignored Title",
+    );
+
+    expect(next.instancesById[baseInstance.instanceId]?.title).toBeNull();
+  });
+
   it("updates dock width fractions and preferred widths for known instances", () => {
     // Resizing dock splits should persist normalized fractions for subsequent renders.
     const first = createProjectChatWindowInstance({
@@ -1154,5 +1175,44 @@ describe("project chat windowing reducer helpers", () => {
       width: 500,
       height: 360,
     });
+  });
+
+  it("passes the current window title into atomic canvas boot and clears it after binding", async () => {
+    hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockResolvedValue(
+      {
+        sectionId: "section-created",
+      },
+    );
+    const target = createProjectChatWindowInstance({
+      instanceId: "chat-window-target",
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Coast Bear",
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        order: [target.instanceId],
+        instancesById: {
+          [target.instanceId]: target,
+        },
+        nextInstanceNumber: 2,
+      });
+    });
+
+    await expect(
+      bootProjectChatWindowToCanvasSection(target.instanceId),
+    ).resolves.toBe("section-created");
+
+    expect(
+      hoistedProjectChatWindowing.createTopLevelSectionWithResult,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Coast Bear",
+      }),
+    );
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        target.instanceId
+      ]?.title,
+    ).toBeNull();
   });
 });

@@ -246,16 +246,12 @@ async def invoke_linked_chat(
             }
         )
         linked_chat_inputs["runType"] = LLM_CHAT_RUN_TYPE
-        await _persist_linked_chat_section_binding(
-            manager,
-            agentic_context.project_config_id,
-            target_section_id,
-            chat_id,
-        )
         try:
-            completed_run = await runner.run_sub_agent(
+            run = runner.start_run(
                 linked_profile,
                 linked_chat_inputs,
+                emit_stream=False,
+                emit_ai_follow=False,
             )
         except (KeyError, ValueError) as exc:
             return _build_error_result(
@@ -263,6 +259,13 @@ async def invoke_linked_chat(
                 reason="run_start_failed",
                 message=str(exc),
             )
+        await _persist_linked_chat_section_binding(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
+        completed_run = await runner.wait_for_run(run.id)
     elif resolved_engine.engine_config.engineType == EngineType.external_agent:
         runner = ctx.fastmcp.state.external_agent_runner
         if runner.disabled:
@@ -303,12 +306,6 @@ async def invoke_linked_chat(
             execution_policy_prompt,
             _REQUIRED_ERROR_CHECK_PROMPT,
         )
-        await _persist_linked_chat_section_binding(
-            manager,
-            agentic_context.project_config_id,
-            target_section_id,
-            chat_id,
-        )
         try:
             run = runner.start_run(
                 effective_engine_config_id,
@@ -322,6 +319,12 @@ async def invoke_linked_chat(
                 reason="run_start_failed",
                 message=str(exc),
             )
+        await _persist_linked_chat_section_binding(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
         completed_run = await runner.wait_for_run(run.id)
     else:
         return _build_error_result(

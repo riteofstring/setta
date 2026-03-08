@@ -618,6 +618,8 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 if window is None:
                     continue
                 if window.surfaceKind == WindowSpaceSurfaceKind.section:
+                    if window.title is not None:
+                        window.title = None
                     section_id = window.sectionIdOrNull
                     if section_id is None or section_id not in section_ids:
                         continue

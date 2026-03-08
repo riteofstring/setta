@@ -121,3 +121,33 @@ def test_project_state_normalizes_duplicate_section_bindings_to_one_authoritativ
     }
     assert project_state.projectChatWindowing.order == [canvas_window.instanceId]
     assert project_state.projectChatWindowing.nextInstanceNumber == 3
+
+
+def test_project_state_normalizes_section_window_titles_to_none() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    section_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        sectionIdOrNull=section_id,
+        title="Saved Section Chat",
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={section_window.instanceId: section_window},
+        order=[section_window.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    project_state.validate_project_chat_windowing()
+
+    assert (
+        project_state.projectChatWindowing.instancesById[
+            section_window.instanceId
+        ].title
+        is None
+    )

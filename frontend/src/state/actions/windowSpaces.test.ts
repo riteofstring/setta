@@ -170,6 +170,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["floating-section"]).toMatchObject({
       surfaceKind: "section",
       sectionIdOrNull: "section-1",
+      title: null,
       zIndex: 5,
       normalizedBounds: {
         x: 0.5,
@@ -240,6 +241,89 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["floating-section-b"]?.mode).toBe(
       ChatWindowModeEnum.project_ai_mode,
     );
+  });
+
+  it("clears inert section titles when snapshotting and restoring floating section windows", () => {
+    const snapshot = snapshotFloatingWindowsForWindowSpace({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["floating-section"],
+        instancesById: {
+          "floating-section": {
+            instanceId: "floating-section",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            title: "Ignored Section Title",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 4,
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 500,
+              height: 360,
+            },
+          },
+        },
+      }),
+      sections: {
+        "section-1": createCore({
+          id: "section-1",
+          name: "Research Notes",
+        }),
+      },
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+    });
+
+    expect(snapshot.windowsById["floating-section"]?.title).toBeNull();
+
+    const restored = createProjectChatWindowingStateFromWindowSpace(
+      {
+        id: "space-1",
+        name: "Focused Layout",
+        sortIndex: 0,
+        windowsById: {
+          "floating-section": {
+            surfaceKind: "section",
+            sectionIdOrNull: "section-1",
+            mode: ChatWindowModeEnum.section_mode,
+            title: "Still Ignored",
+            zIndex: 4,
+            normalizedBounds: {
+              x: 0.1,
+              y: 0.2,
+              width: 0.5,
+              height: 0.4,
+            },
+          },
+        },
+        order: ["floating-section"],
+      },
+      {
+        sections: {
+          "section-1": createCore({
+            id: "section-1",
+            name: "Research Notes",
+          }),
+        },
+      },
+      {
+        viewportWidthPx: 1000,
+        viewportHeightPx: 800,
+        insets: {
+          left: 100,
+          right: 100,
+          top: 50,
+          bottom: 50,
+        },
+      },
+    );
+
+    expect(restored.instancesById["floating-section"]?.title).toBeNull();
   });
 
   it("round-trips snapped layouts back onto the shared resize grid", () => {
@@ -1151,7 +1235,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(sectionInstances[0]).toMatchObject({
       instanceId: "restored-section-window",
       placement: ChatWindowPlacementEnum.floating,
-      title: "Saved Section Chat",
+      title: null,
     });
     expect(nextState.instancesById["canvas-section-window"]).toBeUndefined();
     expect(nextState.order).toEqual(["restored-section-window"]);

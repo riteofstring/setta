@@ -249,6 +249,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | None
     ]
     position: NotRequired[Position | None]
+    name: NotRequired[str | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout] | None]
     viewportBounds: NotRequired[ViewportBounds | None]
 

@@ -1,5 +1,12 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Route,
+} from "@playwright/test";
+import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   createTextBlockSection,
   ensureAppReady,
@@ -1975,6 +1982,89 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
       Math.abs(firstBinding.positionY - expectedFromSource.y),
     ).toBeLessThanOrEqual(1);
   } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat move-to-canvas failure leaves the source window as the only live host and retries cleanly", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const failCreateTopLevelSection = async (route: Route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "synthetic canvas boot failure" }),
+    });
+  };
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+
+    const dockedWindow = await ensureDockedWindow(page);
+    const instanceId = await dockedWindow.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!instanceId) {
+      throw new Error("Expected docked project chat window instance id.");
+    }
+
+    await page.route("**/createTopLevelSection", failCreateTopLevelSection);
+    allowExpectedApiError(page, {
+      path: "/api/createTopLevelSection",
+      statuses: [500],
+      method: "POST",
+    });
+    const failedCreateResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes("/createTopLevelSection") &&
+        response.status() === 500,
+    );
+    await dockedWindow
+      .getByTestId("project-chat-window-show-in-canvas")
+      .click();
+    await failedCreateResponse;
+
+    await expect(
+      page.getByTestId("project-chat-bottom-dock-window-panel"),
+    ).toHaveCount(1);
+    await expect(page.getByTestId("project-chat-floating-window")).toHaveCount(
+      0,
+    );
+    await expect(page.getByTestId("section-window-surface")).toHaveCount(0);
+    await expect(
+      page.locator(
+        `[data-testid="project-chat-window-show-in-canvas"][data-chat-window-instance-id="${instanceId}"]`,
+      ),
+    ).toBeVisible();
+    expect(await getProjectChatCanvasBinding(page, instanceId)).toMatchObject({
+      placement: "bottom_docked",
+      sectionId: null,
+    });
+
+    await page.unroute("**/createTopLevelSection", failCreateTopLevelSection);
+    await dockedWindow
+      .getByTestId("project-chat-window-show-in-canvas")
+      .click();
+
+    await expect
+      .poll(
+        async () =>
+          (await getProjectChatCanvasBinding(page, instanceId))?.sectionId,
+      )
+      .not.toBeNull();
+    expect(
+      await page.getByTestId("project-chat-bottom-dock-window-panel").count(),
+    ).toBe(0);
+  } finally {
+    await page
+      .unroute("**/createTopLevelSection", failCreateTopLevelSection)
+      .catch(() => null);
     await cleanupIsolatedProject(page, projectContext);
   }
 });

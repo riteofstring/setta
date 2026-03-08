@@ -608,22 +608,41 @@ def _filter_project_config_for_summary(
             for section_id, visible in view_mode.visibilityBySectionId.items()
             if section_id in allowed_section_ids
         }
-    for window_space in cloned.windowSpaces.values():
+    cloned.windowSpaces = _filter_window_spaces_for_summary(
+        cloned.windowSpaces,
+        allowed_section_ids,
+    )
+    return cloned
+
+
+def _filter_window_spaces_for_summary(
+    window_spaces: dict[ID, WindowSpaceConfig],
+    allowed_section_ids: set[ID],
+) -> dict[ID, WindowSpaceConfig]:
+    next_window_spaces: dict[ID, WindowSpaceConfig] = {}
+    for window_space_id, window_space in window_spaces.items():
         next_windows_by_id = {}
         for instance_id, window in window_space.windowsById.items():
             if window.surfaceKind != WindowSpaceSurfaceKind.section:
-                next_windows_by_id[instance_id] = window
                 continue
             if window.sectionIdOrNull not in allowed_section_ids:
                 continue
             next_windows_by_id[instance_id] = window
+        if not next_windows_by_id:
+            continue
         window_space.windowsById = next_windows_by_id
-        window_space.order = [
+        next_order = [
             instance_id
             for instance_id in window_space.order
             if instance_id in next_windows_by_id
         ]
-    return cloned
+        for instance_id in next_windows_by_id:
+            if instance_id in next_order:
+                continue
+            next_order.append(instance_id)
+        window_space.order = next_order
+        next_window_spaces[window_space_id] = window_space
+    return next_window_spaces
 
 
 def _build_section_param_summaries(

@@ -45,8 +45,6 @@ function compactWindowSpaceSortIndices(
   return sortedWindowSpaces;
 }
 
-type WindowSpaceSortableItem = ReturnType<typeof useViewModeSortableItem>;
-
 type WindowSpaceRowSharedProps = {
   windowSpace: WindowSpaceConfig;
   projectConfigId: string;

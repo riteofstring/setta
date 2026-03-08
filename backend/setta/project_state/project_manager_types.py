@@ -356,6 +356,10 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
         default=None,
         description="Canvas coordinates where the section should be placed.",
     )
+    name: str | None = Field(
+        default=None,
+        description="Optional initial section name to apply atomically at creation.",
+    )
     topLevelSections: dict[ID, TopLevelSectionLayout] | None = Field(
         default=None,
         description="Latest top-level section layout snapshot for smart placement.",

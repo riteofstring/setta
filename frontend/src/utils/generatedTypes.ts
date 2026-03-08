@@ -10176,6 +10176,7 @@ const CreateTopLevelSectionRequestSchema = z.object({
     ])
     .default(null),
   position: z.union([PositionSchema, z.null()]).default(null),
+  name: z.union([z.string(), z.null()]).default(null),
   topLevelSections: z
     .union([z.record(IDSchema, TopLevelSectionLayoutSchema), z.null()])
     .default(null),

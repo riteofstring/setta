@@ -3750,6 +3750,18 @@ class BaseProjectManager(ABC):
             x.topLevelSections,
             x.viewportBounds,
         )
+        if x.name is not None:
+            validation_state = project_state.model_copy(deep=True)
+            validation_section_id = create_top_level_section(
+                self.settings_file.settings,
+                validation_state,
+                x.implType,
+                position,
+                x.implOverrides,
+                control_code_obj_type=x.controlCodeObjType,
+            )
+            validation_state.validate_parent_section_map()
+            set_section_name(validation_state, validation_section_id, x.name)
         sectionId = create_top_level_section(
             self.settings_file.settings,
             project_state,
@@ -3758,6 +3770,9 @@ class BaseProjectManager(ABC):
             x.implOverrides,
             control_code_obj_type=x.controlCodeObjType,
         )
+        if x.name is not None:
+            project_state.validate_parent_section_map()
+            set_section_name(project_state, sectionId, x.name)
         meta_control_param_id = (
             get_meta_control_param_id(project_state, sectionId)
             if x.implType == SectionType.MetaControl

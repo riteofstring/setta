@@ -123,11 +123,11 @@ class _DummyAgentRunner:
             mcpServers={},
         )
         self.calls: list[tuple[object, dict[str, object]]] = []
+        self._runs_by_id: dict[ID, AgentRun] = {}
 
-    async def run_sub_agent(self, profile, inputs):
-        self.calls.append((profile, dict(inputs or {})))
+    def _build_completed_run(self, run_id: ID, inputs) -> AgentRun:
         return AgentRun(
-            id=ID("linked-run-1"),
+            id=run_id,
             status=AgentRunStatus.completed,
             inputs=inputs,
             outputs={
@@ -138,6 +138,26 @@ class _DummyAgentRunner:
                 ]
             },
         )
+
+    def start_run(
+        self,
+        profile,
+        inputs,
+        *,
+        emit_stream: bool = True,  # noqa: ARG002
+        emit_ai_follow: bool = True,  # noqa: ARG002
+    ) -> AgentRun:
+        self.calls.append((profile, dict(inputs or {})))
+        run = self._build_completed_run(ID(f"linked-run-{len(self.calls)}"), inputs)
+        self._runs_by_id[run.id] = run
+        return run
+
+    async def wait_for_run(self, run_id: ID) -> AgentRun:
+        return self._runs_by_id[run_id]
+
+    async def run_sub_agent(self, profile, inputs):
+        run = self.start_run(profile, inputs, emit_stream=False, emit_ai_follow=False)
+        return await self.wait_for_run(run.id)
 
 
 class _BlockingDummyAgentRunner(_DummyAgentRunner):
@@ -147,15 +167,64 @@ class _BlockingDummyAgentRunner(_DummyAgentRunner):
         self.second_call_started = asyncio.Event()
         self.release_calls = asyncio.Event()
 
-    async def run_sub_agent(self, profile, inputs):
+    def start_run(
+        self,
+        profile,
+        inputs,
+        *,
+        emit_stream: bool = True,  # noqa: ARG002
+        emit_ai_follow: bool = True,  # noqa: ARG002
+    ) -> AgentRun:
         self.calls.append((profile, dict(inputs or {})))
         if len(self.calls) == 1:
             self.first_call_started.set()
         if len(self.calls) == 2:
             self.second_call_started.set()
+        run = self._build_completed_run(ID(f"linked-run-{len(self.calls)}"), inputs)
+        self._runs_by_id[run.id] = run
+        return run
+
+    async def wait_for_run(self, run_id: ID) -> AgentRun:
         await self.release_calls.wait()
-        return AgentRun(
-            id=ID(f"linked-run-{len(self.calls)}"),
+        return self._runs_by_id[run_id]
+
+
+class _FailingStartDummyAgentRunner(_DummyAgentRunner):
+    def start_run(
+        self,
+        profile,
+        inputs,
+        *,
+        emit_stream: bool = True,  # noqa: ARG002
+        emit_ai_follow: bool = True,  # noqa: ARG002
+    ) -> AgentRun:
+        self.calls.append((profile, dict(inputs or {})))
+        raise ValueError("synthetic startup failure")
+
+
+class _DummyExternalAgentRunner:
+    def __init__(self) -> None:
+        self.disabled = False
+        self.calls: list[tuple[ID, object, object, dict[str, object]]] = []
+        self._runs_by_id: dict[ID, AgentRun] = {}
+
+    def start_run(
+        self,
+        engine_config_id: ID,
+        external_config,
+        profile,
+        inputs,
+    ) -> AgentRun:
+        self.calls.append(
+            (
+                engine_config_id,
+                external_config,
+                profile,
+                dict(inputs or {}),
+            )
+        )
+        run = AgentRun(
+            id=ID(f"external-linked-run-{len(self.calls)}"),
             status=AgentRunStatus.completed,
             inputs=inputs,
             outputs={
@@ -166,6 +235,30 @@ class _BlockingDummyAgentRunner(_DummyAgentRunner):
                 ]
             },
         )
+        self._runs_by_id[run.id] = run
+        return run
+
+    async def wait_for_run(self, run_id: ID) -> AgentRun:
+        return self._runs_by_id[run_id]
+
+
+class _FailingStartDummyExternalAgentRunner(_DummyExternalAgentRunner):
+    def start_run(
+        self,
+        engine_config_id: ID,
+        external_config,
+        profile,
+        inputs,
+    ) -> AgentRun:
+        self.calls.append(
+            (
+                engine_config_id,
+                external_config,
+                profile,
+                dict(inputs or {}),
+            )
+        )
+        raise ValueError("synthetic external startup failure")
 
 
 async def _noop_wait_until_ready(self) -> None:  # noqa: ARG001
@@ -717,6 +810,66 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_run
 
 
 @pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_start_fails(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        agent_runner_override=_FailingStartDummyAgentRunner(),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "run_start_failed"
+    assert payload["structuredContent"]["message"] == "synthetic startup failure"
+    assert agent_runner.calls
+    assert manager.set_chat_section_chat_id_calls == []
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
+
+
+@pytest.mark.asyncio
 async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_runner_is_unavailable(
     tmp_path,
 ) -> None:
@@ -760,6 +913,70 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_ru
     payload = response.json()
     assert payload["isError"] is True
     assert payload["structuredContent"]["reason"] == "runner_unavailable"
+    assert manager.set_chat_section_chat_id_calls == []
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_start_fails(
+    tmp_path,
+) -> None:
+    external_runner = _FailingStartDummyExternalAgentRunner()
+    (
+        app,
+        _agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        engine_type=EngineType.external_agent,
+        external_agent_runner_override=external_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        payload["structuredContent"]["message"] == "synthetic external startup failure"
+    )
+    assert external_runner.calls
     assert manager.set_chat_section_chat_id_calls == []
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,

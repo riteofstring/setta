@@ -178,7 +178,7 @@ export function snapshotFloatingWindowsForWindowSpace(
         : WindowSpaceSurfaceKindEnum.project_chat,
       sectionIdOrNull: instance.sectionIdOrNull,
       mode: instance.mode,
-      title: instance.title,
+      title: instance.sectionIdOrNull ? null : instance.title,
       chatId: instance.chatId,
       zIndex: instance.zIndex,
       normalizedBounds: normalizeFloatingBounds(
@@ -495,7 +495,10 @@ export function createProjectChatWindowingStateFromWindowSpace(
       placement: ChatWindowPlacementEnum.floating,
       mode: window.mode,
       sectionIdOrNull: window.sectionIdOrNull,
-      title: window.title,
+      title:
+        window.surfaceKind === WindowSpaceSurfaceKindEnum.section
+          ? null
+          : window.title,
       chatId: window.chatId,
       isClosed: false,
       isMinimized: false,

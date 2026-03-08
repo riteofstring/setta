@@ -239,6 +239,48 @@ DX before vs after:
 - Before: standalone thread behavior required reasoning about a router/store tug-of-war. After: ownership is explicit in the route layer, and the controlled chat surface behaves the same way as other window-owned chat surfaces.
 - Before: stale git-pane leakage depended on incidental `instanceId` reuse. After: the cleanup policy is deterministic and attached to windowing lifecycle changes.
 
+## 2026-03-10 08:18:49 PDT
+
+Implemented the remaining consolidated fixes from the top-level review docs for linked-chat start atomicity, scoped-summary window-space filtering, atomic project-chat move-to-canvas binding, and section-backed title authority cleanup.
+
+Linked-chat admission and failure safety:
+- `invoke_linked_chat(...)` no longer persists `section.chatId` before runner startup completes. Both managed and external linked-chat flows now start first and only bind the target section after the run has been admitted successfully.
+- This removes the failure residue where `run_start_failed` could still mutate the target section into a phantom linked thread and poison retries or later ownership checks.
+- Added backend regression coverage for both managed and external startup-failure paths to prove failed admissions leave no persisted section binding behind.
+
+Scoped summary filtering and persistence authority:
+- Scoped project summaries now filter saved window-space payloads with the same section boundary as the rest of the summary. Saved `project_chat` windows are dropped entirely from scoped summaries, section-backed saved windows are kept only when their `sectionIdOrNull` remains in scope, `order` is recomputed, and empty window spaces are removed.
+- This closes the metadata leak where a section-scoped summary could still expose saved window-space structure for out-of-scope sections or project-chat surfaces.
+- Added helper-level and MCP-level backend tests covering window-space filtering, order compaction, and empty-space removal.
+
+Atomic move-to-canvas and section creation:
+- `bootProjectChatWindowToCanvasSection(...)` no longer creates a section and then renames it in a second mutation. The frontend now passes the intended title as the initial section name, and the backend applies that name as part of the create path after validating it against the authoritative project state.
+- If name validation fails, the section creation is rejected without leaving a partially created section behind. If creation succeeds, the returned section is already correctly named before the window is rebound to it.
+- Added backend tests for valid and invalid initial-name creation behavior, frontend tests for the create-and-bind flow, and a Playwright regression showing that a failed move leaves the source window as the only live host and that a retry succeeds cleanly.
+
+Section-backed title authority:
+- Section-backed project-chat windows now normalize custom `title` state to `null` across backend validation, frontend state updates, and window-space snapshot/restore flows.
+- This removes the split-authority bug where the UI could persist a custom title even though rendering always preferred the owning section name, leaving users with a visible no-op and saved layouts with inert data.
+- Removed the now-unused `WindowSpaceSortableItem` alias as part of the same cleanup and added unit coverage for title normalization in both backend and frontend persistence paths.
+
+UX before vs after:
+- Before: linked-chat startup failures could silently reserve a section thread that never actually started, forcing later retries to interact with stale hidden state. After: failed starts are side-effect free, and the section remains unchanged until a run exists.
+- Before: section-scoped summaries could still leak saved layout metadata for out-of-scope sections or project-chat windows. After: scoped summaries now behave like a real boundary and include only in-scope saved section windows.
+- Before: moving a project chat to canvas could leave a duplicate host behind if the follow-up rename failed between section creation and window rebinding. After: section creation, initial naming, and rebinding follow one atomic authority path, so failures leave the original host intact.
+- Before: users could rename section-backed windows through state that the UI would never actually render, creating confusing no-op edits. After: section naming has a single source of truth and saved layouts no longer accumulate dead per-window titles.
+
+DX before vs after:
+- Before: linked-chat correctness depended on subtle persistence timing across multiple startup paths. After: start admission and section binding now follow one explicit atomic contract.
+- Before: scoped-summary filtering and saved window-space state applied different authority rules, so engineers had to reason about which payloads were actually trustworthy. After: the scoped summary enforces the same section boundary all the way through saved layouts.
+- Before: move-to-canvas correctness depended on sequencing two separate mutations and thinking through partial failure cleanup. After: the initial section name is part of the create contract, so the code path is shorter, transactional, and easier to test.
+- Before: section-backed title behavior had dead persisted state with no rendered effect. After: section-window naming is canonicalized at validation and persistence boundaries, which removes inert state and test ambiguity.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/routers/test_mcp_linked_chat_tool.py tests/mcp/test_mcp_agentic_project_state_summary_filtering.py tests/types/test_project_state_summary_filter.py tests/types/test_project_state_window_spaces.py tests/types/test_project_chat_windowing.py tests/project_state/test_project_config_view_modes.py` passed.
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts` passed.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat move-to-canvas failure leaves the source window as the only live host and retries cleanly"` passed.
+- CDP verification on the running dev instance confirmed that moving a project chat to canvas cleared the dock/floating hosts and left a single canvas-bound host with the expected manager actions.
+
 Verification:
 - `./scripts/run_backend_tests.sh tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_state_window_spaces.py` passed.
 - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts` passed.
