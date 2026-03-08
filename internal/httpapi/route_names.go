@@ -8,6 +8,8 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetAuthRefreshStatus):                    {},
 	bareRouteName(RouteGetServerMode):                           {},
 	bareRouteName(RouteGetSettaHomeInfo):                        {},
+	bareRouteName(RouteLoadSettings):                            {},
+	bareRouteName(RouteSaveSettings):                            {},
 	bareRouteName(RouteShareDeploymentCurrentSession):           {},
 	bareRouteName(RouteAppDeploymentCurrentSession):             {},
 	bareRouteName(RouteShareDeploymentState):                    {},

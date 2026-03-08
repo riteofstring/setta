@@ -91,6 +91,80 @@ func TestAppServesFrontendWebsocketRoute(t *testing.T) {
 	}
 }
 
+func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	// Saving settings should update the runtime snapshot and notify connected frontends.
+	document := app.SettingsState().Snapshot().Document
+	document["backend"].(map[string]any)["renameRefactorMode"] = "ALWAYS_RENAME"
+
+	requestBody, err := json.Marshal(httpapi.SaveSettingsRequest{Settings: document})
+	if err != nil {
+		t.Fatalf("marshal save settings request: %v", err)
+	}
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSaveSettings,
+		strings.NewReader(string(requestBody)),
+	)
+	if err != nil {
+		t.Fatalf("new save settings request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post save settings: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateSettings, 4)
+	var websocketPayload settingsstate.Document
+	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
+		t.Fatalf("decode websocket settings payload: %v", err)
+	}
+	if got := websocketPayload["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected websocket renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+	if got := app.SettingsState().Snapshot().Document["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected runtime renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+}
+
 func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

@@ -918,6 +918,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
+			if err := httpapi.RegisterSettingsRoutes(r, httpapi.SettingsRouteDependencies{
+				ModePolicy:    modePolicy,
+				SettingsState: settingsStateRuntime,
+				WebsocketHub:  websocketHub,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
 				ModePolicy:          modePolicy,
 				ShareSessions:       shareSessions,

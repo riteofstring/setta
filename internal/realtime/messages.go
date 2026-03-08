@@ -5,6 +5,7 @@ import (
 
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -16,6 +17,7 @@ const (
 	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
+	MessageTypeUpdateSettings              = "UpdateSettings"
 	MessageTypeReturnRenameRefactorResults = "ReturnRenameRefactorResults"
 	MessageTypeRealtimeUIChange            = "RealtimeUIChange"
 	MessageTypeRealtimeDependencyEvent     = "RealtimeDependencyEvent"
@@ -141,6 +143,11 @@ type ProjectStateUpdateMessage struct {
 	Content     ProjectStateUpdateContent `json:"content"`
 }
 
+type SettingsUpdateMessage struct {
+	MessageType string                 `json:"messageType"`
+	Content     settingsstate.Document `json:"content"`
+}
+
 type RenameReferenceDependencyKey struct {
 	Type      string `json:"type"`
 	SectionID string `json:"sectionId"`
@@ -220,6 +227,13 @@ func NewProjectStateUpdateMessage(content ProjectStateUpdateContent) ProjectStat
 	return ProjectStateUpdateMessage{
 		MessageType: MessageTypeUpdateFrontendProjectState,
 		Content:     content,
+	}
+}
+
+func NewSettingsUpdateMessage(content settingsstate.Document) SettingsUpdateMessage {
+	return SettingsUpdateMessage{
+		MessageType: MessageTypeUpdateSettings,
+		Content:     content.Clone(),
 	}
 }
 

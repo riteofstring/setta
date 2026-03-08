@@ -30,7 +30,7 @@ Completed before this plan:
 
 Current repo reality:
 
-- the first two settings-state owner slices are now landed:
+- the first three settings-state slices are now landed:
   - `internal/settingsstate` owns embedded defaults plus a file-backed
     store/runtime over `setta-settings.json`
   - the Go app now opens that settings-state runtime separately from the
@@ -49,17 +49,18 @@ Current repo reality:
     - code-section attached terminal normalization
   - the IDE HTTP route and MCP structural tools that depend on those policies
     now resolve them from the settings-state runtime
-- live frontend callers still hit Python for:
+- the thin settings transport is now also Go-owned:
   - `POST /loadSettings`
   - `POST /saveSettings`
+  - websocket `UpdateSettings` broadcast after successful save
 - current direct frontend callers include:
   - app-start settings hydration in
     `frontend/src/state/actions/settings.ts`
   - direct settings writes from project AI settings, plugin settings, rename
     refactor modal, and section tag color settings
-- the remaining caller-backed gap is now transport, not owner creation:
-  direct frontend settings hydration and save still hit Python even though the
-  Go settings-state owner is in place
+- the remaining open settings boundary is no longer live frontend transport:
+  it is the explicit settings-project materialization path back into
+  `setta-settings.json`
 
 ## Scope
 
@@ -152,7 +153,10 @@ Current Go behavior is different:
   - section sizing policy / auto-layout sizing
   now resolve from the settings-state owner instead of the settings project
   document
-- there is no Go-owned `POST /loadSettings` or `POST /saveSettings`
+- thin Go transport now serves:
+  - `POST /loadSettings`
+  - `POST /saveSettings`
+- successful settings saves now broadcast websocket `UpdateSettings`
 
 Important implication:
 
@@ -288,6 +292,10 @@ Completed in the structural settings landing:
 
 ### Slice 2: Thin Settings Transport And Realtime Update
 
+Status:
+
+- completed
+
 Deliver:
 
 - `POST /loadSettings` in Go
@@ -307,6 +315,24 @@ Notes:
   off, but the current Go runtime does not yet own that autosave subsystem.
 - do not invent partial autosave behavior here; record it as deferred unless a
   later autosave owner makes it real.
+
+Completed in the thin transport landing:
+
+- added Go-owned `POST /loadSettings` and `POST /saveSettings` routes over the
+  existing `internal/settingsstate` runtime
+- kept the route layer thin by normalizing through
+  `settingsstate.NormalizeRaw(...)`, persisting with the runtime owner, and
+  broadcasting through the existing websocket hub
+- added `realtime.MessageTypeUpdateSettings` plus a bounded Go websocket
+  message builder for frontend settings updates
+- wired the settings routes into `internal/app`
+- added focused route tests for:
+  - full-IDE mode guards
+  - load snapshot reads
+  - save persistence
+  - invalid non-object settings payloads
+- added an app websocket test proving `saveSettings` updates the runtime owner
+  and pushes `UpdateSettings` to a connected frontend
 
 ### Slice 3: Settings Project Materialization Boundary
 
@@ -362,9 +388,12 @@ Acceptance:
   auto-layout / section sizing mutations plus HTTP and MCP callers now resolve
   canonical settings from `setta-settings.json` instead of the settings
   project runtime document.
+- 2026-03-09: landed Slice 2 so Go now owns `POST /loadSettings`,
+  `POST /saveSettings`, and websocket `UpdateSettings` broadcast for the live
+  frontend settings hydration/save path.
 
 ## Next Recommended Step
 
-- execute Slice 2: move `POST /loadSettings` and `POST /saveSettings` into Go
-  over `internal/settingsstate`, then broadcast websocket `UpdateSettings`
-  after successful saves
+- execute Slice 3: define and implement the explicit settings-project
+  materialization boundary so settings-project edits no longer depend on the
+  Python-only flush path back into live `SettingsState`

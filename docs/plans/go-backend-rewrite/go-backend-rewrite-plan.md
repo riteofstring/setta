@@ -521,13 +521,13 @@ The bounded status/meta read follow-on tracked in
 - the current frontend backend-ready poll, worktree hint, websocket
   refresh-window read, and workspace-switcher launcher-scope read no longer
   depend on `backend/setta/routers/status.py`
-- `POST /loadSettings` remains a separate deferred settings-state boundary
-  instead of being silently bundled into this status/meta closeout
+- `POST /loadSettings` was left as a separate deferred settings-state boundary
+  instead of being silently bundled into that status/meta closeout
 
 That deferred settings-state boundary is now tracked explicitly in
 `phase-3-settings-state-owner-and-transport.md`:
 
-- the owner and structural-settings slices are now landed:
+- the owner, structural-settings, and thin transport slices are now landed:
   - `internal/settingsstate` now owns canonical embedded defaults plus a
     file-backed runtime over `setta-settings.json`
   - app-owned rename-refactor mode and callable-mismatch auto-refetch policy
@@ -536,14 +536,16 @@ That deferred settings-state boundary is now tracked explicitly in
   - auto-layout / section-sizing policy reads used by project-state, HTTP
     auto-layout transport, and MCP structural mutations now resolve from the
     settings-state runtime instead of the settings project document
-- live frontend callers still depend on Python for:
+- Go now owns:
   - `POST /loadSettings`
   - `POST /saveSettings`
+  - websocket `UpdateSettings` broadcast after successful save
 - the current Go app already owns a settings project runtime for
   `setta-settings-project.json`, but that is not the same thing as the live
   `SettingsState` owner behind `setta-settings.json`
-- the next bounded work is the thin `loadSettings` / `saveSettings` transport
-  over the completed Go-owned settings-state boundary
+- the next bounded work is the explicit settings-project materialization
+  boundary so settings-project edits stop depending on the Python-only flush
+  path back into live `SettingsState`
 
 ## Current Reality
 
