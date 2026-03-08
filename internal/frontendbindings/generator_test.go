@@ -22,6 +22,37 @@ func TestBuild(t *testing.T) {
 	assertEndpointTypeReferencesResolve(t, bindings.TypesTS, bindings.EndpointsTS)
 }
 
+func TestRenderTypesUsesCustomFactoryBody(t *testing.T) {
+	t.Helper()
+
+	typesTS, err := renderTemplate(typesTemplateText, map[string]any{
+		"Declarations": []TypeDeclaration{
+			aliasDeclarationWithFactory(
+				"CustomThing",
+				"{ value: string }",
+				`export function createCustomThing(options: Partial<CustomThing> = {}): CustomThing {
+  return mergeGeneratedOptions(
+    {
+      value: "",
+    },
+    options,
+  );
+}`,
+			),
+		},
+	})
+	if err != nil {
+		t.Fatalf("renderTemplate(...) error = %v", err)
+	}
+
+	if !strings.Contains(typesTS, "export function createCustomThing(options: Partial<CustomThing> = {}): CustomThing {") {
+		t.Fatalf("types output missing custom factory:\n%s", typesTS)
+	}
+	if strings.Contains(typesTS, "return options as CustomThing;") {
+		t.Fatalf("types output rendered default factory instead of custom factory:\n%s", typesTS)
+	}
+}
+
 func assertGoldenFile(t *testing.T, name string, actual string) {
 	t.Helper()
 
