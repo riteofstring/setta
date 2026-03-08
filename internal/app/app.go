@@ -133,6 +133,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localLaunchService    *workspacelaunch.LocalLaunchService
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
+		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		externalConfigStore   *externalagentconfigs.Store
 		externalPreflight     externalagentconfigs.Checker
@@ -494,7 +495,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	var pluginMutationService *plugins.Service
 	var pythonPackages *pythonenv.Runtime
 	if modePolicy.IsIDE() && projectRuntime != nil {
-		engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+		engineStore, err = agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
@@ -920,6 +921,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy: modePolicy,
 				Configs:    externalConfigStore,
 				Preflight:  externalPreflight,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterEngineConfigRoutes(r, httpapi.EngineConfigRouteDependencies{
+				ModePolicy: modePolicy,
+				Engines:    engineStore,
 			}); err != nil {
 				panic(err)
 			}

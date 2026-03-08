@@ -86,7 +86,6 @@ Closeout rerun after the landing:
 - a later closeout audit after the prompt-template CRUD landing corrected an
   earlier stale inventory in this doc
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `GET /getEngineConfigs`
   - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
   - `POST /updateAgentProfile`
@@ -108,7 +107,6 @@ Closeout rerun after the landing:
 
 Remaining Python-owned agentic routes outside this slice:
 
-- `GET /getEngineConfigs`
 - `GET /getTranscriptionProfiles`
 - `POST /createAgentProfile`
 - `POST /updateAgentProfile`
@@ -216,8 +214,10 @@ This slice delivered:
   `phase-13-prompt-template-crud-transport.md`
 - the external-agent config plus health hydration follow-up is now landed in
   `phase-13-external-agent-config-and-health-read-transport.md`
-- open the next bounded Phase 13 doc around engine-config hydration transport
-  over the already-landed Go `internal/agentruns.EngineStore`
+- the engine-config hydration follow-up is now landed in
+  `phase-13-engine-config-read-transport.md`
+- open the next bounded Phase 13 doc around transcription-profile hydration
+  transport
 - keep `getAgentProfile`, `getAgentRun`, `getPromptTemplate`,
   `getExternalAgentConfig`, and `getEngineConfig` deferred until a concrete
   caller makes one of them higher leverage than the remaining direct frontend

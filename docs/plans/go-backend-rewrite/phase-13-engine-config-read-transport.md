@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the next bounded post-Phase-13 slice and its landing.
 
 The prior Phase 13 slices moved agent profiles, prompt templates,
 summary-cache-status, prompt-template CRUD, and external-agent config/health
@@ -36,7 +36,7 @@ Concrete dependency that triggered this slice:
   - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
   - `frontend/src/components/Panes/UiEditor/SectionConfig/ChatAreaSettings.tsx`
   - `frontend/src/components/Section/Layouts/ChatArea.tsx`
-- Python still owns `GET /getEngineConfigs` in `backend/setta/routers/agentic.py`
+- Python owned `GET /getEngineConfigs` in `backend/setta/routers/agentic.py`
 - Go already owns the canonical engine-config file store in
   `internal/agentruns/store.go`
 
@@ -70,9 +70,46 @@ Current frontend behavior relevant to scoping:
 - current callers are in IDE/settings/chat surfaces; no concrete share-mode
   caller was found in the current worktree
 
+Landed in this slice:
+
+- `internal/httpapi/engine_config_routes.go`
+  - thin IDE-gated `GET /getEngineConfigs` transport
+- `internal/app/app.go`
+  - explicit `EngineStore` wiring into route registration scope
+- `internal/httpapi/route_names.go`
+  - bare-route registration for `getEngineConfigs`
+- focused coverage in:
+  - `internal/httpapi/engine_config_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the direct frontend hydration dependency on the Python-owned engine-config
+  read route is now gone
+- the Go route intentionally stays IDE-gated for the current bounded settings
+  surface even though Python exposed the read more broadly
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `GET /getTranscriptionProfiles`
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
+- generated single-item reads still exist for:
+  - `POST /getAgentProfile`
+  - `POST /getAgentRun`
+  - `POST /getPromptTemplate`
+  - `POST /getExternalAgentConfig`
+  - `POST /getEngineConfig`
+  but no direct frontend caller was found for them in the current worktree
+
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - thin Go transport for:
   - `GET /getEngineConfigs`
@@ -141,7 +178,7 @@ This slice should deliver:
 ## Verification
 
 - `./scripts/go.sh test ./internal/httpapi -run 'EngineConfig|GetEngineConfigs' -count=1`
-- `./scripts/go.sh test ./internal/agentruns ./internal/httpapi -count=1`
+- `./scripts/go.sh test ./internal/agentruns -count=1`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Decisions Made
@@ -163,8 +200,8 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land this bounded engine-config hydration route first
-- after closeout, open the next bounded Phase 13 doc for either:
-  - `GET /getTranscriptionProfiles`
-  - `POST /updateEngineConfig`
-  depending on which remaining direct frontend dependency is more urgent
+- open the next bounded Phase 13 doc around transcription-profile hydration
+  transport so `useHydrateAgenticState()` no longer depends on the remaining
+  Python read at app startup
+- keep `POST /updateEngineConfig` and the remaining CRUD routes separate unless
+  a dependency forces them to combine with transcription-profile transport

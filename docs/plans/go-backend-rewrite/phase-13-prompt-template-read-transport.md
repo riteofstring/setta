@@ -143,6 +143,8 @@ This slice delivered:
   `phase-13-prompt-template-crud-transport.md`
 - the external-agent config plus health follow-up is now landed in
   `phase-13-external-agent-config-and-health-read-transport.md`
-- the next bounded hydration/settings dependency is engine-config transport,
-  because `useHydrateAgenticState()` still loads `GET /getEngineConfigs` on app
-  start over an already-landed Go file owner
+- the engine-config hydration follow-up is now landed in
+  `phase-13-engine-config-read-transport.md`
+- the next bounded hydration/settings dependency is transcription-profile
+  transport, because `useHydrateAgenticState()` still loads
+  `GET /getTranscriptionProfiles` on app start

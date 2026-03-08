@@ -75,6 +75,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetPromptTemplates):                      {},
 	bareRouteName(RouteGetExternalAgentConfigs):                 {},
 	bareRouteName(RouteGetExternalAgentHealth):                  {},
+	bareRouteName(RouteGetEngineConfigs):                        {},
 	bareRouteName(RouteCreatePromptTemplate):                    {},
 	bareRouteName(RouteUpdatePromptTemplate):                    {},
 	bareRouteName(RouteDeletePromptTemplate):                    {},

@@ -202,7 +202,29 @@ The next bounded post-Phase-13 slice tracked in
 - richer Python-only plugin/env-var/cache preflight semantics remain deferred
   instead of being silently bundled into this read slice
 - the current remaining direct frontend Python-owned agentic routes are:
+  - `GET /getTranscriptionProfiles`
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-engine-config-read-transport.md` is now landed:
+
+- Go now owns:
   - `GET /getEngineConfigs`
+- the frontend now hydrates engine-config list state from Go over the landed
+  file-backed `internal/agentruns.EngineStore`
+- the Go route intentionally stays IDE-gated for the current bounded settings
+  surface instead of preserving Python's broader read exposure without a
+  concrete caller
+- the current remaining direct frontend Python-owned agentic routes are:
   - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
   - `POST /updateAgentProfile`
@@ -223,11 +245,12 @@ follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
 post-Phase-12 priority, not by reopening the completed external-agent runtime
 choices. The current bounded priority is no longer prompt-template hydration or
 summary-cache-status transport; both are landed. Prompt-template CRUD is also
-now landed. External-agent config plus health hydration is also now landed. The
-next bounded post-Phase-13 priority is engine-config hydration transport,
-because `useHydrateAgenticState()` still loads `GET /getEngineConfigs` at app
-start and the Go rewrite already has the file-backed `EngineStore` needed to
-move that slice cleanly.
+now landed. External-agent config plus health hydration is also landed.
+Engine-config hydration transport is now also landed. The next bounded
+post-Phase-13 priority is transcription-profile hydration transport, because
+`useHydrateAgenticState()` still loads `GET /getTranscriptionProfiles` at app
+start and that is now the remaining direct frontend hydration read on the
+Python side.
 
 ## Current Reality
 

@@ -481,12 +481,16 @@ Use the docs in this order:
   - focused completed-slice doc for the bounded external-agent hydration gap:
     Go-owned `getExternalAgentConfigs` and `getExternalAgentHealth` transport
     over the landed config store and bounded preflight checker
-146. `spike-mcp.md`
+146. `phase-13-engine-config-read-transport.md`
+  - focused completed-slice doc for the bounded engine-config hydration gap:
+    Go-owned `GET /getEngineConfigs` transport over the landed
+    `internal/agentruns.EngineStore`
+147. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-147. `spike-pty.md`
+148. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-148. `spike-lsp.md`
+149. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
