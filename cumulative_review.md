@@ -342,3 +342,43 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, created a temporary project and section, simulated the prune-plus-late-completion recovery path directly against the live frontend stores, and verified that `backendHydrationEnabled` flipped back to `true`, the section shell eventually reported `data-section-active="true"`, and the corresponding minimap node regained `selected`.
+
+## 2026-03-09 14:17:54 PDT
+
+Summary:
+- Implemented the remaining two blockers from the top-level review set: project publication across `useProjectState`, `useNodeInternals`, and `useActiveSectionUI` no longer leaks mixed snapshots to synchronous readers, and zero-area node internals no longer count as authoritative geometry for marquee or active-bounds calculations.
+- Added focused store, plugin-runtime, graph, and browser regressions, then re-verified the zero-width marquee path in the live headed app through Chrome DevTools MCP.
+
+Detailed findings addressed:
+- `loadProjectState(...)` and backend reconciliation still used sequential `setState(...)` calls across separate Zustand stores. `unstable_batchedUpdates(...)` reduced React rerenders but did not give synchronous subscribers or plugin callbacks an atomic combined snapshot, so `useProjectState` listeners could observe project B while `useActiveSectionUI` and `useNodeInternals` still belonged to project A.
+- The plugin runtime exposed the same inconsistency through separate project and active-selection read/subscribe pathways, so a `{ kind: "projectConfig" }` callback could synchronously read stale `{ kind: "activeSectionIds" }`.
+- `graph.ts` still treated any numeric width and height as "measured", including `0`. That let far-away marquee gestures include `0xN`, `Nx0`, or `0x0` nodes and let active-selection bounds collapse to zero-area internals instead of using real DOM bounds or excluding the node until geometry existed.
+
+Fixes implemented:
+- Added a staged atomic-publication layer in `frontend/src/state/definitions.ts` that temporarily patches the published `getState()` view for `useProjectState`, `useNodeInternals`, and `useActiveSectionUI` during coordinated project publication.
+- Wrapped both `frontend/src/state/actions/project/loadProject.ts` and the project-state-changing branch of `frontend/src/state/actions/sectionInfos.ts` in that publication helper so synchronous reads inside any of the involved store subscriptions see one coherent snapshot generation.
+- Tightened `frontend/src/forks/xyflow/core/utils/graph.ts` so only positive-area bounds (`width > 0 && height > 0`) count as measured internals. Zero-area internals now fall back to section DOM geometry when present and otherwise stay excluded from marquee and active-bounds math.
+
+Behavioral impact before vs after:
+- UX before: project switches and backend reconciliation could briefly expose stale selection or node geometry for the newly published project, and empty-space marquee could select far-away sections whose internals had transient zero dimensions.
+- UX after: project snapshot, live active ids, and node internals become visible together to synchronous consumers, and marquee/selection-bounds logic ignores zero-area internals unless real DOM bounds exist.
+- DX before: plugin/runtime/store subscribers had to reason about impossible mixed-store intermediate state, and geometry helpers treated `0` dimensions as valid measurements.
+- DX after: project publication now has a single coherent visible snapshot during transitions, and the geometry contract is explicit: only positive-area internals are authoritative.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/actions/activeSections.test.ts src/plugins/runtime.test.ts src/forks/xyflow/core/utils/graph.test.ts src/state/actions/sectionInfos.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/nested-marquee-selection.spec.ts`
+
+New/updated automated coverage:
+- `frontend/src/state/actions/activeSections.test.ts`
+  - covers `useProjectState.subscribe(...)` callbacks observing coherent active ids and node internals during both load-time publication and backend reconciliation.
+- `frontend/src/plugins/runtime.test.ts`
+  - covers `{ kind: "projectConfig" }` subscription callbacks synchronously reading `{ kind: "activeSectionIds" }` without seeing stale previous-project data during project publication.
+- `frontend/src/forks/xyflow/core/utils/graph.test.ts`
+  - covers zero-width and zero-height internals being treated as unmeasured for marquee hit testing.
+  - covers zero-area active-section internals falling back to DOM bounds instead of collapsing selection bounds.
+- `frontend/tests/e2e/sections/nested-marquee-selection.spec.ts`
+  - covers a live zero-width node-internals regression where a far-away marquee over empty pane space must leave `useActiveSectionUI.activeIds` empty.
+
+Manual/CDP verification:
+- In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, opened a live project, injected a zero-width node-internals entry for the visible section, replayed the pane marquee path across empty canvas space, and verified that `useActiveSectionUI.activeIds` remained empty with no console errors.

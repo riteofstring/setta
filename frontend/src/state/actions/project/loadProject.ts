@@ -9,6 +9,7 @@ import {
   useActiveSectionUI,
 } from "state/activeSectionUI";
 import {
+  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
   useNodeInternals,
@@ -78,13 +79,22 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
     nextProjectState,
     useNodeInternals.getState().x,
   );
-  unstable_batchedUpdates(() => {
-    useProjectState.setState(nextProjectState);
-    useNodeInternals.setState({ x: nextNodesMap });
-    if (nextActiveSectionUIState !== null) {
-      useActiveSectionUI.setState(nextActiveSectionUIState);
-    }
-  });
+  runWithAtomicallyPublishedProjectStores(
+    {
+      projectState: nextProjectState,
+      nodeInternals: { x: nextNodesMap },
+      activeSectionUI: nextActiveSectionUIState,
+    },
+    () => {
+      unstable_batchedUpdates(() => {
+        useProjectState.setState(nextProjectState);
+        useNodeInternals.setState({ x: nextNodesMap });
+        if (nextActiveSectionUIState !== null) {
+          useActiveSectionUI.setState(nextActiveSectionUIState);
+        }
+      });
+    },
+  );
   applyPendingNameValidationErrors(p.projectConfig.id);
   return true;
 }

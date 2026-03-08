@@ -22,6 +22,7 @@ import {
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { setActiveSectionIds } from "state/actions/activeSections";
+import { loadProjectState } from "state/actions/project/loadProject";
 import { processProjectStateUpdateFromBackend } from "state/actions/sectionInfos";
 import * as websocketReceive from "state/actions/websocketReceive";
 import { useActiveSectionUI } from "state/activeSectionUI";
@@ -33,6 +34,8 @@ import {
   createDictSectionImpl,
   createPluginListEntry,
   createPluginStatusEntry,
+  createProjectConfig,
+  createSingletonSections,
   createUserDefaultDictSectionImpl,
   createVariant,
   DependencyKeyTypeEnum,
@@ -378,6 +381,60 @@ function buildPluginRuntimeProjectStateUpdate(activeIds: string[]) {
     },
     completedOpIds: [],
     pendingOpIds: [],
+  };
+}
+
+function buildPluginRuntimeProjectState(
+  projectConfigId: string,
+  activeIds: string[],
+  sectionIds: string[],
+) {
+  const uniqueSectionIds = [...new Set([...sectionIds, ...activeIds])];
+  const sectionVariantMap: Record<string, string> = {};
+  const sections: Record<string, ReturnType<typeof createCore>> = {};
+  const sectionImpls: Record<
+    string,
+    ReturnType<typeof createDictSectionImpl>
+  > = {};
+  const sectionVariants: Record<string, ReturnType<typeof createVariant>> = {};
+
+  for (const sectionId of uniqueSectionIds) {
+    const implId = `impl-${sectionId}`;
+    const variantId = `variant-${sectionId}`;
+    sectionVariantMap[sectionId] = variantId;
+    sections[sectionId] = createCore({ id: sectionId });
+    sectionImpls[implId] = createDictSectionImpl(
+      createUserDefaultDictSectionImpl(),
+      {
+        id: implId,
+        name: `Section ${sectionId}`,
+      },
+    );
+    sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+    });
+  }
+
+  return {
+    projectConfig: createProjectConfig({
+      id: projectConfigId,
+      activeIds,
+      sectionVariantMap,
+    }),
+    sections,
+    sectionImpls,
+    sectionVariants,
+    codeObjs: {},
+    codeObjImpls: {},
+    codeObjVariants: {},
+    artifactGroups: {},
+    singletonSections: createSingletonSections(),
+    parentSectionMap: {},
+    shownParamIds: {},
+    requiredDecodedImages: [],
+    genCodeBinding: null,
   };
 }
 
@@ -2051,6 +2108,72 @@ describe("plugin runtime helpers", () => {
 
     unsubscribeProjectConfig();
     unsubscribeActiveIds();
+  });
+
+  it("keeps projectConfig subscription reads coherent during atomic project publication", async () => {
+    const initialSectionId = "section-runtime-plugin-before";
+    const nextSectionId = "section-runtime-plugin-after";
+    seedRuntimePluginSectionState(initialSectionId);
+    useActiveSectionUI.setState({ activeIds: [initialSectionId] });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["readProjectState", "subscribeProjectState"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const observedSnapshots: Array<{
+      projectConfigId: string;
+      activeIds: string[];
+    }> = [];
+    const unsubscribe = host.subscribeProjectState(
+      { kind: "projectConfig" },
+      (nextValue) => {
+        observedSnapshots.push({
+          projectConfigId: (nextValue as { id: string }).id,
+          activeIds: [
+            ...((host.readProjectState({
+              kind: "activeSectionIds",
+            }) as string[]) ?? []),
+          ],
+        });
+      },
+      {
+        fireImmediately: false,
+      },
+    );
+
+    await loadProjectState(
+      buildPluginRuntimeProjectState(
+        "project-config-plugin-next",
+        [nextSectionId],
+        [nextSectionId],
+      ),
+    );
+    unsubscribe();
+
+    expect(observedSnapshots).toEqual([
+      {
+        projectConfigId: "project-config-plugin-next",
+        activeIds: [nextSectionId],
+      },
+    ]);
   });
 
   it("restores activeSectionIds subscribers to backend truth after a failed durable selection publish", async () => {

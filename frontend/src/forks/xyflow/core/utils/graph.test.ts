@@ -213,6 +213,67 @@ describe("getNodesInside", () => {
     );
   });
 
+  it("treats zero-sized node internals as unmeasured for marquee hit testing", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-width-zero",
+          {
+            id: "section-width-zero",
+            position: { x: 1000, y: 1000 },
+            width: 0,
+            height: 40,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+        [
+          "section-height-zero",
+          {
+            id: "section-height-zero",
+            position: { x: 1000, y: 1080 },
+            width: 40,
+            height: 0,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(getNodesInside({ x: 0, y: 0, width: 20, height: 20 })).toEqual([]);
+  });
+
+  it("falls back to section DOM bounds when node internals have zero-sized geometry", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 0,
+            height: 40,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createSectionElement({
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 80,
+      });
+    });
+
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
+      "section-a",
+    ]);
+  });
+
   it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {
     useProjectState.setState((state) => {
       state.sections["group-section"] = createCore({ id: "group-section" });
@@ -290,5 +351,39 @@ describe("getActiveSectionsBounds", () => {
       height: 110,
     });
     expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
+  });
+
+  it("falls back to DOM bounds when active node internals have zero-sized geometry", () => {
+    setActiveSectionUIIds(["section-a"]);
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 0,
+            height: 0,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createSectionElement({
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 80,
+      });
+    });
+
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 40,
+      y: 60,
+      width: 120,
+      height: 80,
+    });
   });
 });

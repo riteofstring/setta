@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   NULL_PROJECT_CONFIG_ID,
   useActiveSectionUI,
+  useNodeInternals,
   useProjectState,
   useServerMode,
 } from "state/definitions";
@@ -349,6 +350,46 @@ describe("activeSections", () => {
     expect(observedSelections).toEqual(["project-b:section-b:Code"]);
   });
 
+  it("keeps useProjectState subscribers coherent during loadProjectState publication", async () => {
+    useProjectState.setState(
+      buildProjectState("project-a", ["section-a"], ["section-a"]).projectState,
+    );
+    useActiveSectionUI.setState({ activeIds: ["section-a"] });
+
+    const observations: Array<{
+      projectId: string;
+      activeIds: string[];
+      nodeIds: string[];
+    }> = [];
+    const unsubscribe = useProjectState.subscribe(
+      (state) => state.projectConfig,
+      (projectConfig) => {
+        observations.push({
+          projectId: projectConfig.id,
+          activeIds: [...useActiveSectionUI.getState().activeIds],
+          nodeIds: [...useNodeInternals.getState().x.keys()],
+        });
+      },
+      { fireImmediately: false },
+    );
+
+    try {
+      await loadProjectState(
+        buildProjectStateData("project-b", ["section-b"], ["section-b"]),
+      );
+    } finally {
+      unsubscribe();
+    }
+
+    expect(observations).toEqual([
+      {
+        projectId: "project-b",
+        activeIds: ["section-b"],
+        nodeIds: ["section-b"],
+      },
+    ]);
+  });
+
   it("publishes backend project updates before exposing the reconciled active id", () => {
     useProjectState.setState(
       buildProjectState("project-a", ["section-a"], ["section-a"]).projectState,
@@ -384,6 +425,46 @@ describe("activeSections", () => {
     expect(useProjectState.getState().sections["section-b"]).toBeDefined();
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
     expect(observedSelections).toEqual(["project-a:section-b:Code"]);
+  });
+
+  it("keeps useProjectState subscribers coherent during backend reconciliation", () => {
+    useProjectState.setState(
+      buildProjectState("project-a", ["section-a"], ["section-a"]).projectState,
+    );
+    useActiveSectionUI.setState({ activeIds: ["section-a"] });
+
+    const observations: Array<{
+      sectionIds: string[];
+      activeIds: string[];
+      nodeIds: string[];
+    }> = [];
+    const unsubscribe = useProjectState.subscribe(
+      (state) => state.projectConfig.sectionVariantMap,
+      (sectionVariantMap) => {
+        observations.push({
+          sectionIds: Object.keys(sectionVariantMap),
+          activeIds: [...useActiveSectionUI.getState().activeIds],
+          nodeIds: [...useNodeInternals.getState().x.keys()],
+        });
+      },
+      { fireImmediately: false },
+    );
+
+    try {
+      processProjectStateUpdateFromBackend(
+        buildProjectState("project-a", ["section-b"], ["section-b"]),
+      );
+    } finally {
+      unsubscribe();
+    }
+
+    expect(observations).toEqual([
+      {
+        sectionIds: ["section-b"],
+        activeIds: ["section-b"],
+        nodeIds: ["section-b"],
+      },
+    ]);
   });
 
   it("ignores a stale durable-selection completion after a newer ui-only selection", () => {
@@ -606,11 +687,22 @@ function buildProjectStateData(
   const sections: ProjectStateSingleConfig["sections"] = {};
   const sectionImpls: ProjectStateSingleConfig["sectionImpls"] = {};
   const sectionVariants: ProjectStateSingleConfig["sectionVariants"] = {};
+  const parentSectionMap: ProjectStateSingleConfig["parentSectionMap"] = {};
+  const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
+    {};
   const uniqueSectionIds = [...new Set([...sectionIds, ...activeIds])];
-  for (const sectionId of uniqueSectionIds) {
+  for (const [index, sectionId] of uniqueSectionIds.entries()) {
     const variantId = `variant-${sectionId}`;
     const implId = `impl-${sectionId}`;
     sectionVariantMap[sectionId] = variantId;
+    parentSectionMap[sectionId] = null;
+    topLevelSections[sectionId] = {
+      x: index * 240,
+      y: index * 120,
+      zIndex: index,
+      w: 200,
+      h: 160,
+    };
     sections[sectionId] = createCore({ id: sectionId });
     sectionVariants[variantId] = createVariant({
       id: variantId,
@@ -630,6 +722,7 @@ function buildProjectStateData(
       id: projectConfigId,
       activeIds,
       sectionVariantMap,
+      topLevelSections,
     }),
     sections,
     sectionImpls,
@@ -639,7 +732,7 @@ function buildProjectStateData(
     codeObjVariants: {},
     artifactGroups: {},
     singletonSections: createSingletonSections(),
-    parentSectionMap: {},
+    parentSectionMap,
     shownParamIds: {},
     requiredDecodedImages: [],
     genCodeBinding: null,

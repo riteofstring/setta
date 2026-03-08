@@ -195,11 +195,7 @@ export function getSectionBounds(
   const nodeInternals = useNodeInternals.getState().x;
   const sections = sectionIds.flatMap((sectionId) => {
     const node = nodeInternals.get(sectionId);
-    if (
-      node &&
-      typeof node.width === "number" &&
-      typeof node.height === "number"
-    ) {
+    if (node && hasPositiveRectBounds(node.width, node.height)) {
       return [
         {
           position: { x: node.position.x, y: node.position.y },
@@ -214,6 +210,9 @@ export function getSectionBounds(
       return [];
     }
     const { x, y, width, height } = rect;
+    if (!hasPositiveRectBounds(width, height)) {
+      return [];
+    }
     return [{ position: { x, y }, width, height }];
   });
 
@@ -275,23 +274,20 @@ function isSectionOverlappingWithRect(
   }
 
   const { x, y, width, height } = rect;
+  if (!hasPositiveRectBounds(width, height)) {
+    return false;
+  }
 
   const nodeRect = {
     x,
     y,
-    width: width || 0,
-    height: height || 0,
+    width,
+    height,
   };
   const overlappingArea = getOverlappingArea(otherRect, nodeRect);
-  const notInitialized =
-    typeof width === "undefined" ||
-    typeof height === "undefined" ||
-    width === null ||
-    height === null;
-
   const partiallyVisible = partially && overlappingArea > 0;
-  const area = (width || 0) * (height || 0);
-  return notInitialized || partiallyVisible || overlappingArea >= area;
+  const area = width * height;
+  return partiallyVisible || overlappingArea >= area;
 }
 
 function isNodeOverlappingWithRect(
@@ -301,20 +297,35 @@ function isNodeOverlappingWithRect(
 ) {
   const width = node.width;
   const height = node.height;
+  if (!hasPositiveRectBounds(width, height)) {
+    return false;
+  }
   const nodeRect = {
     x: node.position.x,
     y: node.position.y,
-    width: width || 0,
-    height: height || 0,
+    width,
+    height,
   };
   const overlappingArea = getOverlappingArea(otherRect, nodeRect);
   const partiallyVisible = partially && overlappingArea > 0;
-  const area = (width || 0) * (height || 0);
+  const area = width * height;
   return partiallyVisible || overlappingArea >= area;
 }
 
 function hasMeasuredNodeBounds(node: Node) {
-  return typeof node.width === "number" && typeof node.height === "number";
+  return hasPositiveRectBounds(node.width, node.height);
+}
+
+function hasPositiveRectBounds(
+  width: number | null | undefined,
+  height: number | null | undefined,
+) {
+  return (
+    typeof width === "number" &&
+    typeof height === "number" &&
+    width > 0 &&
+    height > 0
+  );
 }
 
 export function movePaneToIncludeElement(element: HTMLElement) {

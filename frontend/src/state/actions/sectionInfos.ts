@@ -22,6 +22,7 @@ import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
+  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
   useMisc,
@@ -1055,14 +1056,23 @@ export function processProjectStateUpdateFromBackend(
     x.projectState,
     useNodeInternals.getState().x,
   );
-  unstable_batchedUpdates(() => {
-    usePendingOperations.setState({ pending: nextPending });
-    useNodeInternals.setState({ x: nextNodesMap });
-    useProjectState.setState(() => sanitizedProjectState);
-    if (nextActiveSectionUIState !== null) {
-      useActiveSectionUI.setState(nextActiveSectionUIState);
-    }
-  });
+  runWithAtomicallyPublishedProjectStores(
+    {
+      projectState: sanitizedProjectState,
+      nodeInternals: { x: nextNodesMap },
+      activeSectionUI: nextActiveSectionUIState,
+    },
+    () => {
+      unstable_batchedUpdates(() => {
+        usePendingOperations.setState({ pending: nextPending });
+        useNodeInternals.setState({ x: nextNodesMap });
+        useProjectState.setState(() => sanitizedProjectState);
+        if (nextActiveSectionUIState !== null) {
+          useActiveSectionUI.setState(nextActiveSectionUIState);
+        }
+      });
+    },
+  );
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
