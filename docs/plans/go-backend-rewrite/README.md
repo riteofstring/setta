@@ -706,15 +706,19 @@ Use the docs in this order:
   - focused closeout doc for the landed Phase 19 save / create / save-as /
     delete lifecycle mutation slice plus its clean-break clone decision
 193. `phase-20-git-read-route-cluster-plan.md`
-  - focused current-work plan for the landed git status/diff slice and the
-    remaining commit-history slice over explicit Go repo-root resolution,
-    subprocess execution, and typed transport boundaries
-194. `spike-mcp.md`
+  - focused closeout doc for the landed full git-read route cluster over
+    explicit Go repo-root resolution, subprocess execution, history reads, and
+    typed transport boundaries
+194. `phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`
+  - focused post-git rerank doc confirming the direct frontend caller-backed
+    route cluster is now closed and that dormant listener/run/default-project
+    transport should stay out of scope without a real caller
+195. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-195. `spike-pty.md`
+196. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-196. `spike-lsp.md`
+197. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

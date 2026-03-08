@@ -2,10 +2,10 @@
 
 ## Purpose
 
-This doc records the next executable direct-frontend phase after the completed
-Phase 19 project-shell route cluster.
+This doc records the completed git-read direct-frontend phase after the
+completed Phase 19 project-shell route cluster.
 
-The current frontend still calls back into Python for the bounded git read
+The current frontend had called back into Python for the bounded git read
 surface:
 
 - `POST /git/status`
@@ -14,9 +14,9 @@ surface:
 - `POST /git/commitDetails`
 - `POST /git/commitFileDiff`
 
-Those routes are the next highest-leverage caller-backed gap because the
-project shell is now Go-owned for the current clean-break scope and the git
-overview remains a live user-facing workflow with existing Playwright
+Those routes were the next highest-leverage caller-backed gap because the
+project shell was already Go-owned for the current clean-break scope and the
+git overview remained a live user-facing workflow with existing Playwright
 coverage.
 
 ## Status
@@ -33,10 +33,17 @@ Current repo status as of 2026-03-10:
     and synthesized untracked diffs
   - thin `internal/httpapi` transport plus real IDE app wiring and focused
     service/route/app coverage
-- the remaining Phase 20 caller-backed gap is now the commit-history slice:
-  - `POST /git/log`
-  - `POST /git/commitDetails`
-  - `POST /git/commitFileDiff`
+- Slice 2 is now landed:
+  - Go-owned `POST /git/log`
+  - Go-owned `POST /git/commitDetails`
+  - Go-owned `POST /git/commitFileDiff`
+  - explicit `internal/gitread` owner for bounded log pagination, commit
+    metadata projection, decoration fallback, revision/commit validation, and
+    historical file diffs
+  - thin `internal/httpapi` transport plus real IDE app wiring and focused
+    service/route/app coverage
+- the bounded Phase 20 git-read cluster is now complete for the current
+  caller-backed direct frontend surface
 
 ## Scope
 
@@ -82,11 +89,11 @@ Explicit non-goals for the first git phase:
   - small existing repo-root resolution precedent through the real `git`
     binary, proving there is no need to invent a Git library abstraction first
 
-What is still missing:
+What is no longer missing:
 
-- commit-log pagination and projection
+- git history pagination and projection
 - commit-details and historical file-diff reads
-- revision-validation helpers for the remaining history slice
+- revision and commit validation inside the Go owner
 
 ## Desired Go Boundaries
 
@@ -229,6 +236,40 @@ Why this is second:
 - it builds directly on the subprocess and validation boundary from Slice 1
 - it is heavier on pagination, revision verification, and output shaping
 
+Status:
+
+- complete
+
+Completed:
+
+- extended `internal/gitread` for:
+  - bounded `git log` pagination and ref-selection reads
+  - commit metadata/details projection with one `git show` read path
+  - historical file-diff loading with commit and path validation
+  - explicit fallback metadata loading when truncated `git show` output cuts
+    the commit header
+  - decoration fallback through `git for-each-ref` when the log decorate atom
+    is not fully expanded
+- added thin `internal/httpapi` transport for:
+  - `POST /git/log`
+  - `POST /git/commitDetails`
+  - `POST /git/commitFileDiff`
+- kept the real IDE app wiring explicit over the shared `internal/gitread`
+  owner
+- added focused tests in:
+  - `internal/gitread`
+  - `internal/httpapi`
+  - `internal/app`
+
+Decisions made:
+
+- keep commit history reads on the real `git` CLI instead of adding a
+  separate history abstraction or compatibility layer
+- keep invalid revision and invalid commit hash handling as explicit
+  preflight validation inside `internal/gitread`
+- keep empty historical `git show -- <path>` results as a typed 404 instead
+  of guessing whether the caller meant a missing file or unchanged path
+
 ## Verification Plan
 
 Add focused tests in:
@@ -245,14 +286,13 @@ backend verification gate for this phase.
 
 ## Next Recommended Step
 
-Implement Slice 2 now:
+Start the post-git rerank now:
 
-- own `POST /git/log`
-- own `POST /git/commitDetails`
-- own `POST /git/commitFileDiff`
-- reuse the landed `internal/gitread` subprocess, timeout, and path-validation
-  boundary instead of creating route-local history helpers
+- record that the caller-backed direct frontend git cluster is complete
+- confirm whether any direct frontend caller still depends on dormant
+  listener-chat, detached-run, or default-project routes
+- do not invent a Phase 21 implementation slice without a concrete caller
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/gitread ./internal/httpapi ./internal/app -run 'Test(Service|RegisterGitRoutes|AppServesGitStatusAndDiffRoutes)' -count=1`
+- `./scripts/go.sh test ./internal/gitread ./internal/httpapi ./internal/app -run 'Test(Service(Log|CommitDetails|CommitFileDiff|Status|Diff)|RegisterGitRoutes|AppServesGit(StatusAndDiffRoutes|LogDetailsAndCommitFileDiffRoutes))' -count=1`

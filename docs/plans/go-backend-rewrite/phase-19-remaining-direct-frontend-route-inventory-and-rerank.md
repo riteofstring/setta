@@ -49,7 +49,8 @@ Update after the full Phase 19 execution:
   - `POST /deleteProjectConfigs`
 - the selected project-shell phase is now complete for the current
   caller-backed direct frontend surface
-- the git read cluster is now the next caller-backed direct frontend phase
+- the git read cluster was the next caller-backed direct frontend phase and
+  later completed in Phase 20
 
 ## Inputs
 
@@ -147,7 +148,7 @@ Implication:
 - this rerank was correct, and the project-shell route cluster should now stay
   closed unless a new direct caller appears
 
-### 2. The git read cluster is active and is now the next adjacent phase
+### 2. The git read cluster was the next adjacent phase and is now complete
 
 These routes have live current callers in `frontend/src/state/actions/git.ts`:
 
@@ -169,8 +170,8 @@ Why this is adjacent instead of first:
 
 Rerank:
 
-- git is now the next adjacent caller-backed direct frontend cluster after the
-  completed project-shell phase
+- git was the next adjacent caller-backed direct frontend cluster after the
+  completed project-shell phase, and Phase 20 later closed that gap
 
 ### 3. Listener chat routes remain dormant for the current frontend surface
 
@@ -238,8 +239,7 @@ Rerank:
 
 1. The completed next rewrite phase after Phase 18 was correctly the
    project-shell direct frontend route cluster.
-2. The next rewrite phase should now target the git read direct frontend
-   cluster.
+2. The next rewrite phase was correctly the git read direct frontend cluster.
 3. Listener chat, detached runs, and the non-caller-backed default-project
    routes should remain explicitly out of scope until a real caller changes the
    rerank.
@@ -248,7 +248,8 @@ Rerank:
 
 - Phase 19 was correctly selected by the project-shell route cluster, not by
   the dormant listener/run surface
-- git transport is now the current highest-leverage next step
+- git transport was the highest-leverage next step at the time of this
+  inventory, and that Phase 20 work later completed the cluster
 - non-caller-backed default-project routes still should not broaden the next
   phase
 
@@ -269,5 +270,7 @@ Later outcome:
   - read ownership
   - rename and notification ownership
   - save/create/save-as/delete lifecycle ownership
-- the next handoff is now the git read cluster tracked in
+- that then landed the full bounded git-read route cluster tracked in
   `phase-20-git-read-route-cluster-plan.md`
+- the next handoff is now the post-git rerank tracked in
+  `phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`
