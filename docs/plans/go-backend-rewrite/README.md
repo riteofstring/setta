@@ -513,12 +513,15 @@ Use the docs in this order:
   - focused closeout inventory doc for the remaining Python-owned agentic
     routes after the landed Phase 13 direct-surface work, including actual
     caller checks and reranked follow-on options
-153. `spike-mcp.md`
+153. `phase-13-engine-config-create-delete-transport.md`
+  - focused bounded follow-on doc for opportunistic Go ownership of dormant
+    `create/delete` engine-config transport over the landed engine store
+154. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-154. `spike-pty.md`
+155. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-155. `spike-lsp.md`
+156. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
