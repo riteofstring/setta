@@ -24,7 +24,7 @@ Completed before this inventory:
 Current Go state relevant to this inventory:
 
 - `internal/httpapi/ai_routes.go`
-  - owns `/getLLMResponse` for the external-agent branch only
+  - now owns thin managed/external dispatch for `/getLLMResponse`
   - now owns managed `/getLLMChat` and `/stopLLMChat`
   - owns `/getExternalAgentChat`, `/getAIFollowSnapshot`,
     `/stopExternalAgentRun`, `/respondExternalAgentApproval`, and
@@ -34,8 +34,11 @@ Current Go state relevant to this inventory:
   - still leaves the real IDE app wiring disabled until a managed executor is
     wired
 - `internal/managedchat`
-  - now owns managed chat hydration, `llmConfig` / `contextUsage` shaping, and
-    latest-running-run stop behavior above the landed managed-run foundations
+  - now owns managed chat send/hydrate/stop semantics above the landed
+    managed-run foundations
+  - now owns request validation, history lookup, prompt shaping,
+    `llmConfig` / `contextUsage` shaping, and latest-running-run stop
+    behavior above the landed managed-run foundations
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -232,21 +235,30 @@ Rerank:
   `/getLLMChat` and `/stopLLMChat`, leaving managed
   `POST /getLLMResponse` send/executor work as the remaining direct frontend
   gap inside this phase.
+- 2026-03-09: landed the third executable Phase 18 slice in Go for the
+  managed `setta_llm` branch of `POST /getLLMResponse` over a bounded
+  runtime-start boundary with explicit unavailable handling.
+- 2026-03-09: the direct frontend managed-chat route cluster is now Go-owned
+  for the current bounded scope; the remaining managed follow-on is provider
+  execution plus live in-flight overlay, while transcription remains separate.
 
 ## Verification
 
 - inventory follow-on now has landed evidence in:
   - `./scripts/go.sh test ./internal/projectstate -run 'TestRuntimeChatSectionMutations|TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload' -count=1`
   - `./scripts/go.sh test ./internal/managedchat ./internal/httpapi ./internal/app -run 'Test(ServiceGetChat|ServiceStopChat|RegisterAIRoutes|AppServesManagedChatHydrateAndStopRoutes)' -count=1`
+  - `./scripts/go.sh test ./internal/managedchat -run 'TestServiceStartChat(BuildsManagedInputsAndCombinedPrompt|ContinueFromChatSeedsExternalSourceHistory|BranchEditMissingMessageReturnsNotFound|ReturnsExecutorUnavailableWhenStarterDisabled)' -count=1`
+  - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterAIRoutesStarts(ExternalAgentChat|ManagedChat)|TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled' -count=1`
+  - `./scripts/go.sh test ./internal/app -run 'TestAppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- use
-  `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
-  as the remaining executable Phase 18 slice for the managed `setta_llm`
-  branch of `POST /getLLMResponse`
+- use the landed managed send owner as the runtime boundary for the next
+  provider-executor follow-on instead of reopening route ownership
+- feed live in-flight managed chat state through `internal/managedchat`'s
+  overlay boundary once provider execution exists
 - defer transcription-session runtime work to a separate bounded follow-on
   unless implementation of the managed chat slice proves a hard shared
   dependency

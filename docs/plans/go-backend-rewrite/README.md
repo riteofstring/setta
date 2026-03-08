@@ -668,12 +668,15 @@ Use the docs in this order:
   - focused Phase 18 execution doc for the remaining direct frontend
     managed-chat runtime slice after the landed chat-section persistence
     transport over the managed-run, LLM-config, and project-state foundations
-183. `spike-mcp.md`
+183. `phase-18-managed-chat-send-owner-and-route-foundation.md`
+  - focused Phase 18 follow-on doc for the landed managed send owner and thin
+    `/getLLMResponse` route dispatch slice ahead of provider-executor work
+184. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-184. `spike-pty.md`
+185. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-185. `spike-lsp.md`
+186. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

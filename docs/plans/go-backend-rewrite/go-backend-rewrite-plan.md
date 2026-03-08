@@ -32,15 +32,17 @@ and the recorded spike outcomes describe a repo state where the deployment/
 launcher runtime slices, the shipped CLI migration slices, the MCP/tooling
 foundations, the bounded plugin runtime surface, the direct frontend LLM
 settings transport, the direct app-gen skills/custom-skill transport, the
-chat-section persistence transport, and managed chat hydrate/stop transport
-are complete for their bounded scopes.
+chat-section persistence transport, managed chat hydrate/stop transport, and
+the bounded managed `/getLLMResponse` send owner/route foundation are
+complete for their bounded scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
-AI/chat routing is still partially Python-owned. The rewrite still does not
-plan to recreate a broad LiteLLM-equivalent managed runtime in Go, and the
-remaining direct frontend managed-chat gap is now the managed `setta_llm`
-branch of `/getLLMResponse` over the landed Phase 18 read/stop slices and the
-landed managed-run foundations.
+AI/chat transport is now Go-owned for the current direct frontend managed and
+external route surface, but managed provider execution and websocket/runtime
+parity are still incomplete. The rewrite still does not plan to recreate a
+broad LiteLLM-equivalent managed runtime in Go, and the remaining managed-chat
+follow-on is now the provider-backed executor plus live in-flight state
+overlay behind the landed `/getLLMResponse` send owner.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -54,6 +56,13 @@ stop reads over the landed managed-run foundations:
 
 - `/getLLMChat`
 - `/stopLLMChat`
+
+The third Phase 18 slice is now landed for the managed send owner and
+`/getLLMResponse` route dispatch foundation:
+
+- managed `setta_llm` request validation, history shaping, and prompt shaping
+- thin managed/external route dispatch by engine type
+- explicit `503` behavior while the managed executor remains unavailable
 
 The separate transcription-session runtime remains a later bounded AI follow-on
 instead of being bundled into that managed-chat slice. The current bounded
@@ -86,7 +95,8 @@ Go-owned Phase 12 surface now includes:
     routing, and same-chat `sessionId` continuity
 - `internal/httpapi/ai_routes.go`
   - thin Go transport for:
-    - `/getLLMResponse` (external-agent branch only)
+    - `/getLLMResponse` (managed and external dispatch; managed currently
+      returns explicit unavailable until a provider executor is wired)
     - `/getExternalAgentChat`
     - `/getAIFollowSnapshot`
     - `/stopExternalAgentRun`
