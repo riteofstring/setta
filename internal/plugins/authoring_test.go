@@ -104,6 +104,13 @@ func TestServiceValidateFolderRejectsAuthoringFailures(t *testing.T) {
 	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: metadataMismatchRoot})
 	assertPluginServiceErrorCode(t, err, ServiceErrorCodeSourceIdentityMismatch)
 
+	invalidRangeRoot := mustInitAuthoringTestPlugin(t, service, roots.workspaceRoot, "setta-invalid-range", "frontend")
+	rewritePluginManifest(t, invalidRangeRoot, func(payload map[string]any) {
+		payload["settaVersionRange"] = "~=1"
+	})
+	_, err = service.ValidateFolder(ValidateFolderOptions{PluginRoot: invalidRangeRoot})
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeManifestInvalid)
+
 	invalidHostVersionService, err := NewService(ServiceOptions{
 		WorkspaceRoot:  roots.workspaceRoot,
 		SettaFilesRoot: roots.settaFilesRoot,

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	pep440 "github.com/aquasecurity/go-pep440-version"
 	"github.com/pelletier/go-toml/v2"
 
 	"setta/internal/statefs"
@@ -430,15 +429,15 @@ func resolveAuthoringPath(pluginRoot string, relativePath string, messagePrefix 
 }
 
 func (s *Service) validateSettaVersionRange(manifest PluginManifest) error {
-	specifiers, err := pep440.NewSpecifiers(manifest.SettaVersionRange)
+	specifiers, err := parseSpecifierSet(manifest.SettaVersionRange)
 	if err != nil {
 		return newServiceError(ServiceErrorCodeManifestInvalid, "Invalid settaVersionRange for plugin %s: %s", manifest.ID, manifest.SettaVersionRange)
 	}
-	currentVersion, err := pep440.Parse(s.settaVersion)
+	currentVersion, err := parseVersion(s.settaVersion)
 	if err != nil {
 		return newServiceError(ServiceErrorCodeHostVersionInvalid, "Host Setta version is invalid: %s", s.settaVersion)
 	}
-	if !specifiers.Check(currentVersion) {
+	if !specifiers.Contains(currentVersion) {
 		return newServiceError(ServiceErrorCodeManifestVersionMismatch, "Plugin %s requires Setta version %s, current version is %s", manifest.ID, manifest.SettaVersionRange, s.settaVersion)
 	}
 	return nil

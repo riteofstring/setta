@@ -14,15 +14,13 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 - Avoid obscure Go libraries when a simpler or more proven option exists.
 - If an obscure library appears in this document, treat that as current-state
   documentation, not a recommendation.
-- Specifically, `github.com/aquasecurity/go-pep440-version` is present in the
-  current implementation, but it is not a desired long-term dependency.
-  Replace it when the plugin version/specifier path is revisited.
+- the earlier `github.com/aquasecurity/go-pep440-version` plugin-compatibility
+  debt has now been removed from `go.mod`
 
 ## Snapshot Context
 
-- captured at: `2026-03-09 09:55:40 PDT`
-- repo commit: `dfa94fd46ad80a67c8e8da6155787b6a10d0ba29`
-- module totals: `15` direct, `19` indirect, `34` total
+- captured at: `2026-03-09 12:35 PDT`
+- module totals: `14` direct, `17` indirect, `31` total
 - source of truth:
   - `go.mod`
   - current import sites under `internal/` and `cmd/`
@@ -44,7 +42,6 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 | module | version | why we use it | main owners |
 | --- | --- | --- | --- |
 | `github.com/go-chi/chi/v5` | `v5.2.5` | Small `net/http`-native router and middleware tree for the Go HTTP and websocket surfaces. | `internal/httpapi`, `internal/wsapi`, `internal/app` |
-| `github.com/aquasecurity/go-pep440-version` | `v0.0.1` | Current implementation detail for PEP 440 parsing and specifier checks in plugin compatibility. This conflicts with the preference to avoid obscure libraries and should be treated as a replacement candidate. | `internal/plugins/authoring.go` |
 | `github.com/aymanbagabas/go-pty` | `v0.2.2` | Windows PTY backend for terminal sessions. | `internal/terminals/pty_backend_windows.go` |
 | `github.com/coder/websocket` | `v1.8.14` | WebSocket transport for realtime frontend/listener connections. | `internal/realtime`, `internal/wsapi` |
 | `github.com/creack/pty` | `v1.1.21` | Unix PTY backend for terminal sessions. | `internal/terminals/pty_backend_unix.go` |
@@ -84,16 +81,13 @@ We still want the official MCP SDK for transport and typed protocol support.
 The wrapper boundary lives in `internal/mcpx`, but the SDK itself is still a
 conscious dependency choice.
 
-### Why `go-pep440-version` is called out separately
+### Why plugin version-range parsing is no longer a module dependency
 
-This module is in `go.mod` because the current plugin authoring flow uses it
-for PEP 440 parsing, not because it matches the preferred dependency bar.
+Plugin `settaVersionRange` validation now uses the bounded internal owner in
+`internal/plugins/version_specifiers.go`.
 
-The intended reading is:
-
-- it is present today
-- it explains the current graph
-- it should be considered technical debt rather than a recommendation
+That cleanup removed the previous direct `go-pep440-version` dependency and its
+transitive baggage instead of swapping it for another third-party parser.
 
 ## Indirect Dependencies
 
@@ -107,7 +101,6 @@ shape of the rewrite. They mostly come from four roots:
 
 | module | comes from | why it is here |
 | --- | --- | --- |
-| `github.com/aquasecurity/go-version` | `github.com/aquasecurity/go-pep440-version` | Lower-level version parsing/comparison used by the PEP 440 package. |
 | `github.com/ebitengine/purego` | `github.com/shirou/gopsutil/v4` | Upstream low-level syscall glue used by `gopsutil` on some platforms. |
 | `github.com/go-ole/go-ole` | `github.com/yusufpapurcu/wmi` via `gopsutil` | Windows COM support used by upstream WMI access. |
 | `github.com/google/jsonschema-go` | `github.com/modelcontextprotocol/go-sdk` | Schema support inside the MCP SDK. This is not the app-side JSON Schema library discussed in older planning docs. |
@@ -125,14 +118,12 @@ shape of the rewrite. They mostly come from four roots:
 | `github.com/yusufpapurcu/wmi` | `github.com/shirou/gopsutil/v4` | Windows WMI access used by `gopsutil`. |
 | `golang.org/x/crypto` | `github.com/aymanbagabas/go-pty` | Upstream crypto/terminal helpers needed by `go-pty`. |
 | `golang.org/x/oauth2` | `github.com/modelcontextprotocol/go-sdk` | OAuth support included by the SDK. |
-| `golang.org/x/xerrors` | `github.com/aquasecurity/go-pep440-version` | Upstream error helpers used by the PEP 440 package. |
-
 ## What This Means In Practice
 
 - The direct dependency list is the part we should debate intentionally.
-- `github.com/aquasecurity/go-pep440-version` is the clearest example of a
-  direct dependency that exists today but does not meet the preferred library
-  bar.
+- the previous `go-pep440-version` exception is gone, so dependency debates
+  should start from the current direct list instead of stale notes about that
+  removed module
 - The indirect list is mostly explanatory. We should avoid importing those
   packages directly unless we intentionally promote them to first-class
   dependencies.

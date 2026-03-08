@@ -7,7 +7,6 @@ toolchain go1.26.1
 require github.com/go-chi/chi/v5 v5.2.5
 
 require (
-	github.com/aquasecurity/go-pep440-version v0.0.1
 	github.com/aymanbagabas/go-pty v0.2.2
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.21
@@ -24,7 +23,6 @@ require (
 )
 
 require (
-	github.com/aquasecurity/go-version v0.0.1 // indirect
 	github.com/ebitengine/purego v0.10.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
@@ -42,5 +40,4 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/oauth2 v0.34.0 // indirect
-	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 )

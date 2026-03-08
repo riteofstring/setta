@@ -11,9 +11,9 @@ For this rewrite, prefer the Go stdlib or well established Go libraries.
   why a stdlib or more established option is not good enough
 - if an obscure library already appears in `go.mod`, treat that as current
   technical debt, not as precedent for future choices
-- specifically, `github.com/aquasecurity/go-pep440-version` is not the desired
-  long-term bar for dependency selection and should be treated as a replacement
-  candidate
+- the earlier `github.com/aquasecurity/go-pep440-version` debt has now been
+  removed; do not reintroduce a replacement third-party version-parser
+  dependency without a documented reason
 
 ## Go Toolchain Shortcut
 
@@ -425,6 +425,9 @@ Use the docs in this order:
 126. `phase-11-plugin-authoring-and-local-link-stage5.md`
   - focused implementation-plan doc for the self-contained plugin
     authoring/local-link slice: Go-owned `init`, `validate`, and `link`
+- `phase-11-plugin-version-range-owner-and-dependency-cleanup.md`
+  - focused completed-slice doc for the bounded plugin `settaVersionRange`
+    owner and removal of the previous `go-pep440-version` dependency
 127. `phase-11-plugin-lock-write-stage6.md`
   - focused implementation-plan doc for the first unblocked lockfile slice:
     Go-owned `setta plugins lock write` over the completed discovery and

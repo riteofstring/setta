@@ -21,8 +21,9 @@ Prefer the Go stdlib or well established Go libraries for this rewrite.
   justify why a stdlib or more established option is insufficient
 - if the current repo already contains an obscure library, treat it as current
   technical debt rather than as a signal to add more of them
-- specifically, `github.com/aquasecurity/go-pep440-version` should be treated
-  as a replacement candidate, not as the preferred bar for future work
+- the earlier `github.com/aquasecurity/go-pep440-version` plugin-compatibility
+  debt has now been removed; do not reintroduce a replacement dependency there
+  without a documented reason
 
 ## Current Status
 
@@ -469,6 +470,17 @@ The first bounded post-closeout stabilization slice is now also landed in
 - those tests now run serially where they launch nested fixture processes, so
   the package keeps real adapter coverage without the earlier package-load
   flake
+
+The bounded plugin dependency cleanup tracked in
+`phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
+landed:
+
+- Go no longer depends on `github.com/aquasecurity/go-pep440-version` for
+  plugin `settaVersionRange` validation
+- plugin compatibility now uses a bounded Go-owned parser/comparator under
+  `internal/plugins`
+- the module graph no longer carries the transitive `go-version` and
+  `xerrors` baggage that existed only for that dependency path
 
 ## Current Reality
 
