@@ -341,11 +341,15 @@ Use the docs in this order:
   - focused closeout/inventory doc for the remaining Python-owned shipped
     entrypoint, launcher, and distribution surface after the completed Go CLI
     helper-command slices
-114. `spike-mcp.md`
+114. `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`
+  - focused implementation-plan doc for the next rewrite track: Go-owned
+    shipped `setta` entrypoint plus launcher/distribution ownership over the
+    completed Go backend and helper-command foundations
+115. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-115. `spike-pty.md`
+116. `spike-pty.md`
    - PTY uncertainty-reduction plan
-116. `spike-lsp.md`
+117. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

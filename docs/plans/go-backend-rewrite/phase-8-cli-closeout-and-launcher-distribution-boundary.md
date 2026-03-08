@@ -125,8 +125,11 @@ As of 2026-03-08:
 
 ## Recommended Next Step
 
-If product priorities require more rewrite work beyond Phase 8, start with a
-dedicated plan for shipped entrypoint and launcher/distribution ownership:
+If product priorities require more rewrite work beyond Phase 8, take the next
+implementation slice from
+`phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`.
+
+That Phase 9 plan keeps the boundary explicit:
 
 1. replace the Python `project.scripts.setta` entrypoint with an explicit Go
    packaging/dispatch story
@@ -145,6 +148,10 @@ command migration unless a concrete dependency forces it.
   slices to record that the remaining Python-owned CLI surface is now mostly
   shipped entrypoint, launcher/distribution, and unrelated local command
   groups, not SSH helper behavior.
+- 2026-03-08: the active follow-up is now captured in
+  `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md` so this doc
+  remains a closeout/inventory boundary instead of carrying implementation
+  scope.
 
 ## Verification
 

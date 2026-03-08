@@ -80,8 +80,14 @@ As of 2026-03-08:
 
 Do not open another Phase 7 backend slice.
 
-The post-backend CLI/distribution closeout is now tracked in
-`phase-8-cli-closeout-and-launcher-distribution-boundary.md`.
+The backend-to-product handoff is now explicit:
+
+1. `phase-8-cli-closeout-and-launcher-distribution-boundary.md` records that
+   the remaining Python-owned work is shipped entrypoint, launcher, and
+   distribution ownership rather than backend runtime.
+2. `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md` is the
+   active implementation plan if rewrite work continues beyond the completed
+   helper-command migration.
 
 Otherwise move the rewrite effort to stabilization, verification, and release
 readiness for the completed Go backend runtime.
@@ -97,6 +103,9 @@ readiness for the completed Go backend runtime.
 - 2026-03-08: after the completed Phase 8 CLI slices, the remote helper
   commands (`status`, `auth`, `tools`, `api`, `stop`, `connect`) are no longer
   part of the remaining Python CLI gap.
+- 2026-03-08: the remaining post-Phase-8 rewrite work is now planned
+  separately in `phase-9-shipped-entrypoint-and-launcher-distribution-plan.md`
+  so this closeout doc does not carry active implementation scope.
 
 ## Verification
 
