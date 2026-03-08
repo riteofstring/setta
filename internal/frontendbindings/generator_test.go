@@ -250,20 +250,31 @@ func TestWebsocketSchemaSupportUsesStructuredDeclarations(t *testing.T) {
 	}
 }
 
-func TestBuildDoesNotEmitProjectStateFrontendSupportMarker(t *testing.T) {
+func TestCurrentBuildInputsContainNoRawDeclarations(t *testing.T) {
 	t.Helper()
 
-	bindings, err := Build()
-	if err != nil {
-		t.Fatalf("Build() error = %v", err)
+	converter := newTypeConverter()
+	for _, extraType := range CurrentAdditionalTypeRoots() {
+		if err := converter.AddRootType(extraType); err != nil {
+			t.Fatalf("AddRootType(%s) error = %v", extraType.String(), err)
+		}
 	}
-
-	if strings.Contains(bindings.TypesTS, "ProjectStateFrontendSupport") {
-		t.Fatalf("types output still emits legacy project-state support marker:\n%s", bindings.TypesTS)
+	for _, spec := range CurrentEndpoints() {
+		if err := converter.AddRootType(spec.RequestType); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", spec.RequestType, err)
+		}
+		if err := converter.AddRootType(spec.ResponseType); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", spec.ResponseType, err)
+		}
+	}
+	for _, declaration := range append(converter.Declarations(), CurrentAdditionalDeclarations()...) {
+		if declaration.Kind == "raw" {
+			t.Fatalf("build input still contains raw declaration %q", declaration.Name)
+		}
 	}
 }
 
-func TestBuildDoesNotEmitWebsocketFrontendSupportMarker(t *testing.T) {
+func TestBuildUsesStructuredDeclarationsForCurrentInputs(t *testing.T) {
 	t.Helper()
 
 	bindings, err := Build()
@@ -271,8 +282,13 @@ func TestBuildDoesNotEmitWebsocketFrontendSupportMarker(t *testing.T) {
 		t.Fatalf("Build() error = %v", err)
 	}
 
-	if strings.Contains(bindings.TypesTS, "WebsocketFrontendSupport") {
-		t.Fatalf("types output still emits legacy websocket support marker:\n%s", bindings.TypesTS)
+	for _, marker := range []string{
+		"ProjectStateFrontendSupport",
+		"WebsocketFrontendSupport",
+	} {
+		if strings.Contains(bindings.TypesTS, marker) {
+			t.Fatalf("types output still emits legacy marker %q:\n%s", marker, bindings.TypesTS)
+		}
 	}
 }
 
