@@ -456,9 +456,13 @@ Use the docs in this order:
   - focused completed-slice doc for the bounded external-agent AI-follow gap:
     Go-owned `/getAIFollowSnapshot` external-agent snapshot transport plus
     live `AIFollowToolArgumentsUpdate` ownership
-140. `spike-mcp.md`
+140. `phase-12-agent-run-list-read-transport-closeout.md`
+  - focused current-work doc for the remaining Phase 12 dependency gap:
+    Go-owned `GET /getAgentRuns` read transport required by external stop,
+    history, and agent-run-backed overview state
+141. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-141. `spike-pty.md`
+142. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
 142. `spike-lsp.md`

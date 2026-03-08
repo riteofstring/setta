@@ -61,8 +61,8 @@ Phase 12 surface now includes:
 The tracked Phase 12 work is recorded across
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md` and the focused
 follow-on slice docs under this folder. The external-agent runtime, execution,
-parity, attachment, prompt, and AI-follow slices are now all landed for their
-bounded scopes; only the final closeout/inventory pass remains.
+parity, attachment, prompt, and AI-follow slices are now landed for their
+bounded scopes.
 
 The completed `phase-12-codex-app-server-executor-runtime.md` and
 `phase-12-opencode-executor-and-question-runtime.md` plus the now-completed
@@ -132,19 +132,25 @@ also landed:
 - approval/question responses plus run stop/teardown now clear follow state
   through the same argument-update channel the frontend already consumes
 
-With that slice landed, the tracked external-agent Phase 12 surface is now
-complete for its bounded scope. The next step is a final closeout/inventory
-pass to confirm whether any concrete user-facing external-agent gap still
-remains before declaring the phase effectively complete.
+The subsequent closeout inventory then found one more concrete dependency,
+now tracked in `phase-12-agent-run-list-read-transport-closeout.md`:
+
+- the frontend still loads `GET /getAgentRuns` before external stop and for
+  agent-run-backed history/overview surfaces
+- that route is still Python-owned in `backend/setta/routers/agentic.py`
+
+Phase 12 is therefore not fully closed yet. The remaining bounded work is now
+that read-only agent-run list transport slice, after which the phase can
+return to a real closeout decision.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the final
-Phase 12 closeout/inventory pass above the completed hydration, runtime,
-executor, parity, prompt-composition, attachment, and AI-follow foundations,
-not by reopening completed foundation choices.
+follow-up tracked in `spike-pty.md`. New work should start from the bounded
+agent-run list read-transport dependency slice above the completed hydration,
+runtime, executor, parity, prompt-composition, attachment, and AI-follow
+foundations, not by reopening completed foundation choices.
 
 ## Current Reality
 

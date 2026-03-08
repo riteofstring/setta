@@ -192,6 +192,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- rerun the Phase 12 closeout inventory from the updated docs and repo state
-- if no new concrete external-agent gap appears, treat the tracked Phase 12
-  external-agent surface as effectively complete
+- the follow-up closeout inventory found one more concrete dependency:
+  `GET /getAgentRuns`, now tracked in
+  `phase-12-agent-run-list-read-transport-closeout.md`

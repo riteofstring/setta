@@ -99,6 +99,9 @@ Current repo status as of 2026-03-09:
     `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`:
     Go now owns external-agent AI-follow snapshot state plus
     `AIFollowToolArgumentsUpdate` websocket behavior
+  - the follow-up closeout inventory then found one more concrete dependency:
+    frontend external stop/history surfaces still load `GET /getAgentRuns`,
+    now scoped in `phase-12-agent-run-list-read-transport-closeout.md`
 
 ## Scope
 
@@ -406,11 +409,11 @@ Missing Go owners:
   to a pure Go edge if a stable official interface exists
   - current recommendation: use the most stable official interface available at
     the adapter edge and avoid inventing a generic polyglot orchestration layer
-- whether the final closeout inventory will uncover any remaining concrete
-  external-agent UX gap beyond the now-landed AI-follow slice
-  - current recommendation: use the completed Phase 12 docs plus focused route
-    and runtime verification to inventory concrete gaps before opening any
-    further slice
+- whether the remaining Python-owned agent-run read transport should stay a
+  separate closeout dependency slice or be folded into a broader agentic route
+  migration
+  - current recommendation: keep it as the bounded read-only dependency slice
+    in `phase-12-agent-run-list-read-transport-closeout.md`
 
 ## Progress Notes
 
@@ -434,6 +437,9 @@ Missing Go owners:
 - 2026-03-09: landed the bounded external-agent AI-follow slice:
   `/getAIFollowSnapshot`, live `AIFollowToolArgumentsUpdate` broadcast, and
   runtime-owned follow-state clear behavior now live in Go.
+- 2026-03-09: final closeout inventory found one remaining dependency gap:
+  the frontend still requires Python-owned `GET /getAgentRuns` for external
+  stop/history/overview flows, so one more thin read-transport slice remains.
 
 ## Verification
 
@@ -442,11 +448,10 @@ Missing Go owners:
 
 ## Recommended Next Step
 
-Run the final Phase 12 closeout inventory from the updated docs and repo
-state.
+Implement the bounded dependency slice from
+`phase-12-agent-run-list-read-transport-closeout.md`.
 
-- verify whether any concrete user-facing external-agent gap still remains
-- if no new gap appears, treat the tracked external-agent Phase 12 surface as
-  effectively complete
-- if a concrete gap does appear, open one more focused slice doc instead of
-  broadening back into managed `setta_llm` or unrelated AI routes
+- land thin Go `GET /getAgentRuns` transport over the existing run store
+- keep the slice read-only
+- rerun closeout inventory after that landing instead of broadening into
+  managed `setta_llm` or unrelated agentic routes
