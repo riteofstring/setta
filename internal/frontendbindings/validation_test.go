@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -194,6 +196,12 @@ func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
 	}
 }
 
+func TestCurrentEndpointContractManifest(t *testing.T) {
+	t.Helper()
+
+	assertGoldenFile(t, "endpoint_contract_manifest.txt", renderEndpointContractManifest(CurrentEndpoints()))
+}
+
 func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 	bindings, err := Build()
 	if err != nil {
@@ -374,6 +382,30 @@ func TestTypeConverterRejectsUnsupportedShapes(t *testing.T) {
 	if !strings.Contains(err.Error(), "unsupported Go type for TS conversion: chan int") {
 		t.Fatalf("unsupported-shape error = %q, want unsupported-type detail", err.Error())
 	}
+}
+
+func renderEndpointContractManifest(specs []EndpointSpec) string {
+	lines := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		lines = append(lines, strings.Join([]string{
+			spec.FunctionName,
+			spec.Method,
+			spec.RouteCollection + "." + spec.RouteName,
+			"request=" + endpointContractTypeName(spec.RequestType),
+			"response=" + endpointContractTypeName(spec.ResponseType),
+			"binary=" + strconv.FormatBool(spec.BinaryResponse),
+		}, " "))
+	}
+	slices.Sort(lines)
+	return strings.Join(lines, "\n")
+}
+
+func endpointContractTypeName(t reflect.Type) string {
+	name := frontendTypeName(t)
+	if name == "" {
+		return "-"
+	}
+	return name
 }
 
 func requireDeclaration(t *testing.T, declarations []TypeDeclaration, name string) TypeDeclaration {

@@ -26,6 +26,12 @@ func assertGoldenFile(t *testing.T, name string, actual string) {
 	t.Helper()
 
 	path := filepath.Join("testdata", name)
+	if os.Getenv("SETTA_UPDATE_FRONTENDBINDING_GOLDENS") == "1" {
+		if err := os.WriteFile(path, []byte(strings.TrimSpace(actual)+"\n"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		return
+	}
 	expectedBytes, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("read %s: %v", path, err)
