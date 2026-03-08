@@ -8,14 +8,15 @@ import { useHotReload } from "utils/hotReload";
 
 export function useLoadProjectConfig() {
   const { projectConfigName } = useParams();
-  const { state } = useLocation();
-  const pageLoadType = state?.pageLoadType;
+  const location = useLocation();
+  const pageLoadType = location.state?.pageLoadType;
   const [doneLoading, setDoneLoading] = useState(false);
   const is404 = useProjectLoading((x) => x.projectIs404);
   const isProjectLoading = useProjectLoading((x) => x.projectIsLoading);
   const isHotReload = useHotReload();
-  const loadKey = `${projectConfigName ?? ""}:${pageLoadType ?? ""}`;
+  const loadKey = `${location.key}:${projectConfigName ?? ""}:${pageLoadType ?? ""}`;
   const loadKeyRef = useRef(loadKey);
+  const handledPageLoadActionKeyRef = useRef<string | null>(null);
   const isStaleLoadKey = loadKeyRef.current !== loadKey;
   const resolvedDoneLoading = isStaleLoadKey ? false : doneLoading;
   const resolvedIs404 = isStaleLoadKey ? false : is404;
@@ -52,8 +53,17 @@ export function useLoadProjectConfig() {
     const projectConfigMatchesRoute =
       Boolean(projectConfigName) &&
       currentProjectConfigName === projectConfigName;
+    const pageLoadActionKey =
+      pageLoadType === undefined ? null : `${location.key}:${pageLoadType}`;
+    const hasUnhandledPageLoadAction =
+      pageLoadActionKey !== null &&
+      handledPageLoadActionKeyRef.current !== pageLoadActionKey;
 
-    if (pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME) {
+    if (
+      pageLoadType === PAGE_LOAD_TYPES.CHANGE_PROJECT_CONFIG_NAME &&
+      hasUnhandledPageLoadAction
+    ) {
+      handledPageLoadActionKeyRef.current = pageLoadActionKey;
       changeFn();
       if (!doneLoading) {
         setDoneLoading(true);
@@ -62,32 +72,36 @@ export function useLoadProjectConfig() {
     }
 
     if (
-      projectConfigMatchesRoute &&
-      pageLoadType !== PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG
+      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG &&
+      hasUnhandledPageLoadAction
     ) {
+      handledPageLoadActionKeyRef.current = pageLoadActionKey;
+      useProjectLoading.setState({
+        projectIsLoading: true,
+        projectIs404: false,
+      });
+      void loadFn();
+      return;
+    }
+
+    if (projectConfigMatchesRoute || resolvedIs404) {
       if (!doneLoading) {
         setDoneLoading(true);
       }
       return;
     }
 
-    useProjectLoading.setState({ projectIsLoading: true });
-
-    const shouldReloadProjectConfig =
-      pageLoadType === PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG ||
-      !doneLoading ||
-      currentProjectConfigName !== projectConfigName;
-
-    if (shouldReloadProjectConfig) {
-      loadFn();
-    }
+    useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
+    void loadFn();
   }, [
     doneLoading,
     isHotReload,
     isProjectLoading,
     loadKey,
+    location.key,
     pageLoadType,
     projectConfigName,
+    resolvedIs404,
   ]);
 
   return [resolvedDoneLoading, resolvedIs404] as const;

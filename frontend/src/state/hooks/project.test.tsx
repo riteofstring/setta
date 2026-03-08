@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { useProjectLoading, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
+import { PAGE_LOAD_TYPES } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLoadProjectConfig } from "./project";
 
@@ -141,5 +142,58 @@ describe("useLoadProjectConfig", () => {
     expect(loadProjectConfigMock).toHaveBeenNthCalledWith(2, {
       projectConfigName: "beta",
     });
+  });
+
+  it("treats load-project navigation state as a one-shot reload request", async () => {
+    await act(async () => {
+      root.render(
+        <MemoryRouter
+          initialEntries={[
+            {
+              pathname: "/alpha",
+              state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+            },
+          ]}
+        >
+          <Routes>
+            <Route path="/:projectConfigName" element={<LoadProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    await vi.waitFor(() => {
+      const probe = host.querySelector('[data-testid="load-probe"]');
+      expect(probe?.getAttribute("data-done-loading")).toBe("true");
+      expect(probe?.getAttribute("data-project-config-name")).toBe("alpha");
+    });
+
+    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
+    expect(loadProjectConfigMock).toHaveBeenCalledWith({
+      projectConfigName: "alpha",
+    });
+  });
+
+  it("does not retry forever after the current route load fails", async () => {
+    loadProjectConfigMock.mockResolvedValue(false);
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/missing"]}>
+          <Routes>
+            <Route path="/:projectConfigName" element={<LoadProbe />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    await vi.waitFor(() => {
+      const probe = host.querySelector('[data-testid="load-probe"]');
+      expect(probe?.getAttribute("data-done-loading")).toBe("true");
+      expect(probe?.getAttribute("data-is-404")).toBe("true");
+    });
+
+    expect(loadProjectConfigMock).toHaveBeenCalledTimes(1);
+    expect(useProjectLoading.getState().projectIsLoading).toBe(false);
   });
 });
