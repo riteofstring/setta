@@ -5270,6 +5270,101 @@ export function createCreateProjectConfigRequestInput(options: Partial<CreatePro
 export type CreateProjectConfigResponse = string;
 
 
+export type CreateNewSectionVariantRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createCreateNewSectionVariantRequestInput(options: Partial<CreateNewSectionVariantRequestInput> = {}): CreateNewSectionVariantRequestInput {
+  return options as CreateNewSectionVariantRequestInput;
+}
+
+
+export type CreateNewSectionVariantResponse = {
+  variantId: string;
+};
+export function createCreateNewSectionVariantResponse(options: Partial<CreateNewSectionVariantResponse> = {}): CreateNewSectionVariantResponse {
+  return options as CreateNewSectionVariantResponse;
+}
+
+
+export type SetSectionVariantRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createSetSectionVariantRequestInput(options: Partial<SetSectionVariantRequestInput> = {}): SetSectionVariantRequestInput {
+  return options as SetSectionVariantRequestInput;
+}
+
+
+export type SetDefaultSectionVariantRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createSetDefaultSectionVariantRequestInput(options: Partial<SetDefaultSectionVariantRequestInput> = {}): SetDefaultSectionVariantRequestInput {
+  return options as SetDefaultSectionVariantRequestInput;
+}
+
+
+export type SetSectionVariantSortOrderRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  orderedVariantIds: Array<string>;
+};
+export function createSetSectionVariantSortOrderRequestInput(options: Partial<SetSectionVariantSortOrderRequestInput> = {}): SetSectionVariantSortOrderRequestInput {
+  return options as SetSectionVariantSortOrderRequestInput;
+}
+
+
+export type ToggleVariantFrozenRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  variantId: string;
+};
+export function createToggleVariantFrozenRequestInput(options: Partial<ToggleVariantFrozenRequestInput> = {}): ToggleVariantFrozenRequestInput {
+  return options as ToggleVariantFrozenRequestInput;
+}
+
+
+export type ToggleVariantJSONSourceRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createToggleVariantJSONSourceRequestInput(options: Partial<ToggleVariantJSONSourceRequestInput> = {}): ToggleVariantJSONSourceRequestInput {
+  return options as ToggleVariantJSONSourceRequestInput;
+}
+
+
+export type SetVariantJSONSourceKeysRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+  jsonSourceKeys: Array<string>;
+};
+export function createSetVariantJSONSourceKeysRequestInput(options: Partial<SetVariantJSONSourceKeysRequestInput> = {}): SetVariantJSONSourceKeysRequestInput {
+  return options as SetVariantJSONSourceKeysRequestInput;
+}
+
+
+export type SetSectionVariantNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  variantId: string;
+  name: string;
+};
+export function createSetSectionVariantNameRequestInput(options: Partial<SetSectionVariantNameRequestInput> = {}): SetSectionVariantNameRequestInput {
+  return options as SetSectionVariantNameRequestInput;
+}
+
+
 export type DeleteSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

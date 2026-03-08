@@ -37,6 +37,46 @@ export async function route_create_project_config(x: gt.CreateProjectConfigReque
   return await post(GoHTTPRoutes.createProjectConfig, x);
 
 }
+export async function route_create_new_section_variant(x: gt.CreateNewSectionVariantRequestInput): Promise<ResponseDataAndStatus<gt.CreateNewSectionVariantResponse>> {
+
+  return await post(GoHTTPRoutes.createNewSectionVariant, x);
+
+}
+export async function route_set_section_variant(x: gt.SetSectionVariantRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionVariant, x);
+
+}
+export async function route_set_default_section_variant(x: gt.SetDefaultSectionVariantRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setDefaultSectionVariant, x);
+
+}
+export async function route_set_section_variant_sort_order(x: gt.SetSectionVariantSortOrderRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionVariantSortOrder, x);
+
+}
+export async function route_toggle_variant_frozen(x: gt.ToggleVariantFrozenRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.toggleVariantFrozen, x);
+
+}
+export async function route_toggle_variant_json_source(x: gt.ToggleVariantJSONSourceRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.toggleVariantJsonSource, x);
+
+}
+export async function route_set_variant_json_source_keys(x: gt.SetVariantJSONSourceKeysRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setVariantJsonSourceKeys, x);
+
+}
+export async function route_set_section_variant_name(x: gt.SetSectionVariantNameRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionVariantName, x);
+
+}
 export async function route_delete_sections(x: gt.DeleteSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.deleteSections, x);

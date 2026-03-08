@@ -10,6 +10,7 @@ import {
   route_check_if_file_exists,
   route_check_workspace_initialized,
   route_create_file,
+  route_create_new_section_variant,
   route_create_project_config,
   route_create_top_level_section,
   route_create_view_mode,
@@ -76,6 +77,7 @@ import {
   route_set_code_obj_display_name,
   route_set_code_obj_name,
   route_set_code_section_attached_terminal,
+  route_set_default_section_variant,
   route_set_gen_code_prefix,
   route_set_gen_code_suffix,
   route_set_group_overflow_mode,
@@ -90,14 +92,20 @@ import {
   route_set_section_name,
   route_set_section_param_filter,
   route_set_section_sizes,
+  route_set_section_variant,
+  route_set_section_variant_name,
+  route_set_section_variant_sort_order,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
+  route_set_variant_json_source_keys,
   route_set_view_mode_name,
   route_set_view_mode_sort_order,
   route_set_viewport,
   route_start_transcription_session,
   route_toggle_is_editing_view_mode,
   route_toggle_param_selected,
+  route_toggle_variant_frozen,
+  route_toggle_variant_json_source,
   route_toggle_view_mode_tab,
   route_toggle_view_mode_user_facing,
   route_transfer_file_browser_entry,
@@ -678,6 +686,153 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         viewModeId: "focus-mode",
         frontendOpId: "frontend-op-delete-mode",
+      }),
+    });
+  });
+
+  it("posts section-variant mutation writes", async () => {
+    await route_create_new_section_variant({
+      projectConfigId: "project-alpha",
+      sectionId: "source-section",
+      frontendOpId: "frontend-op-create-variant",
+    });
+    await route_set_section_variant({
+      projectConfigId: "project-alpha",
+      sectionId: "source-section",
+      variantId: "source-variant-a",
+      frontendOpId: "frontend-op-set-variant",
+    });
+    await route_set_default_section_variant({
+      projectConfigId: "project-alpha",
+      sectionId: "source-section",
+      variantId: "source-variant-a",
+      frontendOpId: "frontend-op-set-default-variant",
+    });
+    await route_set_section_variant_sort_order({
+      projectConfigId: "project-alpha",
+      sectionId: "source-section",
+      orderedVariantIds: ["source-variant-a", "source-variant-b"],
+      frontendOpId: "frontend-op-sort-variants",
+    });
+    await route_toggle_variant_frozen({
+      projectConfigId: "project-alpha",
+      variantId: "source-variant-a",
+      frontendOpId: "frontend-op-freeze-variant",
+    });
+    await route_toggle_variant_json_source({
+      projectConfigId: "project-alpha",
+      sectionId: "json-section",
+      variantId: "json-variant-b",
+      frontendOpId: "frontend-op-toggle-json-source",
+    });
+    await route_set_variant_json_source_keys({
+      projectConfigId: "project-alpha",
+      sectionId: "json-section",
+      variantId: "json-variant-b",
+      jsonSourceKeys: ["config", "nested"],
+      frontendOpId: "frontend-op-json-source-keys",
+    });
+    await route_set_section_variant_name({
+      projectConfigId: "project-alpha",
+      variantId: "source-variant-a",
+      name: "Renamed Variant",
+      frontendOpId: "frontend-op-name-variant",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createNewSectionVariant`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "source-section",
+        frontendOpId: "frontend-op-create-variant",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionVariant`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "source-section",
+        variantId: "source-variant-a",
+        frontendOpId: "frontend-op-set-variant",
+      }),
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setDefaultSectionVariant`,
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "source-section",
+        variantId: "source-variant-a",
+        frontendOpId: "frontend-op-set-default-variant",
+      }),
+    });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionVariantSortOrder`,
+    );
+    expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "source-section",
+        orderedVariantIds: ["source-variant-a", "source-variant-b"],
+        frontendOpId: "frontend-op-sort-variants",
+      }),
+    });
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleVariantFrozen`,
+    );
+    expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        variantId: "source-variant-a",
+        frontendOpId: "frontend-op-freeze-variant",
+      }),
+    });
+    expect(fetchMock.mock.calls[5]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleVariantJsonSource`,
+    );
+    expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "json-section",
+        variantId: "json-variant-b",
+        frontendOpId: "frontend-op-toggle-json-source",
+      }),
+    });
+    expect(fetchMock.mock.calls[6]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setVariantJsonSourceKeys`,
+    );
+    expect(fetchMock.mock.calls[6]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "json-section",
+        variantId: "json-variant-b",
+        jsonSourceKeys: ["config", "nested"],
+        frontendOpId: "frontend-op-json-source-keys",
+      }),
+    });
+    expect(fetchMock.mock.calls[7]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionVariantName`,
+    );
+    expect(fetchMock.mock.calls[7]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        variantId: "source-variant-a",
+        name: "Renamed Variant",
+        frontendOpId: "frontend-op-name-variant",
       }),
     });
   });

@@ -581,6 +581,183 @@ func TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantRejectsPathsOutsideW
 	}
 }
 
+func TestRegisterProjectRoutesSectionVariantMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantRouteTestProject(t, true),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	createRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteCreateNewSectionVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"source-section","frontendOpId":"frontend-op-create-variant"}`),
+	)
+	createRequest.Header.Set("Content-Type", "application/json")
+	createResponse := httptest.NewRecorder()
+	handler.ServeHTTP(createResponse, createRequest)
+	if createResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for createNewSectionVariant, got %d with body %q", createResponse.Code, createResponse.Body.String())
+	}
+
+	var created CreateNewSectionVariantResponse
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &created); err != nil {
+		t.Fatalf("decode createNewSectionVariant response: %v", err)
+	}
+	if strings.TrimSpace(created.VariantID) == "" {
+		t.Fatal("expected createNewSectionVariant to return a variant id")
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetSectionVariant,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-a","frontendOpId":"frontend-op-set-variant"}`,
+		},
+		{
+			route: RouteSetDefaultSectionVariant,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-a","frontendOpId":"frontend-op-set-default"}`,
+		},
+		{
+			route: RouteSetSectionVariantSortOrder,
+			body:  fmt.Sprintf(`{"projectConfigId":"project-alpha","sectionId":"source-section","orderedVariantIds":["source-variant-a",%q,"source-variant-b"],"frontendOpId":"frontend-op-sort-variants"}`, created.VariantID),
+		},
+		{
+			route: RouteSetSectionVariantName,
+			body:  `{"projectConfigId":"project-alpha","variantId":"source-variant-a","name":"Renamed Variant","frontendOpId":"frontend-op-rename-variant"}`,
+		},
+		{
+			route: RouteToggleVariantFrozen,
+			body:  `{"projectConfigId":"project-alpha","variantId":"source-variant-a","frontendOpId":"frontend-op-freeze-variant"}`,
+		},
+		{
+			route: RouteToggleVariantJSONSource,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","frontendOpId":"frontend-op-toggle-json-source"}`,
+		},
+		{
+			route: RouteSetVariantJSONSourceKeys,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","jsonSourceKeys":["config","nested"],"frontendOpId":"frontend-op-json-source-keys"}`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if _, ok := project.SectionVariants[created.VariantID]; !ok {
+		t.Fatalf("expected created variant %q to persist in project state", created.VariantID)
+	}
+	if got := project.SectionVariantMap["source-section"]; got != "source-variant-a" {
+		t.Fatalf("expected source-section active variant source-variant-a, got %q", got)
+	}
+	if got := project.Sections["source-section"].DefaultVariantID; got != "source-variant-a" {
+		t.Fatalf("expected source-section default variant source-variant-a, got %q", got)
+	}
+	if got := project.Sections["source-section"].VariantIDs; len(got) != 3 || got[0] != "source-variant-a" || got[1] != created.VariantID || got[2] != "source-variant-b" {
+		t.Fatalf("expected source-section variants [source-variant-a %s source-variant-b], got %#v", created.VariantID, got)
+	}
+	if got := project.SectionVariants["source-variant-a"].Name; got != "Renamed Variant" {
+		t.Fatalf("expected source-variant-a name Renamed Variant, got %q", got)
+	}
+	if !project.SectionVariants["source-variant-a"].IsFrozen {
+		t.Fatal("expected source-variant-a to be frozen after toggle")
+	}
+
+	payload, err := project.EffectiveSectionPayload("json-section", "json-variant-b")
+	if err != nil {
+		t.Fatalf("effective payload after json-source mutations: %v", err)
+	}
+	isJSONSource, _ := payload["isJsonSource"].(bool)
+	if !isJSONSource {
+		t.Fatal("expected json-variant-b payload to enable json source")
+	}
+	configLanguage, _ := payload["configLanguage"].(string)
+	if configLanguage != "json" {
+		t.Fatalf("expected json-variant-b configLanguage json, got %q", configLanguage)
+	}
+	rawKeys, _ := payload["jsonSourceKeys"].([]any)
+	if len(rawKeys) != 2 || rawKeys[0] != "config" || rawKeys[1] != "nested" {
+		t.Fatalf("expected json-variant-b jsonSourceKeys [config nested], got %#v", rawKeys)
+	}
+}
+
+func TestRegisterProjectRoutesSectionVariantMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantRouteTestProject(t, false),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetSectionVariantSortOrder,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"source-section","orderedVariantIds":["source-variant-a","source-variant-a"]}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"variant_sort_order_invalid"`,
+		},
+		{
+			route:        RouteToggleVariantJSONSource,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"code-section","variantId":"code-variant"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"dict_section_required"`,
+		},
+		{
+			route:        RouteSetVariantJSONSourceKeys,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-b","jsonSourceKeys":["config"]}`,
+			expectedCode: http.StatusForbidden,
+			expectedBody: `"code":"json_source_key_edits_disabled"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesReturnsCompletedFrontendOpIDsAfterMutation(t *testing.T) {
 	t.Parallel()
 
@@ -5822,12 +5999,20 @@ func genCodePrefixSuffixRouteTestProject(t *testing.T) projectstate.Project {
 func sectionVariantDeletionRouteTestProject(t *testing.T) projectstate.Project {
 	t.Helper()
 
+	return sectionVariantRouteTestProject(t, true)
+}
+
+func sectionVariantRouteTestProject(t *testing.T, allowJSONSourceKeyEdits bool) projectstate.Project {
+	t.Helper()
+
 	return mustNormalizedProjectRouteProject(t, projectstate.Project{
-		ID:   "project-alpha",
-		Name: "Alpha",
+		ID:                      "project-alpha",
+		Name:                    "Alpha",
+		AllowJSONSourceKeyEdits: allowJSONSourceKeyEdits,
 		SectionVariantMap: map[string]string{
 			"source-section": "source-variant-b",
 			"json-section":   "json-variant-a",
+			"code-section":   "code-variant",
 		},
 		Sections: map[string]projectstate.Section{
 			"source-section": {
@@ -5841,6 +6026,12 @@ func sectionVariantDeletionRouteTestProject(t *testing.T) projectstate.Project {
 				Name:             "JSON Source",
 				VariantIDs:       []string{"json-variant-a", "json-variant-b"},
 				DefaultVariantID: "json-variant-a",
+			},
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
 			},
 		},
 		SectionVariants: map[string]projectstate.SectionVariant{
@@ -5860,6 +6051,10 @@ func sectionVariantDeletionRouteTestProject(t *testing.T) projectstate.Project {
 			"json-variant-b": {
 				ID:     "json-variant-b",
 				ImplID: "json-impl-b",
+			},
+			"code-variant": {
+				ID:     "code-variant",
+				ImplID: "code-impl",
 			},
 		},
 		SectionImpls: map[string]projectstate.SectionImpl{
@@ -5881,7 +6076,15 @@ func sectionVariantDeletionRouteTestProject(t *testing.T) projectstate.Project {
 			"json-impl-b": {
 				ID:      "json-impl-b",
 				Kind:    projectstate.SectionKind("dict"),
-				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "json-impl-b", "type": "Dict"}),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "json-impl-b", "type": "Dict", "configLanguage": "python", "jsonSourceKeys": []string{}}),
+			},
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: projectstate.SectionKindCode,
+				Code: &projectstate.CodeSectionImpl{
+					Language: projectstate.CodeLanguagePython,
+				},
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "code-impl", "type": "Code", "codeLanguage": "python", "children": []string{}}),
 			},
 		},
 	})

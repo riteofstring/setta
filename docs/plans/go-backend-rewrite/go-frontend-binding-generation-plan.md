@@ -161,6 +161,16 @@ Current landed wedge:
       - `UngroupGroupsRequestInput`
       - `ToggleParamSelectedRequestInput`
       - `UnselectAllParamsRequestInput`
+    - current section-variant mutation payloads
+      - `CreateNewSectionVariantRequestInput`
+      - `CreateNewSectionVariantResponse`
+      - `SetSectionVariantRequestInput`
+      - `SetDefaultSectionVariantRequestInput`
+      - `SetSectionVariantSortOrderRequestInput`
+      - `ToggleVariantFrozenRequestInput`
+      - `ToggleVariantJSONSourceRequestInput`
+      - `SetVariantJSONSourceKeysRequestInput`
+      - `SetSectionVariantNameRequestInput`
     - current browser section metadata payloads
       - `SetBrowserColumnWidthsRequestInput`
       - `SetBrowserAreaViewModeRequestInput`

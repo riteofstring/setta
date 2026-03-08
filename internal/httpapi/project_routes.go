@@ -21,6 +21,14 @@ import (
 
 const (
 	RouteGetLatestProjectState            = "/getLatestProjectState"
+	RouteCreateNewSectionVariant          = "/createNewSectionVariant"
+	RouteSetSectionVariant                = "/setSectionVariant"
+	RouteSetDefaultSectionVariant         = "/setDefaultSectionVariant"
+	RouteSetSectionVariantSortOrder       = "/setSectionVariantSortOrder"
+	RouteToggleVariantFrozen              = "/toggleVariantFrozen"
+	RouteToggleVariantJSONSource          = "/toggleVariantJsonSource"
+	RouteSetVariantJSONSourceKeys         = "/setVariantJsonSourceKeys"
+	RouteSetSectionVariantName            = "/setSectionVariantName"
 	RouteCreateTopLevelSection            = "/createTopLevelSection"
 	RouteDeleteSections                   = "/deleteSections"
 	RouteDeleteSelectedParams             = "/deleteSelectedParams"
@@ -182,6 +190,63 @@ type DeleteJSONSourceFileAndVariantRequest struct {
 	SectionID string `json:"sectionId"`
 	VariantID string `json:"variantId"`
 	Filepath  string `json:"filepath"`
+}
+
+type CreateNewSectionVariantRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+}
+
+type CreateNewSectionVariantResponse = projectstate.CreateNewSectionVariantResult
+
+type SetSectionVariantRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	VariantID    string  `json:"variantId"`
+}
+
+type SetDefaultSectionVariantRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	VariantID    string  `json:"variantId"`
+}
+
+type SetSectionVariantSortOrderRequest struct {
+	FrontendOpID      *string  `json:"frontendOpId"`
+	ProjectID         string   `json:"projectConfigId"`
+	SectionID         string   `json:"sectionId"`
+	OrderedVariantIDs []string `json:"orderedVariantIds"`
+}
+
+type ToggleVariantFrozenRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	VariantID    string  `json:"variantId"`
+}
+
+type ToggleVariantJSONSourceRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	VariantID    string  `json:"variantId"`
+}
+
+type SetVariantJSONSourceKeysRequest struct {
+	FrontendOpID   *string  `json:"frontendOpId"`
+	ProjectID      string   `json:"projectConfigId"`
+	SectionID      string   `json:"sectionId"`
+	VariantID      string   `json:"variantId"`
+	JSONSourceKeys []string `json:"jsonSourceKeys"`
+}
+
+type SetSectionVariantNameRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	VariantID    string  `json:"variantId"`
+	Name         string  `json:"name"`
 }
 
 type DeleteSectionsRequest struct {
@@ -728,6 +793,14 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPasswordParamValue, getPasswordParamValueHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateNewSectionVariant, createNewSectionVariantHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionVariant, setSectionVariantHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetDefaultSectionVariant, setDefaultSectionVariantHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionVariantSortOrder, setSectionVariantSortOrderHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleVariantFrozen, toggleVariantFrozenHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleVariantJSONSource, toggleVariantJSONSourceHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetVariantJSONSourceKeys, setVariantJSONSourceKeysHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionVariantName, setSectionVariantNameHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSectionVariantOrAsk, deleteSectionVariantOrAskHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteJSONSourceFileAndVariant, deleteJSONSourceFileAndVariantHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSections, deleteSectionsHandler(deps))
@@ -1107,6 +1180,254 @@ func deleteSectionVariantOrAskHandler(deps ProjectRouteDependencies) http.Handle
 
 		if _, err := deps.ProjectState.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID); err != nil {
 			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func createNewSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[CreateNewSectionVariantRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		_, result, err := deps.ProjectState.CreateNewSectionVariant(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.CreateNewSectionVariantInput{SectionID: payload.SectionID},
+		)
+		if err != nil {
+			writeSectionVariantMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func setSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionVariantRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionVariant(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.SectionID,
+			payload.VariantID,
+		); err != nil {
+			writeSectionVariantMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setDefaultSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetDefaultSectionVariantRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetDefaultSectionVariant(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.SectionID,
+			payload.VariantID,
+		); err != nil {
+			writeSectionVariantMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionVariantSortOrderHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionVariantSortOrderRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionVariantSortOrder(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.SectionID,
+			payload.OrderedVariantIDs,
+		); err != nil {
+			writeSectionVariantMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleVariantFrozenHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleVariantFrozenRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleVariantFrozen(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.VariantID,
+		); err != nil {
+			writeVariantMetadataMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func toggleVariantJSONSourceHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleVariantJSONSourceRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleVariantJSONSource(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.SectionID,
+			payload.VariantID,
+		); err != nil {
+			writeVariantJSONSourceMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setVariantJSONSourceKeysHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetVariantJSONSourceKeysRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetVariantJSONSourceKeys(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.SectionID,
+			payload.VariantID,
+			payload.JSONSourceKeys,
+		); err != nil {
+			writeVariantJSONSourceMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionVariantNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionVariantNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionVariantName(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.VariantID,
+			payload.Name,
+		); err != nil {
+			writeVariantMetadataMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3408,6 +3729,54 @@ func writeDeleteSectionVariantError(w http.ResponseWriter, r *http.Request, err 
 		writeError(w, r, http.StatusUnprocessableEntity, "json_source_filepath_required", "JSON source variants must have a file path.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSectionVariantMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrSectionVariantIDRequired):
+		writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrSectionVariantNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantMembership):
+		writeError(w, r, http.StatusNotFound, "variant_not_found", "Variant not found.")
+	case projectstate.IsInvalidSectionVariantSortOrderError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "variant_sort_order_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeVariantMetadataMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionVariantIDRequired):
+		writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionVariantNotFound):
+		writeError(w, r, http.StatusNotFound, "variant_not_found", "Variant not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeVariantJSONSourceMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrJSONSourceKeyEditsDisabled):
+		writeError(w, r, http.StatusForbidden, "json_source_key_edits_disabled", "JSON source key edits are disabled for this project.")
+	case errors.Is(err, projectstate.ErrSectionVariantDictSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "dict_section_required", "Section variant must resolve to a dict section.")
+	default:
+		writeSectionVariantMutationError(w, r, err)
 	}
 }
 

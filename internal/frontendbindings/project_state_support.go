@@ -22,6 +22,65 @@ type CreateProjectConfigRequestInput struct {
 
 type CreateProjectConfigResponse string
 
+type CreateNewSectionVariantRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+}
+
+type CreateNewSectionVariantResponse struct {
+	VariantID string `json:"variantId"`
+}
+
+type SetSectionVariantRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	VariantID       string  `json:"variantId"`
+}
+
+type SetDefaultSectionVariantRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	VariantID       string  `json:"variantId"`
+}
+
+type SetSectionVariantSortOrderRequestInput struct {
+	FrontendOpID      *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID   string   `json:"projectConfigId"`
+	SectionID         string   `json:"sectionId"`
+	OrderedVariantIDs []string `json:"orderedVariantIds"`
+}
+
+type ToggleVariantFrozenRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	VariantID       string  `json:"variantId"`
+}
+
+type ToggleVariantJSONSourceRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	VariantID       string  `json:"variantId"`
+}
+
+type SetVariantJSONSourceKeysRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	VariantID       string   `json:"variantId"`
+	JSONSourceKeys  []string `json:"jsonSourceKeys"`
+}
+
+type SetSectionVariantNameRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	VariantID       string  `json:"variantId"`
+	Name            string  `json:"name"`
+}
+
 type DeleteSectionsRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectConfigID string   `json:"projectConfigId"`
