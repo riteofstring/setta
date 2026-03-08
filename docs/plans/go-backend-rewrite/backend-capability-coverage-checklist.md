@@ -53,6 +53,7 @@ Primary sources used for this checklist:
 | --- | --- | --- |
 | Go-owned | Packaged server/runtime entrypoints plus Go CLI helpers | `cmd/setta` and `cmd/setta-server` are the packaged Go entrypoints, while `cmd/setta-cli`, `internal/app`, `internal/runtime`, `internal/settacmd`, and `internal/settacli` own the broader Go command/runtime surface. |
 | Shared boundary | Packaged bootstrap wrappers and build/install shell around Go binaries | Go is the packaged runtime target, but root shell/python packaging wrappers still participate in build/install flow orchestration. |
+| Python-owned | Frontend route/type binding generation for backend contracts | `frontend/src/utils/generatedEndpoints.ts` and `frontend/src/utils/generatedTypes.ts` still derive from Python route/schema generation today, including many Go-owned transport surfaces; moving Go-owned HTTP/websocket contracts onto a Go-owned source of truth remains the selected follow-on in `CURRENT.md` and `go-backend-rewrite-plan.md`. |
 | Python-owned | Dev reload/startup loop | Dev-only startup and reload remain explicit Python boundaries through `backend/setta/dev_start.py`, `backend/setta/server.py`, and related startup helpers. |
 | Go-owned | Runtime support packages | `internal/buildinfo`, `internal/config`, `internal/backendlogs`, `internal/observability`, `internal/settadocs`, and `internal/devworktree` are Go-owned support areas. |
 
@@ -107,7 +108,7 @@ Primary sources used for this checklist:
 | Go-owned | MCP server/client/tool registry/search | `internal/mcpx` and `internal/tools` are the active Go owners. |
 | Go-owned | UI-setting runtime and reveal routing | `internal/uisettings` plus `internal/realtime` own reveal/result behavior and routing. |
 | Go-owned | App-spec store/patch/diagnostics and app-gen skills | `internal/appspec` and `internal/appgenskills` are the active Go owners. |
-| Shared boundary | Legacy app-definition and app-spec HTTP surface | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST and `streamAppSpec` HTTP surface used by current callers that have not moved to the Go MCP boundary. |
+| Shared boundary | Legacy app-definition REST plus older app-spec HTTP helpers | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST routes the app-config pane still calls, along with older app-spec helpers like `streamAppSpec`, `updateAppDefinition`, and `listAppComponents` that remain Python-owned even though they are not proven current non-test frontend callers. |
 | Go-owned | LLM config and managed API-key storage | `internal/llmconfig` is Go-owned. |
 
 ## 8. AI, agentic runtime, and transcription

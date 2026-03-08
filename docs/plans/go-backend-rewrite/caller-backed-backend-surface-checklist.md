@@ -112,12 +112,11 @@ Primary sources used for this checklist:
 | Complete | MCP runtime status and direct tool-call transport | Go owns `mcpServerRuntimeStatus` and `__setta__/tools/call`. |
 | Complete | Tool metadata, search, namespacing, and scoped invocation | Current ownership is split across `internal/tools` and `internal/mcpx`, with broad Go test coverage. |
 | Partial | Frontend-affinity-aware UI-setting tool flows | Go owns UI-setting reveal/result flows across `internal/realtime`, `internal/uisettings`, and `internal/mcpx`, but the end-to-end caller path still depends on the replacement `/ws/frontend` transport while the core frontend remains on the Python-era `/api/frontend` websocket route. |
-| Complete | Current Setta MCP write/read tool surface used by the app | The repo now contains large Go-owned tool coverage for UI settings, plugin management, app-definition streaming, agent-profile tools, and related project-state tooling. |
+| Complete | Current Setta MCP write/read tool surface used by the app | The repo now contains large Go-owned tool coverage for UI settings, plugin management, app-definition tooling, agent-profile tools, and related project-state tooling. |
 | Complete | App-spec store, validation, diagnostics, and patch streaming foundations | `internal/appspec` is the current Go owner for bounded app-definition/app-spec state used by the MCP surface. |
 | Complete | LLM config and managed API-key reads/writes | Go owns `GET/POST /llm/config` and `GET/POST /llm/apiKeys` via `internal/llmconfig`. |
 | Partial | External file-watch parity for `.env` and `llm_config.json` | Immediate runtime refresh is Go-owned, but broad external watch parity remains explicitly deferred. |
 | Missing | Legacy app-definition REST routes still used by the current frontend | The app-config pane still calls `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, and `getAppCatalog`; Go owns app-spec state and MCP tools, not these HTTP routes. |
-| Missing | Legacy app-spec streaming helper route | `AppConfigPane` still POSTs Python-owned `streamAppSpec` directly via raw `fetch`; Go owns app-spec state and MCP tools, not this HTTP route. |
 
 ## 6. AI, agentic runtime, chat state, and transcription
 
@@ -187,8 +186,6 @@ callers.
   - `setAppDefinition`
   - `validateAppDefinition`
   - `getAppCatalog`
-- App-spec streaming helper route:
-  - `streamAppSpec`
 - Helper/admin routes:
   - `restartLanguageServer`
   - `typeCheck`
@@ -248,6 +245,7 @@ callers.
   - `deleteLLMChat`
   - `setChatSystemPrompt`
 - Remaining legacy app-spec helpers:
+  - `streamAppSpec`
   - `updateAppDefinition`
   - `listAppComponents`
 - Settings-project and remaining JSON-source/export helper routes:
