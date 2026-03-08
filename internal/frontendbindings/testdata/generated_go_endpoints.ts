@@ -97,6 +97,26 @@ export async function route_reveal_path_in_os_file_explorer(x: gt.RevealPathInOS
   return await post(GoHTTPRoutes.revealPathInOsFileExplorer, x);
 
 }
+export async function route_get_app_gen_skills(): Promise<ResponseDataAndStatus<gt.GetAppGenSkillsResponse>> {
+
+  return await get(GoHTTPRoutes.getAppGenSkills);
+
+}
+export async function route_get_app_gen_skill_content(x: gt.GetAppGenSkillContentRequestInput): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+
+  return await post(GoHTTPRoutes.getAppGenSkillContent, x);
+
+}
+export async function route_upsert_app_gen_custom_skill(x: gt.UpsertAppGenCustomSkillRequestInput): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
+
+  return await post(GoHTTPRoutes.upsertAppGenCustomSkill, x);
+
+}
+export async function route_get_mcp_server_runtime_status(x: gt.MCPRuntimeStatusRequestInput): Promise<ResponseDataAndStatus<gt.MCPRuntimeStatusResponse>> {
+
+  return await post(GoHTTPRoutes.getMCPServerRuntimeStatus, x);
+
+}
 export async function route_get_app_catalog(): Promise<ResponseDataAndStatus<gt.AppCatalogResponse>> {
 
   return await get(GoHTTPRoutes.getAppCatalog);

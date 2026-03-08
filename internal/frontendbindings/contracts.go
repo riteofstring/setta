@@ -475,3 +475,92 @@ type SetTypeErrorIgnoreRequestInput struct {
 	ParamInfoID      *string `json:"paramInfoId"`
 	IgnoreTypeErrors bool    `json:"ignoreTypeErrors"`
 }
+
+type AppGenSkillEntry struct {
+	SkillID           string  `json:"skillId"`
+	Name              string  `json:"name"`
+	RootLabel         string  `json:"rootLabel"`
+	RootPath          string  `json:"rootPath"`
+	RelativePath      string  `json:"relativePath"`
+	IsEditable        bool    `json:"isEditable"`
+	EditabilityReason *string `json:"editabilityReason"`
+	Description       string  `json:"description"`
+}
+
+type GetAppGenSkillsResponse struct {
+	Skills                          []AppGenSkillEntry `json:"skills"`
+	CustomSkillCreateRootPath       *string            `json:"customSkillCreateRootPath"`
+	CustomSkillCreateRootActionable bool               `json:"customSkillCreateRootActionable"`
+}
+
+type GetAppGenSkillContentRequestInput struct {
+	SkillID string `json:"skillId"`
+}
+
+type AppGenSkillContent struct {
+	SkillID           string `json:"skillId"`
+	Content           string `json:"content"`
+	Truncated         bool   `json:"truncated"`
+	OriginalSizeBytes int64  `json:"originalSizeBytes"`
+}
+
+type UpsertAppGenCustomSkillRequestInput struct {
+	SkillID      *string `json:"skillId"`
+	RelativePath *string `json:"relativePath"`
+	Content      string  `json:"content"`
+}
+
+type UpsertAppGenCustomSkillResponse struct {
+	SkillID      string             `json:"skillId"`
+	Created      bool               `json:"created"`
+	RootPath     string             `json:"rootPath"`
+	SkillDocPath string             `json:"skillDocPath"`
+	Skill        AppGenSkillEntry   `json:"skill"`
+	SkillContent AppGenSkillContent `json:"skillContent"`
+}
+
+type MCPTransport string
+
+const (
+	MCPTransportSSE            MCPTransport = "sse"
+	MCPTransportStreamableHTTP MCPTransport = "streamable_http"
+	MCPTransportStdio          MCPTransport = "stdio"
+)
+
+type MCPRuntimeState string
+
+const (
+	MCPRuntimeStateConnected  MCPRuntimeState = "connected"
+	MCPRuntimeStateConnecting MCPRuntimeState = "connecting"
+	MCPRuntimeStateRetrying   MCPRuntimeState = "retrying"
+	MCPRuntimeStateError      MCPRuntimeState = "error"
+	MCPRuntimeStateDisabled   MCPRuntimeState = "disabled"
+	MCPRuntimeStateUnknown    MCPRuntimeState = "unknown"
+)
+
+type MCPServerRuntimeStatus struct {
+	ServerID            string          `json:"serverId"`
+	Source              string          `json:"source"`
+	Transport           MCPTransport    `json:"transport"`
+	Endpoint            string          `json:"endpoint"`
+	State               MCPRuntimeState `json:"state"`
+	LastAttemptAt       *time.Time      `json:"lastAttemptAt"`
+	LastConnectedAt     *time.Time      `json:"lastConnectedAt"`
+	LastFailureAt       *time.Time      `json:"lastFailureAt"`
+	ConsecutiveFailures int             `json:"consecutiveFailures"`
+	LastError           *string         `json:"lastError"`
+	MissingEnvVar       *string         `json:"missingEnvVar"`
+	ToolCount           int             `json:"toolCount"`
+}
+
+type MCPRuntimeStatusRequestInput struct {
+	ChatID         *string `json:"chatId"`
+	EngineConfigID *string `json:"engineConfigId"`
+}
+
+type MCPRuntimeStatusResponse struct {
+	LLMConfigPath            string                   `json:"llmConfigPath"`
+	ActiveSettaFilesLocation string                   `json:"activeSettaFilesLocation"`
+	Servers                  []MCPServerRuntimeStatus `json:"servers"`
+	ExternalServers          []MCPServerRuntimeStatus `json:"externalServers"`
+}

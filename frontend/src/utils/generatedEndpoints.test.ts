@@ -5,13 +5,17 @@ import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_get_app_catalog,
   route_get_app_definition,
+  route_get_app_gen_skill_content,
+  route_get_app_gen_skills,
   route_get_latest_lsp_diagnostics,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
+  route_get_mcp_server_runtime_status,
   route_restart_language_server,
   route_set_app_definition,
   route_set_type_error_ignore,
   route_type_check,
+  route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
 } from "./generatedEndpoints";
 
@@ -306,6 +310,100 @@ describe("generatedEndpoints lsp helpers", () => {
         sectionId: "section-1",
         paramInfoId: "param-1",
         ignoreTypeErrors: true,
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints project chat skills and mcp helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("loads app-gen skills from the backend origin", async () => {
+    await route_get_app_gen_skills();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAppGenSkills`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({
+        credentials: "include",
+        headers: {},
+      }),
+    );
+  });
+
+  it("posts skill-content reads with the selected skill id", async () => {
+    await route_get_app_gen_skill_content({
+      skillId: "workspace_agents_skills::ui-layout",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAppGenSkillContent`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        skillId: "workspace_agents_skills::ui-layout",
+      }),
+    });
+  });
+
+  it("posts custom-skill upserts with the current payload shape", async () => {
+    await route_upsert_app_gen_custom_skill({
+      skillId: null,
+      relativePath: "route-created",
+      content: "# route-created\n\nBody.\n",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/upsertAppGenCustomSkill`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        skillId: null,
+        relativePath: "route-created",
+        content: "# route-created\n\nBody.\n",
+      }),
+    });
+  });
+
+  it("posts runtime-status reads with the current chat and engine ids", async () => {
+    await route_get_mcp_server_runtime_status({
+      chatId: "chat-1",
+      engineConfigId: "engine-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/mcpServerRuntimeStatus`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        chatId: "chat-1",
+        engineConfigId: "engine-1",
       }),
     });
   });

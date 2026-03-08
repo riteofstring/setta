@@ -432,6 +432,125 @@ export function createRevealPathInOSFileExplorerRequest(
   return options as RevealPathInOSFileExplorerRequest;
 }
 
+export type AppGenSkillEntry = {
+  skillId: string;
+  name: string;
+  rootLabel: string;
+  rootPath: string;
+  relativePath: string;
+  isEditable: boolean;
+  editabilityReason: string | null;
+  description: string;
+};
+export function createAppGenSkillEntry(
+  options: Partial<AppGenSkillEntry> = {},
+): AppGenSkillEntry {
+  return options as AppGenSkillEntry;
+}
+
+export type GetAppGenSkillsResponse = {
+  skills: Array<AppGenSkillEntry>;
+  customSkillCreateRootPath: string | null;
+  customSkillCreateRootActionable: boolean;
+};
+export function createGetAppGenSkillsResponse(
+  options: Partial<GetAppGenSkillsResponse> = {},
+): GetAppGenSkillsResponse {
+  return options as GetAppGenSkillsResponse;
+}
+
+export type GetAppGenSkillContentRequestInput = {
+  skillId: string;
+};
+export function createGetAppGenSkillContentRequestInput(
+  options: Partial<GetAppGenSkillContentRequestInput> = {},
+): GetAppGenSkillContentRequestInput {
+  return options as GetAppGenSkillContentRequestInput;
+}
+
+export type AppGenSkillContent = {
+  skillId: string;
+  content: string;
+  truncated: boolean;
+  originalSizeBytes: number;
+};
+export function createAppGenSkillContent(
+  options: Partial<AppGenSkillContent> = {},
+): AppGenSkillContent {
+  return options as AppGenSkillContent;
+}
+
+export type UpsertAppGenCustomSkillRequestInput = {
+  skillId: string | null;
+  relativePath: string | null;
+  content: string;
+};
+export function createUpsertAppGenCustomSkillRequestInput(
+  options: Partial<UpsertAppGenCustomSkillRequestInput> = {},
+): UpsertAppGenCustomSkillRequestInput {
+  return options as UpsertAppGenCustomSkillRequestInput;
+}
+
+export type UpsertAppGenCustomSkillResponse = {
+  skillId: string;
+  created: boolean;
+  rootPath: string;
+  skillDocPath: string;
+  skill: AppGenSkillEntry;
+  skillContent: AppGenSkillContent;
+};
+export function createUpsertAppGenCustomSkillResponse(
+  options: Partial<UpsertAppGenCustomSkillResponse> = {},
+): UpsertAppGenCustomSkillResponse {
+  return options as UpsertAppGenCustomSkillResponse;
+}
+
+export type MCPRuntimeStatusRequestInput = {
+  chatId: string | null;
+  engineConfigId: string | null;
+};
+export function createMCPRuntimeStatusRequestInput(
+  options: Partial<MCPRuntimeStatusRequestInput> = {},
+): MCPRuntimeStatusRequestInput {
+  return options as MCPRuntimeStatusRequestInput;
+}
+
+export type MCPTransport = string;
+
+export type MCPRuntimeState = string;
+
+export type MCPServerRuntimeStatus = {
+  serverId: string;
+  source: string;
+  transport: MCPTransport;
+  endpoint: string;
+  state: MCPRuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+};
+export function createMCPServerRuntimeStatus(
+  options: Partial<MCPServerRuntimeStatus> = {},
+): MCPServerRuntimeStatus {
+  return options as MCPServerRuntimeStatus;
+}
+
+export type MCPRuntimeStatusResponse = {
+  llmConfigPath: string;
+  activeSettaFilesLocation: string;
+  servers: Array<MCPServerRuntimeStatus>;
+  externalServers: Array<MCPServerRuntimeStatus>;
+};
+export function createMCPRuntimeStatusResponse(
+  options: Partial<MCPRuntimeStatusResponse> = {},
+): MCPRuntimeStatusResponse {
+  return options as MCPRuntimeStatusResponse;
+}
+
 export type AppCatalogPropType = "string" | "number" | "dimension" | "boolean";
 
 export type AppCatalogProp = {

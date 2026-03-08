@@ -150,6 +150,18 @@ Current landed wedge:
     - `SettaSectionTypeErrors`
     - `SettaProjectConfigDiagnostics`
     - `SettaLspDiagnosticsPayload`
+  - project-level AI skills and MCP viewer endpoint wrappers
+    - `route_get_app_gen_skills`
+    - `route_get_app_gen_skill_content`
+    - `route_upsert_app_gen_custom_skill`
+    - `route_get_mcp_server_runtime_status`
+  - project-level AI skills and MCP viewer contract types
+    - `AppGenSkillEntry`
+    - `AppGenSkillContent`
+    - `GetAppGenSkillsResponse`
+    - `UpsertAppGenCustomSkillResponse`
+    - `MCPServerRuntimeStatus`
+    - `MCPRuntimeStatusResponse`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -167,6 +179,8 @@ Current landed wedge:
   - `loadProjectConfig`, `processLspDiagnostics`, `requestTypeCheck`,
     `restartLanguageServer`, and `TypeErrorContextMenu` are now covered by
     canonical Go-generated LSP diagnostics/admin bindings
+  - `ProjectChatSkillsMcpViewer` is now covered by canonical Go-generated
+    app-gen-skill and MCP-runtime bindings
 
 ## Cutover Rule
 
