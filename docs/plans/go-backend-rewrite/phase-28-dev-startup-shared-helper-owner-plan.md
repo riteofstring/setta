@@ -2,52 +2,51 @@
 
 ## Purpose
 
-This doc records the next bounded follow-on after the landed Phase 27 packaged
-entrypoint closeout.
+This doc records the next bounded follow-on after the landed packaged
+entrypoint fallback closeout.
 
-The packaged `python -m setta` shim no longer reaches `setta.start`, but one
-active source/dev workflow still does: `python -m setta.dev_start` imports its
-startup/session helper set from `backend/setta/start.py`.
+The packaged `python -m setta` path no longer reaches `backend/setta/start.py`.
+The remaining active dependency is narrower: the explicit dev-only reload owner
+in `backend/setta/dev_start.py` still imports shared startup helpers from
+`backend/setta/start.py`.
 
-The goal here is not broad `start.py` cleanup. It is to move the active
-source/dev shared startup owner out of `setta.start` so the remaining
-`start.py` surface is more honestly legacy.
+The goal is to move that active helper surface to a dedicated shared owner
+without reopening broad `start.py` cleanup.
 
 ## Current Status
 
 Completed before this slice:
 
-- Phase 25 Slice 2 made reload an explicit dev-only path through
-  `python -m setta.dev_start`
-- Phase 27 removed the last packaged `python -m setta` fallback branch back
-  into `setta.start`
+- packaged entrypoint fallback hardening in
+  `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
+- explicit dev reload ownership in
+  `phase-25-dev-startup-command-boundary-plan.md`
 
 What remains active at the start of this slice:
 
-- `backend/setta/dev_start.py` imports:
-  - `_apply_paths_to_env`
-  - `_is_ssh_session`
-  - `_render_startup_message`
+- `backend/setta/dev_start.py` still imports the following shared helpers from
+  `backend/setta/start.py`:
   - `_resolve_cli_paths`
+  - `_apply_paths_to_env`
   - `_resolve_port`
   - `_run_uvicorn_server`
+  - `_is_ssh_session`
   - `_should_auto_open`
-  from `backend/setta/start.py`
-- the helper tests around path-env application and startup messaging still
-  anchor that logic through `setta.start`
+  - `_render_startup_message`
+- focused tests for those helpers still anchor to `setta.start` even when the
+  helper itself is part of the active startup contract rather than legacy CLI
+  fallback
 
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
 - `docs/plans/go-backend-rewrite/phase-25-dev-startup-command-boundary-plan.md`
-- `docs/plans/go-backend-rewrite/phase-25-startup-test-surface-classification-and-source-of-truth.md`
+- `docs/plans/go-backend-rewrite/phase-25-start-py-reachability-inventory-and-rerank.md`
 - `docs/plans/go-backend-rewrite/phase-27-packaged-entrypoint-fallback-hardening-plan.md`
 - `backend/setta/dev_start.py`
 - `backend/setta/start.py`
 - `tests/start/test_dev_start.py`
-- `tests/start/test_dev_script_wiring_backend_start.py`
 - `tests/start/test_start_paths_env.py`
-- `tests/start/test_startup_helpers.py`
 - `tests/start/test_startup_message.py`
 - `tests/start/test_start_interrupt_handling.py`
 - `tests/start/test_start_workspace_validation.py`
@@ -56,45 +55,52 @@ What remains active at the start of this slice:
 
 In scope:
 
-- extract the active shared startup/session helper cluster into an explicit
-  Python module outside `setta.start`
-- retarget `setta.dev_start` to that new owner
-- keep `setta.start` importing/reusing the same helpers instead of remaining
-  the owner
-- update focused tests to cover the extracted owner directly where that makes
-  the active boundary clearer
+- extract the shared startup helper surface used by both `setta.start` and
+  `setta.dev_start` into a dedicated Python module
+- retarget `backend/setta/dev_start.py` to that shared owner
+- retarget `backend/setta/start.py` to import the shared helper surface
+- move focused helper tests to the shared owner where they cover the active
+  startup contract rather than legacy CLI behavior
 
 Out of scope:
 
-- broad Click command cleanup in `setta.start`
-- remote SSH helper extraction
-- launcher/start/status/auth/api command migration
-- Go reload implementation
+- broad `backend/setta/start.py` command-tree cleanup
+- CLI/root-help redesign
+- changing the current dev reload product behavior
+- removing Python as the dev-only reload/runtime owner
 
-## Implementation Plan
+## Planned Change
 
-1. Add a small shared startup-helper module for the active helper cluster used
-   by both `setta.dev_start` and `setta.start`.
-2. Move the active helper ownership there, keeping behavior unchanged.
-3. Retarget `setta.dev_start` and `setta.start` to import from that shared
-   module.
-4. Update focused tests for the extracted helper owner and the dev-start path.
+1. Create a dedicated startup-runtime helper module for the active shared
+   source/dev startup contract.
+2. Move the helper implementations used by `setta.dev_start` into that module.
+3. Update `setta.start` and `setta.dev_start` to import the shared helpers from
+   the new owner.
+4. Update focused tests so active helper coverage points at the shared module
+   instead of `setta.start` where appropriate.
+5. Sync the Phase 25/27 docs and roadmap to reflect that the remaining active
+   `setta.start` dependency has been reduced again.
 
 ## Decisions
 
-- prefer an explicit shared helper module over leaving active source/dev logic
-  embedded in the legacy Click root
-- do not change user-visible startup message, path-env behavior, or reload
-  behavior in this slice
-- keep the transport/runtime boundary honest: this is Python shared-owner
-  cleanup for an active dev path, not a new Go feature slice
+- prefer an explicit shared startup-runtime module over continuing to treat
+  `setta.start` as the helper namespace for active dev startup
+- keep the extracted surface small and concrete; do not move unrelated legacy
+  Click helpers in the same slice
+- keep transport/CLI ownership thin: `setta.dev_start` and `setta.start`
+  should orchestrate, not become the helper implementation source of truth
 
 ## Open Questions
 
 - none for this bounded slice
 
+## Verification
+
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_dev_start.py tests/start/test_start_paths_env.py tests/start/test_startup_helpers.py tests/start/test_startup_message.py tests/start/test_start_interrupt_handling.py tests/start/test_start_workspace_validation.py tests/start/test_dev_script_wiring_backend_start.py`
+- `git diff --check`
+
 ## Next Recommended Step
 
-If this slice lands cleanly, rerank the remaining `setta.start` surface again.
-At that point the active dependency should narrow to direct legacy command/test
-coverage plus any intentionally unreplaced Python-only helpers.
+If this slice lands cleanly, rerank again before doing any broader
+`backend/setta/start.py` cleanup. The next honest step should come from a
+concrete remaining active dependency, not from line-count goals.
