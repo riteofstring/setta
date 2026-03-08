@@ -23,6 +23,10 @@ import {
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
 import {
+  resolveEffectiveThinking,
+  supportsThinkingExecutionControl,
+} from "components/Chat/engineUtils";
+import {
   Dispatch,
   SetStateAction,
   memo,
@@ -42,7 +46,6 @@ import {
   getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-  getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -50,7 +53,6 @@ import {
   submitMessage,
   transcribeChatAudioWithProfile,
   type ChatHydrationErrorCode,
-  type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
@@ -122,7 +124,7 @@ const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
-export type ProjectChatBlockedErrorCode =
+type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
   | ProjectChatThreadBlockedErrorCode;
 
@@ -142,17 +144,11 @@ export function getDefaultProjectChatPermissionMode(
 export function getProjectChatBlockedReasonMessage(
   errorCode: ProjectChatBlockedErrorCode,
 ): string {
-  if (errorCode === "llm_disallowed") {
-    return "This deployment no longer allows LLM access for managed chat, so this thread cannot hydrate here.";
-  }
   if (errorCode === "chat_not_found") {
     return "This thread was not found during hydration. You can still continue chatting from here.";
   }
   if (errorCode === "chat_provenance_missing") {
     return "This thread is missing provenance metadata. You can continue chatting, but prior hydration may be incomplete.";
-  }
-  if (errorCode === "chat_runtime_ambiguous") {
-    return "This thread matches multiple chat runtimes, so hydration stopped before mixing state. Start a new thread or resolve the duplicate runtime data.";
   }
   if (errorCode === "engine_config_missing") {
     return "This thread's saved engine config is no longer available. You can continue chatting with the currently selected engine.";
@@ -1166,7 +1162,6 @@ function EmptyChatState({
 }
 
 export const ProjectChatCore = memo(function ProjectChatCore({
-  surfaceId,
   chatId,
   draftMessage,
   setDraftMessage,
@@ -1194,9 +1189,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onDraftThreadSettled,
   onThinkingChange,
   onPermissionModeChange,
-  onBlockedErrorCodeChange,
 }: {
-  surfaceId: string;
   chatId: string | null | undefined;
   draftMessage: string;
   setDraftMessage: Dispatch<SetStateAction<string>>;
@@ -1229,17 +1222,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
   ) => void;
-  onBlockedErrorCodeChange?: (
-    errorCode: ProjectChatBlockedErrorCode | null,
-  ) => void;
 }) {
   const { messages, toolCallArguments, waitingForResponse, contextUsage } =
     useAIStore((state) => {
       if (chatId === null) {
-        return (
-          state.pendingChatDetailsBySurfaceId[surfaceId] ??
-          getDefaultChatDetails()
-        );
+        return state.pendingChatDetails ?? getDefaultChatDetails();
       }
       if (typeof chatId !== "string") {
         return getDefaultChatDetails();
@@ -1374,13 +1361,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     onPermissionModeChange(executionSettings.permissionMode);
   }, [executionSettings.permissionMode, onPermissionModeChange]);
   const blockedErrorCode =
-    hydrationBlockedErrorCode ?? hydrationAuthority.blockedErrorCode;
+    hydrationAuthority.blockedErrorCode ?? hydrationBlockedErrorCode;
   const blockedReason = blockedErrorCode
     ? getProjectChatBlockedReasonMessage(blockedErrorCode)
     : null;
-  useEffect(() => {
-    onBlockedErrorCodeChange?.(blockedErrorCode);
-  }, [blockedErrorCode, onBlockedErrorCodeChange]);
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
@@ -1510,21 +1494,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (hydrationAuthority.status !== "ready") {
       return;
     }
-    const shouldProbeMissingProvenance =
-      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
-    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
+    if (hydrationRunType === null) {
       return;
     }
     if (waitingForResponse) {
       return;
     }
-    const cacheKey = shouldProbeMissingProvenance
-      ? `${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
-      : buildProjectChatHydrationCacheKey({
-          chatId,
-          hydrationRunType,
-          hydrationMetadataRevision,
-        });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      chatId,
+      hydrationRunType,
+      hydrationMetadataRevision,
+    });
     if (!cacheKey) {
       return;
     }
@@ -1568,21 +1548,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         });
       touchProjectChatHydrationRetryEntry(state);
       state.status = "in_flight";
-      let hydrationOutcome: ChatHydrationOutcome;
-      if (shouldProbeMissingProvenance) {
-        hydrationOutcome = await getProjectChatHydrationOutcomeWithFallback(
-          chatId,
-          null,
-          hydrationRunType,
-        );
-      } else if (hydrationRunType === "external_agent") {
-        hydrationOutcome = await getExternalAgentChatHydrationOutcome(
-          chatId,
-          null,
-        );
-      } else {
-        hydrationOutcome = await getLLMChatHydrationOutcome(chatId);
-      }
+      const hydrationOutcome =
+        hydrationRunType === "external_agent"
+          ? await getExternalAgentChatHydrationOutcome(chatId, null)
+          : await getLLMChatHydrationOutcome(chatId);
       if (cancelled) {
         return;
       }
@@ -1651,7 +1620,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     chatId,
     clearHydrationRetryTimer,
     hydrationAuthority.status,
-    hydrationAuthority.blockedErrorCode,
     hydrationMetadataRevision,
     hydrationRunType,
     waitingForResponse,
@@ -1666,15 +1634,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (chatId === null) {
       return;
     }
-    initializePendingChatDetails(surfaceId);
+    initializePendingChatDetails();
     setChatId(null);
-  }, [chatId, onDraftThreadStart, onStartNewChat, setChatId, surfaceId]);
+  }, [chatId, onDraftThreadStart, onStartNewChat, setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
       onDraftThreadSettled?.(newChatId, succeeded);
       if (!succeeded || !newChatId) {
-        clearPendingChatDetails(surfaceId);
+        clearPendingChatDetails();
         setChatId((currentChatId) => {
           if (currentChatId !== null) {
             return currentChatId;
@@ -1683,10 +1651,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         });
         return;
       }
-      setChatId(newChatId);
-      finalizePendingChatDetails(newChatId, surfaceId);
+      finalizePendingChatDetails(newChatId);
     },
-    [onDraftThreadSettled, setChatId, surfaceId],
+    [onDraftThreadSettled, setChatId],
   );
 
   const executionControlHandlers = useMemo(
@@ -1871,12 +1838,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           chatId ?? null,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           engineConfigId,
           isExternalEngine,
           {
             continueFromChatId: isFirstDraftSubmit ? newThreadSeedChatId : null,
-            pendingSurfaceId: surfaceId,
             executionSettings: {
               permissionMode: executionSettings.permissionMode,
               searchEnabled: executionSettings.searchEnabled,
@@ -1895,7 +1861,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
-      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -1906,12 +1871,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
   const handleStop = useCallback(async () => {
-    await stopProjectChatResponse(chatId, isExternalEngine, surfaceId);
-  }, [chatId, isExternalEngine, surfaceId]);
+    await stopProjectChatResponse(chatId, isExternalEngine);
+  }, [chatId, isExternalEngine]);
 
   const handleEditMessage = useCallback(
     async (
@@ -1936,20 +1902,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
-        pendingSurfaceId: surfaceId,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
         },
       });
-      if (nextChatId) {
-        setChatId(nextChatId);
-      }
       return Boolean(nextChatId);
     },
     [
@@ -1959,11 +1921,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       messages,
       requiresNewThreadContinuation,
-      setChatId,
-      surfaceId,
-      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -2011,20 +1971,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId: sourceUserMessage.id,
         message: sourceText,
         attachments: sourceAttachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
-        pendingSurfaceId: surfaceId,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
         },
       });
-      if (nextChatId) {
-        setChatId(nextChatId);
-      }
       return Boolean(nextChatId);
     },
     [
@@ -2037,10 +1993,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       messages,
       requiresNewThreadContinuation,
-      setChatId,
-      surfaceId,
-      thinking,
       waitingForResponse,
+      effectiveThinking,
     ],
   );
 
@@ -2091,11 +2045,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [runtimeActivityDetails],
   );
   const showThinkingExecutionControl =
-    engineType === EngineTypeEnum.setta_llm ||
-    engineType === EngineTypeEnum.external_agent;
+    supportsThinkingExecutionControl(engineType);
+  const effectiveThinking = resolveEffectiveThinking({
+    engineType,
+    requestedThinking: thinking,
+  });
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: thinking,
+      thinkingEnabled: effectiveThinking,
       onThinkingEnabledChange: showThinkingExecutionControl
         ? onThinkingChange
         : undefined,
@@ -2105,7 +2062,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      thinking,
+      effectiveThinking,
       onThinkingChange,
       showThinkingExecutionControl,
       executionSettings.permissionMode,
