@@ -102,6 +102,98 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 	}
 }
 
+func TestCurrentEndpointsUseUniqueFunctionsAndRoutes(t *testing.T) {
+	functionNames := make(map[string]EndpointSpec, len(CurrentEndpoints()))
+	routeMethods := make(map[string]EndpointSpec, len(CurrentEndpoints()))
+
+	for _, spec := range CurrentEndpoints() {
+		if previous, exists := functionNames[spec.FunctionName]; exists {
+			t.Fatalf(
+				"duplicate endpoint function %q for %s %s.%s and %s %s.%s",
+				spec.FunctionName,
+				previous.Method,
+				previous.RouteCollection,
+				previous.RouteName,
+				spec.Method,
+				spec.RouteCollection,
+				spec.RouteName,
+			)
+		}
+		functionNames[spec.FunctionName] = spec
+
+		routeMethodKey := spec.Method + " " + spec.RouteCollection + "." + spec.RouteName
+		if previous, exists := routeMethods[routeMethodKey]; exists {
+			t.Fatalf(
+				"duplicate endpoint route binding %q for %s and %s",
+				routeMethodKey,
+				previous.FunctionName,
+				spec.FunctionName,
+			)
+		}
+		routeMethods[routeMethodKey] = spec
+	}
+}
+
+func TestCurrentRouteGroupsClassifyEveryConvertedRoute(t *testing.T) {
+	expectedRouteOnly := map[string]map[string]struct{}{
+		"GoRoutePrefixes": {
+			"api": {},
+		},
+		"GoRootRoutes": {
+			"bootstrapPage":    {},
+			"bootstrapConsume": {},
+			"toolsCall":        {},
+		},
+		"GoHTTPRoutes": {},
+		"GoWebsocketRoutes": {
+			"frontend":          {},
+			"listenerById":      {},
+			"terminalBySection": {},
+		},
+	}
+
+	endpointRoutes := make(map[string]map[string]struct{})
+	for _, spec := range CurrentEndpoints() {
+		if _, exists := endpointRoutes[spec.RouteCollection]; !exists {
+			endpointRoutes[spec.RouteCollection] = map[string]struct{}{}
+		}
+		endpointRoutes[spec.RouteCollection][spec.RouteName] = struct{}{}
+	}
+
+	for _, group := range CurrentRouteGroups() {
+		groupEndpointRoutes := endpointRoutes[group.ConstName]
+		groupRouteOnly, exists := expectedRouteOnly[group.ConstName]
+		if !exists {
+			t.Fatalf("missing expected route classification bucket for %q", group.ConstName)
+		}
+
+		routeNames := make(map[string]struct{}, len(group.Routes))
+		unclassified := make([]string, 0)
+		for _, route := range group.Routes {
+			routeNames[route.Name] = struct{}{}
+			_, endpointBacked := groupEndpointRoutes[route.Name]
+			_, routeOnly := groupRouteOnly[route.Name]
+			if endpointBacked && routeOnly {
+				t.Fatalf("route %s.%s is marked as both endpoint-backed and route-only", group.ConstName, route.Name)
+			}
+			if endpointBacked || routeOnly {
+				continue
+			}
+			unclassified = append(unclassified, route.Name)
+		}
+
+		if len(unclassified) > 0 {
+			t.Fatalf("route group %s has unclassified converted routes: %v", group.ConstName, unclassified)
+		}
+
+		for routeName := range groupRouteOnly {
+			if _, exists := routeNames[routeName]; !exists {
+				t.Fatalf("route group %s marks missing route-only entry %q", group.ConstName, routeName)
+			}
+		}
+	}
+}
+
 func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 	bindings, err := Build()
 	if err != nil {
