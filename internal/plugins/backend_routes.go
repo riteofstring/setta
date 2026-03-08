@@ -121,6 +121,28 @@ func (r *BackendRouterRegistry) Registrations() []RegisteredBackendRouter {
 	return registrations
 }
 
+func (r *BackendRouterRegistry) HasRoute(pluginID string, routeID string) bool {
+	if r == nil {
+		return false
+	}
+
+	trimmedPluginID := strings.TrimSpace(pluginID)
+	trimmedRouteID := strings.TrimSpace(routeID)
+	if trimmedPluginID == "" || trimmedRouteID == "" {
+		return false
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	knownRouteIDs := r.byPluginID[trimmedPluginID]
+	if knownRouteIDs == nil {
+		return false
+	}
+	_, ok := knownRouteIDs[trimmedRouteID]
+	return ok
+}
+
 func normalizeOptionalWorkerRoutePrefix(prefix *string) (string, error) {
 	if prefix == nil {
 		return "", nil

@@ -940,9 +940,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 	}
 	if modePolicy.IsIDE() && pluginDiscovery != nil && pluginWorkerRuntime != nil {
+		pluginProjectStateReader, err := plugins.NewRuntimeProjectStateReader(plugins.RuntimeProjectStateReaderOptions{
+			ProjectState: projectRuntime,
+			Deployment:   deploymentRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		pluginBackendRoutes, err = plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
 			DiscoveryService: pluginDiscovery,
 			RuntimeProvider:  pluginWorkerRuntime,
+			ListenerProducer: listenerProducer,
+			ProjectStateRead: pluginProjectStateReader,
 			ServerMode:       cfg.Server.Mode,
 			Logger:           logger,
 		})

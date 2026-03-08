@@ -16,6 +16,7 @@ const (
 	workerRPCVersion                  = "2.0"
 	workerRPCTransportErrorCode       = "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
 	workerRPCCapabilityDeniedCode     = "PLUGIN_CAPABILITY_DENIED"
+	workerRPCProjectStateReadFailed   = "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED"
 	workerRPCRegisterFailedCode       = "PLUGIN_BACKEND_REGISTER_FAILED"
 	workerRPCListenerEmitFailedCode   = "PLUGIN_BACKEND_LISTENER_EMIT_FAILED"
 	workerRPCInvalidErrorPayloadLabel = "backend worker returned an invalid error payload"
@@ -288,10 +289,15 @@ func workerHostDispatchErrorCode(err error) string {
 	case errors.Is(err, ErrWorkerHostCapabilityDenied):
 		return workerRPCCapabilityDeniedCode
 	case errors.Is(err, ErrWorkerHostLanguageServerRegistrarRequired),
+		errors.Is(err, ErrWorkerHostListenerEndpointRegistrarRequired),
 		errors.Is(err, ErrWorkerHostExternalAgentRegistrarRequired),
 		errors.Is(err, ErrWorkerHostCodegenTargetRegistrarNeeded),
 		errors.Is(err, ErrWorkerHostPluginIDRequired),
 		errors.Is(err, ErrWorkerHostPluginRootRequired),
+		errors.Is(err, ErrWorkerHostListenerEndpointRequired),
+		errors.Is(err, ErrWorkerHostListenerEndpointNameRequired),
+		errors.Is(err, ErrWorkerHostListenerEndpointRouteIDRequired),
+		errors.Is(err, ErrWorkerHostListenerEndpointUnknownRoute),
 		errors.Is(err, ErrWorkerHostLanguageServerRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerLanguageRequired),
 		errors.Is(err, ErrWorkerHostLanguageServerLanguageInvalid),
@@ -316,10 +322,16 @@ func workerHostDispatchErrorCode(err error) string {
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageNeeded),
 		errors.Is(err, ErrWorkerHostCodegenTargetLanguageInvalid),
 		errors.Is(err, ErrWorkerHostCodegenHandlerIDRequired),
+		errors.Is(err, ErrBackendListenerEndpointRegistrationConflict),
 		errors.Is(err, ErrLanguageServerRegistrationConflict),
 		errors.Is(err, ErrExternalAgentAdapterRegistrationConflict),
 		errors.Is(err, ErrCodegenTargetRegistrationConflict):
 		return workerRPCRegisterFailedCode
+	case errors.Is(err, ErrWorkerHostProjectStateReaderRequired),
+		errors.Is(err, ErrWorkerHostProjectStateReadFailed),
+		errors.Is(err, ErrWorkerHostProjectStateProjectIDRequired),
+		errors.Is(err, ErrWorkerHostProjectStateViewInvalid):
+		return workerRPCProjectStateReadFailed
 	default:
 		return workerRPCListenerEmitFailedCode
 	}

@@ -2,143 +2,89 @@
 
 ## Purpose
 
-This doc scopes the next bounded plugin backend-host slice after the landed
-backend static-dir runtime.
+This doc records the bounded Phase 15 slice that moved plugin worker-host
+`host.read_project_state` plus `host.register_listener_endpoint` registration
+capture into Go without widening into listener-router websocket dispatch or
+mutation-time runtime refresh.
 
-The goal is to let backend plugins complete `plugin.register(...)` when they
-call:
+## Status
 
-- `plugin.read_project_state(...)`
-- `plugin.register_listener_endpoint(...)`
+Landed on 2026-03-09.
 
-without widening into listener-router websocket dispatch or mutation-time
-runtime refresh.
+Go now owns:
 
-## Current Status
+- worker-host `host.read_project_state`
+- worker-host `host.register_listener_endpoint`
+- typed backend runtime capture for plugin listener-endpoint registrations
+- live project-state reads for backend plugin route calls and MCP tool calls in
+  IDE mode
+- backend worker access to listener dependency-event emission through the Go
+  listener producer
 
-As of 2026-03-09:
+This closes the shared backend fixture gap that previously still depended on the
+Python manager for:
 
-- Go already owns:
-  - backend plugin route runtime and `/api/plugins/{pluginId}/...` transport
-  - backend plugin MCP tool runtime
-  - backend plugin static-dir serving
-  - backend worker host support for:
-    - `host.register_router`
-    - `host.register_static_dir`
-    - `host.register_mcp_tool`
-    - `host.emit_listener_dependency_event`
-- Go does not yet own:
+- listener-endpoint registration during `plugin.register(...)`
+- route-time `plugin.read_project_state(...)`
+- MCP-tool `plugin.read_project_state(...)`
+
+## Implementation
+
+- added a typed `ProjectStateReader` in `internal/plugins`
+  - reads from `projectstate.Runtime` / `deployments.Runtime`
+  - builds `summary` payloads from a shared `internal/projectview`
+    summary builder instead of duplicating a Python-shaped transform
+- added a typed backend listener-endpoint registry in `internal/plugins`
+  - validates that registered route ids belong to the same plugin router
+  - stores normalized registrations for later dispatch work
+- extended `WorkerHost` to handle:
   - `host.read_project_state`
   - `host.register_listener_endpoint`
-- this blocks the shared Python backend fixture from registering cleanly in Go,
-  because that fixture currently:
-  - registers a router
-  - registers a listener endpoint
-  - exposes a route that reads project state
-  - exposes an MCP tool that reads project state
-- current concrete Python reference material for this gap lives in:
-  - `backend/setta/plugins/worker.py`
-  - `backend/setta/plugins/manager.py`
-  - `tests/plugins/test_plugin_worker.py`
-  - `tests/plugins/test_plugin_manager.py`
-  - `tests/server_state/test_ide_state_plugins.py`
-  - `tests/fixtures/plugins/backend/`
+- extended `BackendRouteRuntime` startup so one worker registration pass now
+  captures:
+  - routes
+  - MCP tools
+  - static dirs
+  - listener endpoints
+- wired the real IDE app runtime into backend workers
+  - live main project-state runtime for reads
+  - live listener producer for backend listener emits
 
-## Scope
+## Decisions
 
-This slice should cover only:
+- kept listener-endpoint work split into registration and dispatch
+  - this slice captures registrations only
+  - websocket invocation/dispatch remains deferred
+- kept project-state reads on the Go source of truth
+  - snapshots come from the live Go runtimes
+  - summary payloads reuse the shared Go `projectview` builder
+- wired listener emit support now because the shared backend fixture already
+  exposes emit routes and those calls would otherwise still fail under Go-owned
+  backend runtime
 
-- worker-host support for `host.read_project_state`
-- worker-host support for `host.register_listener_endpoint`
-- typed backend runtime capture for listener-endpoint registrations
-- project-state reads for live backend workers during startup, route calls, and
-  MCP tool calls
-- focused tests proving:
-  - register-time project-state reads succeed
-  - backend fixture routes can read project state
-  - backend fixture MCP tools can read project state
-  - listener-endpoint registrations are captured during startup
+## Deferred
 
-## Non-Goals
+- listener-router websocket dispatch for plugin-owned listener endpoints
+- plugin listener-endpoint invocation transport
+- mutation-time backend runtime refresh after plugin install/link/rescan/update
+  flows
+- built-in listener-endpoint-name conflict validation
+  - Go does not yet have a listener-router endpoint source of truth equivalent
+    to the later dispatch surface
+  - this slice avoided inventing a heuristic placeholder list
 
-- listener-router websocket dispatch for plugin-owned endpoints
-- plugin listener endpoint invocation from Go transports
-- plugin runtime refresh/hot-reload after install/link/rescan/update flows
-- widening backend runtime ownership into share/app transport
+## Verification
 
-## Inputs
-
-- `docs/plans/go-backend-rewrite/README.md`
-- `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
-- `docs/plans/go-backend-rewrite/phase-15-plugin-backend-route-runtime-and-transport.md`
-- `docs/plans/go-backend-rewrite/phase-15-plugin-backend-mcp-tool-runtime.md`
-- `docs/plans/go-backend-rewrite/phase-15-plugin-static-dir-runtime.md`
-- `backend/setta/plugins/worker.py`
-- `backend/setta/plugins/manager.py`
-- `tests/plugins/test_plugin_worker.py`
-- `tests/plugins/test_plugin_manager.py`
-- `tests/server_state/test_ide_state_plugins.py`
-- `tests/fixtures/plugins/backend/`
-- `internal/plugins/worker_host.go`
-- `internal/plugins/backend_route_runtime.go`
-- `internal/projectview/single_config.go`
-- `internal/mcpx/project_summary.go`
-- `internal/app/app.go`
-
-## Working Decisions
-
-- keep listener-endpoint work split into registration and dispatch
-  - this slice captures plugin listener-endpoint registrations so startup can
-    succeed
-  - actual listener-router websocket dispatch remains a later follow-on
-- prefer the existing Go project-state source of truth
-  - use `projectstate.Runtime` / `deployments.Runtime` snapshots and
-    `projectview` transforms instead of heuristics or Python-shaped shims
-- support the real backend fixture directly
-  - do not fork the fixture or bypass listener registration just to make
-    project-state reads work
-- keep transport boundaries thin
-  - worker-host dispatch should validate inputs and delegate to typed readers /
-    registries
-
-## Recommended Design
-
-1. Add worker-host support for `host.register_listener_endpoint`.
-   - normalize endpoint name / route id
-   - validate that the referenced route id belongs to the same plugin
-   - capture registrations in a typed registry for later dispatch work
-
-2. Add worker-host support for `host.read_project_state`.
-   - validate project id, view, and share session inputs
-   - read from the current Go project-state runtime snapshot
-   - return either summary or full project-state payloads
-
-3. Extend backend runtime startup to include listener-endpoint registrations.
-   - route/tool/static/listener registrations should still share one startup
-     pass
-   - this slice only needs registration capture, not runtime dispatch
-
-4. Wire the real app runtime into the worker host.
-   - IDE mode should provide the live main project-state runtime
-   - deployment-aware shape can remain bounded to the existing typed interface
-
-## Test Strategy
-
-- `internal/plugins`
-  - worker-host listener registration validation
-  - worker-host read-project-state validation and payload shape
-  - backend runtime startup captures listener registrations
-  - backend fixture route and MCP tool can read project state
-- `internal/app`
-  - real app serves the backend fixture route that reads project state
-  - real app MCP server can invoke the backend fixture tool that reads project
-    state
+- `./scripts/go.sh test ./internal/plugins -run 'Test(WorkerHost(RegisterListenerEndpoint(NormalizesRegistration|RequiresCapability)|ReadProjectStateReturnsSummary)|BackendRouteRuntime(ProxiesFixtureRoutePayloads|InvokesToolOnlyFixtureMCPTools|SupportsMixedRouteAndMCPFixtures|ResolvesStaticOnlyFixtureAssets|SupportsMixedRouteAndStaticFixtures|SupportsProjectStateReadsAndListenerRegistrations))' -count=1`
+- `./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|ProjectStateSummaryCanUsePerCallMeta)' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestApp(ServesPluginBackendRoutes|ServesPluginBackendStaticAssets|ServesPluginRuntimeWithBackendRegistrations|ServesPluginBackendProjectStateAndListenerRoutes|IDEMCPServerRegistersPluginBackendMCPTools|IDEMCPServerInvokesPluginBackendProjectStateTool)' -count=1`
 
 ## Next Recommended Step
 
-Implement this slice in a bounded way:
+Do not widen plugin backend-host work speculatively.
 
-1. listener-endpoint registration capture
-2. `host.read_project_state`
-3. backend runtime/app wiring
-4. focused plugin/app verification
+The next concrete follow-on should only start when a caller requires one of:
+
+- plugin listener-endpoint websocket dispatch
+- backend runtime refresh after plugin mutation flows
+- any remaining share/app-mode backend-host ownership that cannot stay deferred

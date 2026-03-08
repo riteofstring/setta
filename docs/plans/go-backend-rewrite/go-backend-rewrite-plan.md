@@ -647,19 +647,23 @@ The bounded plugin backend static-dir follow-on tracked in
   actually needed
 - static-dir-only plugins now register, persist typed source roots, and close
   immediately instead of keeping an idle worker alive
-- listener-endpoint dispatch, `host.read_project_state`, and plugin runtime
-  refresh remain deferred until a concrete caller requires one of those
-  surfaces
+- listener-endpoint dispatch and plugin runtime refresh remain deferred until a
+  concrete caller requires one of those surfaces
 
-The next bounded plugin backend follow-on is now opened in
+The next bounded plugin backend follow-on tracked in
 `phase-15-plugin-read-project-state-and-listener-registration-runtime.md`:
 
-- the target is worker-host `host.read_project_state` plus
-  `host.register_listener_endpoint` registration capture
-- this is the smallest slice that lets the shared backend fixture register
-  cleanly in Go without widening into listener-router websocket dispatch
-- actual listener-endpoint invocation/dispatch and mutation-time runtime
-  refresh remain deferred outside that slice
+- Go now owns worker-host `host.read_project_state` plus
+  `host.register_listener_endpoint` registration capture in IDE mode
+- backend workers now read live project-state snapshots from the Go runtime for
+  backend fixture route calls and MCP tool calls
+- backend runtime startup now captures listener-endpoint registrations alongside
+  routes, MCP tools, and static dirs
+- backend worker listener emits now flow through the Go listener producer, which
+  closes the remaining backend fixture transport gap under the Go runtime
+- actual listener-endpoint websocket dispatch, built-in endpoint-name conflict
+  validation, and mutation-time runtime refresh remain deferred until a
+  concrete caller requires them
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

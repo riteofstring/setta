@@ -606,6 +606,107 @@ func TestAppServesPluginBackendRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesPluginBackendProjectStateAndListenerRoutes(t *testing.T) {
+	// The real app should let backend fixture routes read live project state and emit listener events through the Go worker host.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend")
+	if err := saveAppMainProjectDocument(t, cfg, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "fixture-project",
+		Projects: map[string]projectstate.Project{
+			"fixture-project": {
+				ID:   "fixture-project",
+				Name: "Fixture Project",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("save app project document: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	projectStateRequest, err := http.NewRequest(
+		http.MethodGet,
+		server.URL+"/api/plugins/setta-fixture-backend/project-state-summary?projectConfigId=fixture-project",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new project-state request: %v", err)
+	}
+	projectStateRequest.AddCookie(authCookie)
+	projectStateResponse, err := http.DefaultClient.Do(projectStateRequest)
+	if err != nil {
+		t.Fatalf("get project-state response: %v", err)
+	}
+	defer projectStateResponse.Body.Close()
+	if projectStateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(projectStateResponse.Body)
+		t.Fatalf("expected project-state route 200, got %d with body %q", projectStateResponse.StatusCode, string(body))
+	}
+
+	var projectStatePayload struct {
+		View         string `json:"view"`
+		ProjectState struct {
+			ProjectConfig struct {
+				ID string `json:"id"`
+			} `json:"projectConfig"`
+		} `json:"projectState"`
+	}
+	if err := json.NewDecoder(projectStateResponse.Body).Decode(&projectStatePayload); err != nil {
+		t.Fatalf("decode project-state payload: %v", err)
+	}
+	if projectStatePayload.View != "summary" || projectStatePayload.ProjectState.ProjectConfig.ID != "fixture-project" {
+		t.Fatalf("unexpected project-state payload %#v", projectStatePayload)
+	}
+
+	emitRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api/plugins/setta-fixture-backend/emit-listener",
+		strings.NewReader(`{"projectConfigId":"fixture-project","sectionId":"fixture-section","payload":"hello","timestampMs":123}`),
+	)
+	if err != nil {
+		t.Fatalf("new emit-listener request: %v", err)
+	}
+	emitRequest.Header.Set("Content-Type", "application/json")
+	emitRequest.AddCookie(authCookie)
+	emitResponse, err := http.DefaultClient.Do(emitRequest)
+	if err != nil {
+		t.Fatalf("post emit-listener response: %v", err)
+	}
+	defer emitResponse.Body.Close()
+	if emitResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(emitResponse.Body)
+		t.Fatalf("expected emit-listener route 200, got %d with body %q", emitResponse.StatusCode, string(body))
+	}
+
+	var emitPayload struct {
+		Emitted         bool   `json:"emitted"`
+		ProjectConfigID string `json:"projectConfigId"`
+	}
+	if err := json.NewDecoder(emitResponse.Body).Decode(&emitPayload); err != nil {
+		t.Fatalf("decode emit-listener payload: %v", err)
+	}
+	if !emitPayload.Emitted || emitPayload.ProjectConfigID != "fixture-project" {
+		t.Fatalf("unexpected emit-listener payload %#v", emitPayload)
+	}
+}
+
 func TestAppServesPluginBackendStaticAssets(t *testing.T) {
 	// The real app should start static-dir-owning backend plugins at startup and serve authenticated plugin-static assets.
 	cfg := testConfig(t)

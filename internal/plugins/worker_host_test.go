@@ -127,6 +127,95 @@ func TestWorkerHostRegisterRouterRequiresCapability(t *testing.T) {
 	}
 }
 
+// Listener-endpoint registration should normalize endpoint names and require a route owned by the same plugin.
+func TestWorkerHostRegisterListenerEndpointNormalizesRegistration(t *testing.T) {
+	t.Parallel()
+
+	routers := NewBackendRouterRegistry()
+	if err := routers.RegisterRouter(context.Background(), RegisteredBackendRouter{
+		PluginID: "fixture-plugin",
+		Routes: []RegisteredBackendRoute{
+			{
+				RouteID: "route_1",
+				Path:    "/listener",
+				Methods: []string{http.MethodPost},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register router fixture: %v", err)
+	}
+
+	registry := NewBackendListenerEndpointRegistry(routers)
+	host, err := NewWorkerHost(WorkerHostOptions{
+		ListenerEndpointRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterListenerEndpoint(context.Background(), WorkerContext{
+		PluginID:              "fixture-plugin",
+		EffectiveCapabilities: []string{CapabilityRegisterListenerEndpoint},
+	}, RegisterListenerEndpointRequest{
+		EndpointName: " fixture_listener ",
+		RouteID:      " route_1 ",
+	})
+	if err != nil {
+		t.Fatalf("register listener endpoint: %v", err)
+	}
+
+	registrations := registry.Registrations()
+	if len(registrations) != 1 {
+		t.Fatalf("expected 1 listener endpoint registration, got %#v", registrations)
+	}
+	if registrations[0].PluginID != "fixture-plugin" {
+		t.Fatalf("expected fixture-plugin, got %q", registrations[0].PluginID)
+	}
+	if registrations[0].EndpointName != "fixture_listener" {
+		t.Fatalf("expected trimmed endpoint name, got %q", registrations[0].EndpointName)
+	}
+	if registrations[0].RouteID != "route_1" {
+		t.Fatalf("expected trimmed route id, got %q", registrations[0].RouteID)
+	}
+}
+
+// Listener-endpoint registration should require the explicit worker capability before mutating runtime state.
+func TestWorkerHostRegisterListenerEndpointRequiresCapability(t *testing.T) {
+	t.Parallel()
+
+	routers := NewBackendRouterRegistry()
+	if err := routers.RegisterRouter(context.Background(), RegisteredBackendRouter{
+		PluginID: "fixture-plugin",
+		Routes: []RegisteredBackendRoute{
+			{
+				RouteID: "route_1",
+				Path:    "/listener",
+				Methods: []string{http.MethodPost},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register router fixture: %v", err)
+	}
+
+	registry := NewBackendListenerEndpointRegistry(routers)
+	host, err := NewWorkerHost(WorkerHostOptions{
+		ListenerEndpointRegistrar: registry,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	err = host.RegisterListenerEndpoint(context.Background(), WorkerContext{
+		PluginID: "fixture-plugin",
+	}, RegisterListenerEndpointRequest{
+		EndpointName: "fixture_listener",
+		RouteID:      "route_1",
+	})
+	if !errors.Is(err, ErrWorkerHostCapabilityDenied) {
+		t.Fatalf("expected capability-denied error, got %v", err)
+	}
+}
+
 // Static-dir registration should resolve plugin-root-relative directories and normalize the published URL prefix.
 func TestWorkerHostRegisterStaticDirNormalizesRegistration(t *testing.T) {
 	t.Parallel()
@@ -318,6 +407,66 @@ func TestWorkerHostRegisterMCPToolNormalizesRegistration(t *testing.T) {
 	}
 	if registration.Metadata.SearchCategory != "project" {
 		t.Fatalf("expected project search category, got %q", registration.Metadata.SearchCategory)
+	}
+}
+
+// Project-state reads should return summary payloads from the live runtime when the worker capability is enabled.
+func TestWorkerHostReadProjectStateReturnsSummary(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := newWorkerHostTestProjectRuntime(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-a",
+		Projects: map[string]projectstate.Project{
+			"project-a": {
+				ID:   "project-a",
+				Name: "Project A",
+			},
+		},
+	})
+	reader, err := NewRuntimeProjectStateReader(RuntimeProjectStateReaderOptions{
+		ProjectState: projectRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new project state reader: %v", err)
+	}
+
+	host, err := NewWorkerHost(WorkerHostOptions{
+		ProjectStateReader: reader,
+	})
+	if err != nil {
+		t.Fatalf("new worker host: %v", err)
+	}
+
+	result, err := host.ReadProjectState(context.Background(), WorkerContext{
+		PluginID:              "fixture-plugin",
+		EffectiveCapabilities: []string{CapabilityReadProjectState},
+	}, ReadProjectStateRequest{
+		ProjectID: "project-a",
+		View:      ProjectStateViewSummary,
+	})
+	if err != nil {
+		t.Fatalf("read project state: %v", err)
+	}
+	if result.View != ProjectStateViewSummary {
+		t.Fatalf("expected summary view, got %q", result.View)
+	}
+
+	encoded, err := json.Marshal(result.ProjectState)
+	if err != nil {
+		t.Fatalf("marshal project state summary: %v", err)
+	}
+
+	var payload struct {
+		ProjectConfig struct {
+			ID string `json:"id"`
+		} `json:"projectConfig"`
+	}
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatalf("decode project state summary: %v", err)
+	}
+	if payload.ProjectConfig.ID != "project-a" {
+		t.Fatalf("expected project-a summary id, got %#v", payload.ProjectConfig.ID)
 	}
 }
 
@@ -743,6 +892,28 @@ func newWorkerHostTestDeploymentRuntime(t *testing.T, now *time.Time) *deploymen
 		}
 	})
 	return deploymentRuntime
+}
+
+func newWorkerHostTestProjectRuntime(t *testing.T, document projectstate.Document) *projectstate.Runtime {
+	t.Helper()
+
+	root := t.TempDir()
+	writeWorkerHostJSON(t, filepath.Join(root, projectstate.MainFileName), document)
+
+	store, err := projectstate.NewStore(filepath.Join(root, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new worker-host project store: %v", err)
+	}
+	projectRuntime, err := projectstate.OpenRuntime(context.Background(), store)
+	if err != nil {
+		t.Fatalf("open worker-host project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close worker-host project runtime: %v", err)
+		}
+	})
+	return projectRuntime
 }
 
 func writeWorkerHostJSON(t *testing.T, path string, value any) {

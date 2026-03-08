@@ -467,6 +467,86 @@ func TestAppIDEMCPServerRegistersPluginBackendMCPTools(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPServerInvokesPluginBackendProjectStateTool(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	installAppPluginFixture(t, cfg, "backend", "setta-fixture-backend")
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	toolsResult, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+	var summaryTool *sdkmcp.Tool
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "setta_fixture_backend_project_summary" {
+			summaryTool = tool
+			break
+		}
+	}
+	if summaryTool == nil {
+		t.Fatalf("expected backend project summary tool in list, got %#v", toolsResult.Tools)
+	}
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-section",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "setta_fixture_backend_project_summary",
+		Arguments: map[string]any{
+			"project_config_id": "project-alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call backend project summary tool: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected backend project summary tool success, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	projectConfig := mustStructuredMapValue(t, payload["projectConfig"])
+	if projectConfig["id"] != "project-alpha" {
+		t.Fatalf("unexpected backend project summary payload %#v", result.StructuredContent)
+	}
+}
+
 func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

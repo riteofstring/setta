@@ -635,8 +635,9 @@ Use the docs in this order:
   - focused completed-slice doc for Go-owned plugin lockfile write/apply
     transport over the existing shared plugin lockfile service
 174. `phase-15-plugin-read-project-state-and-listener-registration-runtime.md`
-  - focused current-work doc for worker-host `read_project_state` plus
-    listener-endpoint registration capture needed by the shared backend fixture
+  - focused completed-slice doc for Go-owned worker-host
+    `read_project_state`, listener-endpoint registration capture, and backend
+    fixture project-state reads over the live IDE runtime
 175. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 176. `spike-pty.md`

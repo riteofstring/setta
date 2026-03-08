@@ -16,6 +16,7 @@ import (
 	"unicode/utf8"
 
 	"setta/internal/config"
+	"setta/internal/realtime"
 	"setta/internal/statefs"
 )
 
@@ -28,6 +29,8 @@ var (
 type BackendRouteRuntimeOptions struct {
 	DiscoveryService *DiscoveryService
 	RuntimeProvider  WorkerRuntimeProvider
+	ListenerProducer *realtime.ListenerProducer
+	ProjectStateRead ProjectStateReader
 	ServerMode       config.Mode
 	Logger           *slog.Logger
 }
@@ -35,9 +38,13 @@ type BackendRouteRuntimeOptions struct {
 type BackendRouteRuntime struct {
 	logger *slog.Logger
 
+	listenerProducer *realtime.ListenerProducer
+	projectStateRead ProjectStateReader
+
 	routes      []BackendRoute
 	mcpTools    []RegisteredMCPTool
 	staticDirs  []RegisteredBackendStaticDir
+	listeners   []RegisteredBackendListenerEndpoint
 	sessions    map[string]*StartedWorkerSession
 	routeByID   map[string]BackendRoute
 	mcpToolByID map[string]RegisteredMCPTool
@@ -126,14 +133,17 @@ func NewBackendRouteRuntime(ctx context.Context, options BackendRouteRuntimeOpti
 
 	runtimePlugins := collectBackendRuntimePlugins(snapshot.Plugins)
 	runtime := &BackendRouteRuntime{
-		logger:      options.Logger,
-		routes:      []BackendRoute{},
-		mcpTools:    []RegisteredMCPTool{},
-		staticDirs:  []RegisteredBackendStaticDir{},
-		sessions:    map[string]*StartedWorkerSession{},
-		routeByID:   map[string]BackendRoute{},
-		mcpToolByID: map[string]RegisteredMCPTool{},
-		staticByPID: map[string][]RegisteredBackendStaticDir{},
+		logger:           options.Logger,
+		listenerProducer: options.ListenerProducer,
+		projectStateRead: options.ProjectStateRead,
+		routes:           []BackendRoute{},
+		mcpTools:         []RegisteredMCPTool{},
+		staticDirs:       []RegisteredBackendStaticDir{},
+		listeners:        []RegisteredBackendListenerEndpoint{},
+		sessions:         map[string]*StartedWorkerSession{},
+		routeByID:        map[string]BackendRoute{},
+		mcpToolByID:      map[string]RegisteredMCPTool{},
+		staticByPID:      map[string][]RegisteredBackendStaticDir{},
 	}
 	if len(runtimePlugins) == 0 {
 		return runtime, nil
@@ -191,6 +201,16 @@ func (r *BackendRouteRuntime) StaticDirs() []RegisteredBackendStaticDir {
 
 	registrations := make([]RegisteredBackendStaticDir, len(r.staticDirs))
 	copy(registrations, r.staticDirs)
+	return registrations
+}
+
+func (r *BackendRouteRuntime) ListenerEndpoints() []RegisteredBackendListenerEndpoint {
+	if r == nil || len(r.listeners) == 0 {
+		return nil
+	}
+
+	registrations := make([]RegisteredBackendListenerEndpoint, len(r.listeners))
+	copy(registrations, r.listeners)
 	return registrations
 }
 
@@ -400,12 +420,16 @@ func (r *BackendRouteRuntime) startPlugin(
 	}
 
 	routers := NewBackendRouterRegistry()
+	listeners := NewBackendListenerEndpointRegistry(routers)
 	staticDirs := NewBackendStaticDirRegistry()
 	mcpTools := NewMCPToolRegistry()
 	languageServers := NewLanguageServerRegistry()
 	externalAgentAdapters := NewExternalAgentAdapterRegistry()
 	codegenTargets := NewCodegenTargetRegistry()
 	host, err := NewWorkerHost(WorkerHostOptions{
+		ListenerProducer:              r.listenerProducer,
+		ListenerEndpointRegistrar:     listeners,
+		ProjectStateReader:            r.projectStateRead,
 		RouterRegistrar:               routers,
 		StaticDirRegistrar:            staticDirs,
 		MCPToolRegistrar:              mcpTools,
@@ -439,6 +463,7 @@ func (r *BackendRouteRuntime) startPlugin(
 
 	registrations := routers.Registrations()
 	routes := flattenRegisteredBackendRoutes(registrations)
+	listenerRegistrations := listeners.Registrations()
 	staticDirRegistrations := staticDirs.Registrations()
 	toolRegistrations := mcpTools.Registrations()
 	keepSession := len(routes) != 0 || len(toolRegistrations) != 0
@@ -458,6 +483,9 @@ func (r *BackendRouteRuntime) startPlugin(
 	for _, registration := range toolRegistrations {
 		r.mcpTools = append(r.mcpTools, registration)
 		r.mcpToolByID[registration.Name] = registration
+	}
+	for _, registration := range listenerRegistrations {
+		r.listeners = append(r.listeners, registration)
 	}
 	for _, registration := range staticDirRegistrations {
 		r.staticDirs = append(r.staticDirs, registration)

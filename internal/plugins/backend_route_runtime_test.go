@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"setta/internal/config"
+	"setta/internal/projectstate"
+	"setta/internal/realtime"
 )
 
 // The live backend route runtime should start mixed route+language-server plugins and proxy request/response payloads over the worker RPC boundary.
@@ -136,6 +138,85 @@ func TestBackendRouteRuntimeInvokesToolOnlyFixtureMCPTools(t *testing.T) {
 	}
 	if result != "read:setta-fixture-backend-mcp-tools:alpha" {
 		t.Fatalf("unexpected read tool result %#v", result)
+	}
+}
+
+// Backend fixture plugins should capture listener-endpoint registrations and support project-state reads over both routes and MCP tools.
+func TestBackendRouteRuntimeSupportsProjectStateReadsAndListenerRegistrations(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend")
+
+	projectRuntime := newWorkerHostTestProjectRuntime(t, projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "fixture-project",
+		Projects: map[string]projectstate.Project{
+			"fixture-project": {
+				ID:   "fixture-project",
+				Name: "Fixture Project",
+			},
+		},
+	})
+	reader, err := NewRuntimeProjectStateReader(RuntimeProjectStateReaderOptions{
+		ProjectState: projectRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new project state reader: %v", err)
+	}
+
+	runtime := mustNewBackendRouteRuntimeWithOptions(t, roots, config.ModeIDE, reader, nil)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close backend route runtime: %v", err)
+		}
+	}()
+
+	listenerEndpoints := runtime.ListenerEndpoints()
+	if len(listenerEndpoints) != 1 {
+		t.Fatalf("expected 1 listener endpoint registration, got %#v", listenerEndpoints)
+	}
+	if listenerEndpoints[0].EndpointName != "fixture_listener_endpoint" {
+		t.Fatalf("expected fixture listener endpoint registration, got %#v", listenerEndpoints[0])
+	}
+	if _, ok := runtime.routeByID["setta-fixture-backend:"+listenerEndpoints[0].RouteID]; !ok {
+		t.Fatalf("expected listener endpoint route id to match a registered route, got %#v", listenerEndpoints[0])
+	}
+
+	route := mustFindBackendRoute(t, runtime.Routes(), "/project-state-summary")
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"http://setta.test"+route.Pattern+"?projectConfigId=fixture-project",
+		nil,
+	)
+	response, err := runtime.ProxyRoute(context.Background(), route, request, nil)
+	if err != nil {
+		t.Fatalf("proxy project-state route: %v", err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected project-state route status 200, got %#v", response.StatusCode)
+	}
+	payload := decodeBackendRouteBodyMap(t, response)
+	projectState, ok := payload["projectState"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected projectState object, got %#v", payload["projectState"])
+	}
+	projectConfig, ok := projectState["projectConfig"].(map[string]any)
+	if !ok || projectConfig["id"] != "fixture-project" {
+		t.Fatalf("unexpected project-state route payload %#v", payload)
+	}
+
+	result, err := runtime.InvokeMCPTool(context.Background(), "setta_fixture_backend_project_summary", map[string]any{
+		"project_config_id": "fixture-project",
+	})
+	if err != nil {
+		t.Fatalf("invoke project summary tool: %v", err)
+	}
+	projectSummary, ok := result.(map[string]any)
+	if !ok {
+		t.Fatalf("expected map project summary result, got %#v", result)
+	}
+	projectConfig, ok = projectSummary["projectConfig"].(map[string]any)
+	if !ok || projectConfig["id"] != "fixture-project" {
+		t.Fatalf("unexpected project summary tool result %#v", result)
 	}
 }
 
@@ -300,6 +381,18 @@ func TestBackendRouteRuntimeSupportsMixedRouteAndStaticFixtures(t *testing.T) {
 func mustNewBackendRouteRuntime(t *testing.T, roots filesystemResolverTestRoots, mode config.Mode) *BackendRouteRuntime {
 	t.Helper()
 
+	return mustNewBackendRouteRuntimeWithOptions(t, roots, mode, nil, nil)
+}
+
+func mustNewBackendRouteRuntimeWithOptions(
+	t *testing.T,
+	roots filesystemResolverTestRoots,
+	mode config.Mode,
+	reader ProjectStateReader,
+	listenerProducer *realtime.ListenerProducer,
+) *BackendRouteRuntime {
+	t.Helper()
+
 	store, err := NewStore(StoreOptions{
 		WorkspaceRoot:  roots.workspaceRoot,
 		SettaFilesRoot: roots.settaFilesRoot,
@@ -326,7 +419,9 @@ func mustNewBackendRouteRuntime(t *testing.T, roots filesystemResolverTestRoots,
 				WorkingDirectory: repoRoot,
 			}, nil
 		}),
-		ServerMode: mode,
+		ListenerProducer: listenerProducer,
+		ProjectStateRead: reader,
+		ServerMode:       mode,
 	})
 	if err != nil {
 		t.Fatalf("new backend route runtime: %v", err)
