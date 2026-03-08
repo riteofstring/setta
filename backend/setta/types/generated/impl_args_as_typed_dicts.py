@@ -58,6 +58,8 @@ from setta.types.section_impls import (
     SectionSize,
     SectionType,
     SpreadsheetGridDensity,
+    StateMachineGateType,
+    StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
     TaskBoardViewMode,
@@ -65,6 +67,7 @@ from setta.types.section_impls import (
     TextBlockFormat,
     TypeErrorIgnoreState,
 )
+from setta.types.state_machine_edges import StateMachineEdge
 
 
 class CoreArgs(TypedDict):
@@ -129,6 +132,7 @@ class CoreArgs(TypedDict):
                 "filePath",
                 "folder",
                 "format",
+                "gateType",
                 "hasSecret",
                 "headingAsSectionName",
                 "hideColumn",
@@ -150,10 +154,12 @@ class CoreArgs(TypedDict):
                 "kind",
                 "label",
                 "layers",
+                "machineGroupId",
                 "managed",
                 "masterFontSizePx",
                 "max",
                 "maxAttachments",
+                "maxIterations",
                 "messages",
                 "metaControlParamId",
                 "metaControlStyle",
@@ -204,6 +210,7 @@ class CoreArgs(TypedDict):
                 "type",
                 "typeAnnotation",
                 "typesColumnWidth",
+                "ui",
                 "uiType",
                 "url",
                 "value",
@@ -234,6 +241,7 @@ class ProjectConfigArgs(TypedDict):
     activeIds: NotRequired[list[ID]]
     edges: NotRequired[list[Edge]]
     agenticEdges: NotRequired[list[AgenticEdge]]
+    stateMachineEdges: NotRequired[list[StateMachineEdge]]
     watchCodeEnabled: NotRequired[bool]
     watchCodeFolders: NotRequired[list[WatchCodeFolder]]
     watchCodeFiles: NotRequired[list[str]]
@@ -425,6 +433,70 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     defaultChildSectionType: NotRequired[
         SectionType | Callable[[SectionType], SectionType]
     ]
+
+
+class StateMachineStartSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.StateMachineStart]]
+    machineGroupId: NotRequired[str]
+    label: NotRequired[str]
+    maxIterations: NotRequired[int | None]
+
+
+class StateMachineStartSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.StateMachineStart]
+        | Callable[
+            [Literal[SectionType.StateMachineStart]],
+            Literal[SectionType.StateMachineStart],
+        ]
+    ]
+    machineGroupId: NotRequired[str | Callable[[str], str]]
+    label: NotRequired[str | Callable[[str], str]]
+    maxIterations: NotRequired[int | None | Callable[[int | None], int | None]]
+
+
+class StateMachineGateSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.StateMachineGate]]
+    machineGroupId: NotRequired[str]
+    gateType: NotRequired[StateMachineGateType]
+    label: NotRequired[str]
+    ui: NotRequired[StateMachineGateUiState]
+
+
+class StateMachineGateSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.StateMachineGate]
+        | Callable[
+            [Literal[SectionType.StateMachineGate]],
+            Literal[SectionType.StateMachineGate],
+        ]
+    ]
+    machineGroupId: NotRequired[str | Callable[[str], str]]
+    gateType: NotRequired[
+        StateMachineGateType | Callable[[StateMachineGateType], StateMachineGateType]
+    ]
+    label: NotRequired[str | Callable[[str], str]]
+    ui: NotRequired[
+        StateMachineGateUiState
+        | Callable[[StateMachineGateUiState], StateMachineGateUiState]
+    ]
+
+
+class StateMachineEndSectionImplArgs(BaseSectionImplArgs):
+    type: NotRequired[Literal[SectionType.StateMachineEnd]]
+    machineGroupId: NotRequired[str]
+    label: NotRequired[str]
+
+
+class StateMachineEndSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
+    type: NotRequired[
+        Literal[SectionType.StateMachineEnd]
+        | Callable[
+            [Literal[SectionType.StateMachineEnd]], Literal[SectionType.StateMachineEnd]
+        ]
+    ]
+    machineGroupId: NotRequired[str | Callable[[str], str]]
+    label: NotRequired[str | Callable[[str], str]]
 
 
 class ImageSectionImplArgs(BaseSectionImplArgs):
