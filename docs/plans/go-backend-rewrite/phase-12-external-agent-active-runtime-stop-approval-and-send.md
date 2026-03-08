@@ -216,11 +216,11 @@ It should preserve the current rewrite constraints:
 
 ## Next Recommended Step
 
-- wire real Codex, Claude Code, and OpenCode executors through the bounded
-  send-service/runtime interface now used by `/getLLMResponse`
+- land the Codex-first real executor slice tracked in
+  `phase-12-codex-app-server-executor-runtime.md`
 - keep the completed runtime as the execution owner; do not add a parallel send
   path that bypasses it
-- make the next slice own live execution outputs, approval/question production,
-  and completion/failure persistence
-- land `respondExternalAgentQuestion` after the runtime has a real question
-  production path
+- use that Codex slice to prove live execution outputs, approval production, and
+  completion/failure persistence before broadening to Claude Code or OpenCode
+- land `respondExternalAgentQuestion` only after question production exists in a
+  real adapter-backed runtime

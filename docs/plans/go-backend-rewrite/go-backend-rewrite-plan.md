@@ -49,6 +49,13 @@ the remaining active interaction surface still owned in
 `phase-12-external-agent-active-runtime-stop-approval-and-send.md`, and
 `phase-12-external-agent-send-route-foundation.md`.
 
+The active bounded implementation step inside that gap is now the Codex-first
+real executor slice tracked in
+`phase-12-codex-app-server-executor-runtime.md`. That slice owns real Codex
+app-server launch, approval control, live chat/output persistence, and terminal
+run closeout without pretending Claude Code, OpenCode, or question-response
+parity land at the same time.
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
