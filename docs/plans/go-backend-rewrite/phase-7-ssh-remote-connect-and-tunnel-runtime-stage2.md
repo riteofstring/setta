@@ -15,11 +15,12 @@ transport branch. Stage 3 should be route orchestration only.
 As of 2026-03-08:
 
 - Go owns the deterministic SSH foundation in `internal/sshx/foundation.go`
-- Python still owns:
-  - remote shell/workspace/setta-command resolution
-  - remote session listing/start/wait/connect-info fetch
-  - SSH tunnel metadata storage, reuse, startup, and rollback
-  - the `/launch` remote branch that orchestrates those runtime calls
+- Go now also owns the Stage 2 runtime in:
+  - `internal/sshx/runtime.go`
+  - `internal/sshx/tunnel.go`
+  - `internal/sshx/runtime_test.go`
+- Python still owns the `/launch` remote branch that orchestrates those runtime
+  calls and the trust-persistence rollback around them
 
 ## Scope
 
@@ -94,8 +95,24 @@ Do not include:
 - if Stage 2 needs new ssh-stub behavior for remote startup/tunnel reuse tests,
   update that helper in the same slice and cover the new behavior from Go tests
 
+## Progress Notes
+
+- 2026-03-08: created this Stage 2 implementation doc to isolate the remote
+  runtime owner from the later `/launch` integration slice.
+- 2026-03-08: completed Stage 2 by adding the Go-owned `internal/sshx`
+  runtime/tunnel service in `runtime.go` and `tunnel.go`, extending the shared
+  `scripts/test/ssh` helper for real remote-start and delete-session coverage,
+  and landing focused Go tests in `runtime_test.go`.
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/sshx -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_ssh_connect.py -q`
+- `source activate.sh && python -m pytest tests/routers/test_launch_routes.py -q -k 'launch_over_ssh_returns_bootstrap_url or launch_over_ssh_reuses_existing_tunnel'`
+
 ## Recommended Next Step
 
-Implement the Stage 2 `internal/sshx` runtime owner and tests from this doc,
-then update the parent Phase 7 docs before moving to Stage 3 `/launch`
-integration.
+Implement Stage 3 from `phase-7-ssh-remote-launch-and-rollback.md`: wire the
+Go-owned remote `/launch` branch in `internal/workspacelaunch` on top of the
+completed `internal/sshx` service, including launcher trust-persistence
+rollback.

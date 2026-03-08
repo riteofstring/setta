@@ -46,8 +46,14 @@ As of 2026-03-08:
   - deterministic SSH arg parsing and control-socket defaulting
   - remote JSON/session/connect-info parsing
   - remote log-path and tunnel utility logic in `internal/sshx/foundation.go`
+- Go now owns the Stage 2 SSH/remote runtime owner:
+  - remote shell/workspace/setta-command resolution
+  - remote session list/start/wait/connect-info execution
+  - reusable tunnel metadata/start/reuse/rollback ownership in
+    `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
 - Python still owns:
-  - SSH/remote launch plus remote rollback behavior in `launch.py`
+  - the SSH/remote `/launch` branch plus launcher trust-persistence rollback
+    behavior in `launch.py`
 - the remaining Phase 7 launcher gap is now concentrated around
   SSH/remote launch follow-up work
 
@@ -198,14 +204,14 @@ This remains the recommended option because:
 
 ## Recommended Next Step
 
-Implement Stage 2 from `phase-7-ssh-remote-launch-and-rollback.md`: the
-`internal/sshx` remote connect/tunnel runtime.
+Implement Stage 3 from `phase-7-ssh-remote-launch-and-rollback.md`: the
+Go-owned SSH/remote `/launch` integration layer above the completed
+`internal/sshx` runtime.
 
 Recommended landing order:
 
-1. `internal/sshx` remote connect/tunnel runtime
-2. remote `/launch` orchestration plus rollback ownership
-3. any follow-up CLI or cleanup work after those owners land
+1. remote `/launch` orchestration plus rollback ownership
+2. any follow-up CLI or cleanup work after those owners land
 
 ## Progress Notes
 
@@ -266,3 +272,8 @@ Recommended landing order:
   `phase-7-ssh-remote-launch-and-rollback.md` by adding the deterministic
   `internal/sshx` foundation and focused tests. The next recommended step is
   Stage 2 from that doc: the remote connect and tunnel runtime.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-ssh-remote-launch-and-rollback.md` by adding the Go-owned
+  `internal/sshx` remote runtime/tunnel owner and focused SSH/stub coverage.
+  The next recommended step is Stage 3 from that doc: remote `/launch`
+  integration plus rollback orchestration.

@@ -24,12 +24,12 @@ As of 2026-03-08:
     local sessions
   - deterministic SSH parsing and remote payload utility ownership in
     `internal/sshx/foundation.go`
+  - remote SSH command/session/tunnel runtime ownership in
+    `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
 - Python still owns:
   - the SSH/remote branch of `POST /launch`
-  - remote session discovery/start/connect-info handling in
-    `backend/setta/ssh_common.py` and `backend/setta/ssh_connect.py`
-  - SSH tunnel reuse metadata and tunnel rollback
-  - remote rollback after trust-persistence failure
+  - launcher trust-persistence rollback orchestration around the SSH/remote
+    `/launch` branch
 
 ## Inputs
 
@@ -138,15 +138,22 @@ before the first shell-execution owner is wired.
   `internal/sshx/foundation_test.go`. Go now owns deterministic SSH argument
   parsing, control-socket defaulting, remote JSON/session/connect-info parsing,
   remote log-path resolution, and tunnel key/arg utility logic.
+- 2026-03-08: completed Stage 2 from this doc by adding the Go-owned remote
+  runtime/tunnel owner in `internal/sshx/runtime.go` and
+  `internal/sshx/tunnel.go`, with stub-backed integration coverage in
+  `internal/sshx/runtime_test.go` and compatibility checks against
+  `tests/start/test_ssh_connect.py` plus the focused SSH launch route tests.
 
 ## Open Questions
 
-None blocking Stage 2. The remaining work is implementation, not boundary
-selection: remote command execution, session discovery/start/wait, tunnel
-metadata ownership, and remote rollback should stay inside `internal/sshx`.
+None blocking Stage 3. The remaining work is route/runtime integration:
+consume stored SSH launch intents from `internal/workspacelaunch`, call the
+completed `internal/sshx` service, and apply launched-workspace trust
+persistence plus rollback when that persistence fails.
 
 ## Recommended Next Step
 
-Implement Stage 2 from this doc: add the `internal/sshx` remote connect and
-tunnel runtime for SSH command execution, remote session discovery/start/wait,
-connect-info fetch/validation, and reusable tunnel lifecycle ownership.
+Implement Stage 3 from this doc: wire the SSH/remote `/launch` branch in
+`internal/workspacelaunch` and `internal/httpapi` on top of the completed
+`internal/sshx` runtime, including remote rollback when launcher trust
+persistence fails.

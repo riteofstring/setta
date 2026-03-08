@@ -54,9 +54,12 @@ Current repo status as of 2026-03-08:
     `internal/httpapi/httpapi.go`
   - deterministic SSH parsing and remote payload utility ownership in
     `internal/sshx/foundation.go`
+  - remote SSH command/session/tunnel runtime ownership in
+    `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
 - Python still appears to own major non-MCP backend surface in:
-  - SSH/remote launch behavior
-  - remote rollback behavior around launched workspaces
+  - the SSH/remote `/launch` transport/runtime integration
+  - launcher trust-persistence rollback behavior around launched remote
+    workspaces
 - nothing is currently in progress in the worktree
 
 ## Inputs
@@ -121,18 +124,19 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Implement Stage 2 from
-`phase-7-ssh-remote-launch-and-rollback.md`: the `internal/sshx` remote
-connect/tunnel runtime.
+Implement Stage 3 from
+`phase-7-ssh-remote-launch-and-rollback.md`: Go-owned SSH/remote `/launch`
+integration and rollback orchestration on top of the completed `internal/sshx`
+runtime.
 
 That is now the highest-leverage next step because:
 
 - launcher management and local launch/bootstrap handoff are now complete in Go
-- the dedicated Phase 7 SSH/remote follow-up plan now exists and its Stage 1
-  deterministic foundation is complete
-- the remaining Python-owned runtime gap is concentrated in remote command
-  execution, session discovery/start, tunnel lifecycle ownership, and remote
-  rollback behavior
+- the dedicated Phase 7 SSH/remote follow-up plan now exists and its first two
+  stages are complete
+- the remaining Python-owned runtime gap is concentrated in the `/launch`
+  integration layer and launcher trust-persistence rollback behavior above the
+  new `internal/sshx` owner
 
 ## Progress Notes
 
@@ -221,6 +225,11 @@ That is now the highest-leverage next step because:
   connect-info parsing, remote log-path resolution, and tunnel utility logic.
   The next recommended step is Stage 2 from that doc: the remote connect and
   tunnel runtime.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-ssh-remote-launch-and-rollback.md` by adding the Go-owned
+  `internal/sshx` remote runtime/tunnel service and focused integration
+  coverage. The next recommended step is Stage 3 from that doc: remote
+  `/launch` integration and rollback orchestration.
 
 ## Verification
 

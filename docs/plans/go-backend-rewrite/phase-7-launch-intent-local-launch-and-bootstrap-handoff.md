@@ -133,12 +133,17 @@ Do not include:
   `phase-7-ssh-remote-launch-and-rollback.md` for the remaining SSH/remote
   `/launch` branch and completed Stage 1 from that doc by adding the
   deterministic `internal/sshx` foundation plus focused unit tests.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-ssh-remote-launch-and-rollback.md` by adding the Go-owned
+  `internal/sshx` remote runtime/tunnel owner and focused SSH integration
+  tests above the shared stub helper.
 
 ## Recommended Next Step
 
-Implement Stage 2 from `phase-7-ssh-remote-launch-and-rollback.md`: the
-`internal/sshx` remote connect/tunnel runtime, then move the remaining remote
-`/launch` branch and rollback behavior on top of that owner.
+Implement Stage 3 from `phase-7-ssh-remote-launch-and-rollback.md`: move the
+remaining remote `/launch` branch and launcher trust-persistence rollback
+behavior into `internal/workspacelaunch` and `internal/httpapi` on top of the
+completed `internal/sshx` owner.
 
 ## Verification
 
