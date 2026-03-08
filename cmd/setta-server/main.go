@@ -113,6 +113,10 @@ func run(args []string) (err error) {
 		if err := emitShareStartupOutput(cfg, listener, noOpen, os.Stdout, os.Stderr, shareStartupDependencies{}); err != nil {
 			return err
 		}
+	case config.ModeApp:
+		if err := emitAppStartupOutput(cfg, listener, noOpen, os.Stdout, os.Stderr, appStartupDependencies{}); err != nil {
+			return err
+		}
 	}
 
 	server := &http.Server{

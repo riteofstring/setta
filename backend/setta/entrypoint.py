@@ -8,6 +8,7 @@ _GO_OWNED_COMMANDS = frozenset(
         "version",
         "launch",
         "share",
+        "app",
         "launcher",
         "status",
         "auth",

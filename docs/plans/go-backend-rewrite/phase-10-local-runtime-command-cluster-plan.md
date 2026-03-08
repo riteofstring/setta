@@ -29,22 +29,16 @@ As of 2026-03-08:
   - `internal/workspacelaunch`
 - Python still owns the remaining local command groups in
   `backend/setta/start.py`:
-  - `share`
-  - `app`
   - `backups`
   - `plugins`
   - `export-db`
-- Go now owns the first local-runtime command in:
+- Go now owns the full local-runtime command cluster in:
   - `cmd/setta`
   - `internal/settacmd`
-  - `backend/setta/entrypoint.py`
-  - Go-owned `setta launch` local session bootstrap dispatch
-- Go now also owns the default local IDE start path in:
-  - `cmd/setta`
   - `cmd/setta-server`
   - `backend/setta/entrypoint.py`
-  - Go-owned default no-subcommand local `setta` start over the sibling
-    `setta-server` runtime
+  - completed Go-owned `setta launch`, default local `setta`, `share`, and
+    `app` flows over the sibling `setta-server` runtime boundary
 
 ## Inputs
 
@@ -225,21 +219,32 @@ That slice should:
   - `setta app` now has an explicit implementation boundary
   - the app slice is constrained to deployment selection, validation, thin
     CLI routing, and startup UX only
+- 2026-03-08: completed the fourth bounded implementation slice.
+  - `setta app` now routes through `cmd/setta` / `internal/settacmd`
+  - named app deployment resolution now uses the Go deployment catalog
+  - `cmd/setta-server` now owns app startup warning/output and browser-open
+    fallback
+  - the thin Python wrapper now dispatches `app` to the packaged Go binary
+  - the Phase 10 local-runtime cluster is complete
 
 ## Open Questions
 
-- none for the completed `launch` slice; the remaining work is sequencing, not
-  architecture uncertainty
+- none; the bounded local-runtime work in this phase is complete
 
 ## Verification
 
-- docs-only update; runtime tests not needed
+- latest bounded-slice verification:
+  - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd ./cmd/setta-server -count=1 -timeout 300s`
+  - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement the next bounded Phase 10 slice from this doc:
+Phase 10 local-runtime migration is complete.
 
-1. port `app` onto the Go-owned backend runtime
-2. keep `backups`, `plugins`, and `export-db` explicitly out of scope until
-   the local-runtime cluster is complete
+Keep the remaining maintenance commands explicitly Python-owned unless a later
+separate maintenance/authoring slice is justified:
+
+1. `backups`
+2. `plugins`
+3. `export-db`

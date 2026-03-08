@@ -30,13 +30,22 @@ type localStartupDependencies struct {
 	hasGUI             func(func(string) (string, bool)) bool
 }
 
-type shareStartupDependencies struct {
+type deploymentStartupDependencies struct {
 	loadManifest func(string) (deployments.Manifest, error)
 	openBrowser  func(string) error
 	envLookup    func(string) (string, bool)
 	stdinIsTTY   func() bool
 	hasGUI       func(func(string) (string, bool)) bool
 }
+
+type deploymentStartupSpec struct {
+	modeName       string
+	deploymentType deployments.Type
+	urlLabel       string
+}
+
+type shareStartupDependencies = deploymentStartupDependencies
+type appStartupDependencies = deploymentStartupDependencies
 
 func emitLocalStartupOutput(cfg config.Config, localSession *localProcessSession, noOpen bool, stdout io.Writer, stderr io.Writer, deps localStartupDependencies) error {
 	if localSession == nil {
@@ -138,8 +147,24 @@ func processHasGUI(envLookup func(string) (string, bool)) bool {
 }
 
 func emitShareStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps shareStartupDependencies) error {
+	return emitDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, deploymentStartupSpec{
+		modeName:       "share",
+		deploymentType: deployments.TypeShare,
+		urlLabel:       "Share URL",
+	})
+}
+
+func emitAppStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps appStartupDependencies) error {
+	return emitDeploymentStartupOutput(cfg, listener, noOpen, stdout, stderr, deps, deploymentStartupSpec{
+		modeName:       "app",
+		deploymentType: deployments.TypeApp,
+		urlLabel:       "App URL",
+	})
+}
+
+func emitDeploymentStartupOutput(cfg config.Config, listener net.Listener, noOpen bool, stdout io.Writer, stderr io.Writer, deps deploymentStartupDependencies, spec deploymentStartupSpec) error {
 	if listener == nil {
-		return fmt.Errorf("share listener is required")
+		return fmt.Errorf("%s listener is required", spec.modeName)
 	}
 	if deps.loadManifest == nil {
 		deps.loadManifest = deployments.LoadManifest
@@ -161,21 +186,25 @@ func emitShareStartupOutput(cfg config.Config, listener net.Listener, noOpen boo
 	if err != nil {
 		return err
 	}
-	shareURL, err := buildShareURL(cfg.Server.Host, listener)
+	if manifest.DeploymentType != spec.deploymentType {
+		return fmt.Errorf("deployment is not a %s deployment: %s/%s", spec.modeName, manifest.DeploymentName, manifest.DeploymentVersion)
+	}
+	deploymentURL, err := buildDeploymentURL(cfg.Server.Host, listener, spec.modeName)
 	if err != nil {
 		return err
 	}
 	if !isLoopbackHost(cfg.Server.Host) && stderr != nil {
 		_, _ = fmt.Fprintf(
 			stderr,
-			"WARNING: share mode disables auth. Binding to %q may expose your deployment publicly.\n",
+			"WARNING: %s mode disables auth. Binding to %q may expose your deployment publicly.\n",
+			spec.modeName,
 			cfg.Server.Host,
 		)
 	}
 
 	if shouldAutoOpenLocalStart(noOpen, deps.envLookup, deps.stdinIsTTY, deps.hasGUI) {
-		if err := deps.openBrowser(shareURL); err != nil && stderr != nil {
-			_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", shareURL, err)
+		if err := deps.openBrowser(deploymentURL); err != nil && stderr != nil {
+			_, _ = fmt.Fprintf(stderr, "Failed to open browser automatically. Open manually: %s (%v)\n", deploymentURL, err)
 		}
 	}
 
@@ -184,25 +213,27 @@ func emitShareStartupOutput(cfg config.Config, listener net.Listener, noOpen boo
 	}
 	_, err = fmt.Fprintf(
 		stdout,
-		"Starting share backend for %s/%s\nShare URL: %s\n",
+		"Starting %s backend for %s/%s\n%s: %s\n",
+		spec.modeName,
 		manifest.DeploymentName,
 		manifest.DeploymentVersion,
-		shareURL,
+		spec.urlLabel,
+		deploymentURL,
 	)
 	return err
 }
 
-func buildShareURL(host string, listener net.Listener) (string, error) {
+func buildDeploymentURL(host string, listener net.Listener, modeName string) (string, error) {
 	trimmedHost := strings.TrimSpace(host)
 	if trimmedHost == "" {
-		return "", fmt.Errorf("share host is required")
+		return "", fmt.Errorf("%s host is required", modeName)
 	}
 	tcpAddr, ok := listener.Addr().(*net.TCPAddr)
 	if !ok || tcpAddr == nil {
-		return "", fmt.Errorf("share listener must be tcp")
+		return "", fmt.Errorf("%s listener must be tcp", modeName)
 	}
 	if tcpAddr.Port <= 0 {
-		return "", fmt.Errorf("share listener port must be positive")
+		return "", fmt.Errorf("%s listener port must be positive", modeName)
 	}
 	return "http://" + net.JoinHostPort(trimmedHost, strconv.Itoa(tcpAddr.Port)), nil
 }

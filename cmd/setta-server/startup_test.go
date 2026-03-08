@@ -240,13 +240,116 @@ func TestEmitShareStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
 	}
 }
 
+func TestEmitAppStartupOutputWarnsForPublicHostAndPrintsURL(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	deploymentRoot := writeDeploymentManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-app", "v2"), "demo-app", "v2", deployments.TypeApp)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err = emitAppStartupOutput(
+		config.Config{
+			Server: config.Server{
+				Host: "0.0.0.0",
+			},
+			Paths: config.Paths{
+				DeploymentRoot: deploymentRoot,
+			},
+		},
+		listener,
+		true,
+		&stdout,
+		&stderr,
+		appStartupDependencies{},
+	)
+	if err != nil {
+		t.Fatalf("emit app startup output: %v", err)
+	}
+
+	if !strings.Contains(stderr.String(), `WARNING: app mode disables auth. Binding to "0.0.0.0" may expose your deployment publicly.`) {
+		t.Fatalf("expected public host warning, got %q", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Starting app backend for demo-app/v2") {
+		t.Fatalf("expected app startup heading, got %q", stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "App URL: http://0.0.0.0:") {
+		t.Fatalf("expected app url output, got %q", stdout.String())
+	}
+}
+
+func TestEmitAppStartupOutputFallsBackWhenBrowserOpenFails(t *testing.T) {
+	t.Parallel()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer listener.Close()
+
+	deploymentRoot := writeDeploymentManifest(t, filepath.Join(t.TempDir(), "deployments", "demo-app", "v3"), "demo-app", "v3", deployments.TypeApp)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err = emitAppStartupOutput(
+		config.Config{
+			Server: config.Server{
+				Host: "127.0.0.1",
+			},
+			Paths: config.Paths{
+				DeploymentRoot: deploymentRoot,
+			},
+		},
+		listener,
+		false,
+		&stdout,
+		&stderr,
+		appStartupDependencies{
+			openBrowser: func(string) error {
+				return startupAssertiveError("browser missing")
+			},
+			envLookup: func(string) (string, bool) {
+				return "", false
+			},
+			stdinIsTTY: func() bool {
+				return true
+			},
+			hasGUI: func(func(string) (string, bool)) bool {
+				return true
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("emit app startup output: %v", err)
+	}
+
+	if !strings.Contains(stderr.String(), "Failed to open browser automatically. Open manually: http://127.0.0.1:") {
+		t.Fatalf("expected browser fallback message, got %q", stderr.String())
+	}
+	if strings.Contains(stderr.String(), "WARNING:") {
+		t.Fatalf("expected loopback host to skip public warning, got %q", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Starting app backend for demo-app/v3") {
+		t.Fatalf("expected app startup heading, got %q", stdout.String())
+	}
+}
+
 func writeShareManifest(t *testing.T, deploymentRoot string, deploymentName string, deploymentVersion string) string {
+	t.Helper()
+
+	return writeDeploymentManifest(t, deploymentRoot, deploymentName, deploymentVersion, deployments.TypeShare)
+}
+
+func writeDeploymentManifest(t *testing.T, deploymentRoot string, deploymentName string, deploymentVersion string, deploymentType deployments.Type) string {
 	t.Helper()
 
 	payload, err := json.MarshalIndent(deployments.Manifest{
 		Version:           1,
 		DeploymentName:    deploymentName,
-		DeploymentType:    deployments.TypeShare,
+		DeploymentType:    deploymentType,
 		DefaultProjectID:  "project-alpha",
 		DeploymentVersion: deploymentVersion,
 		CreatedAt:         time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC),

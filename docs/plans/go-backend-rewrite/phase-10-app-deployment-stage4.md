@@ -25,12 +25,13 @@ As of 2026-03-08:
   - `internal/deployments/catalog.go`
   - `internal/deployments/manifest.go`
   - `internal/deployments/runtime.go`
-- Python still owns the user-facing `setta app` command in
-  `backend/setta/start.py`, including:
-  - `--deployment-root` versus `--deployment-name` / `--version` / `--latest`
-    selection
-  - public-host no-auth warning
-  - startup URL output and browser auto-open behavior
+- this stage is now complete:
+  - `cmd/setta` exposes `setta app`
+  - named app deployments resolve through the Go deployment catalog
+  - explicit `--deployment-root` validation is Go-owned and manifest-backed
+  - `cmd/setta-server` owns app startup warning/output and browser-open
+    fallback
+  - the thin Python entrypoint dispatches `app` to the packaged Go binary
 
 ## Inputs
 
@@ -42,6 +43,8 @@ As of 2026-03-08:
 - `tests/start/test_module_entrypoint.py`
 - `cmd/setta-server/main.go`
 - `cmd/setta-server/startup.go`
+- `internal/settacmd/deployment_command.go`
+- `internal/settacmd/app.go`
 - `internal/settacmd/share.go`
 - `internal/config/config.go`
 - `internal/deployments/catalog.go`
@@ -49,15 +52,21 @@ As of 2026-03-08:
 - `internal/deployments/runtime.go`
 - `internal/httpapi/deployment_routes_test.go`
 
-## Problem Shape
+## Completed Work
 
-The backend runtime already supports app mode.
+This stage shipped the remaining user-facing `setta app` contract onto the
+Go-owned runtime boundary:
 
-The remaining gap is the user-facing `setta app` command contract:
-
-1. the shipped router does not yet expose an `app` subcommand
-2. named app deployment selection still lives in Python
-3. startup output and no-auth warning for app mode are still Python-owned
+1. added `app` routing in `internal/settacmd` and `cmd/setta`
+2. resolved named app deployments through `internal/deployments.DefaultCatalogRoot`
+   plus `Catalog.Latest` / `Catalog.ListVersions`
+3. kept explicit `--deployment-root` validation manifest-backed and
+   deterministic
+4. delegated long-lived app runs to the sibling `setta-server` executable
+5. moved app startup warning/output and browser-open fallback into
+   `cmd/setta-server`
+6. updated `backend/setta/entrypoint.py` so packaged `python -m setta app`
+   dispatches to Go
 
 ## Scope
 
@@ -94,23 +103,14 @@ Do not include:
   `app`, that refactor is in scope
   - do not turn this into a broad CLI abstraction pass
 
-## Implementation Shape
+## Decisions Made
 
-1. add `app` routing to `internal/settacmd`
-2. implement app deployment resolution in Go
-   - explicit `--deployment-root`
-   - catalog-backed `--deployment-name` + `--latest`
-   - catalog-backed `--deployment-name` + `--version`
-3. delegate resolved app runs to the sibling `setta-server`
-   - pass `--mode app`
-   - pass the resolved `--deployment-root`
-   - pass relevant global host/port/log/no-open/runtime flags
-4. extend `cmd/setta-server` startup UX for app mode
-   - public-host no-auth warning
-   - `Starting app backend for ...`
-   - `App URL: ...`
-   - browser-open fallback
-5. update the thin Python wrapper to dispatch `app` to Go
+- `share` and `app` now share the same Go deployment-command source-of-truth
+  path for named lookup, explicit-root validation, and delegated argv shape
+- `setta-server` startup output now owns app-mode warning and printed app URL,
+  matching the runtime boundary used for IDE mode and share mode
+- omitted host/port values still resolve to the shipped runtime defaults
+  (`127.0.0.1` and an OS-assigned port via `--port 0`)
 
 ## Test Strategy
 
@@ -141,7 +141,15 @@ Do not include:
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./cmd/setta-server -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 
+## Open Questions
+
+- none for this stage; the local-runtime command cluster is now complete
+
 ## Recommended Next Step
 
-Implement this Stage 4 slice, then close out the local-runtime cluster and
-re-evaluate whether maintenance commands should move at all.
+Close out Phase 10 and keep the remaining maintenance commands explicitly
+Python-owned unless a separate later slice is justified:
+
+1. `backups`
+2. `plugins`
+3. `export-db`
