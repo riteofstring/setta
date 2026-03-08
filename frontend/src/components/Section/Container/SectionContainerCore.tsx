@@ -1,7 +1,3 @@
-import {
-  useSettingsAllSettingsBenchmark,
-  useSettingsAllSettingsBenchmarkRenderCounter,
-} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
@@ -48,8 +44,6 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
-  useSettingsAllSettingsBenchmarkRenderCounter("section-shell", sectionId);
   const {
     sectionTypeName,
     // jsonSourceMissing,
@@ -120,20 +114,7 @@ function _SectionContainerCore({
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
-  const shouldUseProductionViewportShellPromotion =
-    !benchmark.active ||
-    benchmark.allowProductionViewportShellPromotion === true;
-  const shouldGateSectionShellLayerPromotionToViewportInteraction =
-    benchmark.active &&
-    benchmark.promoteSectionLayerDuringViewportInteractionOnly === true;
-  const shouldPromoteSectionShellLayerFromBenchmark =
-    benchmark.active &&
-    benchmark.promoteSectionShellLayer === true &&
-    (!shouldGateSectionShellLayerPromotionToViewportInteraction ||
-      viewportInteractionActive);
-  const shouldPromoteSectionShellLayer =
-    (shouldUseProductionViewportShellPromotion && viewportInteractionActive) ||
-    shouldPromoteSectionShellLayerFromBenchmark;
+  const shouldPromoteSectionShellLayer = viewportInteractionActive;
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -209,9 +190,7 @@ function _SectionContainerCore({
     ? ""
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
-    !hideAgenticEdgeHandles &&
-    !isAttachedTerminalChild &&
-    benchmark.renderSectionHandles;
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
@@ -223,24 +202,12 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      data-settings-benchmark-section-shell-layer-promotion-mode={
-        benchmark.active && benchmark.promoteSectionShellLayer === true
-          ? shouldGateSectionShellLayerPromotionToViewportInteraction
-            ? "viewport-interaction"
-            : "always"
-          : undefined
-      }
-      data-settings-benchmark-section-shell-layer-promotion={
-        shouldPromoteSectionShellLayer ? sectionId : undefined
-      }
       style={sectionShellStyle}
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
       )}
-      {benchmark.renderSectionHandles && (
-        <MinimizedDataEdgeHandles sectionId={sectionId} />
-      )}
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}

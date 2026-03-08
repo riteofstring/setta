@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmarkRenderCounter } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
@@ -173,10 +172,6 @@ const _AgenticEdgeRenderer = () => {
       projectConfigId: state.projectConfig.id,
     }),
     _.isEqual,
-  );
-  useSettingsAllSettingsBenchmarkRenderCounter(
-    "agentic-edge-renderer",
-    `${agenticEdges.length}:${width}x${height}`,
   );
   const nodes = useNodeInternals((state) => state.x, areNodeGeometryMapsEqual);
   const { canEditStructure } = useShareCapabilities();

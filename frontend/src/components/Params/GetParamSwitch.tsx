@@ -1,21 +1,12 @@
-import {
-  useSettingsAllSettingsBenchmark,
-  useSettingsAllSettingsBenchmarkRenderCounter,
-} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { matchSorter } from "match-sorter";
 import { useMemo } from "react";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
-import {
-  isBaseParamCodeObjImpl,
-  isBaseParentCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-} from "utils/generatedTypes";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ParamSwitch } from "./ParamSwitch";
 
@@ -36,11 +27,6 @@ export function GetParamSwitch({
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
 }) {
-  const benchmark = useSettingsAllSettingsBenchmark();
-  useSettingsAllSettingsBenchmarkRenderCounter(
-    "get-param-switch",
-    `${sectionId}:${listKey}:${isTopLevel ? "top" : "nested"}:${paramIds[0] ?? "none"}:${paramIds[paramIds.length - 1] ?? "none"}:${paramIds.length}`,
-  );
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -101,30 +87,10 @@ export function GetParamSwitch({
       }
     }
 
-    const visibleParamIds = paramIds.filter(
+    return paramIds.filter(
       (paramId) => filteredRequired.has(paramId) || isTempParam(paramId),
     );
-
-    if (benchmark.paramStructureScope !== "parent-only") {
-      return visibleParamIds;
-    }
-
-    return visibleParamIds.filter((paramId) => {
-      if (isTempParam(paramId)) {
-        return false;
-      }
-      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-        state,
-        sectionId,
-        paramId,
-        isBaseParamCodeObjImpl,
-      );
-      return (
-        isBaseParentCodeObjImpl(codeObjImpl) && codeObjImpl.children.length > 0
-      );
-    });
   }, [
-    benchmark.paramStructureScope,
     codeObjImpls,
     codeObjVariants,
     codeObjs,
