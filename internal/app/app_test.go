@@ -146,6 +146,56 @@ func TestAppServesStatusMetaRoutes(t *testing.T) {
 	}
 }
 
+func TestAppServesDocstringToMarkdownRoute(t *testing.T) {
+	// The text-block markdown toggle should hit the real IDE app route instead of
+	// falling back to the Python helper.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteDocstringToMarkdown,
+		strings.NewReader(`{"docstring":"just text"}`),
+	)
+	if err != nil {
+		t.Fatalf("new docstring request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(newAppTestAuthCookie(t, app))
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post docstring route: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected docstring route 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload string
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode docstring payload: %v", err)
+	}
+	if payload != "just text" {
+		t.Fatalf("unexpected docstring route payload %q", payload)
+	}
+}
+
 func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	// The real IDE app should hydrate persisted managed chats and stop the latest
 	// running managed run through the Go-owned route stack.
