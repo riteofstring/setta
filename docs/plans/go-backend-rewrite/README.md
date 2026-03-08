@@ -307,11 +307,21 @@ Use the docs in this order:
 104. `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`
   - focused implementation-plan doc for the remaining local launch/bootstrap
     handoff slice after launcher management completion
-105. `spike-mcp.md`
+105. `phase-7-ssh-remote-launch-and-rollback.md`
+  - focused implementation-plan doc for the remaining Python-owned SSH launch
+    behavior after the completed local launch/bootstrap handoff slice
+106. `phase-7-ssh-remote-connect-and-tunnel-runtime-stage2.md`
+  - focused implementation-plan doc for the completed SSH remote command,
+    session, and tunnel runtime owner beneath the remaining `/launch`
+    integration slice
+107. `phase-7-remote-launch-route-and-rollback-stage3.md`
+  - focused implementation-plan doc for wiring the remaining remote `/launch`
+    branch and trust-persistence rollback on top of the completed SSH runtime
+108. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-106. `spike-pty.md`
+109. `spike-pty.md`
    - PTY uncertainty-reduction plan
-107. `spike-lsp.md`
+110. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
