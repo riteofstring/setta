@@ -100,18 +100,19 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Implement the launcher runtime prerequisite from
-`phase-7-launcher-management-and-bootstrap-plan.md`: Go-owned launcher-mode
-runtime/home ownership plus a real launcher executable contract.
+Implement
+`phase-7-launcher-home-recent-workspaces-and-directory-browser.md`: the first
+Go-owned launcher-mode home/runtime slice for recent workspaces and directory
+browsing.
 
 That is now the highest-leverage next step because:
 
 - the bounded deployment slice is complete end to end
 - the dedicated launcher/bootstrap Phase 7 plan now exists
-- launcher artifact setup cannot land robustly until desktop launchers can
-  target a working Go launcher runtime
-- the dependency is now explicit: launcher management depends on launcher-mode
-  ownership more than it first appeared to
+- this launcher-home slice is the least-coupled part of the launcher runtime
+  prerequisite
+- it gives Go a real launcher-mode route cluster without dragging
+  launch/bootstrap handoff into the same change
 
 ## Progress Notes
 
@@ -140,6 +141,9 @@ That is now the highest-leverage next step because:
   surface, revised the next recommended step to the launcher runtime
   prerequisite: launcher-mode home/runtime ownership plus a real launcher
   executable contract.
+- 2026-03-08: split that launcher runtime prerequisite into a first bounded
+  launcher-home slice for recent workspaces and directory browsing; this is now
+  the recommended next step.
 
 ## Verification
 

@@ -183,8 +183,9 @@ avoids shipping launcher setup that writes broken desktop artifacts.
 
 ## Recommended Next Step
 
-Implement the launcher runtime prerequisite described above, then return to the
-IDE launcher management/status route cluster.
+Implement
+`phase-7-launcher-home-recent-workspaces-and-directory-browser.md`, then
+return to the remaining launcher runtime prerequisite slices.
 
 Recommended landing order:
 
@@ -201,3 +202,6 @@ Recommended landing order:
   coverage, determined that artifact-owning launcher management is blocked on a
   launcher runtime prerequisite. Recommended next step changed to launcher-mode
   runtime ownership plus a real launcher executable contract.
+- 2026-03-08: split the launcher runtime prerequisite into a first bounded
+  launcher-home slice in
+  `phase-7-launcher-home-recent-workspaces-and-directory-browser.md`.
