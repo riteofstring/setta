@@ -2236,6 +2236,211 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			hasCreateExpr: true,
 		},
 		{
+			name: "ColorPickerChoice",
+			root: reflect.TypeOf(ColorPickerChoice{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "color", TypeExpr: "string", Optional: false},
+				{Name: "description", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "TextParamCodeObjImpl",
+			root: reflect.TypeOf(TextParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  uiType: TextParamInputUIType;
+}`,
+		},
+		{
+			name: "DateParamCodeObjImpl",
+			root: reflect.TypeOf(DateParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DateParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  dateDisplayFormat: DateDisplayFormat;
+  dateControlMode: DateControlMode;
+  dateSelectionMode: DateSelectionMode;
+  dateCalendarWeekStart: DateCalendarWeekStart;
+  dateIncludesTime: boolean;
+}`,
+		},
+		{
+			name: "TimeParamCodeObjImpl",
+			root: reflect.TypeOf(TimeParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TimeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  timeControlMode: TimeControlMode;
+  timeDisplayFormat: TimeDisplayFormat;
+  timeDisplayTransparent: boolean;
+  timeDisplayScale: number;
+  timeDisplayFont: TimeDisplayFont;
+}`,
+		},
+		{
+			name: "ButtonParamCodeObjImpl",
+			root: reflect.TypeOf(ButtonParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.ButtonParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  label: string;
+  actionMode: ButtonActionMode;
+  requestMethod: HttpRequestMethod;
+  requestUrl: string;
+  requestHeaderKey: string;
+  requestHeaderValue: string;
+  requestBody: string;
+}`,
+		},
+		{
+			name: "SliderParamCodeObjImpl",
+			root: reflect.TypeOf(SliderParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SliderParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+}`,
+		},
+		{
+			name: "RotaryParamCodeObjImpl",
+			root: reflect.TypeOf(RotaryParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.RotaryParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  min: number;
+  max: number;
+  step: number;
+}`,
+		},
+		{
+			name: "SwitchParamCodeObjImpl",
+			root: reflect.TypeOf(SwitchParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.SwitchParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+}`,
+		},
+		{
+			name: "ColorPickerParamCodeObjImpl",
+			root: reflect.TypeOf(ColorPickerParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.ColorPickerParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  colorChoices: Array<ColorPickerChoice>;
+}`,
+		},
+		{
+			name: "DropdownParamCodeObjImpl",
+			root: reflect.TypeOf(DropdownParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropdownParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  choices: Array<string>;
+}`,
+		},
+		{
+			name: "PasswordParamCodeObjImpl",
+			root: reflect.TypeOf(PasswordParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.PasswordParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  hasSecret: boolean;
+}`,
+		},
+		{
+			name: "TextAreaParamCodeObjImpl",
+			root: reflect.TypeOf(TextAreaParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.TextAreaParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+}`,
+		},
+		{
+			name: "DropzoneParamCodeObjImpl",
+			root: reflect.TypeOf(DropzoneParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropzoneParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  mode: DropzoneMode;
+  maxAttachments?: number | null;
+  placeholder: string;
+}`,
+		},
+		{
 			name: "UserDefaultListRootSectionImpl",
 			root: reflect.TypeOf(UserDefaultListRootSectionImpl{}),
 			kind: "object",
