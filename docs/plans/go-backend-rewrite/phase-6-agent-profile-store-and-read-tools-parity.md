@@ -150,6 +150,5 @@ Existing Go foundations reused:
 
 ## Next Recommended Step
 
-- execute `phase-6-run-agent-profile-tool-parity.md`, which is now the next
-  bounded missing Python MCP surface after the completed agent-profile read
-  slice
+- execute `phase-6-managed-agent-run-runtime-foundation.md` first, then land
+  `phase-6-run-agent-profile-tool-parity.md` over that completed foundation

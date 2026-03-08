@@ -234,15 +234,19 @@ Use the docs in this order:
 85. `phase-6-agent-profile-store-and-read-tools-parity.md`
   - completed slice doc for the file-backed agent-profile store foundation
     plus Go-owned `list_agent_profiles` and `get_agent_profile` parity
-86. `phase-6-run-agent-profile-tool-parity.md`
+86. `phase-6-managed-agent-run-runtime-foundation.md`
+  - focused implementation-plan doc for the Go-owned managed agent-run
+    persistence, engine-config resolution, `llm_config` ownership, and
+    non-streaming runtime foundation required before `run_agent_profile`
+87. `phase-6-run-agent-profile-tool-parity.md`
   - focused implementation-plan doc for Go-owned `run_agent_profile` parity
-    over the completed agent-profile store/read foundation and the missing
-    managed agent-run runtime boundary
-87. `spike-mcp.md`
+    over the completed agent-profile store/read foundation and the completed
+    managed agent-run runtime foundation
+88. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-88. `spike-pty.md`
+89. `spike-pty.md`
    - PTY uncertainty-reduction plan
-89. `spike-lsp.md`
+90. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

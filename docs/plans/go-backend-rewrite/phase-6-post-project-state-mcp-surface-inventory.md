@@ -33,8 +33,8 @@ Current repo status as of 2026-03-08:
   - `report_completion_status`
   - `list_agent_profiles`
   - `get_agent_profile`
-- the remaining 12 tools now fall into one agentic run slice plus several
-  larger missing runtime foundations
+- the remaining 12 tools now fall into one blocked agentic-run follow-on plus
+  several larger missing runtime foundations
 
 ## Inputs
 
@@ -87,12 +87,13 @@ Go already owns the following Python MCP tools that do not come from
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Agentic Run Gap
+### 1. Managed Agentic Run Foundation Gap
 
 - `run_agent_profile`
   - Go now owns the agent-profile store/read foundation but still does not own
-    the agent-runner runtime, run persistence lifecycle, or managed LLM
-    execution path behind this tool.
+    the managed `agent_runs/` store, engine-config resolver, full
+    `llm_config.json` semantics, API-key sync, or managed LLM execution path
+    behind this tool.
 
 ### 2. Generic UI-Setting Registry And Reveal Gaps
 
@@ -141,7 +142,9 @@ heuristics.
 - treat the general utility/read cluster as complete and closed
 - treat `report_completion_status` as complete and closed
 - treat the bounded agent-profile store/read slice as complete and closed
-- keep the next step focused on the remaining agentic run boundary before
+- treat direct `run_agent_profile` transport work as blocked until the
+  managed agent-run runtime foundation lands
+- keep the next step focused on that managed agent-run foundation before
   broader UI-setting or plugin-management work
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
@@ -149,14 +152,15 @@ heuristics.
 
 ## Recommended Next Step
 
-Execute the dedicated `run_agent_profile` planning slice in
-`phase-6-run-agent-profile-tool-parity.md`.
+Execute the dedicated managed agent-run foundation plan in
+`phase-6-managed-agent-run-runtime-foundation.md`.
 
 This is now the highest-leverage next slice because:
 
-- it is the only remaining agentic MCP tool not blocked by a broader plugin or
-  UI-setting registry migration
-- the required agent-profile store/read foundation is now complete
+- `run_agent_profile` is still the only remaining agentic MCP tool before the
+  broader plugin and UI-setting registry gaps
+- direct `run_agent_profile` transport is blocked on a concrete missing
+  runtime foundation, not on MCP wiring
 - it keeps the next runtime addition bounded to managed sub-agent execution
   instead of broadening immediately into plugin management or patch streaming
 
@@ -184,3 +188,7 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed Go parity for `list_agent_profiles` and
   `get_agent_profile`, reducing the remaining non-project-state Python MCP gap
   count from 14 to 12.
+- 2026-03-08: confirmed that direct `run_agent_profile` parity is blocked on
+  missing Go ownership for managed `agent_runs`, engine-config resolution,
+  full `llm_config.json` semantics, and managed LLM execution, so the next
+  step is now the dedicated managed-agent-run foundation slice.

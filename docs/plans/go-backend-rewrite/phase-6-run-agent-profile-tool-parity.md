@@ -2,11 +2,13 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 6 slice after the completed
-agent-profile store/read work.
+This doc scopes the follow-on Phase 6 slice after the managed agent-run
+foundation is in place.
 
-The goal is to land Go-owned `run_agent_profile` parity without broadening into
-full chat-run, external-agent, or plugin-management migration.
+The goal is to land Go-owned `run_agent_profile` parity over the completed
+agent-profile store/read work and the completed managed agent-run runtime
+foundation, without broadening into full chat-run, external-agent, or
+plugin-management migration.
 
 ## Status
 
@@ -14,7 +16,9 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - `list_agent_profiles` and `get_agent_profile` are complete in Go
-- `run_agent_profile` is now the next remaining agentic MCP gap
+- `run_agent_profile` is still the next remaining agentic MCP tool
+- direct implementation is blocked until
+  `phase-6-managed-agent-run-runtime-foundation.md` lands
 - Go still does not own the managed agent-run runtime behind this tool
 
 ## Scope
@@ -22,16 +26,15 @@ Current repo status as of 2026-03-08:
 This slice should cover:
 
 - Go-owned `run_agent_profile`
-- the minimal managed sub-agent runtime it requires
-- bounded persisted agent-run ownership needed to return final `AgentRun`
-  payloads cleanly
+- bounded profile lookup and preflight validation over completed stores
+- final managed-run start/wait/load behavior over the completed runtime
+  foundation
 
 It should include:
 
-- explicit Go owner for persisted agent-run records under `setta_files`
-- bounded engine-config and project-context resolution needed for sub-agent
-  runs
-- non-streaming managed run execution for agent-profile-driven tool calls
+- thin delegation from the MCP tool into the completed managed-run service
+- clean error handling for missing profiles, unavailable runtime wiring, and
+  managed-run failures
 - MCP parity in `internal/mcpx`
 - focused HTTP tool-route and authenticated SSE coverage
 
@@ -47,6 +50,7 @@ It should include:
 
 ## Inputs
 
+- `docs/plans/go-backend-rewrite/phase-6-managed-agent-run-runtime-foundation.md`
 - `docs/plans/go-backend-rewrite/phase-6-agent-profile-store-and-read-tools-parity.md`
 - `docs/plans/go-backend-rewrite/phase-6-post-project-state-mcp-surface-inventory.md`
 - `backend/setta/mcp/tools/agentic_tools.py`
@@ -83,12 +87,11 @@ It should include:
 
 ## Working Decisions
 
-- keep this slice focused on managed sub-agent completion, not chat streaming
+- keep this slice transport-thin and delegate run persistence plus managed LLM
+  execution to the completed foundation owners
 - reuse the completed agent-profile store rather than reopening storage design
-- prefer an explicit Go runtime boundary for managed runs over embedding LLM
-  orchestration details inside MCP handlers
-- keep the first Go run owner limited to the persistence and lifecycle needed
-  by `run_agent_profile`
+- keep the first Go `run_agent_profile` tool limited to returning the final
+  persisted `AgentRun`
 - defer AI-follow, websocket fanout, and richer run-management APIs until a
   concrete dependency requires them
 
@@ -100,18 +103,12 @@ Already complete:
 - unscoped MCP read transport for agent profiles
 - Setta-files path ownership patterns and MCP transport harnesses
 
-New owner needed:
+Prerequisite before this slice:
 
-- managed agent-run runtime for non-streaming sub-agent execution
-- bounded persisted agent-run owner for create/save/load
-- engine-config and project-context resolution for agent-profile execution
+- `phase-6-managed-agent-run-runtime-foundation.md`
 
 ## Verification Targets
 
-- owner/runtime-package tests
-  - starting a managed sub-agent run persists a run record
-  - completed runs record `run_started`, `snapshot`, and completion state
-  - missing profiles or disabled runtime fail cleanly
 - `internal/mcpx`
   - tool registration and tool-call behavior
 - `internal/httpapi`
@@ -121,12 +118,12 @@ New owner needed:
 
 ## Open Questions
 
-- whether the first Go `run_agent_profile` slice should return a minimal final
-  run payload only, or also lay the groundwork for later stop/list/get run
-  transport; current recommendation is to keep the first slice minimal and only
-  add the persistence surface required by this tool
+- whether the first Go `run_agent_profile` slice should keep tool-level errors
+  mapped directly from the completed managed-run service or introduce
+  additional MCP-specific error shaping; current recommendation is to keep the
+  first transport thin and reuse the foundation's explicit runtime errors
 
 ## Next Recommended Step
 
-- implement this bounded managed sub-agent run slice before moving on to the
-  broader UI-setting registry or plugin-management gaps
+- first implement `phase-6-managed-agent-run-runtime-foundation.md`, then land
+  this transport slice immediately after
