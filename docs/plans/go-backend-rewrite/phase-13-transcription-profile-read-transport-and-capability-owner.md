@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the next bounded post-Phase-13 slice and its landing.
 
 The prior Phase 13 slices moved the remaining direct frontend hydration reads
 except one. The next highest-leverage remaining app-start hydration dependency
@@ -36,9 +36,9 @@ Concrete dependency that triggered this slice:
 - direct frontend consumers still depend on hydrated transcription profiles:
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChat.tsx`
   - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
-- Python still owns `GET /getTranscriptionProfiles` in
+- Python owned `GET /getTranscriptionProfiles` in
   `backend/setta/routers/agentic.py`
-- Go does not yet own a transcription-profile file store or capability owner
+- Go did not yet own a transcription-profile file store or capability owner
 - Go already owns the LLM config runtime needed for capability attachment:
   - `internal/llmconfig.Runtime`
 
@@ -76,9 +76,53 @@ Current frontend behavior relevant to scoping:
 - current callers are IDE/settings/chat surfaces; no concrete share-mode caller
   was found in the current worktree
 
+Landed in this slice:
+
+- `internal/transcriptionprofiles`
+  - file-backed `transcription_profiles.json` store ownership
+  - live capability attachment over `internal/llmconfig.Runtime`
+- `internal/httpapi/transcription_profile_routes.go`
+  - thin IDE-gated `GET /getTranscriptionProfiles` transport
+- `internal/app/app.go`
+  - explicit transcription-profile store/service wiring over the shared
+    `llmconfig.Runtime`
+- `internal/httpapi/route_names.go`
+  - bare-route registration for `getTranscriptionProfiles`
+- focused coverage in:
+  - `internal/transcriptionprofiles/store_test.go`
+  - `internal/transcriptionprofiles/service_test.go`
+  - `internal/httpapi/transcription_profile_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the direct frontend hydration dependency on the Python-owned transcription
+  profile read route is now gone
+- the startup hydration backlog for the current direct frontend agentic reads is
+  now cleared
+- the Go route intentionally stays IDE-gated for the current bounded settings
+  surface even though Python exposed the read more broadly
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
+- generated single-item reads still exist for:
+  - `POST /getAgentProfile`
+  - `POST /getAgentRun`
+  - `POST /getPromptTemplate`
+  - `POST /getExternalAgentConfig`
+  - `POST /getEngineConfig`
+  but no direct frontend caller was found for them in the current worktree
+
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - a bounded Go transcription-profile file owner for
   `transcription_profiles.json`
@@ -149,7 +193,8 @@ This slice should deliver:
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/transcriptionprofiles ./internal/httpapi -run 'TranscriptionProfile|GetTranscriptionProfiles' -count=1`
+- `./scripts/go.sh test ./internal/transcriptionprofiles -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'TranscriptionProfile|GetTranscriptionProfiles' -count=1`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Decisions Made
@@ -170,6 +215,7 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land this bounded transcription-profile read slice first
-- after closeout, re-rank the remaining direct frontend write routes instead of
-  assuming they should all move together
+- open the next bounded Phase 13 doc around `POST /updateEngineConfig` over the
+  already-landed Go engine store
+- keep the agent-profile, external-agent-config, and transcription-profile CRUD
+  clusters separate unless a dependency forces them to combine

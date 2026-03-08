@@ -42,6 +42,7 @@ import (
 	"setta/internal/runtime"
 	"setta/internal/sshx"
 	"setta/internal/terminals"
+	"setta/internal/transcriptionprofiles"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
 	"setta/internal/workspacelaunch"
@@ -133,10 +134,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localLaunchService    *workspacelaunch.LocalLaunchService
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
+		llmRuntime            *llmconfig.Runtime
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		externalConfigStore   *externalagentconfigs.Store
 		externalPreflight     externalagentconfigs.Checker
+		transcriptionStore    *transcriptionprofiles.Store
+		transcriptionProfiles *transcriptionprofiles.Service
 		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
 	)
@@ -500,6 +504,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		transcriptionStore, err = transcriptionprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		agentRunStore, err = agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -528,7 +537,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		llmRuntime, err := llmconfig.NewRuntime(llmConfigs)
+		llmRuntime, err = llmconfig.NewRuntime(llmConfigs)
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
@@ -543,6 +552,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			workspaceEnv,
 			llmconfig.CurrentProcessEnv(),
 		))
+		transcriptionProfiles, err = transcriptionprofiles.NewService(transcriptionprofiles.ServiceOptions{
+			Profiles: transcriptionStore,
+			LLM:      llmRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -927,6 +944,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterEngineConfigRoutes(r, httpapi.EngineConfigRouteDependencies{
 				ModePolicy: modePolicy,
 				Engines:    engineStore,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
+				ModePolicy: modePolicy,
+				Profiles:   transcriptionProfiles,
 			}); err != nil {
 				panic(err)
 			}

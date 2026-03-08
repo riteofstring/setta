@@ -104,7 +104,6 @@ Closeout rerun after the landing:
 - richer Python-only plugin/env-var/cache preflight semantics remain deferred
   and are no longer hidden inside the hydration move
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
   - `POST /updateAgentProfile`
   - `POST /deleteAgentProfile`
@@ -227,6 +226,8 @@ This slice delivered:
 
 - the engine-config hydration follow-up is now landed in
   `phase-13-engine-config-read-transport.md`
-- open the next bounded Phase 13 doc around transcription-profile hydration
-  transport and keep the remaining write routes separate unless a dependency
-  forces them to combine
+- the transcription-profile hydration follow-up is now landed in
+  `phase-13-transcription-profile-read-transport-and-capability-owner.md`
+- open the next bounded Phase 13 doc around `POST /updateEngineConfig` and keep
+  the remaining write routes separate unless a dependency forces them to
+  combine

@@ -145,6 +145,7 @@ This slice delivered:
   `phase-13-external-agent-config-and-health-read-transport.md`
 - the engine-config hydration follow-up is now landed in
   `phase-13-engine-config-read-transport.md`
-- the next bounded hydration/settings dependency is transcription-profile
-  transport, because `useHydrateAgenticState()` still loads
-  `GET /getTranscriptionProfiles` on app start
+- the transcription-profile hydration follow-up is now landed in
+  `phase-13-transcription-profile-read-transport-and-capability-owner.md`
+- the next bounded hydration/settings dependency is now `POST /updateEngineConfig`
+  over the already-landed Go engine store

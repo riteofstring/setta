@@ -88,8 +88,9 @@ Closeout rerun after the landing:
   `phase-13-external-agent-config-and-health-read-transport.md`
 - the engine-config hydration follow-up is now landed in
   `phase-13-engine-config-read-transport.md`
+- the transcription-profile hydration follow-up is now landed in
+  `phase-13-transcription-profile-read-transport-and-capability-owner.md`
 - the remaining direct frontend Python-owned agentic routes are currently:
-  - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
   - `POST /updateAgentProfile`
   - `POST /deleteAgentProfile`
@@ -217,6 +218,7 @@ This slice delivered:
   `phase-13-external-agent-config-and-health-read-transport.md`
 - the engine-config hydration follow-up is now landed in
   `phase-13-engine-config-read-transport.md`
-- the next bounded direct-hydration dependency is transcription-profile
-  transport, because `useHydrateAgenticState()` still loads
-  `GET /getTranscriptionProfiles` on app start
+- the transcription-profile hydration follow-up is now landed in
+  `phase-13-transcription-profile-read-transport-and-capability-owner.md`
+- the next bounded direct frontend dependency is `POST /updateEngineConfig`
+  over the already-landed Go engine store

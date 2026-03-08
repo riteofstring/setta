@@ -88,7 +88,6 @@ Closeout rerun after the landing:
 - the Go route intentionally stays IDE-gated for the current bounded settings
   surface even though Python exposed the read more broadly
 - the current remaining direct frontend Python-owned agentic routes are:
-  - `GET /getTranscriptionProfiles`
   - `POST /createAgentProfile`
   - `POST /updateAgentProfile`
   - `POST /deleteAgentProfile`
@@ -171,9 +170,9 @@ This slice delivered:
    - Leave engine-config mutation/broadcast work to a later bounded slice.
 
 5. Keep the follow-up bounded.
-   - After this read slice lands, move to transcription-profile hydration or
-     engine-config write transport as separate docs unless a dependency forces
-     them to combine.
+   - After this read slice lands, move to the next bounded write transport such
+     as `POST /updateEngineConfig` instead of bundling multiple CRUD surfaces
+     together.
 
 ## Verification
 
@@ -200,8 +199,8 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded Phase 13 doc around transcription-profile hydration
-  transport so `useHydrateAgenticState()` no longer depends on the remaining
-  Python read at app startup
-- keep `POST /updateEngineConfig` and the remaining CRUD routes separate unless
-  a dependency forces them to combine with transcription-profile transport
+- the transcription-profile hydration follow-up is now landed in
+  `phase-13-transcription-profile-read-transport-and-capability-owner.md`
+- open the next bounded Phase 13 doc around `POST /updateEngineConfig` and keep
+  the remaining CRUD clusters separate unless a dependency forces them to
+  combine
