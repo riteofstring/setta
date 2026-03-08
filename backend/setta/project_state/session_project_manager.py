@@ -28,7 +28,7 @@ from setta.types.helpers_lvl3 import (
     merge_single_config_into_backend,
 )
 from setta.types.id import ID
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import ProjectChatWindowingState, ProjectStateBackend
 from setta.utils.name_validation import validate_project_name
 
 if TYPE_CHECKING:
@@ -173,6 +173,9 @@ class SessionProjectManager(BaseProjectManager):
             self.project_state_backend.projectConfigs[new_project_config.id] = (
                 new_project_config
             )
+            self.project_state_backend.projectChatWindowingByProjectConfigId[
+                new_project_config.id
+            ] = ProjectChatWindowingState()
         else:
             new_project_config = copy_project(
                 project_state, normalized_name, do_create_new_id=True

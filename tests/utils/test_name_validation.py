@@ -36,7 +36,12 @@ from setta.types.helpers_lvl2 import (
     set_text_block_heading_as_section_name,
     set_text_block_text,
 )
-from setta.types.project_config import Position, ProjectConfig, ViewModeConfig
+from setta.types.project_config import (
+    Position,
+    ProjectConfig,
+    ViewModeConfig,
+    WindowSpaceConfig,
+)
 from setta.types.project_state import (
     CODE_LANGUAGE_EXTENSIONS,
     ProjectStateBackend,
@@ -57,6 +62,7 @@ from setta.utils.errors import (
     InvalidProjectName,
     InvalidSectionName,
     InvalidViewModeName,
+    InvalidWindowSpaceName,
 )
 from setta.utils.name_validation import (
     _resolve_section_full_path_name,
@@ -67,6 +73,7 @@ from setta.utils.name_validation import (
     collect_text_block_heading_name_errors,
     validate_param_name,
     validate_view_mode_name,
+    validate_window_space_name,
 )
 from setta.utils.paths import normalize_state_path, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
@@ -101,6 +108,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -110,6 +118,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -119,6 +128,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -128,6 +138,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -137,6 +148,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -146,6 +158,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -155,6 +168,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -164,6 +178,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         set_project_config_name(backend, project_config.id, "  Foo Bar  ")
@@ -173,6 +188,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         set_project_config_name(backend, project_config.id, "Alpha-2 _Beta")
@@ -182,6 +198,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -192,6 +209,7 @@ class TestProjectNameValidation:
         secondary = ProjectConfig(name="secondary")
         backend = ProjectStateBackend(
             projectConfigs={primary.id: primary, secondary.id: secondary},
+            projectChatWindowingByProjectConfigId={primary.id: {}, secondary.id: {}},
             defaultProjectConfigId=primary.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -202,6 +220,7 @@ class TestProjectNameValidation:
         secondary = ProjectConfig(name="secondary")
         backend = ProjectStateBackend(
             projectConfigs={primary.id: primary, secondary.id: secondary},
+            projectChatWindowingByProjectConfigId={primary.id: {}, secondary.id: {}},
             defaultProjectConfigId=primary.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -286,9 +305,7 @@ class TestViewModeNameValidation:
         view_mode = ViewModeConfig(name="Primary")
         project_state.projectConfig.viewModes[view_mode.id] = view_mode
         assert (
-            validate_view_mode_name(
-                project_state, view_mode.id, "Alpha-2 _Beta"
-            )
+            validate_view_mode_name(project_state, view_mode.id, "Alpha-2 _Beta")
             == "Alpha-2 _Beta"
         )
 
@@ -313,6 +330,93 @@ class TestViewModeNameValidation:
         project_state.projectConfig.viewModes[secondary.id] = secondary
         with pytest.raises(InvalidViewModeName):
             validate_view_mode_name(project_state, secondary.id, "foo")
+
+
+class TestWindowSpaceNameValidation:
+    def test_window_space_name_rejects_path_separators(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        with pytest.raises(InvalidWindowSpaceName):
+            validate_window_space_name(project_state, None, "bad/name")
+
+    def test_window_space_name_rejects_dotdot(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        with pytest.raises(InvalidWindowSpaceName):
+            validate_window_space_name(project_state, None, "bad..name")
+
+    def test_window_space_name_rejects_special_chars(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        with pytest.raises(InvalidWindowSpaceName):
+            validate_window_space_name(project_state, None, "bad@name")
+
+    def test_window_space_name_invalid_after_sanitization_rejected(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        with pytest.raises(InvalidWindowSpaceName):
+            validate_window_space_name(project_state, None, "__")
+
+    def test_window_space_name_trims_whitespace(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        assert (
+            validate_window_space_name(project_state, None, "  Focused Layout  ")
+            == "Focused Layout"
+        )
+
+    def test_window_space_name_allows_home_because_namespace_is_explicit(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        assert validate_window_space_name(project_state, None, "home") == "home"
+
+    def test_window_space_slug_collision_rejected(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        project_state.projectConfig.windowSpaces["primary"] = (
+            WindowSpaceConfig(
+                id="primary",
+                name="foo_bar",
+                sortIndex=0,
+            )
+        )
+        secondary = project_state.projectConfig.windowSpaces["secondary"] = (
+            WindowSpaceConfig(
+                id="secondary",
+                name="secondary",
+                sortIndex=1,
+            )
+        )
+        with pytest.raises(InvalidWindowSpaceName):
+            validate_window_space_name(project_state, secondary.id, "foo bar")
+
+    def test_window_space_slug_collision_case_insensitive_rejected(self) -> None:
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        project_state.projectConfig.windowSpaces["primary"] = (
+            WindowSpaceConfig(
+                id="primary",
+                name="Foo",
+                sortIndex=0,
+            )
+        )
+        secondary = project_state.projectConfig.windowSpaces["secondary"] = (
+            WindowSpaceConfig(
+                id="secondary",
+                name="secondary",
+                sortIndex=1,
+            )
+        )
+        with pytest.raises(InvalidWindowSpaceName):
+            validate_window_space_name(project_state, secondary.id, "foo")
 
 
 class TestSectionNameValidation:
@@ -517,6 +621,21 @@ class TestSectionNameValidation:
         set_section_name(project_state, section_id, "Group-1 _X")
         assert project_state.sections[section_id].name == "Group-1 _X"
 
+    def test_section_name_allows_chat_slug_with_namespaced_routes(
+        self,
+        settings_and_project_state,
+    ) -> None:
+        settings, project_state = settings_and_project_state
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Code,
+            Position(),
+        )
+        project_state.validate_parent_section_map()
+        set_section_name(project_state, section_id, "Chat_")
+        assert project_state.sections[section_id].name == "Chat_"
+
     def test_section_name_rejects_empty_after_trim(
         self,
         settings_and_project_state,
@@ -589,6 +708,24 @@ class TestSectionNameValidation:
             "Section name conflicts with another top-level name after Python identifier sanitization.",
             conflicts[first],
         )
+
+    def test_collect_section_name_conflicts_allows_chat_slug_with_namespaced_routes(
+        self,
+        settings_and_project_state,
+    ) -> None:
+        settings, project_state = settings_and_project_state
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Code,
+            Position(),
+        )
+        project_state.validate_parent_section_map()
+        project_state.sections[section_id].name = "Chat_"
+
+        conflicts = collect_section_name_conflicts(project_state)
+
+        assert section_id not in conflicts
 
     def test_nested_list_root_path_uses_immediate_parent(
         self,
@@ -876,7 +1013,6 @@ class TestSectionNameValidation:
 
 
 class TestParamNameValidation:
-
     def test_param_name_allows_empty_for_editable_kwarg(
         self,
         settings_and_project_state,
