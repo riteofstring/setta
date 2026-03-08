@@ -41,6 +41,7 @@ import {
   unindentSelectedParams,
 } from "state/actions/params/moveParams";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useProjectState, useSettings } from "state/definitions";
 import {
   focusAdjacentTopLevelSection,
@@ -823,7 +824,7 @@ function onEscapeKey(event: KeyboardEvent) {
   const didUnselectSomeParams = unselectAllParams();
   if (!didUnselectSomeParams && sectionNode) {
     const sectionId = sectionNode.getAttribute("data-id");
-    const activeIds = useProjectState.getState().projectConfig.activeIds;
+    const activeIds = getActiveSectionUIIds();
     if (sectionId && activeIds.includes(sectionId)) {
       clearActiveSectionIds();
       const activeElement =
@@ -907,7 +908,7 @@ function resolveTabParamAction(event: KeyboardEvent) {
 
 function activeSectionHasSelectedParams(): boolean {
   const state = useProjectState.getState();
-  const activeId = state.projectConfig.activeIds[0];
+  const activeId = getActiveSectionUIIds()[0];
   if (!activeId) {
     return false;
   }
