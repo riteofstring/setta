@@ -293,21 +293,16 @@ func buildCreatedTopLevelSectionImpl(
 		if err != nil {
 			return SectionImpl{}, nil, nil, nil, err
 		}
-		codeLanguage := payloadStringField(payloadObject, "codeLanguage")
-		switch codeLanguage {
-		case "", "python":
-			codeLanguage = string(CodeLanguagePython)
-		case "bash":
-			codeLanguage = string(CodeLanguageBash)
-		default:
-			return SectionImpl{}, nil, nil, nil, fmt.Errorf("%w: %q", ErrCodeLanguageRequired, codeLanguage)
+		codeLanguage := normalizeCodeLanguage(CodeLanguage(payloadStringField(payloadObject, "codeLanguage")))
+		if codeLanguage == "" {
+			codeLanguage = CodeLanguagePython
 		}
 		return SectionImpl{
 			ID:      implID,
 			Kind:    SectionKindCode,
 			Payload: payload,
 			Code: &CodeSectionImpl{
-				Language: CodeLanguage(codeLanguage),
+				Language: codeLanguage,
 			},
 		}, nil, nil, nil, nil
 	case "Dict":

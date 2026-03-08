@@ -203,7 +203,7 @@ func (r *LSPDiagnosticsRegistry) PruneDocument(document Document) error {
 
 	validProjectSectionIDs := make(map[string]map[string]struct{}, len(document.Projects))
 	for projectID, project := range document.Projects {
-		sectionFiles, err := project.ActivePythonCodeSectionFiles()
+		sectionFiles, err := project.ActiveCodeSectionFiles()
 		if err != nil {
 			return err
 		}

@@ -124,6 +124,34 @@ func TestProjectCreateTopLevelSectionRejectsUnsupportedImplType(t *testing.T) {
 	}
 }
 
+func TestProjectCreateTopLevelSectionAcceptsPluginCodeLanguage(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+
+	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
+		ImplType: "Code",
+		ImplOverrides: map[string]any{
+			"type":         "Code",
+			"codeLanguage": "FixtureDSL",
+		},
+	}, defaultAutoLayoutSectionSizingPolicy())
+	if err != nil {
+		t.Fatalf("create plugin language code section: %v", err)
+	}
+
+	_, _, impl, err := project.ResolveSection(result.SectionID)
+	if err != nil {
+		t.Fatalf("resolve created code section: %v", err)
+	}
+	if !impl.IsCode() || impl.Code == nil {
+		t.Fatalf("expected code section impl, got %#v", impl)
+	}
+	if impl.Code.Language != CodeLanguage("fixturedsl") {
+		t.Fatalf("expected normalized plugin code language, got %q", impl.Code.Language)
+	}
+}
+
 func testCreateTopLevelSectionProject(t *testing.T) Project {
 	t.Helper()
 

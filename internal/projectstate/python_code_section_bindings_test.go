@@ -270,6 +270,47 @@ func TestProjectActivePythonCodeSectionFilesPreserveDiskBackedSource(t *testing.
 	}
 }
 
+// Missing active non-Python code bindings should follow the same deterministic
+// canonical sections layout, with the extension derived from codeLanguage.
+func TestProjectNormalizedReconcilesMissingPluginCodeBinding(t *testing.T) {
+	t.Parallel()
+
+	project := testPythonCodeBindingProject()
+	project.SectionImpls["runner-impl"] = SectionImpl{
+		ID:   "runner-impl",
+		Kind: SectionKindCode,
+		Code: &CodeSectionImpl{
+			Language: CodeLanguage("FixtureDSL"),
+		},
+		Payload: mustRawJSONForBindings(t, map[string]any{
+			"id":           "runner-impl",
+			"type":         "Code",
+			"code":         "fixture.value()\n",
+			"codeLanguage": "FixtureDSL",
+			"children":     []string{},
+		}),
+	}
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+
+	_, _, impl, err := normalized.ResolveSection("runner")
+	if err != nil {
+		t.Fatalf("resolve runner: %v", err)
+	}
+	if impl.Code == nil || impl.Code.Binding == nil {
+		t.Fatal("expected plugin code binding to be reconciled")
+	}
+	if got := impl.Code.Language; got != CodeLanguage("fixturedsl") {
+		t.Fatalf("expected normalized plugin language, got %q", got)
+	}
+	if got := impl.Code.Binding.Path; got != "code/sections/demo_project/runner.fixturedsl" {
+		t.Fatalf("unexpected plugin binding path %q", got)
+	}
+}
+
 func testPythonCodeBindingProject() Project {
 	return Project{
 		ID:   "project-alpha",

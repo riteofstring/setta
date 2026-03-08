@@ -438,7 +438,8 @@ func (p Project) Normalized() (Project, error) {
 			if impl.Code == nil {
 				return Project{}, fmt.Errorf("%w: %q", ErrCodeSectionConfigRequired, impl.ID)
 			}
-			if strings.TrimSpace(string(impl.Code.Language)) == "" {
+			impl.Code.Language = normalizeCodeLanguage(impl.Code.Language)
+			if impl.Code.Language == "" {
 				return Project{}, fmt.Errorf("%w: %q", ErrCodeLanguageRequired, impl.ID)
 			}
 			if impl.Code.Binding != nil {
@@ -608,8 +609,8 @@ func (p Project) Normalized() (Project, error) {
 		}
 	}
 
-	if err := normalized.ReconcilePythonCodeSectionBindings(); err != nil {
-		return Project{}, fmt.Errorf("reconcile python code section bindings: %w", err)
+	if err := normalized.ReconcileCodeSectionBindings(); err != nil {
+		return Project{}, fmt.Errorf("reconcile code section bindings: %w", err)
 	}
 
 	return normalized, nil
