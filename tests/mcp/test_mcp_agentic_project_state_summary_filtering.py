@@ -13,7 +13,6 @@ from setta.database.db_objs import DBE
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
-    AGENTIC_CONTEXT_RUN_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
 from setta.mcp.errors import InvalidToolArgumentsError
@@ -169,7 +168,6 @@ def _build_context_with_headers(
     project_config_id: ID,
     chat_id: ID,
     section_id: ID | None,
-    run_id: ID | None = None,
 ) -> Context:
     class _DummyRequest:
         def __init__(self, headers: dict[str, str]) -> None:
@@ -181,8 +179,6 @@ def _build_context_with_headers(
     }
     if section_id is not None:
         headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = str(section_id)
-    if run_id is not None:
-        headers[AGENTIC_CONTEXT_RUN_ID_HEADER] = str(run_id)
 
     request_context = RequestContext(
         request_id=1,
@@ -620,7 +616,6 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
             "projectConfigId": str(tmp_project_id),
             "chatId": str(tmp_chat_id),
             "sectionId": str(tmp_section_id),
-            "runId": "run-1",
             "frontendAffinityToken": "frontend-test",
         },
         context=ctx,
@@ -628,7 +623,6 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     assert init_result == {"status": "ok"}
     resolved_agentic_context = mcp_server._resolve_agentic_context(ctx)
     assert resolved_agentic_context is not None
-    assert resolved_agentic_context.run_id == ID("run-1")
     assert resolved_agentic_context.frontend_affinity_token == "frontend-test"
 
     tool = mcp_server.get_tool("get_latest_project_state_summary")
@@ -848,82 +842,6 @@ async def test_resolve_agentic_context_rejects_blank_frontend_affinity_token_met
         match="frontendAffinityToken must be a non-empty string when provided.",
     ):
         mcp_server._resolve_agentic_context(ctx)
-
-
-@pytest.mark.asyncio
-async def test_resolve_agentic_context_reads_run_id_from_meta_and_headers(
-    tmp_path,
-) -> None:
-    dbe = DBE(tmp_path)
-    (
-        project_state,
-        project_config_id,
-        chat_section_id,
-        peer_chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state()
-    tmp_map = _seed_temporary_ids(
-        dbe,
-        [
-            project_config_id,
-            chat_section_id,
-            peer_chat_section_id,
-            allowed_section_id,
-            blocked_section_id,
-            ID("chat-1"),
-        ],
-    )
-    tmp_project_id = tmp_map[project_config_id]
-    tmp_section_id = tmp_map[chat_section_id]
-    tmp_chat_id = tmp_map[ID("chat-1")]
-
-    manager = _DummyProjectManager(project_state)
-    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
-    websocket_manager = WebsocketManager()
-    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type(
-        "_State",
-        (),
-        {
-            "project_manager_switcher": switcher,
-            "dbe": dbe,
-            "deployment_mode": False,
-        },
-    )()
-    app = FastAPI()
-    mcp_server = SettaFastMCP(
-        app,
-        state,
-        "/mcp-test",
-        "Test MCP Server",
-        frontend_sender,
-        dbe,
-    )
-
-    meta_ctx = _build_context_with_raw_meta(
-        mcp_server=mcp_server,
-        meta={
-            "projectConfigId": str(tmp_project_id),
-            "chatId": str(tmp_chat_id),
-            "sectionId": str(tmp_section_id),
-            "runId": "run-from-meta",
-        },
-    )
-    meta_context = mcp_server._resolve_agentic_context(meta_ctx)
-    assert meta_context is not None
-    assert meta_context.run_id == ID("run-from-meta")
-
-    header_ctx = _build_context_with_headers(
-        mcp_server=mcp_server,
-        project_config_id=project_config_id,
-        chat_id=ID("chat-1"),
-        section_id=chat_section_id,
-        run_id=ID("run-from-header"),
-    )
-    header_context = mcp_server._resolve_agentic_context(header_ctx)
-    assert header_context is not None
-    assert header_context.run_id == ID("run-from-header")
 
 
 @pytest.mark.asyncio

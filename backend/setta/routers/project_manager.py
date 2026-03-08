@@ -18,7 +18,6 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
     CreateNewSectionVariantRequest,
-    CreateStateMachineEdgeRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
@@ -31,7 +30,6 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
-    DeleteStateMachineEdgesRequest,
     DeleteViewModeRequest,
     ForceRefreshProjectRequest,
     FormatCodeRequest,
@@ -109,8 +107,6 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
-    SetStateMachineEdgesRequest,
-    SetStateMachineSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -145,7 +141,6 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
-    UpdateStateMachineEdgeRequest,
     ValidateAppDefinitionRequest,
     ValidateAppDefinitionResponse,
 )
@@ -182,14 +177,6 @@ logger = logging.getLogger(__name__)
 router = SettaProjectContextNonLauncherAPIRouter(
     require_project_context_by_default=True,
 )
-
-
-def _raise_structural_write_http_exception(exc: Exception) -> None:
-    if isinstance(exc, KeyError):
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    if isinstance(exc, (TypeError, ValueError)):
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    raise exc
 
 
 async def _deny_deployment_mode_lsp(ctx) -> None:
@@ -1039,10 +1026,7 @@ async def route_create_agentic_edge(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.create_agentic_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.create_agentic_edge(x)
 
 
 @router.post(Route.UPDATE_AGENTIC_EDGE)
@@ -1051,10 +1035,7 @@ async def route_update_agentic_edge(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.update_agentic_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.update_agentic_edge(x)
 
 
 @router.post(Route.DELETE_AGENTIC_EDGES)
@@ -1063,10 +1044,7 @@ async def route_delete_agentic_edges(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.delete_agentic_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.delete_agentic_edges(x)
 
 
 @router.post(Route.SET_AGENTIC_EDGES)
@@ -1075,58 +1053,7 @@ async def route_set_agentic_edges(
 ):
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_agentic_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.CREATE_STATE_MACHINE_EDGE)
-async def route_create_state_machine_edge(
-    x: CreateStateMachineEdgeRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.create_state_machine_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.UPDATE_STATE_MACHINE_EDGE)
-async def route_update_state_machine_edge(
-    x: UpdateStateMachineEdgeRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.update_state_machine_edge(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.DELETE_STATE_MACHINE_EDGES)
-async def route_delete_state_machine_edges(
-    x: DeleteStateMachineEdgesRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.delete_state_machine_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
-
-
-@router.post(Route.SET_STATE_MACHINE_EDGES)
-async def route_set_state_machine_edges(
-    x: SetStateMachineEdgesRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    try:
-        await manager.set_state_machine_edges(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
+    await manager.set_agentic_edges(x)
 
 
 @router.post(Route.SET_SECTION_VARIANT)
@@ -1432,18 +1359,6 @@ async def route_set_chat_section_settings(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_chat_section_settings(x)
-
-
-@router.post(Route.SET_STATE_MACHINE_SECTION_SETTINGS)
-async def route_set_state_machine_section_settings(
-    x: SetStateMachineSectionSettingsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    try:
-        await manager.set_state_machine_section_settings(x)
-    except (KeyError, TypeError, ValueError) as exc:
-        _raise_structural_write_http_exception(exc)
 
 
 @router.post(Route.SET_CHAT_SECTION_STATE)
