@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 )
 
@@ -58,6 +59,7 @@ type Dependencies struct {
 	Logger                    *slog.Logger
 	Info                      InfoService
 	Auth                      *auth.Service
+	TrustedOrigins            *frontendorigins.Service
 	ModePolicy                modes.Policy
 	RegisterRoot              func(chi.Router)
 	RegisterAuthenticatedRoot func(chi.Router)
@@ -105,7 +107,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 
 	if deps.Auth != nil && deps.Auth.Enabled() {
 		router.Get(bootstrapPagePath, bootstrapPageHandler())
-		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth))
+		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth, deps.TrustedOrigins))
 	}
 	if deps.RegisterAuthenticatedRoot != nil {
 		if deps.Auth != nil && deps.Auth.Enabled() {
@@ -166,9 +168,11 @@ func RequireShareSession(resolver modes.Resolver) func(http.Handler) http.Handle
 	}
 }
 
-func bootstrapConsumeHandler(authService *auth.Service) http.HandlerFunc {
+func bootstrapConsumeHandler(authService *auth.Service, trustedOrigins *frontendorigins.Service) http.HandlerFunc {
 	type requestPayload struct {
-		Token string `json:"token"`
+		Token               string `json:"token"`
+		LauncherOrigin      string `json:"launcherOrigin"`
+		LauncherOriginProof string `json:"launcherOriginProof"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -183,7 +187,8 @@ func bootstrapConsumeHandler(authService *auth.Service) http.HandlerFunc {
 			token = auth.ExtractBearerToken(r.Header)
 		}
 
-		_, err = authService.ConsumeBootstrapToken(token, time.Now().UTC())
+		now := time.Now().UTC()
+		_, err = authService.ConsumeBootstrapToken(token, now)
 		if err != nil {
 			switch {
 			case errors.Is(err, auth.ErrMissingToken):
@@ -196,10 +201,37 @@ func bootstrapConsumeHandler(authService *auth.Service) http.HandlerFunc {
 			return
 		}
 
-		cookieToken, _, err := authService.MintAuthCookie(time.Now().UTC())
+		currentSession, ok := authService.CurrentSession()
+		if !ok {
+			writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
+			return
+		}
+
+		cookieToken, authCookiePayload, err := authService.MintAuthCookie(now)
 		if err != nil {
 			writeError(w, r, http.StatusUnauthorized, "missing_session", "Missing session.")
 			return
+		}
+		responsePayload := map[string]string{"status": "ok"}
+		if trustedOrigins != nil {
+			normalizedLauncherOrigin := frontendorigins.NormalizeOrigin(payload.LauncherOrigin)
+			if normalizedLauncherOrigin != "" && frontendorigins.ValidateLauncherOriginHandoffProof(
+				currentSession.Metadata.ID,
+				normalizedLauncherOrigin,
+				payload.LauncherOriginProof,
+				currentSession.Secret,
+			) {
+				if _, err := trustedOrigins.TrustOrigin(normalizedLauncherOrigin, currentSession.Metadata.ID, authCookiePayload.Exp); err != nil {
+					var unavailable *frontendorigins.StoreUnavailableError
+					if errors.As(err, &unavailable) {
+						writeError(w, r, http.StatusServiceUnavailable, "trusted_frontend_origin_store_unavailable", "Trusted frontend origin store unavailable")
+						return
+					}
+					writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+					return
+				}
+				responsePayload["launcherOrigin"] = normalizedLauncherOrigin
+			}
 		}
 		if err := authService.SetAuthCookie(w, r, cookieToken); err != nil {
 			if errors.Is(err, auth.ErrMissingCurrentSession) {
@@ -210,7 +242,7 @@ func bootstrapConsumeHandler(authService *auth.Service) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, responsePayload)
 	}
 }
 

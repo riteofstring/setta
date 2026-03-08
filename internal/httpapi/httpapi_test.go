@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
 	"setta/internal/config"
+	"setta/internal/frontendorigins"
 	"setta/internal/modes"
 )
 
@@ -256,6 +257,156 @@ func TestBootstrapPageUsesDevFrontendRedirectWhenConfigured(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), "http://127.0.0.1:3000/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8000") {
 		t.Fatalf("expected dev frontend redirect in bootstrap page, got %q", response.Body.String())
+	}
+}
+
+func TestBootstrapConsumeReturnsVerifiedLauncherOrigin(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: currentSession.Metadata.RuntimeRoot,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+	launcherOrigin := "http://127.0.0.1:9001"
+	launcherOriginProof := frontendorigins.MintLauncherOriginHandoffProof(
+		currentSession.Metadata.ID,
+		launcherOrigin,
+		currentSession.Secret,
+	)
+
+	requestBody := `{"token":"` + token + `","launcherOrigin":"` + launcherOrigin + `","launcherOriginProof":"` + launcherOriginProof + `"}`
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, bootstrapConsumePath, bytes.NewBufferString(requestBody))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode bootstrap consume payload: %v", err)
+	}
+	if payload["status"] != "ok" {
+		t.Fatalf("expected ok bootstrap consume payload, got %#v", payload)
+	}
+	if payload["launcherOrigin"] != launcherOrigin {
+		t.Fatalf("expected launcher origin %q, got %#v", launcherOrigin, payload)
+	}
+	if !trustedOrigins.IsTrustedOrigin(launcherOrigin, currentSession.Metadata.ID) {
+		t.Fatal("expected launcher origin to be trusted for current session")
+	}
+}
+
+func TestBootstrapConsumeReturnsStoreUnavailableWhenTrustPersistenceFails(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	currentSession, ok := authService.CurrentSession()
+	if !ok {
+		t.Fatal("expected current session")
+	}
+	lockParent := filepath.Join(t.TempDir(), "lock-parent-as-file")
+	if err := os.WriteFile(lockParent, []byte("not-a-directory"), 0o600); err != nil {
+		t.Fatalf("write lock-parent file: %v", err)
+	}
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: lockParent,
+	})
+	if err != nil {
+		t.Fatalf("new trusted origins service: %v", err)
+	}
+	handler, err := NewHandler(Dependencies{
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:           stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	token, err := authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+	launcherOrigin := "http://127.0.0.1:9001"
+	launcherOriginProof := frontendorigins.MintLauncherOriginHandoffProof(
+		currentSession.Metadata.ID,
+		launcherOrigin,
+		currentSession.Secret,
+	)
+
+	requestBody := `{"token":"` + token + `","launcherOrigin":"` + launcherOrigin + `","launcherOriginProof":"` + launcherOriginProof + `"}`
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, bootstrapConsumePath, bytes.NewBufferString(requestBody))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"trusted_frontend_origin_store_unavailable"`) {
+		t.Fatalf("expected trusted origin store failure payload, got %q", response.Body.String())
+	}
+}
+
+func TestBootstrapPageIncludesLauncherHandoffAndWorkspaceHistoryStorage(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, bootstrapPagePath, nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	html := response.Body.String()
+	for _, needle := range []string{
+		`const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";`,
+		`localStorage.setItem(workspaceHistoryHandoffKey, trimmed);`,
+		`const launcherOriginKey = "setta.launcherOrigin";`,
+		`const launcherOriginStorage = sessionStorage;`,
+		`hashParams.get("lo")`,
+		`hashParams.get("lop")`,
+		`hashParams.get("osw")`,
+		`const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";`,
+		`redirect.searchParams.set(openWorkspaceSwitcherQueryParam, "1");`,
+		`consumeBody.launcherOrigin = launcherOriginHandoff.origin;`,
+		`consumeBody.launcherOriginProof = launcherOriginHandoff.proof;`,
+		`launcherOriginStorage.setItem(launcherOriginKey, trimmed);`,
+	} {
+		if !strings.Contains(html, needle) {
+			t.Fatalf("expected bootstrap page to contain %q, got %q", needle, html)
+		}
 	}
 }
 

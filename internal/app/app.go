@@ -19,6 +19,7 @@ import (
 	"setta/internal/codegen"
 	"setta/internal/config"
 	"setta/internal/deployments"
+	"setta/internal/frontendorigins"
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
 	"setta/internal/llmconfig"
@@ -37,6 +38,7 @@ import (
 	"setta/internal/terminals"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
+	"setta/internal/workspacelaunch"
 	"setta/internal/wsapi"
 )
 
@@ -111,10 +113,27 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		sharePublisher        *deployments.SharePublisher
 		appPublisher          *deployments.AppPublisher
 		shareSessions         modes.ShareSessionStore
+		trustedOrigins        *frontendorigins.Service
 		launcherHome          *launcher.HomeService
 		launcherManagement    *launcher.ManagementService
 		launcherOpenWorkspace *launcher.OpenWorkspaceService
+		launchIntentService   *workspacelaunch.IntentService
 	)
+	if authService.SupportsSessionAuth() {
+		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
+			RuntimeRoot: cfg.Paths.RuntimeRoot,
+		})
+		if err != nil {
+			return nil, err
+		}
+		launchIntentService, err = workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
+			RuntimeRoot:    cfg.Paths.RuntimeRoot,
+			TrustedOrigins: trustedOrigins,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	launcherHome = launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: os.LookupEnv,
 	})
@@ -607,8 +626,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			config:         cfg,
 			authCookieName: authService.AuthCookieBaseName(),
 		},
-		Auth:       authService,
-		ModePolicy: modes.NewPolicy(cfg.Server.Mode),
+		Auth:           authService,
+		TrustedOrigins: trustedOrigins,
+		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
 		RegisterRoot: func(r chi.Router) {
 			if err := wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
 				Transport: wsapi.Dependencies{
@@ -675,6 +695,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:       modePolicy,
 				DefaultSettaHome: cfg.Paths.SettaHome,
 				Manager:          launcherManagement,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterWorkspaceLaunchRoutes(r, httpapi.WorkspaceLaunchRouteDependencies{
+				ModePolicy: modePolicy,
+				Auth:       authService,
+				Intents:    launchIntentService,
 			}); err != nil {
 				panic(err)
 			}
