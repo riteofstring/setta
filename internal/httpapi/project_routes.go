@@ -48,6 +48,7 @@ const (
 	RouteSetGroupOverflowMode             = "/setGroupOverflowMode"
 	RouteSetSectionSizes                  = "/setSectionSizes"
 	RouteSetCode                          = "/setCode"
+	RouteSetCodeSectionAttachedTerminal   = "/setCodeSectionAttachedTerminal"
 	RouteSetCodeFileBinding               = "/setCodeFileBinding"
 	RouteFormatCode                       = "/formatCode"
 	RouteSetActiveIDs                     = "/setActiveIds"
@@ -603,6 +604,13 @@ type UpdateParamImplConfigRequest struct {
 	NewConfig    map[string]any `json:"newConfig"`
 }
 
+type SetCodeSectionAttachedTerminalRequest struct {
+	FrontendOpID      *string `json:"frontendOpId"`
+	ProjectID         string  `json:"projectConfigId"`
+	SectionID         string  `json:"sectionId"`
+	TerminalSectionID *string `json:"terminalSectionId"`
+}
+
 type SetCodeObjNameRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -694,6 +702,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteTogglePositionLocks, togglePositionLocksHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleMinimized, toggleMinimizedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCode, setCodeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeSectionAttachedTerminal, setCodeSectionAttachedTerminalHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeFileBinding, setCodeFileBindingHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteFormatCode, formatCodeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveIDs, setActiveIDsHandler(deps))
@@ -945,6 +954,48 @@ func setCodeObjDisplayNameHandler(deps ProjectRouteDependencies) http.HandlerFun
 			payload.DisplayName,
 		); err != nil {
 			writeCodeObjDisplayNameMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setCodeSectionAttachedTerminalHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeSectionAttachedTerminalRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
+		if err != nil {
+			writeCodeSectionAttachedTerminalError(w, r, err)
+			return
+		}
+		if _, err := deps.ProjectState.SetCodeSectionAttachedTerminal(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.TerminalSectionID,
+			settings,
+		); err != nil {
+			writeCodeSectionAttachedTerminalError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -3059,6 +3110,20 @@ func writeCodeObjDisplayNameMutationError(w http.ResponseWriter, r *http.Request
 		writeError(w, r, http.StatusNotFound, "code_obj_not_found", "Code object not found.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeCodeSectionAttachedTerminalError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrCodeSectionRequired):
+		writeError(w, r, http.StatusBadRequest, "invalid_code_section", "Section must resolve to a code section.")
+	case errors.Is(err, projectstate.ErrTerminalSectionRequired):
+		writeError(w, r, http.StatusBadRequest, "invalid_terminal_section", "Section must resolve to a terminal section.")
+	case errors.Is(err, projectstate.ErrCodeSectionAttachedTerminalConflict),
+		errors.Is(err, projectstate.ErrCodeSectionMultipleChildren):
+		writeError(w, r, http.StatusUnprocessableEntity, "attached_terminal_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
 	}
 }
 

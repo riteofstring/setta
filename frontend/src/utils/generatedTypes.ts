@@ -6038,6 +6038,18 @@ export function createSetCodeObjDisplayNameRequestInput(
   return options as SetCodeObjDisplayNameRequestInput;
 }
 
+export type SetCodeSectionAttachedTerminalRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  terminalSectionId?: string | null;
+};
+export function createSetCodeSectionAttachedTerminalRequestInput(
+  options: Partial<SetCodeSectionAttachedTerminalRequestInput> = {},
+): SetCodeSectionAttachedTerminalRequestInput {
+  return options as SetCodeSectionAttachedTerminalRequestInput;
+}
+
 export type KillSubprocessesRequestInput = {
   projectConfigId: string;
 };

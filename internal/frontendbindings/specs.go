@@ -287,6 +287,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_CODE_OBJ_DISPLAY_NAME",
 				},
 				{
+					Name:     "setCodeSectionAttachedTerminal",
+					Path:     httpapi.RouteSetCodeSectionAttachedTerminal,
+					EnumName: "SET_CODE_SECTION_ATTACHED_TERMINAL",
+				},
+				{
 					Name:     "killSubprocesses",
 					Path:     httpapi.RouteKillSubprocesses,
 					EnumName: "KILL_SUBPROCESSES",
@@ -1178,6 +1183,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setCodeObjDisplayName",
 			RequestType:     reflect.TypeOf(SetCodeObjDisplayNameRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_code_section_attached_terminal",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCodeSectionAttachedTerminal",
+			RequestType:     reflect.TypeOf(SetCodeSectionAttachedTerminalRequestInput{}),
 		},
 		{
 			FunctionName:    "route_kill_subprocesses",

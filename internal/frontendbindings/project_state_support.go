@@ -61,6 +61,13 @@ type UpdateParamImplConfigRequestInput struct {
 	NewConfig       map[string]any `json:"newConfig"`
 }
 
+type SetCodeSectionAttachedTerminalRequestInput struct {
+	FrontendOpID      *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID   string  `json:"projectConfigId"`
+	SectionID         string  `json:"sectionId"`
+	TerminalSectionID *string `json:"terminalSectionId,omitempty"`
+}
+
 type SetCodeObjNameRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`

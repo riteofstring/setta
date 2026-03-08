@@ -232,6 +232,11 @@ export async function route_set_code_obj_display_name(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRoutes.setCodeObjDisplayName, x);
 }
+export async function route_set_code_section_attached_terminal(
+  x: gt.SetCodeSectionAttachedTerminalRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setCodeSectionAttachedTerminal, x);
+}
 export async function route_kill_subprocesses(
   x: gt.KillSubprocessesRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

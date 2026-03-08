@@ -72,6 +72,7 @@ import {
   route_set_code_file_binding,
   route_set_code_obj_display_name,
   route_set_code_obj_name,
+  route_set_code_section_attached_terminal,
   route_set_group_overflow_mode,
   route_set_list_root_view_mode,
   route_set_llm_api_keys,
@@ -1023,6 +1024,29 @@ describe("generatedEndpoints project shell and layout", () => {
         codeObjId: "param-a",
         displayName: "Renamed Param",
         frontendOpId: "frontend-op-code-obj-display-name",
+      }),
+    });
+  });
+
+  it("posts code-section attached-terminal writes", async () => {
+    await route_set_code_section_attached_terminal({
+      projectConfigId: "project-alpha",
+      sectionId: "code-section",
+      terminalSectionId: "terminal-section",
+      frontendOpId: "frontend-op-attach-terminal",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCodeSectionAttachedTerminal`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "code-section",
+        terminalSectionId: "terminal-section",
+        frontendOpId: "frontend-op-attach-terminal",
       }),
     });
   });

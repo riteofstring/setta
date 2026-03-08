@@ -81,7 +81,8 @@ Current landed wedge:
   - current status/meta route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
-  - current param value/config and code-object naming/display route constants
+  - current param value/config, code-object naming/display, and
+    attached-terminal helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -139,9 +140,11 @@ Current landed wedge:
       - `SetParentDefaultChildSectionTypeRequestInput`
       - `SetListRootViewModeRequestInput`
       - `SetGroupOverflowModeRequestInput`
-    - current param value/config and code-object naming/display payloads
+    - current param value/config, code-object naming/display, and
+      attached-terminal helper payloads
       - `SetParamEnteredValueRequestInput`
       - `UpdateParamImplConfigRequestInput`
+      - `SetCodeSectionAttachedTerminalRequestInput`
       - `SetCodeObjNameRequestInput`
       - `SetCodeObjDisplayNameRequestInput`
     - current structure/param-selection mutation payloads
@@ -698,6 +701,10 @@ Current landed wedge:
   - `ParamNameInput` and `QuickInfoConfig` now consume canonical
     Go-generated code-object naming/display route bindings for
     `setCodeObjName` and `setCodeObjDisplayName`
+  - the attached-terminal move branch in `moveSectionsWithBackend` now
+    consumes the canonical Go-generated `setCodeSectionAttachedTerminal`
+    binding while the broader `moveSections` route remains in the separate
+    Python-backed project-graph tail
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
   - `runOrImportCode`, `RunButton`, and `AppRenderer` now consume canonical

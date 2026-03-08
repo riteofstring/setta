@@ -970,6 +970,145 @@ func TestRegisterProjectRoutesCodeObjectNameAndDisplayNameMutationsRejectInvalid
 	}
 }
 
+func TestRegisterProjectRoutesCodeSectionAttachedTerminalPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionSizeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetCodeSectionAttachedTerminal, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	latestState := func() ProjectStateSingleConfigWithCompletedOpIDs {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 latest-state response, got %d with body %q", response.Code, response.Body.String())
+		}
+		var payload ProjectStateSingleConfigWithCompletedOpIDs
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("decode latest project payload: %v", err)
+		}
+		return payload
+	}
+
+	detachResponse := post(`{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":null,"frontendOpId":"frontend-op-detach-terminal"}`)
+	if detachResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 detach response, got %d with body %q", detachResponse.Code, detachResponse.Body.String())
+	}
+
+	detached := latestState()
+	detachedCodeVariantID := detached.ProjectState.ProjectConfig.SectionVariantMap["code-section"]
+	detachedCodeImplID := detached.ProjectState.SectionVariants[detachedCodeVariantID].Impl
+	detachedCodeImplPayload := decodeProjectRouteRawObject(t, detached.ProjectState.SectionImpls[detachedCodeImplID])
+	if got := detachedCodeImplPayload["attachedTerminalSectionId"]; got != nil {
+		t.Fatalf("expected cleared attachedTerminalSectionId after detach, got %#v", got)
+	}
+	if got := detachedCodeImplPayload["children"]; !reflect.DeepEqual(got, []any{}) {
+		t.Fatalf("expected cleared code children after detach, got %#v", got)
+	}
+	if got := detached.ProjectState.ParentSectionMap["terminal-section"]; got != nil {
+		t.Fatalf("expected detached terminal to become top-level, got parent %#v", *got)
+	}
+	if _, ok := detached.ProjectState.ProjectConfig.TopLevelSections["terminal-section"]; !ok {
+		t.Fatalf("expected detached terminal top-level layout, got %#v", detached.ProjectState.ProjectConfig.TopLevelSections)
+	}
+
+	attachResponse := post(`{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":"terminal-section","frontendOpId":"frontend-op-attach-terminal"}`)
+	if attachResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 attach response, got %d with body %q", attachResponse.Code, attachResponse.Body.String())
+	}
+
+	attached := latestState()
+	attachedCodeVariantID := attached.ProjectState.ProjectConfig.SectionVariantMap["code-section"]
+	attachedCodeImplID := attached.ProjectState.SectionVariants[attachedCodeVariantID].Impl
+	attachedCodeImplPayload := decodeProjectRouteRawObject(t, attached.ProjectState.SectionImpls[attachedCodeImplID])
+	if got := attachedCodeImplPayload["attachedTerminalSectionId"]; got != "terminal-section" {
+		t.Fatalf("expected attached terminal id terminal-section, got %#v", got)
+	}
+	if got := attachedCodeImplPayload["children"]; !reflect.DeepEqual(got, []any{"terminal-section"}) {
+		t.Fatalf("expected code children [terminal-section], got %#v", got)
+	}
+	if got := attached.ProjectState.ParentSectionMap["terminal-section"]; got == nil || *got != "code-section" {
+		t.Fatalf("expected attached terminal parent code-section, got %#v", got)
+	}
+	if _, ok := attached.ProjectState.ProjectConfig.TopLevelSections["terminal-section"]; ok {
+		t.Fatalf("did not expect attached terminal top-level layout, got %#v", attached.ProjectState.ProjectConfig.TopLevelSections["terminal-section"])
+	}
+}
+
+func TestRegisterProjectRoutesCodeSectionAttachedTerminalRejectsInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionSizeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"code-section","terminalSectionId":"chart-section"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"invalid_terminal_section"`,
+		},
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"terminal-section","terminalSectionId":"terminal-section"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"invalid_code_section"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetCodeSectionAttachedTerminal, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d, got %d with body %q", requestSpec.expectedCode, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesSetSectionNameReturns422ForInvalidName(t *testing.T) {
 	t.Parallel()
 
