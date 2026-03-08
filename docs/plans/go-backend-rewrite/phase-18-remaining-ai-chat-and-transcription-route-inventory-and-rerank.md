@@ -172,7 +172,7 @@ Why this belongs with managed chat instead of a separate transport slice:
 - Go already has the project-state mutation transport pattern needed for these
   routes
 
-### 3. Transcription session runtime is now partially landed as a separate runtime cluster
+### 3. Transcription session runtime is now landed as a separate runtime cluster
 
 These direct frontend routes are now Go-owned for the bounded file-mode slice:
 
@@ -189,11 +189,13 @@ Current callers:
 What landed:
 
 - file-mode session ownership in `internal/transcriptionsessions`
+- bounded OpenAI realtime session ownership in `internal/transcriptionsessions`
 - explicit `internal/transcriptionprofiles.Resolve(...)` lookup boundary
 - thin AI transport in `internal/httpapi`
 - real IDE app wiring through the auth session scope and LLM runtime
-- temporary `auto -> file` resolution for the current bounded Go slice
-- explicit `503 transcription_runtime_unavailable` for realtime profiles
+- capability-driven `transportMode=auto` resolution
+- typed `unsupported_model` mapping for explicit realtime requests that no
+  longer point at a realtime-capable config
 
 Why this remains a separate cluster from managed chat:
 
@@ -207,9 +209,11 @@ Why this remains a separate cluster from managed chat:
 
 Rerank:
 
-- file-mode caller-backed surface is now landed
-- realtime transport remains the next adjacent AI/runtime follow-on if
-  incremental provider dictation is still required
+- the current direct caller-backed transcription route cluster is now Go-owned
+- the next adjacent AI/runtime follow-on is no longer transcription ownership;
+  it is any still-needed managed-chat semantics beyond the landed bounded
+  send/hydrate/stop/tool/preview/follow surface, or a broader rerank outside
+  the direct AI route cluster
 
 ### 4. `POST /getChatSectionChatId` remains dormant for the current direct frontend surface
 

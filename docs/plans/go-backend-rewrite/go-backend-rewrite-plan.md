@@ -50,12 +50,11 @@ managed reasoning defaults beyond the landed explicit-config / explicit-reject
 landed managed live chat runtime, the bounded OpenAI executor, and the bounded
 MCP tool path.
 
-The separate transcription-session runtime is no longer completely deferred:
-the bounded file-mode slice is now Go-owned through
-`internal/transcriptionsessions`, thin AI route transport, and real IDE app
-wiring. The remaining direct transcription gap is narrower and explicit:
-realtime session ownership, with temporary `auto -> file` behavior kept as the
-current bounded clean-break rule until that runtime lands.
+The separate transcription-session runtime is now Go-owned for the current
+direct frontend caller surface. `internal/transcriptionsessions`, thin AI route
+transport, and real IDE app wiring now cover file-mode and bounded OpenAI
+realtime session ownership, with `transportMode=auto` resolved from explicit
+provider/model capability instead of heuristic fallback.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -125,9 +124,20 @@ file-mode ownership:
   typed route error mapping
 - real IDE app wiring plus cleanup-loop ownership for inactive sessions
 
-The remaining transcription follow-on is now the bounded realtime session
-owner rather than the whole route cluster. The current bounded Go-owned Phase
-12 surface now includes:
+The ninth Phase 18 slice is now landed for bounded transcription-session
+realtime ownership:
+
+- bounded OpenAI realtime websocket session setup in
+  `internal/transcriptionsessions`
+- append/commit streaming plus background event reads for incremental
+  transcript deltas
+- final stop-time drain with accumulated `fullText`
+- explicit `unsupported_model` mapping for stale or invalid explicit realtime
+  profiles
+- capability-driven `transportMode=auto` resolution without Python-style
+  heuristic realtime-to-file fallback
+
+The current bounded Go-owned Phase 12 surface now includes:
 
 - `internal/externalagentconfigs`
   - read access to `external_agents.json`

@@ -64,16 +64,18 @@ Landed during Slice 1:
   - `POST /cancelTranscriptionSession`
 - the real IDE app now wires those routes through the auth session scope, the
   landed LLM runtime, and the new transcription-session cleanup loop
-- realtime transport is still Go-owned only as an explicit `503
-  transcription_runtime_unavailable`
+- bounded OpenAI realtime transcription session execution is now Go-owned
+- `transportMode=auto` now resolves from explicit capability instead of the
+  temporary `auto -> file` rule
+- realtime profiles that are not actually supported now fail with typed
+  `unsupported_model` instead of a generic runtime-unavailable error
 
 Still remaining for this phase doc:
 
-- true Go-owned realtime transcription session execution
-- `transportMode=auto` resolution from explicit provider/model capability
-  instead of the temporary `auto -> file` rule
-- removal of the temporary realtime-unavailable branch now that a realtime
-  owner exists
+- broader provider coverage only if a second concrete caller/provider justifies
+  more abstraction than the bounded OpenAI adapter
+- any broader dictation/runtime semantics beyond the current frontend caller's
+  append-time `appendText` plus stop-time `fullText` contract
 
 ## Scope
 
@@ -98,6 +100,8 @@ Slice 2 extends that runtime with:
 - `transportMode=auto` resolution to realtime only when the resolved
   provider/model capability says realtime is supported
 - explicit provider/setup/runtime failure surfaces instead of silent fallback
+
+Slice 2 is now landed.
 
 ## Deliberate Slice Boundary
 
@@ -247,8 +251,8 @@ Everything above that boundary should stay provider-agnostic inside
 
 - whether any active caller still depends on typed provider-failure message
   extraction beyond structured provider JSON error payloads
-- whether the current direct dictation caller needs any realtime-session event
-  shape beyond incremental `appendText` and final `fullText`
+- whether a second concrete provider/runtime is likely enough to justify a
+  shared realtime adapter boundary in a later phase
 
 ## Decisions Made
 
@@ -264,10 +268,15 @@ Everything above that boundary should stay provider-agnostic inside
   reintroduce Python's heuristic realtime-to-file fallback logic
 - keep the realtime owner provider-bounded to OpenAI websocket semantics until
   a second concrete provider justifies a broader abstraction
+- keep realtime session reads on a dedicated background websocket reader so
+  append/stop drains can time out without sacrificing connection reuse
+- map stale or invalid explicit realtime profiles to typed
+  `unsupported_model` instead of collapsing them into runtime-unavailable or
+  provider-failure noise
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/transcriptionprofiles ./internal/transcriptionsessions ./internal/httpapi ./internal/app -run 'Test(Service|RegisterAIRoutes|AppServes(FileModeTranscriptionSessionRoutes|ManagedChatSendThroughManagedExecutor|ManagedChatThinkingUnsupportedWithoutExplicitProviderConfig))' -count=1`
+- `./scripts/go.sh test ./internal/transcriptionsessions ./internal/httpapi ./internal/app -run 'Test(Service(StartAppendStopUploadsBufferedFileTranscription|AutoProfilesResolveTo(FileMode|RealtimeWhenConfigSupportsIt)|StartRejectsRealtimeProfilesWithUnsupportedModel|StartAppendStopStreamsRealtimeTranscription|AutoProfilesDoNotFallbackToFileWhenRealtimeSetupFails)|RegisterAIRoutes(ReturnsTypedUnsupportedRealtimeTranscriptionModel|ReturnsTypedTranscriptionSessionNotFound|RejectsOversizedTranscriptionPCMBeforeDecode)|AppServes(FileModeTranscriptionSessionRoutes|RealtimeTranscriptionSessionRoutes))' -count=1`
 
 ## Progress Notes
 
@@ -293,9 +302,19 @@ Everything above that boundary should stay provider-agnostic inside
   transcript deltas and a final stop result.
 - 2026-03-10: scoped Slice 2 to one OpenAI realtime websocket adapter and
   explicit capability-driven `auto` resolution, not heuristic fallback.
+- 2026-03-10: landed the bounded OpenAI realtime transcription engine in
+  `internal/transcriptionsessions`, including websocket session setup,
+  append/commit streaming, background event reads, transcript accumulation,
+  and stop-time final drain behavior.
+- 2026-03-10: removed the temporary realtime runtime-unavailable branch by
+  resolving `transportMode=auto` from explicit capability and mapping explicit
+  unsupported realtime requests to typed `unsupported_model`.
+- 2026-03-10: added focused realtime coverage at the service, route, and real
+  app layers using websocket-backed provider test servers instead of a stubbed
+  client path.
 
 ## Next Recommended Step
 
-Implement the bounded realtime transcription session owner, then remove the
-temporary `auto -> file` rule in favor of explicit capability-driven transport
-resolution.
+Rerank away from transcription-session ownership unless a concrete caller now
+needs broader provider coverage or richer realtime-session event semantics than
+the landed direct dictation surface.
