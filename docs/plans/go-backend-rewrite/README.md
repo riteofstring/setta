@@ -599,7 +599,7 @@ Use the docs in this order:
     hydration plus declared frontend asset serving over the existing Go plugin
     discovery/mutation foundations
 164. `phase-15-plugin-config-write-transport.md`
-  - focused current-work plan for Go-owned direct frontend plugin config
+  - focused completed-slice doc for Go-owned direct frontend plugin config
     validation and persistence over the existing plugin service/store boundary
 165. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record

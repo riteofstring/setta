@@ -60,6 +60,110 @@ func TestRegisterPluginRoutesReturnsRuntimePayload(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "full")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsConfig, strings.NewReader(`{"pluginId":"setta-fixture-full","config":{"enabled":true,"label":"route-write"}}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected plugin config 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload plugins.PluginConfigWriteResult
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode plugin config response: %v", err)
+	}
+	if payload.PluginID != "setta-fixture-full" {
+		t.Fatalf("expected plugin id setta-fixture-full, got %q", payload.PluginID)
+	}
+	if !payload.Validation.OK {
+		t.Fatalf("expected successful validation payload, got %#v", payload.Validation)
+	}
+
+	runtimeResponse := httptest.NewRecorder()
+	runtimeRequest := httptest.NewRequest(http.MethodGet, "/api"+RoutePluginsRuntime, nil)
+	handler.ServeHTTP(runtimeResponse, runtimeRequest)
+	if runtimeResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.Code, runtimeResponse.Body.String())
+	}
+
+	var runtimePayload plugins.RuntimeResponse
+	if err := json.Unmarshal(runtimeResponse.Body.Bytes(), &runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime response: %v", err)
+	}
+	if got := runtimePayload.List.Plugins[0].Config.CurrentConfig["label"]; got != "route-write" {
+		t.Fatalf("expected runtime config label route-write, got %#v", got)
+	}
+}
+
+func TestRegisterPluginRoutesRejectsInvalidPluginConfig(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "full")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsConfig, strings.NewReader(`{"pluginId":"setta-fixture-full","config":{"enabled":"yes"}}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid plugin config 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid config error response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeConfigInvalid) {
+		t.Fatalf("expected config invalid error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesRejectsInvalidJSONForConfigWrite(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsConfig, strings.NewReader("{"))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid json 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid json response: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeShare)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "full")
+	handler := newPluginRouteTestHandler(t, config.ModeShare, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsConfig, strings.NewReader(`{"pluginId":"setta-fixture-full","config":{"enabled":true}}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected share-mode config write 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+		t.Fatalf("expected mode_forbidden envelope, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE(t *testing.T) {
 	t.Parallel()
 
@@ -220,7 +324,8 @@ func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service *plugins.
 		},
 		Register: func(r chi.Router) {
 			if err := RegisterPluginRoutes(r, PluginRouteDependencies{
-				Service: service,
+				ModePolicy: modes.NewPolicy(mode),
+				Service:    service,
 			}); err != nil {
 				t.Fatalf("register plugin routes: %v", err)
 			}

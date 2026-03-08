@@ -7,6 +7,7 @@ type ServiceErrorCode string
 const (
 	ServiceErrorCodeAssetInvalidPath        ServiceErrorCode = "PLUGIN_ASSET_INVALID_PATH"
 	ServiceErrorCodeAssetNotFound           ServiceErrorCode = "PLUGIN_ASSET_NOT_FOUND"
+	ServiceErrorCodeConfigInvalid           ServiceErrorCode = "PLUGIN_CONFIG_INVALID"
 	ServiceErrorCodeConfigSchemaInvalid     ServiceErrorCode = "PLUGIN_CONFIG_SCHEMA_INVALID"
 	ServiceErrorCodeInstallerUnavailable    ServiceErrorCode = "PLUGIN_INSTALLER_BACKEND_UNAVAILABLE"
 	ServiceErrorCodeManagedExternally       ServiceErrorCode = "PLUGIN_MANAGED_EXTERNALLY"

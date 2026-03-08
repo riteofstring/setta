@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This doc narrows the next Phase 15 work to the remaining direct frontend plugin
-config write gap after the landed runtime-read and asset-serving slice:
+This doc records the landed bounded Phase 15 follow-on for the remaining direct
+frontend plugin config write gap after the runtime-read and asset-serving slice:
 
 - `POST /plugins/config`
 
-The goal is to move plugin-config persistence and validation onto the existing
+The goal was to move plugin-config persistence and validation onto the existing
 Go plugin service without broadening into restart orchestration, install/link
 flows, or higher-level backend plugin registration ownership.
 
@@ -25,7 +25,7 @@ Current repo status as of 2026-03-09:
 - the current direct frontend plugin config editor still calls:
   - `frontend/src/components/Panes/Overview/Plugins/PluginsPane.tsx`
   - generated `route_plugins_config(...)`
-- Python still owns the config write transport and validation path in:
+- Python owned the config write transport and validation path in:
   - `backend/setta/routers/plugins.py`
   - `backend/setta/plugins/manager.py`
 
@@ -47,9 +47,23 @@ Current Python behavior relevant to this slice:
     - `config`
     - `validation: {"ok": true}`
 
+Landed in this slice:
+
+- Go now owns the direct frontend plugin config write route:
+  - `POST /plugins/config`
+- `internal/plugins` now owns:
+  - highest-precedence plugin config write resolution
+  - schema-backed config validation
+  - persistence into `plugins_state.json`
+  - runtime readback over the existing rescan path
+- focused coverage now exists in:
+  - `internal/plugins/config_write_test.go`
+  - `internal/httpapi/plugin_routes_test.go`
+  - `internal/app/app_test.go`
+
 ## Scope
 
-This slice should cover only:
+This slice covered only:
 
 - a Go-owned plugin config-write owner in `internal/plugins`
 - schema-backed plugin config validation using a robust JSON-schema pathway
@@ -127,21 +141,57 @@ This slice should cover only:
    - Decode a small route-local request struct.
    - Map invalid JSON to `400 invalid_json`.
 
+## Decisions Made
+
+- keep the transport split explicit
+  - `internal/plugins` owns config validation and persistence
+  - `internal/httpapi` owns JSON decode, IDE-mode gating, and HTTP error
+    mapping only
+- use a real JSON-schema validation path
+  - Go now validates plugin config through `github.com/google/jsonschema-go`
+    instead of handwritten keyword checks
+  - local schema-file `$ref` resolution stays file-backed and explicit
+- keep the response contract narrow
+  - the route returns the saved config plus `validation: {"ok": true}`
+  - restart signaling remains deferred to later runtime/read slices because the
+    current frontend already refreshes `/plugins/runtime` after save
+
+## Landed in This Slice
+
+- `internal/plugins/config_write.go`
+  - Go-owned config-write owner for highest-precedence plugin entries
+  - schema-backed plugin config validation over declared `configSchemaPath`
+  - persistence into scoped `pluginConfigById` state keys
+- `internal/httpapi/plugin_routes.go`
+  - thin IDE-only `POST /plugins/config`
+- `internal/httpapi/route_names.go`
+  - bare-route registration for the new config route
+- `internal/app/app.go`
+  - real app wiring for the new route over the shared plugin service
+- focused coverage in:
+  - `internal/plugins/config_write_test.go`
+  - `internal/httpapi/plugin_routes_test.go`
+  - `internal/app/app_test.go`
+
 ## Verification
 
 - `./scripts/go.sh test ./internal/plugins -run 'WriteConfig|Runtime' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'Plugin' -count=1`
-- `./scripts/go.sh test ./internal/app -run 'Plugin.*Config' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Plugin.*Config|PluginRuntimeAndFrontendAssets' -count=1`
+- `git diff --check`
 
 ## Open Questions
 
-- whether a later Go-owned plugin restart slice should consume config-write
-  outputs directly instead of relying on the existing frontend runtime refresh
-  path
-  - recommendation: no; keep restart behavior as a separate explicit slice
+- whether the later restart slice should expose config-write-specific restart
+  reasoning instead of relying only on subsequent runtime refresh state
+  - recommendation: keep that as a separate explicit restart/runtime decision
+    once `POST /plugins/restart` is in scope
 
-## Next Recommended Step
+## Closeout
 
-- implement the bounded Go-owned `POST /plugins/config` path described here
-- if that lands cleanly, the next remaining direct frontend plugin transport
-  gap becomes `POST /plugins/restart`
+- the direct frontend plugin config editor no longer depends on
+  `backend/setta/routers/plugins.py`
+- runtime reads now observe saved plugin config purely through the Go
+  `plugins_state.json` source-of-truth path
+- `POST /plugins/restart` is now the next remaining direct frontend plugin
+  HTTP ownership gap

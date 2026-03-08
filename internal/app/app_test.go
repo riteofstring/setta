@@ -225,6 +225,106 @@ func TestAppServesPluginRuntimeAndFrontendAssets(t *testing.T) {
 	}
 }
 
+func TestAppWritesPluginConfigAndUpdatesRuntime(t *testing.T) {
+	// The real app should accept plugin config writes and reflect them in subsequent runtime reads.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "full")
+	manifestPath := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-full", "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode plugin manifest: %v", err)
+	}
+	frontend := manifest["frontend"].(map[string]any)
+	frontend["entrypoint"] = "frontend/src/index.js"
+	frontend["style"] = "frontend/src/index.css"
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write plugin manifest: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	configRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RoutePluginsConfig,
+		strings.NewReader(`{"pluginId":"setta-fixture-full","config":{"enabled":true,"label":"app-write"}}`),
+	)
+	if err != nil {
+		t.Fatalf("new plugin config request: %v", err)
+	}
+	configRequest.Header.Set("Content-Type", "application/json")
+	configRequest.AddCookie(authCookie)
+
+	configResponse, err := http.DefaultClient.Do(configRequest)
+	if err != nil {
+		t.Fatalf("post plugin config: %v", err)
+	}
+	defer configResponse.Body.Close()
+	if configResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(configResponse.Body)
+		t.Fatalf("expected plugin config 200, got %d with body %q", configResponse.StatusCode, string(body))
+	}
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime after config write: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		List struct {
+			Plugins []struct {
+				PluginID string `json:"pluginId"`
+				Config   struct {
+					CurrentConfig map[string]any `json:"currentConfig"`
+				} `json:"config"`
+			} `json:"plugins"`
+		} `json:"list"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if len(runtimePayload.List.Plugins) != 1 {
+		t.Fatalf("expected one plugin after config write, got %#v", runtimePayload.List.Plugins)
+	}
+	if got := runtimePayload.List.Plugins[0].Config.CurrentConfig["label"]; got != "app-write" {
+		t.Fatalf("expected runtime config label app-write, got %#v", got)
+	}
+}
+
 func TestAppSaveProjectsPythonCodeSectionFilesForLSP(t *testing.T) {
 	cfg := testConfig(t)
 	prepareAppLSPFixture(t)

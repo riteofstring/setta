@@ -960,7 +960,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
-				Service: pluginMutationService,
+				ModePolicy: modePolicy,
+				Service:    pluginMutationService,
 			}); err != nil {
 				panic(err)
 			}

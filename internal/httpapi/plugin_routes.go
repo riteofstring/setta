@@ -8,13 +8,16 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/modes"
 	"setta/internal/plugins"
 )
 
 const RoutePluginsRuntime = "/plugins/runtime"
+const RoutePluginsConfig = "/plugins/config"
 
 type PluginRouteDependencies struct {
-	Service *plugins.Service
+	ModePolicy modes.Policy
+	Service    *plugins.Service
 }
 
 type PluginRootRouteDependencies struct {
@@ -30,6 +33,7 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 	}
 
 	router.Get(RoutePluginsRuntime, pluginRuntimeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
 	return nil
 }
 
@@ -49,6 +53,31 @@ func pluginRuntimeHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		response, err := deps.Service.Runtime(plugins.RuntimeOptions{
 			AssetURLBuilder: buildPluginAssetURL,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginConfigHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type writePluginConfigRequest struct {
+		PluginID string         `json:"pluginId"`
+		Config   map[string]any `json:"config"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[writePluginConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		response, err := deps.Service.WriteConfig(r.Context(), plugins.ConfigWriteOptions{
+			PluginID: payload.PluginID,
+			Config:   payload.Config,
 		})
 		if err != nil {
 			writePluginRouteError(w, r, err)
@@ -125,7 +154,7 @@ func writePluginRouteError(w http.ResponseWriter, r *http.Request, err error) {
 		case plugins.ServiceErrorCodeNotFound, plugins.ServiceErrorCodeAssetNotFound:
 			writeError(w, r, http.StatusNotFound, string(serviceErr.Code), serviceErr.Message)
 			return
-		case plugins.ServiceErrorCodeAssetInvalidPath:
+		case plugins.ServiceErrorCodeAssetInvalidPath, plugins.ServiceErrorCodeConfigInvalid, plugins.ServiceErrorCodeConfigSchemaInvalid:
 			writeError(w, r, http.StatusBadRequest, string(serviceErr.Code), serviceErr.Message)
 			return
 		default:

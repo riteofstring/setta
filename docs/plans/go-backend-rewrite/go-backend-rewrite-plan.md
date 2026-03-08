@@ -485,13 +485,15 @@ The next bounded post-Phase-14 frontend route slice tracked in
 - plugin mutation/config/restart HTTP routes and higher-level backend plugin
   registration payloads remain deferred as separate follow-on boundaries
 
-The next bounded plugin follow-on is now tracked in
-`phase-15-plugin-config-write-transport.md`:
+The next bounded plugin follow-on tracked in
+`phase-15-plugin-config-write-transport.md` is now landed:
 
-- the next direct frontend plugin ownership gap is `POST /plugins/config`
-- that slice stays bounded to config validation, persistence, and thin IDE-only
-  transport over the existing Go plugin service/store foundations
-- `POST /plugins/restart` remains deferred until after config writes land
+- Go now owns:
+  - `POST /plugins/config`
+- `internal/plugins` now owns config validation and scoped persistence over the
+  existing plugin discovery/store foundations
+- `POST /plugins/restart` remains the next deferred direct frontend plugin
+  transport gap
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
