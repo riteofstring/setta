@@ -14,6 +14,7 @@ import (
 )
 
 const RouteGetAgentProfiles = "/getAgentProfiles"
+const RouteGetAgentProfile = "/getAgentProfile"
 const RouteCreateAgentProfile = "/createAgentProfile"
 const RouteUpdateAgentProfile = "/updateAgentProfile"
 const RouteDeleteAgentProfile = "/deleteAgentProfile"
@@ -32,6 +33,10 @@ type createAgentProfileRequest struct {
 	EngineConfigID              *string  `json:"engineConfigId"`
 	ToolAllowlist               []string `json:"toolAllowlist"`
 	MemoryScope                 *string  `json:"memoryScope"`
+}
+
+type getAgentProfileRequest struct {
+	ProfileID string `json:"profileId"`
 }
 
 type updateAgentProfileRequest struct {
@@ -69,6 +74,7 @@ func RegisterAgentProfileRoutes(router chi.Router, deps AgentProfileRouteDepende
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetAgentProfiles, getAgentProfilesHandler(deps.Profiles))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAgentProfile, getAgentProfileHandler(deps.Profiles))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateAgentProfile, createAgentProfileHandler(deps.Profiles))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateAgentProfile, updateAgentProfileHandler(deps.Profiles))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteAgentProfile, deleteAgentProfileHandler(deps.Profiles))
@@ -87,6 +93,36 @@ func getAgentProfilesHandler(store *agentprofiles.Store) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, profiles)
+	}
+}
+
+func getAgentProfileHandler(store *agentprofiles.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if store == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		payload, err := decodeStrictJSONBody[getAgentProfileRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		profileID := strings.TrimSpace(payload.ProfileID)
+		if profileID == "" {
+			writeError(w, r, http.StatusBadRequest, "profile_id_required", "Profile id is required.")
+			return
+		}
+		profile, err := store.Get(profileID)
+		if err != nil {
+			if writeAgentProfileStoreError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, profile)
 	}
 }
 

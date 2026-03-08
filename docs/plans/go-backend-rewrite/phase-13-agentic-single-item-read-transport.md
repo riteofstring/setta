@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the bounded follow-on slice for the remaining dormant
+This doc records the landed bounded follow-on slice for the remaining dormant
 single-item agentic reads after the landed engine-config create/delete cleanup.
 
 The current post-Phase-13 inventory now leaves only two agentic route classes
@@ -13,8 +13,8 @@ still Python-owned:
   de-scoped
 
 The user requested continued execution. Given that constraint, the highest
-leverage bounded follow-on is to land the remaining thin single-item reads over
-already-landed Go owners:
+leverage bounded follow-on was to land the remaining thin single-item reads
+over already-landed Go owners:
 
 - `POST /getAgentProfile`
 - `POST /getPromptTemplate`
@@ -41,7 +41,7 @@ Current Python behavior relevant to this slice:
 - each route is LLM-gated, but not otherwise stateful
 - each route returns `404` when the requested id is missing
 
-Current Go behavior before this slice:
+Current Go behavior after this slice:
 
 - Go already owns the canonical owners needed for these reads:
   - `internal/agentprofiles.Store`
@@ -50,8 +50,8 @@ Current Go behavior before this slice:
   - `internal/agentruns.EngineStore`
 - Go already owns the list and mutation transport for those same settings
   resources
-- the single-item reads remain the only non-runtime agentic transport still
-  pointing at Python
+- Go now also owns the remaining single-item read transport for those same
+  settings resources
 
 Current caller status relevant to scoping:
 
@@ -62,7 +62,7 @@ Current caller status relevant to scoping:
 
 ## Scope
 
-This slice will deliver:
+This slice delivered:
 
 - thin Go transport for:
   - `POST /getAgentProfile`
@@ -142,6 +142,8 @@ This slice will deliver:
 - move the whole dormant single-item read cluster together so the remaining
   agentic Python surface becomes runtime-only instead of leaving one-off
   transport debris behind
+- keep the current IDE-only settings boundary instead of broadening share-mode
+  exposure just to match Python route shape
 
 ## Open Questions
 
@@ -152,6 +154,8 @@ This slice will deliver:
 
 ## Next Recommended Step
 
-- land the grouped single-item Go transport over the existing stores/services
-- after landing, update the inventory docs so they no longer list any
-  remaining non-runtime agentic transport in Python
+- treat the remaining non-runtime Phase 13 agentic transport cleanup as
+  complete
+- if another agentic rewrite slice is needed, require an explicit product or
+  architecture decision for the still-deferred managed-agent and run-chain
+  runtime surface

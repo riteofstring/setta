@@ -14,6 +14,7 @@ import (
 )
 
 const RouteGetEngineConfigs = "/getEngineConfigs"
+const RouteGetEngineConfig = "/getEngineConfig"
 const RouteCreateEngineConfig = "/createEngineConfig"
 const RouteUpdateEngineConfig = "/updateEngineConfig"
 const RouteDeleteEngineConfig = "/deleteEngineConfig"
@@ -21,6 +22,10 @@ const RouteDeleteEngineConfig = "/deleteEngineConfig"
 type EngineConfigRouteDependencies struct {
 	ModePolicy modes.Policy
 	Engines    *agentruns.EngineStore
+}
+
+type getEngineConfigRequest struct {
+	ConfigID string `json:"configId"`
 }
 
 type createEngineConfigRequest struct {
@@ -54,6 +59,7 @@ func RegisterEngineConfigRoutes(router chi.Router, deps EngineConfigRouteDepende
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetEngineConfigs, getEngineConfigsHandler(deps.Engines))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetEngineConfig, getEngineConfigHandler(deps.Engines))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateEngineConfig, createEngineConfigHandler(deps.Engines))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateEngineConfig, updateEngineConfigHandler(deps.Engines))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteEngineConfig, deleteEngineConfigHandler(deps.Engines))
@@ -72,6 +78,37 @@ func getEngineConfigsHandler(store *agentruns.EngineStore) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, configs)
+	}
+}
+
+func getEngineConfigHandler(store *agentruns.EngineStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if store == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		payload, err := decodeStrictJSONBody[getEngineConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		configID := strings.TrimSpace(payload.ConfigID)
+		if configID == "" {
+			writeError(w, r, http.StatusBadRequest, "config_id_required", "Config id is required.")
+			return
+		}
+		config, err := store.Get(configID)
+		if err != nil {
+			if writeEngineConfigStoreError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, config)
 	}
 }
 

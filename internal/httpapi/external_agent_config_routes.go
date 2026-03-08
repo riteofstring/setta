@@ -14,6 +14,7 @@ import (
 )
 
 const RouteGetExternalAgentConfigs = "/getExternalAgentConfigs"
+const RouteGetExternalAgentConfig = "/getExternalAgentConfig"
 const RouteGetExternalAgentHealth = "/getExternalAgentHealth"
 const RouteCreateExternalAgentConfig = "/createExternalAgentConfig"
 const RouteUpdateExternalAgentConfig = "/updateExternalAgentConfig"
@@ -45,6 +46,10 @@ type createExternalAgentConfigRequest struct {
 	WorkingDirStrategy      *externalagentconfigs.WorkingDirStrategy   `json:"workingDirStrategy"`
 	WorkingDir              *string                                    `json:"workingDir"`
 	CodexSkipGitRepoCheck   *bool                                      `json:"codexSkipGitRepoCheck"`
+}
+
+type getExternalAgentConfigRequest struct {
+	ConfigID string `json:"configId"`
 }
 
 type updateExternalAgentConfigRequest struct {
@@ -89,6 +94,7 @@ func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConf
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetExternalAgentConfigs, getExternalAgentConfigsHandler(deps.Configs))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetExternalAgentConfig, getExternalAgentConfigHandler(deps.Configs))
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetExternalAgentHealth, getExternalAgentHealthHandler(deps.Configs, deps.Preflight))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateExternalAgentConfig, createExternalAgentConfigHandler(deps.Configs))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateExternalAgentConfig, updateExternalAgentConfigHandler(deps.Configs))
@@ -108,6 +114,36 @@ func getExternalAgentConfigsHandler(service *externalagentconfigs.Service) http.
 			return
 		}
 		writeJSON(w, http.StatusOK, configs)
+	}
+}
+
+func getExternalAgentConfigHandler(service *externalagentconfigs.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if service == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		payload, err := decodeStrictJSONBody[getExternalAgentConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		configID := strings.TrimSpace(payload.ConfigID)
+		if configID == "" {
+			writeError(w, r, http.StatusBadRequest, "config_id_required", "Config id is required.")
+			return
+		}
+		config, err := service.Get(configID)
+		if err != nil {
+			if writeExternalAgentConfigServiceError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, config)
 	}
 }
 

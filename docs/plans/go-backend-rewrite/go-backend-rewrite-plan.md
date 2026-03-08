@@ -318,7 +318,6 @@ The bounded closeout inventory tracked in
 - the remaining Python-owned routes in `backend/setta/routers/agentic.py` no
   longer hide another direct Phase 13 settings or hydration blocker
 - current leftover routes split into:
-  - dormant single-item reads with no live frontend caller
   - managed-agent / run-chain runtime routes tied to intentionally de-scoped
     managed `setta_llm` and Python runtime owners
 - the next rewrite slice should therefore come from a concrete new caller or
@@ -333,9 +332,25 @@ The bounded follow-on tracked in
   - `POST /deleteEngineConfig`
 - the dormant engine-config create/delete transport noted in the inventory is
   now Go-owned over the landed `internal/agentruns.EngineStore`
-- websocket `EngineConfigsUpdated` parity and dormant single-item
-  `POST /getEngineConfig` transport remain intentionally deferred because there
-  is still no concrete caller that requires them
+- websocket `EngineConfigsUpdated` parity remains intentionally deferred
+  because there is still no concrete caller that requires it
+
+The bounded follow-on tracked in
+`phase-13-agentic-single-item-read-transport.md` is now landed:
+
+- Go now owns:
+  - `POST /getAgentProfile`
+  - `POST /getPromptTemplate`
+  - `POST /getExternalAgentConfig`
+  - `POST /getEngineConfig`
+- the remaining non-runtime single-item agentic transport is now Go-owned over
+  the landed stores and service boundaries
+- the remaining Python-owned agentic surface is now runtime-only:
+  - `POST /startAgentRun`
+  - `POST /stopAgentRun`
+  - `POST /getAgentRun`
+  - `POST /startRunChain`
+  - `POST /stopRunChain`
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -344,10 +359,10 @@ shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
 real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
-is no longer the inventory or engine-config cleanup work; those are now
-complete. The next bounded priority should only be chosen after a concrete
-caller or explicit product/runtime decision identifies which of the remaining
-Python-owned routes actually matters.
+is no longer inventory or transport cleanup; those are now complete. The next
+bounded priority should only be chosen after an explicit product/runtime
+decision identifies whether the remaining managed-agent or run-chain Python
+runtime surface still matters.
 
 ## Current Reality
 

@@ -81,6 +81,41 @@ func TestRegisterExternalAgentConfigRoutesListsConfigs(t *testing.T) {
 	}
 }
 
+func TestRegisterExternalAgentConfigRoutesGetsConfig(t *testing.T) {
+	t.Parallel()
+
+	store, service := newExternalAgentConfigRouteTestService(t)
+	baseURL := "http://localhost:18181"
+	if err := store.Write([]externalagentconfigs.Config{
+		{
+			ID:                 "config-1",
+			Name:               "OpenCode Server",
+			ToolType:           externalagentconfigs.ToolTypeOpenCode,
+			RunMode:            externalagentconfigs.RunModeServer,
+			BaseURL:            &baseURL,
+			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
+		},
+	}); err != nil {
+		t.Fatalf("write configs: %v", err)
+	}
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, &externalAgentConfigRouteStubChecker{})
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetExternalAgentConfig, bytes.NewBufferString(`{"configId":"config-1"}`))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var configPayload externalagentconfigs.Config
+	if err := json.Unmarshal(response.Body.Bytes(), &configPayload); err != nil {
+		t.Fatalf("decode config: %v", err)
+	}
+	if configPayload.ID != "config-1" || configPayload.Name != "OpenCode Server" {
+		t.Fatalf("unexpected config %#v", configPayload)
+	}
+}
+
 func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	t.Parallel()
 
@@ -356,6 +391,22 @@ func TestRegisterExternalAgentConfigRoutesRequireConfigIDOnDelete(t *testing.T) 
 	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "config_id_required")
 }
 
+func TestRegisterExternalAgentConfigRoutesRequireConfigIDOnGet(t *testing.T) {
+	t.Parallel()
+
+	_, service := newExternalAgentConfigRouteTestService(t)
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, &externalAgentConfigRouteStubChecker{})
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetExternalAgentConfig, bytes.NewBufferString(`{}`))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "config_id_required")
+}
+
 func TestRegisterExternalAgentConfigRoutesRejectInvalidPluginAdapterShape(t *testing.T) {
 	t.Parallel()
 
@@ -386,6 +437,22 @@ func TestRegisterExternalAgentConfigRoutesReturnNotFoundForMissingConfig(t *test
 
 	// Missing config ids should map to the explicit not-found transport error.
 	request := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteExternalAgentConfig, bytes.NewBufferString(`{"configId":"missing"}`))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	assertExternalAgentConfigRouteErrorCode(t, response.Body.Bytes(), "external_agent_config_not_found")
+}
+
+func TestRegisterExternalAgentConfigRoutesReturnNotFoundForMissingGetConfig(t *testing.T) {
+	t.Parallel()
+
+	_, service := newExternalAgentConfigRouteTestService(t)
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, &externalAgentConfigRouteStubChecker{})
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetExternalAgentConfig, bytes.NewBufferString(`{"configId":"missing"}`))
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 
@@ -456,6 +523,7 @@ func TestRegisterExternalAgentConfigRoutesBlockShareMode(t *testing.T) {
 		body   string
 	}{
 		{method: http.MethodGet, path: RouteGetExternalAgentConfigs},
+		{method: http.MethodPost, path: RouteGetExternalAgentConfig, body: `{"configId":"config-1"}`},
 		{method: http.MethodGet, path: RouteGetExternalAgentHealth},
 		{method: http.MethodPost, path: RouteCreateExternalAgentConfig, body: `{}`},
 		{method: http.MethodPost, path: RouteUpdateExternalAgentConfig, body: `{}`},

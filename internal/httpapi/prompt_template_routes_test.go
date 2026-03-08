@@ -76,6 +76,35 @@ func TestRegisterPromptTemplateRoutesReturnsEmptyList(t *testing.T) {
 	}
 }
 
+func TestRegisterPromptTemplateRoutesGetsTemplate(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	if err := store.Save(prompttemplates.Template{
+		ID:       "template-1",
+		Name:     "Greeting",
+		Template: "Hello {{ name }}",
+	}); err != nil {
+		t.Fatalf("save template: %v", err)
+	}
+	handler := newPromptTemplateRouteTestHandler(t, config.ModeIDE, store)
+
+	response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, RouteGetPromptTemplate, map[string]any{
+		"templateId": "template-1",
+	})
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var template prompttemplates.Template
+	if err := json.Unmarshal(response.Body.Bytes(), &template); err != nil {
+		t.Fatalf("decode template: %v", err)
+	}
+	if template.ID != "template-1" || template.Name != "Greeting" {
+		t.Fatalf("unexpected template %#v", template)
+	}
+}
+
 func TestRegisterPromptTemplateRoutesBlocksShareMode(t *testing.T) {
 	t.Parallel()
 
@@ -241,6 +270,28 @@ func TestRegisterPromptTemplateRoutesReturnsNotFoundForUpdate(t *testing.T) {
 	}
 }
 
+func TestRegisterPromptTemplateRoutesReturnsNotFoundForGet(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	handler := newPromptTemplateRouteTestHandler(t, config.ModeIDE, store)
+
+	response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, RouteGetPromptTemplate, map[string]any{
+		"templateId": "missing-template",
+	})
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "prompt_template_not_found" {
+		t.Fatalf("expected prompt_template_not_found, got %#v", payload)
+	}
+}
+
 func TestRegisterPromptTemplateRoutesDeletesTemplate(t *testing.T) {
 	t.Parallel()
 
@@ -325,6 +376,26 @@ func TestRegisterPromptTemplateRoutesRejectsInvalidCreateJSON(t *testing.T) {
 	}
 }
 
+func TestRegisterPromptTemplateRoutesRejectsMissingTemplateIDOnGet(t *testing.T) {
+	t.Parallel()
+
+	store := newPromptTemplateRouteTestStore(t)
+	handler := newPromptTemplateRouteTestHandler(t, config.ModeIDE, store)
+
+	response := performPromptTemplateRouteJSONRequest(t, handler, http.MethodPost, RouteGetPromptTemplate, map[string]any{})
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "template_id_required" {
+		t.Fatalf("expected template_id_required, got %#v", payload)
+	}
+}
+
 func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 	t.Parallel()
 
@@ -342,6 +413,12 @@ func TestRegisterPromptTemplateRoutesBlocksShareModeMutations(t *testing.T) {
 		path    string
 		payload map[string]any
 	}{
+		{
+			path: RouteGetPromptTemplate,
+			payload: map[string]any{
+				"templateId": "template-1",
+			},
+		},
 		{
 			path: RouteCreatePromptTemplate,
 			payload: map[string]any{

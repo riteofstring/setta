@@ -9,10 +9,10 @@ Historical note:
 
 - this inventory later led to the bounded engine-config create/delete follow-on
   now landed in `phase-13-engine-config-create-delete-transport.md`
-- the remaining still-Python-owned agentic surface is now only:
-  - dormant single-item reads with no live frontend caller
-  - managed-agent and run-chain runtime routes that remain intentionally
-    de-scoped
+- that cleanup was then followed by the landed single-item read slice in
+  `phase-13-agentic-single-item-read-transport.md`
+- the remaining still-Python-owned agentic surface is now only the
+  intentionally de-scoped managed-agent and run-chain runtime routes
 
 Phase 13 moved the direct app-start hydration reads and the direct settings
 mutation surface that still had live frontend callers. The next recommended
@@ -195,6 +195,8 @@ Later outcome:
 - the user explicitly requested continued execution after this inventory
 - that led to the bounded engine-config create/delete follow-on now landed in
   `phase-13-engine-config-create-delete-transport.md`
+- continued execution then landed the dormant single-item read cleanup in
+  `phase-13-agentic-single-item-read-transport.md`
 
 ## Verification
 
@@ -205,6 +207,5 @@ Later outcome:
 - close the current Phase 13 direct-surface migration work as complete for the
   current bounded scope
 - if a new agentic follow-on is needed, require one of:
-  - a concrete caller for single-item reads
   - an explicit product decision to reopen managed `setta_llm` / run-chain
     runtime work with a new bounded design doc first

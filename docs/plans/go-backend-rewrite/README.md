@@ -516,10 +516,10 @@ Use the docs in this order:
 153. `phase-13-engine-config-create-delete-transport.md`
   - focused completed-slice doc for opportunistic Go ownership of dormant
     `create/delete` engine-config transport over the landed engine store,
-    with websocket fan-out and single-item reads still deferred
+    with websocket fan-out still deferred
 154. `phase-13-agentic-single-item-read-transport.md`
-  - focused bounded follow-on doc for the remaining dormant single-item
-    agentic reads over the landed Go stores and services
+  - focused completed-slice doc for the remaining dormant single-item agentic
+    reads over the landed Go stores and services
 155. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 156. `spike-pty.md`

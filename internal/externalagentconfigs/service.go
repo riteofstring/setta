@@ -60,6 +60,13 @@ func (s *Service) List() ([]Config, error) {
 	return s.configs.List()
 }
 
+func (s *Service) Get(configID string) (Config, error) {
+	if err := s.requireConfigured(); err != nil {
+		return Config{}, err
+	}
+	return s.configs.Get(configID)
+}
+
 func (s *Service) Create(config Config) (Config, error) {
 	if err := s.requireConfigured(); err != nil {
 		return Config{}, err

@@ -144,16 +144,21 @@ This slice delivered:
 - keep id generation in the route layer so `EngineStore` remains a persistence
   and normalization owner instead of becoming a transport-aware factory
 
+Later follow-on note:
+
+- the deferred dormant single-item reads mentioned here were later landed in
+  `phase-13-agentic-single-item-read-transport.md`
+
 ## Open Questions
 
-- whether dormant `POST /getEngineConfig` should ever move without a concrete
-  caller
-  - recommendation: no, unless a real caller appears
+- whether websocket `EngineConfigsUpdated` parity should move at all in the
+  current bounded rewrite scope
+  - recommendation: only if a concrete multi-client sync dependency appears
 
 ## Next Recommended Step
 
 - treat the engine-config create/delete cleanup as complete for the current
   bounded Phase 13 surface
-- if another agentic follow-on is needed, rerank only:
-  - dormant single-item reads with a concrete caller
-  - managed-agent or run-chain runtime work behind a new bounded design doc
+- use `phase-13-agentic-single-item-read-transport.md` for the later
+  single-item read follow-on and the inventory doc for the remaining
+  runtime-only agentic surface

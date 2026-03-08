@@ -117,6 +117,44 @@ func TestRegisterEngineConfigRoutesReturnsInternalErrorForInvalidPayload(t *test
 	}
 }
 
+func TestRegisterEngineConfigRoutesGetsConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	settaConfigID := "claude-sonnet"
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-1",
+			Name:             "Claude",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetEngineConfig,
+		strings.NewReader(`{"configId":"engine-1"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var configPayload agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &configPayload); err != nil {
+		t.Fatalf("decode engine config: %v", err)
+	}
+	if configPayload.ID != "engine-1" || configPayload.Name != "Claude" {
+		t.Fatalf("unexpected engine config %#v", configPayload)
+	}
+}
+
 func TestRegisterEngineConfigRoutesCreatesConfig(t *testing.T) {
 	t.Parallel()
 
@@ -268,6 +306,32 @@ func TestRegisterEngineConfigRoutesReturnsNotFoundForMissingConfig(t *testing.T)
 	}
 }
 
+func TestRegisterEngineConfigRoutesReturnsNotFoundForMissingGetConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetEngineConfig,
+		strings.NewReader(`{"configId":"engine-missing"}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "engine_config_not_found" {
+		t.Fatalf("expected engine_config_not_found, got %#v", payload)
+	}
+}
+
 func TestRegisterEngineConfigRoutesReturnsNotFoundForMissingDeleteConfig(t *testing.T) {
 	t.Parallel()
 
@@ -313,6 +377,28 @@ func TestRegisterEngineConfigRoutesRejectsInvalidJSON(t *testing.T) {
 	}
 	if payload.Error.Code != "invalid_json" {
 		t.Fatalf("expected invalid_json, got %#v", payload)
+	}
+}
+
+func TestRegisterEngineConfigRoutesRejectsMissingGetConfigID(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetEngineConfig, strings.NewReader(`{}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "config_id_required" {
+		t.Fatalf("expected config_id_required, got %#v", payload)
 	}
 }
 
@@ -457,6 +543,7 @@ func TestRegisterEngineConfigRoutesBlocksShareMode(t *testing.T) {
 		path string
 		body string
 	}{
+		{name: "get", path: RouteGetEngineConfig, body: `{"configId":"engine-1"}`},
 		{name: "create", path: RouteCreateEngineConfig, body: `{"name":"Claude","engineType":"setta_llm"}`},
 		{name: "update", path: RouteUpdateEngineConfig, body: `{"config":{"id":"engine-1","name":"Claude","engineType":"setta_llm"}}`},
 		{name: "delete", path: RouteDeleteEngineConfig, body: `{"configId":"engine-1"}`},

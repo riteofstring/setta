@@ -14,6 +14,7 @@ import (
 )
 
 const RouteGetPromptTemplates = "/getPromptTemplates"
+const RouteGetPromptTemplate = "/getPromptTemplate"
 const RouteCreatePromptTemplate = "/createPromptTemplate"
 const RouteUpdatePromptTemplate = "/updatePromptTemplate"
 const RouteDeletePromptTemplate = "/deletePromptTemplate"
@@ -30,6 +31,10 @@ type createPromptTemplateRequest struct {
 	Format      *prompttemplates.Format `json:"format"`
 	InputSchema map[string]any          `json:"inputSchema"`
 	Metadata    map[string]any          `json:"metadata"`
+}
+
+type getPromptTemplateRequest struct {
+	TemplateID string `json:"templateId"`
 }
 
 type updatePromptTemplateRequest struct {
@@ -65,6 +70,7 @@ func RegisterPromptTemplateRoutes(router chi.Router, deps PromptTemplateRouteDep
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetPromptTemplates, getPromptTemplatesHandler(deps.Templates))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPromptTemplate, getPromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreatePromptTemplate, createPromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdatePromptTemplate, updatePromptTemplateHandler(deps.Templates))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeletePromptTemplate, deletePromptTemplateHandler(deps.Templates))
@@ -83,6 +89,36 @@ func getPromptTemplatesHandler(store *prompttemplates.Store) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, templates)
+	}
+}
+
+func getPromptTemplateHandler(store *prompttemplates.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if store == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		payload, err := decodeStrictJSONBody[getPromptTemplateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		templateID := strings.TrimSpace(payload.TemplateID)
+		if templateID == "" {
+			writeError(w, r, http.StatusBadRequest, "template_id_required", "Template id is required.")
+			return
+		}
+		template, err := store.Get(templateID)
+		if err != nil {
+			if writePromptTemplateStoreError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, template)
 	}
 }
 
