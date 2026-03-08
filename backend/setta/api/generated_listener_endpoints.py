@@ -82,7 +82,10 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
     WatchCodeFolder,
+    WindowSpaceConfig,
+    WindowSpaceState,
 )
+from setta.types.project_state import ProjectChatWindowingState
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -275,6 +278,7 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | None
     ]
     position: NotRequired[Position | None]
+    name: NotRequired[str | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout] | None]
     viewportBounds: NotRequired[ViewportBounds | None]
 
@@ -282,6 +286,13 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
 class ListenerCreateViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
+
+
+class ListenerCreateWindowSpaceRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    state: WindowSpaceState
+    name: NotRequired[str | None]
 
 
 class ListenerDeclineRenameRefactorRequestPayload(TypedDict):
@@ -356,6 +367,12 @@ class ListenerDeleteViewModeRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
     viewModeId: ID
+
+
+class ListenerDeleteWindowSpaceRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    windowSpaceId: ID
 
 
 class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
@@ -768,6 +785,19 @@ class ListenerSetParentDefaultChildSectionTypeRequestPayload(TypedDict):
     defaultChildSectionType: SectionType
 
 
+class ListenerSetProjectChatWindowChatIdRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    instanceId: ID
+    chatId: ID | None
+
+
+class ListenerSetProjectChatWindowingStateRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    state: ProjectChatWindowingState
+
+
 class ListenerSetProjectConfigCodegenTargetsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1037,6 +1067,19 @@ class ListenerSetWatchCodeInputsRequestPayload(TypedDict):
     watchCodeFiles: list[str]
 
 
+class ListenerSetWindowSpaceNameRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    windowSpaceId: ID
+    name: str
+
+
+class ListenerSetWindowSpaceSortOrderRequestPayload(TypedDict):
+    frontendOpId: NotRequired[str | None]
+    projectConfigId: NotRequired[ID]
+    orderedWindowSpaceIds: list[ID]
+
+
 class ListenerTextFieldCompletionRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1246,6 +1289,11 @@ class RouterEndpointAPI:
     ) -> str:
         return await self._caller("route_create_view_mode", payload)
 
+    async def create_window_space(
+        self, payload: ListenerCreateWindowSpaceRequestPayload
+    ) -> WindowSpaceConfig:
+        return await self._caller("route_create_window_space", payload)
+
     async def decline_rename_refactor(
         self, payload: ListenerDeclineRenameRefactorRequestPayload
     ) -> None:
@@ -1301,6 +1349,11 @@ class RouterEndpointAPI:
         self, payload: ListenerDeleteViewModeRequestPayload
     ) -> None:
         return await self._caller("route_delete_view_mode", payload)
+
+    async def delete_window_space(
+        self, payload: ListenerDeleteWindowSpaceRequestPayload
+    ) -> None:
+        return await self._caller("route_delete_window_space", payload)
 
     async def emit_chat_stream_delta(
         self, payload: ListenerEmitChatStreamDeltaRequestPayload
@@ -1574,6 +1627,16 @@ class RouterEndpointAPI:
             "route_set_parent_default_child_section_type", payload
         )
 
+    async def set_project_chat_window_chat_id(
+        self, payload: ListenerSetProjectChatWindowChatIdRequestPayload
+    ) -> ProjectChatWindowingState:
+        return await self._caller("route_set_project_chat_window_chat_id", payload)
+
+    async def set_project_chat_windowing_state(
+        self, payload: ListenerSetProjectChatWindowingStateRequestPayload
+    ) -> ProjectChatWindowingState:
+        return await self._caller("route_set_project_chat_windowing_state", payload)
+
     async def set_project_config_codegen_targets(
         self, payload: ListenerSetProjectConfigCodegenTargetsRequestPayload
     ) -> None:
@@ -1761,6 +1824,16 @@ class RouterEndpointAPI:
         self, payload: ListenerSetWatchCodeInputsRequestPayload
     ) -> None:
         return await self._caller("route_set_watch_code_inputs", payload)
+
+    async def set_window_space_name(
+        self, payload: ListenerSetWindowSpaceNameRequestPayload
+    ) -> None:
+        return await self._caller("route_set_window_space_name", payload)
+
+    async def set_window_space_sort_order(
+        self, payload: ListenerSetWindowSpaceSortOrderRequestPayload
+    ) -> None:
+        return await self._caller("route_set_window_space_sort_order", payload)
 
     async def text_field_completion(
         self, payload: ListenerTextFieldCompletionRequestPayload

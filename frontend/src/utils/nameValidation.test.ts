@@ -6,6 +6,7 @@ import {
   validateProjectNameInput,
   validateSectionNameInput,
   validateViewModeNameInput,
+  validateWindowSpaceNameInput,
 } from "./nameValidation";
 
 type NameValidationCase = {
@@ -17,6 +18,7 @@ type NameValidationFixtures = {
   project: NameValidationCase[];
   section: NameValidationCase[];
   viewMode: NameValidationCase[];
+  windowSpace: NameValidationCase[];
   param: NameValidationCase[];
 };
 
@@ -58,6 +60,34 @@ describe("validateViewModeNameInput", () => {
   });
 });
 
+describe("validateWindowSpaceNameInput", () => {
+  it("accepts non-project reserved names because the windowspace namespace is explicit", () => {
+    expect(validateWindowSpaceNameInput("home")).toBeNull();
+    expect(validateWindowSpaceNameInput("settings")).toBeNull();
+  });
+
+  it("rejects path separators", () => {
+    expect(validateWindowSpaceNameInput("bad/name")).toBeTruthy();
+    expect(validateWindowSpaceNameInput("bad\\name")).toBeTruthy();
+  });
+
+  it("rejects dotdot segments", () => {
+    expect(validateWindowSpaceNameInput("bad..name")).toBeTruthy();
+  });
+
+  it("rejects invalid characters", () => {
+    expect(validateWindowSpaceNameInput("bad@name")).toBeTruthy();
+  });
+
+  it("rejects names invalid after sanitization", () => {
+    expect(validateWindowSpaceNameInput("__")).toBeTruthy();
+  });
+
+  it("accepts simple names", () => {
+    expect(validateWindowSpaceNameInput("Alpha-2 _Beta")).toBeNull();
+  });
+});
+
 describe("name validation matches backend fixtures", () => {
   it("validates project names", () => {
     for (const testCase of FIXTURES.project) {
@@ -74,6 +104,12 @@ describe("name validation matches backend fixtures", () => {
   it("validates view mode names", () => {
     for (const testCase of FIXTURES.viewMode) {
       expect(validateViewModeNameInput(testCase.name)).toBe(testCase.error);
+    }
+  });
+
+  it("validates window space names", () => {
+    for (const testCase of FIXTURES.windowSpace) {
+      expect(validateWindowSpaceNameInput(testCase.name)).toBe(testCase.error);
     }
   });
 

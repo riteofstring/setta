@@ -17,6 +17,12 @@ export function toggleMiniMap() {
   useLocalStorage.setState((state) => ({ showMinimap: !state.showMinimap }));
 }
 
+export function toggleMiniMapSide() {
+  useLocalStorage.setState((state) => ({
+    minimapSide: state.minimapSide === "left" ? "right" : "left",
+  }));
+}
+
 export function toggleProjectConfigPreviewEnabled() {
   useLocalStorage.setState((state) => ({
     projectConfigPreviewEnabled: !state.projectConfigPreviewEnabled,

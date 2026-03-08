@@ -13,6 +13,7 @@ import {
   createAgentRun,
   createAssistantChatMessage,
   createMessageTextContent,
+  createProjectConfig,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -57,10 +58,12 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
+let useProjectState: typeof import("state/definitions").useProjectState;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
 let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
 let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
 let getExternalAgentChatHydrationOutcome: typeof import("state/actions/ai").getExternalAgentChatHydrationOutcome;
+let getProjectChatHydrationOutcomeWithFallback: typeof import("state/actions/ai").getProjectChatHydrationOutcomeWithFallback;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
@@ -89,18 +92,27 @@ describe("stopProjectChatResponse", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     useLocalStorage = definitions.useLocalStorage;
+    useProjectState = definitions.useProjectState;
     const ai = await import("state/actions/ai");
     stopProjectChatResponse = ai.stopProjectChatResponse;
     stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
     getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
     getExternalAgentChatHydrationOutcome =
       ai.getExternalAgentChatHydrationOutcome;
+    getProjectChatHydrationOutcomeWithFallback =
+      ai.getProjectChatHydrationOutcomeWithFallback;
     getDefaultChatDetails = ai.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
 
   beforeEach(() => {
     resetProjectStores();
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-a",
+        name: "demo",
+      }),
+    });
     useAIStore.persist.setOptions({
       storage: {
         getItem: memoryStorage.getItem.bind(memoryStorage),
@@ -556,7 +568,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
@@ -564,6 +576,65 @@ describe("stopProjectChatResponse", () => {
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
+  });
+
+  it("keeps external project chat stop scoped to the current project when chat ids overlap", async () => {
+    const chatId = "chat-stop-external-shared";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [
+        createAgentRun({
+          id: "run-project-a",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2026-03-01T00:00:00Z",
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: "project-a",
+          },
+        }),
+        createAgentRun({
+          id: "run-project-b",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2026-03-02T00:00:00Z",
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: "project-b",
+          },
+        }),
+      ],
+    });
+    mockedRouteStopExternalAgentRun.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "hydrate failed" },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
+      runId: "run-project-a",
+    });
+    expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalledWith({
+      runId: "run-project-b",
+    });
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: "project-a",
+    });
   });
 
   it("restores local external project chat state when stop and hydrate both fail", async () => {
@@ -586,7 +657,7 @@ describe("stopProjectChatResponse", () => {
           inputs: {
             runType: "external_agent",
             chatId,
-            projectConfigId: null,
+            projectConfigId: "project-a",
           },
         }),
       ],
@@ -610,7 +681,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
@@ -646,7 +717,7 @@ describe("stopProjectChatResponse", () => {
           inputs: {
             runType: "external_agent",
             chatId,
-            projectConfigId: null,
+            projectConfigId: "project-a",
           },
         }),
       ],
@@ -685,7 +756,7 @@ describe("stopProjectChatResponse", () => {
     expect(stopped).toBe(true);
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(
       useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
@@ -715,7 +786,7 @@ describe("stopProjectChatResponse", () => {
           inputs: {
             runType: "external_agent",
             chatId,
-            projectConfigId: null,
+            projectConfigId: "project-a",
           },
         }),
       ],
@@ -774,7 +845,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
@@ -819,7 +890,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
     const details = useAIStore.getState().chatDetails[chatId];
@@ -994,6 +1065,22 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
+  it("classifies 403 hydration failures as llm_disallowed terminal outcomes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 403,
+      hasResponse: true,
+      data: { detail: "Deployment policy disallows LLM access." },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-llm-blocked");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 403,
+      errorCode: "llm_disallowed",
+    });
+  });
+
   it("maps unknown terminal hydration codes to the generic terminal code", async () => {
     mockedRouteGetLLMChat.mockResolvedValue({
       status: 409,
@@ -1068,6 +1155,199 @@ describe("stopProjectChatResponse", () => {
       outcome: "terminal_failure",
       status: 404,
       errorCode: "chat_not_found",
+    });
+  });
+
+  it("classifies external 403 hydration failures as llm_disallowed terminal outcomes", async () => {
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 403,
+      hasResponse: true,
+      data: { detail: "Deployment policy disallows LLM access." },
+    });
+
+    const outcome = await getExternalAgentChatHydrationOutcome(
+      "external-chat-blocked",
+      "project-external",
+    );
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 403,
+      errorCode: "llm_disallowed",
+    });
+  });
+
+  it("falls back to llm hydration when the preferred runtime misses but llm succeeds", async () => {
+    const chatId = "chat-fallback-llm";
+    useProjectState.setState({
+      projectConfig: createProjectConfig({ id: "current-project" }),
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createAssistantChatMessage({
+            id: "assistant-fallback",
+            content: [
+              createMessageTextContent({
+                text: "Hydrated from managed runtime",
+              }),
+            ],
+          }),
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      },
+    });
+
+    const outcome = await getProjectChatHydrationOutcomeWithFallback(
+      chatId,
+      "project-a",
+      "external_agent",
+    );
+
+    expect(outcome).toEqual({
+      outcome: "success",
+      status: 200,
+      errorCode: null,
+    });
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: "project-a",
+    });
+    expect(mockedRouteGetLLMChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: "project-a",
+    });
+    expect(
+      useAIStore
+        .getState()
+        .chatDetails[
+          chatId
+        ]?.messages.map((message) => (message.role === "assistant" ? message.content[0]?.text : null)),
+    ).toEqual(["Hydrated from managed runtime"]);
+  });
+
+  it("surfaces chat_not_found after probing both runtimes", async () => {
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: {
+        detail: {
+          errorCode: "chat_not_found",
+          message: "Chat not found.",
+        },
+      },
+    });
+
+    const outcome = await getProjectChatHydrationOutcomeWithFallback(
+      "chat-fallback-missing",
+      "project-a",
+      null,
+    );
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 404,
+      errorCode: "chat_not_found",
+    });
+  });
+
+  it("fails explicitly when both runtimes resolve the same chat id", async () => {
+    const chatId = "chat-fallback-ambiguous";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "local-message",
+              content: [createMessageTextContent({ text: "Local only" })],
+            }),
+          ],
+          toolCallArguments: {
+            "local-tool": '{\n  "source": "local"\n}',
+          },
+        },
+      },
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createAssistantChatMessage({
+            id: "external-message",
+            content: [createMessageTextContent({ text: "External runtime" })],
+          }),
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {
+          "external-tool": '{\n  "runtime": "external"\n}',
+        },
+        contextUsage: null,
+      },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createAssistantChatMessage({
+            id: "managed-message",
+            content: [createMessageTextContent({ text: "Managed runtime" })],
+          }),
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      },
+    });
+
+    const outcome = await getProjectChatHydrationOutcomeWithFallback(
+      chatId,
+      "project-a",
+      null,
+    );
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 409,
+      errorCode: "chat_runtime_ambiguous",
+    });
+    expect(useAIStore.getState().chatDetails[chatId]).toEqual({
+      ...getDefaultChatDetails(),
+      messages: [
+        createAssistantChatMessage({
+          id: "local-message",
+          content: [createMessageTextContent({ text: "Local only" })],
+        }),
+      ],
+      toolCallArguments: {
+        "local-tool": '{\n  "source": "local"\n}',
+      },
     });
   });
 });

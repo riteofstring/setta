@@ -26,14 +26,18 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import get_meta_control_param_id, get_top_level_param_ids
 from setta.types.id import ID
 from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.project_chat_windowing import normalize_project_chat_windowing
 from setta.types.project_config import (
     Position,
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
+    WindowSpaceConfig,
+    WindowSpaceSurfaceKind,
 )
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
+    ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
@@ -105,6 +109,10 @@ def merge_single_config_into_backend(
         projectConfigs={
             **x.projectConfigs,
             config.projectConfig.id: config.projectConfig,
+        },
+        projectChatWindowingByProjectConfigId={
+            **x.projectChatWindowingByProjectConfigId,
+            config.projectConfig.id: config.projectChatWindowing,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
         appDefinition=x.appDefinition,
@@ -200,6 +208,11 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
             list(p.projectConfigs.keys()),
         )
         raise KeyError(f"Unknown project config: {projectConfigId}")
+    if projectConfigId not in p.projectChatWindowingByProjectConfigId:
+        raise KeyError(
+            "Missing project chat windowing state for "
+            f"project config {projectConfigId}."
+        )
     project_config = p.projectConfigs[projectConfigId]
     project_state_core = prepare_sections_for_copy(
         p, set(project_config.sectionVariantMap.keys())
@@ -214,6 +227,7 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
         codeObjImpls=project_state_core.codeObjImpls,
         codeObjVariants=project_state_core.codeObjVariants,
         projectConfig=project_config,
+        projectChatWindowing=p.projectChatWindowingByProjectConfigId[projectConfigId],
     )
 
 
@@ -601,7 +615,42 @@ def _filter_project_config_for_summary(
             for section_id, visible in view_mode.visibilityBySectionId.items()
             if section_id in allowed_section_ids
         }
+    cloned.windowSpaces = _filter_window_spaces_for_summary(
+        cloned.windowSpaces,
+        allowed_section_ids,
+    )
     return cloned
+
+
+def _filter_window_spaces_for_summary(
+    window_spaces: dict[ID, WindowSpaceConfig],
+    allowed_section_ids: set[ID],
+) -> dict[ID, WindowSpaceConfig]:
+    next_window_spaces: dict[ID, WindowSpaceConfig] = {}
+    for window_space_id, window_space in window_spaces.items():
+        next_windows_by_id = {}
+        for instance_id, window in window_space.windowsById.items():
+            if (
+                window.surfaceKind == WindowSpaceSurfaceKind.section
+                and window.sectionIdOrNull not in allowed_section_ids
+            ):
+                continue
+            next_windows_by_id[instance_id] = window
+        if not next_windows_by_id:
+            continue
+        window_space.windowsById = next_windows_by_id
+        next_order = [
+            instance_id
+            for instance_id in window_space.order
+            if instance_id in next_windows_by_id
+        ]
+        for instance_id in next_windows_by_id:
+            if instance_id in next_order:
+                continue
+            next_order.append(instance_id)
+        window_space.order = next_order
+        next_window_spaces[window_space_id] = window_space
+    return next_window_spaces
 
 
 def _build_section_param_summaries(
@@ -761,6 +810,81 @@ def remap_view_modes(
     return remapped_view_modes
 
 
+def remap_window_spaces(
+    window_spaces: dict[ID, WindowSpaceConfig],
+    section_id_map: dict[ID, ID] | None,
+):
+    remapped_window_spaces: dict[ID, WindowSpaceConfig] = {}
+    for window_space_id, window_space in window_spaces.items():
+        remapped_windows_by_id = {}
+        for instance_id, window in window_space.windowsById.items():
+            if window.surfaceKind != WindowSpaceSurfaceKind.section:
+                remapped_windows_by_id[instance_id] = window.model_copy(
+                    update={"chatId": None},
+                    deep=True,
+                )
+                continue
+            section_id = window.sectionIdOrNull
+            if section_id is None:
+                continue
+            if section_id_map is not None and section_id not in section_id_map:
+                raise KeyError(f"Section {section_id} missing for window space remap.")
+            next_section_id = (
+                section_id_map[section_id] if section_id_map is not None else section_id
+            )
+            remapped_windows_by_id[instance_id] = window.model_copy(
+                update={
+                    "sectionIdOrNull": next_section_id,
+                    "chatId": None,
+                },
+                deep=True,
+            )
+        remapped_window_spaces[window_space_id] = window_space.model_copy(
+            update={
+                "windowsById": remapped_windows_by_id,
+                "order": [
+                    instance_id
+                    for instance_id in window_space.order
+                    if instance_id in remapped_windows_by_id
+                ],
+            },
+            deep=True,
+        )
+    return remapped_window_spaces
+
+
+def copy_project_chat_windowing(
+    project_chat_windowing: ProjectChatWindowingState,
+    section_id_map: dict[ID, ID] | None,
+) -> ProjectChatWindowingState:
+    copied_instances_by_id = {}
+    for instance_id, instance in project_chat_windowing.instancesById.items():
+        next_section_id = instance.sectionIdOrNull
+        if next_section_id is not None and section_id_map is not None:
+            if next_section_id not in section_id_map:
+                raise KeyError(
+                    f"Section {next_section_id} missing for project chat windowing remap."
+                )
+            next_section_id = section_id_map[next_section_id]
+        copied_instances_by_id[instance_id] = instance.model_copy(
+            update={
+                "sectionIdOrNull": next_section_id,
+                "chatId": None,
+            },
+            deep=True,
+        )
+    copied_windowing = project_chat_windowing.model_copy(
+        update={"instancesById": copied_instances_by_id},
+        deep=True,
+    )
+    normalize_project_chat_windowing(
+        copied_windowing,
+        {instance.sectionIdOrNull for instance in copied_instances_by_id.values()}
+        - {None},
+    )
+    return copied_windowing
+
+
 def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
@@ -810,6 +934,11 @@ def copy_project_config(
                 project_config.stateMachineEdges,
                 section_id_map,
             )
+    if project_config.windowSpaces:
+        new_values["windowSpaces"] = remap_window_spaces(
+            project_config.windowSpaces,
+            section_id_map,
+        )
 
     return project_config.model_copy(update=new_values, deep=True)
 
@@ -1191,9 +1320,15 @@ def copy_project(
         sectionVariantIdMap,
         codeObjIdMap,
     )
+    newProjectChatWindowing = copy_project_chat_windowing(
+        p.projectChatWindowing,
+        sectionIdMap,
+    )
 
     return ProjectStateSingleConfig(
-        projectConfig=newProjectConfig, **newProjectCore.model_dump()
+        projectConfig=newProjectConfig,
+        projectChatWindowing=newProjectChatWindowing,
+        **newProjectCore.model_dump(),
     )
 
 

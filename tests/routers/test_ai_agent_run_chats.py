@@ -11,7 +11,11 @@ import pytest
 
 import setta.routers.ai as ai_module
 from setta.agentic.context_usage import ResolvedChatContextUsage
-from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
+from setta.agentic.chat_view import (
+    EXTERNAL_AGENT_RUN_TYPE,
+    LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
+)
 from setta.agentic.external_agent_preflight import ExternalAgentPreflightStatus
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.transcription_profile_resolver import (
@@ -78,7 +82,7 @@ from setta.types.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import ProjectChatWindowingState, ProjectStateBackend
 from setta.types.section_impls import ChatPermissionMode
 from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -181,6 +185,9 @@ def _write_share_project(
     project_config = ProjectConfig(name=project_config_name)
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={
+            project_config.id: ProjectChatWindowingState()
+        },
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -891,6 +898,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -972,6 +980,165 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
             assert prior_message_loader_called is False
+
+    async def test_managed_engine_rejects_external_history_on_reused_chat_id(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            chat_id = ID("chat-mixed-history")
+            project_config_id = ID("project-llm-1")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external first")],
+            )
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-external"),
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Next")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_managed_engine_rejects_scriptable_history_on_reused_chat_id(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            chat_id = ID("chat-scriptable-history")
+            project_config_id = ID("project-llm-1")
+            run = AgentRun(
+                status=AgentRunStatus.completed,
+                startedAt=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                finishedAt=datetime(2024, 1, 1, 0, 0, 5, tzinfo=timezone.utc),
+                inputs={
+                    "runType": SCRIPTABLE_CHAT_RUN_TYPE,
+                    "chatId": str(chat_id),
+                    "projectConfigId": str(project_config_id),
+                    "engineConfigId": "engine-scriptable",
+                    "messages": [],
+                },
+                outputs={
+                    "messages": [
+                        AssistantChatMessage(
+                            content=[MessageTextContent(text="Scriptable reply")]
+                        ).model_dump(mode="json")
+                    ]
+                },
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Next")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_managed_engine_rejects_project_mismatch_on_reused_chat_id(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            chat_id = ID("chat-project-mismatch")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello")],
+            )
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=ID("project-llm-other"),
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Next")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-llm-1"),
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat project config mismatch; start a new chat."
 
     async def test_branch_edit_missing_message_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1175,7 +1342,11 @@ class TestAgentRunChatRoutes:
                         continueFromChatId=source_chat_id,
                         message=UserChatMessage(
                             id="new-managed-message",
-                            content=[MessageTextContent(text="Continue externally seeded chat")],
+                            content=[
+                                MessageTextContent(
+                                    text="Continue externally seeded chat"
+                                )
+                            ],
                         ),
                         engineConfigId=target_engine_config_id,
                         agentProfileId=None,
@@ -1264,9 +1435,7 @@ class TestAgentRunChatRoutes:
             assert isinstance(exc.value.detail, dict)
             if not isinstance(exc.value.detail, dict):
                 raise AssertionError("Expected typed continuation-source detail.")
-            assert (
-                exc.value.detail.get("errorCode") == "source_chat_not_found"
-            )
+            assert exc.value.detail.get("errorCode") == "source_chat_not_found"
             assert (
                 exc.value.detail.get("message")
                 == "Continuation source chat chat-source-missing not found."
@@ -1304,7 +1473,9 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 400
-            assert exc.value.detail == "continueFromChatId requires chatId to be omitted."
+            assert (
+                exc.value.detail == "continueFromChatId requires chatId to be omitted."
+            )
 
     async def test_get_llm_response_requires_section_or_allow_unscoped(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1505,6 +1676,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -1628,6 +1800,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -1730,6 +1903,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -1822,6 +1996,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -1917,6 +2092,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -2678,6 +2854,7 @@ class TestAgentRunChatRoutes:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -3383,7 +3560,9 @@ class TestAgentRunChatRoutes:
             assert stopped.status == AgentRunStatus.cancelled
             assert stopped.finishedAt is not None
 
-    async def test_stop_llm_chat_reports_already_stopped_when_no_running_run(self) -> None:
+    async def test_stop_llm_chat_reports_already_stopped_when_no_running_run(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
@@ -3442,6 +3621,7 @@ class TestAgentRunChatRoutes:
             assert response.alreadyStopped is False
             assert response.stoppedRunId == running_run.id
             assert response.stoppedMessageId is None
+
 
 def test_branch_messages_replace_and_truncate() -> None:
     first = UserChatMessage(

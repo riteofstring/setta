@@ -52,6 +52,9 @@ class _DummyProjectManager:
             projectConfigs={
                 project_state_single.projectConfig.id: project_state_single.projectConfig
             },
+            projectChatWindowingByProjectConfigId={
+                project_state_single.projectConfig.id: project_state_single.projectChatWindowing
+            },
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
         self.history = History(backend)
@@ -125,9 +128,9 @@ def _build_project_state() -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID, ID
         single,
         AgenticEdge(
             id=ID("edge-context"),
-            sourceSectionId=allowed_section_id,
-            targetSectionId=chat_section_id,
-            kind=AgenticEdgeKind.section_chat,
+            sourceSectionId=chat_section_id,
+            targetSectionId=allowed_section_id,
+            kind=AgenticEdgeKind.chat_section,
             contextMode=AgenticEdgeContextMode.reference_only,
         ),
     )

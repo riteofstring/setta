@@ -54,6 +54,8 @@ from setta.agentic.agentic_scope import (
     build_missing_edge_hints,
     build_scope_blocked_tool_result,
     check_agentic_scope_for_tool,
+    normalize_linked_chat_invocation_chain_section_ids,
+    normalize_linked_chat_invocation_depth,
     resolve_agentic_scope,
 )
 from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
@@ -65,12 +67,20 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER,
+    AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER,
+    AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_RUN_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
+from setta.mcp.run_start_authorization import (
+    authorize_pending_mcp_run_start,
+    enforce_mcp_llm_allowed,
+    has_pending_mcp_run_start_authorization,
+    rollback_pending_mcp_run_start,
+)
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_registry import register_setta_tool
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
@@ -132,6 +142,20 @@ def _parse_meta_id(value: Any) -> ID | None:
             return None
         return ID(normalized)
     raise TypeError("Agentic context ids must be strings")
+
+
+def _parse_linked_chat_invocation_depth(value: Any) -> int:
+    try:
+        return normalize_linked_chat_invocation_depth(value)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(str(exc)) from exc
+
+
+def _parse_linked_chat_invocation_chain(value: Any) -> tuple[ID, ...]:
+    try:
+        return normalize_linked_chat_invocation_chain_section_ids(value)
+    except (TypeError, ValueError) as exc:
+        raise TypeError(str(exc)) from exc
 
 
 def _move_catch_all_route_to_end(app: FastAPI) -> None:
@@ -810,6 +834,15 @@ class SettaFastMCP(FastMCP):
                         if not isinstance(raw_allow_unscoped, bool):
                             raise TypeError("allowUnscoped must be a boolean")
                         allow_unscoped = raw_allow_unscoped
+                    linked_chat_invocation_depth = _parse_linked_chat_invocation_depth(
+                        payload.get("linkedChatInvocationDepth")
+                    )
+                    linked_chat_invocation_chain_section_ids = tuple(
+                        _canonicalize(entry)
+                        for entry in _parse_linked_chat_invocation_chain(
+                            payload.get("linkedChatInvocationChainSectionIds")
+                        )
+                    )
                     return AgenticContext(
                         project_config_id=project_config_id,
                         chat_id=chat_id,
@@ -817,6 +850,8 @@ class SettaFastMCP(FastMCP):
                         run_id=run_id,
                         frontend_affinity_token=frontend_affinity_token,
                         allow_unscoped=allow_unscoped,
+                        linked_chat_invocation_depth=linked_chat_invocation_depth,
+                        linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
                     )
             except (TypeError, ValueError) as exc:
                 raise InvalidToolArgumentsError(str(exc)) from exc
@@ -853,6 +888,15 @@ class SettaFastMCP(FastMCP):
                             raise TypeError(
                                 f"{AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER} must be a boolean"
                             )
+                    linked_chat_invocation_depth = _parse_linked_chat_invocation_depth(
+                        headers.get(AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER)
+                    )
+                    linked_chat_invocation_chain_section_ids = tuple(
+                        _canonicalize(entry)
+                        for entry in _parse_linked_chat_invocation_chain(
+                            headers.get(AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER)
+                        )
+                    )
                     return AgenticContext(
                         project_config_id=project_config_id,
                         chat_id=chat_id,
@@ -860,6 +904,8 @@ class SettaFastMCP(FastMCP):
                         run_id=run_id,
                         frontend_affinity_token=frontend_affinity_token,
                         allow_unscoped=allow_unscoped,
+                        linked_chat_invocation_depth=linked_chat_invocation_depth,
+                        linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
                     )
             except (TypeError, ValueError) as exc:
                 raise InvalidToolArgumentsError(str(exc)) from exc
@@ -889,6 +935,41 @@ class SettaFastMCP(FastMCP):
         if not isinstance(raw, str):
             raise InvalidToolArgumentsError("shareSessionId must be a string")
         return raw or None
+
+    async def _run_tool_with_runtime_policy(
+        self,
+        *,
+        tool_name: str,
+        annotations: Any,
+        ctx: Context | None,
+        execute: Callable[[], Any],
+    ) -> Any:
+        requires_llm = bool(getattr(annotations, "requiresLLM", False))
+        starts_run = bool(getattr(annotations, "startsRun", False))
+        if not requires_llm and not starts_run:
+            return await execute()
+        if ctx is None:
+            raise RuntimeError(f"MCP tool {tool_name} requires request context.")
+
+        share_session_id = self._resolve_share_session_id(ctx)
+        if requires_llm:
+            await enforce_mcp_llm_allowed(
+                ctx,
+                share_session_id=share_session_id,
+            )
+        if starts_run:
+            await authorize_pending_mcp_run_start(ctx)
+
+        try:
+            result = await execute()
+        except Exception:
+            if starts_run:
+                await rollback_pending_mcp_run_start(ctx)
+            raise
+
+        if starts_run and has_pending_mcp_run_start_authorization(ctx):
+            await rollback_pending_mcp_run_start(ctx)
+        return result
 
     def setta_id_transformer(self, func):
         is_async = inspect.iscoroutinefunction(func)
@@ -1002,227 +1083,232 @@ class SettaFastMCP(FastMCP):
                         missing_edges=[],
                     )
                     return _finalize_result(result)
-            kwargs = convert_temporary_ids_to_canonical(
-                kwargs, self.temporary_to_canonical
-            )
-            scope: AgenticScope | None = None
-            project_state: "ProjectStateSingleConfig | None" = None
-            code_obj_id_to_section_ids: dict[ID, set[ID]] | None = None
-            precomputed_ids_by_type: dict[str, set[ID]] | None = None
-            session = None
-            share_session_id = None
-            project_state_revision: int | None = None
-            state_cache = None
-            state_cache_key = None
-            scope_cache = None
-            scope_cache_key = None
-            if (
-                tool_name != "set_agentic_context"
-                and agentic_context is not None
-                and not allow_unscoped_tool
-            ):
-                share_session_id = (
-                    self._resolve_share_session_id(ctx)
-                    if ctx is not None and has_request_context
-                    else None
+
+            async def _execute_tool() -> Any:
+                tool_kwargs = convert_temporary_ids_to_canonical(
+                    kwargs,
+                    self.temporary_to_canonical,
                 )
-                session = (
-                    self._resolve_agentic_session(ctx)
-                    if ctx is not None and has_request_context
-                    else None
-                )
-                if session is not None:
-                    try:
-                        weakref.ref(session)
-                    except TypeError:
-                        session = None
-                manager = self.state.project_manager_switcher.get(
-                    agentic_context.project_config_id,
-                    share_session_id=share_session_id,
-                )
-                project_state_backend = manager.project_state_backend
-                project_state_revision = manager.history.revision
-                if session is not None:
-                    state_cache = self._agentic_project_state_cache_by_session.get(
-                        session
+                scope: AgenticScope | None = None
+                project_state: "ProjectStateSingleConfig | None" = None
+                code_obj_id_to_section_ids: dict[ID, set[ID]] | None = None
+                precomputed_ids_by_type: dict[str, set[ID]] | None = None
+                session = None
+                share_session_id = None
+                project_state_revision: int | None = None
+                state_cache = None
+                state_cache_key = None
+                scope_cache = None
+                scope_cache_key = None
+                if (
+                    tool_name != "set_agentic_context"
+                    and agentic_context is not None
+                    and not allow_unscoped_tool
+                ):
+                    share_session_id = (
+                        self._resolve_share_session_id(ctx)
+                        if ctx is not None and has_request_context
+                        else None
                     )
-                    if state_cache is None:
-                        state_cache = {}
-                        self._agentic_project_state_cache_by_session[session] = (
-                            state_cache
-                        )
-                    state_cache_key = (
-                        share_session_id,
+                    session = (
+                        self._resolve_agentic_session(ctx)
+                        if ctx is not None and has_request_context
+                        else None
+                    )
+                    if session is not None:
+                        try:
+                            weakref.ref(session)
+                        except TypeError:
+                            session = None
+                    manager = self.state.project_manager_switcher.get(
                         agentic_context.project_config_id,
+                        share_session_id=share_session_id,
                     )
-                    cached_state = state_cache.get(state_cache_key)
-                    if (
-                        cached_state is not None
-                        and cached_state.project_state_revision
-                        == project_state_revision
-                    ):
-                        project_state = cached_state.project_state_single
-                        code_obj_id_to_section_ids = (
-                            cached_state.code_obj_id_to_section_ids
+                    project_state_backend = manager.project_state_backend
+                    project_state_revision = manager.history.revision
+                    if session is not None:
+                        state_cache = self._agentic_project_state_cache_by_session.get(
+                            session
                         )
-                        # Bump insertion order to approximate an LRU cache.
-                        state_cache.pop(state_cache_key, None)
-                        state_cache[state_cache_key] = cached_state
+                        if state_cache is None:
+                            state_cache = {}
+                            self._agentic_project_state_cache_by_session[session] = (
+                                state_cache
+                            )
+                        state_cache_key = (
+                            share_session_id,
+                            agentic_context.project_config_id,
+                        )
+                        cached_state = state_cache.get(state_cache_key)
+                        if (
+                            cached_state is not None
+                            and cached_state.project_state_revision
+                            == project_state_revision
+                        ):
+                            project_state = cached_state.project_state_single
+                            code_obj_id_to_section_ids = (
+                                cached_state.code_obj_id_to_section_ids
+                            )
+                            state_cache.pop(state_cache_key, None)
+                            state_cache[state_cache_key] = cached_state
+                        else:
+                            project_state = convert_backend_to_single_config(
+                                project_state_backend,
+                                agentic_context.project_config_id,
+                            )
+                            cached_state = _CachedProjectStateSingle(
+                                project_state_revision=project_state_revision,
+                                project_state_single=project_state,
+                                code_obj_id_to_section_ids=None,
+                            )
+                            state_cache[state_cache_key] = cached_state
+                            if (
+                                len(state_cache)
+                                > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION
+                            ):
+                                state_cache.pop(next(iter(state_cache)))
+
+                        scope_cache = self._agentic_scope_cache_by_session.get(session)
+                        if scope_cache is None:
+                            scope_cache = {}
+                            self._agentic_scope_cache_by_session[session] = scope_cache
+                        scope_cache_key = (
+                            share_session_id,
+                            agentic_context.project_config_id,
+                            agentic_context.section_id,
+                            agentic_context.allow_unscoped,
+                        )
+                        cached_scope = scope_cache.get(scope_cache_key)
+                        if (
+                            cached_scope is not None
+                            and cached_scope.project_state_revision
+                            == project_state_revision
+                        ):
+                            scope = cached_scope.scope
+                            scope_cache.pop(scope_cache_key, None)
+                            scope_cache[scope_cache_key] = cached_scope
+                        else:
+                            if project_state is None:
+                                raise RuntimeError(
+                                    "Missing project_state for agentic scope resolution."
+                                )
+                            scope = resolve_agentic_scope(
+                                project_state,
+                                agentic_context.section_id,
+                                allow_unscoped=agentic_context.allow_unscoped,
+                            )
+                            scope_cache[scope_cache_key] = _CachedAgenticScope(
+                                project_state_revision=project_state_revision,
+                                scope=scope,
+                            )
+                            if (
+                                len(scope_cache)
+                                > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION
+                            ):
+                                scope_cache.pop(next(iter(scope_cache)))
                     else:
                         project_state = convert_backend_to_single_config(
                             project_state_backend,
                             agentic_context.project_config_id,
                         )
-                        cached_state = _CachedProjectStateSingle(
-                            project_state_revision=project_state_revision,
-                            project_state_single=project_state,
-                            code_obj_id_to_section_ids=None,
-                        )
-                        state_cache[state_cache_key] = cached_state
-                        if (
-                            len(state_cache)
-                            > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION
-                        ):
-                            state_cache.pop(next(iter(state_cache)))
-
-                    scope_cache = self._agentic_scope_cache_by_session.get(session)
-                    if scope_cache is None:
-                        scope_cache = {}
-                        self._agentic_scope_cache_by_session[session] = scope_cache
-                    scope_cache_key = (
-                        share_session_id,
-                        agentic_context.project_config_id,
-                        agentic_context.section_id,
-                        agentic_context.allow_unscoped,
-                    )
-                    cached_scope = scope_cache.get(scope_cache_key)
-                    if (
-                        cached_scope is not None
-                        and cached_scope.project_state_revision
-                        == project_state_revision
-                    ):
-                        scope = cached_scope.scope
-                        # Bump insertion order to approximate an LRU cache.
-                        scope_cache.pop(scope_cache_key, None)
-                        scope_cache[scope_cache_key] = cached_scope
-                    else:
-                        if project_state is None:
-                            raise RuntimeError(
-                                "Missing project_state for agentic scope resolution."
-                            )
                         scope = resolve_agentic_scope(
                             project_state,
                             agentic_context.section_id,
                             allow_unscoped=agentic_context.allow_unscoped,
                         )
-                        scope_cache[scope_cache_key] = _CachedAgenticScope(
-                            project_state_revision=project_state_revision,
-                            scope=scope,
-                        )
-                        if (
-                            len(scope_cache)
-                            > AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION
-                        ):
-                            scope_cache.pop(next(iter(scope_cache)))
-                else:
-                    project_state = convert_backend_to_single_config(
-                        project_state_backend,
-                        agentic_context.project_config_id,
-                    )
-                    scope = resolve_agentic_scope(
-                        project_state,
-                        agentic_context.section_id,
-                        allow_unscoped=agentic_context.allow_unscoped,
-                    )
-                logger.debug(
-                    "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
-                    agentic_context.project_config_id,
-                    agentic_context.chat_id,
-                    agentic_context.section_id,
-                    len(scope.read_section_ids),
-                    len(scope.write_section_ids),
-                    len(scope.context_section_ids),
-                    scope.structural_allowed,
-                )
-
-                if annotations is not None and project_state is not None:
-                    id_paths_by_type = dict(
-                        getattr(annotations, "idPathsByType", {}) or {}
-                    )
-                    if id_paths_by_type:
-                        precomputed_ids_by_type, _ = collect_ai_follow_ids_from_paths(
-                            kwargs,
-                            id_paths_by_type,
-                            allow_dict_keys=True,
-                        )
-                        code_obj_ids = set(
-                            precomputed_ids_by_type.get("codeObj", set())
-                        )
-                        if code_obj_ids and code_obj_id_to_section_ids is None:
-                            code_obj_id_to_section_ids = (
-                                build_code_obj_id_to_section_ids_index(project_state)
-                            )
-                            if (
-                                session is not None
-                                and state_cache is not None
-                                and state_cache_key is not None
-                                and project_state_revision is not None
-                            ):
-                                state_cache[state_cache_key] = (
-                                    _CachedProjectStateSingle(
-                                        project_state_revision=project_state_revision,
-                                        project_state_single=project_state,
-                                        code_obj_id_to_section_ids=code_obj_id_to_section_ids,
-                                    )
-                                )
-                scope_check = check_agentic_scope_for_tool(
-                    tool_args=kwargs,
-                    annotations=annotations,
-                    project_state=project_state,
-                    scope=scope,
-                    temporary_to_canonical=self.temporary_to_canonical,
-                    code_obj_id_to_section_ids=code_obj_id_to_section_ids,
-                    precomputed_ids_by_type=precomputed_ids_by_type,
-                )
-                if not scope_check.allowed:
-                    missing_edges = build_missing_edge_hints(
-                        chat_section_id=agentic_context.section_id,
-                        blocked_section_ids=scope_check.blocked_section_ids,
-                        access_type=scope_check.access_type,
-                        project_state=project_state,
-                    )
-                    logger.warning(
-                        "Blocked MCP tool %s by agentic scope (project=%s chat=%s section=%s blocked=%s).",
-                        tool_name,
+                    logger.debug(
+                        "Resolved agentic scope (project=%s chat=%s section=%s read=%s write=%s context=%s structural=%s)",
                         agentic_context.project_config_id,
                         agentic_context.chat_id,
                         agentic_context.section_id,
-                        sorted(scope_check.blocked_section_ids),
+                        len(scope.read_section_ids),
+                        len(scope.write_section_ids),
+                        len(scope.context_section_ids),
+                        scope.structural_allowed,
                     )
-                    result = build_scope_blocked_tool_result(
-                        tool_name=tool_name,
-                        scope_check=scope_check,
-                        agentic_context=agentic_context,
-                        missing_edges=missing_edges,
+
+                    if annotations is not None and project_state is not None:
+                        id_paths_by_type = dict(
+                            getattr(annotations, "idPathsByType", {}) or {}
+                        )
+                        if id_paths_by_type:
+                            precomputed_ids_by_type, _ = (
+                                collect_ai_follow_ids_from_paths(
+                                    tool_kwargs,
+                                    id_paths_by_type,
+                                    allow_dict_keys=True,
+                                )
+                            )
+                            code_obj_ids = set(
+                                precomputed_ids_by_type.get("codeObj", set())
+                            )
+                            if code_obj_ids and code_obj_id_to_section_ids is None:
+                                code_obj_id_to_section_ids = (
+                                    build_code_obj_id_to_section_ids_index(
+                                        project_state
+                                    )
+                                )
+                                if (
+                                    session is not None
+                                    and state_cache is not None
+                                    and state_cache_key is not None
+                                    and project_state_revision is not None
+                                ):
+                                    state_cache[state_cache_key] = (
+                                        _CachedProjectStateSingle(
+                                            project_state_revision=project_state_revision,
+                                            project_state_single=project_state,
+                                            code_obj_id_to_section_ids=code_obj_id_to_section_ids,
+                                        )
+                                    )
+                    scope_check = check_agentic_scope_for_tool(
+                        tool_args=tool_kwargs,
+                        annotations=annotations,
+                        project_state=project_state,
+                        scope=scope,
+                        temporary_to_canonical=self.temporary_to_canonical,
+                        code_obj_id_to_section_ids=code_obj_id_to_section_ids,
+                        precomputed_ids_by_type=precomputed_ids_by_type,
                     )
-                    return _finalize_result(result)
-            result_filter = (
-                getattr(annotations, "resultFilter", None)
-                if annotations is not None
-                else None
-            )
-            if (
-                result_filter == "project_state_summary"
-                and scope is not None
-                and project_state is not None
-            ):
-                allowed_ids = scope.effective_read_section_ids()
-                result = build_project_state_summary(
-                    project_state,
-                    allowed_section_ids=allowed_ids,
+                    if not scope_check.allowed:
+                        missing_edges = build_missing_edge_hints(
+                            chat_section_id=agentic_context.section_id,
+                            blocked_section_ids=scope_check.blocked_section_ids,
+                            access_type=scope_check.access_type,
+                            project_state=project_state,
+                        )
+                        logger.warning(
+                            "Blocked MCP tool %s by agentic scope (project=%s chat=%s section=%s blocked=%s).",
+                            tool_name,
+                            agentic_context.project_config_id,
+                            agentic_context.chat_id,
+                            agentic_context.section_id,
+                            sorted(scope_check.blocked_section_ids),
+                        )
+                        return build_scope_blocked_tool_result(
+                            tool_name=tool_name,
+                            scope_check=scope_check,
+                            agentic_context=agentic_context,
+                            missing_edges=missing_edges,
+                        )
+
+                result_filter = (
+                    getattr(annotations, "resultFilter", None)
+                    if annotations is not None
+                    else None
                 )
-            else:
-                result = func(**kwargs, **context_kwargs)
+                if (
+                    result_filter == "project_state_summary"
+                    and scope is not None
+                    and project_state is not None
+                ):
+                    allowed_ids = scope.effective_read_section_ids()
+                    return build_project_state_summary(
+                        project_state,
+                        allowed_section_ids=allowed_ids,
+                    )
+
+                result = func(**tool_kwargs, **context_kwargs)
                 if is_async:
                     result = await result
                 if (
@@ -1236,6 +1322,14 @@ class SettaFastMCP(FastMCP):
                         allowed_ids,
                         include_unmapped=scope.structural_allowed,
                     )
+                return result
+
+            result = await self._run_tool_with_runtime_policy(
+                tool_name=tool_name,
+                annotations=annotations,
+                ctx=ctx,
+                execute=_execute_tool,
+            )
             return _finalize_result(result)
 
         return wrapper

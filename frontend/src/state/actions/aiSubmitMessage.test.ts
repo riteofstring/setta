@@ -47,6 +47,7 @@ let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
+const DRAFT_SURFACE_ID = "submit-draft-surface";
 
 function buildGetLLMResponseResponse(chatId: string) {
   return {
@@ -142,6 +143,7 @@ describe("submitMessage", () => {
           waitingForResponse: false,
         },
       },
+      pendingChatDetailsBySurfaceId: {},
     });
 
     mockedRouteGetLLMResponse.mockResolvedValue({
@@ -215,6 +217,7 @@ describe("submitMessage", () => {
         "engine-primary",
         false,
         {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
           appGeneration: {
             mode: "mcp_server",
             referenceImageUrl: "https://example.com/reference.png",
@@ -260,6 +263,9 @@ describe("submitMessage", () => {
         true,
         "engine-primary",
         false,
+        {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
+        },
       ),
     ).resolves.toBe(returnedChatId);
 
@@ -294,6 +300,7 @@ describe("submitMessage", () => {
         "engine-primary",
         false,
         {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
           executionSettings: {
             permissionMode: "yolo",
             searchEnabled: false,
@@ -382,6 +389,9 @@ describe("submitMessage", () => {
         true,
         "engine-primary",
         false,
+        {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
+        },
       ),
     ).resolves.toBe(returnedChatId);
 
@@ -411,6 +421,9 @@ describe("submitMessage", () => {
         false,
         "engine-primary",
         false,
+        {
+          pendingSurfaceId: DRAFT_SURFACE_ID,
+        },
       ),
     ).resolves.toBe(returnedChatId);
 
@@ -422,6 +435,7 @@ describe("submitMessage", () => {
 
   it("routes optimistic user messages to the selected chat when chatId is provided", async () => {
     const chatId = "chat-route-selected";
+    const untouchedSurfaceId = "untouched-surface";
     const releaseSubmit: { resolve: (() => void) | null } = { resolve: null };
     const submitGate = new Promise<void>((resolve) => {
       releaseSubmit.resolve = resolve;
@@ -461,7 +475,23 @@ describe("submitMessage", () => {
           waitingForResponse: false,
         },
       },
-      pendingChatDetails: null,
+      pendingChatDetailsBySurfaceId: {
+        [untouchedSurfaceId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createUserChatMessage({
+              id: "untouched-user-msg",
+              content: [
+                createMessageTextContent({
+                  text: "Do not touch this pending draft.",
+                }),
+              ],
+              attachments: [],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
     });
 
     const submitPromise = submitMessage(
@@ -484,7 +514,10 @@ describe("submitMessage", () => {
       )
       .toBe(true);
     const optimisticState = useAIStore.getState();
-    expect(optimisticState.pendingChatDetails).toBeNull();
+    expect(
+      optimisticState.pendingChatDetailsBySurfaceId[untouchedSurfaceId]
+        ?.messages[0]?.id,
+    ).toBe("untouched-user-msg");
     releaseSubmit.resolve?.();
 
     await expect(submitPromise).resolves.toBe(chatId);
@@ -526,7 +559,7 @@ describe("submitMessage", () => {
     });
     useAIStore.setState({
       activeChatId: undefined,
-      pendingChatDetails: null,
+      pendingChatDetailsBySurfaceId: {},
       chatDetails: {
         [existingChatId]: {
           ...getDefaultChatDetails(),
@@ -553,6 +586,9 @@ describe("submitMessage", () => {
       true,
       "engine-primary",
       false,
+      {
+        pendingSurfaceId: DRAFT_SURFACE_ID,
+      },
     );
 
     // Wait for optimistic pending draft state to be applied.
@@ -561,9 +597,9 @@ describe("submitMessage", () => {
         return (
           useAIStore
             .getState()
-            .pendingChatDetails?.messages.some(
-              (message) => message.role === "user",
-            ) ?? false
+            .pendingChatDetailsBySurfaceId[
+              DRAFT_SURFACE_ID
+            ]?.messages.some((message) => message.role === "user") ?? false
         );
       })
       .toBe(true);
@@ -582,10 +618,9 @@ describe("submitMessage", () => {
     });
 
     const stateDuringRace = useAIStore.getState();
-    const pendingUserMessage =
-      stateDuringRace.pendingChatDetails?.messages.find(
-        (message) => message.role === "user",
-      );
+    const pendingUserMessage = stateDuringRace.pendingChatDetailsBySurfaceId[
+      DRAFT_SURFACE_ID
+    ]?.messages.find((message) => message.role === "user");
     const pendingUserText =
       pendingUserMessage?.content
         .filter((part) => part.type === "text")

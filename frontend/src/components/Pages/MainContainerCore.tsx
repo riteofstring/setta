@@ -1,3 +1,4 @@
+import { ProjectChatBottomDock } from "components/ChatWindowing/ProjectChatBottomDock";
 import { GitOverlayLayer } from "components/Git/GitOverlayLayer";
 import { Overview } from "components/Panes/Overview/Overview";
 import { UiEditor } from "components/Panes/UiEditor/UiEditor";
@@ -50,6 +51,7 @@ export function MainContainerCore({
       <GridWrapper>
         {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
       </GridWrapper>
+      <ProjectChatBottomDock />
       <ViewModeTabs />
       <GitOverlayLayer />
       <FloatingBox />

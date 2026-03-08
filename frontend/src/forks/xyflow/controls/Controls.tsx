@@ -16,6 +16,8 @@ import {
   TbArrowAutofitWidth,
   TbCircleDot,
   TbGridDots,
+  TbLayoutSidebarLeftCollapse,
+  TbLayoutSidebarRightCollapse,
   TbSparkles,
   TbZoomReset,
 } from "react-icons/tb";
@@ -25,6 +27,7 @@ import {
   toggleArgEdges,
   toggleChatSharedEdgeMode,
   toggleMiniMap,
+  toggleMiniMapSide,
   toggleSnapToGrid,
 } from "state/actions/localStorage";
 import {
@@ -74,6 +77,7 @@ const Controls = () => {
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
   const chatSharedEdgeMode = useLocalStorage((x) => x.chatSharedEdgeMode);
   const showMinimap = useLocalStorage((x) => x.showMinimap);
+  const minimapSide = useLocalStorage((x) => x.minimapSide);
   const watchCodeEnabled = useProjectState(
     (state) => state.projectConfig.watchCodeEnabled,
   );
@@ -410,6 +414,28 @@ const Controls = () => {
         })}
       >
         <IoMapOutline size={15} />
+      </button>
+      <button
+        onClick={toggleMiniMapSide}
+        className="cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
+        aria-label={
+          minimapSide === "left"
+            ? "move minimap to right"
+            : "move minimap to left"
+        }
+        data-testid="rf__toggle-minimap-side"
+        {...getFloatingBoxHandlers({
+          content:
+            minimapSide === "left"
+              ? "Move minimap to right"
+              : "Move minimap to left",
+        })}
+      >
+        {minimapSide === "left" ? (
+          <TbLayoutSidebarRightCollapse size={15} />
+        ) : (
+          <TbLayoutSidebarLeftCollapse size={15} />
+        )}
       </button>
       {showWatchCodePortalControl &&
       watchCodePortalOpen &&

@@ -6,12 +6,15 @@ from typing import Literal
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
+from setta.agentic.chat_continuity import (
+    get_prior_messages_for_chat_engine,
+    list_compatible_chat_runs,
+)
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
     get_run_engine_config_id,
-    get_run_project_config_id,
     get_run_sort_key,
 )
 from setta.agentic.context_usage import (
@@ -218,29 +221,16 @@ def _ensure_external_chat_id_compatible(
 ) -> list[AgentRun]:
     if chat_id is None:
         return []
-    llm_runs = _get_llm_chat_runs(dbe=dbe, chat_id=chat_id)
-    if llm_runs:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
+    try:
+        return list_compatible_chat_runs(
+            dbe=dbe,
+            engine_type=EngineType.external_agent,
+            chat_id=chat_id,
+            project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
         )
-    external_runs = _get_external_agent_chat_runs(dbe=dbe, chat_id=chat_id)
-    if not external_runs:
-        return []
-    for run in external_runs:
-        existing_engine = get_run_engine_config_id(run)
-        if existing_engine != engine_config_id:
-            raise HTTPException(
-                status_code=409,
-                detail="Chat engine mismatch; start a new chat.",
-            )
-        existing_project = get_run_project_config_id(run)
-        if existing_project != project_config_id:
-            raise HTTPException(
-                status_code=409,
-                detail="Chat project config mismatch; start a new chat.",
-            )
-    return external_runs
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 def _get_prior_messages_for_engine(
@@ -249,26 +239,18 @@ def _get_prior_messages_for_engine(
     engine_type: EngineType,
     chat_id: ID,
     project_config_id: ID | None,
-    external_runs: list[AgentRun] | None = None,
+    engine_config_id: ID,
 ) -> list[BaseChatMessageUnion]:
-    if engine_type == EngineType.external_agent:
-        if external_runs is None:
-            external_runs = _get_external_agent_chat_runs(
-                dbe=dbe,
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-            )
-        latest_run = _select_latest_run(external_runs)
-    else:
-        llm_runs = _get_llm_chat_runs(
+    try:
+        return get_prior_messages_for_chat_engine(
             dbe=dbe,
+            engine_type=engine_type,
             chat_id=chat_id,
             project_config_id=project_config_id,
+            engine_config_id=engine_config_id,
         )
-        latest_run = _select_latest_run(llm_runs)
-    if latest_run is None:
-        return []
-    return build_chat_state_from_run(latest_run).messages
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 def _get_prior_messages_for_seed_chat(
