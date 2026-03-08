@@ -69,8 +69,15 @@ def test_resolve_go_dispatch_command_routes_completed_plugins_status_subcommands
     assert command == "plugins"
 
 
+def test_resolve_go_dispatch_command_routes_completed_plugins_lifecycle_subcommands_to_go() -> None:
+    # The lifecycle-controls slice now routes enable/disable/uninstall/rollback to Go as well.
+    command = resolve_go_dispatch_command(["plugins", "uninstall", "setta-fixture-frontend"])
+
+    assert command == "plugins"
+
+
 def test_resolve_go_dispatch_command_keeps_unported_plugins_subcommands_on_python() -> None:
-    # Remaining plugin mutations still stay on the Python CLI path for now.
+    # Source-acquisition and restart work still stay on the Python CLI path for now.
     command = resolve_go_dispatch_command(["plugins", "install", "github:owner/repo#v1"])
 
     assert command is None
@@ -266,6 +273,35 @@ def test_python_module_entrypoint_dispatches_go_owned_plugins_status_command(
     assert (
         args_capture_path.read_text(encoding="utf-8").strip()
         == "plugins restart-required --json"
+    )
+
+
+def test_python_module_entrypoint_dispatches_go_owned_plugins_lifecycle_command(
+    tmp_path: Path,
+) -> None:
+    args_capture_path = tmp_path / "go-args.txt"
+    go_stub = _write_go_stub(
+        path=tmp_path / "bin" / "setta-go",
+        args_capture_path=args_capture_path,
+    )
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+
+    result = subprocess.run(
+        [sys.executable, "-m", "setta", "plugins", "disable", "setta-fixture-frontend"],
+        cwd=_repo_root(),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, (result.stderr or result.stdout).strip()
+    assert "setta version from go" in result.stdout
+    assert (
+        args_capture_path.read_text(encoding="utf-8").strip()
+        == "plugins disable setta-fixture-frontend"
     )
 
 

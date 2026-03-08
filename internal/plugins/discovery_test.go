@@ -156,6 +156,140 @@ func TestDiscoveryServiceRescanKeepsInvalidEntriesAndMetadataCanonicalSourceKey(
 	}
 }
 
+// Package-manager discovery should surface environment-managed plugins in setta_files precedence ahead of global Setta-managed copies.
+func TestDiscoveryServiceRescanIncludesPackageManagerEntriesAndPrecedence(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	globalRoot := copyPluginFixtureToScope(t, roots, filesystemPluginScopeGlobal, "frontend")
+	rewritePluginManifest(t, globalRoot, func(payload map[string]any) {
+		payload["version"] = "0.1.0"
+		frontend := payload["frontend"].(map[string]any)
+		frontend["entrypoint"] = "frontend/src/index.js"
+		frontend["style"] = "frontend/src/index.css"
+	})
+
+	sitePackages, packageManagerRoot := installPackageManagerFixture(
+		t,
+		"frontend",
+		"setta-fixture-frontend",
+		"0.3.0",
+		func(pluginRoot string) {
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				payload["version"] = "0.3.0"
+				frontend := payload["frontend"].(map[string]any)
+				frontend["entrypoint"] = "frontend/src/index.js"
+				frontend["style"] = "frontend/src/index.css"
+			})
+		},
+	)
+
+	service := mustNewDiscoveryServiceWithPackageManager(t, roots, config.ModeIDE, []string{sitePackages})
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins with package manager discovery: %v", err)
+	}
+
+	if snapshot.InstalledPlugins != 1 {
+		t.Fatalf("expected 1 installed plugin, got %d", snapshot.InstalledPlugins)
+	}
+	if snapshot.ActivePlugins != 1 {
+		t.Fatalf("expected 1 active plugin, got %d", snapshot.ActivePlugins)
+	}
+	if len(snapshot.Plugins) != 2 {
+		t.Fatalf("expected 2 discovered entries, got %d", len(snapshot.Plugins))
+	}
+
+	packageManagerEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeSettaFiles)
+	if packageManagerEntry.SourceManager != PluginSourceManagerPackageManager {
+		t.Fatalf("expected package-manager source manager, got %q", packageManagerEntry.SourceManager)
+	}
+	if packageManagerEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected package-manager plugin to be active, got %q", packageManagerEntry.State)
+	}
+	resolvedPackageManagerRoot, err := filepath.EvalSymlinks(packageManagerRoot)
+	if err != nil {
+		t.Fatalf("resolve package-manager root symlinks: %v", err)
+	}
+	if packageManagerEntry.SourcePath != resolvedPackageManagerRoot {
+		t.Fatalf("expected package-manager root %q, got %q", resolvedPackageManagerRoot, packageManagerEntry.SourcePath)
+	}
+	if packageManagerEntry.SourceManagerHint != packageManagerSourceHint {
+		t.Fatalf("unexpected package-manager hint %q", packageManagerEntry.SourceManagerHint)
+	}
+
+	globalEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-frontend", PluginScopeGlobal)
+	if globalEntry.State != PluginRuntimeStateShadowed {
+		t.Fatalf("expected global plugin to be shadowed, got %q", globalEntry.State)
+	}
+	if globalEntry.ShadowedBySourcePath != resolvedPackageManagerRoot {
+		t.Fatalf("expected global shadow path %q, got %q", resolvedPackageManagerRoot, globalEntry.ShadowedBySourcePath)
+	}
+}
+
+// Package-manager discovery should keep invalid and ambiguous environment distributions visible instead of silently skipping them.
+func TestDiscoveryServiceRescanKeepsInvalidPackageManagerEntries(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages, _ := installPackageManagerFixture(
+		t,
+		"frontend",
+		"setta-fixture-invalid",
+		"0.1.0",
+		func(pluginRoot string) {
+			writePackageManagerTestFile(t, filepath.Join(pluginRoot, "setta.plugin.json"), "{not-json")
+		},
+	)
+	_ = installPackageManagerFixtureInSearchPath(
+		t,
+		sitePackages,
+		"frontend",
+		"setta-fixture-ambiguous",
+		"0.1.0",
+		func(pluginRoot string) {
+			rewritePluginManifest(t, pluginRoot, func(payload map[string]any) {
+				frontend := payload["frontend"].(map[string]any)
+				frontend["entrypoint"] = "frontend/src/index.js"
+				frontend["style"] = "frontend/src/index.css"
+			})
+			writeJSONFile(t, filepath.Join(pluginRoot, "duplicate", "setta.plugin.json"), map[string]any{
+				"schemaVersion":     1,
+				"id":                "setta-fixture-ambiguous",
+				"name":              "Setta Fixture Ambiguous",
+				"version":           "0.1.0",
+				"settaVersionRange": ">=0.0.0",
+				"enabledByDefault":  true,
+				"capabilities":      []string{"registerPane"},
+			})
+		},
+	)
+
+	service := mustNewDiscoveryServiceWithPackageManager(t, roots, config.ModeIDE, []string{sitePackages})
+	snapshot, err := service.Rescan()
+	if err != nil {
+		t.Fatalf("rescan plugins with invalid package-manager entries: %v", err)
+	}
+	if len(snapshot.Plugins) != 2 {
+		t.Fatalf("expected two invalid package-manager entries, got %#v", snapshot.Plugins)
+	}
+
+	invalidEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-invalid", PluginScopeSettaFiles)
+	if invalidEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected invalid package-manager entry, got %q", invalidEntry.State)
+	}
+	if invalidEntry.SourceManager != PluginSourceManagerPackageManager {
+		t.Fatalf("expected package-manager source manager, got %q", invalidEntry.SourceManager)
+	}
+	if len(invalidEntry.Errors) != 1 || invalidEntry.Errors[0].Code != invalidPluginManifestErrorCode {
+		t.Fatalf("expected invalid-manifest package-manager error, got %#v", invalidEntry.Errors)
+	}
+
+	ambiguousEntry := mustFindDiscoveredPlugin(t, snapshot.Plugins, "setta-fixture-ambiguous", PluginScopeSettaFiles)
+	if ambiguousEntry.State != PluginRuntimeStateInvalid {
+		t.Fatalf("expected ambiguous package-manager entry to stay invalid, got %q", ambiguousEntry.State)
+	}
+	if len(ambiguousEntry.Errors) != 1 || ambiguousEntry.Errors[0].Code != ambiguousPluginRootErrorCode {
+		t.Fatalf("expected ambiguous plugin root error, got %#v", ambiguousEntry.Errors)
+	}
+}
+
 func mustNewDiscoveryService(t *testing.T, roots filesystemResolverTestRoots, mode config.Mode) *DiscoveryService {
 	t.Helper()
 

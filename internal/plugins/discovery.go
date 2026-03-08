@@ -7,14 +7,17 @@ import (
 	"slices"
 
 	"setta/internal/config"
+	"setta/internal/pythonenv"
 )
 
 type DiscoveryServiceOptions struct {
-	Store          *Store
-	WorkspaceRoot  string
-	SettaFilesRoot string
-	SettaHome      string
-	ServerMode     config.Mode
+	Store                     *Store
+	WorkspaceRoot             string
+	SettaFilesRoot            string
+	SettaHome                 string
+	ServerMode                config.Mode
+	PackageManagerRuntime     *pythonenv.Runtime
+	PackageManagerSearchPaths []string
 }
 
 type DiscoverySnapshot struct {
@@ -25,8 +28,10 @@ type DiscoverySnapshot struct {
 }
 
 type DiscoveryService struct {
-	store      *Store
-	serverMode config.Mode
+	store                     *Store
+	serverMode                config.Mode
+	packageManagerRuntime     *pythonenv.Runtime
+	packageManagerSearchPaths []string
 }
 
 func NewDiscoveryService(options DiscoveryServiceOptions) (*DiscoveryService, error) {
@@ -51,8 +56,10 @@ func NewDiscoveryService(options DiscoveryServiceOptions) (*DiscoveryService, er
 	}
 
 	return &DiscoveryService{
-		store:      store,
-		serverMode: options.ServerMode,
+		store:                     store,
+		serverMode:                options.ServerMode,
+		packageManagerRuntime:     options.PackageManagerRuntime,
+		packageManagerSearchPaths: append([]string(nil), options.PackageManagerSearchPaths...),
 	}, nil
 }
 
@@ -69,6 +76,11 @@ func (s *DiscoveryService) Rescan() (DiscoverySnapshot, error) {
 	if err != nil {
 		return DiscoverySnapshot{}, err
 	}
+	packageManagerEntries, err := s.discoverPackageManagerPlugins()
+	if err != nil {
+		return DiscoverySnapshot{}, err
+	}
+	entries = append(entries, packageManagerEntries...)
 	pluginsState, err := s.store.LoadPluginsState()
 	if err != nil {
 		return DiscoverySnapshot{}, err

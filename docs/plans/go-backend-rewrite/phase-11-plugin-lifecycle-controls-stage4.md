@@ -20,17 +20,26 @@ As of 2026-03-08:
 - Go already owns the completed plugin status/read slice in:
   - `internal/plugins/status.go`
   - `internal/settacmd/plugins.go`
+- Go now also owns the package-manager-aware lifecycle-control slice in:
+  - `internal/plugins/discovery.go`
+  - `internal/plugins/package_manager_discovery.go`
+  - `internal/plugins/service.go`
+  - `internal/settacmd/plugins.go`
+  - `backend/setta/entrypoint.py`
 - Go already owns Setta-managed plugin mutation foundations in:
   - `internal/plugins/service.go`
   - `internal/plugins/store.go`
   - `internal/plugins/source_specs.go`
 - Python still owns the remaining `plugins` mutation/authoring commands in:
   - `backend/setta/start.py`
-- the next bounded stage should move only:
-  - `setta plugins enable`
-  - `setta plugins disable`
-  - `setta plugins uninstall`
-  - `setta plugins rollback`
+- the remaining bounded stage should move only:
+  - `setta plugins install`
+  - `setta plugins update`
+  - `setta plugins pin`
+  - `setta plugins link`
+  - `setta plugins lock write|apply`
+  - `setta plugins restart`
+  - `setta plugins init|validate`
 
 ## Inputs
 
@@ -170,19 +179,43 @@ Do not include:
 - whether the later source-acquisition slice should land `link` before remote
   provider-backed `install` / `update`, or whether both should move together
   once backend-runtime preparation is ready
+- whether `plugins restart` should stay Python-owned until the next slice lands
+  a real Go restart boundary, or whether it should be explicitly split into its
+  own tiny follow-up after the authoring/source-acquisition work
 
 ## Progress Notes
 
 - 2026-03-08: created this Stage 4 plan to keep the remaining plugin mutation
   work bounded around package-manager-aware lifecycle controls first.
+- 2026-03-08: completed the Stage 4 slice.
+  - Go now discovers manifest-bearing package-manager plugins through the
+    active Python environment via `importlib.metadata`
+  - `setta plugins enable|disable|uninstall|rollback` now route through the
+    shipped Go CLI
+  - partial Python entrypoint dispatch now includes the completed lifecycle
+    controls and still leaves install/update/pin/link/lock/restart/init/validate
+    on Python
+- 2026-03-08: kept the runtime boundary explicit.
+  - lifecycle controls can disable or enable environment-managed plugins
+  - uninstall still rejects environment-managed plugins as externally managed
+  - install/update/pin/link remain blocked on the later source-acquisition and
+    runtime-preparation slice
 
 ## Verification
 
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/pythonenv ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement this Stage 4 slice:
+Write a dedicated Phase 11 Stage 5 plan for the remaining plugin
+source-acquisition and authoring surface:
 
-1. package-manager discovery in `internal/plugins`
-2. Go-owned `enable` / `disable` / `uninstall` / `rollback`
+1. `install`
+2. `update`
+3. `pin`
+4. `link`
+5. `lock write|apply`
+6. `restart`
+7. `init|validate`

@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -184,6 +186,179 @@ func TestRunPluginsRestartRequiredTextAndJSON(t *testing.T) {
 	}
 }
 
+// Enable/disable JSON should expose the Go-owned lifecycle payload over real plugins_state transitions.
+func TestRunPluginsEnableDisableJSON(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	workspacePluginRoot := filepath.Join(cwd, ".setta_plugins", "setta-fixture-frontend")
+	writeFrontendPluginFixture(t, workspacePluginRoot, "setta-fixture-frontend", "Setta Fixture Frontend", "0.1.0")
+
+	disableStdout, disableStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "disable", "setta-fixture-frontend", "--json")
+	if err != nil {
+		t.Fatalf("run plugins disable: %v", err)
+	}
+	if disableStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", disableStderr)
+	}
+
+	var disabledPayload map[string]any
+	if err := json.Unmarshal([]byte(disableStdout), &disabledPayload); err != nil {
+		t.Fatalf("decode disable json: %v", err)
+	}
+	if got := disabledPayload["pluginId"]; got != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin id %#v", got)
+	}
+	if got := disabledPayload["state"]; got != "disabled" {
+		t.Fatalf("unexpected disabled state %#v", got)
+	}
+	if got := disabledPayload["restartRequired"]; got != false {
+		t.Fatalf("unexpected restart flag %#v", got)
+	}
+
+	enableStdout, enableStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "enable", "setta-fixture-frontend", "--json")
+	if err != nil {
+		t.Fatalf("run plugins enable: %v", err)
+	}
+	if enableStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", enableStderr)
+	}
+
+	var enabledPayload map[string]any
+	if err := json.Unmarshal([]byte(enableStdout), &enabledPayload); err != nil {
+		t.Fatalf("decode enable json: %v", err)
+	}
+	if got := enabledPayload["state"]; got != "active" {
+		t.Fatalf("unexpected enabled state %#v", got)
+	}
+	if got := enabledPayload["restartRequired"]; got != false {
+		t.Fatalf("unexpected restart flag %#v", got)
+	}
+}
+
+// Uninstall should keep the CLI text contract and backend restart messaging for lifecycle removals.
+func TestRunPluginsUninstallTextReportsRestartRequirement(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	workspacePluginRoot := filepath.Join(cwd, ".setta_plugins", "setta-fixture-backend")
+	writeBackendPluginFixture(t, workspacePluginRoot, "setta-fixture-backend", "Setta Fixture Backend", "0.1.0")
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "uninstall", "setta-fixture-backend")
+	if err != nil {
+		t.Fatalf("run plugins uninstall: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	if !strings.Contains(stdout, "Uninstalled setta-fixture-backend from workspace scope") {
+		t.Fatalf("expected uninstall summary, got %q", stdout)
+	}
+	if !strings.Contains(stdout, "Backend restart required.") {
+		t.Fatalf("expected backend restart message, got %q", stdout)
+	}
+	if _, err := os.Stat(workspacePluginRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected plugin root removal, stat err=%v", err)
+	}
+}
+
+// Rollback JSON should restore the recorded snapshot version and emit the Go-owned lower-camel payload.
+func TestRunPluginsRollbackJSONRestoresSnapshot(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	workspacePluginRoot := filepath.Join(cwd, ".setta_plugins", "setta-fixture-frontend")
+	writeFrontendPluginFixture(t, workspacePluginRoot, "setta-fixture-frontend", "Setta Fixture Frontend", "0.2.0")
+
+	snapshotRoot := filepath.Join(cwd, "setta_files", "plugins_history", "workspace", "setta-fixture-frontend", "snapshot-v0.1.0")
+	writeFrontendPluginFixture(t, snapshotRoot, "setta-fixture-frontend", "Setta Fixture Frontend", "0.1.0")
+	writeJSONFileForSettacmdTest(t, filepath.Join(cwd, "setta_files", "plugins_install_metadata.json"), map[string]any{
+		"entries": map[string]any{
+			"workspace:setta-fixture-frontend": map[string]any{
+				"pluginId":           "setta-fixture-frontend",
+				"scope":              "workspace",
+				"sourceSpec":         "pypi:setta-fixture-frontend==0.2.0",
+				"canonicalSourceKey": "pypi:setta-fixture-frontend",
+				"version":            "0.2.0",
+				"history": []any{
+					map[string]any{
+						"version":            "0.1.0",
+						"snapshotPath":       snapshotRoot,
+						"timestampIso":       "2026-03-08T12:30:00Z",
+						"sourceDigestSha256": nil,
+					},
+				},
+			},
+		},
+	})
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "rollback", "setta-fixture-frontend", "--json")
+	if err != nil {
+		t.Fatalf("run plugins rollback: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode rollback json: %v", err)
+	}
+	if got := payload["pluginId"]; got != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin id %#v", got)
+	}
+	if got := payload["restoredVersion"]; got != "0.1.0" {
+		t.Fatalf("unexpected restored version %#v", got)
+	}
+	if got := payload["restartRequired"]; got != false {
+		t.Fatalf("unexpected rollback restart flag %#v", got)
+	}
+
+	manifestPayload, err := os.ReadFile(filepath.Join(workspacePluginRoot, "setta.plugin.json"))
+	if err != nil {
+		t.Fatalf("read restored manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode restored manifest: %v", err)
+	}
+	if got := manifest["version"]; got != "0.1.0" {
+		t.Fatalf("expected restored manifest version 0.1.0, got %#v", got)
+	}
+}
+
+// Scoped lifecycle commands should reject conflicting scope selectors before touching plugin state.
+func TestRunPluginsScopedLifecycleCommandsRejectConflictingScopeFlags(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "uninstall", "setta-fixture-frontend", "--scope", "workspace", "--global")
+	if err == nil || DisplayError(err) != "Use either --scope or scope shortcut flags, not both." {
+		t.Fatalf("expected scope/shortcut conflict error, got %v", err)
+	}
+
+	_, _, err = runPluginsSettaCommand(t, cwd, "plugins", "rollback", "setta-fixture-frontend", "--global", "--setta-files")
+	if err == nil || DisplayError(err) != "Use only one of --global or --setta-files." {
+		t.Fatalf("expected shortcut conflict error, got %v", err)
+	}
+}
+
+// Package-manager uninstall should stay Go-owned while rejecting externally managed plugin removal with the canonical service code.
+func TestRunPluginsPackageManagerUninstallRejectsExternallyManagedPlugin(t *testing.T) {
+	cwd := t.TempDir()
+	sitePackages := installPackageManagerDistributionFixtureForSettacmdTest(t, "setta-fixture-frontend", "0.1.0")
+	t.Setenv("PYTHONPATH", sitePackages)
+
+	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "uninstall", "setta-fixture-frontend", "--scope", "setta_files")
+	if err == nil {
+		t.Fatal("expected package-manager uninstall error")
+	}
+	if DisplayError(err) != "PLUGIN_MANAGED_EXTERNALLY: Plugin setta-fixture-frontend is managed by a Python package manager. Use uv/pip/Poetry to uninstall it." {
+		t.Fatalf("unexpected package-manager uninstall error %q", DisplayError(err))
+	}
+}
+
 func runPluginsSettaCommand(t *testing.T, cwd string, args ...string) (string, string, error) {
 	t.Helper()
 
@@ -191,6 +366,7 @@ func runPluginsSettaCommand(t *testing.T, cwd string, args ...string) (string, s
 	if err := os.MkdirAll(settaHome, 0o755); err != nil {
 		t.Fatalf("mkdir setta home: %v", err)
 	}
+	pythonWrapper := writeSettacmdTestPythonWrapper(t)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -204,6 +380,9 @@ func runPluginsSettaCommand(t *testing.T, cwd string, args ...string) (string, s
 		EnvLookup: func(key string) (string, bool) {
 			if key == "SETTA_HOME" {
 				return settaHome, true
+			}
+			if key == "SETTA_PYTHON" {
+				return pythonWrapper, true
 			}
 			return "", false
 		},
@@ -290,4 +469,95 @@ func writeJSONFileForSettacmdTest(t *testing.T, path string, payload any) {
 	if err := os.WriteFile(path, append(content, '\n'), 0o644); err != nil {
 		t.Fatalf("write json file: %v", err)
 	}
+}
+
+func writeSettacmdTestPythonWrapper(t *testing.T) string {
+	t.Helper()
+
+	actualPython := resolveSettacmdTestPython(t)
+	wrapperPath := filepath.Join(t.TempDir(), "python-wrapper")
+	if runtime.GOOS == "windows" {
+		wrapperPath += ".cmd"
+		if err := os.WriteFile(wrapperPath, []byte("@echo off\r\n\""+actualPython+"\" -S %*\r\n"), 0o755); err != nil {
+			t.Fatalf("write python wrapper: %v", err)
+		}
+		return wrapperPath
+	}
+	if err := os.WriteFile(wrapperPath, []byte("#!/bin/sh\nexec \""+actualPython+"\" -S \"$@\"\n"), 0o755); err != nil {
+		t.Fatalf("write python wrapper: %v", err)
+	}
+	return wrapperPath
+}
+
+func resolveSettacmdTestPython(t *testing.T) string {
+	t.Helper()
+
+	repoRoot := settacmdTestRepoRoot(t)
+	candidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+		"python3",
+		"python",
+	}
+	if runtime.GOOS == "windows" {
+		candidates = append([]string{
+			filepath.Join(repoRoot, ".venv", "Scripts", "python.exe"),
+		}, candidates...)
+	}
+	for _, candidate := range candidates {
+		if strings.Contains(candidate, string(filepath.Separator)) {
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate
+			}
+			continue
+		}
+		resolved, err := exec.LookPath(candidate)
+		if err == nil {
+			return resolved
+		}
+	}
+	t.Fatal("python interpreter not found for settacmd plugin tests")
+	return ""
+}
+
+func settacmdTestRepoRoot(t *testing.T) string {
+	t.Helper()
+
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve settacmd test file path")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+}
+
+func installPackageManagerDistributionFixtureForSettacmdTest(t *testing.T, packageName string, version string) string {
+	t.Helper()
+
+	sitePackages := filepath.Join(t.TempDir(), "site-packages")
+	pluginRoot := filepath.Join(sitePackages, strings.ReplaceAll(packageName, "-", "_"))
+	writeFrontendPluginFixture(t, pluginRoot, packageName, "Setta Fixture Frontend", version)
+
+	distInfoName := strings.ReplaceAll(packageName, "-", "_") + "-" + version + ".dist-info"
+	distInfoRoot := filepath.Join(sitePackages, distInfoName)
+	if err := os.MkdirAll(distInfoRoot, 0o755); err != nil {
+		t.Fatalf("mkdir dist-info root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distInfoRoot, "METADATA"), []byte(strings.Join([]string{
+		"Metadata-Version: 2.1",
+		"Name: " + packageName,
+		"Version: " + version,
+		"Summary: Setta fixture plugin",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatalf("write metadata: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(distInfoRoot, "RECORD"), []byte(strings.Join([]string{
+		filepath.ToSlash(filepath.Join(strings.ReplaceAll(packageName, "-", "_"), "setta.plugin.json")) + ",,",
+		filepath.ToSlash(filepath.Join(distInfoName, "METADATA")) + ",,",
+		filepath.ToSlash(filepath.Join(distInfoName, "RECORD")) + ",,",
+		"",
+	}, "\n")), 0o644); err != nil {
+		t.Fatalf("write record: %v", err)
+	}
+	return sitePackages
 }

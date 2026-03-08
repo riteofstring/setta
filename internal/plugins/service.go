@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/config"
+	"setta/internal/pythonenv"
 )
 
 type CandidateProvider interface {
@@ -18,14 +19,16 @@ type CandidateProvider interface {
 }
 
 type ServiceOptions struct {
-	Store             *Store
-	DiscoveryService  *DiscoveryService
-	WorkspaceRoot     string
-	SettaFilesRoot    string
-	SettaHome         string
-	ServerMode        config.Mode
-	RestartCommand    string
-	CandidateProvider CandidateProvider
+	Store                     *Store
+	DiscoveryService          *DiscoveryService
+	WorkspaceRoot             string
+	SettaFilesRoot            string
+	SettaHome                 string
+	ServerMode                config.Mode
+	RestartCommand            string
+	CandidateProvider         CandidateProvider
+	PackageManagerRuntime     *pythonenv.Runtime
+	PackageManagerSearchPaths []string
 }
 
 type Service struct {
@@ -57,8 +60,10 @@ func NewService(options ServiceOptions) (*Service, error) {
 	if discoveryService == nil {
 		var err error
 		discoveryService, err = NewDiscoveryService(DiscoveryServiceOptions{
-			Store:      store,
-			ServerMode: options.ServerMode,
+			Store:                     store,
+			ServerMode:                options.ServerMode,
+			PackageManagerRuntime:     options.PackageManagerRuntime,
+			PackageManagerSearchPaths: options.PackageManagerSearchPaths,
 		})
 		if err != nil {
 			return nil, err
@@ -79,6 +84,132 @@ func (s *Service) Rescan() (DiscoverySnapshot, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.rescanLocked()
+}
+
+func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResult, error) {
+	if s == nil {
+		return PluginEnableDisableResult{}, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+	globalState, err := s.store.LoadPluginsGlobalState()
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+
+	wasEnabled := resolveEnablementBeforeMutation(entry, state, globalState)
+	stateChanged := false
+	if !containsString(state.EnabledPluginIDs, options.PluginID) {
+		state.EnabledPluginIDs = appendIfMissing(state.EnabledPluginIDs, options.PluginID)
+		stateChanged = true
+	}
+	if containsString(state.DisabledPluginIDs, options.PluginID) {
+		state.DisabledPluginIDs = removeString(state.DisabledPluginIDs, options.PluginID)
+		stateChanged = true
+	}
+
+	enablementChanged := !wasEnabled
+	if entry.HasBackend() && enablementChanged {
+		if !containsString(state.PendingRestartBackendPluginIDs, options.PluginID) {
+			state.PendingRestartBackendPluginIDs = appendIfMissing(state.PendingRestartBackendPluginIDs, options.PluginID)
+			stateChanged = true
+		}
+		delete(s.pendingRestartRemovedPlugin, options.PluginID)
+	}
+	if stateChanged {
+		if err := s.store.SavePluginsState(state); err != nil {
+			return PluginEnableDisableResult{}, err
+		}
+	}
+
+	restartRequired := entry.HasBackend() && containsString(state.PendingRestartBackendPluginIDs, options.PluginID)
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, options.PluginID)
+	if latestEntry.PluginID == "" {
+		return PluginEnableDisableResult{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", options.PluginID)
+	}
+	return PluginEnableDisableResult{
+		PluginID:        options.PluginID,
+		State:           latestEntry.State,
+		RestartRequired: restartRequired,
+	}, nil
+}
+
+func (s *Service) Disable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResult, error) {
+	if s == nil {
+		return PluginEnableDisableResult{}, ErrWorkspaceRootRequired
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+
+	state, err := s.store.LoadPluginsState()
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+	globalState, err := s.store.LoadPluginsGlobalState()
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+
+	wasEnabled := resolveEnablementBeforeMutation(entry, state, globalState)
+	stateChanged := false
+	if !containsString(state.DisabledPluginIDs, options.PluginID) {
+		state.DisabledPluginIDs = appendIfMissing(state.DisabledPluginIDs, options.PluginID)
+		stateChanged = true
+	}
+	if containsString(state.EnabledPluginIDs, options.PluginID) {
+		state.EnabledPluginIDs = removeString(state.EnabledPluginIDs, options.PluginID)
+		stateChanged = true
+	}
+
+	enablementChanged := wasEnabled
+	if entry.HasBackend() && enablementChanged {
+		if !containsString(state.PendingRestartBackendPluginIDs, options.PluginID) {
+			state.PendingRestartBackendPluginIDs = appendIfMissing(state.PendingRestartBackendPluginIDs, options.PluginID)
+			stateChanged = true
+		}
+		delete(s.pendingRestartRemovedPlugin, options.PluginID)
+	}
+	if stateChanged {
+		if err := s.store.SavePluginsState(state); err != nil {
+			return PluginEnableDisableResult{}, err
+		}
+	}
+
+	restartRequired := entry.HasBackend() && containsString(state.PendingRestartBackendPluginIDs, options.PluginID)
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return PluginEnableDisableResult{}, err
+	}
+	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, options.PluginID)
+	if latestEntry.PluginID == "" {
+		return PluginEnableDisableResult{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", options.PluginID)
+	}
+	return PluginEnableDisableResult{
+		PluginID:        options.PluginID,
+		State:           latestEntry.State,
+		RestartRequired: restartRequired,
+	}, nil
 }
 
 func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginInstallResult, error) {
@@ -521,6 +652,18 @@ func (s *Service) resolveScopeAndEntryLocked(pluginID string, requestedScope *Pl
 	return scopes[0], findDiscoveredPlugin(snapshot.Plugins, pluginID, scopes[0]), nil
 }
 
+func (s *Service) resolveHighestPrecedenceEntryLocked(pluginID string) (DiscoveredPlugin, error) {
+	snapshot, err := s.rescanLocked()
+	if err != nil {
+		return DiscoveredPlugin{}, err
+	}
+	entry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, pluginID)
+	if entry.PluginID == "" {
+		return DiscoveredPlugin{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", pluginID)
+	}
+	return entry, nil
+}
+
 func ensureSettaManagedForWrite(entry DiscoveredPlugin, operation string) error {
 	if entry.SourceManager != PluginSourceManagerPackageManager {
 		return nil
@@ -540,6 +683,29 @@ func findDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string, scope Plu
 		}
 	}
 	return DiscoveredPlugin{}
+}
+
+func findHighestPrecedenceDiscoveredPlugin(entries []DiscoveredPlugin, pluginID string) DiscoveredPlugin {
+	for _, entry := range entries {
+		if entry.PluginID == pluginID {
+			return entry
+		}
+	}
+	return DiscoveredPlugin{}
+}
+
+func resolveEnablementBeforeMutation(entry DiscoveredPlugin, state PluginsStateFile, globalState PluginsGlobalStateFile) bool {
+	if entry.Manifest == nil {
+		return containsString(state.EnabledPluginIDs, entry.PluginID) && !containsString(state.DisabledPluginIDs, entry.PluginID)
+	}
+	enabled, _ := resolveFilesystemPluginEnabledWithSource(
+		entry.PluginID,
+		entry.Scope,
+		entry.Manifest.EnabledByDefault,
+		state,
+		globalState,
+	)
+	return enabled
 }
 
 func (s *Service) installCandidateLocked(candidate CandidatePlugin, targetPath string, scope PluginScope, sourceSpec string, installer PluginInstallerBackend, enable bool, force bool) error {

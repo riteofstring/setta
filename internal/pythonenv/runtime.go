@@ -34,6 +34,44 @@ for dist in importlib.metadata.distributions():
 packages.sort(key=str.lower)
 print(json.dumps({"packages": packages}))
 `
+	pluginDistributionsCmd = `
+import importlib.metadata
+import json
+import pathlib
+import sys
+
+search_paths = json.loads(sys.argv[1])
+kwargs = {}
+if search_paths is not None:
+    kwargs["path"] = search_paths
+
+distributions = []
+for dist in importlib.metadata.distributions(**kwargs):
+    files = dist.files
+    if files is None:
+        continue
+    manifest_paths = []
+    for file in files:
+        path_value = pathlib.Path(str(file))
+        if path_value.name != "setta.plugin.json":
+            continue
+        manifest_paths.append(str(pathlib.Path(dist.locate_file(file)).resolve(strict=False)))
+    if not manifest_paths:
+        continue
+    manifest_paths.sort(key=str.lower)
+    name = (dist.metadata.get("Name") or "").strip()
+    version = (dist.version or "").strip()
+    distributions.append(
+        {
+            "name": name,
+            "version": version,
+            "manifestPaths": manifest_paths,
+        }
+    )
+
+distributions.sort(key=lambda item: ((item["name"] or "").lower(), (item["version"] or "").lower(), item["manifestPaths"]))
+print(json.dumps({"distributions": distributions}))
+`
 )
 
 var (
@@ -50,6 +88,12 @@ type RuntimeOptions struct {
 type Runtime struct {
 	interpreter string
 	environ     func() []string
+}
+
+type PluginDistribution struct {
+	Name          string   `json:"name"`
+	Version       string   `json:"version"`
+	ManifestPaths []string `json:"manifestPaths"`
 }
 
 func NewRuntime(options RuntimeOptions) (*Runtime, error) {
@@ -168,6 +212,80 @@ func (r *Runtime) InstalledPackages(ctx context.Context) ([]string, error) {
 		}
 	})
 	return packages, nil
+}
+
+func (r *Runtime) PluginDistributions(ctx context.Context, searchPaths []string) ([]PluginDistribution, error) {
+	if r == nil {
+		return nil, ErrRuntimeRequired
+	}
+
+	var encodedSearchPaths []byte
+	var err error
+	if len(searchPaths) == 0 {
+		encodedSearchPaths = []byte("null")
+	} else {
+		normalizedSearchPaths := make([]string, 0, len(searchPaths))
+		for _, entry := range searchPaths {
+			trimmed := strings.TrimSpace(entry)
+			if trimmed == "" {
+				continue
+			}
+			normalizedSearchPaths = append(normalizedSearchPaths, trimmed)
+		}
+		encodedSearchPaths, err = json.Marshal(normalizedSearchPaths)
+		if err != nil {
+			return nil, fmt.Errorf("pythonenv: encode plugin distribution search paths: %w", err)
+		}
+	}
+
+	command := exec.CommandContext(r.interpreterCommandContext(ctx), r.interpreter, "-c", pluginDistributionsCmd, string(encodedSearchPaths))
+	if r.environ != nil {
+		command.Env = append([]string(nil), r.environ()...)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
+	if err := command.Run(); err != nil {
+		stderrOutput := strings.TrimSpace(stderr.String())
+		if stderrOutput != "" {
+			return nil, fmt.Errorf("pythonenv: inspect plugin distributions: %w: %s", err, stderrOutput)
+		}
+		return nil, fmt.Errorf("pythonenv: inspect plugin distributions: %w", err)
+	}
+
+	var payload struct {
+		Distributions []PluginDistribution `json:"distributions"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidPackagesOutput, err)
+	}
+
+	distributions := make([]PluginDistribution, 0, len(payload.Distributions))
+	for _, distribution := range payload.Distributions {
+		trimmedManifestPaths := make([]string, 0, len(distribution.ManifestPaths))
+		for _, manifestPath := range distribution.ManifestPaths {
+			trimmed := strings.TrimSpace(manifestPath)
+			if trimmed == "" {
+				continue
+			}
+			trimmedManifestPaths = append(trimmedManifestPaths, trimmed)
+		}
+		distributions = append(distributions, PluginDistribution{
+			Name:          strings.TrimSpace(distribution.Name),
+			Version:       strings.TrimSpace(distribution.Version),
+			ManifestPaths: trimmedManifestPaths,
+		})
+	}
+	return distributions, nil
+}
+
+func (r *Runtime) interpreterCommandContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return ctx
 }
 
 func resolveBinary(candidate string) (string, error) {

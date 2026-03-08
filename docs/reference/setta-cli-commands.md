@@ -5,8 +5,9 @@ entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
 Go-owned commands are handed off to packaged Go binaries, while the remaining
 Python-owned local commands still route through `backend/setta/start.py`.
 `setta plugins` is currently split:
-`list`, `rescan`, and `restart-required` are Go-owned; the remaining plugin
-subcommands still route through Python.
+`list`, `rescan`, `restart-required`, `enable`, `disable`, `uninstall`, and
+`rollback` are Go-owned; the remaining plugin subcommands still route through
+Python.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -39,7 +40,7 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
-| `setta plugins` | yes | no | Plugin scaffold, install/update/link, runtime state, and lockfile commands. |
+| `setta plugins` | yes | no | Plugin scaffold, install/update/link, lockfile, and restart commands. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
@@ -288,9 +289,11 @@ Subcommands:
   - Link a local folder as an installed plugin (development workflow).
 - `setta plugins uninstall <plugin_id> [--scope ...] [--json]`
   - Remove a plugin from a scope.
+  - Ownership: Go.
 - `setta plugins enable <plugin_id> [--json]`
 - `setta plugins disable <plugin_id> [--json]`
   - Toggle enablement for the highest-precedence discovered plugin id.
+  - Ownership: Go.
 - `setta plugins rescan [--json]`
   - Rebuild plugin discovery/runtime status without restarting Setta.
   - Ownership: Go.
@@ -300,6 +303,7 @@ Subcommands:
   - Shortcut for targeted update/pin.
 - `setta plugins rollback <plugin_id> [--scope ...] [--json]`
   - Restore previous installed version from plugin history snapshots.
+  - Ownership: Go.
 - `setta plugins lock write [--json]`
   - Write lockfile at `<workspace>/.setta_plugins/plugins.lock.json`.
 - `setta plugins lock apply [--check] [--json]`

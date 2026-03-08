@@ -34,6 +34,10 @@ type UpdateOptions struct {
 	To       string
 }
 
+type EnableDisableOptions struct {
+	PluginID string
+}
+
 type UninstallOptions struct {
 	PluginID string
 	Scope    *PluginScope
@@ -45,35 +49,41 @@ type RollbackOptions struct {
 }
 
 type PluginInstallResult struct {
-	PluginID              string
-	Version               string
-	SourceScope           PluginScope
-	SourcePath            string
-	CanonicalSourceKey    string
-	SourceDigestSHA256    *string
-	RequestedCapabilities []string
-	Components            []string
-	State                 PluginRuntimeState
-	RestartRequired       bool
+	PluginID              string             `json:"pluginId"`
+	Version               string             `json:"version"`
+	SourceScope           PluginScope        `json:"sourceScope"`
+	SourcePath            string             `json:"sourcePath"`
+	CanonicalSourceKey    string             `json:"canonicalSourceKey"`
+	SourceDigestSHA256    *string            `json:"sourceDigestSha256"`
+	RequestedCapabilities []string           `json:"requestedCapabilities"`
+	Components            []string           `json:"components"`
+	State                 PluginRuntimeState `json:"state"`
+	RestartRequired       bool               `json:"restartRequired"`
+}
+
+type PluginEnableDisableResult struct {
+	PluginID        string             `json:"pluginId"`
+	State           PluginRuntimeState `json:"state"`
+	RestartRequired bool               `json:"restartRequired"`
 }
 
 type PluginUninstallResult struct {
-	PluginID         string
-	RemovedFromScope PluginScope
-	RestartRequired  bool
+	PluginID         string      `json:"pluginId"`
+	RemovedFromScope PluginScope `json:"removedFromScope"`
+	RestartRequired  bool        `json:"restartRequired"`
 }
 
 type PluginUpdateResult struct {
-	PluginID           string
-	FromVersion        string
-	ToVersion          string
-	SourceDigestSHA256 *string
-	RestartRequired    bool
+	PluginID           string  `json:"pluginId"`
+	FromVersion        string  `json:"fromVersion"`
+	ToVersion          string  `json:"toVersion"`
+	SourceDigestSHA256 *string `json:"sourceDigestSha256"`
+	RestartRequired    bool    `json:"restartRequired"`
 }
 
 type PluginRollbackResult struct {
-	PluginID           string
-	RestoredVersion    string
-	SourceDigestSHA256 *string
-	RestartRequired    bool
+	PluginID           string  `json:"pluginId"`
+	RestoredVersion    string  `json:"restoredVersion"`
+	SourceDigestSHA256 *string `json:"sourceDigestSha256"`
+	RestartRequired    bool    `json:"restartRequired"`
 }

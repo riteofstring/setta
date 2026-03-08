@@ -22,7 +22,17 @@ _GO_OWNED_COMMANDS = frozenset(
     }
 )
 _GO_OWNED_SUBCOMMANDS = {
-    "plugins": frozenset({"list", "rescan", "restart-required"}),
+    "plugins": frozenset(
+        {
+            "list",
+            "rescan",
+            "restart-required",
+            "enable",
+            "disable",
+            "uninstall",
+            "rollback",
+        }
+    ),
 }
 _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
     {

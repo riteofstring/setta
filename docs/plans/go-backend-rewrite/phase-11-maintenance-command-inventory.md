@@ -33,14 +33,19 @@ As of 2026-03-08:
 - Go now also owns the plugin status/read slice:
   - `setta plugins list|rescan|restart-required` in `internal/settacmd`
   - shared plugin status/restart-required payload shaping in `internal/plugins`
+- Go now also owns the plugin lifecycle-controls slice:
+  - package-manager-aware discovery in `internal/plugins`
+  - `setta plugins enable|disable|uninstall|rollback` in `internal/settacmd`
+  - partial Python-entrypoint dispatch for those completed lifecycle controls
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
-  - the remaining `plugins` mutation/authoring commands
+  - the remaining `plugins` source-acquisition, authoring, lockfile, and
+    restart commands
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
-- Go does not yet own:
-  - a shipped CLI boundary for `plugins`
+- Go already owns a shipped CLI boundary for the completed `plugins` slices,
+  but not the whole plugin command cluster
 
 ## Inputs
 
@@ -103,12 +108,17 @@ As of 2026-03-08:
      - `list`
      - `rescan`
      - `restart-required`
+   - Go now also owns the lifecycle-controls slice:
+     - package-manager-aware discovery
+     - `enable`
+     - `disable`
+     - `uninstall`
+     - `rollback`
    - Go does not yet own several CLI-facing plugin behaviors:
      - template init and folder validation
      - local link workflow
-     - enable/disable toggles
+     - install/update/pin source acquisition
      - lockfile write/apply
-     - mutation CLI output shaping
      - programmatic restart acceptance/rejection
    - rewrite implication:
      - plugin CLI parity should be its own dedicated slice, not bundled with
@@ -145,8 +155,12 @@ As of 2026-03-08:
 Phase 11 Stage 3 is complete in
 `phase-11-plugin-status-stage3.md`.
 
-The next bounded rewrite slice is Phase 11 Stage 4 in
+Phase 11 Stage 4 is now complete in
 `phase-11-plugin-lifecycle-controls-stage4.md`.
+
+The next bounded rewrite slice should be a dedicated Phase 11 Stage 5 plan for
+the remaining plugin source-acquisition, authoring, lockfile, and restart
+surface.
 
 ## Progress Notes
 
@@ -178,9 +192,14 @@ The next bounded rewrite slice is Phase 11 Stage 4 in
     controls `enable`, `disable`, `uninstall`, and `rollback`
   - source acquisition, lockfiles, authoring, and restart-hook work remain
     explicitly out of scope for this stage
+- 2026-03-08: completed the plugin Stage 4 slice.
+  - `setta plugins enable|disable|uninstall|rollback` are now Go-owned
+  - package-manager discovery is now Go-owned for the shipped plugin CLI
+  - the only remaining Python-owned maintenance surface is the plugin
+    source-acquisition, authoring, lockfile, and restart cluster
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/pythonenv ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`

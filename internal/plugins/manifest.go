@@ -34,6 +34,21 @@ func NormalizePluginID(raw string) (string, error) {
 
 func LoadPluginManifest(pluginRoot string, expectedPluginID string) (PluginManifest, error) {
 	manifestPath := filepath.Join(pluginRoot, pluginManifestFileName)
+	manifest, err := loadPluginManifestFile(manifestPath)
+	if err != nil {
+		return PluginManifest{}, err
+	}
+	normalizedExpectedPluginID, err := NormalizePluginID(expectedPluginID)
+	if err != nil {
+		return PluginManifest{}, fmt.Errorf("%w: %v", ErrPluginManifestInvalid, err)
+	}
+	if manifest.ID != normalizedExpectedPluginID {
+		return PluginManifest{}, fmt.Errorf("%w: manifest id %q does not match plugin root %q", ErrPluginManifestInvalid, manifest.ID, expectedPluginID)
+	}
+	return manifest, nil
+}
+
+func loadPluginManifestFile(manifestPath string) (PluginManifest, error) {
 	manifest, err := readStrictJSONFile[PluginManifest](manifestPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -48,17 +63,14 @@ func LoadPluginManifest(pluginRoot string, expectedPluginID string) (PluginManif
 	if err != nil {
 		return PluginManifest{}, fmt.Errorf("%w: %v", ErrPluginManifestInvalid, err)
 	}
-	if normalizedPluginID != expectedPluginID {
-		return PluginManifest{}, fmt.Errorf("%w: manifest id %q does not match plugin root %q", ErrPluginManifestInvalid, normalizedPluginID, expectedPluginID)
-	}
 	manifest.ID = normalizedPluginID
 	manifest.Name = strings.TrimSpace(manifest.Name)
 	if manifest.Name == "" {
-		return PluginManifest{}, fmt.Errorf("%w: plugin name is required for %s", ErrPluginManifestInvalid, expectedPluginID)
+		return PluginManifest{}, fmt.Errorf("%w: plugin name is required for %s", ErrPluginManifestInvalid, manifest.ID)
 	}
 	manifest.Version = strings.TrimSpace(manifest.Version)
 	if manifest.Version == "" {
-		return PluginManifest{}, fmt.Errorf("%w: plugin version is required for %s", ErrPluginManifestInvalid, expectedPluginID)
+		return PluginManifest{}, fmt.Errorf("%w: plugin version is required for %s", ErrPluginManifestInvalid, manifest.ID)
 	}
 	manifest.SettaVersionRange = strings.TrimSpace(manifest.SettaVersionRange)
 	if manifest.SettaVersionRange == "" {
