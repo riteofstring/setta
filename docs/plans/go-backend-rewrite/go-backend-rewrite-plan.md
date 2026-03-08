@@ -42,9 +42,9 @@ AI/chat transport is now Go-owned for the current direct frontend managed and
 external route surface, and managed OpenAI text execution is now wired through
 Go as well. The rewrite still does not plan to recreate a broad
 LiteLLM-equivalent managed runtime in Go. The remaining managed-chat
-follow-on is now narrower: any still-needed managed AI-follow result parity,
-any broader preview-kind coverage beyond the landed app-spec patch
-`tool_argument_preview_delta` path, plus any optional broader provider-native
+follow-on is now narrower: any broader preview-kind coverage beyond the
+landed app-spec patch `tool_argument_preview_delta` path and landed managed
+`AIFollowToolResultUpdate` path, plus any optional broader provider-native
 managed reasoning defaults beyond the landed explicit-config / explicit-reject
 `thinking=true` behavior behind the landed `/getLLMResponse` send owner, the
 landed managed live chat runtime, the bounded OpenAI executor, and the bounded

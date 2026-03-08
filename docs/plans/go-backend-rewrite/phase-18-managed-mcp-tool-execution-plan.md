@@ -25,8 +25,8 @@ Landed in this slice:
 
 Remaining bounded follow-ons after this slice:
 
-- tool-preview / AI-follow parity only if a current managed caller still
-  depends on those surfaces
+- tool-preview and AI-follow parity both landed in later caller-backed
+  follow-on slices
 - broader provider-native `thinking=true` defaults only if the active managed
   product surface still needs them beyond explicit config and early rejection
 
@@ -134,6 +134,6 @@ Use this slice as the new managed baseline:
 - resolve managed `thinking=true` through explicit provider-native config or a
   bounded product decision if the active product surface still needs more than
   the landed explicit-config / early-reject behavior
-- add tool-preview / AI-follow parity only if the active frontend surface
-  still has a concrete dependency on it
+- treat managed tool-preview and AI-follow result parity as landed follow-on
+  slices
 - otherwise rerank the adjacent transcription-session runtime slice

@@ -47,12 +47,13 @@ Current Go state relevant to this inventory:
     MCP tool-call execution over resolved `MCPServerIDs`
   - now supports bounded managed `tool_argument_preview_delta` emission for
     `stream_app_definition` over shared MCP tool metadata
+  - now supports managed `AIFollowToolResultUpdate` emission for successful
+    Setta MCP tool results with declared result-id metadata
   - now rejects unsupported managed `thinking=true` requests at start time
     unless the selected config already declares explicit provider-native
     reasoning params
-  - still leaves any optional managed AI-follow result parity, broader
-    preview-kind coverage, plus broader provider-native reasoning defaults as
-    explicit follow-ons
+  - still leaves only broader preview-kind coverage and broader
+    provider-native reasoning defaults as explicit managed-chat follow-ons
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -130,9 +131,9 @@ Implication:
 - the remaining managed-chat work is executor/runtime semantics, not route
   movement
 - the highest-leverage remaining managed follow-on is now any still-needed
-  tool-preview / AI-follow parity plus optional broader provider-native
-  reasoning defaults behind the now-landed send/hydrate/stop/provider/tool
-  foundations
+  broader preview-kind coverage plus optional broader provider-native
+  reasoning defaults behind the now-landed
+  send/hydrate/stop/provider/tool/follow foundations
 
 ### 2. Chat-section persistence is the adjacent direct dependency and should move with managed chat
 
@@ -281,14 +282,15 @@ Rerank:
   - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
   - `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
   - `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
+  - `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- add managed AI-follow result parity or broader preview-kind coverage only if
-  a concrete current frontend caller still depends on those surfaces after the
-  landed app-spec patch preview slice
+- add broader preview-kind coverage only if a concrete current frontend caller
+  still depends on websocket surfaces beyond the landed app-spec patch preview
+  and tool-result follow slices
 - add broader provider-native managed reasoning defaults only if the active
   product surface still needs more than explicit config plus early rejection
 - otherwise keep transcription-session runtime as the next adjacent bounded

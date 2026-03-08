@@ -22,10 +22,8 @@ Already landed in Phase 18:
 
 Remaining direct gaps for managed `setta_llm` chats:
 
-- additional managed AI-follow result parity only if the active surface still
-  proves it necessary
 - additional preview kinds only if the active surface requires more than the
-  landed app-spec patch preview path
+  landed app-spec patch preview and tool-result follow surfaces
 - additional provider adapters only if the active managed surface requires
   them
 - broader provider-native managed reasoning defaults only if the active
@@ -196,6 +194,13 @@ frontend preview path.
 
 Status: landed on 2026-03-09.
 
+### Slice 5
+
+Bounded managed AI-follow result parity for successful Setta MCP tool
+results.
+
+Status: landed on 2026-03-09.
+
 ## Decisions Made
 
 - treat the managed live runtime as a direct dependency of provider execution
@@ -220,9 +225,6 @@ Status: landed on 2026-03-09.
 
 ## Open Questions
 
-- whether the active managed surface now needs managed
-  `AIFollowToolResultUpdate` parity before the separate transcription runtime
-  slice
 - whether the next preview kinds after app-spec patch need extra target-id
   extraction support beyond the landed bounded metadata path
 - whether the active managed surface now needs broader provider-native
@@ -247,6 +249,10 @@ Slice 4 verification:
 
 - `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
+
+Slice 5 verification:
+
+- `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
 
 ## Progress Notes
 
@@ -276,14 +282,19 @@ Slice 4 verification:
 - 2026-03-09: landed Slice 4 with shared tool-preview metadata, MCP
   descriptor propagation, bounded managed `tool_argument_preview_delta`
   emission for `stream_app_definition`, and real app websocket coverage.
+- 2026-03-09: landed Slice 5 with realtime `AIFollowToolResultUpdate`
+  support, metadata-driven managed result-follow emission after successful
+  Setta MCP tool calls, and real IDE app websocket coverage for canonical
+  tool-result follow updates.
 
 ## Next Recommended Step
 
 Implement the next bounded follow-on only if the active managed surface still
 needs it:
 
-- implement managed `AIFollowToolResultUpdate` parity only if a concrete
-  current caller still depends on that websocket surface
+- add broader preview kinds only if a concrete current caller still depends on
+  websocket surfaces beyond the landed app-spec patch preview and tool-result
+  follow slices
 - resolve broader managed `thinking=true` defaults only if the active surface
   still needs more than the landed explicit-config / early-reject behavior,
   not model-name heuristics

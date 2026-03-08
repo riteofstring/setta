@@ -52,9 +52,9 @@ Landed during this phase:
 
 Remaining managed follow-ons inside this phase:
 
-- managed AI-follow result parity plus any extra preview kinds beyond the
-  landed app-spec patch preview path only if the active managed frontend
-  surface still proves they are necessary
+- any extra preview kinds beyond the landed app-spec patch preview and
+  tool-result follow surfaces only if the active managed frontend surface
+  still proves they are necessary
 - broader provider-native managed reasoning defaults only if the active
   product surface still needs more than the landed explicit-config /
   explicit-reject behavior
@@ -81,8 +81,8 @@ Current Go state relevant to this phase:
   and a managed active-run runtime foundation
   - now seeds and clears the managed live runtime through explicit lifecycle
     hooks
-  - the real IDE app still leaves managed execution unavailable until an
-    executor is wired
+  - now validates managed reasoning requests before persistence and executes
+    through the bounded managed executor in the real IDE app
 - `internal/managedchat`
   - now owns managed chat send, hydrate, and stop semantics above the landed
     managed-run stores/runtime
@@ -357,10 +357,16 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   - bounded managed `tool_argument_preview_delta` emission for
     `stream_app_definition`
   - real IDE app websocket coverage for the managed preview path
+- 2026-03-09: landed the ninth executable Phase 18 slice in Go for managed
+  AI-follow result parity:
+  - realtime `AIFollowToolResultUpdate` message support in `internal/realtime`
+  - bounded metadata-driven result-follow emission in `internal/managedllm`
+    after successful Setta MCP tool calls
+  - real IDE app websocket coverage for canonical result-follow delivery
 - 2026-03-09: the remaining managed-chat follow-on inside this phase is now
-  managed AI-follow result parity plus any extra preview kinds beyond the
-  landed app-spec patch path, or any optional broader provider-native
-  reasoning defaults, not route movement or basic tool execution ownership.
+  any extra preview kinds beyond the landed app-spec patch path, or any
+  optional broader provider-native reasoning defaults, not route movement or
+  basic tool execution ownership.
 
 ## Verification
 
@@ -372,12 +378,13 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
 - `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
+- `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
 
 ## Next Recommended Step
 
-- add managed AI-follow result parity or extra preview kinds only if a
-  concrete current frontend caller still needs those websocket surfaces after
-  the landed app-spec patch preview slice
+- add extra preview kinds only if a concrete current frontend caller still
+  needs websocket surfaces beyond the landed app-spec patch preview and
+  tool-result follow slices
 - add broader provider-native managed reasoning defaults only if the active
   surface still needs more than explicit config plus early rejection
 - otherwise rerank the adjacent transcription-session runtime slice instead of
@@ -461,10 +468,6 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 
 ## Open Questions
 
-- whether any concrete current managed caller still needs
-  `AIFollowToolResultUpdate` before the adjacent transcription runtime slice
-  - recommendation: only reopen that websocket surface if the active frontend
-    still proves it is required
 - whether non-app preview kinds now justify broader target-id extraction over
   the landed app-spec patch preview slice
   - recommendation: keep preview support bounded to current callers and extend
@@ -478,7 +481,8 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 
 ## Next Recommended Step
 
-- implement managed AI-follow result parity only if the active surface still
-  needs it after the landed tool-preview slice
-- otherwise keep transcription-session runtime as the next adjacent AI/runtime
+- rerank toward transcription-session runtime as the next adjacent AI/runtime
   phase
+- reopen managed chat only if a concrete current caller still proves that
+  broader preview kinds or broader provider-native reasoning defaults are
+  required first

@@ -53,8 +53,6 @@ Landed during this slice:
 
 Remaining managed follow-ons after this slice:
 
-- managed `AIFollowToolResultUpdate` parity only if the active surface still
-  proves it necessary
 - additional preview kinds with target-id extraction only if a concrete
   current caller needs more than the landed app-spec patch preview path
 
@@ -165,9 +163,12 @@ them.
 - 2026-03-09: landed real IDE app websocket coverage proving managed
   `stream_app_definition` preview deltas now reach the existing frontend
   preview consumer path.
+- 2026-03-09: the separate bounded managed AI-follow result parity slice has
+  now landed, so this preview doc is no longer blocking another managed-chat
+  follow-on.
 
 ## Next Recommended Step
 
-Implement managed `AIFollowToolResultUpdate` parity only if a concrete current
-caller still needs it; otherwise rerank the adjacent transcription-session
-runtime slice instead of broadening managed chat further by default.
+Rerank to the adjacent transcription-session runtime slice unless a concrete
+current caller still proves that broader managed preview kinds are required
+beyond the landed app-spec patch preview path.

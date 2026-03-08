@@ -45,7 +45,7 @@ Already landed in Phase 18:
 - bounded managed `tool_argument_preview_delta` parity for the active
   `stream_app_definition` preview path
 
-Targeted by this slice:
+Landed during this slice:
 
 - Go-owned managed `AIFollowToolResultUpdate` emission for Setta MCP tools
   with explicit `ResultIDPathsByType` metadata
@@ -53,12 +53,13 @@ Targeted by this slice:
   highlight targets
 - targeted real-app and executor coverage for the active websocket consumer
 
-Not yet in scope:
+Remaining managed follow-ons after this slice:
 
-- broad new AI-follow snapshot shapes
-- managed tool-result heuristics based on tool names or response text
-- reranking to transcription runtime until this concrete caller-backed gap is
-  closed
+- broader preview kinds only if a concrete current managed caller still needs
+  more than the landed app-spec patch preview and tool-result follow surfaces
+- broader provider-native managed reasoning defaults only if the active
+  surface still needs more than explicit config plus early rejection
+- otherwise reranking to the adjacent transcription-session runtime slice
 
 ## Scope
 
@@ -153,7 +154,8 @@ string-pattern heuristics.
 
 ## Verification
 
-- Pending implementation.
+- `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|BuildToolResultFollowContent|ToolResultFollowEmitter|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
+- `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
 
 ## Progress Notes
 
@@ -164,9 +166,16 @@ string-pattern heuristics.
 - 2026-03-09: Go inspection confirmed the necessary metadata and temporary-ID
   translation surfaces already exist, making this a bounded managed executor
   follow-on rather than a new architecture phase.
+- 2026-03-09: landed Go realtime `AIFollowToolResultUpdate` message support
+  plus a bounded managed result-follow emitter in `internal/managedllm` that
+  extracts target IDs from tool-result metadata and resolves temporary IDs
+  through the existing store.
+- 2026-03-09: landed executor and real IDE app websocket coverage proving
+  managed Setta tool calls now broadcast canonical
+  `AIFollowToolResultUpdate` messages over the existing frontend contract.
 
 ## Next Recommended Step
 
-Implement metadata-driven managed tool-result follow updates in Go, then rerank
-Phase 18 again between any remaining caller-backed managed gaps and the
-adjacent transcription-session runtime slice.
+Rerank Phase 18 toward the adjacent transcription-session runtime slice unless
+a concrete current caller still proves that broader managed preview kinds or
+broader provider-native reasoning defaults are required first.
