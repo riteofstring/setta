@@ -7384,6 +7384,11 @@ export type AppendDrawAreaLayerItemRequestInput = {
   layerIdx: number;
   element: DrawAreaLayerItem;
 };
+export function createAppendDrawAreaLayerItemRequestInput(
+  options: Partial<AppendDrawAreaLayerItemRequestInput> = {},
+): AppendDrawAreaLayerItemRequestInput {
+  return options as AppendDrawAreaLayerItemRequestInput;
+}
 
 export type ForceRefreshListenerRequestInput = {
   projectConfigId: string;
@@ -7649,6 +7654,11 @@ export type SetTaskBoardSectionStateRequestInput = {
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
 };
+export function createSetTaskBoardSectionStateRequestInput(
+  options: Partial<SetTaskBoardSectionStateRequestInput> = {},
+): SetTaskBoardSectionStateRequestInput {
+  return options as SetTaskBoardSectionStateRequestInput;
+}
 
 export type SetImageAreaImagePathRequestInput = {
   frontendOpId?: string | null;
@@ -7705,6 +7715,11 @@ export type SetChartSettingsRequestInput = {
   chartSettings: BaseChartSettingsUnion;
   changedSettings: Array<string>;
 };
+export function createSetChartSettingsRequestInput(
+  options: Partial<SetChartSettingsRequestInput> = {},
+): SetChartSettingsRequestInput {
+  return options as SetChartSettingsRequestInput;
+}
 
 export type SetCodeFileBindingRequestInput = {
   frontendOpId?: string | null;

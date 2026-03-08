@@ -497,16 +497,23 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "density", TypeExpr: "SpreadsheetGridDensity"},
 				TypeProperty{Name: "autoReloadOnExternalChange", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(SetTaskBoardSectionStateRequestInput{}): {
-				Name: "SetTaskBoardSectionStateRequestInput",
-				Kind: "raw",
-				Raw:  setTaskBoardSectionStateRequestInputRawTS,
-			},
-			reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}): {
-				Name: "AppendDrawAreaLayerItemRequestInput",
-				Kind: "raw",
-				Raw:  appendDrawAreaLayerItemRequestInputRawTS,
-			},
+			reflect.TypeOf(SetTaskBoardSectionStateRequestInput{}): objectDeclaration(
+				"SetTaskBoardSectionStateRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "viewMode", TypeExpr: "TaskBoardViewMode"},
+				TypeProperty{Name: "columns", TypeExpr: "Array<TaskBoardColumn>"},
+				TypeProperty{Name: "tasks", TypeExpr: "Array<TaskBoardTask>"},
+			),
+			reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}): objectDeclaration(
+				"AppendDrawAreaLayerItemRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "layerIdx", TypeExpr: "number"},
+				TypeProperty{Name: "element", TypeExpr: "DrawAreaLayerItem"},
+			),
 			reflect.TypeOf(SetChartTypeRequestInput{}): objectDeclaration(
 				"SetChartTypeRequestInput",
 				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
@@ -514,11 +521,14 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "sectionId", TypeExpr: "string"},
 				TypeProperty{Name: "chartType", TypeExpr: "ChartType"},
 			),
-			reflect.TypeOf(SetChartSettingsRequestInput{}): {
-				Name: "SetChartSettingsRequestInput",
-				Kind: "raw",
-				Raw:  setChartSettingsRequestInputRawTS,
-			},
+			reflect.TypeOf(SetChartSettingsRequestInput{}): objectDeclaration(
+				"SetChartSettingsRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion"},
+				TypeProperty{Name: "changedSettings", TypeExpr: "Array<string>"},
+			),
 			reflect.TypeOf(SetTextBlockDisplayModeRequestInput{}): objectDeclaration(
 				"SetTextBlockDisplayModeRequestInput",
 				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},

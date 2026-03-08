@@ -343,11 +343,21 @@ type SpreadsheetGridDensity string
 
 type ChartType string
 
+type BaseChartSettingsUnion struct{}
+
 type TextBlockDisplayMode string
 
 type TextBlockFormat string
 
 type CodeFileAccessMode string
+
+type TaskBoardViewMode string
+
+type TaskBoardTaskRecurrence string
+
+type TaskBoardRecurringWeekday string
+
+type TaskBoardRecurringMonth string
 
 type EdgePort struct {
 	ID       string `json:"id"`
@@ -375,6 +385,27 @@ type BrowserSavedSearch struct {
 type CodeFileBindingUpdate struct {
 	CanonicalPath string             `json:"canonical_path"`
 	AccessMode    CodeFileAccessMode `json:"access_mode"`
+}
+
+type TaskBoardColumn struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	SortIndex int    `json:"sortIndex"`
+}
+
+type TaskBoardTask struct {
+	ID               string                      `json:"id"`
+	Title            string                      `json:"title"`
+	Description      string                      `json:"description"`
+	Completed        bool                        `json:"completed"`
+	ColumnID         *string                     `json:"columnId,omitempty"`
+	DueDateISO       string                      `json:"dueDateIso"`
+	Recurrence       TaskBoardTaskRecurrence     `json:"recurrence"`
+	RecurrenceDays   []TaskBoardRecurringWeekday `json:"recurrenceDays"`
+	RecurrenceMonths []TaskBoardRecurringMonth   `json:"recurrenceMonths"`
+	RecurrenceYears  []int                       `json:"recurrenceYears"`
+	SortIndex        int                         `json:"sortIndex"`
 }
 
 type SetSectionParamFilterRequestInput struct {
@@ -486,7 +517,14 @@ type SetSpreadsheetSectionSettingsRequestInput struct {
 	AutoReloadOnExternalChange bool                   `json:"autoReloadOnExternalChange"`
 }
 
-type SetTaskBoardSectionStateRequestInput struct{}
+type SetTaskBoardSectionStateRequestInput struct {
+	FrontendOpID    *string           `json:"frontendOpId,omitempty"`
+	ProjectConfigID string            `json:"projectConfigId"`
+	SectionID       string            `json:"sectionId"`
+	ViewMode        TaskBoardViewMode `json:"viewMode"`
+	Columns         []TaskBoardColumn `json:"columns"`
+	Tasks           []TaskBoardTask   `json:"tasks"`
+}
 
 type SetImageAreaImagePathRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -502,7 +540,13 @@ type SetSocialURLRequestInput struct {
 	URL             string  `json:"url"`
 }
 
-type AppendDrawAreaLayerItemRequestInput struct{}
+type AppendDrawAreaLayerItemRequestInput struct {
+	FrontendOpID    *string           `json:"frontendOpId,omitempty"`
+	ProjectConfigID string            `json:"projectConfigId"`
+	SectionID       string            `json:"sectionId"`
+	LayerIdx        int               `json:"layerIdx"`
+	Element         DrawAreaLayerItem `json:"element"`
+}
 
 type SetChartAreaDataPathRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -518,7 +562,13 @@ type SetChartTypeRequestInput struct {
 	ChartType       ChartType `json:"chartType"`
 }
 
-type SetChartSettingsRequestInput struct{}
+type SetChartSettingsRequestInput struct {
+	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                 `json:"projectConfigId"`
+	SectionID       string                 `json:"sectionId"`
+	ChartSettings   BaseChartSettingsUnion `json:"chartSettings"`
+	ChangedSettings []string               `json:"changedSettings"`
+}
 
 type SetTextBlockTextRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -760,37 +810,6 @@ export type SetSectionSizesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionSizes: Record<string, SectionSize>;
-};
-`
-
-const setTaskBoardSectionStateRequestInputRawTS = `
-export type SetTaskBoardSectionStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn>;
-  tasks: Array<TaskBoardTask>;
-};
-`
-
-const appendDrawAreaLayerItemRequestInputRawTS = `
-export type AppendDrawAreaLayerItemRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  layerIdx: number;
-  element: DrawAreaLayerItem;
-};
-`
-
-const setChartSettingsRequestInputRawTS = `
-export type SetChartSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartSettings: BaseChartSettingsUnion;
-  changedSettings: Array<string>;
 };
 `
 

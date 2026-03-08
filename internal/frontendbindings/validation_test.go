@@ -503,6 +503,18 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 			},
 		},
 		{
+			name: "SetTaskBoardSectionStateRequestInput",
+			root: reflect.TypeOf(SetTaskBoardSectionStateRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "viewMode", TypeExpr: "TaskBoardViewMode", Optional: false},
+				{Name: "columns", TypeExpr: "Array<TaskBoardColumn>", Optional: false},
+				{Name: "tasks", TypeExpr: "Array<TaskBoardTask>", Optional: false},
+			},
+		},
+		{
 			name: "SetImageAreaImagePathRequestInput",
 			root: reflect.TypeOf(SetImageAreaImagePathRequestInput{}),
 			properties: []TypeProperty{
@@ -523,6 +535,17 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 			},
 		},
 		{
+			name: "AppendDrawAreaLayerItemRequestInput",
+			root: reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "layerIdx", TypeExpr: "number", Optional: false},
+				{Name: "element", TypeExpr: "DrawAreaLayerItem", Optional: false},
+			},
+		},
+		{
 			name: "SetChartAreaDataPathRequestInput",
 			root: reflect.TypeOf(SetChartAreaDataPathRequestInput{}),
 			properties: []TypeProperty{
@@ -540,6 +563,17 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
 				{Name: "sectionId", TypeExpr: "string", Optional: false},
 				{Name: "chartType", TypeExpr: "ChartType", Optional: false},
+			},
+		},
+		{
+			name: "SetChartSettingsRequestInput",
+			root: reflect.TypeOf(SetChartSettingsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: false},
+				{Name: "changedSettings", TypeExpr: "Array<string>", Optional: false},
 			},
 		},
 		{

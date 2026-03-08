@@ -7310,7 +7310,6 @@ export function createDeleteArtifactsRequestInput(options: Partial<DeleteArtifac
 export type DeleteArtifactsResponse = Array<string>;
 
 
-
 export type AppendDrawAreaLayerItemRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7318,7 +7317,9 @@ export type AppendDrawAreaLayerItemRequestInput = {
   layerIdx: number;
   element: DrawAreaLayerItem;
 };
-
+export function createAppendDrawAreaLayerItemRequestInput(options: Partial<AppendDrawAreaLayerItemRequestInput> = {}): AppendDrawAreaLayerItemRequestInput {
+  return options as AppendDrawAreaLayerItemRequestInput;
+}
 
 
 export type ForceRefreshListenerRequestInput = {
@@ -7559,7 +7560,6 @@ export function createSetSpreadsheetSectionSettingsRequestInput(options: Partial
 }
 
 
-
 export type SetTaskBoardSectionStateRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7568,7 +7568,9 @@ export type SetTaskBoardSectionStateRequestInput = {
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
 };
-
+export function createSetTaskBoardSectionStateRequestInput(options: Partial<SetTaskBoardSectionStateRequestInput> = {}): SetTaskBoardSectionStateRequestInput {
+  return options as SetTaskBoardSectionStateRequestInput;
+}
 
 
 export type SetImageAreaImagePathRequestInput = {
@@ -7615,7 +7617,6 @@ export function createSetChartTypeRequestInput(options: Partial<SetChartTypeRequ
 }
 
 
-
 export type SetChartSettingsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7623,7 +7624,9 @@ export type SetChartSettingsRequestInput = {
   chartSettings: BaseChartSettingsUnion;
   changedSettings: Array<string>;
 };
-
+export function createSetChartSettingsRequestInput(options: Partial<SetChartSettingsRequestInput> = {}): SetChartSettingsRequestInput {
+  return options as SetChartSettingsRequestInput;
+}
 
 
 export type SetCodeFileBindingRequestInput = {
