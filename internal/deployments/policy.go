@@ -50,6 +50,20 @@ func DefaultPolicy() Policy {
 	}
 }
 
+func DefaultAppPolicy() Policy {
+	return Policy{
+		AllowParamChanges:   true,
+		AllowVariantChanges: false,
+		AllowLayoutChanges:  false,
+		AllowRun:            true,
+		AllowLLM:            false,
+		AllowExternalLinks:  false,
+		AllowFileDownloads:  false,
+		AllowMultipleRuns:   true,
+		RunSnapshotMode:     RunSnapshotModeEphemeral,
+	}
+}
+
 func LoadPolicy(deploymentRoot string) (Policy, error) {
 	resolvedRoot, err := statefs.NormalizePath(deploymentRoot, "")
 	if err != nil {
