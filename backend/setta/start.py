@@ -64,43 +64,47 @@ from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.utils import resolve_sessions_root
-from setta.startup_runtime import (
-    _DEFAULT_LOCAL_PORT,
-    _apply_paths_to_env,
-    _build_ssh_tunnel_command,
-    _build_ssh_tunnel_command_for_port,
-    _format_bind_hint,
-    _is_loopback_host,
-    _is_ssh_session,
-    _render_startup_message,
-    _resolve_cli_paths,
-    _resolve_port,
-    _run_uvicorn_server,
-    _should_auto_open,
-    _warn_if_public_host_no_auth,
-)
 from setta.types.routes import Route
 from setta.types.share_deployment import DeploymentType
-from setta.utils.constants import C
+from setta.utils.constants import IS_DEV_MODE, C, normalize_cookie_name
+from setta.utils.env_vars import (
+    FILES_LOCATION_ENV,
+    FILES_ROOT_ENV,
+    PROFILE_ENV,
+    PROFILE_LOOKUP_HOME_ENV,
+    RUNTIME_ROOT_ENV,
+    SETTA_HOME_ENV,
+    WORKSPACE_ROOT_ENV,
+)
 from setta.utils.launcher_origin_handoff import (
     mint_launcher_origin_handoff_proof,
     normalize_launcher_origin,
 )
 from setta.utils.network import (
     build_bootstrap_urls,
+    format_host_for_ssh_tunnel,
     format_host_for_url,
 )
-from setta.utils.paths import get_setta_paths
+from setta.utils.paths import (
+    SettaFilesLocation,
+    clear_setta_paths_cache,
+    get_optional_dir_validation_error,
+    get_setta_paths,
+    resolve_setta_paths,
+    validate_workspace_root,
+)
 from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import ensure_setta_user_config_exists
 from setta.utils.utils import normalize_path
 
+_DEFAULT_LOCAL_PORT = 61000
 _ROUTE_NAMES = {route.value.lstrip("/") for route in Route}
 _MISSING_AUTH_MESSAGE = (
     "Missing Setta auth. Provide auth_headers or bootstrap_token, or set "
     "SETTA_SESSION_ID (and SETTA_SESSIONS_ROOT if running outside the session "
     "workspace)."
 )
+_DEFAULT_AUTH_COOKIE_NAME = C.AUTH_COOKIE_NAME
 _DEFAULT_LAUNCHER_OPEN_MODE: LauncherOpenMode = "chrome-app"
 _LAUNCHER_OPEN_SWITCHER_HASH_KEY = "osw"
 _LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR = "="
@@ -141,10 +145,75 @@ def _filter_sessions_for_selector(
     return [session for session in sessions if session.serverMode == session_mode]
 
 
+def _resolve_cli_paths(
+    *,
+    workspace: str | Path | None,
+    setta_home: str | Path | None,
+    profile: str | None,
+    setta_files_root: str | Path | None,
+    setta_files_location: SettaFilesLocation | None,
+    runtime_root: str | Path | None,
+    validate: bool,
+):
+    try:
+        paths = resolve_setta_paths(
+            workspace_root=workspace,
+            setta_home=setta_home,
+            profile=profile,
+            setta_files_root=setta_files_root,
+            setta_files_location=setta_files_location,
+            runtime_root=runtime_root,
+        )
+    except ValueError as exc:
+        # Click should render a clean message without an exception traceback.
+        raise click.ClickException(str(exc)) from exc
+    if validate:
+        try:
+            validate_workspace_root(paths.workspace_root)
+        except ValueError as exc:
+            # Click should render a clean message without an exception traceback.
+            raise click.ClickException(str(exc)) from exc
+        for raw_path, label in (
+            (paths.setta_home, "setta home"),
+            (paths.setta_files_root, "setta files root"),
+            (paths.runtime_root, "runtime root"),
+        ):
+            message = get_optional_dir_validation_error(raw_path, label=label)
+            if message:
+                raise click.ClickException(message)
+    return paths
+
+
 def _should_resolve_group_paths(ctx: click.Context) -> bool:
     # Remote connect/stop commands should forward profile/path flags without
     # requiring local profile/path validation.
     return ctx.invoked_subcommand not in {"connect", "c", "stop"}
+
+
+def _apply_paths_to_env(paths) -> None:
+    os.environ[WORKSPACE_ROOT_ENV] = str(paths.workspace_root)
+    os.environ[SETTA_HOME_ENV] = str(paths.setta_home)
+    os.environ[PROFILE_LOOKUP_HOME_ENV] = str(paths.profile_lookup_home)
+    os.environ[RUNTIME_ROOT_ENV] = str(paths.runtime_root)
+    if paths.profile_name:
+        os.environ[PROFILE_ENV] = paths.profile_name
+    else:
+        os.environ.pop(PROFILE_ENV, None)
+    if paths.setta_files_location is None:
+        os.environ[FILES_ROOT_ENV] = str(paths.setta_files_root)
+        os.environ.pop(FILES_LOCATION_ENV, None)
+    else:
+        os.environ[FILES_LOCATION_ENV] = paths.setta_files_location
+        os.environ.pop(FILES_ROOT_ENV, None)
+    if paths.auth_cookie_name:
+        os.environ["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
+        C.AUTH_COOKIE_NAME = normalize_cookie_name(
+            paths.auth_cookie_name, default="setta_auth"
+        )
+    else:
+        os.environ.pop("SETTA_AUTH_COOKIE_NAME", None)
+        C.AUTH_COOKIE_NAME = _DEFAULT_AUTH_COOKIE_NAME
+    clear_setta_paths_cache()
 
 
 def _to_optional_string(value: object) -> str | None:
@@ -460,6 +529,14 @@ def _ensure_background_process_started(
         raise click.ClickException(f"{exc} Try --print-only or --verbose.") from exc
 
 
+def _run_uvicorn_server(server: Any) -> None:
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        # Treat Ctrl+C as a normal stop so interactive shells with errexit do not exit.
+        return
+
+
 def _extract_token_from_bootstrap_url(url: str) -> str:
     try:
         return extract_token_from_bootstrap_url(url)
@@ -516,6 +593,29 @@ def _select_free_port(host: str) -> int:
     return ssh_common.select_free_port(host)
 
 
+def _resolve_port(host: str, port: int | None) -> int:
+    if port is None:
+        return _select_free_port(host)
+    return port
+
+
+def _is_loopback_host(host: str) -> bool:
+    normalized = host.strip().lower()
+    return normalized in {"127.0.0.1", "localhost", "::1"}
+
+
+def _warn_if_public_host_no_auth(*, mode: str, host: str) -> None:
+    if _is_loopback_host(host):
+        return
+    click.echo(
+        (
+            f"WARNING: {mode} mode disables auth. "
+            f"Binding to {host!r} may expose your deployment publicly."
+        ),
+        err=True,
+    )
+
+
 def _resolve_deployment_root(
     *,
     deployment_root: Path | None,
@@ -566,6 +666,30 @@ def _build_session_registry(workspace: Path | str | None) -> SessionRegistry:
     if sessions_root is None:
         return SessionRegistry()
     return SessionRegistry(sessions_root=sessions_root)
+
+
+def _is_ssh_session() -> bool:
+    return bool(os.environ.get("SSH_CONNECTION") or os.environ.get("SSH_TTY"))
+
+
+def _has_gui() -> bool:
+    if sys.platform == "darwin":
+        return True
+    if os.name == "nt":
+        return True
+    return bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+
+
+def _should_auto_open(no_open: bool) -> bool:
+    if no_open:
+        return False
+    if not sys.stdin.isatty() and not IS_DEV_MODE:
+        return False
+    if _is_ssh_session():
+        return False
+    if not _has_gui():
+        return False
+    return True
 
 
 def _append_url_fragment_param(url: str, *, key: str, value: str) -> str:
@@ -807,6 +931,86 @@ def _resolve_launcher_workspace_root(
     if not fallback_workspace.is_dir():
         raise OSError(f"Home directory is not a directory: {fallback_workspace}")
     return fallback_workspace, True
+
+
+def _format_bind_hint(host: str, port: int) -> str:
+    suffix = " (remote only)" if host in {"127.0.0.1", "::1"} else ""
+    return f"{host}:{port}{suffix}"
+
+
+def _build_ssh_tunnel_command(host: str, port: int) -> str:
+    tunnel_host = format_host_for_ssh_tunnel(host)
+    return (
+        f"ssh -N -L ${{LOCAL_PORT}}:{tunnel_host}:{port} "
+        "<user@host> -o ExitOnForwardFailure=yes"
+    )
+
+
+def _build_ssh_tunnel_command_for_port(
+    host: str, local_port: int, remote_port: int
+) -> str:
+    tunnel_host = format_host_for_ssh_tunnel(host)
+    return (
+        f"ssh -N -L {local_port}:{tunnel_host}:{remote_port} "
+        "<user@host> -o ExitOnForwardFailure=yes"
+    )
+
+
+def _render_startup_message(
+    session_id: str,
+    host: str,
+    port: int,
+    workspace_path: Path,
+    bootstrap_url_fragment: str,
+    bootstrap_url_plain: str,
+    token: str,
+    auto_open: bool,
+    is_remote_session: bool,
+) -> str:
+    bind_label = _format_bind_hint(host, port)
+    lines = [
+        f"Setta running (session {session_id})",
+        f"Bind: {bind_label}",
+    ]
+    if auto_open:
+        lines.append("Opening browser to:")
+        lines.append(f"  {bootstrap_url_fragment}")
+        return "\n".join(lines)
+
+    if not is_remote_session:
+        lines.append("")
+        lines.append("Bootstrap URL (recommended):")
+        lines.append(f"  {bootstrap_url_fragment}")
+        lines.append("")
+        lines.append("Manual token entry:")
+        lines.append(f"  {bootstrap_url_plain}")
+        lines.append(f"  Token: {token}")
+        return "\n".join(lines)
+
+    quoted_workspace = shlex.quote(str(workspace_path))
+    lines.append("")
+    lines.append("From your laptop (Setta installed):")
+    lines.append(
+        f"  setta connect <user@host> --workspace {quoted_workspace} --session {session_id}"
+    )
+    lines.append("")
+    lines.append("Manual tunnel (no local Setta install):")
+    local_port = _DEFAULT_LOCAL_PORT
+    lines.append(f"  LOCAL_PORT={local_port}")
+    lines.append(f"  {_build_ssh_tunnel_command(host, port)}")
+    lines.append("  Open in browser (recommended):")
+    lines.append(
+        f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}#token={token}"
+    )
+    lines.append("  Manual token entry:")
+    lines.append(f"    http://127.0.0.1:${{LOCAL_PORT}}{Route.BOOTSTRAP_PAGE.value}")
+    lines.append(f"    and paste: {token}")
+    lines.append("  Tip: set LOCAL_PORT to change the local port.")
+    lines.append(
+        "  macOS: open URL | Linux: xdg-open URL | Windows: start URL | "
+        "Python: python -m webbrowser URL"
+    )
+    return "\n".join(lines)
 
 
 def _render_connect_info_message(
