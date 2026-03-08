@@ -145,8 +145,8 @@ As of 2026-03-08:
 Phase 11 Stage 3 is complete in
 `phase-11-plugin-status-stage3.md`.
 
-The next bounded rewrite slice should be a dedicated plugin mutation/authoring
-plan doc over the completed status/read boundary.
+The next bounded rewrite slice is Phase 11 Stage 4 in
+`phase-11-plugin-lifecycle-controls-stage4.md`.
 
 ## Progress Notes
 
@@ -173,6 +173,11 @@ plan doc over the completed status/read boundary.
   - `setta plugins list|rescan|restart-required` are now Go-owned
   - the remaining Python-owned maintenance surface is the plugin
     mutation/authoring cluster plus `plugins restart`
+- 2026-03-08: added the dedicated plugin Stage 4 plan.
+  - the next bounded slice is now package-manager discovery plus the lifecycle
+    controls `enable`, `disable`, `uninstall`, and `rollback`
+  - source acquisition, lockfiles, authoring, and restart-hook work remain
+    explicitly out of scope for this stage
 
 ## Verification
 

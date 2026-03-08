@@ -381,11 +381,14 @@ Use the docs in this order:
   - focused implementation-plan doc for the first bounded `plugins` migration:
     Go-owned `setta plugins list|rescan|restart-required` plus partial
     Python-entrypoint dispatch for only those completed subcommands
-125. `spike-mcp.md`
+125. `phase-11-plugin-lifecycle-controls-stage4.md`
+  - focused implementation-plan doc for package-manager-aware plugin lifecycle
+    controls: Go-owned `enable`, `disable`, `uninstall`, and `rollback`
+126. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-126. `spike-pty.md`
+127. `spike-pty.md`
    - PTY uncertainty-reduction plan
-127. `spike-lsp.md`
+128. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
