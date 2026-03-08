@@ -81,11 +81,23 @@ Completed before this plan:
 - Phase 31 packaged wheel boundary, dependency split, and source/dev bootstrap
   closeout
 
-Current gap:
+Now landed in Slice 1:
 
-- installer-managed build/install surfaces still bundle or document the broader
-  sdist
-- wheel is not yet the canonical artifact for the installer-managed channel
+- native macOS installer builds resolve exactly one
+  `dist/setta-<version>-*.whl` artifact and bundle that wheel into the `.pkg`
+- Windows MSI builds resolve exactly one matching wheel and bundle that wheel
+  into the installer payload
+- native installer release jobs now build wheel artifacts instead of installer
+  sdist payloads
+- installer payloads preserve the real wheel filename instead of renaming it to
+  a generic placeholder, so the packaged artifact remains installable by `uv`
+
+Remaining gap:
+
+- installer-managed built-install docs still normalize sdist as a packaged-user
+  path
+- `verify_install.sh` still intentionally smokes sdist completeness and has not
+  yet been explicitly reranked after Slice 1
 
 ## Inputs
 
@@ -160,6 +172,14 @@ Deliverables:
 This slice should only start after Slice 1 makes the installer-managed path
 wheel-first.
 
+Slice 1 status:
+
+- completed on 2026-03-10
+- builders now fail fast on missing or ambiguous wheel artifacts instead of
+  guessing a payload
+- release workflow native-installer jobs now build wheels for the installer
+  payload path
+
 ## Working Decisions
 
 - keep `scripts/install_desktop_launcher.*` as the single package-path
@@ -167,6 +187,9 @@ wheel-first.
 - prefer wheel for installer-managed packaged-user flows
 - keep sdist only where source-completeness verification is explicitly the goal
 - avoid a mixed artifact story unless a concrete release constraint requires it
+- preserve the original wheel filename inside installer payloads; do not rename
+  wheels to generic filenames because local wheel installation depends on a
+  valid wheel filename shape
 
 ## Verification Strategy
 
@@ -178,8 +201,6 @@ wheel-first.
 
 ## Open Questions
 
-- whether native installer builders should copy the wheel under a fixed bundled
-  filename or preserve the full platform wheel name in payloads
 - whether `verify_install.sh` should remain the only sdist smoke or whether a
   separate dedicated sdist check would be clearer
 - whether any release automation beyond native installer builders still assumes
@@ -187,9 +208,9 @@ wheel-first.
 
 ## Next Recommended Step
 
-Implement Slice 1:
+Implement Slice 2:
 
-- retarget native installer builders and their tests to wheel payloads
-- keep the launcher bootstrap contract unchanged
-- leave `verify_install.sh` and broader sdist policy for the later explicit
-  decision slice
+- retarget `docs/reference/remote-built-install.md` and any adjacent
+  installer-managed built-install docs to the landed wheel-first boundary
+- keep `verify_install.sh` as a separate explicit Slice 3 decision instead of
+  changing its sdist-smoke role implicitly during the docs pass

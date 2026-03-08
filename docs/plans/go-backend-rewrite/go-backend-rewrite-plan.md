@@ -2006,16 +2006,22 @@ Do not weaken this rule during the rewrite.
      `phase-32-post-phase-31-distribution-artifact-rerank.md`
    - the focused wheel-first installer artifact plan is recorded in
      `phase-32-wheel-first-installer-artifact-boundary-plan.md`
-   - the broader rerank after Phase 31 did select one more evidence-backed
-     packaging/distribution track:
-     - native macOS and Windows installers still bundle the broader sdist
-     - `verify_install.sh` and optional built-install docs still treat sdist as
-       a real install artifact
-     - the launcher bootstrap contract itself remains generic package-path
-       based and does not require sdist semantics
-   - the next selected work is now wheel-first retargeting for the
-     installer-managed distribution artifact boundary, while keeping sdist as an
-     explicit separate source-smoke question
+   - the first Phase 32 slice is now landed for the installer-managed
+     distribution artifact boundary:
+     - native macOS `.pkg` builders now resolve exactly one matching
+       `setta-<version>-*.whl` and bundle that wheel into the installer payload
+     - Windows `.msi` builders now resolve exactly one matching wheel and
+       bundle that wheel into the installer payload
+     - native-installer release jobs now build wheel artifacts instead of
+       installer sdist payloads
+     - installer payloads preserve the real wheel filename instead of renaming
+       it to a generic placeholder, keeping the bundled artifact installable by
+       `uv`
+   - the remaining Phase 32 work is now narrower:
+     - installer-managed built-install docs still need wheel-first retargeting
+     - `verify_install.sh` remains an explicit separate sdist-smoke question
+   - the next selected work is now the Phase 32 docs retarget slice, not
+     broader packaging cleanup
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise

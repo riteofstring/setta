@@ -10,6 +10,14 @@ the exact packaged Setta artifact produced in the same release flow, instead of
 implicitly resolving whatever `setta` package spec happens to be available from
 an index at install time.
 
+Historical note:
+
+- this doc records the original Stage 2 landing from 2026-03-08
+- the bootstrap-contract ownership here still stands
+- the sdist-specific bundled-artifact choice from this stage was later
+  superseded by Phase 32, which retargeted native installers to the packaged
+  wheel boundary
+
 ## Why This Slice Exists
 
 After Stage 1B, the shipped Python entrypoint and launcher/helper command
@@ -98,6 +106,13 @@ As of 2026-03-08:
     the same Setta version as the installer artifact under test
   - native-installer workflow jobs now build the Go-binary-aware packaged sdist
     before building installer artifacts
+- 2026-03-10: Phase 32 Slice 1 superseded the original sdist payload choice.
+  - native installers now bundle the matching packaged wheel instead of the
+    broader sdist
+  - native-installer workflow jobs now build wheel artifacts for the installer
+    payload path
+  - the launcher bootstrap contract and managed install-source semantics from
+    this Stage 2 landing remain unchanged
 
 ## Verification
 

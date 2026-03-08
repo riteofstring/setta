@@ -11,6 +11,15 @@ question is narrower: does the shipped distribution artifact surface still have
 one more selected ownership gap now that the wheel is the clear packaged-user
 boundary?
 
+Update after Slice 1 landing on 2026-03-10:
+
+- native macOS and Windows installers now bundle platform wheels rather than
+  the broader sdist
+- native-installer workflow jobs now build wheels for that installer-managed
+  path
+- the remaining Phase 32 work is now the docs retarget plus the explicit
+  `verify_install.sh` sdist-smoke decision
+
 ## Current Status
 
 Completed before this rerank:
