@@ -41,6 +41,7 @@ func (e *SessionLaunchError) Error() string {
 type IDELaunchInput struct {
 	WorkspaceRoot      string
 	SettaHome          string
+	ProfileLookupHome  string
 	Profile            string
 	SettaFilesRoot     string
 	SettaFilesLocation *string
@@ -300,6 +301,9 @@ func (l *LocalIDESessionLauncher) buildLaunchArgs(input IDELaunchInput) []string
 	if strings.TrimSpace(input.Profile) != "" {
 		args = append(args, "--profile", input.Profile)
 	}
+	if strings.TrimSpace(input.ProfileLookupHome) != "" {
+		args = append(args, "--profile-lookup-home", input.ProfileLookupHome)
+	}
 	if strings.TrimSpace(input.SettaFilesRoot) != "" {
 		args = append(args, "--setta-files-root", input.SettaFilesRoot)
 	} else if input.SettaFilesLocation != nil && strings.TrimSpace(*input.SettaFilesLocation) != "" {
@@ -344,13 +348,14 @@ func (l *LocalIDESessionLauncher) launchEnv() []string {
 
 func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
 	cli := config.CLIOptions{
-		WorkspaceRoot: input.WorkspaceRoot,
-		SettaHome:     input.SettaHome,
-		Profile:       input.Profile,
-		RuntimeRoot:   input.RuntimeRoot,
-		Host:          defaultLaunchHost,
-		Port:          "0",
-		Mode:          string(config.ModeIDE),
+		WorkspaceRoot:     input.WorkspaceRoot,
+		SettaHome:         input.SettaHome,
+		ProfileLookupHome: input.ProfileLookupHome,
+		Profile:           input.Profile,
+		RuntimeRoot:       input.RuntimeRoot,
+		Host:              defaultLaunchHost,
+		Port:              "0",
+		Mode:              string(config.ModeIDE),
 	}
 	if strings.TrimSpace(input.SettaFilesRoot) != "" {
 		cli.SettaFilesRoot = input.SettaFilesRoot

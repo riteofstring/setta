@@ -179,7 +179,7 @@ func (s *OpenWorkspaceService) OpenWorkspace(input OpenWorkspaceInput) (OpenWork
 	normalizedProfile := strings.TrimSpace(input.Profile)
 	normalizedSettaFilesRoot := strings.TrimSpace(input.SettaFilesRoot)
 	normalizedRuntimeRoot := strings.TrimSpace(input.RuntimeRoot)
-	normalizedSettaFilesLocation := normalizeSettaFilesLocationForLaunch(
+	normalizedSettaFilesLocation := NormalizeSettaFilesLocationForLaunch(
 		input.SettaFilesLocation,
 		input.SettaFilesLocationProvided,
 		normalizedSettaFilesRoot,
@@ -205,7 +205,7 @@ func (s *OpenWorkspaceService) OpenWorkspace(input OpenWorkspaceInput) (OpenWork
 			Message: "Internal Server Error",
 		}
 	}
-	bootstrapURLFragment, err := buildBootstrapURLFragment(launchResult.Session.Host, launchResult.Session.Port, token)
+	bootstrapURLFragment, err := BuildBootstrapURLFragment(launchResult.Session.Host, launchResult.Session.Port, token)
 	if err != nil {
 		return OpenWorkspaceResult{}, &OpenWorkspaceError{
 			Code:    "InternalError",
@@ -213,7 +213,7 @@ func (s *OpenWorkspaceService) OpenWorkspace(input OpenWorkspaceInput) (OpenWork
 		}
 	}
 
-	_ = updateLauncherLastUsedWorkspaceIfInstalled(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
+	_ = UpdateLauncherLastUsedWorkspaceIfInstalled(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot)
 	_, _ = s.home.AddRecentWorkspace(launchResult.Paths.SettaHome, launchResult.Paths.WorkspaceRoot, nil)
 
 	return OpenWorkspaceResult{
@@ -229,7 +229,7 @@ func (s *OpenWorkspaceService) OpenWorkspace(input OpenWorkspaceInput) (OpenWork
 	}, nil
 }
 
-func normalizeSettaFilesLocationForLaunch(settaFilesLocation *string, provided bool, settaFilesRoot string, profile string) *string {
+func NormalizeSettaFilesLocationForLaunch(settaFilesLocation *string, provided bool, settaFilesRoot string, profile string) *string {
 	if settaFilesLocation != nil {
 		trimmed := strings.TrimSpace(*settaFilesLocation)
 		if trimmed == "" {
@@ -296,7 +296,7 @@ func openWorkspaceErrorFromLaunch(err error) error {
 	}
 }
 
-func buildBootstrapURLFragment(host string, port int, token string) (string, error) {
+func BuildBootstrapURLFragment(host string, port int, token string) (string, error) {
 	trimmedHost := strings.TrimSpace(host)
 	trimmedToken := strings.TrimSpace(token)
 	if trimmedHost == "" {

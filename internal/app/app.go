@@ -118,6 +118,8 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		launcherManagement    *launcher.ManagementService
 		launcherOpenWorkspace *launcher.OpenWorkspaceService
 		launchIntentService   *workspacelaunch.IntentService
+		localLaunchService    *workspacelaunch.LocalLaunchService
+		localSessionLauncher  *launcher.LocalIDESessionLauncher
 	)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
@@ -129,6 +131,33 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		launchIntentService, err = workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			TrustedOrigins: trustedOrigins,
+		})
+		if err != nil {
+			return nil, err
+		}
+		executablePath, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		localSessionLauncher, err = launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
+			ExecutablePath: executablePath,
+		})
+		if err != nil {
+			return nil, err
+		}
+		localLaunchService, err = workspacelaunch.NewLocalLaunchService(workspacelaunch.LocalLaunchServiceOptions{
+			DefaultSettaHome:         cfg.Paths.SettaHome,
+			DefaultProfileLookupHome: cfg.Paths.ProfileLookupHome,
+			Intents:                  launchIntentService,
+			TrustedOrigins:           trustedOrigins,
+			Sessions:                 localSessionLauncher,
+			ResolveLauncherSessionAuthExpiry: func(now time.Time) (int64, error) {
+				_, payload, err := authService.MintAuthCookie(now)
+				if err != nil {
+					return 0, err
+				}
+				return payload.Exp, nil
+			},
 		})
 		if err != nil {
 			return nil, err
@@ -150,20 +179,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 	}
 	if modePolicy.IsLauncher() {
-		executablePath, err := os.Executable()
-		if err != nil {
-			return nil, err
-		}
-		localIDESessionLauncher, err := launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
-			ExecutablePath: executablePath,
-		})
-		if err != nil {
-			return nil, err
-		}
 		launcherOpenWorkspace, err = launcher.NewOpenWorkspaceService(launcher.OpenWorkspaceServiceOptions{
 			DefaultSettaHome: cfg.Paths.SettaHome,
 			Home:             launcherHome,
-			Sessions:         localIDESessionLauncher,
+			Sessions:         localSessionLauncher,
 		})
 		if err != nil {
 			return nil, err
@@ -702,6 +721,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy: modePolicy,
 				Auth:       authService,
 				Intents:    launchIntentService,
+				Launch:     localLaunchService,
 			}); err != nil {
 				panic(err)
 			}

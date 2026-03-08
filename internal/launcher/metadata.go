@@ -232,7 +232,7 @@ func RemoveLauncherInstallMetadata(settaHome string) (bool, error) {
 	return true, nil
 }
 
-func updateLauncherLastUsedWorkspaceIfInstalled(settaHome string, workspaceRoot string) error {
+func UpdateLauncherLastUsedWorkspaceIfInstalled(settaHome string, workspaceRoot string) error {
 	metadata, err := LoadLauncherInstallMetadata(settaHome)
 	if err != nil {
 		return err

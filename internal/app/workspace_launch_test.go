@@ -99,3 +99,93 @@ func TestAppIDEModeCreatesWorkspaceLaunchIntentsOverHTTP(t *testing.T) {
 		t.Fatalf("expected requestedAt in launch intent payload, got %#v", payload)
 	}
 }
+
+func TestAppIDEModeRejectsWorkspaceLaunchWithoutIntentTokenOverHTTP(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	bootstrapToken, err := app.authService.MintBootstrapToken(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint bootstrap token: %v", err)
+	}
+
+	consumeRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/__setta__/bootstrap/consume",
+		strings.NewReader(`{"token":"`+bootstrapToken+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new bootstrap consume request: %v", err)
+	}
+	consumeRequest.Header.Set("Content-Type", "application/json")
+
+	consumeResponse, err := http.DefaultClient.Do(consumeRequest)
+	if err != nil {
+		t.Fatalf("post bootstrap consume: %v", err)
+	}
+	defer consumeResponse.Body.Close()
+	if consumeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(consumeResponse.Body)
+		t.Fatalf("expected bootstrap consume 200, got %d with body %q", consumeResponse.StatusCode, string(body))
+	}
+	cookies := consumeResponse.Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected auth cookie, got %d", len(cookies))
+	}
+
+	launchRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteLaunch,
+		strings.NewReader(`{"workspaceRoot":"`+cfg.Paths.WorkspaceRoot+`"}`),
+	)
+	if err != nil {
+		t.Fatalf("new launch request: %v", err)
+	}
+	launchRequest.Header.Set("Content-Type", "application/json")
+	launchRequest.Header.Set("Origin", "http://127.0.0.1:3000")
+	launchRequest.AddCookie(cookies[0])
+
+	launchResponse, err := http.DefaultClient.Do(launchRequest)
+	if err != nil {
+		t.Fatalf("post launch request: %v", err)
+	}
+	defer launchResponse.Body.Close()
+	if launchResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(launchResponse.Body)
+		t.Fatalf("expected launch 200, got %d with body %q", launchResponse.StatusCode, string(body))
+	}
+
+	var payload struct {
+		Ok        bool   `json:"ok"`
+		ReturnURL string `json:"returnUrl"`
+		Error     *struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(launchResponse.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode launch payload: %v", err)
+	}
+	if payload.Ok {
+		t.Fatalf("expected failed launch payload, got %#v", payload)
+	}
+	if payload.Error == nil || payload.Error.Code != "BadRequest" {
+		t.Fatalf("expected bad request error, got %#v", payload)
+	}
+	if payload.ReturnURL != "http://127.0.0.1:3000/home" {
+		t.Fatalf("expected safe return URL, got %#v", payload)
+	}
+}
