@@ -772,9 +772,11 @@ Use the docs in this order:
     effectively closed for the current clean-break scope after the landed
     packaged-entrypoint and shared-helper follow-ons
 210. `phase-30-post-phase-29-broader-rewrite-rerank.md`
-  - focused broader rerank doc showing that the remaining Python launcher,
-    installer, and dev-reload surfaces do not currently select another
-    evidence-backed rewrite phase
+  - focused broader rerank doc showing that active launcher
+    home/management and install/native-installer surfaces are already on
+    Go-owned boundaries, so the remaining Python launcher, installer, and
+    dev-reload surfaces do not currently select another evidence-backed
+    rewrite phase
 211. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 212. `spike-pty.md`

@@ -23,6 +23,9 @@ What this rerank adds:
 - a broader inventory after the startup/distribution track closeout
 - an explicit check of the remaining launcher/native-installer and dev-reload
   Python ownership
+- a concrete check that the live launcher home/management frontend surface and
+  live launcher install/native-installer script surface already sit on Go-owned
+  boundaries
 - a decision on whether another implementation phase is honestly selected now
 
 ## Inputs
@@ -43,6 +46,8 @@ What this rerank adds:
 - `backend/setta/startup_runtime.py`
 - `backend/setta/launcher_setup.py`
 - `backend/setta/launcher_artifacts/`
+- `backend/setta/routers/launcher_home.py`
+- `backend/setta/routers/status.py`
 - `frontend/backendStart.sh`
 - `scripts/install_desktop_launcher.sh`
 - `scripts/install_linux_launcher.sh`
@@ -54,6 +59,14 @@ What this rerank adds:
 - `tests/start/test_desktop_launcher_install_scripts.py`
 - `tests/start/test_launcher_artifact_installers.py`
 - `tests/start/test_launcher_setup.py`
+- `internal/httpapi/launcher_home_routes.go`
+- `internal/httpapi/launcher_management_routes.go`
+- `internal/launcher/home.go`
+- `internal/launcher/management.go`
+- `tests/start/test_launcher_home_routes.py`
+- `tests/start/test_launcher_cli.py`
+- `internal/httpapi/launcher_home_routes_test.go`
+- `internal/httpapi/launcher_management_routes_test.go`
 
 ## Inventory Method
 
@@ -63,6 +76,8 @@ What this rerank adds:
    startup owners.
 4. Re-read representative launcher/install/release scripts and tests to
    confirm whether those Python modules are still on the active workflow path.
+5. Re-read the current launcher home/management HTTP owners in both Python and
+   Go to confirm whether active launcher frontend surfaces are already Go-owned.
 
 ## Findings
 
@@ -81,17 +96,45 @@ Rerank implication:
   select
 - the shipped command surface is already on the explicit Go boundary
 
-### 2. Launcher install scripts no longer depend on the Python launcher owner
+### 2. Active launcher home and launcher management HTTP surfaces are already Go-owned
+
+Current active route ownership:
+
+- `internal/httpapi/launcher_home_routes.go`
+- `internal/httpapi/launcher_management_routes.go`
+- `internal/launcher/home.go`
+- `internal/launcher/management.go`
+- real app wiring in `internal/app/app.go`
+
+Current Python route reality:
+
+- `backend/setta/routers/launcher_home.py` and the launcher-management section
+  of `backend/setta/routers/status.py` still exist
+- those Python routes now function as legacy/dev-only reference owners rather
+  than the selected active rewrite path
+
+Rerank implication:
+
+- there is no hidden launcher-home or launcher-management HTTP phase left to
+  open
+- the current launcher frontend surface no longer selects another backend
+  ownership slice
+
+### 3. Launcher install and native-installer scripts no longer depend on the Python launcher owner
 
 Current script path:
 
 - `scripts/install_desktop_launcher.sh`
 - `scripts/install_linux_launcher.sh`
 - `scripts/install_macos_launcher.sh`
+- `scripts/release/build_macos_installer.sh`
+- `scripts/release/build_windows_installer.ps1`
 
 All of those scripts now invoke `setta launcher setup` on the packaged CLI
 boundary instead of importing or shelling into `backend/setta/launcher_setup.py`
-or `backend/setta/launcher_artifacts/*`.
+or `backend/setta/launcher_artifacts/*`. The native-installer builders bundle a
+packaged Setta sdist and bootstrap through the same packaged launcher-install
+command path rather than depending on a Python launcher setup owner.
 
 Rerank implication:
 
@@ -100,7 +143,7 @@ Rerank implication:
 - their remaining reachability is legacy Python route/test anchoring, not an
   evidence-backed rewrite blocker
 
-### 3. The remaining active Python server ownership is deliberate dev-only reload behavior
+### 4. The remaining active Python server ownership is deliberate dev-only reload behavior
 
 Current source/dev path:
 
@@ -116,7 +159,7 @@ Rerank implication:
 - there is no new rewrite slice selected unless Go dev reload ownership itself
   becomes a concrete product or workflow priority
 
-### 4. Remaining Python launcher/setup modules are now legacy/reference coverage, not active command ownership
+### 5. Remaining Python launcher/setup modules are now legacy/reference coverage, not active command ownership
 
 Repo search result:
 
@@ -132,7 +175,7 @@ Rerank implication:
 - those modules remain reference and legacy-anchor code for now
 - they do not justify opening a new rewrite phase by themselves
 
-### 5. The broader rewrite is now at a true closeout boundary for the current scope
+### 6. The broader rewrite is now at a true closeout boundary for the current scope
 
 After the backend-route/runtime closeout, the capability reranks, the
 startup/distribution closeout, and this broader post-Phase-29 pass:
@@ -151,7 +194,8 @@ startup/distribution closeout, and this broader post-Phase-29 pass:
   hidden backend debt:
   - dev-only reload/runtime ownership
   - Python packaging boundary
-  - launcher/native-installer bootstrap scripts
+  - launcher/native-installer bootstrap scripts that already target the
+    packaged Go CLI boundary
   - legacy Python route/test/reference coverage
 
 ## Verification

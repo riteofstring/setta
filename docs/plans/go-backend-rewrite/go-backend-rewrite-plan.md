@@ -1950,6 +1950,12 @@ Do not weaken this rule during the rewrite.
      clean-break scope
    - the broader rewrite is now also at a closeout boundary for the current
      scope
+   - active launcher home/management frontend surfaces are already Go-owned in
+     `internal/httpapi` / `internal/launcher`; the remaining Python launcher
+     modules are legacy/dev/reference ownership
+   - launcher install and native-installer scripts already sit on the packaged
+     Go CLI / packaged-sdist boundary and do not select a separate Python
+     launcher-ownership phase
    - there is no new startup/distribution implementation slice selected by the
      current evidence alone
    - there is no new evidence-backed implementation slice selected by the

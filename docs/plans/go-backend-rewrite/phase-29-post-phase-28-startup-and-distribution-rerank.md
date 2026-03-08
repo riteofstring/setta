@@ -160,3 +160,5 @@ That broader rerank is now recorded in:
 - `phase-30-post-phase-29-broader-rewrite-rerank.md`
 
 Use this doc as the historical closeout for the startup/distribution track.
+The later Phase 30 rerank also confirms that active launcher home/management
+frontend surfaces are already Go-owned.
