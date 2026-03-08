@@ -4441,3 +4441,16 @@ New benchmark stages:
 - The long-lived save/autosave zoom regression was caused by the identical backend `UpdateFrontendProjectState` echo, not by the `Saved!` notification and not by `UpdateSettings`.
 - Skipping semantically identical backend project-state rewrites removed the persistent post-save zoom drop in the live browser.
 - After the fix, save no longer pushes zoom into the lower-FPS band; before/after-save runs stay in the same `~92-96 FPS` class.
+
+## Correction (2026-03-09)
+
+- The header's earlier `Related plan` reference pointed at
+  `docs/plans/settings-all-settings-pan-zoom-analysis-plan.md`, but that plan
+  is not retained in the current repo. Treat this report as the canonical
+  written record for this investigation.
+- Some earlier sections reference a benchmark-only harness and Playwright spec
+  path (`frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+  and `frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`)
+  that are also not present in the current tree. Those references describe the
+  local benchmark environment used for the historical measurements, not
+  committed merge-ready automation that still ships with this branch.
