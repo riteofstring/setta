@@ -425,12 +425,16 @@ Use the docs in this order:
   - focused next-step implementation-plan doc for the active external-agent
     runtime plus the remaining send/stop/approval ownership after the completed
     hydration read slice
-132. `spike-mcp.md`
+132. `phase-12-opencode-executor-and-question-runtime.md`
+  - focused current-work implementation-plan doc for the OpenCode executor,
+    OpenCode-managed settings parsing/writing, and the first Go-owned
+    `respondExternalAgentQuestion` slice above the completed Codex runtime
+133. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-133. `spike-pty.md`
+134. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-134. `spike-lsp.md`
+135. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
