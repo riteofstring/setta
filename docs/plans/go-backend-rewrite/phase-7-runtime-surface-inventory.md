@@ -100,18 +100,18 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Implement Stage 1 from
-`phase-7-launcher-management-and-bootstrap-plan.md`: Go-owned IDE launcher
-management/status routes and runtime.
+Implement the launcher runtime prerequisite from
+`phase-7-launcher-management-and-bootstrap-plan.md`: Go-owned launcher-mode
+runtime/home ownership plus a real launcher executable contract.
 
 That is now the highest-leverage next step because:
 
 - the bounded deployment slice is complete end to end
 - the dedicated launcher/bootstrap Phase 7 plan now exists
-- IDE launcher management is the smallest coherent owner inside the remaining
-  Python runtime surface
-- it moves a real route cluster without dragging launcher-mode home or
-  launch/bootstrap handoff into the same change
+- launcher artifact setup cannot land robustly until desktop launchers can
+  target a working Go launcher runtime
+- the dependency is now explicit: launcher management depends on launcher-mode
+  ownership more than it first appeared to
 
 ## Progress Notes
 
@@ -136,6 +136,10 @@ That is now the highest-leverage next step because:
   `phase-7-launcher-management-and-bootstrap-plan.md`; next recommended step is
   Stage 1 from that doc: Go-owned IDE launcher management/status transport and
   runtime.
+- 2026-03-08: after checking the current Go launcher entrypoint and route
+  surface, revised the next recommended step to the launcher runtime
+  prerequisite: launcher-mode home/runtime ownership plus a real launcher
+  executable contract.
 
 ## Verification
 

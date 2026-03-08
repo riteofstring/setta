@@ -99,6 +99,32 @@ OS-integration design choices, split the work into:
 The preferred path is to keep the full management route cluster together if the
 artifact boundary stays local to the launcher package.
 
+## Architecture Check
+
+After reading the current Go entrypoint and launcher-mode surface, the full
+management-route slice is not yet independently landable.
+
+Current dependency gap:
+
+- the current Go binary entrypoint in `cmd/setta-server/main.go` does not expose
+  a launcher-specific command contract like the Python-managed launcher
+  artifacts expect
+- Go does not yet own the launcher-mode home/runtime browser routes from
+  `launcher_home.py`
+- Go does not yet own the launch/bootstrap handoff routes that a launched
+  workspace depends on
+
+That means a direct Go port of launcher artifact setup/update today would
+either:
+
+- generate desktop artifacts that launch an incomplete Go launcher runtime, or
+- keep pointing launcher artifacts back at Python, which violates the clean
+  break for this rewrite
+
+Because of that, Stage 1 should not start with managed artifact installation.
+The artifact-owning portion of launcher management depends on a real Go launcher
+runtime target first.
+
 ## Explicit Non-Goals
 
 Do not broaden Stage 1 into:
@@ -138,19 +164,40 @@ Do not broaden Stage 1 into:
   coupling this backend rewrite step to frontend generation work
 - keep update execution explicit and local; do not fold launcher update logic
   into generic package-management helpers
+- do not land Go-owned desktop artifact setup until those artifacts can target a
+  real Go launcher runtime contract end to end
+
+## Recommended Option
+
+Implement the launcher runtime prerequisite first:
+
+1. establish the Go launcher executable/command contract that installed desktop
+   artifacts should target
+2. port the launcher-mode home/runtime browser routes needed immediately after a
+   launcher starts
+3. return to the IDE launcher management/status route cluster once artifact
+   setup can target a working Go launcher
+
+This is the recommended option because it preserves a robust source of truth and
+avoids shipping launcher setup that writes broken desktop artifacts.
 
 ## Recommended Next Step
 
-Implement Stage 1: Go-owned IDE launcher management/status routes and runtime.
+Implement the launcher runtime prerequisite described above, then return to the
+IDE launcher management/status route cluster.
 
-Recommended first landing order:
+Recommended landing order:
 
-1. metadata and status collection
-2. setup/remove/repair ownership
-3. update ownership
-4. route wiring and app-level integration tests
+1. launcher-mode home/runtime browser ownership
+2. launcher executable/target contract for desktop artifacts
+3. IDE launcher management/status transport and runtime
+4. launch/bootstrap handoff ownership
 
 ## Progress Notes
 
 - 2026-03-08: created the dedicated Phase 7 launcher/bootstrap plan and
   selected IDE launcher management/status as the first bounded owner.
+- 2026-03-08: after reading the current Go entrypoint plus launcher-mode route
+  coverage, determined that artifact-owning launcher management is blocked on a
+  launcher runtime prerequisite. Recommended next step changed to launcher-mode
+  runtime ownership plus a real launcher executable contract.
