@@ -3405,10 +3405,10 @@ export type CallableSectionImpl = BaseSectionImpl & {
   callable?: string | null;
   hideParams: boolean;
 };
+
+
 export function createCallableSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCallableSectionImpl>
-    | Partial<CallableSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultCallableSectionImpl> | Partial<CallableSectionImpl> = {},
   overrides?: Partial<CallableSectionImpl>,
 ): CallableSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -3479,6 +3479,8 @@ export type DictSectionImpl = BaseSectionImpl & {
   jsonSourceKeys: Array<string>;
   jsonSourceMissing: boolean;
 };
+
+
 export function createDictSectionImpl(
   defaults: UserDefaultDictSectionImpl,
   overrides: Partial<DictSectionImpl> = {},
@@ -3623,10 +3625,10 @@ export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
   defaultVal: string;
   value: string;
 };
+
+
 export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeParamCodeObjImpl>
-    | Partial<CodeParamCodeObjImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultCodeParamCodeObjImpl> | Partial<CodeParamCodeObjImpl> = {},
   overrides?: Partial<CodeParamCodeObjImpl>,
 ): CodeParamCodeObjImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -3941,10 +3943,10 @@ export type ListRootSectionImpl = BaseSectionImpl & {
   defaultChildSectionType: SectionType;
   viewMode: ListRootViewMode;
 };
+
+
 export function createListRootSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultListRootSectionImpl>
-    | Partial<ListRootSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultListRootSectionImpl> | Partial<ListRootSectionImpl> = {},
   overrides?: Partial<ListRootSectionImpl>,
 ): ListRootSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4020,10 +4022,10 @@ export type TextBlockSectionImpl = BaseSectionImpl & {
   textDisplayMode: TextBlockDisplayMode;
   text: string;
 };
+
+
 export function createTextBlockSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTextBlockSectionImpl>
-    | Partial<TextBlockSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultTextBlockSectionImpl> | Partial<TextBlockSectionImpl> = {},
   overrides?: Partial<TextBlockSectionImpl>,
 ): TextBlockSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4105,10 +4107,10 @@ export type CodeSectionImpl = BaseSectionImpl & {
   attachedTerminalSectionId?: string | null;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
+
+
 export function createCodeSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeSectionImpl>
-    | Partial<CodeSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultCodeSectionImpl> | Partial<CodeSectionImpl> = {},
   overrides?: Partial<CodeSectionImpl>,
 ): CodeSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4167,10 +4169,10 @@ export function createUserDefaultTerminalSectionImpl(options: Partial<UserDefaul
 export type TerminalSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Terminal;
 };
+
+
 export function createTerminalSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTerminalSectionImpl>
-    | Partial<TerminalSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultTerminalSectionImpl> | Partial<TerminalSectionImpl> = {},
   overrides?: Partial<TerminalSectionImpl>,
 ): TerminalSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<

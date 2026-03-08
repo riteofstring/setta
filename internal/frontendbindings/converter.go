@@ -37,9 +37,10 @@ type EnumValue struct {
 }
 
 type TypeProperty struct {
-	Name     string
-	TypeExpr string
-	Optional bool
+	Name         string
+	TypeExpr     string
+	Optional     bool
+	DefaultValue string
 }
 
 func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration {
@@ -132,6 +133,15 @@ func functionDeclaration(
 		FunctionReturn: returnType,
 		FunctionBody:   strings.TrimRight(body, "\n"),
 	}
+}
+
+func exportedFunctionDeclaration(
+	name string,
+	returnType string,
+	body string,
+	params ...TypeProperty,
+) TypeDeclaration {
+	return functionDeclaration(name, true, returnType, body, params...)
 }
 
 func constDeclaration(name string, exported bool, expr string) TypeDeclaration {
@@ -828,15 +838,304 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
   };`
 }
 
+func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
+	return map[reflect.Type][]TypeDeclaration{
+		reflect.TypeOf(CallableSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createCallableSectionImpl",
+				"CallableSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCallableSectionImpl,
+    CallableSectionImpl
+  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Callable,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
+      paramFilter: resolved.defaults.paramFilter,
+      columnWidth: resolved.defaults.columnWidth,
+      configLanguage: resolved.defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: resolved.defaults.edgeInputParams,
+      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
+      callable: null,
+      hideParams: resolved.defaults.hideParams,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultCallableSectionImpl> | Partial<CallableSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<CallableSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(DictSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createDictSectionImpl",
+				"DictSectionImpl",
+				`  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Dict,
+      id: "",
+      name: "",
+      isFrozen: defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: defaults.tagColor,
+      styleColor: defaults.styleColor,
+      size: defaults.size,
+      aspectRatio: defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: defaults.isMinimized,
+      positionAndSizeLocked: defaults.positionAndSizeLocked,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: defaults.hideUnpinnedParams,
+      paramFilter: defaults.paramFilter,
+      columnWidth: defaults.columnWidth,
+      configLanguage: defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: defaults.edgeInputParams,
+      edgeOutputPorts: defaults.edgeOutputPorts,
+      topLevelParamId: null,
+      isJsonSource: defaults.isJsonSource,
+      jsonSourceKeys: defaults.jsonSourceKeys,
+      jsonSourceMissing: false,
+    },
+    overrides,
+  );`,
+				TypeProperty{Name: "defaults", TypeExpr: "UserDefaultDictSectionImpl"},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<DictSectionImpl>", DefaultValue: "{}"},
+			),
+		},
+		reflect.TypeOf(CodeParamCodeObjImpl{}): {
+			exportedFunctionDeclaration(
+				"createCodeParamCodeObjImpl",
+				"CodeParamCodeObjImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeParamCodeObjImpl,
+    CodeParamCodeObjImpl
+  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: CodeObjTypeEnum.CodeParam,
+      id: "",
+      name: "",
+      description: "",
+      isPreset: false,
+      coreNameType: resolved.defaults.coreNameType,
+      coreNameEditable: resolved.defaults.coreNameEditable,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      typeAnnotation: resolved.defaults.typeAnnotation,
+      defaultVal: resolved.defaults.defaultVal,
+      value: resolved.defaults.value,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultCodeParamCodeObjImpl> | Partial<CodeParamCodeObjImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<CodeParamCodeObjImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(ListRootSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createListRootSectionImpl",
+				"ListRootSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultListRootSectionImpl,
+    ListRootSectionImpl
+  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.ListRoot,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
+      viewMode: resolved.defaults.viewMode,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultListRootSectionImpl> | Partial<ListRootSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<ListRootSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(TextBlockSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createTextBlockSectionImpl",
+				"TextBlockSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTextBlockSectionImpl,
+    TextBlockSectionImpl
+  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TextBlock,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      format: resolved.defaults.format,
+      masterFontSizePx: resolved.defaults.masterFontSizePx,
+      headingAsSectionName: resolved.defaults.headingAsSectionName,
+      metaControlStyle: resolved.defaults.metaControlStyle,
+      textDisplayMode: resolved.defaults.textDisplayMode,
+      text: resolved.defaults.text,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultTextBlockSectionImpl> | Partial<TextBlockSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<TextBlockSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(CodeSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createCodeSectionImpl",
+				"CodeSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeSectionImpl,
+    CodeSectionImpl
+  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Code,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      code: resolved.defaults.code,
+      codeLanguage: resolved.defaults.codeLanguage,
+      codeFileBinding: resolved.defaults.codeFileBinding,
+      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
+      diagnosticsIgnoreState: cloneGeneratedValue(
+        resolved.defaults.diagnosticsIgnoreState,
+      ),
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultCodeSectionImpl> | Partial<CodeSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<CodeSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(TerminalSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createTerminalSectionImpl",
+				"TerminalSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTerminalSectionImpl,
+    TerminalSectionImpl
+  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Terminal,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultTerminalSectionImpl> | Partial<TerminalSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<TerminalSectionImpl>", Optional: true},
+			),
+		},
+	}
+}
+
 type typeConverter struct {
-	declarations []TypeDeclaration
-	seen         map[reflect.Type]struct{}
-	stringEnums  map[reflect.Type][]EnumValue
-	manualTypes  map[reflect.Type]TypeDeclaration
+	declarations            []TypeDeclaration
+	seen                    map[reflect.Type]struct{}
+	stringEnums             map[reflect.Type][]EnumValue
+	manualTypes             map[reflect.Type]TypeDeclaration
+	manualExtraDeclarations map[reflect.Type][]TypeDeclaration
 }
 
 func newTypeConverter() *typeConverter {
-	return &typeConverter{
+	converter := &typeConverter{
 		seen: make(map[reflect.Type]struct{}),
 		stringEnums: map[reflect.Type][]EnumValue{
 			reflect.TypeOf(DependencyKeyType("")): {
@@ -2543,7 +2842,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "dataPath", TypeExpr: "string", Optional: true},
 				TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: true},
 			),
-			reflect.TypeOf(CallableSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(CallableSectionImpl{}): aliasDeclaration(
 				"CallableSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.Callable;
@@ -2560,51 +2859,6 @@ func newTypeConverter() *typeConverter {
   callable?: string | null;
   hideParams: boolean;
 }`,
-				`export function createCallableSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCallableSectionImpl>
-    | Partial<CallableSectionImpl> = {},
-  overrides?: Partial<CallableSectionImpl>,
-): CallableSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCallableSectionImpl,
-    CallableSectionImpl
-  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Callable,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
-      paramFilter: resolved.defaults.paramFilter,
-      columnWidth: resolved.defaults.columnWidth,
-      configLanguage: resolved.defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: resolved.defaults.edgeInputParams,
-      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
-      callable: null,
-      hideParams: resolved.defaults.hideParams,
-    },
-    resolved.overrides,
-  );
-}`,
 			),
 			reflect.TypeOf(BaseParentSectionImplUnion{}): aliasDeclaration(
 				"BaseParentSectionImplUnion",
@@ -2618,7 +2872,7 @@ func newTypeConverter() *typeConverter {
   codeObjVariantMap: Record<string, string>;
 }`,
 			),
-			reflect.TypeOf(DictSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(DictSectionImpl{}): aliasDeclaration(
 				"DictSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.Dict;
@@ -2636,47 +2890,6 @@ func newTypeConverter() *typeConverter {
   isJsonSource: boolean;
   jsonSourceKeys: Array<string>;
   jsonSourceMissing: boolean;
-}`,
-				`export function createDictSectionImpl(
-  defaults: UserDefaultDictSectionImpl,
-  overrides: Partial<DictSectionImpl> = {},
-): DictSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Dict,
-      id: "",
-      name: "",
-      isFrozen: defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: defaults.tagColor,
-      styleColor: defaults.styleColor,
-      size: defaults.size,
-      aspectRatio: defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: defaults.isMinimized,
-      positionAndSizeLocked: defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: defaults.hideUnpinnedParams,
-      paramFilter: defaults.paramFilter,
-      columnWidth: defaults.columnWidth,
-      configLanguage: defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: defaults.edgeInputParams,
-      edgeOutputPorts: defaults.edgeOutputPorts,
-      topLevelParamId: null,
-      isJsonSource: defaults.isJsonSource,
-      jsonSourceKeys: defaults.jsonSourceKeys,
-      jsonSourceMissing: false,
-    },
-    overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(UserDefaultCallableSectionImpl{}): objectDeclarationWithCreateExpr(
@@ -2767,7 +2980,7 @@ func newTypeConverter() *typeConverter {
   [key: string]: unknown;
 }`,
 			),
-			reflect.TypeOf(CodeParamCodeObjImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(CodeParamCodeObjImpl{}): aliasDeclaration(
 				"CodeParamCodeObjImpl",
 				`BaseCodeObjImpl & {
   type: typeof CodeObjTypeEnum.CodeParam;
@@ -2777,33 +2990,6 @@ func newTypeConverter() *typeConverter {
   typeAnnotation: string;
   defaultVal: string;
   value: string;
-}`,
-				`export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeParamCodeObjImpl>
-    | Partial<CodeParamCodeObjImpl> = {},
-  overrides?: Partial<CodeParamCodeObjImpl>,
-): CodeParamCodeObjImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeParamCodeObjImpl,
-    CodeParamCodeObjImpl
-  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: CodeObjTypeEnum.CodeParam,
-      id: "",
-      name: "",
-      description: "",
-      isPreset: false,
-      coreNameType: resolved.defaults.coreNameType,
-      coreNameEditable: resolved.defaults.coreNameEditable,
-      passingStyle: ParameterPassingStyleEnum.DEFAULT,
-      typeAnnotation: resolved.defaults.typeAnnotation,
-      defaultVal: resolved.defaults.defaultVal,
-      value: resolved.defaults.value,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(CodeCallableCodeObjImpl{}): aliasDeclaration(
@@ -3097,46 +3283,13 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
 				TypeProperty{Name: "viewMode", TypeExpr: "ListRootViewMode"},
 			),
-			reflect.TypeOf(ListRootSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(ListRootSectionImpl{}): aliasDeclaration(
 				"ListRootSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.ListRoot;
   children: Array<string>;
   defaultChildSectionType: SectionType;
   viewMode: ListRootViewMode;
-}`,
-				`export function createListRootSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultListRootSectionImpl>
-    | Partial<ListRootSectionImpl> = {},
-  overrides?: Partial<ListRootSectionImpl>,
-): ListRootSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultListRootSectionImpl,
-    ListRootSectionImpl
-  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.ListRoot,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
-      viewMode: resolved.defaults.viewMode,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): objectDeclarationWithCreateExpr(
@@ -3171,7 +3324,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode"},
 				TypeProperty{Name: "text", TypeExpr: "string"},
 			),
-			reflect.TypeOf(TextBlockSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(TextBlockSectionImpl{}): aliasDeclaration(
 				"TextBlockSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.TextBlock;
@@ -3181,42 +3334,6 @@ func newTypeConverter() *typeConverter {
   metaControlStyle: boolean;
   textDisplayMode: TextBlockDisplayMode;
   text: string;
-}`,
-				`export function createTextBlockSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTextBlockSectionImpl>
-    | Partial<TextBlockSectionImpl> = {},
-  overrides?: Partial<TextBlockSectionImpl>,
-): TextBlockSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTextBlockSectionImpl,
-    TextBlockSectionImpl
-  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.TextBlock,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      format: resolved.defaults.format,
-      masterFontSizePx: resolved.defaults.masterFontSizePx,
-      headingAsSectionName: resolved.defaults.headingAsSectionName,
-      metaControlStyle: resolved.defaults.metaControlStyle,
-      textDisplayMode: resolved.defaults.textDisplayMode,
-      text: resolved.defaults.text,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}): objectDeclaration(
@@ -3250,7 +3367,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "codeLanguage", TypeExpr: "string"},
 				TypeProperty{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState"},
 			),
-			reflect.TypeOf(CodeSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(CodeSectionImpl{}): aliasDeclaration(
 				"CodeSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.Code;
@@ -3260,44 +3377,6 @@ func newTypeConverter() *typeConverter {
   codeFileBinding?: CodeFileBinding | null;
   attachedTerminalSectionId?: string | null;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-}`,
-				`export function createCodeSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeSectionImpl>
-    | Partial<CodeSectionImpl> = {},
-  overrides?: Partial<CodeSectionImpl>,
-): CodeSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeSectionImpl,
-    CodeSectionImpl
-  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Code,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      code: resolved.defaults.code,
-      codeLanguage: resolved.defaults.codeLanguage,
-      codeFileBinding: resolved.defaults.codeFileBinding,
-      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
-      diagnosticsIgnoreState: cloneGeneratedValue(
-        resolved.defaults.diagnosticsIgnoreState,
-      ),
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(UserDefaultTerminalSectionImpl{}): objectDeclarationWithCreateExpr(
@@ -3316,40 +3395,10 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
 				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(TerminalSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(TerminalSectionImpl{}): aliasDeclaration(
 				"TerminalSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.Terminal;
-}`,
-				`export function createTerminalSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTerminalSectionImpl>
-    | Partial<TerminalSectionImpl> = {},
-  overrides?: Partial<TerminalSectionImpl>,
-): TerminalSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTerminalSectionImpl,
-    TerminalSectionImpl
-  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Terminal,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(BaseSectionImplUnion{}): aliasDeclaration(
@@ -4681,6 +4730,8 @@ func newTypeConverter() *typeConverter {
 			),
 		},
 	}
+	converter.manualExtraDeclarations = projectStateAliasFactoryDeclarations()
+	return converter
 }
 
 func (c *typeConverter) AddRootType(root reflect.Type) error {
@@ -4770,6 +4821,9 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 
 	if decl, ok := c.manualTypes[t]; ok {
 		c.declarations = append(c.declarations, decl)
+		if extras, ok := c.manualExtraDeclarations[t]; ok {
+			c.declarations = append(c.declarations, extras...)
+		}
 		return nil
 	}
 

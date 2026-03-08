@@ -220,7 +220,7 @@ export function {{ .Name }}(
 {{ else if eq .Kind "function" }}
 {{ if .Exported }}export {{ end }}function {{ .Name }}(
 {{- range .FunctionParams }}
-  {{ .Name }}{{ if .Optional }}?{{ end }}: {{ .TypeExpr }},
+  {{ .Name }}{{ if .Optional }}?{{ end }}: {{ .TypeExpr }}{{ if .DefaultValue }} = {{ .DefaultValue }}{{ end }},
 {{- end }}
 ): {{ .FunctionReturn }} {
 {{ .FunctionBody }}

@@ -1515,13 +1515,14 @@ func TestProjectStateSectionSupportPrimitiveContractsUseConverterDeclarations(t 
 
 func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		kind          string
-		alias         string
-		properties    []TypeProperty
-		hasCreateExpr bool
-		hasFactoryTS  bool
+		name                string
+		root                reflect.Type
+		kind                string
+		alias               string
+		properties          []TypeProperty
+		hasCreateExpr       bool
+		hasFactoryTS        bool
+		factoryFunctionName string
 	}{
 		{
 			name:  "JSONValue",
@@ -3294,13 +3295,14 @@ func TestProjectConfigSupportContractsUseConverterDeclarations(t *testing.T) {
 
 func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		kind          string
-		alias         string
-		properties    []TypeProperty
-		hasCreateExpr bool
-		hasFactoryTS  bool
+		name                string
+		root                reflect.Type
+		kind                string
+		alias               string
+		properties          []TypeProperty
+		hasCreateExpr       bool
+		hasFactoryTS        bool
+		factoryFunctionName string
 	}{
 		{
 			name: "BaseSectionImpl",
@@ -3388,7 +3390,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   callable?: string | null;
   hideParams: boolean;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createCallableSectionImpl",
 		},
 		{
 			name: "BaseParentSectionImplUnion",
@@ -3427,7 +3429,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   jsonSourceKeys: Array<string>;
   jsonSourceMissing: boolean;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createDictSectionImpl",
 		},
 		{
 			name: "UserDefaultCallableSectionImpl",
@@ -3529,7 +3531,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   defaultVal: string;
   value: string;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createCodeParamCodeObjImpl",
 		},
 		{
 			name: "CodeCallableCodeObjImpl",
@@ -3864,7 +3866,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   defaultChildSectionType: SectionType;
   viewMode: ListRootViewMode;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createListRootSectionImpl",
 		},
 		{
 			name: "UserDefaultTextBlockSectionImpl",
@@ -3900,7 +3902,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   textDisplayMode: TextBlockDisplayMode;
   text: string;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createTextBlockSectionImpl",
 		},
 		{
 			name: "CodeSectionDiagnosticsIgnoreState",
@@ -3944,7 +3946,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
   attachedTerminalSectionId?: string | null;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createCodeSectionImpl",
 		},
 		{
 			name: "UserDefaultTerminalSectionImpl",
@@ -3968,7 +3970,7 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			alias: `BaseSectionImpl & {
   type: typeof SectionTypeEnum.Terminal;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createTerminalSectionImpl",
 		},
 		{
 			name: "BaseSectionImplUnion",
@@ -4011,6 +4013,15 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			}
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+			if tt.factoryFunctionName != "" {
+				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
+				if factoryDecl.Kind != "function" {
+					t.Fatalf("%s companion declaration kind = %q, want %q", tt.factoryFunctionName, factoryDecl.Kind, "function")
+				}
+				if factoryDecl.FunctionReturn != tt.name {
+					t.Fatalf("%s return type = %q, want %q", tt.factoryFunctionName, factoryDecl.FunctionReturn, tt.name)
+				}
 			}
 		})
 	}

@@ -134,6 +134,30 @@ func TestBuildBindingsRendersStructuredHelperDeclarations(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRendersFunctionParamDefaults(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings(nil, nil, nil, []TypeDeclaration{
+		exportedFunctionDeclaration(
+			"createThing",
+			"Thing",
+			`  return options;`,
+			TypeProperty{Name: "options", TypeExpr: "Thing", DefaultValue: "{} as Thing"},
+			TypeProperty{Name: "overrides", TypeExpr: "Partial<Thing>", Optional: true},
+		),
+	})
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	if !strings.Contains(bindings.TypesTS, "options: Thing = {} as Thing,") {
+		t.Fatalf("types output missing defaulted function param:\n%s", bindings.TypesTS)
+	}
+	if !strings.Contains(bindings.TypesTS, "overrides?: Partial<Thing>,") {
+		t.Fatalf("types output missing optional function param:\n%s", bindings.TypesTS)
+	}
+}
+
 func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	t.Helper()
 
