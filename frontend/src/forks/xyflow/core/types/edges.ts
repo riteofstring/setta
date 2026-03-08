@@ -100,7 +100,6 @@ export type HandleProps = {
   isConnectable?: boolean;
   isConnectableStart?: boolean;
   isConnectableEnd?: boolean;
-  connectionStartSemanticType?: HandleType;
   isValidConnection?: (connection: Connection) => boolean;
   onConnect?: (connection: Connection) => void;
 };

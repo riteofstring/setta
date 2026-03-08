@@ -14,6 +14,8 @@ during postinstall:
 Optional environment variables:
   SETTA_DESKTOP_INSTALLER_VERSION   Installer version (default: 1.0.0)
   SETTA_DESKTOP_INSTALLER_RELEASE_MODE  Set to 1 to require explicit installer version
+  SETTA_DESKTOP_INSTALLER_PACKAGE_PATH  Packaged Setta sdist to bundle
+                                        (default: dist/setta-<version>.tar.gz)
   SETTA_MACOS_SIGN_IDENTITY         productsign identity for the .pkg
   SETTA_MACOS_NOTARY_PROFILE        xcrun notarytool keychain profile name
   SETTA_MACOS_BUILD_DMG             Set to 1 to wrap the .pkg in a .dmg
@@ -51,6 +53,17 @@ if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Installer version must use major.minor.patch format (got '${version}')." >&2
   exit 1
 fi
+package_path="${SETTA_DESKTOP_INSTALLER_PACKAGE_PATH:-dist/setta-${version}.tar.gz}"
+if [[ ! -f "${package_path}" ]]; then
+  echo "Packaged Setta distribution not found: ${package_path}" >&2
+  echo "Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --sdist" >&2
+  exit 1
+fi
+if [[ "${package_path}" != *.tar.gz ]]; then
+  echo "Native installers currently bundle a Setta sdist (.tar.gz), got: ${package_path}" >&2
+  exit 1
+fi
+package_path="$(cd "$(dirname "${package_path}")" && pwd)/$(basename "${package_path}")"
 identifier="dev.setta.desktop.bootstrap"
 base_name="SettaDesktop-${version}"
 unsigned_pkg_path="${output_dir}/${base_name}-unsigned.pkg"
@@ -63,8 +76,11 @@ installer_scripts_root="$(mktemp -d)"
 trap 'rm -rf "${payload_root}" "${installer_scripts_root}"' EXIT
 
 mkdir -p "${payload_root}/usr/local/bin"
+mkdir -p "${payload_root}/usr/local/share/setta-installer"
 cp "scripts/install_desktop_launcher.sh" \
   "${payload_root}/usr/local/bin/setta-install-desktop"
+cp "${package_path}" \
+  "${payload_root}/usr/local/share/setta-installer/setta-package.tar.gz"
 cat > "${payload_root}/usr/local/bin/setta-remove-desktop" <<'REMOVE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -83,7 +99,7 @@ if [[ ! -x "${installer_bin}" ]]; then
   exit 1
 fi
 
-bootstrap_cmd="${installer_bin} --channel native-installer --install-source installer-managed --open-mode chrome-app"
+bootstrap_cmd="${installer_bin} --package '/usr/local/share/setta-installer/setta-package.tar.gz' --channel native-installer --install-source installer-managed --open-mode chrome-app"
 target_user="${SUDO_USER:-}"
 if [[ -z "${target_user}" || "${target_user}" == "root" ]]; then
   target_user="$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null || true)"
@@ -151,3 +167,4 @@ fi
 shasum -a 256 "${final_pkg_path}" > "${final_pkg_path}.sha256"
 
 echo "Built macOS installer: ${final_pkg_path}"
+echo "Bundled Setta package: ${package_path}"
