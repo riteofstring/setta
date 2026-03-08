@@ -10,6 +10,88 @@ export { RouteEnum } from "./generatedRoutes";
 
 export type ObjectValues<T> = T[keyof T];
 
+type GeneratedMutableValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<GeneratedMutableValue>
+  | { [key: string]: GeneratedMutableValue | undefined };
+
+function cloneGeneratedValue<T>(value: T): T {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneGeneratedValue(entry)) as T;
+  }
+  const cloned: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(
+    value as Record<string, GeneratedMutableValue | undefined>,
+  )) {
+    cloned[key] = cloneGeneratedValue(entry);
+  }
+  return cloned as T;
+}
+
+function mergeGeneratedOptions<T extends object>(
+  defaults: T,
+  options: Partial<T> = {},
+): T {
+  return {
+    ...cloneGeneratedValue(defaults),
+    ...cloneGeneratedValue(options),
+  } as T;
+}
+
+type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
+  {
+    defaults: TDefaults;
+    overrides: Partial<TImpl>;
+  };
+
+function isGeneratedImplOverrideCandidate(
+  value: unknown,
+): value is { id?: unknown; type?: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("id" in value || "type" in value)
+  );
+}
+
+function resolveGeneratedFactoryInputs<
+  TDefaults extends object,
+  TImpl extends object,
+>(
+  baseDefaults: TDefaults,
+  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
+  overrides?: Partial<TImpl>,
+): GeneratedFactoryResolution<TDefaults, TImpl> {
+  if (overrides !== undefined) {
+    return {
+      defaults: mergeGeneratedOptions(
+        baseDefaults,
+        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+      ),
+      overrides,
+    };
+  }
+  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
+    return {
+      defaults: cloneGeneratedValue(baseDefaults),
+      overrides: defaultsOrOverrides as Partial<TImpl>,
+    };
+  }
+  return {
+    defaults: mergeGeneratedOptions(
+      baseDefaults,
+      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+    ),
+    overrides: {},
+  };
+}
+
 export const SettaNotificationTypeEnum = {
   error: "error",
   warning: "warning",
@@ -8171,88 +8253,6 @@ export function createPluginRestartResponse(options: Partial<PluginRestartRespon
 }
 
 
-
-type GeneratedMutableValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<GeneratedMutableValue>
-  | { [key: string]: GeneratedMutableValue | undefined };
-
-function cloneGeneratedValue<T>(value: T): T {
-  if (value === null || value === undefined || typeof value !== "object") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => cloneGeneratedValue(entry)) as T;
-  }
-  const cloned: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(
-    value as Record<string, GeneratedMutableValue | undefined>,
-  )) {
-    cloned[key] = cloneGeneratedValue(entry);
-  }
-  return cloned as T;
-}
-
-function mergeGeneratedOptions<T extends object>(
-  defaults: T,
-  options: Partial<T> = {},
-): T {
-  return {
-    ...cloneGeneratedValue(defaults),
-    ...cloneGeneratedValue(options),
-  } as T;
-}
-
-type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
-  {
-    defaults: TDefaults;
-    overrides: Partial<TImpl>;
-  };
-
-function isGeneratedImplOverrideCandidate(
-  value: unknown,
-): value is { id?: unknown; type?: unknown } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    ("id" in value || "type" in value)
-  );
-}
-
-function resolveGeneratedFactoryInputs<
-  TDefaults extends object,
-  TImpl extends object,
->(
-  baseDefaults: TDefaults,
-  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
-  overrides?: Partial<TImpl>,
-): GeneratedFactoryResolution<TDefaults, TImpl> {
-  if (overrides !== undefined) {
-    return {
-      defaults: mergeGeneratedOptions(
-        baseDefaults,
-        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-      ),
-      overrides,
-    };
-  }
-  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
-    return {
-      defaults: cloneGeneratedValue(baseDefaults),
-      overrides: defaultsOrOverrides as Partial<TImpl>,
-    };
-  }
-  return {
-    defaults: mergeGeneratedOptions(
-      baseDefaults,
-      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-    ),
-    overrides: {},
-  };
-}
 
 function createGeneratedBaseSectionDefaults(): {
   isFrozen: boolean;
