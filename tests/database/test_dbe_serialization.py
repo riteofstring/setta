@@ -38,7 +38,6 @@ def test_write_project_serializes_chat_message_datetimes(tmp_path) -> None:
 
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
         sections={section_id: section_core},
         sectionVariants={variant_id: section_variant},

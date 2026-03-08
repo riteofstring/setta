@@ -289,7 +289,6 @@ class TestCodeFileBindingRegistration:
         )
         settings_backend = ProjectStateBackend(
             projectConfigs={settings_config.id: settings_config},
-            projectChatWindowingByProjectConfigId={settings_config.id: {}},
             defaultProjectConfigId=settings_config.id,
         )
         settings_backend.validate_default_project_id()
