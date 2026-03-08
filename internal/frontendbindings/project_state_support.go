@@ -445,6 +445,10 @@ type SpreadsheetGridDensity string
 
 type ChartType string
 
+type LineChartSettings struct{}
+
+type ScatterChartSettings struct{}
+
 type BaseChartSettingsUnion struct{}
 
 type TextBlockDisplayMode string
@@ -576,6 +580,10 @@ type BrowserSectionImpl struct{}
 type UserDefaultTaskBoardSectionImpl struct{}
 
 type TaskBoardSectionImpl struct{}
+
+type UserDefaultChartSectionImpl struct{}
+
+type ChartSectionImpl struct{}
 
 type SetSectionParamFilterRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -905,12 +913,6 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const ChartTypeEnum = {
-  line: "line",
-  scatter: "scatter",
-} as const;
-export type ChartType = ObjectValues<typeof ChartTypeEnum>;
 
 export const SpreadsheetGridDensityEnum = {
   compact: "compact",
@@ -2193,71 +2195,6 @@ export type ChartData = ChartDataValue;
 
 export type ChartDataType = ChartDataValue;
 
-export type LineChartSettings = {
-  type: typeof ChartTypeEnum.line;
-  xAxisColumn?: string | null;
-  secondYAxisColumns: Array<string>;
-  xAxisLog: boolean;
-  y1AxisLog: boolean;
-  y2AxisLog: boolean;
-};
-export function createLineChartSettings(
-  options: Partial<LineChartSettings> = {},
-): LineChartSettings {
-  return mergeGeneratedOptions(
-    {
-      type: ChartTypeEnum.line,
-      xAxisColumn: null,
-      secondYAxisColumns: [],
-      xAxisLog: false,
-      y1AxisLog: false,
-      y2AxisLog: false,
-    },
-    options,
-  );
-}
-
-export type ScatterChartSettings = {
-  type: typeof ChartTypeEnum.scatter;
-  xAxisColumn?: string | null;
-  categoryColumn?: string | null;
-  xAxisLog: boolean;
-  yAxisLog: boolean;
-};
-export function createScatterChartSettings(
-  options: Partial<ScatterChartSettings> = {},
-): ScatterChartSettings {
-  return mergeGeneratedOptions(
-    {
-      type: ChartTypeEnum.scatter,
-      xAxisColumn: null,
-      categoryColumn: null,
-      xAxisLog: false,
-      yAxisLog: false,
-    },
-    options,
-  );
-}
-
-export type BaseChartSettingsUnion =
-  | LineChartSettings
-  | ScatterChartSettings;
-
-export function createBaseChartSettingsUnionWithDiscriminator(
-  options:
-    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
-    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
-): BaseChartSettingsUnion {
-  switch (options.type) {
-    case ChartTypeEnum.line:
-      return createLineChartSettings(options);
-    case ChartTypeEnum.scatter:
-      return createScatterChartSettings(options);
-    default:
-      throw new Error("Unsupported chart type.");
-  }
-}
-
 export type CallableSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Callable;
   codeObjVariantMap: Record<string, string>;
@@ -2396,24 +2333,6 @@ export type UserDefaultTerminalSectionImpl = {
   aspectRatio: boolean | number;
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
-};
-
-export type ChartSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Chart;
-  dataPath: string;
-  chartSettings: BaseChartSettingsUnion;
-};
-
-export type UserDefaultChartSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  dataPath: string;
-  chartSettings: BaseChartSettingsUnion;
 };
 
 export type SpreadsheetSectionImpl = BaseSectionImpl & {
@@ -2854,56 +2773,6 @@ export function createTerminalSectionImpl(
       isMinimized: resolved.defaults.isMinimized,
       positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
       isPreset: false,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultChartSectionImpl(
-  options: Partial<UserDefaultChartSectionImpl> = {},
-): UserDefaultChartSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 300,
-        height: 300,
-      },
-      dataPath: "",
-      chartSettings: createLineChartSettings(),
-    },
-    options,
-  );
-}
-
-export function createChartSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChartSectionImpl>
-    | Partial<ChartSectionImpl> = {},
-  overrides?: Partial<ChartSectionImpl>,
-): ChartSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChartSectionImpl,
-    ChartSectionImpl
-  >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chart,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      dataPath: resolved.defaults.dataPath,
-      chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
     },
     resolved.overrides,
   );

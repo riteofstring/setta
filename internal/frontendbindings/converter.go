@@ -275,6 +275,10 @@ func newTypeConverter() *typeConverter {
 				{Name: "november", Value: "november"},
 				{Name: "december", Value: "december"},
 			},
+			reflect.TypeOf(ChartType("")): {
+				{Name: "line", Value: "line"},
+				{Name: "scatter", Value: "scatter"},
+			},
 			reflect.TypeOf(EngineType("")): {
 				{Name: "setta_llm", Value: "setta_llm"},
 				{Name: "external_agent", Value: "external_agent"},
@@ -1243,6 +1247,126 @@ func newTypeConverter() *typeConverter {
       tasks: resolved.defaults.tasks,
     },
     normalizedOverrides,
+  );
+}`,
+			),
+			reflect.TypeOf(LineChartSettings{}): objectDeclarationWithCreateExpr(
+				"LineChartSettings",
+				`mergeGeneratedOptions(
+    {
+      type: ChartTypeEnum.line,
+      xAxisColumn: null,
+      secondYAxisColumns: [],
+      xAxisLog: false,
+      y1AxisLog: false,
+      y2AxisLog: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ChartTypeEnum.line"},
+				TypeProperty{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "secondYAxisColumns", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "xAxisLog", TypeExpr: "boolean"},
+				TypeProperty{Name: "y1AxisLog", TypeExpr: "boolean"},
+				TypeProperty{Name: "y2AxisLog", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(ScatterChartSettings{}): objectDeclarationWithCreateExpr(
+				"ScatterChartSettings",
+				`mergeGeneratedOptions(
+    {
+      type: ChartTypeEnum.scatter,
+      xAxisColumn: null,
+      categoryColumn: null,
+      xAxisLog: false,
+      yAxisLog: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ChartTypeEnum.scatter"},
+				TypeProperty{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "categoryColumn", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "xAxisLog", TypeExpr: "boolean"},
+				TypeProperty{Name: "yAxisLog", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(BaseChartSettingsUnion{}): aliasDeclarationWithFactory(
+				"BaseChartSettingsUnion",
+				"LineChartSettings | ScatterChartSettings",
+				`export function createBaseChartSettingsUnionWithDiscriminator(
+  options:
+    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
+): BaseChartSettingsUnion {
+  switch (options.type) {
+    case ChartTypeEnum.line:
+      return createLineChartSettings(options);
+    case ChartTypeEnum.scatter:
+      return createScatterChartSettings(options);
+    default:
+      throw new Error("Unsupported chart type.");
+  }
+}`,
+			),
+			reflect.TypeOf(UserDefaultChartSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultChartSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 300,
+        height: 300,
+      },
+      dataPath: "",
+      chartSettings: createLineChartSettings(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "dataPath", TypeExpr: "string"},
+				TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion"},
+			),
+			reflect.TypeOf(ChartSectionImpl{}): aliasDeclarationWithFactory(
+				"ChartSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Chart;
+  dataPath: string;
+  chartSettings: BaseChartSettingsUnion;
+}`,
+				`export function createChartSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultChartSectionImpl>
+    | Partial<ChartSectionImpl> = {},
+  overrides?: Partial<ChartSectionImpl>,
+): ChartSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChartSectionImpl,
+    ChartSectionImpl
+  >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chart,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      dataPath: resolved.defaults.dataPath,
+      chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
+    },
+    resolved.overrides,
   );
 }`,
 			),

@@ -1132,6 +1132,40 @@ func TestTaskBoardSupportEnumsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestChartSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "ChartType",
+			root: reflect.TypeOf(ChartType("")),
+			values: []EnumValue{
+				{Name: "line", Value: "line"},
+				{Name: "scatter", Value: "scatter"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
 func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1568,6 +1602,107 @@ func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
   viewMode: TaskBoardViewMode;
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
+}`,
+			hasFactoryTS: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
+func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "LineChartSettings",
+			root: reflect.TypeOf(LineChartSettings{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ChartTypeEnum.line", Optional: false},
+				{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
+				{Name: "secondYAxisColumns", TypeExpr: "Array<string>", Optional: false},
+				{Name: "xAxisLog", TypeExpr: "boolean", Optional: false},
+				{Name: "y1AxisLog", TypeExpr: "boolean", Optional: false},
+				{Name: "y2AxisLog", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ScatterChartSettings",
+			root: reflect.TypeOf(ScatterChartSettings{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ChartTypeEnum.scatter", Optional: false},
+				{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
+				{Name: "categoryColumn", TypeExpr: "string | null", Optional: true},
+				{Name: "xAxisLog", TypeExpr: "boolean", Optional: false},
+				{Name: "yAxisLog", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:         "BaseChartSettingsUnion",
+			root:         reflect.TypeOf(BaseChartSettingsUnion{}),
+			kind:         "alias",
+			alias:        "LineChartSettings | ScatterChartSettings",
+			hasFactoryTS: true,
+		},
+		{
+			name: "UserDefaultChartSectionImpl",
+			root: reflect.TypeOf(UserDefaultChartSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "dataPath", TypeExpr: "string", Optional: false},
+				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ChartSectionImpl",
+			root: reflect.TypeOf(ChartSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Chart;
+  dataPath: string;
+  chartSettings: BaseChartSettingsUnion;
 }`,
 			hasFactoryTS: true,
 		},
