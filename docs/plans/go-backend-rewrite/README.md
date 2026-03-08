@@ -464,9 +464,13 @@ Use the docs in this order:
   - focused completed-slice doc for the first post-Phase-12 bounded agentic
     read transport: Go-owned `GET /getAgentProfiles` over the canonical
     agent-profile store
-142. `spike-mcp.md`
+142. `phase-13-prompt-template-read-transport.md`
+  - focused current-work doc for the next post-Phase-13 bounded agentic read
+    transport: a Go prompt-template file store plus thin
+    `GET /getPromptTemplates`
+143. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-143. `spike-pty.md`
+144. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
 142. `spike-lsp.md`
