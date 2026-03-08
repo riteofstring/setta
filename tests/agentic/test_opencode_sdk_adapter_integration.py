@@ -493,7 +493,6 @@ class TestOpenCodeSdkAdapterIntegration:
         dbe.write_project(
             ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
-                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
         )

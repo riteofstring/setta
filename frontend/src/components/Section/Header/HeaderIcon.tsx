@@ -193,7 +193,7 @@ export function HeaderIcon({
         <IoChatbox
           className={
             themedIconClassName ??
-            "text-setta-600 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-300 dark:group-hover/card-section:text-[#0084ff]"
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
           }
         />
       );

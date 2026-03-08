@@ -373,9 +373,6 @@ describe("getProjectChatBlockedReasonMessage", () => {
       getProjectChatBlockedReasonMessage("chat_provenance_missing"),
     ).toContain("missing provenance metadata");
     expect(
-      getProjectChatBlockedReasonMessage("chat_runtime_ambiguous"),
-    ).toContain("multiple chat runtimes");
-    expect(
       getProjectChatBlockedReasonMessage("engine_config_missing"),
     ).toContain("saved engine config is no longer available");
     expect(
