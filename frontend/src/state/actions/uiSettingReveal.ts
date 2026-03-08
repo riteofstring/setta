@@ -4,10 +4,6 @@ import {
   invokePluginSettingRevealHandler,
   usePluginRuntimeStore,
 } from "plugins/runtime";
-import {
-  getActiveSectionUIIds,
-  setActiveSectionUIIds,
-} from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   REQUIRED_UI_EDITOR_TABS,
@@ -516,7 +512,7 @@ function captureRevealProjectStateSnapshot(): RevealProjectStateSnapshot {
   const state = useProjectState.getState();
   return {
     projectConfigId: state.projectConfig.id,
-    activeIds: [...getActiveSectionUIIds()],
+    activeIds: [...state.projectConfig.activeIds],
   };
 }
 
@@ -862,36 +858,39 @@ function restoreRevealProjectStateSnapshotIfOwned({
   mutationDiff: RevealMutationDiff;
   leaseId?: number;
 }): void {
-  const projectConfigId = useProjectState.getState().projectConfig.id;
-  if (
-    !mutationDiff.touchedProjectStateActiveIdsProjectConfigIds.has(
-      projectConfigId,
-    )
-  ) {
-    return;
-  }
-  if (
-    !isRevealMutationOwnerMatch(
-      revealMutationOwnerByProjectStateActiveIdsProjectConfigId.get(
+  useProjectState.setState((state) => {
+    const projectConfigId = state.projectConfig.id;
+    if (
+      !mutationDiff.touchedProjectStateActiveIdsProjectConfigIds.has(
         projectConfigId,
-      ),
-      leaseId,
-    )
-  ) {
-    return;
-  }
-  if (projectConfigId !== postMutationSnapshot.projectConfigId) {
-    return;
-  }
-  if (
-    !areStringArraysEqual(
-      getActiveSectionUIIds(),
-      postMutationSnapshot.activeIds,
-    )
-  ) {
-    return;
-  }
-  setActiveSectionUIIds(snapshot.activeIds);
+      )
+    ) {
+      return state;
+    }
+    if (
+      !isRevealMutationOwnerMatch(
+        revealMutationOwnerByProjectStateActiveIdsProjectConfigId.get(
+          projectConfigId,
+        ),
+        leaseId,
+      )
+    ) {
+      return state;
+    }
+    if (projectConfigId !== postMutationSnapshot.projectConfigId) {
+      return state;
+    }
+    if (
+      !areStringArraysEqual(
+        state.projectConfig.activeIds,
+        postMutationSnapshot.activeIds,
+      )
+    ) {
+      return state;
+    }
+    state.projectConfig.activeIds = [...snapshot.activeIds];
+    return state;
+  });
 }
 
 function isRevealMutationOwnerMatch(
@@ -1027,11 +1026,15 @@ function applyRequestedActiveSectionForReveal({
     };
   }
   if (
-    areStringArraysEqual(getActiveSectionUIIds(), [requestedActiveSectionId])
+    areStringArraysEqual(projectState.projectConfig.activeIds, [
+      requestedActiveSectionId,
+    ])
   ) {
     return { ok: true };
   }
-  setActiveSectionUIIds([requestedActiveSectionId]);
+  useProjectState.setState((state) => {
+    state.projectConfig.activeIds = [requestedActiveSectionId];
+  });
   mutationDiff.touchedProjectStateActiveIdsProjectConfigIds.add(
     projectConfigId,
   );
@@ -1325,7 +1328,7 @@ function areOptionalStringArraysEqual(
 
 function getActiveSectionType(): SectionType | null {
   const projectState = useProjectState.getState();
-  const activeSectionId = getActiveSectionUIIds()[0] ?? null;
+  const activeSectionId = projectState.projectConfig.activeIds[0] ?? null;
   if (activeSectionId === null) {
     return null;
   }
