@@ -887,6 +887,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
+			if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
+				ModePolicy: modePolicy,
+				Profiles:   agentProfileStore,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterAgentRunRoutes(r, httpapi.AgentRunRouteDependencies{
 				ModePolicy: modePolicy,
 				Runs:       agentRunStore,

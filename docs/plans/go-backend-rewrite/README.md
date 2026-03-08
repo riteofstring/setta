@@ -461,7 +461,7 @@ Use the docs in this order:
     closeout dependency: Go-owned `GET /getAgentRuns` read transport required
     by external stop, history, and agent-run-backed overview state
 141. `phase-13-agent-profile-read-transport.md`
-  - focused current-work doc for the first post-Phase-12 bounded agentic
+  - focused completed-slice doc for the first post-Phase-12 bounded agentic
     read transport: Go-owned `GET /getAgentProfiles` over the canonical
     agent-profile store
 142. `spike-mcp.md`

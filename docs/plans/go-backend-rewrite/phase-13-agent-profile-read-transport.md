@@ -2,14 +2,14 @@
 
 ## Purpose
 
-This doc starts the first bounded post-Phase-12 slice.
+This doc records the first bounded post-Phase-12 slice and its landing.
 
 Phase 12 closed the tracked external-agent runtime and transport boundary. The
 next highest-leverage user-facing gap is that the frontend still hydrates agent
 profiles from a Python-owned route even though Go already owns the canonical
 `agent_profiles.json` store.
 
-This slice should close that dependency without broadening into the remaining
+This slice closed that dependency without broadening into the remaining
 non-external-agent agentic surfaces that still need separate ownership
 decisions.
 
@@ -21,14 +21,36 @@ Completed before this slice:
 - Go-owned `internal/agentprofiles.Store`
 - Go-owned MCP parity for `list_agent_profiles` and `get_agent_profile`
 
-Concrete current dependency:
+Concrete dependency that triggered this slice:
 
 - `frontend/src/state/actions/ai.ts`
   - `loadAgentProfiles()` still calls `route_get_agent_profiles()`
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`
   - agent-profile hydration still depends on that route at app load
-- Python still owns the route in `backend/setta/routers/agentic.py`:
+- Python owned the route in `backend/setta/routers/agentic.py`:
   - `route_get_agent_profiles(...)`
+
+Landed in this slice:
+
+- `internal/httpapi/agent_profile_routes.go`
+  - thin IDE-gated `GET /getAgentProfiles` transport
+  - direct readback from `internal/agentprofiles.Store`
+- `internal/app/app.go`
+  - explicit agent-profile store wiring into route registration
+- `internal/httpapi/route_names.go`
+  - bare-route registration for `getAgentProfiles`
+- `internal/httpapi/agent_profile_routes_test.go`
+  - focused coverage for successful list read, empty-list read, and
+    IDE-mode gating
+
+Closeout rerun after the landing:
+
+- `GET /getPromptTemplates` is still part of the same frontend hydration path
+  in `useHydrateAgenticState.ts`
+- `POST /getAgenticSummaryCacheStatus` is still Python-owned for the chat-area
+  settings UI
+- prompt-template read transport is the higher-leverage next bounded slice
+  because it is also a hydration dependency and still looks file-backed/read-only
 
 Remaining Python-owned agentic reads outside this slice:
 
@@ -37,7 +59,7 @@ Remaining Python-owned agentic reads outside this slice:
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - thin Go transport for `GET /getAgentProfiles`
 - source-of-truth readback from `internal/agentprofiles.Store`
@@ -105,6 +127,7 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land `GET /getAgentProfiles` over `internal/agentprofiles.Store`
-- rerun the post-Phase-12 inventory after that landing before choosing between
-  prompt-template transport and summary-cache-status ownership
+- open the next bounded post-Phase-12 doc around prompt-template read
+  transport
+- keep summary-cache-status ownership separate unless the next inventory shows
+  it has become the higher-leverage frontend blocker
