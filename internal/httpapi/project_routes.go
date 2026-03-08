@@ -80,6 +80,8 @@ const (
 	RouteSetWatchCodeInputs               = "/setWatchCodeInputs"
 	RouteSetParamEnteredValue             = "/setParamEnteredValue"
 	RouteUpdateParamImplConfig            = "/updateParamImplConfig"
+	RouteSetCodeObjName                   = "/setCodeObjName"
+	RouteSetCodeObjDisplayName            = "/setCodeObjDisplayName"
 	RouteGetPasswordParamValue            = "/getPasswordParamValue"
 	RouteDeleteSectionVariantOrAsk        = "/deleteSectionVariantOrAsk"
 	RouteDeleteJSONSourceFileAndVariant   = "/deleteJsonSourceFileAndVariant"
@@ -601,6 +603,20 @@ type UpdateParamImplConfigRequest struct {
 	NewConfig    map[string]any `json:"newConfig"`
 }
 
+type SetCodeObjNameRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	CodeObjID    string  `json:"codeObjId"`
+	Name         string  `json:"name"`
+}
+
+type SetCodeObjDisplayNameRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	CodeObjID    string  `json:"codeObjId"`
+	DisplayName  string  `json:"displayName"`
+}
+
 func projectMutationContext(ctx context.Context, frontendOpID *string) context.Context {
 	if frontendOpID == nil {
 		return ctx
@@ -711,6 +727,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeInputs, setWatchCodeInputsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateParamImplConfig, updateParamImplConfigHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeObjName, setCodeObjNameHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCodeObjDisplayName, setCodeObjDisplayNameHandler(deps))
 	return nil
 }
 
@@ -855,6 +873,78 @@ func updateParamImplConfigHandler(deps ProjectRouteDependencies) http.HandlerFun
 			payload.NewConfig,
 		); err != nil {
 			writeUpdateParamImplConfigError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setCodeObjNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeObjNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		codeObjID := strings.TrimSpace(payload.CodeObjID)
+		if codeObjID == "" {
+			writeError(w, r, http.StatusBadRequest, "code_obj_id_required", "Code object id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetCodeObjectName(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			codeObjID,
+			payload.Name,
+		); err != nil {
+			writeCodeObjNameMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setCodeObjDisplayNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetCodeObjDisplayNameRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		codeObjID := strings.TrimSpace(payload.CodeObjID)
+		if codeObjID == "" {
+			writeError(w, r, http.StatusBadRequest, "code_obj_id_required", "Code object id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetCodeObjectDisplayName(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			codeObjID,
+			payload.DisplayName,
+		); err != nil {
+			writeCodeObjDisplayNameMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2931,6 +3021,42 @@ func writeUpdateParamImplConfigError(w http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldUnsupported),
 		errors.Is(err, projectstate.ErrUpdateParamImplConfigFieldInvalid):
 		writeError(w, r, http.StatusUnprocessableEntity, "param_impl_config_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeCodeObjNameMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrCodeObjIDRequired):
+		writeError(w, r, http.StatusBadRequest, "code_obj_id_required", "Code object id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound):
+		writeError(w, r, http.StatusNotFound, "code_obj_not_found", "Code object not found.")
+	case errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound):
+		writeError(w, r, http.StatusUnprocessableEntity, "code_obj_active_reference_not_found", err.Error())
+	case errors.Is(err, projectstate.ErrCodeObjRenameUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "code_obj_rename_unsupported", err.Error())
+	case projectstate.IsInvalidCodeObjectNameError(err):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_code_obj_name", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeCodeObjDisplayNameMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrCodeObjIDRequired):
+		writeError(w, r, http.StatusBadRequest, "code_obj_id_required", "Code object id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound):
+		writeError(w, r, http.StatusNotFound, "code_obj_not_found", "Code object not found.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

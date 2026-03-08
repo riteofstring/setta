@@ -217,6 +217,16 @@ export async function route_update_param_impl_config(x: gt.UpdateParamImplConfig
   return await post(GoHTTPRoutes.updateParamImplConfig, x);
 
 }
+export async function route_set_code_obj_name(x: gt.SetCodeObjNameRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCodeObjName, x);
+
+}
+export async function route_set_code_obj_display_name(x: gt.SetCodeObjDisplayNameRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCodeObjDisplayName, x);
+
+}
 export async function route_kill_subprocesses(x: gt.KillSubprocessesRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.killSubprocesses, x);

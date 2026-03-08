@@ -277,6 +277,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "UPDATE_PARAM_IMPL_CONFIG",
 				},
 				{
+					Name:     "setCodeObjName",
+					Path:     httpapi.RouteSetCodeObjName,
+					EnumName: "SET_CODE_OBJ_NAME",
+				},
+				{
+					Name:     "setCodeObjDisplayName",
+					Path:     httpapi.RouteSetCodeObjDisplayName,
+					EnumName: "SET_CODE_OBJ_DISPLAY_NAME",
+				},
+				{
 					Name:     "killSubprocesses",
 					Path:     httpapi.RouteKillSubprocesses,
 					EnumName: "KILL_SUBPROCESSES",
@@ -1154,6 +1164,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "updateParamImplConfig",
 			RequestType:     reflect.TypeOf(UpdateParamImplConfigRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_code_obj_name",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCodeObjName",
+			RequestType:     reflect.TypeOf(SetCodeObjNameRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_code_obj_display_name",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setCodeObjDisplayName",
+			RequestType:     reflect.TypeOf(SetCodeObjDisplayNameRequestInput{}),
 		},
 		{
 			FunctionName:    "route_kill_subprocesses",

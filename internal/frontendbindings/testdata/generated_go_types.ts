@@ -5969,6 +5969,28 @@ export function createUpdateParamImplConfigRequestInput(options: Partial<UpdateP
 }
 
 
+export type SetCodeObjNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codeObjId: string;
+  name: string;
+};
+export function createSetCodeObjNameRequestInput(options: Partial<SetCodeObjNameRequestInput> = {}): SetCodeObjNameRequestInput {
+  return options as SetCodeObjNameRequestInput;
+}
+
+
+export type SetCodeObjDisplayNameRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  codeObjId: string;
+  displayName: string;
+};
+export function createSetCodeObjDisplayNameRequestInput(options: Partial<SetCodeObjDisplayNameRequestInput> = {}): SetCodeObjDisplayNameRequestInput {
+  return options as SetCodeObjDisplayNameRequestInput;
+}
+
+
 export type KillSubprocessesRequestInput = {
   projectConfigId: string;
 };

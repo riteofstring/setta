@@ -105,6 +105,7 @@ Primary sources used for this checklist:
 | Complete | Chat-section persistence and stale-chat cleanup | Go owns `setChatSectionSettings`, `setChatSectionState`, `getChatSectionChatId`, and `setChatSectionChatId` over `internal/chatsections`. |
 | Complete | Codegen target configuration | Go owns `setProjectConfigCodegenTargets`, and the current `RunInstructions`, `codegenTargets`, `codeUpdates`, `ParamNameInput`, `SectionHeader`, and `CodeArea` callers now load against canonical generated Go codegen-target enums/types/helpers instead of the legacy Python-generated binding surface. |
 | Complete | Param value and param UI-config mutations used by the current frontend | Go owns `setParamEnteredValue` and `updateParamImplConfig`, and the current `ParamInput`, `MetaControlArea`, app-mode param-input path in `appRegistry`, `TextParamInput`, `DropzoneInput`, `ButtonInput`, `SliderInput`, `DropdownInput`, `ColorPickerInput`, `QuickInfoConfig`, `createSectionsHelper`, and `applyUiTypeComboboxSelection` callers now reach those routes through canonical generated frontend bindings. |
+| Complete | Code-object naming/display mutations used by the current frontend | Go owns `setCodeObjName` and `setCodeObjDisplayName`, and the current `ParamNameInput` and `QuickInfoConfig` callers now reach those routes through canonical generated frontend bindings. |
 | Complete | Watch-code runtime and transport | `internal/watchcode` owns the current watch-code runtime plus `setWatchCodeEnabled` and `setWatchCodeInputs`. |
 | Complete | LSP diagnostics and completion surface | Go owns text-field, output-accessor, code-area, prefix/suffix completion, diagnostics reads, and diagnostics mute/suppression routes. |
 | Complete | Plugin-defined code-language routing for LSP | Go owns language-aware routing for plugin-defined `Code` sections in the current caller-backed scope. |
@@ -112,7 +113,7 @@ Primary sources used for this checklist:
 | Complete | Type-error ignore HTTP route used by the current frontend | The type-error context menu now POSTs Go-owned `setTypeErrorIgnore`, and the existing project-state save hooks rematerialize Go-owned codegen/LSP state after the mutation. |
 | Complete | Password/subprocess helper routes still used by the current frontend | Param inputs now reach Go-owned `getPasswordParamValue`, and stop-code flows now reach the Go-owned `killSubprocesses` adapter over `internal/projectstate` password-secret reads plus the Go terminal interrupt service. |
 | Complete | Text-block docstring conversion helper route used by the current frontend | The text-block markdown toggle now POSTs Go-owned `docstringToMarkdown`, backed by `internal/docstringmarkdown` and the thin IDE-only helper transport in `internal/httpapi/docstring_routes.go`. |
-| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation, edge and agentic-edge mutation, copy/paste/group-orientation/move/undo/redo flows, section-variant create/select/default/name/sort/frozen and JSON-source-key mutation, param order/indent helpers, prompt/codegen-prefix-suffix and code-object naming/display/attached-terminal helpers, and text-block display/format, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
+| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation, edge and agentic-edge mutation, copy/paste/group-orientation/move/undo/redo flows, section-variant create/select/default/name/sort/frozen and JSON-source-key mutation, param order/indent helpers, prompt/codegen-prefix-suffix and attached-terminal helpers, and text-block display/format, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
 | Complete | Input-area and JSON-source file helpers still used by the current frontend | The input-area `createFile` helper now reaches Go-owned workspace file creation over `internal/filebrowser`, and the current section-variant delete prompt/confirm flow now reaches Go-owned `deleteSectionVariantOrAsk` and `deleteJsonSourceFileAndVariant` handlers plus Go `internal/projectstate` mutation ownership, with frontend rehydration keeping the active variant-list caller in sync. |
 
 ## 5. MCP, app-spec ownership, tool registry, and LLM config
@@ -203,7 +204,7 @@ callers.
   - copy/paste/group-orientation/group/ungroup/move plus undo/redo helpers
   - section-variant create/delete/select/default/name/sort/frozen and JSON-source-key toggles
   - param order/indent helpers
-  - prompt/codegen-prefix-suffix and code-object naming/display/attached-terminal helpers
+  - prompt/codegen-prefix-suffix and attached-terminal helpers
   - text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link metadata
 
 ### Dormant or not-proven-current-caller legacy families

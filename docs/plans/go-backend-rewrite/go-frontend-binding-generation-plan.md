@@ -81,6 +81,7 @@ Current landed wedge:
   - current status/meta route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
+  - current param value/config and code-object naming/display route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -138,6 +139,11 @@ Current landed wedge:
       - `SetParentDefaultChildSectionTypeRequestInput`
       - `SetListRootViewModeRequestInput`
       - `SetGroupOverflowModeRequestInput`
+    - current param value/config and code-object naming/display payloads
+      - `SetParamEnteredValueRequestInput`
+      - `UpdateParamImplConfigRequestInput`
+      - `SetCodeObjNameRequestInput`
+      - `SetCodeObjDisplayNameRequestInput`
     - current structure/param-selection mutation payloads
       - `DeleteSectionsRequestInput`
       - `DeleteSelectedParamsRequestInput`
@@ -689,6 +695,9 @@ Current landed wedge:
     `createSectionsHelper`, and `applyUiTypeComboboxSelection` now consume
     canonical Go-generated param value/config route bindings for
     `setParamEnteredValue` and `updateParamImplConfig`
+  - `ParamNameInput` and `QuickInfoConfig` now consume canonical
+    Go-generated code-object naming/display route bindings for
+    `setCodeObjName` and `setCodeObjDisplayName`
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
   - `runOrImportCode`, `RunButton`, and `AppRenderer` now consume canonical

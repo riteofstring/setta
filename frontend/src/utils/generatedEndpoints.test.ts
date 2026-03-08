@@ -70,6 +70,8 @@ import {
   route_set_browser_saved_searches,
   route_set_chat_section_state,
   route_set_code_file_binding,
+  route_set_code_obj_display_name,
+  route_set_code_obj_name,
   route_set_group_overflow_mode,
   route_set_list_root_view_mode,
   route_set_llm_api_keys,
@@ -979,6 +981,48 @@ describe("generatedEndpoints project shell and layout", () => {
           dateSelectionMode: "multiple",
         },
         frontendOpId: "frontend-op-param-config",
+      }),
+    });
+  });
+
+  it("posts code-object naming writes", async () => {
+    await route_set_code_obj_name({
+      projectConfigId: "project-alpha",
+      codeObjId: "param-a",
+      name: "renamed_param",
+      frontendOpId: "frontend-op-code-obj-name",
+    });
+
+    await route_set_code_obj_display_name({
+      projectConfigId: "project-alpha",
+      codeObjId: "param-a",
+      displayName: "Renamed Param",
+      frontendOpId: "frontend-op-code-obj-display-name",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCodeObjName`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        codeObjId: "param-a",
+        name: "renamed_param",
+        frontendOpId: "frontend-op-code-obj-name",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCodeObjDisplayName`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        codeObjId: "param-a",
+        displayName: "Renamed Param",
+        frontendOpId: "frontend-op-code-obj-display-name",
       }),
     });
   });

@@ -61,6 +61,20 @@ type UpdateParamImplConfigRequestInput struct {
 	NewConfig       map[string]any `json:"newConfig"`
 }
 
+type SetCodeObjNameRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	CodeObjID       string  `json:"codeObjId"`
+	Name            string  `json:"name"`
+}
+
+type SetCodeObjDisplayNameRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	CodeObjID       string  `json:"codeObjId"`
+	DisplayName     string  `json:"displayName"`
+}
+
 type Position struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
