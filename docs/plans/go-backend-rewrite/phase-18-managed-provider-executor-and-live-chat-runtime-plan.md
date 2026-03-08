@@ -6,9 +6,9 @@ This doc scopes the remaining Phase 18 follow-on after the landed managed chat
 send owner, hydrate/stop routes, and chat-section persistence transport.
 
 The remaining direct product gap is no longer route ownership. It is the
-missing managed provider executor plus the missing Go-owned live chat runtime
-path that can drive the existing frontend `LLMStreamingResponse` contract while
-the run is still in flight.
+missing managed provider executor behind the now-landed Go-owned live chat
+runtime path that can drive the existing frontend `LLMStreamingResponse`
+contract while the run is still in flight.
 
 ## Current Status
 
@@ -23,11 +23,18 @@ Already landed in Phase 18:
 Still missing for managed `setta_llm` chats:
 
 - a real provider-backed executor behind `internal/agentruns.Executor`
-- a Go-owned `LLMStreamingResponse` websocket envelope and broadcaster path
-- a Go-owned live in-flight managed chat state store that can overlay durable
-  run state during hydration
 
-Repo findings from current inspection:
+Landed during Slice 1:
+
+- Go `LLMStreamingResponse` websocket message types and constructor surface in
+  `internal/realtime`
+- Go-owned managed live chat runtime/state store in `internal/managedchat`
+- managed runtime lifecycle hooks that seed and clear that live state from
+  `internal/agentruns.Runtime`
+- real IDE app wiring so `internal/managedchat.Service` now hydrates through
+  the concrete live runtime instead of a stub-only boundary
+
+Repo findings that shaped this follow-on:
 
 - the frontend still expects websocket `LLMStreamingResponse` chunks to drive
   active chat progression after the initial send/hydrate request
@@ -35,19 +42,13 @@ Repo findings from current inspection:
   not use `frontendAffinityToken` as a websocket routing key
 - the current Go managed chat service already exposes an optional live overlay
   boundary through `managedchat.LiveChatStateProvider`
-- the current Go managed runtime has no equivalent live managed chat state
-  owner or chunk broadcaster yet
+- the current Go managed runtime previously had no equivalent live managed chat
+  state owner or chunk broadcaster
 
 ## Scope
 
 This follow-on should cover:
 
-- a Go `LLMStreamingResponse` websocket message type in `internal/realtime`
-- a managed live chat runtime that:
-  - seeds live chat state from a started managed run
-  - applies managed stream chunks to in-flight chat state
-  - exposes `GetLiveChatState` for `internal/managedchat`
-  - broadcasts managed chat chunks to IDE frontend websocket clients
 - a first bounded managed provider executor behind `internal/agentruns.Executor`
 - app wiring that connects the managed runtime, live overlay, and websocket
   transport through explicit service boundaries
@@ -69,14 +70,14 @@ The current frontend cannot show an in-flight managed reply unless Go can emit
 the existing websocket chunk contract. The live runtime is therefore a direct
 dependency of the provider executor, not optional polish.
 
-The first bounded slice in this plan should land:
+Slice 1 landed with:
 
 - `LLMStreamingResponse` message types in Go
 - a managed live chat runtime/store
 - runtime lifecycle hooks that seed and clear that live state
 - broadcast of managed chat chunks to IDE frontend websocket clients
 
-This slice should not pretend provider execution exists yet.
+That slice intentionally did not pretend provider execution exists yet.
 
 ### 2. Keep source-of-truth boundaries explicit
 
@@ -114,31 +115,22 @@ support behind silent heuristics.
 
 ## Implementation Plan
 
-1. Add Go `LLMStreamingResponse` websocket message types and constructors in
-   `internal/realtime`.
-2. Add a managed live chat runtime/store in `internal/managedchat` that can:
-   - activate from a started managed run
-   - apply stream chunks to live chat state
-   - broadcast websocket messages
-   - return cloned live chat state for hydration overlay
-3. Add a narrow lifecycle hook from `internal/agentruns.Runtime` so started
-   managed runs seed and clear the live runtime automatically.
-4. Wire the real IDE app so `managedchat.Service` hydrates from the new live
-   runtime and the managed runtime can publish through the shared websocket
-   hub.
-5. Add targeted tests for:
-   - websocket envelope shaping
-   - live state application for start/delta/stop/finalized events
-   - runtime activation/deactivation hooks
-   - managed hydrate overlay using the concrete live runtime
-6. After that lands, implement the first bounded provider executor that emits
-   those chunks.
+1. Implement the first bounded provider executor that emits the now-landed
+   chunk contract through the managed live runtime.
+2. Keep provider support explicit and fail unsupported providers with typed
+   unavailable/unsupported errors instead of guessing compatibility.
+3. Add targeted executor tests for request shaping, cancellation, streamed
+   chunk emission, persisted outputs, and unsupported-provider behavior.
+4. Expand provider/tool support only when the bounded executor proves it is
+   required for the current direct managed-chat product surface.
 
 ## Slice Breakdown
 
 ### Slice 1
 
 Managed live chat runtime and websocket stream foundation.
+
+Status: landed on 2026-03-09.
 
 ### Slice 2
 
@@ -159,10 +151,20 @@ are required for the current direct managed chat product surface.
   `internal/agentruns` durable storage
 - keep the first provider slice explicitly bounded to avoid hiding unsupported
   providers behind generic abstractions too early
+- broadcast managed chat chunks to IDE frontend websocket clients through the
+  shared websocket hub because these AI routes are IDE-only today
+
+## Open Questions
+
+- whether the first provider executor should start as OpenAI-compatible only or
+  whether Anthropic support is required in the same slice by active managed
+  product paths
+- whether tool-call streaming needs to land in the same executor slice or can
+  remain a follow-on after plain assistant streaming is working end-to-end
 
 ## Verification
 
-Planned verification for Slice 1:
+Slice 1 verification:
 
 - `./scripts/go.sh test ./internal/realtime ./internal/managedchat ./internal/agentruns ./internal/app -run 'Test(NewLLMStreamingResponseMessage|LiveRuntime|RuntimeStartRunActivatesLiveTracker|ServiceGetChatUsesLiveRuntimeOverlay|App.*Managed.*)' -count=1`
 
@@ -182,12 +184,15 @@ Planned verification for Slice 2:
 - 2026-03-09: Slice 1 selected as the first implementation target because it
   unblocks the later provider executor without bundling a large provider port
   into one opaque change.
+- 2026-03-09: landed Slice 1 with Go `LLMStreamingResponse` messages, a
+  concrete managed live runtime, runtime lifecycle hooks, and hydrate-overlay
+  coverage through the real app wiring.
 
 ## Next Recommended Step
 
-Land Slice 1:
+Implement Slice 2:
 
-- Go `LLMStreamingResponse` types
-- managed live chat runtime/store
-- managed runtime lifecycle wiring
-- targeted tests
+- plug the first bounded provider executor into `internal/agentruns.Executor`
+- emit managed chat chunks through the landed live runtime instead of creating
+  a parallel provider-owned state cache
+- keep unsupported providers explicit until they are actually implemented

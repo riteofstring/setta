@@ -32,17 +32,18 @@ and the recorded spike outcomes describe a repo state where the deployment/
 launcher runtime slices, the shipped CLI migration slices, the MCP/tooling
 foundations, the bounded plugin runtime surface, the direct frontend LLM
 settings transport, the direct app-gen skills/custom-skill transport, the
-chat-section persistence transport, managed chat hydrate/stop transport, and
-the bounded managed `/getLLMResponse` send owner/route foundation are
-complete for their bounded scopes.
+chat-section persistence transport, managed chat hydrate/stop transport, the
+bounded managed `/getLLMResponse` send owner/route foundation, and the managed
+live chat runtime/websocket stream foundation are complete for their bounded
+scopes.
 
 That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat transport is now Go-owned for the current direct frontend managed and
 external route surface, but managed provider execution and websocket/runtime
 parity are still incomplete. The rewrite still does not plan to recreate a
 broad LiteLLM-equivalent managed runtime in Go, and the remaining managed-chat
-follow-on is now the provider-backed executor plus live in-flight state
-overlay behind the landed `/getLLMResponse` send owner.
+follow-on is now the provider-backed executor behind the landed
+`/getLLMResponse` send owner and the landed managed live chat runtime.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -63,6 +64,13 @@ The third Phase 18 slice is now landed for the managed send owner and
 - managed `setta_llm` request validation, history shaping, and prompt shaping
 - thin managed/external route dispatch by engine type
 - explicit `503` behavior while the managed executor remains unavailable
+
+The fourth Phase 18 slice is now landed for the managed live chat runtime and
+websocket stream foundation:
+
+- Go `LLMStreamingResponse` websocket message types in `internal/realtime`
+- concrete live managed chat overlay/store in `internal/managedchat`
+- managed runtime lifecycle hooks in `internal/agentruns.Runtime`
 
 The separate transcription-session runtime remains a later bounded AI follow-on
 instead of being bundled into that managed-chat slice. The current bounded
