@@ -112,6 +112,7 @@ def _write_project_state(dbe: DBE) -> ProjectConfig:
     project_config = ProjectConfig()
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -153,6 +154,7 @@ def _write_project_state_with_agentic_context(
         codeObjImpls=single.codeObjImpls,
         codeObjVariants=single.codeObjVariants,
         projectConfigs={single.projectConfig.id: single.projectConfig},
+        projectChatWindowingByProjectConfigId={single.projectConfig.id: {}},
         defaultProjectConfigId=single.projectConfig.id,
     )
     dbe.write_project(backend)

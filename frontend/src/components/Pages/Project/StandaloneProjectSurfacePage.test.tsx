@@ -2,7 +2,13 @@
 
 import { act, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePage } from "./StandaloneProjectSurfacePage";
@@ -212,6 +218,21 @@ function LocationProbe() {
   return <div data-testid="mock-location-path">{location.pathname}</div>;
 }
 
+function NavigateButton({ to }: { to: string }) {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      data-testid={`mock-navigate-${to}`}
+      onClick={() => {
+        navigate(to);
+      }}
+    >
+      Navigate
+    </button>
+  );
+}
+
 function click(node: Element | null): void {
   if (!(node instanceof HTMLElement)) {
     throw new Error("Expected clickable element.");
@@ -377,5 +398,47 @@ describe("StandaloneProjectSurfacePage", () => {
         '[data-testid="standalone-project-chat-thread-surface"]',
       ),
     ).toBeNull();
+  });
+
+  it("clears a stale thread-not-found block when navigating to a different thread in the same mounted tab", async () => {
+    hoisted.state.chatHistoryEntries = [];
+    hoisted.state.projectChatBlockedErrorCode = "chat_not_found";
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/missing-thread"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat"
+              element={<StandaloneProjectSurfacePage />}
+            />
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+          <NavigateButton to="/demo/chat/chat-alpha" />
+        </MemoryRouter>,
+      );
+    });
+
+    expect(host.textContent).toContain("Thread Not Found");
+
+    hoisted.state.projectChatBlockedErrorCode = null;
+
+    await act(async () => {
+      click(
+        host.querySelector(
+          '[data-testid="mock-navigate-/demo/chat/chat-alpha"]',
+        ),
+      );
+    });
+
+    const surface = host.querySelector(
+      '[data-testid="standalone-project-chat-thread-surface"]',
+    );
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-project-chat-id")).toBe("chat-alpha");
+    expect(host.textContent).not.toContain("Thread Not Found");
   });
 });

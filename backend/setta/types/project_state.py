@@ -187,6 +187,10 @@ class ProjectStateBackend(
     def _validate_default_project_id(self):
         return self.validate_default_project_id()
 
+    @model_validator(mode="after")
+    def _validate_project_chat_windowing(self):
+        return self.validate_project_chat_windowing()
+
     def validate_default_project_id(self):
         if self.projectConfigs:
             # If projects exist, use first key when defaultProjectConfigId is None
@@ -198,6 +202,20 @@ class ProjectStateBackend(
         else:
             # If projects is empty, defaultProjectConfigId should be None
             self.defaultProjectConfigId = None
+        return self
+
+    def validate_project_chat_windowing(self):
+        missing_project_config_ids = [
+            project_config_id
+            for project_config_id in self.projectConfigs
+            if project_config_id not in self.projectChatWindowingByProjectConfigId
+        ]
+        if missing_project_config_ids:
+            missing_ids = ", ".join(missing_project_config_ids)
+            raise ValueError(
+                "Missing project chat windowing state for project config ids: "
+                f"{missing_ids}"
+            )
         return self
 
 

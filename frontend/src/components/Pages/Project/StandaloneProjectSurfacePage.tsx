@@ -201,6 +201,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
   is404,
 }: StandaloneProjectSurfacePageLoadState) {
   const standaloneProjectChatSurfaceId = useId();
+  const standaloneSectionChatSurfaceId = useId();
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
   const navigate = useNavigate();
@@ -246,16 +247,35 @@ export function StandaloneProjectSurfacePageWithLoadState({
         `Chat ${target.chatId.slice(0, 8)}`
       : null;
   const [
-    standaloneProjectChatBlockedErrorCode,
-    setStandaloneProjectChatBlockedErrorCode,
-  ] = useState<string | null>(null);
+    standaloneProjectChatBlockedState,
+    setStandaloneProjectChatBlockedState,
+  ] = useState<{
+    chatId: string | null;
+    errorCode: string | null;
+  }>({
+    chatId: null,
+    errorCode: null,
+  });
   const resolvedDoneLoading = doneLoading === true;
   const resolvedIs404 = is404 === true;
   const standaloneProjectChatId =
     target.kind === "project_chat_thread" ? target.chatId : null;
   const standaloneProjectChatThreadMissing =
     target.kind === "project_chat_thread" &&
-    standaloneProjectChatBlockedErrorCode === "chat_not_found";
+    standaloneProjectChatBlockedState.chatId === standaloneProjectChatId &&
+    standaloneProjectChatBlockedState.errorCode === "chat_not_found";
+
+  useEffect(() => {
+    setStandaloneProjectChatBlockedState((current) => {
+      if (current.chatId === standaloneProjectChatId) {
+        return current;
+      }
+      return {
+        chatId: standaloneProjectChatId,
+        errorCode: null,
+      };
+    });
+  }, [standaloneProjectChatId]);
 
   useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
@@ -328,9 +348,20 @@ export function StandaloneProjectSurfacePageWithLoadState({
           surfaceId={standaloneProjectChatSurfaceId}
           projectChatId={standaloneProjectChatId}
           setProjectChatId={setStandaloneProjectChatId}
-          onProjectChatBlockedErrorCodeChange={
-            setStandaloneProjectChatBlockedErrorCode
-          }
+          onProjectChatBlockedErrorCodeChange={(errorCode) => {
+            setStandaloneProjectChatBlockedState((current) => {
+              if (
+                current.chatId === standaloneProjectChatId &&
+                current.errorCode === errorCode
+              ) {
+                return current;
+              }
+              return {
+                chatId: standaloneProjectChatId,
+                errorCode,
+              };
+            });
+          }}
           dataTestId={
             target.kind === "project_chat_thread"
               ? "standalone-project-chat-thread-surface"
@@ -407,6 +438,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
           headerActions={null}
           roundedClassName="rounded-none"
           chatHost="standalone_page"
+          projectChatSurfaceId={`${standaloneSectionChatSurfaceId}:${target.sectionId}`}
           bodyOverride={
             target.sectionType === SectionTypeEnum.Group ||
             target.sectionType === SectionTypeEnum.ListRoot ? (

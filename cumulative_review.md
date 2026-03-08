@@ -212,3 +212,37 @@ Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` passed: 11 tests.
 - `./scripts/run-playwright-e2e.sh --grep "minimized floating section windows keep their canvas placeholder" frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts` passed.
 - CDP verification completed on a disposable local app instance. The standalone `/sample_project/chat/cdp-visual-thread` route rendered hydrated thread content with no workspace panes, and a minimized floating section preserved the canvas placeholder with the expected recovery actions visible.
+
+## 2026-03-09 22:14:51 PDT
+
+Implemented the review-requested fixes for backend state invariants, route-scoped standalone thread blocking, multi-host section-chat isolation, and backend-authoritative git-pane cleanup, then normalized direct backend test fixtures to match the stricter contract.
+
+Backend model and fixture authority:
+- `ProjectStateBackend` now validates that every `projectConfigs` entry has a matching `projectChatWindowingByProjectConfigId` entry at construction time instead of letting request handlers discover missing windowing state later.
+- Updated direct backend test constructors and helper fixtures across MCP, router, websocket, agentic, share, and database tests so they seed authoritative per-project windowing state instead of depending on a lazy fallback that no longer exists.
+- This removes the request-time `500` class where MCP `/__setta__/tools/call` scope resolution could crash while trying to slice backend state for an otherwise valid request.
+
+Frontend state ownership and reconciliation:
+- Standalone `/:projectConfigName/chat/:chatId` routes now track blocked hydration state by the active `chatId`, so a prior `chat_not_found` verdict cannot poison later valid navigation in the same mounted tab.
+- Section-backed chat surfaces now receive host-specific `surfaceId`s when rendered from standalone pages, saved window spaces, or live floating/docked/maximized windows, while canvas-hosted section chat keeps the section-owned id. This isolates draft thread state, pending transcript state, and other surface-local ownership even when two live hosts show the same section.
+- Backend project-state reconciliation now runs the same git-pane ephemeral cleanup used by local authoritative windowing writes. Reused or repurposed instance ids no longer keep stale `projectChatGitGraphEmbeddedPaneVisibleByInstanceId` or tracked maximized-git-window state alive after a backend restore/rebase/update.
+- Removed the dead `UnifiedChatSurface` git-graph rendering path. Git graph windows now have a single supported rendering path through `GitGraphWindowContent(instanceId=...)`, and unsupported uses surface an explicit warning instead of silently doing the wrong thing.
+
+UX before vs after:
+- Before: one invalid standalone thread URL could leave the tab stuck on `Thread Not Found` until refresh; after, same-tab navigation to a valid thread immediately hydrates the requested route.
+- Before: the same chat section rendered in two live hosts could leak draft/new-thread state between them; after, each host owns its own local project-chat surface state.
+- Before: backend-authoritative windowing updates could resurrect stale git sidebar state on a reused instance id; after, authoritative updates prune that ephemeral state consistently.
+- Before: MCP tools-call flows could fail with opaque `500`s for backend states that should have been rejected earlier; after, invalid project-state shape fails at construction and valid runtime requests keep their intended behavior.
+
+DX before vs after:
+- Before: state authority was split between model construction, route-local error state, and host-agnostic section surface ids; after, ownership is explicit at the model boundary, route boundary, and surface boundary.
+- Before: git-pane cleanup behavior depended on whether the layout change came from a local setter or a backend reconciliation path; after, both paths share the same cleanup helper.
+- Before: many direct backend fixtures were constructing partial state that production code no longer tolerated; after, the touched fixtures encode the real authoritative backend shape and fail closer to the real contract.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/Section/Container/SectionWindowSurface.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed: 6 files, 33 tests.
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_tools_call_agentic_scope_enforcement.py tests/routers/test_share_policy_routes.py -q` passed: 38 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "same-tab SPA navigation"` passed.
+- `source activate.sh && python -m compileall backend tests` completed successfully after the backend fixture updates.
+- Follow-up spot-check: `tests/mcp/test_mcp_agentic_scope_cache_invalidation.py::test_mcp_agentic_scope_cache_invalidates_on_history_coalesce` is still failing on pre-existing expectation drift unrelated to the reviewed regressions; this turn did not retune that cache test.
+- CDP verification on the live dev instance confirmed the same-tab standalone invalid-thread -> valid-thread flow now clears the stale not-found state and renders the valid transcript on the requested route.

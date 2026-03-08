@@ -68,6 +68,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -1056,6 +1057,9 @@ export function processProjectStateUpdateFromBackend(
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
+  );
+  reconcileProjectChatWindowingEphemeralState(
+    sanitizedProjectState.projectChatWindowing,
   );
   runWithAtomicallyPublishedProjectStores(
     {

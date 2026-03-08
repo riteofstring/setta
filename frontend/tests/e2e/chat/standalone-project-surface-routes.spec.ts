@@ -970,6 +970,127 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone thread routes recover from a stale not-found state after same-tab SPA navigation", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const standalonePage = await page.context().newPage();
+    const missingThreadChatId = "standalone-thread-missing";
+    const validThreadChatId = "standalone-thread-recovered";
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(
+            runs.filter((run) => run.inputs?.chatId !== validThreadChatId),
+          ),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId === missingThreadChatId) {
+          await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({
+              detail: {
+                errorCode: "chat_not_found",
+                message: "Chat not found.",
+              },
+            }),
+          });
+          return;
+        }
+        if (payload?.chatId !== validThreadChatId) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: "recovered-assistant-message",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Recovered after same-tab navigation.",
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(missingThreadChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-not-found"),
+      ).toBeVisible();
+
+      const validThreadPath = `/${projectConfigName}/chat/${validThreadChatId}`;
+      await standalonePage.evaluate((nextPath) => {
+        window.history.pushState({}, "", nextPath);
+        window.dispatchEvent(new PopStateEvent("popstate"));
+      }, validThreadPath);
+
+      await expect
+        .poll(() => new URL(standalonePage.url()).pathname)
+        .toBe(validThreadPath);
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByText("Recovered after same-tab navigation."),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-not-found"),
+      ).toHaveCount(0);
+    } finally {
+      await standalonePage.close();
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone thread routes fail closed when multiple runtimes answer the same chat id", async ({
     page,
   }) => {

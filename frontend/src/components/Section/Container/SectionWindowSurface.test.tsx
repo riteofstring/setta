@@ -49,12 +49,14 @@ vi.mock("./SectionContainerCoreResizabe", () => ({
     sectionId,
     chatHost,
     chatModeOverride,
+    projectChatSurfaceId,
     projectChatId,
     setProjectChatId,
   }: {
     sectionId: string;
     chatHost: string;
     chatModeOverride?: string;
+    projectChatSurfaceId?: string;
     projectChatId?: string | null;
     setProjectChatId?: unknown;
   }) => (
@@ -63,6 +65,7 @@ vi.mock("./SectionContainerCoreResizabe", () => ({
       data-section-id={sectionId}
       data-chat-host={chatHost}
       data-chat-mode-override={chatModeOverride ?? ""}
+      data-project-chat-surface-id={projectChatSurfaceId ?? ""}
       data-project-chat-id={projectChatId ?? ""}
       data-project-chat-controlled={setProjectChatId ? "true" : "false"}
     />
@@ -95,6 +98,7 @@ describe("SectionWindowSurface", () => {
         roundedClassName="rounded-none"
         chatHost={ChatWindowPlacementEnum.floating}
         chatModeOverride={ChatWindowModeEnum.project_ai_mode}
+        projectChatSurfaceId="window-surface-1"
         projectChatId="chat-section-1"
         setProjectChatId={() => {}}
       />,
@@ -104,6 +108,7 @@ describe("SectionWindowSurface", () => {
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-chat-host="floating"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
+    expect(markup).toContain('data-project-chat-surface-id="window-surface-1"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
   });

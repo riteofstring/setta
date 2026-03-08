@@ -63,6 +63,7 @@ def _seed_project_state(dbe: DBE, project_config_id: ID) -> None:
     project_config = ProjectConfig(id=project_config_id, name="Project")
     project_state = ProjectStateBackend(
         projectConfigs={project_config_id: project_config},
+        projectChatWindowingByProjectConfigId={project_config_id: {}},
         defaultProjectConfigId=project_config_id,
     )
     dbe.write_project(project_state)
@@ -583,6 +584,7 @@ class TestManagedActionExecutor:
             )
             backend_state = ProjectStateBackend(
                 projectConfigs={project_config_id: project_state.projectConfig},
+                projectChatWindowingByProjectConfigId={project_config_id: {}},
                 defaultProjectConfigId=project_config_id,
                 sections=project_state.sections,
                 sectionImpls=project_state.sectionImpls,

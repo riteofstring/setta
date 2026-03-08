@@ -259,6 +259,30 @@ function Harness() {
   );
 }
 
+function SharedThreadHarness() {
+  const [chatA, setChatA] = useState<string | null | undefined>("chat-a");
+  const [chatB, setChatB] = useState<string | null | undefined>("chat-a");
+
+  return (
+    <div>
+      <section data-testid="surface-a">
+        <ProjectChat
+          surfaceId="surface-a"
+          chatId={chatA}
+          setChatId={setChatA}
+        />
+      </section>
+      <section data-testid="surface-b">
+        <ProjectChat
+          surfaceId="surface-b"
+          chatId={chatB}
+          setChatId={setChatB}
+        />
+      </section>
+    </div>
+  );
+}
+
 describe("ProjectChat multi-surface state ownership", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -471,6 +495,56 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(coreA?.textContent ?? "").not.toContain("Beta seed");
     expect(coreB?.textContent ?? "").toContain("Beta seed");
     expect(coreB?.textContent ?? "").not.toContain("Alpha seed");
+  });
+
+  it("keeps a new-thread draft isolated when two surfaces start on the same chat", async () => {
+    await act(async () => {
+      root.render(<SharedThreadHarness />);
+    });
+
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    const surfaceB = host.querySelector('[data-testid="surface-b"]');
+    if (!surfaceA || !surfaceB) {
+      throw new Error("Expected both project chat surfaces.");
+    }
+
+    const engineSelectA = surfaceA.querySelector(
+      '[data-testid="project-ai-engine-combobox"]',
+    ) as HTMLSelectElement | null;
+    if (!engineSelectA) {
+      throw new Error("Expected engine selector for surface A.");
+    }
+
+    await act(async () => {
+      engineSelectA.value = "engine-b";
+      engineSelectA.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const continueButtonA = surfaceA.querySelector(
+      '[data-testid="project-chat-engine-switch-continue-button"]',
+    ) as HTMLButtonElement | null;
+    if (!continueButtonA) {
+      throw new Error("Expected continue-in-new-thread button for surface A.");
+    }
+
+    await act(async () => {
+      continueButtonA.click();
+    });
+
+    const coreA = surfaceA.querySelector(
+      '[data-testid="mock-project-chat-core-surface-a"]',
+    );
+    const coreB = surfaceB.querySelector(
+      '[data-testid="mock-project-chat-core-surface-b"]',
+    );
+    expect(coreA?.textContent ?? "").toContain("Alpha seed");
+    expect(coreA?.getAttribute("data-chat-id")).toBe("");
+    expect(coreB?.textContent ?? "").toContain("Alpha seed");
+    expect(coreB?.textContent ?? "").toContain("Alpha reply");
+    expect(coreB?.getAttribute("data-chat-id")).toBe("chat-a");
+    expect(
+      useAIStore.getState().pendingChatDetailsBySurfaceId["surface-b"],
+    ).toBeUndefined();
   });
 
   it("keeps threads and aux views local to the surface that toggles them", async () => {

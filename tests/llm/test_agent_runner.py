@@ -64,6 +64,7 @@ def _write_project_state(dbe: DBE, project_configs: list[ProjectConfig]) -> ID:
     default_id = project_configs[0].id
     project_state = ProjectStateBackend(
         projectConfigs={config.id: config for config in project_configs},
+        projectChatWindowingByProjectConfigId={config.id: {} for config in project_configs},
         defaultProjectConfigId=default_id,
     )
     dbe.write_project(project_state)
@@ -968,6 +969,7 @@ class TestAgentRunner:
             )
             backend_state = ProjectStateBackend(
                 projectConfigs={second_config.id: project_state.projectConfig},
+                projectChatWindowingByProjectConfigId={second_config.id: {}},
                 defaultProjectConfigId=second_config.id,
                 sections=project_state.sections,
                 sectionImpls=project_state.sectionImpls,

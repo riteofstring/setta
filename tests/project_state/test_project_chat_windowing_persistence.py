@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
@@ -106,17 +107,17 @@ def test_merge_single_config_preserves_windowing_per_project_config() -> None:
     assert second_round_trip.projectChatWindowing == second_state.projectChatWindowing
 
 
-def test_convert_backend_to_single_config_requires_authoritative_windowing() -> None:
+def test_project_state_backend_requires_authoritative_windowing() -> None:
     project_config = ProjectConfig(name="missing-windowing")
-    backend = ProjectStateBackend(
-        projectConfigs={project_config.id: project_config},
-    )
 
     with pytest.raises(
-        KeyError,
+        ValidationError,
         match="Missing project chat windowing state",
     ):
-        convert_backend_to_single_config(backend, project_config.id)
+        ProjectStateBackend(
+            projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
+        )
 
 
 @pytest.mark.asyncio

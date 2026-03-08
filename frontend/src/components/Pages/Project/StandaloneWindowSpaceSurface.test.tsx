@@ -100,11 +100,13 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
   SectionWindowSurface: ({
     sectionId,
     chatModeOverride,
+    projectChatSurfaceId,
     projectChatId,
     setProjectChatId,
   }: {
     sectionId: string;
     chatModeOverride?: string;
+    projectChatSurfaceId?: string;
     projectChatId?: string | null;
     setProjectChatId?: (next: string | null) => void;
   }) => (
@@ -112,6 +114,7 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
       data-testid="mock-section-window-surface"
       data-section-id={sectionId}
       data-chat-mode-override={chatModeOverride ?? ""}
+      data-project-chat-surface-id={projectChatSurfaceId ?? ""}
       data-project-chat-id={projectChatId ?? ""}
       data-project-chat-controlled={setProjectChatId ? "true" : "false"}
     >
@@ -223,6 +226,7 @@ describe("StandaloneWindowSpaceSurface", () => {
 
     expect(markup).toContain('data-testid="mock-section-window-surface"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
+    expect(markup).toContain('data-project-chat-surface-id="section-window"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
   });

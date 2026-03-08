@@ -1,11 +1,14 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
+  useMisc,
   useNodeInternals,
   usePendingOperations,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  ChatWindowModeEnum,
+  ChatWindowPlacementEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
@@ -147,5 +150,76 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
         "project-chat-window-1"
       ]?.title,
     ).toBe("Optimistic title");
+  });
+
+  it("prunes stale git-graph misc state when backend reconciliation repurposes an instance id", () => {
+    setLocalProjectState();
+    useMisc.setState({
+      projectChatTrackedGitPaneGraphWindowInstanceId: "graph-window-1",
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "graph-window-1": true,
+      },
+    });
+
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectState(
+        createProjectChatWindowingState({
+          instancesById: {
+            "graph-window-1": createProjectChatWindowInstance({
+              instanceId: "graph-window-1",
+              mode: ChatWindowModeEnum.project_ai_mode,
+            }),
+          },
+          order: ["graph-window-1"],
+          nextInstanceNumber: 2,
+        }),
+      ),
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(
+      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+    ).toBeNull();
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({});
+  });
+
+  it("preserves live git-graph misc state when backend reconciliation keeps the same maximized graph window", () => {
+    setLocalProjectState();
+    useMisc.setState({
+      projectChatTrackedGitPaneGraphWindowInstanceId: "graph-window-1",
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "graph-window-1": true,
+      },
+    });
+
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectState(
+        createProjectChatWindowingState({
+          instancesById: {
+            "graph-window-1": createProjectChatWindowInstance({
+              instanceId: "graph-window-1",
+              mode: ChatWindowModeEnum.git_graph_mode,
+              placement: ChatWindowPlacementEnum.maximized,
+            }),
+          },
+          order: ["graph-window-1"],
+          nextInstanceNumber: 2,
+        }),
+      ),
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(
+      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+    ).toBe("graph-window-1");
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({
+      "graph-window-1": true,
+    });
   });
 });

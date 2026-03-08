@@ -108,6 +108,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -117,6 +118,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -126,6 +128,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -135,6 +138,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -144,6 +148,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -153,6 +158,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -162,6 +168,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -171,6 +178,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         set_project_config_name(backend, project_config.id, "  Foo Bar  ")
@@ -180,6 +188,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         set_project_config_name(backend, project_config.id, "Alpha-2 _Beta")
@@ -189,6 +198,7 @@ class TestProjectNameValidation:
         project_config = ProjectConfig(name="valid-project")
         backend = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -199,6 +209,7 @@ class TestProjectNameValidation:
         secondary = ProjectConfig(name="secondary")
         backend = ProjectStateBackend(
             projectConfigs={primary.id: primary, secondary.id: secondary},
+            projectChatWindowingByProjectConfigId={primary.id: {}, secondary.id: {}},
             defaultProjectConfigId=primary.id,
         )
         with pytest.raises(InvalidProjectName):
@@ -209,6 +220,7 @@ class TestProjectNameValidation:
         secondary = ProjectConfig(name="secondary")
         backend = ProjectStateBackend(
             projectConfigs={primary.id: primary, secondary.id: secondary},
+            projectChatWindowingByProjectConfigId={primary.id: {}, secondary.id: {}},
             defaultProjectConfigId=primary.id,
         )
         with pytest.raises(InvalidProjectName):

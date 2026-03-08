@@ -31,12 +31,6 @@ vi.mock("components/Section/Layouts/ChatArea", () => ({
   ),
 }));
 
-vi.mock("components/Git/GitGraphWindowContent", () => ({
-  GitGraphWindowContent: () => (
-    <div data-testid="mock-git-graph-window-content">git graph</div>
-  ),
-}));
-
 type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
   sections: Record<
@@ -114,7 +108,7 @@ describe("UnifiedChatSurface", () => {
     expect(markup).not.toContain('data-testid="mock-project-chat"');
   });
 
-  it("renders git graph content for git-graph mode with section host chrome", () => {
+  it("shows a clear warning when git-graph mode is routed through the wrong surface", () => {
     const markup = renderToStaticMarkup(
       <UnifiedChatSurface
         mode={ChatWindowModeEnum.git_graph_mode}
@@ -123,9 +117,12 @@ describe("UnifiedChatSurface", () => {
       />,
     );
 
+    expect(markup).toContain('role="alert"');
     expect(markup).toContain('data-chat-surface-mode="git_graph_mode"');
     expect(markup).toContain('data-chat-surface-host="section_layout"');
-    expect(markup).toContain('data-testid="mock-git-graph-window-content"');
+    expect(markup).toContain(
+      "Git graph surfaces must render via GitGraphWindowContent(instanceId).",
+    );
     expect(markup).not.toContain('data-testid="mock-section-chat"');
     expect(markup).not.toContain('data-testid="mock-project-chat"');
   });

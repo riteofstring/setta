@@ -29,6 +29,7 @@ type SectionWindowSurfaceProps = {
   roundedClassName: string;
   chatHost: ChatWindowPlacement | "standalone_page";
   chatModeOverride?: ChatWindowMode;
+  projectChatSurfaceId?: string;
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   bodyOverride?: React.ReactNode;
@@ -44,6 +45,7 @@ export function SectionWindowSurface({
   roundedClassName,
   chatHost,
   chatModeOverride,
+  projectChatSurfaceId,
   projectChatId,
   setProjectChatId,
   bodyOverride = null,
@@ -154,6 +156,7 @@ export function SectionWindowSurface({
               isUserView={false}
               chatHost={chatHost}
               chatModeOverride={chatModeOverride}
+              projectChatSurfaceId={projectChatSurfaceId}
               projectChatId={projectChatId}
               setProjectChatId={setProjectChatId}
             />

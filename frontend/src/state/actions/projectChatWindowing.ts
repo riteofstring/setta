@@ -12,7 +12,6 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
-  useMisc,
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
@@ -34,10 +33,19 @@ import {
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
 import {
+  clearTrackedGitPaneGraphWindowIfMatches,
+  reconcileProjectChatWindowingEphemeralState,
+  resetProjectChatGitGraphEmbeddedPaneVisibility,
+  resolveTrackedGitPaneGraphWindowInstanceId,
+  setTrackedGitPaneGraphWindowInstanceId,
+} from "./projectChatWindowingEphemeral";
+import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "./sectionInfos";
 import { createTopLevelSectionWithResult } from "./sections/createSections";
+
+export { clearTrackedGitPaneGraphWindowIfMatches };
 
 type CreateProjectChatWindowInstanceOptions = {
   placement?: ChatWindowPlacement;
@@ -117,109 +125,6 @@ function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
 ): ProjectChatWindowingState {
   return state.projectChatWindowing;
-}
-
-function getTrackedGitPaneGraphWindowInstanceIdFromMisc(): string | null {
-  return (
-    useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId ?? null
-  );
-}
-
-function setTrackedGitPaneGraphWindowInstanceId(
-  instanceId: string | null,
-): void {
-  useMisc.setState({
-    projectChatTrackedGitPaneGraphWindowInstanceId: instanceId,
-  });
-}
-
-function clearTrackedGitPaneGraphWindowInstanceIdIfMatches(
-  instanceId: string,
-): void {
-  if (getTrackedGitPaneGraphWindowInstanceIdFromMisc() !== instanceId) {
-    return;
-  }
-  setTrackedGitPaneGraphWindowInstanceId(null);
-}
-
-export function clearTrackedGitPaneGraphWindowIfMatches(
-  instanceId: string,
-): void {
-  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
-}
-
-function pruneProjectChatGitGraphEmbeddedPaneVisibility(
-  nextProjectChatWindowing: ProjectChatWindowingState,
-): void {
-  useMisc.setState((state) => {
-    const visibilityByInstanceId =
-      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId;
-    const nextVisibilityByInstanceId: Record<string, true> = {};
-    let changed = false;
-
-    for (const instanceId of Object.keys(visibilityByInstanceId)) {
-      const instance = nextProjectChatWindowing.instancesById[instanceId];
-      if (
-        !instance ||
-        instance.mode !== ChatWindowModeEnum.git_graph_mode ||
-        instance.isClosed
-      ) {
-        changed = true;
-        continue;
-      }
-      nextVisibilityByInstanceId[instanceId] = true;
-    }
-
-    if (
-      !changed &&
-      Object.keys(nextVisibilityByInstanceId).length ===
-        Object.keys(visibilityByInstanceId).length
-    ) {
-      return state;
-    }
-
-    return {
-      ...state,
-      projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
-        nextVisibilityByInstanceId,
-    };
-  });
-}
-
-function resetProjectChatGitGraphEmbeddedPaneVisibility(): void {
-  useMisc.setState((state) => {
-    if (
-      Object.keys(state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId)
-        .length === 0
-    ) {
-      return state;
-    }
-    return {
-      ...state,
-      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {},
-    };
-  });
-}
-
-function resolveTrackedGitPaneGraphWindowInstanceId(
-  state: ProjectChatWindowingState,
-): string | null {
-  const trackedInstanceId = getTrackedGitPaneGraphWindowInstanceIdFromMisc();
-  if (!trackedInstanceId) {
-    return null;
-  }
-  const instance = state.instancesById[trackedInstanceId];
-  if (
-    !instance ||
-    instance.mode !== ChatWindowModeEnum.git_graph_mode ||
-    instance.placement !== ChatWindowPlacementEnum.maximized ||
-    instance.isClosed ||
-    instance.isMinimized
-  ) {
-    setTrackedGitPaneGraphWindowInstanceId(null);
-    return null;
-  }
-  return trackedInstanceId;
 }
 
 function shouldSyncActiveProjectChatId(
@@ -1389,7 +1294,7 @@ export function getVisibleProjectChatWindowInstances(
 function setProjectChatWindowingStateInStore(
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): void {
-  pruneProjectChatGitGraphEmbeddedPaneVisibility(nextProjectChatWindowing);
+  reconcileProjectChatWindowingEphemeralState(nextProjectChatWindowing);
   const projectConfigId = getCurrProjectConfigId();
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     useProjectState.setState((state) => {

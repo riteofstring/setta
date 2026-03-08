@@ -610,6 +610,7 @@ export function StandaloneWindowSpaceSurface({
               roundedClassName="rounded-none"
               chatHost={ChatWindowPlacementEnum.floating}
               chatModeOverride={window.mode}
+              projectChatSurfaceId={window.instanceId}
               projectChatId={window.chatId}
               setProjectChatId={(next) => {
                 const resolvedChatId =

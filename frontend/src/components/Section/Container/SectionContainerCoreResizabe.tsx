@@ -197,6 +197,7 @@ export function AreaSwitch({
   chatModeOverride,
   projectChatId,
   setProjectChatId,
+  projectChatSurfaceId,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
@@ -207,6 +208,7 @@ export function AreaSwitch({
   chatModeOverride?: ChatWindowMode;
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  projectChatSurfaceId?: string;
 }) {
   if (isMinimized) {
     return null;
@@ -256,6 +258,7 @@ export function AreaSwitch({
           modeOverride={chatModeOverride}
           projectChatId={projectChatId}
           setProjectChatId={setProjectChatId}
+          surfaceId={projectChatSurfaceId}
         />
       );
     case SectionTypeEnum.Browser:
@@ -329,12 +332,14 @@ function ChatSectionArea({
   modeOverride,
   projectChatId,
   setProjectChatId,
+  surfaceId,
 }: {
   sectionId: string;
   host: ChatWindowPlacement | "section_layout" | "standalone_page";
   modeOverride?: ChatWindowMode;
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  surfaceId?: string;
 }) {
   const derivedMode = useProjectState((state) =>
     modeOverride === undefined
@@ -350,7 +355,7 @@ function ChatSectionArea({
       mode={mode}
       host={host}
       sectionId={sectionId}
-      surfaceId={sectionId}
+      surfaceId={surfaceId ?? sectionId}
       projectChatId={projectChatId}
       setProjectChatId={setProjectChatId}
     />

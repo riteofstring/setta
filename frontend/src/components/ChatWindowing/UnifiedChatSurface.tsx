@@ -1,4 +1,3 @@
-import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
 import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectChat";
 import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
@@ -111,12 +110,15 @@ export function UnifiedChatSurface({
   if (mode === ChatWindowModeEnum.git_graph_mode) {
     return (
       <div
+        role="alert"
         className={resolveSurfaceHostClasses(host, className)}
         data-chat-surface-mode={mode}
         data-chat-surface-host={host}
         data-testid={dataTestId}
       >
-        <GitGraphWindowContent />
+        <p className="mx-auto mt-2 w-full max-w-[72rem] rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-600/70 dark:bg-amber-950/40 dark:text-amber-200">
+          Git graph surfaces must render via GitGraphWindowContent(instanceId).
+        </p>
       </div>
     );
   }
