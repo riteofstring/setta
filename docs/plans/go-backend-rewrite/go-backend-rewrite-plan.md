@@ -713,6 +713,20 @@ now also landed:
   config-write-triggered backend reload remain deferred until a separate
   concrete caller requires them
 
+The bounded closeout inventory tracked in
+`phase-15-plugin-caller-and-runtime-closeout.md` then confirmed:
+
+- the active direct frontend plugin route surface is Go-owned for the current
+  rewrite scope
+- plugin codegen callers already resolve against current filesystem/plugin
+  state and do not require a separate app-owned hot-refresh slice
+- plugin external-agent execution remains outside the current caller-backed
+  scope even though registration visibility and config selection are now
+  Go-owned
+- Phase 15 is therefore complete for the current clean-break rewrite scope,
+  and the remaining deferred plugin items should stay caller-driven rather than
+  being reopened speculatively
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:

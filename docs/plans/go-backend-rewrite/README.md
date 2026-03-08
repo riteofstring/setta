@@ -648,12 +648,16 @@ Use the docs in this order:
   - focused completed-slice doc for live IDE-mode refresh of plugin-defined
     language-server specs after plugin-set mutations over the shared preview
     snapshot boundary
-178. `spike-mcp.md`
+178. `phase-15-plugin-caller-and-runtime-closeout.md`
+  - focused closeout inventory doc confirming the landed Phase 15 plugin
+    surface has no remaining caller-backed gap under the current clean-break
+    scope
+179. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-179. `spike-pty.md`
+180. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-180. `spike-lsp.md`
+181. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
