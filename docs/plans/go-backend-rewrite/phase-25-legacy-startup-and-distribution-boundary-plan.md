@@ -39,6 +39,13 @@ Completed during Slice 1:
   - active source/dev workflow behavior
   - legacy fallback behavior
 
+Focused Slice 2 plan now added:
+
+- `phase-25-dev-startup-command-boundary-plan.md`
+  - bounded first implementation step for source/dev startup hardening:
+    make `backendStart.sh` use an explicit routed command boundary for normal
+    startup and an explicit dev-only legacy path for reload
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
@@ -230,6 +237,8 @@ Execute Slice 2 next:
 - use
   `phase-25-startup-test-surface-classification-and-source-of-truth.md` as the
   contract boundary
+- use `phase-25-dev-startup-command-boundary-plan.md` as the bounded first
+  implementation doc for this slice
 - harden source/dev startup wiring around the explicit Go-owned command surface
 - avoid preserving legacy `setta.start` fallback behavior unless a real current
   workflow still requires it

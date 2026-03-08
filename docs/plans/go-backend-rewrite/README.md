@@ -744,12 +744,16 @@ Use the docs in this order:
   - focused Slice 1 outcome doc that classifies `tests/start/*` into active
     shipped/distribution, active source/dev workflow, and legacy fallback
     buckets so later startup cleanup has an explicit contract boundary
-203. `spike-mcp.md`
+203. `phase-25-dev-startup-command-boundary-plan.md`
+  - focused Slice 2 implementation doc for the first source/dev hardening
+    step: make `backendStart.sh` choose an explicit routed command path for
+    normal startup and an explicit dev-only legacy path for reload
+204. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-204. `spike-pty.md`
+205. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-205. `spike-lsp.md`
+206. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
