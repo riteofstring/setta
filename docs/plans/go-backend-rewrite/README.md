@@ -440,12 +440,16 @@ Use the docs in this order:
   - focused completed-slice doc for the landed Claude follow-on over the
     completed runtime helpers: Claude tool-result persistence plus Claude
     external MCP runtime-status ownership
-136. `spike-mcp.md`
+136. `phase-12-codex-raw-tool-item-parity.md`
+  - focused implementation-plan doc for the remaining bounded Codex parity gap:
+    raw non-`response_item` tool-item persistence over the completed Codex
+    runtime helpers
+137. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-137. `spike-pty.md`
+138. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-138. `spike-lsp.md`
+139. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

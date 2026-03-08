@@ -165,6 +165,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- after the now-landed OpenCode and Claude follow-ons, inventory the remaining
-  Codex non-`response_item` rich-item gap from concrete user-visible behavior
-  before broadening Phase 12 further
+- land the bounded Codex raw non-`response_item` tool-item follow-on tracked in
+  `phase-12-codex-raw-tool-item-parity.md` before deciding whether Phase 12 is
+  effectively complete

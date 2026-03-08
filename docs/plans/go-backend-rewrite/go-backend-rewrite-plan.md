@@ -91,10 +91,10 @@ landed:
 - Claude external MCP runtime-status seeding from `mcpConfig`, runtime capture
   from SDK `system_message`, and persisted snapshot parity
 
-The current next step is now the residual Codex non-`response_item` rich-item
-gap inventory and closeout, or a decision that Phase 12 is effectively
-complete for the external-agent surface if no concrete user-facing Codex gap
-remains.
+The current next step is now the bounded Codex raw non-`response_item`
+tool-item follow-on tracked in
+`phase-12-codex-raw-tool-item-parity.md`, then a final reassessment of whether
+Phase 12 is effectively complete for the external-agent surface.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

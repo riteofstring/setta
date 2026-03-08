@@ -82,9 +82,10 @@ Current repo status as of 2026-03-09:
   - the Claude follow-on in
     `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md` is now
     complete
-  - the remaining bounded gap is now any still-missing Codex
-    non-`response_item` rich items that prove user-facing, not another
-    executor or launcher slice
+  - the remaining bounded gap is now the Codex raw non-`response_item`
+    tool-item closeout tracked in
+    `phase-12-codex-raw-tool-item-parity.md`, not another executor or launcher
+    slice
 
 ## Scope
 
