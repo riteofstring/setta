@@ -83,22 +83,47 @@ Closeout rerun after the landing:
 
 - the chat-area settings UI no longer depends on the Python summary-cache-status
   route
-- the remaining Python-owned agentic routes with direct frontend callers are now
-  prompt-template writes:
-  - `POST /createPromptTemplate`
-  - `POST /updatePromptTemplate`
-  - `POST /deletePromptTemplate`
+- a later closeout audit after the prompt-template CRUD landing corrected an
+  earlier stale inventory in this doc
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `GET /getExternalAgentConfigs`
+  - `GET /getExternalAgentHealth`
+  - `GET /getEngineConfigs`
+  - `GET /getTranscriptionProfiles`
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
 - generated single-item reads still exist for:
   - `POST /getAgentProfile`
   - `POST /getAgentRun`
   - `POST /getPromptTemplate`
+  - `POST /getExternalAgentConfig`
+  - `POST /getEngineConfig`
   but no direct frontend caller was found for them in the current worktree
 
 Remaining Python-owned agentic routes outside this slice:
 
-- `POST /createPromptTemplate`
-- `POST /updatePromptTemplate`
-- `POST /deletePromptTemplate`
+- `GET /getExternalAgentConfigs`
+- `GET /getExternalAgentHealth`
+- `GET /getEngineConfigs`
+- `GET /getTranscriptionProfiles`
+- `POST /createAgentProfile`
+- `POST /updateAgentProfile`
+- `POST /deleteAgentProfile`
+- `POST /createExternalAgentConfig`
+- `POST /updateExternalAgentConfig`
+- `POST /deleteExternalAgentConfig`
+- `POST /updateEngineConfig`
+- `POST /createTranscriptionProfile`
+- `POST /updateTranscriptionProfile`
+- `POST /deleteTranscriptionProfile`
 
 ## Scope
 
@@ -191,8 +216,12 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded Phase 13 doc around prompt-template CRUD transport over
-  the already-landed Go prompt-template store
-- keep `getAgentProfile`, `getAgentRun`, and `getPromptTemplate` deferred until
-  a concrete caller makes one of them higher leverage than prompt-template
-  writes
+- the prompt-template CRUD follow-up is now landed in
+  `phase-13-prompt-template-crud-transport.md`
+- open the next bounded Phase 13 doc around external-agent config plus
+  external-agent health hydration transport over the already-landed Go
+  `externalagentconfigs` store and preflight primitives
+- keep `getAgentProfile`, `getAgentRun`, `getPromptTemplate`,
+  `getExternalAgentConfig`, and `getEngineConfig` deferred until a concrete
+  caller makes one of them higher leverage than the remaining direct frontend
+  settings routes

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the next bounded post-Phase-13 slice and its landing.
 
 The prior Phase 13 slices moved prompt-template reads and agentic
 summary-cache-status reads to Go. The next highest-leverage remaining
@@ -61,9 +61,55 @@ Current frontend behavior relevant to scoping:
 - no current direct caller depends on the websocket broadcast for local CRUD
   correctness in the same tab
 
+Landed in this slice:
+
+- `internal/httpapi/prompt_template_routes.go`
+  - thin IDE-gated `POST /createPromptTemplate` transport
+  - thin IDE-gated `POST /updatePromptTemplate` transport
+  - thin IDE-gated `POST /deletePromptTemplate` transport
+  - explicit required-field presence checks that still allow empty prompt
+    `name` and `template` values when the fields are present
+- `internal/httpapi/route_names.go`
+  - bare-route registration for the new prompt-template CRUD routes
+- focused coverage in:
+  - `internal/httpapi/prompt_template_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the direct frontend dependency on Python-owned prompt-template CRUD is now
+  gone
+- prompt-template watcher refresh and `PromptTemplatesUpdated` websocket fan-out
+  remain deferred because there is still no Go-owned prompt-template realtime
+  path and the current direct callers do not require one for local correctness
+- a closeout audit after this landing corrected an earlier stale inventory in
+  the Phase 13 docs: prompt-template writes were not the last remaining direct
+  frontend-owned Python agentic routes
+- the remaining direct frontend Python-owned agentic routes are currently:
+  - `GET /getExternalAgentConfigs`
+  - `GET /getExternalAgentHealth`
+  - `GET /getEngineConfigs`
+  - `GET /getTranscriptionProfiles`
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
+- generated single-item reads still exist for:
+  - `POST /getAgentProfile`
+  - `POST /getAgentRun`
+  - `POST /getPromptTemplate`
+  - `POST /getExternalAgentConfig`
+  - `POST /getEngineConfig`
+  but no direct frontend caller was found for them in the current worktree
+
 ## Scope
 
-This slice is responsible for:
+This slice delivered:
 
 - thin Go transport for:
   - `POST /createPromptTemplate`
@@ -166,7 +212,9 @@ This slice is responsible for:
 
 ## Next Recommended Step
 
-- land the thin Go CRUD routes and focused tests over the existing
-  prompt-template store
-- rerun the remaining direct frontend callers to confirm no higher-leverage
-  Python-owned agentic prompt-template dependency remains
+- open the next bounded Phase 13 doc around external-agent config plus
+  external-agent health hydration transport over the already-landed Go
+  `externalagentconfigs` store and preflight primitives
+- after that hydration slice, reassess whether agent-profile CRUD or
+  engine/transcription settings transport is the smaller remaining direct
+  frontend dependency

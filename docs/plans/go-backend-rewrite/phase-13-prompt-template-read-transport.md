@@ -59,11 +59,10 @@ Closeout rerun after the landing:
 - the direct hydration dependency on prompt-template reads is now gone
 - the follow-up summary-cache-status slice is now landed in
   `phase-13-agentic-summary-cache-status-transport-and-owner.md`
-- the remaining Python-owned prompt-template routes with direct frontend
-  callers are now:
-  - `POST /createPromptTemplate`
-  - `POST /updatePromptTemplate`
-  - `POST /deletePromptTemplate`
+- the follow-up prompt-template CRUD slice is now landed in
+  `phase-13-prompt-template-crud-transport.md`
+- prompt-template transport is now fully Go-owned for the current direct
+  frontend surface
 
 ## Scope
 
@@ -140,6 +139,8 @@ This slice delivered:
 
 - the summary-cache-status follow-up is now landed in
   `phase-13-agentic-summary-cache-status-transport-and-owner.md`
-- the next bounded dependency after that landing is prompt-template CRUD over
-  the already-landed Go prompt-template store, because those write routes still
-  have direct frontend callers
+- the prompt-template CRUD follow-up is now landed in
+  `phase-13-prompt-template-crud-transport.md`
+- the next bounded hydration/settings dependency is external-agent config plus
+  external-agent health transport, because
+  `useHydrateAgenticState()` still loads those Python-owned routes on app start

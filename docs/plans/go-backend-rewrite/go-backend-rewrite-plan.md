@@ -175,11 +175,36 @@ The next bounded post-Phase-13 slice tracked in
   `POST /getAgenticSummaryCacheStatus` from Go
 - Go now owns the bounded summary-cache-status owner over the live
   project-state runtime plus `setta_files/agentic_summary_cache.json`
-- the remaining Python-owned agentic routes with direct frontend callers are
-  prompt-template writes:
+- the follow-up prompt-template CRUD slice is now landed in
+  `phase-13-prompt-template-crud-transport.md`
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-prompt-template-crud-transport.md` is now landed:
+
+- Go now owns:
   - `POST /createPromptTemplate`
   - `POST /updatePromptTemplate`
   - `POST /deletePromptTemplate`
+- prompt-template transport is now fully Go-owned for the current direct
+  frontend surface over the existing prompt-template file store
+- the closeout rerun corrected an earlier stale inventory in the Phase 13 docs:
+  prompt-template writes were not the last remaining direct frontend Python
+  agentic routes
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `GET /getExternalAgentConfigs`
+  - `GET /getExternalAgentHealth`
+  - `GET /getEngineConfigs`
+  - `GET /getTranscriptionProfiles`
+  - `POST /createAgentProfile`
+  - `POST /updateAgentProfile`
+  - `POST /deleteAgentProfile`
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+  - `POST /updateEngineConfig`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -188,10 +213,12 @@ shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
 post-Phase-12 priority, not by reopening the completed external-agent runtime
 choices. The current bounded priority is no longer prompt-template hydration or
-summary-cache-status transport; both are landed. The next bounded post-Phase-13
-priority is prompt-template CRUD transport over the already-landed Go
-prompt-template store because those write routes still have direct frontend
-callers.
+summary-cache-status transport; both are landed. Prompt-template CRUD is also
+now landed. The next bounded post-Phase-13 priority is external-agent config
+plus external-agent health hydration transport, because
+`useHydrateAgenticState()` still loads those Python-owned routes at app start
+and the Go rewrite already has the store and preflight primitives needed to
+move them cleanly.
 
 ## Current Reality
 
