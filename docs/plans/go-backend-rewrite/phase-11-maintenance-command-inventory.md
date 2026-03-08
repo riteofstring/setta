@@ -24,9 +24,11 @@ As of 2026-03-08:
   - `internal/workspacelaunch`
   - `internal/deployments`
   - completed Go-owned default `setta`, `launch`, `share`, and `app`
+- Go now also owns the first maintenance command slice:
+  - `setta backups` in `internal/settacmd`
+  - backup listing/restore semantics in `internal/projectbackup`
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
-  - `backups`
   - `plugins`
   - `export-db`
 - Go already owns substantial plugin runtime and mutation foundations in:
@@ -60,7 +62,8 @@ As of 2026-03-08:
    - the remaining Python commands are maintenance/authoring commands, not
      runtime blockers
 
-2. `backups` is the smallest remaining shipped CLI slice
+2. `backups` was the smallest remaining shipped CLI slice, and it is now
+   complete
    - current Python behavior is bounded and local-state only:
      - `backups list` sorts timestamped backup files newest-first, skips
        invalid backup filenames, and optionally emits JSON
@@ -75,7 +78,7 @@ As of 2026-03-08:
      - runtime path resolution already exists in Go
      - local session registry ownership already exists in Go
      - no long-lived backend runtime ownership is required for the command
-   - missing Go ownership is still real:
+   - landed Go ownership now covers:
      - backup filename parsing/listing rules
      - restore stash creation and overwrite helpers
      - shipped CLI text/JSON contract
@@ -134,32 +137,21 @@ As of 2026-03-08:
 
 ## Recommended Landing Order
 
-1. `backups`
-   - bounded local-state command
-   - minimal dependency surface beyond existing Go path/session ownership
-2. readable export foundation for `export-db`
+1. readable export foundation for `export-db`
    - shared project-state export owner first
    - CLI wrapper only after that owner exists
-3. `plugins`
+2. `plugins`
    - dedicated authoring/maintenance CLI parity slice with its own plan doc
 
 ## Recommended Next Step
 
-If product priorities require another shipped CLI migration slice, start with a
-focused Stage 1 plan for `setta backups` only.
+Phase 11 Stage 1 is complete in `phase-11-backups-command-stage1.md`.
 
-That plan now lives in `phase-11-backups-command-stage1.md`.
+The next bounded rewrite slice should be the readable-export foundation needed
+before `setta export-db` can move cleanly.
 
-That slice should cover:
-
-1. `setta backups list`
-2. `setta backups restore`
-3. Go-owned text and JSON output contracts
-4. explicit active-session refusal over the Go local session registry
-5. restore-stash creation and overwrite behavior
-
-Do not combine that first maintenance slice with `plugins` or `export-db`
-unless a concrete dependency forces it.
+Do not jump to `plugins` first unless product priorities explicitly outweigh
+the smaller readable-export foundation.
 
 ## Progress Notes
 
@@ -167,6 +159,10 @@ unless a concrete dependency forces it.
   runtime-command migration.
 - 2026-03-08: recorded the next bounded maintenance-command landing order:
   `backups` first, shared readable-export foundation second, `plugins` last.
+- 2026-03-08: completed the first maintenance-command slice.
+  - `setta backups` is now Go-owned
+  - the remaining Python-owned maintenance commands are `export-db` and
+    `plugins`
 
 ## Verification
 

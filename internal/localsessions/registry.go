@@ -312,3 +312,63 @@ func randomHex(reader io.Reader, count int) (string, error) {
 func emptyToString(value string) string {
 	return strings.TrimSpace(value)
 }
+
+func FilterActiveSessions(sessions []auth.SessionMetadata) []auth.SessionMetadata {
+	filtered := make([]auth.SessionMetadata, 0, len(sessions))
+	for _, session := range sessions {
+		if !IsSessionActive(session) {
+			continue
+		}
+		filtered = append(filtered, session)
+	}
+	return filtered
+}
+
+func IsSessionActive(session auth.SessionMetadata) bool {
+	if session.PID <= 0 {
+		return false
+	}
+	proc, err := process.NewProcess(int32(session.PID))
+	if err != nil {
+		return false
+	}
+	if session.PIDCreateTime != nil {
+		createTimeMillis, err := proc.CreateTime()
+		if err != nil {
+			return false
+		}
+		createTimeSeconds := float64(createTimeMillis) / 1000.0
+		if createTimeSeconds != *session.PIDCreateTime {
+			return false
+		}
+	}
+	cmdline, err := proc.CmdlineSlice()
+	if err != nil {
+		return true
+	}
+	if len(cmdline) == 0 {
+		return false
+	}
+	scriptBasenames := map[string]struct{}{
+		"setta":            {},
+		"setta.exe":        {},
+		"setta-script.py":  {},
+		"setta-server":     {},
+		"setta-server.exe": {},
+	}
+	first := strings.ToLower(filepath.Base(cmdline[0]))
+	if _, ok := scriptBasenames[first]; ok {
+		return true
+	}
+	for _, item := range cmdline[1:] {
+		base := strings.ToLower(filepath.Base(item))
+		if _, ok := scriptBasenames[base]; ok {
+			return true
+		}
+		lowered := strings.ToLower(strings.TrimSpace(item))
+		if lowered == "setta" || strings.HasPrefix(lowered, "setta.") || strings.HasPrefix(lowered, "setta:") {
+			return true
+		}
+	}
+	return false
+}

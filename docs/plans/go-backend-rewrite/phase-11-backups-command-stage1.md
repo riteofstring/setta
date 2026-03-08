@@ -20,9 +20,12 @@ As of 2026-03-08:
   foundations in:
   - `internal/config`
   - `internal/localsessions`
-- Python still owns `setta backups` in:
-  - `backend/setta/start.py`
-  - `backend/setta/database/backup.py`
+- this stage is now complete:
+  - `cmd/setta` / `internal/settacmd` now own `setta backups list|restore`
+  - `internal/projectbackup` now owns backup-file listing, restore selection,
+    and restore-stash behavior
+  - the shipped Python entrypoint now dispatches `backups` to the packaged Go
+    binary
 - the existing Python tests document the reference behavior in:
   - `tests/start/test_start_backups.py`
   - `tests/database/test_backup.py`
@@ -135,19 +138,28 @@ Do not include:
 
 ## Open Questions
 
-- whether the first Go backup owner should also expose auto-backup creation
-  helpers for later save-path reuse, or keep Stage 1 constrained to the shipped
-  CLI restore/list contract only
+- none for this stage; the remaining work is outside `setta backups`
+
+## Progress Notes
+
+- 2026-03-08: completed this Stage 1 slice.
+  - `setta backups list` and `setta backups restore` now route through the
+    shipped Go CLI
+  - backup filename parsing, descending listing, restore selection, and
+    restore-stash creation now live in `internal/projectbackup`
+  - restore now uses the Go local session registry plus active-session
+    filtering before overwrite
+  - `python -m setta backups ...` now dispatches to Go
 
 ## Verification
 
 - `git diff --check`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectbackup ./internal/localsessions ./internal/settacli ./internal/settacmd -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 
 ## Recommended Next Step
 
-Implement this Stage 1 slice, then reassess the remaining maintenance commands:
+Move to the remaining maintenance commands:
 
 1. readable export foundation for `export-db`
 2. `plugins`

@@ -347,7 +347,7 @@ func resolveLatestAPISession(global globalFlags, cwd string, envLookup func(stri
 	}
 	sessions = filterSessionsForWorkspace(sessions, commandCfg.Paths.WorkspaceRoot)
 	sessions = filterSessionsByDefaultMode(sessions, "api", false, "")
-	sessions = filterActiveSessions(sessions)
+	sessions = localsessions.FilterActiveSessions(sessions)
 	if len(sessions) == 0 {
 		return config.Config{}, nil, auth.SessionMetadata{}, fmt.Errorf("no matching Setta sessions found")
 	}

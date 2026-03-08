@@ -6,6 +6,7 @@ from pathlib import Path
 _GO_OWNED_COMMANDS = frozenset(
     {
         "version",
+        "backups",
         "launch",
         "share",
         "app",
