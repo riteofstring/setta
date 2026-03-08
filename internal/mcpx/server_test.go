@@ -137,8 +137,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 50 {
-		t.Fatalf("expected 50 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 52 {
+		t.Fatalf("expected 52 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -181,6 +181,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setSectionNameTool *sdkmcp.Tool
 	var setSectionTagColorTool *sdkmcp.Tool
 	var setSectionStyleColorTool *sdkmcp.Tool
+	var setSectionParamFilterTool *sdkmcp.Tool
+	var setMetaControlShowSectionTitleTool *sdkmcp.Tool
 	var setSectionVariantTool *sdkmcp.Tool
 	var setSectionVariantSortOrderTool *sdkmcp.Tool
 	var setParamTool *sdkmcp.Tool
@@ -308,6 +310,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		if tool.Name == "set_section_style_color" {
 			setSectionStyleColorTool = tool
 		}
+		if tool.Name == "set_section_param_filter" {
+			setSectionParamFilterTool = tool
+		}
+		if tool.Name == "set_meta_control_show_section_title" {
+			setMetaControlShowSectionTitleTool = tool
+		}
 		if tool.Name == "set_section_variant" {
 			setSectionVariantTool = tool
 		}
@@ -367,10 +375,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_gen_code_prefix",
 		"set_gen_code_suffix",
 		"set_group_overflow_mode",
+		"set_meta_control_show_section_title",
 		"set_param_entered_value",
 		"set_param_name_and_value",
 		"set_project_config_codegen_targets",
 		"set_section_name",
+		"set_section_param_filter",
 		"set_section_sizes",
 		"set_section_style_color",
 		"set_section_tag_color",
@@ -673,6 +683,22 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if got := mustStringList(t, setSectionStyleColorPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
 		t.Fatalf("expected set_section_style_color sectionId target path, got %#v", got)
 	}
+	setSectionParamFilterMeta := mustStructuredMap(t, setSectionParamFilterTool.Meta[toolMetaNamespace])
+	if setSectionParamFilterMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_section_param_filter, got %#v", setSectionParamFilterMeta["accessType"])
+	}
+	setSectionParamFilterPaths := mustStructuredMap(t, setSectionParamFilterMeta["idPathsByType"])
+	if got := mustStringList(t, setSectionParamFilterPaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_section_param_filter sectionId target path, got %#v", got)
+	}
+	setMetaControlShowSectionTitleMeta := mustStructuredMap(t, setMetaControlShowSectionTitleTool.Meta[toolMetaNamespace])
+	if setMetaControlShowSectionTitleMeta["accessType"] != string(tools.AccessTypeWrite) {
+		t.Fatalf("expected write access type for set_meta_control_show_section_title, got %#v", setMetaControlShowSectionTitleMeta["accessType"])
+	}
+	setMetaControlShowSectionTitlePaths := mustStructuredMap(t, setMetaControlShowSectionTitleMeta["idPathsByType"])
+	if got := mustStringList(t, setMetaControlShowSectionTitlePaths[string(tools.IDTypeSection)]); len(got) != 1 || got[0] != "sectionId" {
+		t.Fatalf("expected set_meta_control_show_section_title sectionId target path, got %#v", got)
+	}
 	autoLayoutTopLevelSectionsMeta := mustStructuredMap(t, autoLayoutTopLevelSectionsTool.Meta[toolMetaNamespace])
 	if autoLayoutTopLevelSectionsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for auto_layout_top_level_sections, got %#v", autoLayoutTopLevelSectionsMeta["accessType"])
@@ -839,6 +865,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setSectionStyleColorTool == nil {
 		t.Fatal("expected set_section_style_color tool")
 	}
+	if setSectionParamFilterTool == nil {
+		t.Fatal("expected set_section_param_filter tool")
+	}
+	if setMetaControlShowSectionTitleTool == nil {
+		t.Fatal("expected set_meta_control_show_section_title tool")
+	}
 	if setSectionVariantTool == nil {
 		t.Fatal("expected set_section_variant tool")
 	}
@@ -909,8 +941,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 50 {
-		t.Fatalf("expected 50 registered tool names, got %#v", listNames)
+	if len(listNames) != 52 {
+		t.Fatalf("expected 52 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -2525,6 +2557,190 @@ func TestServerSetSectionStyleColorFailsClosedForUnknownSectionTarget(t *testing
 	}
 	if ids := mustStringList(t, payload["targetSectionIds"]); len(ids) != 1 || ids[0] != "missing-section" {
 		t.Fatalf("expected targetSectionIds [missing-section], got %#v", ids)
+	}
+}
+
+func TestServerSetSectionParamFilterRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramFilter":     "   ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_param_filter allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_section_param_filter success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected allowed-params-section raw paramFilter whitespace, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "blocked-params-section",
+			"paramFilter":     "blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_param_filter blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_section_param_filter call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-params-section" {
+		t.Fatalf("unexpected targetSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetSectionParamFilterRejectsUnsupportedSectionType(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-section",
+			"paramFilter":     "alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_section_param_filter: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_section_param_filter call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "section does not support param filter") {
+		t.Fatalf("expected unsupported param filter message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetMetaControlShowSectionTitleRespectsScopedWriteTargets(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestMetaControlSections(t, projectRuntime)
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "allowed-meta-section",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_meta_control_show_section_title allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected allowed set_meta_control_show_section_title success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected allowed-meta-section showSectionTitle=true, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "blocked-meta-section",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_meta_control_show_section_title blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked set_meta_control_show_section_title call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if blockedPayload["reason"] != "out_of_scope" {
+		t.Fatalf("expected out_of_scope reason, got %#v", blockedPayload["reason"])
+	}
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "blocked-meta-section" {
+		t.Fatalf("unexpected blockedSectionIds %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "blocked-meta-section" {
+		t.Fatalf("unexpected targetSectionIds %#v", ids)
+	}
+}
+
+func TestServerSetMetaControlShowSectionTitleRejectsNonMetaControlSection(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "allowed-params-section",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid set_meta_control_show_section_title: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected invalid set_meta_control_show_section_title call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", payload["code"])
+	}
+	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "section must resolve to a meta control section") {
+		t.Fatalf("expected non-meta-control message, got %#v", payload["message"])
 	}
 }
 
@@ -6516,6 +6732,164 @@ func TestServerSetSectionStyleColorTranslatesTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestServerSetSectionParamFilterTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "20",
+		"blocked-params-section": "22",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"paramFilter":     "   ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_param_filter allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_section_param_filter success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected translated allowed-params-section raw paramFilter whitespace, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "22",
+			"paramFilter":     "blocked",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_param_filter blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_section_param_filter call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "22" {
+		t.Fatalf("expected translated blockedSectionIds [22], got %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "22" {
+		t.Fatalf("expected translated targetSectionIds [22], got %#v", ids)
+	}
+}
+
+func TestServerSetMetaControlShowSectionTitleTranslatesTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	mustAddScopedTestMetaControlSections(t, projectRuntime)
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":        "11",
+		"chat-1":               "12",
+		"chat-section":         "13",
+		"allowed-meta-section": "24",
+		"blocked-meta-section": "26",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	allowedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId":  "11",
+			"sectionId":        "24",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_meta_control_show_section_title allowed: %v", err)
+	}
+	if allowedResult.IsError {
+		t.Fatalf("expected temp-id set_meta_control_show_section_title success, got %#v", allowedResult.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayload(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected translated allowed-meta-section showSectionTitle=true, got %#v", got)
+	}
+
+	blockedResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId":  "11",
+			"sectionId":        "26",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_meta_control_show_section_title blocked: %v", err)
+	}
+	if !blockedResult.IsError {
+		t.Fatal("expected blocked temp-id set_meta_control_show_section_title call to fail")
+	}
+	blockedPayload := mustStructuredMap(t, blockedResult.StructuredContent)
+	if ids := mustStringList(t, blockedPayload["blockedSectionIds"]); len(ids) != 1 || ids[0] != "26" {
+		t.Fatalf("expected translated blockedSectionIds [26], got %#v", ids)
+	}
+	if ids := mustStringList(t, blockedPayload["targetSectionIds"]); len(ids) != 1 || ids[0] != "26" {
+		t.Fatalf("expected translated targetSectionIds [26], got %#v", ids)
+	}
+}
+
 func TestServerSetCodeTranslatesTemporaryIDs(t *testing.T) {
 	t.Parallel()
 
@@ -7434,6 +7808,76 @@ func mustAddScopedTestGroupSection(t *testing.T, runtime *projectstate.Runtime) 
 		return document, nil
 	}); err != nil {
 		t.Fatalf("add scoped test group section: %v", err)
+	}
+}
+
+func mustAddScopedTestMetaControlSections(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return document, err
+		}
+		if _, ok := project.Sections["allowed-meta-section"]; ok {
+			return document, nil
+		}
+
+		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "allowed-meta-section", "blocked-meta-section")
+		project.TopLevelSections["allowed-meta-section"] = projectstate.TopLevelSectionLayout{X: 70, Y: 80}
+		project.TopLevelSections["blocked-meta-section"] = projectstate.TopLevelSectionLayout{X: 80, Y: 90}
+		project.SectionVariantMap["allowed-meta-section"] = "allowed-meta-variant"
+		project.SectionVariantMap["blocked-meta-section"] = "blocked-meta-variant"
+		project.AgenticEdges = append(project.AgenticEdges, projectstate.AgenticEdge{
+			ID:              "edge-meta-context",
+			SourceSectionID: "allowed-meta-section",
+			TargetSectionID: "chat-section",
+			Kind:            agenticEdgeKindSectionChat,
+		}, projectstate.AgenticEdge{
+			ID:              "edge-meta-write",
+			SourceSectionID: "chat-section",
+			TargetSectionID: "allowed-meta-section",
+			Kind:            agenticEdgeKindChatSection,
+		})
+		project.Sections["allowed-meta-section"] = projectstate.Section{
+			ID:               "allowed-meta-section",
+			Name:             "Allowed Meta",
+			VariantIDs:       []string{"allowed-meta-variant"},
+			DefaultVariantID: "allowed-meta-variant",
+		}
+		project.Sections["blocked-meta-section"] = projectstate.Section{
+			ID:               "blocked-meta-section",
+			Name:             "Blocked Meta",
+			VariantIDs:       []string{"blocked-meta-variant"},
+			DefaultVariantID: "blocked-meta-variant",
+		}
+		project.SectionVariants["allowed-meta-variant"] = projectstate.SectionVariant{
+			ID:     "allowed-meta-variant",
+			ImplID: "allowed-meta-impl",
+		}
+		project.SectionVariants["blocked-meta-variant"] = projectstate.SectionVariant{
+			ID:     "blocked-meta-variant",
+			ImplID: "blocked-meta-impl",
+		}
+		project.SectionImpls["allowed-meta-impl"] = projectstate.SectionImpl{
+			ID:      "allowed-meta-impl",
+			Kind:    projectstate.SectionKind("frontend"),
+			Payload: mustRawJSON(t, map[string]any{"id": "allowed-meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+		}
+		project.SectionImpls["blocked-meta-impl"] = projectstate.SectionImpl{
+			ID:      "blocked-meta-impl",
+			Kind:    projectstate.SectionKind("frontend"),
+			Payload: mustRawJSON(t, map[string]any{"id": "blocked-meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+		}
+
+		normalizedProject, err := project.Normalized()
+		if err != nil {
+			return document, err
+		}
+		document.Projects[normalizedProject.ID] = normalizedProject
+		return document, nil
+	}); err != nil {
+		t.Fatalf("add scoped test meta control sections: %v", err)
 	}
 }
 

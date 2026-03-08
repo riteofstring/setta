@@ -1860,6 +1860,260 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionStyleColorOverAuthentic
 	}
 }
 
+func TestAppIDEMCPServerSupportsSetSectionParamFilterOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"sectionId":       "allowed-params-section",
+			"paramFilter":     "   ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_section_param_filter: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_section_param_filter success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected allowed-params-section raw paramFilter whitespace after app mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionParamFilterOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "20",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_section_param_filter",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"sectionId":       "20",
+			"paramFilter":     "   ",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_section_param_filter: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_section_param_filter success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected allowed-params-section raw paramFilter whitespace after temp-id app mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsSetMetaControlShowSectionTitleOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPMetaControlSections(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+		Arguments: map[string]any{
+			"projectConfigId":  "project-alpha",
+			"sectionId":        "allowed-meta-section",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_meta_control_show_section_title: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_meta_control_show_section_title success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after app set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected allowed-meta-section showSectionTitle=true after app mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetMetaControlShowSectionTitleOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPMetaControlSections(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":        "11",
+		"chat-1":               "12",
+		"chat-section":         "13",
+		"allowed-meta-section": "24",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_meta_control_show_section_title",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+		Arguments: map[string]any{
+			"projectConfigId":  "11",
+			"sectionId":        "24",
+			"showSectionTitle": true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_meta_control_show_section_title: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_meta_control_show_section_title success, got %#v", result.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id app set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected allowed-meta-section showSectionTitle=true after temp-id app mutation, got %#v", got)
+	}
+}
+
 func TestAppIDEMCPServerSupportsSetWatchCodeEnabledOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -6406,6 +6660,145 @@ func TestAppIDEMCPToolCallRouteSupportsSetSectionStyleColor(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsSetSectionParamFilter(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_section_param_filter",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"allowed-params-section",
+				"paramFilter":"   "
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_section_param_filter tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_section_param_filter tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_section_param_filter success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected allowed-params-section raw paramFilter whitespace after route mutation, got %#v", got)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsSetMetaControlShowSectionTitle(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustAddAppScopedMCPMetaControlSections(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"set_meta_control_show_section_title",
+			"arguments":{
+				"projectConfigId":"project-alpha",
+				"sectionId":"allowed-meta-section",
+				"showSectionTitle":true
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post set_meta_control_show_section_title tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode set_meta_control_show_section_title tool call response: %v", err)
+	}
+	if payload.IsError {
+		t.Fatalf("expected set_meta_control_show_section_title success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedProjectPayloadValue(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected allowed-meta-section showSectionTitle=true after route mutation, got %#v", got)
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsSetShowParamDisplayNames(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -8349,6 +8742,77 @@ func mustSetAppScopedMCPProjectWatchCodeState(
 	document.Projects["project-alpha"] = project
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save scoped MCP watch code project: %v", err)
+	}
+}
+
+func mustAddAppScopedMCPMetaControlSections(t *testing.T, cfg config.Config) {
+	t.Helper()
+
+	paths, err := projectstate.ResolvePaths(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("resolve project paths: %v", err)
+	}
+	store, err := projectstate.NewStore(paths.Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open project store: %v", err)
+	}
+	document, err := store.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load scoped MCP project: %v", err)
+	}
+	project := document.Projects["project-alpha"]
+	if _, ok := project.Sections["allowed-meta-section"]; ok {
+		return
+	}
+
+	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "allowed-meta-section", "blocked-meta-section")
+	project.SectionVariantMap["allowed-meta-section"] = "allowed-meta-variant"
+	project.SectionVariantMap["blocked-meta-section"] = "blocked-meta-variant"
+	project.AgenticEdges = append(project.AgenticEdges, projectstate.AgenticEdge{
+		ID:              "edge-meta-context",
+		SourceSectionID: "allowed-meta-section",
+		TargetSectionID: "chat-section",
+		Kind:            "section_chat",
+	}, projectstate.AgenticEdge{
+		ID:              "edge-meta-write",
+		SourceSectionID: "chat-section",
+		TargetSectionID: "allowed-meta-section",
+		Kind:            "chat_section",
+	})
+	project.Sections["allowed-meta-section"] = projectstate.Section{
+		ID:               "allowed-meta-section",
+		Name:             "Allowed Meta",
+		VariantIDs:       []string{"allowed-meta-variant"},
+		DefaultVariantID: "allowed-meta-variant",
+	}
+	project.Sections["blocked-meta-section"] = projectstate.Section{
+		ID:               "blocked-meta-section",
+		Name:             "Blocked Meta",
+		VariantIDs:       []string{"blocked-meta-variant"},
+		DefaultVariantID: "blocked-meta-variant",
+	}
+	project.SectionVariants["allowed-meta-variant"] = projectstate.SectionVariant{
+		ID:     "allowed-meta-variant",
+		ImplID: "allowed-meta-impl",
+	}
+	project.SectionVariants["blocked-meta-variant"] = projectstate.SectionVariant{
+		ID:     "blocked-meta-variant",
+		ImplID: "blocked-meta-impl",
+	}
+	project.SectionImpls["allowed-meta-impl"] = projectstate.SectionImpl{
+		ID:      "allowed-meta-impl",
+		Kind:    projectstate.SectionKind("frontend"),
+		Payload: mustRawJSONValue(t, map[string]any{"id": "allowed-meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+	}
+	project.SectionImpls["blocked-meta-impl"] = projectstate.SectionImpl{
+		ID:      "blocked-meta-impl",
+		Kind:    projectstate.SectionKind("frontend"),
+		Payload: mustRawJSONValue(t, map[string]any{"id": "blocked-meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+	}
+
+	document.Projects[project.ID] = project
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save scoped MCP meta control project: %v", err)
 	}
 }
 

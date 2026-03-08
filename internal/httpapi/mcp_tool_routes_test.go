@@ -1572,6 +1572,282 @@ func TestMCPToolCallRouteSetSectionStyleColorAcceptsTemporaryIDs(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsSetSectionParamFilter(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_section_param_filter",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"sectionId":"allowed-params-section",
+			"paramFilter":"   "
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_section_param_filter success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected allowed-params-section raw paramFilter whitespace, got %#v", got)
+	}
+}
+
+func TestMCPToolCallRouteSetSectionParamFilterAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":          "11",
+		"chat-1":                 "12",
+		"chat-section":           "13",
+		"allowed-params-section": "20",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_section_param_filter",
+		"arguments":{
+			"projectConfigId":"11",
+			"sectionId":"20",
+			"paramFilter":"   "
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"chatId":"12",
+			"sectionId":"13"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_section_param_filter success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_section_param_filter: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-params-section"].SharedModifier)
+	if got := allowedPayload["paramFilter"]; got != "   " {
+		t.Fatalf("expected allowed-params-section raw paramFilter whitespace after temp-id route mutation, got %#v", got)
+	}
+}
+
+func TestMCPToolCallRouteSupportsSetMetaControlShowSectionTitle(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteMetaControlSections(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_meta_control_show_section_title",
+		"arguments":{
+			"projectConfigId":"project-alpha",
+			"sectionId":"allowed-meta-section",
+			"showSectionTitle":true
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected set_meta_control_show_section_title success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after route set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected allowed-meta-section showSectionTitle=true, got %#v", got)
+	}
+}
+
+func TestMCPToolCallRouteSetMetaControlShowSectionTitleAcceptsTemporaryIDs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	mustAddRouteMetaControlSections(t, projectRuntime)
+
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	temporaryIDMapPath := filepath.Join(t.TempDir(), "temporary_id_map.json")
+	writeRouteTemporaryIDMap(t, temporaryIDMapPath, map[string]string{
+		"project-alpha":        "11",
+		"chat-1":               "12",
+		"chat-section":         "13",
+		"allowed-meta-section": "24",
+	})
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		SectionNames:       routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics:     diagnostics,
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"set_meta_control_show_section_title",
+		"arguments":{
+			"projectConfigId":"11",
+			"sectionId":"24",
+			"showSectionTitle":true
+		},
+		"agenticContext":{
+			"projectConfigId":"11",
+			"chatId":"12",
+			"sectionId":"13"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected temp-id set_meta_control_show_section_title success, got %#v", payload.StructuredContent)
+	}
+
+	project, err := projectRuntime.Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after temp-id route set_meta_control_show_section_title: %v", err)
+	}
+	allowedPayload := mustDecodedRouteProjectPayload(t, project.Sections["allowed-meta-section"].SharedModifier)
+	if got := allowedPayload["showSectionTitle"]; got != true {
+		t.Fatalf("expected allowed-meta-section showSectionTitle=true after temp-id route mutation, got %#v", got)
+	}
+}
+
 func TestMCPToolCallRouteSupportsSetWatchCodeEnabled(t *testing.T) {
 	t.Parallel()
 
@@ -5031,6 +5307,74 @@ func mustAddRouteGroupSection(t *testing.T, runtime *projectstate.Runtime) {
 		return document, nil
 	}); err != nil {
 		t.Fatalf("add route group section: %v", err)
+	}
+}
+
+func mustAddRouteMetaControlSections(t *testing.T, runtime *projectstate.Runtime) {
+	t.Helper()
+
+	if _, err := runtime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		project, err := document.ProjectByID("project-alpha")
+		if err != nil {
+			return document, err
+		}
+		if _, ok := project.Sections["allowed-meta-section"]; ok {
+			return document, nil
+		}
+
+		project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "allowed-meta-section", "blocked-meta-section")
+		project.SectionVariantMap["allowed-meta-section"] = "allowed-meta-variant"
+		project.SectionVariantMap["blocked-meta-section"] = "blocked-meta-variant"
+		project.AgenticEdges = append(project.AgenticEdges, projectstate.AgenticEdge{
+			ID:              "edge-meta-context",
+			SourceSectionID: "allowed-meta-section",
+			TargetSectionID: "chat-section",
+			Kind:            "section_chat",
+		}, projectstate.AgenticEdge{
+			ID:              "edge-meta-write",
+			SourceSectionID: "chat-section",
+			TargetSectionID: "allowed-meta-section",
+			Kind:            "chat_section",
+		})
+		project.Sections["allowed-meta-section"] = projectstate.Section{
+			ID:               "allowed-meta-section",
+			Name:             "Allowed Meta",
+			VariantIDs:       []string{"allowed-meta-variant"},
+			DefaultVariantID: "allowed-meta-variant",
+		}
+		project.Sections["blocked-meta-section"] = projectstate.Section{
+			ID:               "blocked-meta-section",
+			Name:             "Blocked Meta",
+			VariantIDs:       []string{"blocked-meta-variant"},
+			DefaultVariantID: "blocked-meta-variant",
+		}
+		project.SectionVariants["allowed-meta-variant"] = projectstate.SectionVariant{
+			ID:     "allowed-meta-variant",
+			ImplID: "allowed-meta-impl",
+		}
+		project.SectionVariants["blocked-meta-variant"] = projectstate.SectionVariant{
+			ID:     "blocked-meta-variant",
+			ImplID: "blocked-meta-impl",
+		}
+		project.SectionImpls["allowed-meta-impl"] = projectstate.SectionImpl{
+			ID:      "allowed-meta-impl",
+			Kind:    projectstate.SectionKind("frontend"),
+			Payload: mustRouteRawJSON(t, map[string]any{"id": "allowed-meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+		}
+		project.SectionImpls["blocked-meta-impl"] = projectstate.SectionImpl{
+			ID:      "blocked-meta-impl",
+			Kind:    projectstate.SectionKind("frontend"),
+			Payload: mustRouteRawJSON(t, map[string]any{"id": "blocked-meta-impl", "type": "MetaControl", "showSectionTitle": false, "codeObjVariantMap": map[string]any{}}),
+		}
+
+		normalizedProject, err := project.Normalized()
+		if err != nil {
+			return document, err
+		}
+		document.Projects[normalizedProject.ID] = normalizedProject
+		return document, nil
+	}); err != nil {
+		t.Fatalf("add route meta control sections: %v", err)
 	}
 }
 

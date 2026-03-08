@@ -95,6 +95,8 @@ type projectStateProvider interface {
 	SetGroupOverflowMode(ctx context.Context, projectID string, sectionID string, overflowMode bool) (projectstate.Snapshot, error)
 	SetSectionTagColor(ctx context.Context, projectID string, sectionID string, tagColor *string) (projectstate.Snapshot, error)
 	SetSectionStyleColor(ctx context.Context, projectID string, sectionID string, styleColor *string) (projectstate.Snapshot, error)
+	SetSectionParamFilter(ctx context.Context, projectID string, sectionID string, value string) (projectstate.Snapshot, error)
+	SetMetaControlShowSectionTitle(ctx context.Context, projectID string, sectionID string, showSectionTitle bool) (projectstate.Snapshot, error)
 	SetSectionVariant(ctx context.Context, projectID string, sectionID string, variantID string) (projectstate.Snapshot, error)
 	SetSectionVariantSortOrder(ctx context.Context, projectID string, sectionID string, orderedVariantIDs []string) (projectstate.Snapshot, error)
 	SetShowParamDisplayNames(ctx context.Context, projectID string, show bool) (projectstate.Snapshot, error)
@@ -1921,6 +1923,82 @@ func newSetSectionStyleColorHandler(projectState projectStateProvider) tools.Han
 		}
 
 		if _, err := projectState.SetSectionStyleColor(ctx, projectConfigID, sectionID, styleColor); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetSectionParamFilterHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		paramFilter, err := readRequiredRawStringArgument(arguments, "paramFilter")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped section-param-filter invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetSectionParamFilter(ctx, projectConfigID, sectionID, paramFilter); err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetMetaControlShowSectionTitleHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		sectionID, err := readRequiredStringArgument(arguments, "sectionId")
+		if err != nil {
+			return nil, err
+		}
+		showSectionTitle, err := readRequiredBoolArgument(arguments, "showSectionTitle")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Scoped meta-control title invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		if _, err := projectState.SetMetaControlShowSectionTitle(ctx, projectConfigID, sectionID, showSectionTitle); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -4099,6 +4177,94 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "set_section_param_filter",
+				Description: "Set the raw parameter-filter string for a section that supports parameter lists within the requested project config.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "params",
+					SearchTags:     []string{"params", "filter", "section", "write"},
+				},
+				Handler: newSetSectionParamFilterHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose section param filter should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Section id whose param filter should be updated.",
+					},
+					"paramFilter": map[string]any{
+						"type":        "string",
+						"description": "Raw filter string to persist exactly as written.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "paramFilter"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_meta_control_show_section_title",
+				Description: "Set whether a MetaControl section should show its section title within the requested project config.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeWrite,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "layout",
+					SearchTags:     []string{"layout", "meta-control", "title", "section", "write"},
+				},
+				Handler: newSetMetaControlShowSectionTitleHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose MetaControl title visibility should be updated.",
+					},
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "MetaControl section id whose title visibility should be updated.",
+					},
+					"showSectionTitle": map[string]any{
+						"type":        "boolean",
+						"description": "Whether the MetaControl section should render its section title.",
+					},
+				},
+				"required": []string{"projectConfigId", "sectionId", "showSectionTitle"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{
+						"type": "string",
+					},
+				},
+				"required": []string{"status"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "change_param_impl",
 				Description: "Switch the targeted parameter or meta-control to a different implementation type.",
 				Metadata: tools.Metadata{
@@ -5575,6 +5741,8 @@ func normalizeProjectStateMutationError(err error) error {
 		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjRenameUnsupported),
 		errors.Is(err, projectstate.ErrCodeObjActiveReferenceNotFound),
+		errors.Is(err, projectstate.ErrSectionParamFilterUnsupported),
+		errors.Is(err, projectstate.ErrMetaControlSectionRequired),
 		errors.Is(err, projectstate.ErrCodeSectionRequired),
 		errors.Is(err, projectstate.ErrCodeSectionReadOnly),
 		errors.Is(err, projectstate.ErrChildSectionParentIDRequired),
