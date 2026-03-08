@@ -3362,6 +3362,173 @@ func TestAppServesSetProjectConfigCodegenTargetsRoute(t *testing.T) {
 	}
 }
 
+func TestAppLinkedPluginCodegenTargetsWorkWithoutRestart(t *testing.T) {
+	// Linking a plugin-backed codegen target after startup should not require a
+	// separate app-owned hot-refresh path before the target can be selected.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	repoRoot := appTestRepoRoot(t)
+	sourceRoot := filepath.Join(repoRoot, "tests", "fixtures", "plugins", "backend-codegen")
+	localPluginRoot := filepath.Join(t.TempDir(), "backend-codegen")
+	copyAppTestDir(t, sourceRoot, localPluginRoot)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postJSON := func(path string, body any, responseBody any) {
+		t.Helper()
+
+		requestBody := mustAppJSON(t, body)
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, bytes.NewReader(requestBody))
+		if err != nil {
+			t.Fatalf("new request %s: %v", path, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			payload, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected %s 200, got %d with body %q", path, response.StatusCode, string(payload))
+		}
+		if responseBody == nil {
+			return
+		}
+		if err := json.NewDecoder(response.Body).Decode(responseBody); err != nil {
+			t.Fatalf("decode %s response: %v", path, err)
+		}
+	}
+	getRuntime := func() struct {
+		Status struct {
+			Plugins []struct {
+				PluginID                 string `json:"pluginId"`
+				RegisteredCodegenTargets []struct {
+					TargetID string `json:"targetId"`
+				} `json:"registeredCodegenTargets"`
+			} `json:"plugins"`
+		} `json:"status"`
+	} {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+		if err != nil {
+			t.Fatalf("new plugin runtime request: %v", err)
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("get plugin runtime: %v", err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
+		}
+
+		var payload struct {
+			Status struct {
+				Plugins []struct {
+					PluginID                 string `json:"pluginId"`
+					RegisteredCodegenTargets []struct {
+						TargetID string `json:"targetId"`
+					} `json:"registeredCodegenTargets"`
+				} `json:"plugins"`
+			} `json:"status"`
+		}
+		if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+			t.Fatalf("decode plugin runtime payload: %v", err)
+		}
+		return payload
+	}
+
+	postJSON(httpapi.RoutePluginsLink, map[string]any{
+		"localPluginRoot": localPluginRoot,
+		"scope":           "workspace",
+		"enable":          true,
+		"force":           true,
+	}, nil)
+
+	runtimePayload := getRuntime()
+	if len(runtimePayload.Status.Plugins) != 1 {
+		t.Fatalf("expected one linked plugin in runtime payload, got %#v", runtimePayload.Status.Plugins)
+	}
+	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-backend-codegen" {
+		t.Fatalf("unexpected linked plugin runtime payload %#v", runtimePayload.Status.Plugins[0])
+	}
+	if len(runtimePayload.Status.Plugins[0].RegisteredCodegenTargets) != 1 {
+		t.Fatalf("expected one linked plugin codegen target, got %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets)
+	}
+	if runtimePayload.Status.Plugins[0].RegisteredCodegenTargets[0].TargetID != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("unexpected linked plugin codegen registration %#v", runtimePayload.Status.Plugins[0].RegisteredCodegenTargets[0])
+	}
+
+	var payload projectview.SingleConfig
+	postJSON(httpapi.RouteSetProjectConfigCodegenTargets, map[string]any{
+		"projectConfigId": "project-alpha",
+		"codegenTargets": []map[string]any{
+			{
+				"language": "setta-fixture-backend-codegen:typescript",
+				"options": map[string]any{
+					"className": "LinkedState",
+				},
+			},
+		},
+	}, &payload)
+
+	if payload.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha response, got %q", payload.ProjectConfig.ID)
+	}
+	if len(payload.ProjectConfig.CodegenTargets) != 1 {
+		t.Fatalf("expected one codegen target in response, got %d", len(payload.ProjectConfig.CodegenTargets))
+	}
+
+	matches, err := filepath.Glob(filepath.Join(cfg.Paths.SettaFilesRoot, "code", "sections", "alpha", "plugin_codegen", "*", "setta_gen.ts"))
+	if err != nil {
+		t.Fatalf("glob linked plugin codegen output: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected one linked plugin codegen output, got %v", matches)
+	}
+	content, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read linked plugin codegen output: %v", err)
+	}
+	expected := "export class LinkedState {\n  readonly projectName = 'Alpha';\n}\n"
+	if string(content) != expected {
+		t.Fatalf("unexpected linked plugin codegen output: %q", string(content))
+	}
+}
+
 func TestAppServesSetProjectConfigCodegenTargetsRouteForPython(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

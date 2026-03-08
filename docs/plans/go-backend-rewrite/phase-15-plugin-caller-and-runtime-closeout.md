@@ -132,6 +132,13 @@ or generation runs.
 That means there is no separate caller-backed app-level "codegen target hot
 refresh" slice to pull forward today.
 
+Focused app coverage now also proves that a backend-codegen plugin linked after
+startup can immediately:
+
+- appear in `GET /plugins/runtime` with its registered codegen target
+- satisfy `POST /setProjectConfigCodegenTargets`
+- materialize plugin codegen output without a restart-specific app refresh path
+
 ### 4. Plugin external-agent execution is still not a current caller-backed rewrite slice
 
 The current plugin external-agent caller proves:
@@ -188,13 +195,17 @@ runtime reload would be speculative.
 - 2026-03-09: confirmed plugin codegen callers already resolve against current
   filesystem/plugin state and do not require a separate app-owned hot-refresh
   slice.
+- 2026-03-09: added real app coverage proving a backend-codegen plugin linked
+  after startup can be selected through `setProjectConfigCodegenTargets`
+  immediately.
 - 2026-03-09: confirmed plugin external-agent execution remains outside the
   current caller-backed scope even though runtime visibility and config
   selection are now Go-owned.
 
 ## Verification
 
-- docs and inventory only; no automated tests were run
+- `./scripts/go.sh test ./internal/app -run '^TestAppServesSetProjectConfigCodegenTargetsRoute$' -count=1`
+- `./scripts/go.sh test ./internal/app -run '^TestAppLinkedPluginCodegenTargetsWorkWithoutRestart$' -count=1`
 
 ## Next Recommended Step
 
@@ -206,4 +217,3 @@ runtime reload would be speculative.
   - explicit plugin external-agent execution requirements
   - a new plugin-owned runtime surface that is not already satisfied by the
     current Go source-of-truth paths
-
