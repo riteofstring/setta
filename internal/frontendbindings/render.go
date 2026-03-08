@@ -32,6 +32,7 @@ type endpointRenderData struct {
 	ResponseTypeRef string
 	UsesRequest     bool
 	UsesGet         bool
+	UsesBinaryGet   bool
 }
 
 type routeEnumEntry struct {
@@ -70,7 +71,8 @@ func Build() (GeneratedBindings, error) {
 			RequestTypeName: requestTypeName,
 			ResponseTypeRef: tsTypeReference(spec.ResponseType),
 			UsesRequest:     spec.RequestType != nil,
-			UsesGet:         spec.Method == "GET",
+			UsesGet:         spec.Method == "GET" && !spec.BinaryResponse,
+			UsesBinaryGet:   spec.Method == "GET" && spec.BinaryResponse,
 		})
 	}
 

@@ -25,6 +25,7 @@ type EndpointSpec struct {
 	RouteName       string
 	RequestType     reflect.Type
 	ResponseType    reflect.Type
+	BinaryResponse  bool
 }
 
 func CurrentRouteGroups() []RouteGroup {
@@ -264,6 +265,51 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "getAttachmentDownloadUrls",
 					Path:     httpapi.RouteGetAttachmentDownloadURLs,
 					EnumName: "GET_ATTACHMENT_DOWNLOAD_URLS",
+				},
+				{
+					Name:     "binaryUpload",
+					Path:     httpapi.RouteBinaryUpload,
+					EnumName: "BINARY_UPLOAD",
+				},
+				{
+					Name:     "binaryDownload",
+					Path:     httpapi.RouteBinaryDownload,
+					EnumName: "BINARY_DOWNLOAD",
+				},
+				{
+					Name:     "importFilesToArtifacts",
+					Path:     httpapi.RouteImportFilesToArtifacts,
+					EnumName: "IMPORT_FILES_TO_ARTIFACTS",
+				},
+				{
+					Name:     "loadCachedImageArtifacts",
+					Path:     httpapi.RouteLoadCachedImageArtifacts,
+					EnumName: "LOAD_CACHED_IMAGE_ARTIFACTS",
+				},
+				{
+					Name:     "loadCachedChartData",
+					Path:     httpapi.RouteLoadCachedChartData,
+					EnumName: "LOAD_CACHED_CHART_DATA",
+				},
+				{
+					Name:     "loadCachedBrushStrokes",
+					Path:     httpapi.RouteLoadCachedBrushStrokes,
+					EnumName: "LOAD_CACHED_BRUSH_STROKES",
+				},
+				{
+					Name:     "loadCachedDrawAreaLayerItemTransform",
+					Path:     httpapi.RouteLoadCachedDrawAreaLayerItemTransform,
+					EnumName: "LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANSFORM",
+				},
+				{
+					Name:     "updateArtifacts",
+					Path:     httpapi.RouteUpdateArtifacts,
+					EnumName: "UPDATE_ARTIFACTS",
+				},
+				{
+					Name:     "deleteArtifacts",
+					Path:     httpapi.RouteDeleteArtifacts,
+					EnumName: "DELETE_ARTIFACTS",
 				},
 				{
 					Name:     "forceRefreshListener",
@@ -923,6 +969,79 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(GetAttachmentDownloadURLsResponse{}),
 		},
 		{
+			FunctionName:    "route_binary_upload",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "binaryUpload",
+			RequestType:     reflect.TypeOf(BinaryUploadRequestInput{}),
+			ResponseType:    reflect.TypeOf(BinaryContentRef{}),
+		},
+		{
+			FunctionName:    "route_binary_download",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "binaryDownload",
+			RequestType:     reflect.TypeOf(BinaryDownloadRequestInput{}),
+			ResponseType:    reflect.TypeOf(BinaryDownloadResponse{}),
+			BinaryResponse:  true,
+		},
+		{
+			FunctionName:    "route_import_files_to_artifacts",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "importFilesToArtifacts",
+			RequestType:     reflect.TypeOf(ImportFilesToArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(ImportFilesToArtifactsResponse{}),
+		},
+		{
+			FunctionName:    "route_load_cached_image_artifacts",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "loadCachedImageArtifacts",
+			RequestType:     reflect.TypeOf(LoadCachedArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(LoadCachedImageArtifactsResponse{}),
+		},
+		{
+			FunctionName:    "route_load_cached_chart_data",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "loadCachedChartData",
+			RequestType:     reflect.TypeOf(LoadCachedArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(LoadCachedChartDataResponse{}),
+		},
+		{
+			FunctionName:    "route_load_cached_brush_strokes",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "loadCachedBrushStrokes",
+			RequestType:     reflect.TypeOf(LoadCachedArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(LoadCachedBrushStrokesResponse{}),
+		},
+		{
+			FunctionName:    "route_load_cached_draw_area_layer_item_transform",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "loadCachedDrawAreaLayerItemTransform",
+			RequestType:     reflect.TypeOf(LoadCachedArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(LoadCachedDrawAreaLayerItemTransformResponse{}),
+		},
+		{
+			FunctionName:    "route_update_artifacts",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "updateArtifacts",
+			RequestType:     reflect.TypeOf(UpdateArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(UpdateArtifactsResponse{}),
+		},
+		{
+			FunctionName:    "route_delete_artifacts",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteArtifacts",
+			RequestType:     reflect.TypeOf(DeleteArtifactsRequestInput{}),
+			ResponseType:    reflect.TypeOf(DeleteArtifactsResponse{}),
+		},
+		{
 			FunctionName:    "route_force_refresh_listener",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -1425,5 +1544,28 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(BinaryDependencyValue{}),
 		reflect.TypeOf(BaseDependencyValueUnion{}),
 		reflect.TypeOf(DependencyEvent{}),
+		reflect.TypeOf(ArtifactType("")),
+		reflect.TypeOf(DrawAreaBrushShape("")),
+		reflect.TypeOf(DrawAreaMode("")),
+		reflect.TypeOf(CanvasPoint{}),
+		reflect.TypeOf(DrawAreaTransform{}),
+		reflect.TypeOf(BrushStroke{}),
+		reflect.TypeOf(BrushStrokeWithTransform{}),
+		reflect.TypeOf(DrawAreaLayerItemTransform{}),
+		reflect.TypeOf(DrawAreaLayerItem{}),
+		reflect.TypeOf(DrawAreaLayer{}),
+		reflect.TypeOf(ImageArtifact{}),
+		reflect.TypeOf(BrushStrokeArtifact{}),
+		reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}),
+		reflect.TypeOf(ChartDataValue{}),
+		reflect.TypeOf(ChartDataArtifact{}),
+		reflect.TypeOf(FileArtifact{}),
+		reflect.TypeOf(ArtifactUnion{}),
+		reflect.TypeOf(ImageMapping{}),
+		reflect.TypeOf(BrushStrokeMapping{}),
+		reflect.TypeOf(DrawAreaLayerItemTransformMapping{}),
+		reflect.TypeOf(ChartDataMapping{}),
+		reflect.TypeOf(FileMapping{}),
+		reflect.TypeOf(UpdateArtifactMsgContent{}),
 	}
 }

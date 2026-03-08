@@ -331,11 +331,11 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
-  it("keeps streamAppSpec on backend origin", async () => {
-    await post(RouteEnum.STREAM_APP_SPEC, { prompt: "Generate app" });
+  it("keeps binary upload on backend origin", async () => {
+    await post(RouteEnum.BINARY_UPLOAD, new FormData());
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.STREAM_APP_SPEC}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.BINARY_UPLOAD}`,
     );
   });
 

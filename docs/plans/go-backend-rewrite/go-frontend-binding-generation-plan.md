@@ -83,6 +83,7 @@ Current landed wedge:
   - current project-state layout/presence/structure-selection route constants
   - current top-level section creation, view-mode lifecycle, and section-rename
     route constants
+  - current binary payload and bounded artifact route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
@@ -290,6 +291,52 @@ Current landed wedge:
       - `PluginRegisteredLanguageServer`
       - `PluginRegisteredExternalAgentAdapter`
       - `PluginRegisteredCodegenTarget`
+  - binary payload and bounded artifact contract types used by the current
+    callers
+    - binary transport payloads
+      - `BinaryUploadRequestInput`
+      - `BinaryDownloadRequestInput`
+      - `BinaryDownloadResponse`
+    - artifact transport payloads
+      - `ImportFilesToArtifactsRequestInput`
+      - `ImportFilesToArtifactsResponse`
+      - `LoadCachedArtifactsRequestInput`
+      - `LoadCachedImageArtifactsResponse`
+      - `LoadCachedChartDataResponse`
+      - `LoadCachedBrushStrokesResponse`
+      - `LoadCachedDrawAreaLayerItemTransformResponse`
+      - `UpdateArtifactsRequestInput`
+      - `UpdateArtifactsResponse`
+      - `DeleteArtifactsRequestInput`
+      - `DeleteArtifactsResponse`
+    - shared artifact/draw-area runtime types and helpers
+      - `ArtifactType`
+      - `DrawAreaBrushShape`
+      - `DrawAreaMode`
+      - `CanvasPoint`
+      - `DrawAreaTransform`
+      - `BrushStroke`
+      - `BrushStrokeWithTransform`
+      - `DrawAreaLayerItemTransform`
+      - `DrawAreaLayerItem`
+      - `DrawAreaLayer`
+      - `ImageArtifact`
+      - `BrushStrokeArtifact`
+      - `DrawAreaLayerItemTransformArtifact`
+      - `ChartDataArtifact`
+      - `FileArtifact`
+      - `ImageMapping`
+      - `BrushStrokeMapping`
+      - `DrawAreaLayerItemTransformMapping`
+      - `ChartDataMapping`
+      - `FileMapping`
+      - `UpdateArtifactMsgContent`
+      - `createBrushStroke`
+      - `createBrushStrokeArtifact`
+      - `createDrawAreaLayer`
+      - `createDrawAreaLayerItem`
+      - `createDrawAreaLayerItemTransform`
+      - `createDrawAreaLayerItemTransformArtifact`
 - `frontend/src/utils/generatedEndpoints.ts`
   - current status/meta endpoint wrappers
   - project-shell and current project-state endpoint wrappers
@@ -369,6 +416,16 @@ Current landed wedge:
   - attachment download helper endpoint wrappers
     - `route_get_attachment_download_url`
     - `route_get_attachment_download_urls`
+  - binary payload and bounded artifact endpoint wrappers
+    - `route_binary_upload`
+    - `route_binary_download`
+    - `route_import_files_to_artifacts`
+    - `route_load_cached_image_artifacts`
+    - `route_load_cached_chart_data`
+    - `route_load_cached_brush_strokes`
+    - `route_load_cached_draw_area_layer_item_transform`
+    - `route_update_artifacts`
+    - `route_delete_artifacts`
   - attachment download helper contract types
     - `GetAttachmentDownloadURLRequestInput`
     - `GetAttachmentDownloadURLResponse`

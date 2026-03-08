@@ -173,6 +173,34 @@ func newTypeConverter() *typeConverter {
 				{Name: "info", Value: "info"},
 				{Name: "save", Value: "save"},
 			},
+			reflect.TypeOf(ArtifactType("")): {
+				{Name: "Image", Value: "Image"},
+				{Name: "BrushStroke", Value: "BrushStroke"},
+				{Name: "DrawAreaLayerItemTransform", Value: "DrawAreaLayerItemTransform"},
+				{Name: "ChartData", Value: "ChartData"},
+				{Name: "File", Value: "File"},
+			},
+			reflect.TypeOf(DrawAreaBrushShape("")): {
+				{Name: "butt", Value: "butt"},
+				{Name: "round", Value: "round"},
+				{Name: "square", Value: "square"},
+			},
+			reflect.TypeOf(DrawAreaMode("")): {
+				{Name: "draw", Value: "draw"},
+				{Name: "erase", Value: "erase"},
+				{Name: "edit", Value: "edit"},
+			},
+			reflect.TypeOf(ArtifactSaveConflictStrategy("")): {
+				{Name: "skip", Value: "skip"},
+				{Name: "backup", Value: "backup"},
+				{Name: "overwrite", Value: "overwrite"},
+			},
+			reflect.TypeOf(ArtifactSaveStatus("")): {
+				{Name: "saved", Value: "saved"},
+				{Name: "unchanged", Value: "unchanged"},
+				{Name: "skipped", Value: "skipped"},
+				{Name: "conflict", Value: "conflict"},
+			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
 			reflect.TypeOf(SectionDependencyKey{}): {
@@ -320,6 +348,91 @@ func newTypeConverter() *typeConverter {
 				Name: "PluginStatusEntry",
 				Kind: "raw",
 				Raw:  pluginStatusEntryRawTS,
+			},
+			reflect.TypeOf(BinaryUploadRequestInput{}): {
+				Name:  "BinaryUploadRequestInput",
+				Kind:  "alias",
+				Alias: "FormData",
+			},
+			reflect.TypeOf(BinaryDownloadResponse{}): {
+				Name:  "BinaryDownloadResponse",
+				Kind:  "alias",
+				Alias: "Uint8Array",
+			},
+			reflect.TypeOf(CanvasPoint{}): {
+				Name: "CanvasPoint",
+				Kind: "raw",
+				Raw:  canvasPointRawTS,
+			},
+			reflect.TypeOf(DrawAreaTransform{}): {
+				Name: "DrawAreaTransform",
+				Kind: "raw",
+				Raw:  drawAreaTransformRawTS,
+			},
+			reflect.TypeOf(BrushStroke{}): {
+				Name: "BrushStroke",
+				Kind: "raw",
+				Raw:  brushStrokeRawTS,
+			},
+			reflect.TypeOf(BrushStrokeWithTransform{}): {
+				Name: "BrushStrokeWithTransform",
+				Kind: "raw",
+				Raw:  brushStrokeWithTransformRawTS,
+			},
+			reflect.TypeOf(DrawAreaLayerItemTransform{}): {
+				Name: "DrawAreaLayerItemTransform",
+				Kind: "raw",
+				Raw:  drawAreaLayerItemTransformRawTS,
+			},
+			reflect.TypeOf(DrawAreaLayerItem{}): {
+				Name: "DrawAreaLayerItem",
+				Kind: "raw",
+				Raw:  drawAreaLayerItemRawTS,
+			},
+			reflect.TypeOf(DrawAreaLayer{}): {
+				Name: "DrawAreaLayer",
+				Kind: "raw",
+				Raw:  drawAreaLayerRawTS,
+			},
+			reflect.TypeOf(ImageArtifact{}): {
+				Name: "ImageArtifact",
+				Kind: "raw",
+				Raw:  imageArtifactRawTS,
+			},
+			reflect.TypeOf(BrushStrokeArtifact{}): {
+				Name: "BrushStrokeArtifact",
+				Kind: "raw",
+				Raw:  brushStrokeArtifactRawTS,
+			},
+			reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}): {
+				Name: "DrawAreaLayerItemTransformArtifact",
+				Kind: "raw",
+				Raw:  drawAreaLayerItemTransformArtifactRawTS,
+			},
+			reflect.TypeOf(ChartDataValue{}): {
+				Name: "ChartDataValue",
+				Kind: "raw",
+				Raw:  chartDataValueRawTS,
+			},
+			reflect.TypeOf(ChartDataArtifact{}): {
+				Name: "ChartDataArtifact",
+				Kind: "raw",
+				Raw:  chartDataArtifactRawTS,
+			},
+			reflect.TypeOf(FileArtifact{}): {
+				Name: "FileArtifact",
+				Kind: "raw",
+				Raw:  fileArtifactRawTS,
+			},
+			reflect.TypeOf(ArtifactUnion{}): {
+				Name: "ArtifactUnion",
+				Kind: "raw",
+				Raw:  artifactUnionRawTS,
+			},
+			reflect.TypeOf(UpdateArtifactMsgContent{}): {
+				Name: "UpdateArtifactMsgContent",
+				Kind: "raw",
+				Raw:  updateArtifactMsgContentRawTS,
 			},
 		},
 	}

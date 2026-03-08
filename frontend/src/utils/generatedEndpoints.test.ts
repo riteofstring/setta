@@ -4,9 +4,12 @@ import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_append_transcription_audio,
+  route_binary_download,
+  route_binary_upload,
   route_create_top_level_section,
   route_create_project_config,
   route_create_view_mode,
+  route_delete_artifacts,
   route_delete_view_mode,
   route_delete_sections,
   route_delete_selected_params,
@@ -29,7 +32,12 @@ import {
   route_get_mcp_server_runtime_status,
   route_get_password_param_value,
   route_group_sections,
+  route_import_files_to_artifacts,
   route_load_all_project_metadata,
+  route_load_cached_brush_strokes,
+  route_load_cached_chart_data,
+  route_load_cached_draw_area_layer_item_transform,
+  route_load_cached_image_artifacts,
   route_load_project_config,
   route_plugins_config,
   route_plugins_install,
@@ -55,6 +63,7 @@ import {
   route_type_check,
   route_ungroup_groups,
   route_unselect_all_params,
+  route_update_artifacts,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
 } from "./generatedEndpoints";
@@ -1254,6 +1263,172 @@ describe("generatedEndpoints attachment download helpers", () => {
       body: JSON.stringify({
         artifactIds: ["artifacts/notes.txt", "artifacts/diagram.png"],
         projectConfigId: "project-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints binary and artifact helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts binary uploads with FormData intact", async () => {
+    const body = new FormData();
+    body.append("durable", "false");
+
+    await route_binary_upload(body);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/binary/upload`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body,
+    });
+  });
+
+  it("downloads binary payloads through the GET binary helper", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { "content-type": "application/octet-stream" },
+      }),
+    );
+
+    const response = await route_binary_download({
+      contentId: "payload-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/binary/payload-1`,
+    );
+    expect(response.status).toBe(200);
+    expect(Array.from(response.data ?? [])).toEqual([1, 2, 3]);
+  });
+
+  it("posts artifact import and cached-load payloads with current request shapes", async () => {
+    await route_import_files_to_artifacts({
+      paths: ["/workspace/a.png"],
+      uploadScope: "chat",
+    });
+    await route_load_cached_image_artifacts({
+      paths: ["artifacts/image.png"],
+    });
+    await route_load_cached_chart_data({
+      paths: ["artifacts/chart.csv"],
+    });
+    await route_load_cached_brush_strokes({
+      paths: ["artifacts/stroke.json"],
+    });
+    await route_load_cached_draw_area_layer_item_transform({
+      paths: ["artifacts/transform.json"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/importFilesToArtifacts`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        paths: ["/workspace/a.png"],
+        uploadScope: "chat",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadCachedImageArtifacts`,
+    );
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadCachedChartData`,
+    );
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadCachedBrushStrokes`,
+    );
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadDrawAreaLayerItemTransform`,
+    );
+  });
+
+  it("posts artifact mutation payloads with typed artifact unions", async () => {
+    await route_update_artifacts({
+      artifacts: [
+        {
+          type: "File",
+          id: "artifacts/file.bin",
+          value: {
+            contentId: "payload-1",
+            byteLength: 12,
+            mimeType: null,
+            sha256: null,
+          },
+        },
+      ],
+      conflictStrategy: "backup",
+      uploadScope: "generic",
+    });
+    await route_delete_artifacts({
+      artifacts: [
+        {
+          id: "artifacts/file.bin",
+          type: "File",
+        },
+      ],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/updateArtifacts`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        artifacts: [
+          {
+            type: "File",
+            id: "artifacts/file.bin",
+            value: {
+              contentId: "payload-1",
+              byteLength: 12,
+              mimeType: null,
+              sha256: null,
+            },
+          },
+        ],
+        conflictStrategy: "backup",
+        uploadScope: "generic",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteArtifacts`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        artifacts: [
+          {
+            id: "artifacts/file.bin",
+            type: "File",
+          },
+        ],
       }),
     });
   });
