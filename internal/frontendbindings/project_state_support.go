@@ -1,5 +1,7 @@
 package frontendbindings
 
+import "strings"
+
 type ProjectStateSingleConfig struct{}
 
 type ProjectStateSingleConfigWithCompletedOpIds struct{}
@@ -1057,131 +1059,229 @@ type SetActiveIDsRequestInput struct {
 	ActiveIDs       []string `json:"activeIds"`
 }
 
-const projectStateTypeGuardSupportTS = `
-export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
-]);
-
-export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
-]);
-
-const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeCallable,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-export const ControlCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-]);
-
-export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-const BaseParentSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Code,
-  SectionTypeEnum.GenPythonCode,
-  SectionTypeEnum.GenPythonMetadata,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.ListRoot,
-]);
-
-const BaseDictSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-export function isBaseChildlessCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseChildlessCodeObjImplUnion {
-  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+type generatedTypeSetSpec struct {
+	Name     string
+	TypeExpr string
+	Members  []string
+	Exported bool
 }
 
-export function isBaseParamCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParamCodeObjImplUnion {
-  return BaseParamCodeObjImplTypeSet.has(x.type);
+type generatedTypeGuardSpec struct {
+	Name           string
+	InputTypeExpr  string
+	ReturnTypeExpr string
+	TypeSetName    string
 }
 
-export function isBaseParentCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParentCodeObjImplUnion {
-  return BaseParentCodeObjImplTypeSet.has(x.type);
+var projectStateTypeGuardTypeSets = []generatedTypeSetSpec{
+	{
+		Name:     "BaseChildlessCodeObjImplTypeSet",
+		TypeExpr: "CodeObjType",
+		Members: []string{
+			"CodeObjTypeEnum.CodeParam",
+			"CodeObjTypeEnum.ColorPickerParam",
+			"CodeObjTypeEnum.DateParam",
+			"CodeObjTypeEnum.DropdownParam",
+			"CodeObjTypeEnum.DropzoneParam",
+			"CodeObjTypeEnum.PasswordParam",
+			"CodeObjTypeEnum.RotaryParam",
+			"CodeObjTypeEnum.SliderParam",
+			"CodeObjTypeEnum.SwitchParam",
+			"CodeObjTypeEnum.TextAreaParam",
+			"CodeObjTypeEnum.TextParam",
+			"CodeObjTypeEnum.TimeParam",
+		},
+		Exported: true,
+	},
+	{
+		Name:     "BaseParamCodeObjImplTypeSet",
+		TypeExpr: "CodeObjType",
+		Members: []string{
+			"CodeObjTypeEnum.ButtonParam",
+			"CodeObjTypeEnum.CodeParam",
+			"CodeObjTypeEnum.ColorPickerParam",
+			"CodeObjTypeEnum.DateParam",
+			"CodeObjTypeEnum.DropdownParam",
+			"CodeObjTypeEnum.DropzoneParam",
+			"CodeObjTypeEnum.NestedParam",
+			"CodeObjTypeEnum.PasswordParam",
+			"CodeObjTypeEnum.RotaryParam",
+			"CodeObjTypeEnum.SliderParam",
+			"CodeObjTypeEnum.SwitchParam",
+			"CodeObjTypeEnum.TextAreaParam",
+			"CodeObjTypeEnum.TextParam",
+			"CodeObjTypeEnum.TimeParam",
+		},
+		Exported: true,
+	},
+	{
+		Name:     "BaseParentCodeObjImplTypeSet",
+		TypeExpr: "CodeObjType",
+		Members: []string{
+			"CodeObjTypeEnum.CodeCallable",
+			"CodeObjTypeEnum.NestedParam",
+		},
+	},
+	{
+		Name:     "ControlCodeObjTypeSet",
+		TypeExpr: "CodeObjType",
+		Members: []string{
+			"CodeObjTypeEnum.CodeParam",
+			"CodeObjTypeEnum.TextParam",
+			"CodeObjTypeEnum.DateParam",
+			"CodeObjTypeEnum.TimeParam",
+			"CodeObjTypeEnum.TextAreaParam",
+			"CodeObjTypeEnum.ButtonParam",
+			"CodeObjTypeEnum.SliderParam",
+			"CodeObjTypeEnum.RotaryParam",
+			"CodeObjTypeEnum.SwitchParam",
+			"CodeObjTypeEnum.ColorPickerParam",
+			"CodeObjTypeEnum.DropdownParam",
+			"CodeObjTypeEnum.PasswordParam",
+			"CodeObjTypeEnum.DropzoneParam",
+		},
+		Exported: true,
+	},
+	{
+		Name:     "SectionParamCodeObjTypeSet",
+		TypeExpr: "CodeObjType",
+		Members: []string{
+			"CodeObjTypeEnum.CodeParam",
+			"CodeObjTypeEnum.TextParam",
+			"CodeObjTypeEnum.DateParam",
+			"CodeObjTypeEnum.TimeParam",
+			"CodeObjTypeEnum.TextAreaParam",
+			"CodeObjTypeEnum.SliderParam",
+			"CodeObjTypeEnum.RotaryParam",
+			"CodeObjTypeEnum.SwitchParam",
+			"CodeObjTypeEnum.ColorPickerParam",
+			"CodeObjTypeEnum.DropdownParam",
+			"CodeObjTypeEnum.PasswordParam",
+			"CodeObjTypeEnum.DropzoneParam",
+			"CodeObjTypeEnum.NestedParam",
+		},
+		Exported: true,
+	},
+	{
+		Name:     "BaseParentSectionImplTypeSet",
+		TypeExpr: "SectionType",
+		Members: []string{
+			"SectionTypeEnum.Code",
+			"SectionTypeEnum.GenPythonCode",
+			"SectionTypeEnum.GenPythonMetadata",
+			"SectionTypeEnum.Group",
+			"SectionTypeEnum.ListRoot",
+		},
+	},
+	{
+		Name:     "BaseDictSectionImplTypeSet",
+		TypeExpr: "SectionType",
+		Members: []string{
+			"SectionTypeEnum.Dict",
+			"SectionTypeEnum.GlobalVariables",
+		},
+	},
+	{
+		Name:     "BaseSectionWithParamsImplTypeSet",
+		TypeExpr: "SectionType",
+		Members: []string{
+			"SectionTypeEnum.Callable",
+			"SectionTypeEnum.Dict",
+			"SectionTypeEnum.GlobalVariables",
+		},
+	},
 }
 
-export function isBaseParentSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseParentSectionImplUnion {
-  return BaseParentSectionImplTypeSet.has(x.type);
+var projectStateTypeGuards = []generatedTypeGuardSpec{
+	{
+		Name:           "isBaseChildlessCodeObjImpl",
+		InputTypeExpr:  "BaseCodeObjImplUnion",
+		ReturnTypeExpr: "BaseChildlessCodeObjImplUnion",
+		TypeSetName:    "BaseChildlessCodeObjImplTypeSet",
+	},
+	{
+		Name:           "isBaseParamCodeObjImpl",
+		InputTypeExpr:  "BaseCodeObjImplUnion",
+		ReturnTypeExpr: "BaseParamCodeObjImplUnion",
+		TypeSetName:    "BaseParamCodeObjImplTypeSet",
+	},
+	{
+		Name:           "isBaseParentCodeObjImpl",
+		InputTypeExpr:  "BaseCodeObjImplUnion",
+		ReturnTypeExpr: "BaseParentCodeObjImplUnion",
+		TypeSetName:    "BaseParentCodeObjImplTypeSet",
+	},
+	{
+		Name:           "isBaseParentSectionImpl",
+		InputTypeExpr:  "BaseSectionImplUnion",
+		ReturnTypeExpr: "BaseParentSectionImplUnion",
+		TypeSetName:    "BaseParentSectionImplTypeSet",
+	},
+	{
+		Name:           "isBaseDictSectionImpl",
+		InputTypeExpr:  "BaseSectionImplUnion",
+		ReturnTypeExpr: "BaseDictSectionImplUnion",
+		TypeSetName:    "BaseDictSectionImplTypeSet",
+	},
+	{
+		Name:           "isBaseSectionWithParamsImpl",
+		InputTypeExpr:  "BaseSectionImplUnion",
+		ReturnTypeExpr: "BaseSectionWithParamsImplUnion",
+		TypeSetName:    "BaseSectionWithParamsImplTypeSet",
+	},
 }
 
-export function isBaseDictSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseDictSectionImplUnion {
-  return BaseDictSectionImplTypeSet.has(x.type);
+func buildGeneratedTypeSetTS(spec generatedTypeSetSpec) string {
+	var builder strings.Builder
+	if spec.Exported {
+		builder.WriteString("export ")
+	}
+	builder.WriteString("const ")
+	builder.WriteString(spec.Name)
+	builder.WriteString(" = new Set<")
+	builder.WriteString(spec.TypeExpr)
+	builder.WriteString(">([\n")
+	for _, member := range spec.Members {
+		builder.WriteString("  ")
+		builder.WriteString(member)
+		builder.WriteString(",\n")
+	}
+	builder.WriteString("]);")
+	return builder.String()
 }
 
-export function isBaseSectionWithParamsImpl(
-  x: BaseSectionImplUnion,
-): x is BaseSectionWithParamsImplUnion {
-  return BaseSectionWithParamsImplTypeSet.has(x.type);
+func buildGeneratedTypeGuardTS(spec generatedTypeGuardSpec) string {
+	var builder strings.Builder
+	builder.WriteString("export function ")
+	builder.WriteString(spec.Name)
+	builder.WriteString("(\n")
+	builder.WriteString("  x: ")
+	builder.WriteString(spec.InputTypeExpr)
+	builder.WriteString(",\n")
+	builder.WriteString("): x is ")
+	builder.WriteString(spec.ReturnTypeExpr)
+	builder.WriteString(" {\n")
+	builder.WriteString("  return ")
+	builder.WriteString(spec.TypeSetName)
+	builder.WriteString(".has(x.type);\n")
+	builder.WriteString("}")
+	return builder.String()
 }
-`
+
+func buildProjectStateTypeGuardSupportTS() string {
+	var builder strings.Builder
+	for idx, spec := range projectStateTypeGuardTypeSets {
+		if idx > 0 {
+			builder.WriteString("\n\n")
+		}
+		builder.WriteString(buildGeneratedTypeSetTS(spec))
+	}
+	for _, spec := range projectStateTypeGuards {
+		builder.WriteString("\n\n")
+		builder.WriteString(buildGeneratedTypeGuardTS(spec))
+	}
+	return builder.String()
+}
 
 func projectStateSupportDeclarations() []TypeDeclaration {
 	return []TypeDeclaration{
@@ -1270,7 +1370,7 @@ func projectStateSupportDeclarations() []TypeDeclaration {
 		),
 		rawDeclaration(
 			"ProjectStateTypeGuardSupport",
-			projectStateTypeGuardSupportTS,
+			buildProjectStateTypeGuardSupportTS(),
 		),
 	}
 }

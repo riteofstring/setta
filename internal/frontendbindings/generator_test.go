@@ -93,6 +93,26 @@ func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsIncludesProjectStateTypeGuardSupport(t *testing.T) {
+	t.Helper()
+
+	bindings, err := Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		"export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([",
+		"const BaseParentSectionImplTypeSet = new Set<SectionType>([",
+		"export function isBaseParentSectionImpl(",
+		"export function isBaseSectionWithParamsImpl(",
+	} {
+		if !strings.Contains(bindings.TypesTS, snippet) {
+			t.Fatalf("types output missing project-state guard support %q:\n%s", snippet, bindings.TypesTS)
+		}
+	}
+}
+
 func TestBuildDoesNotEmitProjectStateFrontendSupportMarker(t *testing.T) {
 	t.Helper()
 

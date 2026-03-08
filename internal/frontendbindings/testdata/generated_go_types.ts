@@ -8408,7 +8408,6 @@ export type ImplArgsBundleMap = {
 };
 
 
-
 export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,
@@ -8532,7 +8531,6 @@ export function isBaseSectionWithParamsImpl(
 ): x is BaseSectionWithParamsImplUnion {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
-
 
 
 
