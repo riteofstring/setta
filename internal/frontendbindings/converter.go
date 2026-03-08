@@ -17,6 +17,7 @@ type TypeDeclaration struct {
 	Properties      []TypeProperty
 	EnumValues      []EnumValue
 	CreateExpr      string
+	CreateBody      string
 	FactoryTS       string
 	Exported        bool
 	SetElementType  string
@@ -52,6 +53,12 @@ func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration 
 func objectDeclarationWithCreateExpr(name string, createExpr string, properties ...TypeProperty) TypeDeclaration {
 	declaration := objectDeclaration(name, properties...)
 	declaration.CreateExpr = createExpr
+	return declaration
+}
+
+func objectDeclarationWithCreateBody(name string, createBody string, properties ...TypeProperty) TypeDeclaration {
+	declaration := objectDeclaration(name, properties...)
+	declaration.CreateBody = createBody
 	return declaration
 }
 

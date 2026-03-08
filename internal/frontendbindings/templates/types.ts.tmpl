@@ -176,6 +176,10 @@ export type {{ .Name }} = {
 export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
   return {{ .CreateExpr }};
 }
+{{- else if .CreateBody }}
+export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
+{{ .CreateBody }}
+}
 {{- else if .FactoryTS }}
 {{ .FactoryTS }}
 {{- else }}

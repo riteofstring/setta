@@ -53,6 +53,36 @@ func TestRenderTypesUsesCustomFactoryBody(t *testing.T) {
 	}
 }
 
+func TestRenderTypesUsesStructuredCreateBody(t *testing.T) {
+	t.Helper()
+
+	typesTS, err := renderTemplate(typesTemplateText, map[string]any{
+		"Declarations": []TypeDeclaration{
+			objectDeclarationWithCreateBody(
+				"BodyThing",
+				`  const normalized = options.value ?? "";
+  return {
+    value: normalized.toUpperCase(),
+  };`,
+				TypeProperty{Name: "value", TypeExpr: "string"},
+			),
+		},
+	})
+	if err != nil {
+		t.Fatalf("renderTemplate(...) error = %v", err)
+	}
+
+	if !strings.Contains(typesTS, "export function createBodyThing(options: Partial<BodyThing> = {}): BodyThing {") {
+		t.Fatalf("types output missing structured create-body function:\n%s", typesTS)
+	}
+	if !strings.Contains(typesTS, "const normalized = options.value ?? \"\";") {
+		t.Fatalf("types output missing structured create-body content:\n%s", typesTS)
+	}
+	if strings.Contains(typesTS, "return options as BodyThing;") {
+		t.Fatalf("types output rendered default factory instead of structured create body:\n%s", typesTS)
+	}
+}
+
 func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 	t.Helper()
 
