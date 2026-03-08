@@ -25,8 +25,10 @@ Current repo status as of 2026-03-08:
   spec through the deployment runtime
 - Go now owns the prerequisite app-spec validation/catalog/store boundary in
   `internal/appspec`
-- Go does not yet own app-definition mutation on the IDE/MCP write path
-- this slice is now unblocked
+- Go now owns the document-level app-definition mutation owner in
+  `internal/projectstate`
+- the remaining gap in this slice is transport parity on the MCP, HTTP tool
+  route, and authenticated SSE boundaries
 
 ## Scope
 
@@ -98,23 +100,20 @@ Python keeps the two mutations document-scoped:
 The prerequisite documented in
 `phase-6-app-definition-validation-and-store-foundation.md` is now complete.
 
+The document-level runtime owner is also now complete.
+
 ## Implementation Outline
 
-1. Add the Go owner.
-   - document/runtime mutation entry points
-   - app-spec path defaulting through the completed store helper
-   - metadata persistence on `Document.AppDefinition`
-   - JSON merge patch application
-
-2. Add focused owner tests.
-   - set persists spec + metadata
-   - update reads, patches, and rewrites existing spec
-   - missing configured spec path or missing stored spec fails cleanly
-
-3. Add MCP parity for the mutation pair.
+1. Add MCP parity for the mutation pair.
    - structural/project-scoped tool definitions
    - thin handlers
    - HTTP tool-call route and authenticated SSE coverage
+
+2. Add focused transport tests.
+   - MCP tool listing and invocation
+   - HTTP tool-call route coverage
+   - authenticated SSE coverage
+   - temporary project id translation where applicable
 
 ## Open Questions
 
@@ -129,9 +128,10 @@ The prerequisite documented in
 
 ## Next Recommended Step
 
-- implement the document-level Go mutation owner first
-- do not start MCP transport until app-spec persistence and patch semantics are
-  owned in `internal/projectstate`
+- add MCP transport parity over the completed `internal/projectstate`
+  app-definition mutation owner
+- keep transport thin and do not duplicate path/default/validation logic above
+  the owner
 
 ## Progress Notes
 
@@ -143,3 +143,8 @@ The prerequisite documented in
 - 2026-03-08: the prerequisite app-spec validation/store foundation landed in
   `internal/appspec`, so this slice is now the active next implementation step
   again.
+- 2026-03-08: the document-level owner landed in
+  `internal/projectstate/app_definition_writes.go` with shared store-root
+  path normalization, persisted app-spec writes, explicit JSON merge patch
+  semantics, and focused owner tests; the next remaining work is transport
+  parity.

@@ -106,10 +106,10 @@ Why this is next:
 1. the completed section-filter slice cleared the non-app-definition mutation
    backlog, so the only mutation gap left is the deferred app-definition pair.
 2. the prerequisite validation/store boundary is now complete in
-   `internal/appspec`, so the remaining gap is the document-level runtime owner
-   plus MCP transport for the mutation pair.
-3. Go already preserves document app-definition metadata and can read stored
-   app specs in deployment mode through the new shared store helper.
+   `internal/appspec`, and the document-level mutation owner is now complete in
+   `internal/projectstate`.
+3. the remaining gap is transport parity for the mutation pair on the MCP,
+   HTTP tool route, and authenticated SSE boundaries.
 4. the next slice is scoped in:
    `phase-6-app-definition-mutation-tool-parity.md`
 
@@ -143,7 +143,7 @@ priority:
 
 - use `phase-6-app-definition-mutation-tool-parity.md` as the next bounded
   Phase 6 slice
-- implement the document-level mutation owner before MCP transport work
+- add MCP transport parity over the completed document-level mutation owner
 
 ## Open Questions
 
@@ -260,3 +260,6 @@ priority:
   in `internal/appspec`, so the next bounded step moved back to the
   app-definition mutation cluster in
   `phase-6-app-definition-mutation-tool-parity.md`.
+- 2026-03-08: the document-level app-definition mutation owner landed in
+  `internal/projectstate`, so the remaining work in the active slice is MCP,
+  HTTP tool-route, and authenticated SSE transport parity.
