@@ -100,16 +100,18 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Create the next Phase 7 plan doc for launcher/bootstrap ownership.
+Implement Stage 1 from
+`phase-7-launcher-management-and-bootstrap-plan.md`: Go-owned IDE launcher
+management/status routes and runtime.
 
 That is now the highest-leverage next step because:
 
 - the bounded deployment slice is complete end to end
-- the remaining Python-owned runtime surface is concentrated in launcher and
-  bootstrap flows rather than deployment transport
-- launcher work now has clearer boundaries: launch intents, installation and
-  status management, recent-workspace storage, filesystem browsing, and
-  launcher-origin trust/bootstrap handoff
+- the dedicated launcher/bootstrap Phase 7 plan now exists
+- IDE launcher management is the smallest coherent owner inside the remaining
+  Python runtime surface
+- it moves a real route cluster without dragging launcher-mode home or
+  launch/bootstrap handoff into the same change
 
 ## Progress Notes
 
@@ -130,6 +132,10 @@ That is now the highest-leverage next step because:
   publish/list/latest transport in `internal/httpapi/deployment_ide_routes.go`
   and wiring it from `internal/app/app.go`; next recommended step is a
   dedicated launcher/bootstrap Phase 7 plan doc.
+- 2026-03-08: created
+  `phase-7-launcher-management-and-bootstrap-plan.md`; next recommended step is
+  Stage 1 from that doc: Go-owned IDE launcher management/status transport and
+  runtime.
 
 ## Verification
 
