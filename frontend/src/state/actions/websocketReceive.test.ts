@@ -265,6 +265,30 @@ describe("openWebSocket", () => {
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
   });
 
+  it("connects IDE mode through the Go frontend websocket route", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket?.url).toContain("/ws/frontend");
+    expect(socket?.url).not.toContain("/api/frontend");
+    expect(socket?.url).not.toContain("/share/frontend");
+  });
+
+  it("connects deployment mode through the Go frontend websocket route with a share session query", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+
+    openWebSocket("/project", "share-session-route");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    expect(socket?.url).toContain("/ws/frontend");
+    expect(socket?.url).toContain("shareSessionId=share-session-route");
+    expect(socket?.url).not.toContain("/share/frontend");
+  });
+
   it("sends realtime dependency events when listener coverage is unknown", async () => {
     const { openWebSocket, sendRealtimeDependencyEvent } = await import(
       "state/actions/websocketReceive"

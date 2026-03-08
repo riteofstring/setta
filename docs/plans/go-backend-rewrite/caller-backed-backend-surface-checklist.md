@@ -44,7 +44,7 @@ Primary sources used for this checklist:
 | Complete | IDE/share/app/launcher mode policy and request context | `internal/modes` owns mode resolution, guards, and share-session requirements. |
 | Complete | Status/meta reads | Go owns `backendInitStatus`, `authRefreshStatus`, `serverMode`, and `settaHomeInfo`. |
 | Complete | Trusted launcher-origin handoff and session bootstrap support | Go ownership lives across `internal/auth`, `internal/frontendorigins`, and `internal/workspacelaunch`. |
-| Partial | Live settings-state load/save and websocket updates | Go owns `loadSettings` and `saveSettings` through `internal/settingsstate` and `internal/httpapi/settings_routes.go`, but cross-frontend settings broadcasts still ride the replacement `/ws/frontend` transport while the core frontend remains on the Python-era `/api/frontend` websocket path. |
+| Complete | Live settings-state load/save and websocket updates | Go owns `loadSettings`, `saveSettings`, and the current caller-backed settings live-update path through `internal/settingsstate`, `internal/httpapi/settings_routes.go`, and the active `/ws/frontend` frontend websocket caller. |
 | Partial | Settings-project sync/materialization | Go now overlays settings-project state into live settings, but full reverse settings-project transport/sync is still explicitly deferred. |
 
 ## 2. Launcher, workspace launch, deployments, and packaged command boundary
@@ -67,8 +67,8 @@ Primary sources used for this checklist:
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| Missing | Frontend websocket auth, identity, and connection inventory | Go owns `/ws/frontend`, frontend affinity tokens, and connection broadcasts under `internal/wsapi`/`internal/realtime`, but the current frontend still opens the Python-era `/api/frontend` and `/api/share/frontend` websocket routes. That route-shape gap also keeps Go-owned settings/UI-setting/AI live-update paths from being end-to-end current-caller complete. |
-| Missing | Frontend realtime UI-change and dependency-event routing | Go owns the replacement `/ws/frontend` producer/broadcaster path, but current frontend realtime UI-change and dependency-event messages still ride the Python-era websocket route shapes. |
+| Complete | Frontend websocket auth, identity, and connection inventory | Go owns `/ws/frontend`, frontend affinity tokens, and connection broadcasts under `internal/wsapi`/`internal/realtime`, and the current frontend websocket caller now connects to that Go route in IDE/share/app flows. |
+| Complete | Frontend realtime UI-change and dependency-event routing | Go owns the active `/ws/frontend` producer/broadcaster path, and current frontend realtime UI-change and dependency-event messages now flow through that Go websocket route. |
 | Complete | Listener coverage reads | Go owns `getListenerCoverage` through `internal/realtime` and `internal/httpapi/listener_routes.go`. |
 | Complete | Listener force-refresh transport | Go owns `forceRefreshListener`, and the current frontend listener actions call that Go HTTP route today. |
 | Partial | Listener websocket dispatch for plugin listener endpoints | `internal/wsapi` plus Phase 15 listener endpoint work own websocket dispatch for plugin-registered listener endpoints, but the repo does not currently contain a non-test frontend caller that proves `/ws/listeners/{listenerID}` is part of the active caller-backed surface. |
@@ -111,7 +111,7 @@ Primary sources used for this checklist:
 | Complete | Authenticated Go MCP server/client foundation | `internal/mcpx` is the current owner for the internal MCP server/client boundary. |
 | Complete | MCP runtime status and direct tool-call transport | Go owns `mcpServerRuntimeStatus` and `__setta__/tools/call`. |
 | Complete | Tool metadata, search, namespacing, and scoped invocation | Current ownership is split across `internal/tools` and `internal/mcpx`, with broad Go test coverage. |
-| Partial | Frontend-affinity-aware UI-setting tool flows | Go owns UI-setting reveal/result flows across `internal/realtime`, `internal/uisettings`, and `internal/mcpx`, but the end-to-end caller path still depends on the replacement `/ws/frontend` transport while the core frontend remains on the Python-era `/api/frontend` websocket route. |
+| Complete | Frontend-affinity-aware UI-setting tool flows | Go owns UI-setting reveal/result flows across `internal/realtime`, `internal/uisettings`, and `internal/mcpx`, and the current frontend now reaches that end-to-end path over `/ws/frontend`. |
 | Complete | Current Setta MCP write/read tool surface used by the app | The repo now contains large Go-owned tool coverage for UI settings, plugin management, app-definition tooling, agent-profile tools, and related project-state tooling. |
 | Complete | App-spec store, validation, diagnostics, and patch streaming foundations | `internal/appspec` is the current Go owner for bounded app-definition/app-spec state used by the MCP surface. |
 | Complete | LLM config and managed API-key reads/writes | Go owns `GET/POST /llm/config` and `GET/POST /llm/apiKeys` via `internal/llmconfig`. |
@@ -134,8 +134,8 @@ Primary sources used for this checklist:
 | Complete | Engine config CRUD | Go owns list/single-item/create/update/delete through `internal/agentruns.EngineStore` and route transport. |
 | Complete | Agentic summary-cache status | Go owns `getAgenticSummaryCacheStatus`. |
 | Complete | Managed agent-run start/stop and run-chain start/stop | Phase 14 marks the bounded route/runtime mutation surface as Go-owned, including external-agent child steps inside run chains. |
-| Partial | Managed chat runtime | Go owns `getLLMResponse`, `getLLMChat`, `stopLLMChat`, live websocket streaming, MCP-tool execution, and bounded OpenAI execution, but the core frontend still connects to the Python-era `/api/frontend` websocket path instead of Go's `/ws/frontend`, broader provider parity plus managed reasoning output are still intentionally incomplete, and the current OpenAI provider edge still needs the selected `openai-go` convergence follow-on. |
-| Partial | Managed tool-preview parity | The current Go runtime covers the landed `tool_argument_preview_delta` and `AIFollowToolResultUpdate` paths, not every historical preview kind, and those live preview updates still depend on the replacement `/ws/frontend` transport that the core frontend has not adopted yet. |
+| Partial | Managed chat runtime | Go owns `getLLMResponse`, `getLLMChat`, `stopLLMChat`, live websocket streaming, MCP-tool execution, and bounded OpenAI execution; the current frontend caller now reaches the Go websocket path, while broader provider parity plus managed reasoning output remain intentionally incomplete and the current OpenAI provider edge still needs the selected `openai-go` convergence follow-on. |
+| Partial | Managed tool-preview parity | The current Go runtime covers the landed `tool_argument_preview_delta` and `AIFollowToolResultUpdate` paths, and the active caller now reaches those live preview updates over `/ws/frontend`, but not every historical preview kind is implemented. |
 | Partial | External-agent health/preflight parity | Current config/health reads are Go-owned, but richer Python-only plugin/env-var/cache preflight semantics remain deferred. |
 | Complete | Transcription-profile reads and CRUD | Go owns `getTranscriptionProfiles`, `createTranscriptionProfile`, `updateTranscriptionProfile`, and `deleteTranscriptionProfile`. |
 | Complete | Transcription-session file mode and realtime mode | Go owns `startTranscriptionSession`, `appendTranscriptionAudio`, `stopTranscriptionSession`, and `cancelTranscriptionSession`; the transport/runtime ownership is landed even though the current OpenAI provider edge still needs the selected `openai-go` convergence follow-on. |
@@ -195,13 +195,7 @@ callers.
 - Type-error helper route:
   - `setTypeErrorIgnore`
 - Python-era websocket route shapes still used by the current frontend:
-  - `/frontend`
-  - `/share/frontend`
   - `/{projectConfigId}/{sectionId}/{id}` terminal websocket path
-  - these sockets currently carry frontend identity plus settings updates,
-    `UISettingReveal`/`UISettingRevealResult`, `LLMStreamingResponse`,
-    `AIFollowToolArgumentsUpdate`, `AIFollowToolResultUpdate`, and related
-    config/profile refresh broadcasts
 - Attachment URL helper routes:
   - `getAttachmentDownloadUrl`
   - `getAttachmentDownloadUrls`
@@ -282,9 +276,8 @@ main product-facing runtime surface:
 
 The remaining gaps are concentrated in older Python-only route tails,
 intentionally bounded AI/plugin behavior, still-live frontend callers that
-continue to hit Python-owned HTTP routes and websocket path shapes, and a
-smaller set of Go live-update paths that are not end-to-end until the core
-frontend adopts the replacement `/ws/...` websocket surface.
+continue to hit Python-owned HTTP routes, and the remaining Python-era
+terminal websocket path shape.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
 dormant historical debris.
