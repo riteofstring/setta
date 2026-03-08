@@ -45,7 +45,7 @@ type createdTopLevelSectionState struct {
 func (d *Document) CreateTopLevelSection(
 	projectID string,
 	input CreateTopLevelSectionInput,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (CreateTopLevelSectionResult, error) {
 	if d == nil {
 		return CreateTopLevelSectionResult{}, ErrProjectNotFound
@@ -55,10 +55,7 @@ func (d *Document) CreateTopLevelSection(
 	if err != nil {
 		return CreateTopLevelSectionResult{}, err
 	}
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		return CreateTopLevelSectionResult{}, err
-	}
+	policy := normalizeStructuralMutationSettings(settings).SectionSizingPolicy
 	result, err := project.CreateTopLevelSection(input, policy)
 	if err != nil {
 		return CreateTopLevelSectionResult{}, err
@@ -71,7 +68,7 @@ func (r *Runtime) CreateTopLevelSection(
 	ctx context.Context,
 	projectID string,
 	input CreateTopLevelSectionInput,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (Snapshot, CreateTopLevelSectionResult, error) {
 	if r == nil {
 		return Snapshot{}, CreateTopLevelSectionResult{}, ErrRuntimeClosed
@@ -80,7 +77,7 @@ func (r *Runtime) CreateTopLevelSection(
 	var result CreateTopLevelSectionResult
 	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		var mutationErr error
-		result, mutationErr = document.CreateTopLevelSection(projectID, input, settingsDocument)
+		result, mutationErr = document.CreateTopLevelSection(projectID, input, settings)
 		if mutationErr != nil {
 			return document, mutationErr
 		}

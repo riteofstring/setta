@@ -107,7 +107,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		projectStates         *projectstate.Registry
 		deploymentRuntime     *deployments.Runtime
 		projectRuntime        *projectstate.Runtime
-		settingsRuntime       *projectstate.Runtime
 		settingsStateRuntime  *settingsstate.Runtime
 		codegenValidator      projectstate.CodegenTargetValidator
 		lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
@@ -359,7 +358,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		projectRuntime = projectStates.Main()
-		settingsRuntime = projectStates.Settings()
 		settingsStateStore, err := settingsstate.NewStore(
 			filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
 			settingsstate.StoreOptions{},
@@ -803,7 +801,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			CodegenTargetValidator:         codegenValidator,
 			PythonCodegenSectionReconciler: pythonMaterializer,
 			CodeUpdates:                    codeUpdates,
-			SettingsState:                  settingsRuntime,
+			SettingsState:                  settingsStateRuntime,
 			SectionNames:                   renameRefactors,
 			CallableSignatures:             lspSignature,
 			PluginMutations:                pluginMutationService,
@@ -985,7 +983,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:                     modePolicy,
 				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 				ProjectState:                   projectRuntime,
-				SettingsState:                  settingsRuntime,
+				SettingsState:                  settingsStateRuntime,
 				CodegenTargetValidator:         codegenValidator,
 				PythonCodegenSectionReconciler: pythonMaterializer,
 				CallableSignatures:             lspSignature,

@@ -20,6 +20,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/settingsstate"
 )
 
 func TestRegisterProjectRoutesSetsCodegenTargetsAndReturnsProjectState(t *testing.T) {
@@ -1941,10 +1942,11 @@ func newProjectRouteTestHandlerWithRenameService(
 			return nil
 		})
 	}
-	settingsRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
-		SchemaVersion: projectstate.CurrentSchemaVersion,
-		Projects:      map[string]projectstate.Project{},
-	})
+	settingsDocument, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
 	if err != nil {
 		t.Fatalf("open settings overlay runtime: %v", err)
 	}

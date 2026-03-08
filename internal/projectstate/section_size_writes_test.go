@@ -10,7 +10,7 @@ func TestRuntimeSetSectionSizesNormalizesPolicyBounds(t *testing.T) {
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newSectionSizeWriteTestDocument())
-	settingsDocument := autoLayoutSettingsDocument(t, map[string]AutoLayoutSectionMinDimensions{
+	settings := testStructuralMutationSettings(map[string]AutoLayoutSectionMinDimensions{
 		"Chart": {
 			MinWidth:  150,
 			MinHeight: 100,
@@ -24,7 +24,7 @@ func TestRuntimeSetSectionSizesNormalizesPolicyBounds(t *testing.T) {
 			Width:  FixedSectionSizeValue(10),
 			Height: FixedSectionSizeValue(300),
 		},
-	}, settingsDocument)
+	}, settings)
 	if err != nil {
 		t.Fatalf("SetSectionSizes returned error: %v", err)
 	}
@@ -61,7 +61,7 @@ func TestRuntimeSetSectionSizesPreservesAutoAndRejectsNonFiniteValues(t *testing
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newSectionSizeWriteTestDocument())
-	settingsDocument := autoLayoutSettingsDocument(t, map[string]AutoLayoutSectionMinDimensions{
+	settings := testStructuralMutationSettings(map[string]AutoLayoutSectionMinDimensions{
 		"Chart": {
 			MinWidth:  150,
 			MinHeight: 100,
@@ -75,7 +75,7 @@ func TestRuntimeSetSectionSizesPreservesAutoAndRejectsNonFiniteValues(t *testing
 			Width:  AutoSectionSizeValue(),
 			Height: FixedSectionSizeValue(120),
 		},
-	}, settingsDocument); err != nil {
+	}, settings); err != nil {
 		t.Fatalf("SetSectionSizes auto width returned error: %v", err)
 	}
 
@@ -101,7 +101,7 @@ func TestRuntimeSetSectionSizesPreservesAutoAndRejectsNonFiniteValues(t *testing
 			Width:  FixedSectionSizeValue(math.NaN()),
 			Height: FixedSectionSizeValue(120),
 		},
-	}, settingsDocument)
+	}, settings)
 	if !IsInvalidAutoLayoutError(err) {
 		t.Fatalf("expected InvalidAutoLayoutError for non-finite width, got %v", err)
 	}
@@ -117,7 +117,7 @@ func TestRuntimeSetSectionSizesKeepsEmbeddedCodeAndTerminalWidthsInLockstep(t *t
 			Width:  FixedSectionSizeValue(600),
 			Height: FixedSectionSizeValue(120),
 		},
-	}, Document{})
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("SetSectionSizes code resize returned error: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestRuntimeSetSectionSizesKeepsEmbeddedCodeAndTerminalWidthsInLockstep(t *t
 			Width:  FixedSectionSizeValue(510),
 			Height: FixedSectionSizeValue(160),
 		},
-	}, Document{})
+	}, DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("SetSectionSizes terminal resize returned error: %v", err)
 	}
@@ -204,7 +204,7 @@ func TestRuntimeSetSectionSizesRejectsConflictingEmbeddedWidths(t *testing.T) {
 			Width:  FixedSectionSizeValue(500),
 			Height: FixedSectionSizeValue(160),
 		},
-	}, Document{})
+	}, DefaultStructuralMutationSettings())
 	if !IsInvalidAutoLayoutError(err) {
 		t.Fatalf("expected InvalidAutoLayoutError for conflicting embedded widths, got %v", err)
 	}

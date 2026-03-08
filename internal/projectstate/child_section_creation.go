@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -42,7 +41,7 @@ type createdChildSectionState struct {
 func (d *Document) CreateChildSections(
 	projectID string,
 	input CreateChildSectionsInput,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (CreateChildSectionsResult, error) {
 	if d == nil {
 		return CreateChildSectionsResult{}, ErrProjectNotFound
@@ -52,11 +51,12 @@ func (d *Document) CreateChildSections(
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		return CreateChildSectionsResult{}, err
-	}
-	result, err := project.CreateChildSections(input, policy, settingsDocument)
+	normalizedSettings := normalizeStructuralMutationSettings(settings)
+	result, err := project.CreateChildSections(
+		input,
+		normalizedSettings.SectionSizingPolicy,
+		normalizedSettings.TerminalDefaultHeight,
+	)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
@@ -68,7 +68,7 @@ func (r *Runtime) CreateChildSections(
 	ctx context.Context,
 	projectID string,
 	input CreateChildSectionsInput,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (Snapshot, CreateChildSectionsResult, error) {
 	if r == nil {
 		return Snapshot{}, CreateChildSectionsResult{}, ErrRuntimeClosed
@@ -77,7 +77,7 @@ func (r *Runtime) CreateChildSections(
 	var result CreateChildSectionsResult
 	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		var mutationErr error
-		result, mutationErr = document.CreateChildSections(projectID, input, settingsDocument)
+		result, mutationErr = document.CreateChildSections(projectID, input, settings)
 		if mutationErr != nil {
 			return document, mutationErr
 		}
@@ -92,7 +92,7 @@ func (r *Runtime) CreateChildSections(
 func (p *Project) CreateChildSections(
 	input CreateChildSectionsInput,
 	policy AutoLayoutSectionSizingPolicy,
-	settingsDocument Document,
+	terminalDefaultHeight float64,
 ) (CreateChildSectionsResult, error) {
 	if p == nil {
 		return CreateChildSectionsResult{}, ErrProjectNotFound
@@ -143,7 +143,15 @@ func (p *Project) CreateChildSections(
 	createdChildren := make([]createdChildSectionState, 0, normalized.NumChildren)
 	createdIDs := make([]string, 0, normalized.NumChildren)
 	for range normalized.NumChildren {
-		created, err := newCreatedChildSectionState(*p, childNames, parentSection.ID, normalized.ImplType, parentWidth, parentImpl.IsCode(), settingsDocument)
+		created, err := newCreatedChildSectionState(
+			*p,
+			childNames,
+			parentSection.ID,
+			normalized.ImplType,
+			parentWidth,
+			parentImpl.IsCode(),
+			terminalDefaultHeight,
+		)
 		if err != nil {
 			return CreateChildSectionsResult{}, err
 		}
@@ -254,7 +262,7 @@ func newCreatedChildSectionState(
 	implType string,
 	parentWidth float64,
 	codeParent bool,
-	settingsDocument Document,
+	terminalDefaultHeight float64,
 ) (createdChildSectionState, error) {
 	sectionID, err := newProjectStateID()
 	if err != nil {
@@ -275,7 +283,7 @@ func newCreatedChildSectionState(
 	if err != nil {
 		return createdChildSectionState{}, err
 	}
-	impl, err = applyCreatedChildSectionSizing(impl, parentWidth, codeParent, settingsDocument)
+	impl, err = applyCreatedChildSectionSizing(impl, parentWidth, codeParent, terminalDefaultHeight)
 	if err != nil {
 		return createdChildSectionState{}, err
 	}
@@ -301,7 +309,7 @@ func applyCreatedChildSectionSizing(
 	impl SectionImpl,
 	parentWidth float64,
 	codeParent bool,
-	settingsDocument Document,
+	terminalDefaultHeight float64,
 ) (SectionImpl, error) {
 	payload, err := rawObjectFromProjectPayload(impl.Payload)
 	if err != nil {
@@ -313,11 +321,7 @@ func applyCreatedChildSectionSizing(
 	}
 	size["width"] = parentWidth
 	if codeParent && strings.EqualFold(payloadStringField(payload, "type"), "Terminal") {
-		terminalHeight, err := resolveTerminalSectionHeight(settingsDocument)
-		if err != nil {
-			return SectionImpl{}, err
-		}
-		size["height"] = terminalHeight
+		size["height"] = terminalDefaultHeight
 	}
 	payload["size"] = size
 
@@ -361,83 +365,6 @@ func ensureEmbeddedCodeSectionPayloadSize(
 	}
 	payload["size"] = size
 	return nil
-}
-
-func resolveTerminalSectionHeight(settingsDocument Document) (float64, error) {
-	settingsProject, ok, err := resolveSettingsProject(settingsDocument)
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return defaultTerminalSectionHeight, nil
-	}
-
-	sectionID, ok, err := findSectionIDByName(settingsProject, "terminalSectionDefault")
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return defaultTerminalSectionHeight, nil
-	}
-	_, sectionVariant, _, err := settingsProject.ResolveSection(sectionID)
-	if err != nil {
-		return 0, err
-	}
-	sectionPayload, err := effectiveSectionPayload(settingsProject, sectionID, sectionVariant.ID)
-	if err != nil {
-		return 0, err
-	}
-	codeObjVariantMap := payloadStringMapField(sectionPayload, "codeObjVariantMap")
-	topLevelParamID := payloadStringField(sectionPayload, "topLevelParamId")
-	if topLevelParamID == "" {
-		return defaultTerminalSectionHeight, nil
-	}
-
-	topLevelPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, topLevelParamID)
-	if err != nil {
-		return 0, err
-	}
-	sizeCodeObjID, ok, err := findChildCodeObjectIDByName(settingsProject, codeObjVariantMap, topLevelPayload, "size")
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return defaultTerminalSectionHeight, nil
-	}
-	sizePayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, sizeCodeObjID)
-	if err != nil {
-		return 0, err
-	}
-	heightCodeObjID, ok, err := findChildCodeObjectIDByName(settingsProject, codeObjVariantMap, sizePayload, "height")
-	if err != nil {
-		return 0, err
-	}
-	if !ok {
-		return defaultTerminalSectionHeight, nil
-	}
-	heightPayload, _, _, _, err := effectiveCodeObjectPayload(settingsProject, codeObjVariantMap, heightCodeObjID)
-	if err != nil {
-		return 0, err
-	}
-	rawValue, present := payloadRawStringFieldWithPresence(heightPayload, "value")
-	if !present {
-		return defaultTerminalSectionHeight, nil
-	}
-	trimmed := strings.TrimSpace(rawValue)
-	if trimmed == "" {
-		return defaultTerminalSectionHeight, nil
-	}
-	if strings.EqualFold(trimmed, "auto") {
-		return 0, fmt.Errorf("%w: terminalSectionDefault.size.height=%q", ErrSettingsValueInvalid, rawValue)
-	}
-	height, err := strconv.ParseFloat(trimmed, 64)
-	if err != nil {
-		return 0, fmt.Errorf("%w: terminalSectionDefault.size.height=%q", ErrSettingsValueInvalid, rawValue)
-	}
-	if height <= 0 {
-		return 0, fmt.Errorf("%w: terminalSectionDefault.size.height=%q", ErrSettingsValueInvalid, rawValue)
-	}
-	return height, nil
 }
 
 func payloadChildren(payload map[string]any) ([]string, bool) {

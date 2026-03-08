@@ -95,7 +95,7 @@ func TestProjectCreateChildSectionsInsertsAtIndexAndSetsParentIDs(t *testing.T) 
 		ImplType:    "TextBlock",
 		NumChildren: 2,
 		StartIdx:    &startIdx,
-	}, defaultAutoLayoutSectionSizingPolicy(), Document{})
+	}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
 	if err != nil {
 		t.Fatalf("create child sections: %v", err)
 	}
@@ -188,12 +188,12 @@ func TestProjectCreateChildSectionsCreatesAttachedTerminalForCodeParent(t *testi
 		},
 	}
 
-	settingsDocument := testChildCreationSettingsDocument(t, 222.0)
+	terminalDefaultHeight := 222.0
 	result, err := project.CreateChildSections(CreateChildSectionsInput{
 		ParentID:    "code-parent",
 		ImplType:    "Terminal",
 		NumChildren: 1,
-	}, defaultAutoLayoutSectionSizingPolicy(), settingsDocument)
+	}, defaultAutoLayoutSectionSizingPolicy(), terminalDefaultHeight)
 	if err != nil {
 		t.Fatalf("create terminal child section: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.
 			ParentID:    "leaf",
 			ImplType:    "TextBlock",
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), Document{})
+		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
 		if !errors.Is(err, ErrChildSectionParentUnsupported) {
 			t.Fatalf("expected ErrChildSectionParentUnsupported, got %v", err)
 		}
@@ -345,7 +345,7 @@ func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.
 			ParentID:    "code-parent",
 			ImplType:    "TextBlock",
 			NumChildren: 1,
-		}, defaultAutoLayoutSectionSizingPolicy(), Document{})
+		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
 		if !errors.Is(err, ErrCodeSectionChildTypeInvalid) {
 			t.Fatalf("expected ErrCodeSectionChildTypeInvalid, got %v", err)
 		}
@@ -384,119 +384,9 @@ func TestProjectCreateChildSectionsRejectsInvalidParentsAndArguments(t *testing.
 			ImplType:    "TextBlock",
 			NumChildren: 1,
 			StartIdx:    &startIdx,
-		}, defaultAutoLayoutSectionSizingPolicy(), Document{})
+		}, defaultAutoLayoutSectionSizingPolicy(), defaultTerminalSectionHeight)
 		if !errors.Is(err, ErrChildSectionStartIdxInvalid) {
 			t.Fatalf("expected ErrChildSectionStartIdxInvalid, got %v", err)
 		}
 	})
-}
-
-func testChildCreationSettingsDocument(t *testing.T, terminalHeight float64) Document {
-	t.Helper()
-
-	codeObjVariantMap := map[string]string{
-		"terminal-root":   "terminal-root-variant",
-		"terminal-size":   "terminal-size-variant",
-		"terminal-height": "terminal-height-variant",
-	}
-
-	settingsProject, err := Project{
-		ID:   "settings-home",
-		Name: "settings",
-		SectionVariantMap: map[string]string{
-			"terminal-default": "terminal-default-variant",
-		},
-		Sections: map[string]Section{
-			"terminal-default": {
-				ID:               "terminal-default",
-				Name:             "terminalSectionDefault",
-				VariantIDs:       []string{"terminal-default-variant"},
-				DefaultVariantID: "terminal-default-variant",
-			},
-		},
-		SectionVariants: map[string]SectionVariant{
-			"terminal-default-variant": {
-				ID:     "terminal-default-variant",
-				ImplID: "terminal-default-impl",
-			},
-		},
-		SectionImpls: map[string]SectionImpl{
-			"terminal-default-impl": {
-				ID:   "terminal-default-impl",
-				Kind: SectionKind("frontend"),
-				Payload: mustMarshalProjectObject(map[string]any{
-					"id":                "terminal-default-impl",
-					"type":              "Dict",
-					"topLevelParamId":   "terminal-root",
-					"codeObjVariantMap": codeObjVariantMap,
-				}),
-			},
-		},
-		CodeObjs: map[string]CodeObject{
-			"terminal-root": {
-				ID:               "terminal-root",
-				Name:             "terminalSectionDefaultRoot",
-				VariantIDs:       []string{"terminal-root-variant"},
-				DefaultVariantID: "terminal-root-variant",
-			},
-			"terminal-size": {
-				ID:               "terminal-size",
-				Name:             "size",
-				VariantIDs:       []string{"terminal-size-variant"},
-				DefaultVariantID: "terminal-size-variant",
-			},
-			"terminal-height": {
-				ID:               "terminal-height",
-				Name:             "height",
-				VariantIDs:       []string{"terminal-height-variant"},
-				DefaultVariantID: "terminal-height-variant",
-			},
-		},
-		CodeObjVariants: map[string]CodeObjectVariant{
-			"terminal-root-variant": {
-				ID:     "terminal-root-variant",
-				ImplID: "terminal-root-impl",
-			},
-			"terminal-size-variant": {
-				ID:     "terminal-size-variant",
-				ImplID: "terminal-size-impl",
-			},
-			"terminal-height-variant": {
-				ID:     "terminal-height-variant",
-				ImplID: "terminal-height-impl",
-			},
-		},
-		CodeObjImpls: map[string]CodeObjectImpl{
-			"terminal-root-impl": {
-				ID:      "terminal-root-impl",
-				Type:    "NestedParam",
-				Payload: mustMarshalProjectObject(map[string]any{"id": "terminal-root-impl", "type": "NestedParam", "children": []string{"terminal-size"}}),
-			},
-			"terminal-size-impl": {
-				ID:      "terminal-size-impl",
-				Type:    "NestedParam",
-				Payload: mustMarshalProjectObject(map[string]any{"id": "terminal-size-impl", "type": "NestedParam", "children": []string{"terminal-height"}}),
-			},
-			"terminal-height-impl": {
-				ID:      "terminal-height-impl",
-				Type:    "TextParam",
-				Payload: mustMarshalProjectObject(map[string]any{"id": "terminal-height-impl", "type": "TextParam", "value": strconvFormat(terminalHeight)}),
-			},
-		},
-	}.Normalized()
-	if err != nil {
-		t.Fatalf("normalize terminal settings project: %v", err)
-	}
-
-	document, err := Document{
-		SchemaVersion:    CurrentSchemaVersion,
-		DefaultProjectID: "settings-home",
-		Projects: map[string]Project{
-			"settings-home": settingsProject,
-		},
-	}.Normalized()
-	if err != nil {
-		t.Fatalf("normalize terminal settings document: %v", err)
-	}
-	return document
 }

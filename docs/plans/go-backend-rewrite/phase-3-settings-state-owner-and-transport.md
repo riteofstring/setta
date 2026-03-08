@@ -30,13 +30,25 @@ Completed before this plan:
 
 Current repo reality:
 
-- the first settings-state foundation slice is now landed:
+- the first two settings-state owner slices are now landed:
   - `internal/settingsstate` owns embedded defaults plus a file-backed
     store/runtime over `setta-settings.json`
   - the Go app now opens that settings-state runtime separately from the
     settings project runtime
   - app-owned rename-refactor mode and callable-mismatch auto-refetch policy
     reads now come from the new settings-state owner
+  - project-state structural mutation policy reads now resolve through an
+    explicit settings-state query instead of parsing the settings project
+    document
+  - the following Go mutation surfaces now consume resolved
+    `StructuralMutationSettings` from `setta-settings.json`:
+    - project-state auto layout
+    - section sizing writes
+    - top-level section creation
+    - child section creation / incrementer creation
+    - code-section attached terminal normalization
+  - the IDE HTTP route and MCP structural tools that depend on those policies
+    now resolve them from the settings-state runtime
 - live frontend callers still hit Python for:
   - `POST /loadSettings`
   - `POST /saveSettings`
@@ -45,12 +57,9 @@ Current repo reality:
     `frontend/src/state/actions/settings.ts`
   - direct settings writes from project AI settings, plugin settings, rename
     refactor modal, and section tag color settings
-- current Go subsystems still read a few settings-backed values from the
-  settings project runtime document, not from a dedicated `SettingsState`
-  service
-- the remaining direct settings-policy reads still tied to the settings project
-  document are the auto-layout / section-sizing paths used by project-state and
-  MCP structural mutations
+- the remaining caller-backed gap is now transport, not owner creation:
+  direct frontend settings hydration and save still hit Python even though the
+  Go settings-state owner is in place
 
 ## Scope
 
@@ -135,12 +144,14 @@ Current Go behavior is different:
 
 - `internal/projectstate` already owns the settings project runtime for
   `setta-settings-project.json`
+- `internal/settingsstate` now owns live `SettingsState` over
+  `setta-settings.json`
 - current Go reads for:
   - rename refactor mode
   - auto-refetch-on-LSP-mismatch
   - section sizing policy / auto-layout sizing
-  still parse those values from the settings project document
-- there is no Go-owned owner for `setta-settings.json`
+  now resolve from the settings-state owner instead of the settings project
+  document
 - there is no Go-owned `POST /loadSettings` or `POST /saveSettings`
 
 Important implication:
@@ -227,7 +238,7 @@ other as authoritative.
 
 Status:
 
-- in progress
+- completed
 
 Deliver:
 
@@ -243,8 +254,8 @@ Acceptance:
 - missing `setta-settings.json` yields a valid default snapshot
 - non-object payloads fail cleanly
 - save/load round-trips preserve the canonical settings object
-- rename-refactor and auto-layout reads no longer depend on the settings
-  project runtime document
+- rename-refactor, callable-mismatch, and auto-layout / section-sizing reads
+  no longer depend on the settings project runtime document
 
 Completed in the first foundation landing:
 
@@ -254,7 +265,7 @@ Completed in the first foundation landing:
   - a bounded in-memory runtime with snapshot and serialized mutation/save APIs
   - explicit read helpers for:
     - `backend.renameRefactorMode`
-    - `backend.autoRefetchCallableParamsOnLSPMismatch`
+    - `backend.autoRefetchCallableParamsOnLspMismatch`
 - added `scripts/generate_settingsstate_defaults.py` so the embedded defaults
   can be regenerated from the current Python `SettingsState` model without
   making Python a runtime dependency of the Go server
@@ -262,10 +273,18 @@ Completed in the first foundation landing:
 - moved app-owned rename-refactor and callable-mismatch policy reads off the
   settings project runtime document and onto the new settings-state owner
 
-Remaining for Slice 1:
+Completed in the structural settings landing:
 
-- migrate the remaining auto-layout / section-sizing policy reads used by
-  project-state and MCP structural mutations
+- added a bounded `settingsstate.StructuralMutationSettingsForDocument(...)`
+  query that resolves:
+  - section sizing policy overrides from `sectionSizingPolicy.byType`
+  - concrete terminal default height from `terminalSectionDefault.size.height`
+- introduced `projectstate.StructuralMutationSettings` so project-state
+  mutation APIs consume resolved settings inputs instead of raw settings
+  project documents
+- moved the remaining auto-layout / section-sizing policy reads used by
+  project-state, HTTP auto-layout transport, and MCP structural mutations off
+  the settings project runtime document and onto the settings-state owner
 
 ### Slice 2: Thin Settings Transport And Realtime Update
 
@@ -339,9 +358,13 @@ Acceptance:
 - 2026-03-09: landed the first settings-state foundation slice with a dedicated
   `internal/settingsstate` owner plus app-owned rename-refactor and
   callable-mismatch policy reads moved onto it.
+- 2026-03-09: landed the structural settings follow-on so project-state
+  auto-layout / section sizing mutations plus HTTP and MCP callers now resolve
+  canonical settings from `setta-settings.json` instead of the settings
+  project runtime document.
 
 ## Next Recommended Step
 
-- finish Slice 1 by migrating the remaining auto-layout / section-sizing policy
-  reads away from the settings project runtime document
-- after that lands, move `POST /loadSettings` and `POST /saveSettings` into Go
+- execute Slice 2: move `POST /loadSettings` and `POST /saveSettings` into Go
+  over `internal/settingsstate`, then broadcast websocket `UpdateSettings`
+  after successful saves

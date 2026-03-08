@@ -11120,7 +11120,7 @@ func mustSeedAppChildSection(t *testing.T, runtime *projectstate.Runtime, parent
 		ParentID:    parentID,
 		ImplType:    "Terminal",
 		NumChildren: 1,
-	}, projectstate.Document{})
+	}, projectstate.DefaultStructuralMutationSettings())
 	if err != nil {
 		t.Fatalf("seed child section under %q: %v", parentID, err)
 	}

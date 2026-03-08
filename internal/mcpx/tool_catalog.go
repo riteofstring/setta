@@ -6,6 +6,7 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 	"setta/internal/tools"
 )
 
@@ -39,6 +40,7 @@ func BuildToolPayloads() ([]sdkmcp.Tool, error) {
 	registry := tools.NewRegistry()
 	server := &Server{registry: registry}
 	var projectRuntime *projectstate.Runtime
+	var settingsRuntime *settingsstate.Runtime
 
 	definitions := defaultToolDefinitions(
 		server,
@@ -48,7 +50,7 @@ func BuildToolPayloads() ([]sdkmcp.Tool, error) {
 		nil,
 		nil,
 		catalogCodeUpdateProvider{},
-		projectRuntime,
+		settingsRuntime,
 		catalogSectionNameProvider{},
 		nil,
 		catalogLSPDiagnosticsProvider{},

@@ -157,13 +157,10 @@ func (d *Document) AutoLayoutTopLevelSections(projectID string, policy AutoLayou
 func (r *Runtime) AutoLayoutTopLevelSections(
 	ctx context.Context,
 	projectID string,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 	margin int,
 ) (Snapshot, error) {
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		return Snapshot{}, err
-	}
+	policy := normalizeStructuralMutationSettings(settings).SectionSizingPolicy
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		if err := document.AutoLayoutTopLevelSections(projectID, policy, margin); err != nil {

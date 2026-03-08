@@ -13,6 +13,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/settingsstate"
 )
 
 const (
@@ -58,7 +59,7 @@ type ProjectRouteDependencies struct {
 	ModePolicy                     modes.Policy
 	WorkspaceRoot                  string
 	ProjectState                   *projectstate.Runtime
-	SettingsState                  *projectstate.Runtime
+	SettingsState                  *settingsstate.Runtime
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CallableSignatures             projectstate.CallableSignatureResolver
@@ -280,6 +281,15 @@ func projectMutationContext(ctx context.Context, frontendOpID *string) context.C
 		return ctx
 	}
 	return projectstate.ContextWithFrontendOpID(ctx, *frontendOpID)
+}
+
+func resolveStructuralMutationSettingsFromRuntime(
+	runtime *settingsstate.Runtime,
+) (projectstate.StructuralMutationSettings, error) {
+	if runtime == nil {
+		return projectstate.DefaultStructuralMutationSettings(), nil
+	}
+	return settingsstate.StructuralMutationSettingsForDocument(runtime.Snapshot().Document)
 }
 
 func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) error {
@@ -786,10 +796,15 @@ func autoLayoutTopLevelSectionsHandler(deps ProjectRouteDependencies) http.Handl
 		if payload.Margin != nil {
 			margin = *payload.Margin
 		}
+		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
+		if err != nil {
+			writeAutoLayoutError(w, r, err)
+			return
+		}
 		if _, err := deps.ProjectState.AutoLayoutTopLevelSections(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
-			deps.SettingsState.Snapshot().Document,
+			settings,
 			margin,
 		); err != nil {
 			writeAutoLayoutError(w, r, err)
@@ -1390,7 +1405,8 @@ func writeAutoLayoutError(w http.ResponseWriter, r *http.Request, err error) {
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case projectstate.IsInvalidAutoLayoutError(err),
-		errors.Is(err, projectstate.ErrSettingsValueInvalid):
+		errors.Is(err, projectstate.ErrSettingsValueInvalid),
+		errors.Is(err, settingsstate.ErrSettingsValueInvalid):
 		writeError(w, r, http.StatusUnprocessableEntity, "invalid_auto_layout", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")

@@ -119,7 +119,7 @@ The high-leverage move is therefore:
   - child terminal height must be concrete, not `"auto"`
   - terminal child height resolves from settings
     `terminalSectionDefault.size.height` when available, with the documented
-    default height used only when no settings project is present
+    default height used only when no canonical settings-state value is present
 - keep insertion deterministic
   - `startIdx=nil` appends
   - out-of-range indexes should fail explicitly instead of relying on implicit

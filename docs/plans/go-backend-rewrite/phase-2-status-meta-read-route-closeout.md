@@ -89,9 +89,10 @@ This slice delivered:
   tracker
 - keep the worktree badge contract stable by mirroring Python's `setta` /
   `setta.<name>` naming rule in a bounded helper
-- do not fold `POST /loadSettings` into this slice because Go still lacks a
-  dedicated `SettingsState` source-of-truth owner and should not fake one from
-  the settings project document heuristically
+- do not fold `POST /loadSettings` into this slice because, at the time of
+  this closeout, Go did not yet have a dedicated `SettingsState`
+  source-of-truth owner and should not fake one from the settings project
+  document heuristically
 
 ## Implementation Notes
 

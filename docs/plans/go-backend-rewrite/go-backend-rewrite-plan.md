@@ -527,21 +527,23 @@ The bounded status/meta read follow-on tracked in
 That deferred settings-state boundary is now tracked explicitly in
 `phase-3-settings-state-owner-and-transport.md`:
 
-- the first foundation slice is now landed:
+- the owner and structural-settings slices are now landed:
   - `internal/settingsstate` now owns canonical embedded defaults plus a
     file-backed runtime over `setta-settings.json`
   - app-owned rename-refactor mode and callable-mismatch auto-refetch policy
     reads now come from that settings-state runtime instead of the settings
     project document
+  - auto-layout / section-sizing policy reads used by project-state, HTTP
+    auto-layout transport, and MCP structural mutations now resolve from the
+    settings-state runtime instead of the settings project document
 - live frontend callers still depend on Python for:
   - `POST /loadSettings`
   - `POST /saveSettings`
 - the current Go app already owns a settings project runtime for
   `setta-settings-project.json`, but that is not the same thing as the live
   `SettingsState` owner behind `setta-settings.json`
-- the next bounded work is no longer owner creation; it is to finish migrating
-  the remaining auto-layout / section-sizing policy reads before route
-  migration
+- the next bounded work is the thin `loadSettings` / `saveSettings` transport
+  over the completed Go-owned settings-state boundary
 
 ## Current Reality
 

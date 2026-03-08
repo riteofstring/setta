@@ -16,7 +16,7 @@ func (d *Document) SetCodeSectionAttachedTerminal(
 	projectID string,
 	sectionID string,
 	terminalSectionID *string,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) error {
 	if d == nil {
 		return ErrProjectNotFound
@@ -26,11 +26,13 @@ func (d *Document) SetCodeSectionAttachedTerminal(
 	if err != nil {
 		return err
 	}
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		return err
-	}
-	if err := project.SetCodeSectionAttachedTerminal(sectionID, terminalSectionID, policy, settingsDocument); err != nil {
+	normalizedSettings := normalizeStructuralMutationSettings(settings)
+	if err := project.SetCodeSectionAttachedTerminal(
+		sectionID,
+		terminalSectionID,
+		normalizedSettings.SectionSizingPolicy,
+		normalizedSettings.TerminalDefaultHeight,
+	); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -42,14 +44,14 @@ func (r *Runtime) SetCodeSectionAttachedTerminal(
 	projectID string,
 	sectionID string,
 	terminalSectionID *string,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (Snapshot, error) {
 	if r == nil {
 		return Snapshot{}, ErrRuntimeClosed
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetCodeSectionAttachedTerminal(projectID, sectionID, terminalSectionID, settingsDocument); err != nil {
+		if err := document.SetCodeSectionAttachedTerminal(projectID, sectionID, terminalSectionID, settings); err != nil {
 			return document, err
 		}
 		return document, nil
@@ -60,7 +62,7 @@ func (p *Project) SetCodeSectionAttachedTerminal(
 	sectionID string,
 	terminalSectionID *string,
 	policy AutoLayoutSectionSizingPolicy,
-	settingsDocument Document,
+	terminalDefaultHeight float64,
 ) error {
 	if p == nil {
 		return ErrProjectNotFound
@@ -80,7 +82,7 @@ func (p *Project) SetCodeSectionAttachedTerminal(
 	if trimmedTerminalID == "" {
 		return p.detachCodeSectionAttachedTerminal(section, variant, impl, policy)
 	}
-	return p.attachCodeSectionTerminal(section, variant, impl, trimmedTerminalID, policy, settingsDocument)
+	return p.attachCodeSectionTerminal(section, variant, impl, trimmedTerminalID, policy, terminalDefaultHeight)
 }
 
 func normalizeOptionalSectionID(sectionID *string) string {
@@ -96,7 +98,7 @@ func (p *Project) attachCodeSectionTerminal(
 	impl SectionImpl,
 	terminalSectionID string,
 	policy AutoLayoutSectionSizingPolicy,
-	settingsDocument Document,
+	terminalDefaultHeight float64,
 ) error {
 	terminalSection, terminalVariant, terminalImpl, err := p.ResolveSection(terminalSectionID)
 	if err != nil {
@@ -141,7 +143,7 @@ func (p *Project) attachCodeSectionTerminal(
 	if err != nil {
 		return err
 	}
-	if err := normalizeAttachedTerminalPayloadSize(codePayload, terminalPayload, settingsDocument); err != nil {
+	if err := normalizeAttachedTerminalPayloadSize(codePayload, terminalPayload, terminalDefaultHeight); err != nil {
 		return err
 	}
 
@@ -235,12 +237,7 @@ func (p *Project) detachCodeSectionAttachedTerminal(
 	return nil
 }
 
-func normalizeAttachedTerminalPayloadSize(codePayload map[string]any, terminalPayload map[string]any, settingsDocument Document) error {
-	terminalHeight, err := resolveTerminalSectionHeight(settingsDocument)
-	if err != nil {
-		return err
-	}
-
+func normalizeAttachedTerminalPayloadSize(codePayload map[string]any, terminalPayload map[string]any, terminalHeight float64) error {
 	codeSize, ok := payloadObjectField(codePayload, "size")
 	if !ok {
 		codeSize = map[string]any{}

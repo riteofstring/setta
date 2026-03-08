@@ -23,6 +23,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/settadocs"
+	"setta/internal/settingsstate"
 	"setta/internal/statefs"
 	"setta/internal/tools"
 	"setta/internal/uisettings"
@@ -92,12 +93,12 @@ type projectStateProvider interface {
 	StreamAppDefinition(ctx context.Context, input projectstate.StreamAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
-	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settingsDocument projectstate.Document, margin int) (projectstate.Snapshot, error)
+	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settings projectstate.StructuralMutationSettings, margin int) (projectstate.Snapshot, error)
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
-	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
-	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
-	SetCodeSectionAttachedTerminal(ctx context.Context, projectID string, sectionID string, terminalSectionID *string, settingsDocument projectstate.Document) (projectstate.Snapshot, error)
-	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settingsDocument projectstate.Document) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
+	CreateTopLevelSection(ctx context.Context, projectID string, input projectstate.CreateTopLevelSectionInput, settings projectstate.StructuralMutationSettings) (projectstate.Snapshot, projectstate.CreateTopLevelSectionResult, error)
+	CreateChildSections(ctx context.Context, projectID string, input projectstate.CreateChildSectionsInput, settings projectstate.StructuralMutationSettings) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
+	SetCodeSectionAttachedTerminal(ctx context.Context, projectID string, sectionID string, terminalSectionID *string, settings projectstate.StructuralMutationSettings) (projectstate.Snapshot, error)
+	CreateChildSectionsViaIncrementer(ctx context.Context, projectID string, input projectstate.CreateChildSectionsViaIncrementerInput, settings projectstate.StructuralMutationSettings) (projectstate.Snapshot, projectstate.CreateChildSectionsResult, error)
 	CreateNewSectionVariant(ctx context.Context, projectID string, input projectstate.CreateNewSectionVariantInput) (projectstate.Snapshot, projectstate.CreateNewSectionVariantResult, error)
 	DeleteKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.DeleteKwargResult, error)
 	DeleteSelectedParams(ctx context.Context, projectID string, input projectstate.DeleteSelectedParamsInput) (projectstate.Snapshot, projectstate.DeleteSelectedParamsResult, error)
@@ -105,7 +106,7 @@ type projectStateProvider interface {
 	DeleteSections(ctx context.Context, projectID string, input projectstate.DeleteSectionsInput) (projectstate.Snapshot, projectstate.DeleteSectionsResult, error)
 	SetCallable(ctx context.Context, projectID string, sectionID string, callableName string, refetchParams bool, resolver projectstate.CallableSignatureResolver) (projectstate.Snapshot, projectstate.SetCallableResponse, error)
 	SetTopLevelSectionLayout(ctx context.Context, projectID string, topLevelSections map[string]projectstate.TopLevelSectionLayout) (projectstate.Snapshot, error)
-	SetSectionSizes(ctx context.Context, projectID string, sectionSizes map[string]projectstate.SectionSize, settingsDocument projectstate.Document) (projectstate.Snapshot, error)
+	SetSectionSizes(ctx context.Context, projectID string, sectionSizes map[string]projectstate.SectionSize, settings projectstate.StructuralMutationSettings) (projectstate.Snapshot, error)
 	UpdateParamImplConfig(ctx context.Context, projectID string, sectionID string, paramInfoID string, newConfig map[string]any) (projectstate.Snapshot, error)
 	SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (projectstate.Snapshot, error)
 	SetParamNameAndValue(ctx context.Context, projectID string, sectionID string, codeObjID string, name string, value string) (projectstate.Snapshot, error)
@@ -147,7 +148,7 @@ type codeUpdateProvider interface {
 }
 
 type settingsStateProvider interface {
-	Snapshot() projectstate.Snapshot
+	Snapshot() settingsstate.Snapshot
 }
 
 type sectionNameProvider interface {
@@ -607,12 +608,12 @@ func newCreateTopLevelSectionHandler(projectState projectStateProvider, settings
 			input.ControlCodeObjType = &controlCodeObjType
 		}
 
-		settingsDocument := projectstate.Document{}
-		if settingsState != nil {
-			settingsDocument = settingsState.Snapshot().Document
+		settings, err := resolveStructuralMutationSettings(settingsState)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 
-		_, result, err := projectState.CreateTopLevelSection(ctx, projectConfigID, input, settingsDocument)
+		_, result, err := projectState.CreateTopLevelSection(ctx, projectConfigID, input, settings)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -666,12 +667,12 @@ func newCreateChildSectionsHandler(projectState projectStateProvider, settingsSt
 			StartIdx:    startIdx,
 		}
 
-		settingsDocument := projectstate.Document{}
-		if settingsState != nil {
-			settingsDocument = settingsState.Snapshot().Document
+		settings, err := resolveStructuralMutationSettings(settingsState)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 
-		_, result, err := projectState.CreateChildSections(ctx, projectConfigID, input, settingsDocument)
+		_, result, err := projectState.CreateChildSections(ctx, projectConfigID, input, settings)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -720,12 +721,12 @@ func newCreateChildSectionsViaIncrementerHandler(projectState projectStateProvid
 			NumChildren: numChildren,
 		}
 
-		settingsDocument := projectstate.Document{}
-		if settingsState != nil {
-			settingsDocument = settingsState.Snapshot().Document
+		settings, err := resolveStructuralMutationSettings(settingsState)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 
-		_, result, err := projectState.CreateChildSectionsViaIncrementer(ctx, projectConfigID, input, settingsDocument)
+		_, result, err := projectState.CreateChildSectionsViaIncrementer(ctx, projectConfigID, input, settings)
 		if err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
@@ -764,12 +765,12 @@ func newSetCodeSectionAttachedTerminalHandler(projectState projectStateProvider,
 			)
 		}
 
-		settingsDocument := projectstate.Document{}
-		if settingsState != nil {
-			settingsDocument = settingsState.Snapshot().Document
+		settings, err := resolveStructuralMutationSettings(settingsState)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 
-		if _, err := projectState.SetCodeSectionAttachedTerminal(ctx, projectConfigID, sectionID, terminalSectionID, settingsDocument); err != nil {
+		if _, err := projectState.SetCodeSectionAttachedTerminal(ctx, projectConfigID, sectionID, terminalSectionID, settings); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1262,12 +1263,12 @@ func newSetSectionSizesHandler(projectState projectStateProvider, settingsState 
 			)
 		}
 
-		settingsDocument := projectstate.Document{}
-		if settingsState != nil {
-			settingsDocument = settingsState.Snapshot().Document
+		settings, err := resolveStructuralMutationSettings(settingsState)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 
-		if _, err := projectState.SetSectionSizes(ctx, projectConfigID, sectionSizes, settingsDocument); err != nil {
+		if _, err := projectState.SetSectionSizes(ctx, projectConfigID, sectionSizes, settings); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -1341,12 +1342,12 @@ func newAutoLayoutTopLevelSectionsHandler(projectState projectStateProvider, set
 			)
 		}
 
-		settingsDocument := projectstate.Document{}
-		if settingsState != nil {
-			settingsDocument = settingsState.Snapshot().Document
+		settings, err := resolveStructuralMutationSettings(settingsState)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
 		}
 
-		if _, err := projectState.AutoLayoutTopLevelSections(ctx, projectConfigID, settingsDocument, margin); err != nil {
+		if _, err := projectState.AutoLayoutTopLevelSections(ctx, projectConfigID, settings, margin); err != nil {
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
@@ -7141,7 +7142,8 @@ func normalizeProjectStateMutationError(err error) error {
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsInvalidAutoLayoutError(err):
 		return newToolError("invalid_arguments", "%s", err.Error())
-	case errors.Is(err, projectstate.ErrSettingsValueInvalid):
+	case errors.Is(err, projectstate.ErrSettingsValueInvalid),
+		errors.Is(err, settingsstate.ErrSettingsValueInvalid):
 		return newToolError("invalid_arguments", "%s", err.Error())
 	case projectstate.IsExpectedOldValueMismatchError(err):
 		return newToolError("mutation_failed", "%s", err.Error())
@@ -7236,6 +7238,15 @@ func normalizeProjectStateMutationError(err error) error {
 	default:
 		return err
 	}
+}
+
+func resolveStructuralMutationSettings(
+	settingsState settingsStateProvider,
+) (projectstate.StructuralMutationSettings, error) {
+	if settingsState == nil {
+		return projectstate.DefaultStructuralMutationSettings(), nil
+	}
+	return settingsstate.StructuralMutationSettingsForDocument(settingsState.Snapshot().Document)
 }
 
 func (s *Server) buildToolErrorResult(err error) *sdkmcp.CallToolResult {

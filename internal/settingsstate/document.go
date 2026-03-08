@@ -130,6 +130,18 @@ func stringField(object map[string]any, field string) (string, bool, error) {
 	return parsed, true, nil
 }
 
+func floatField(object map[string]any, field string) (float64, bool, error) {
+	value, ok := object[field]
+	if !ok {
+		return 0, false, nil
+	}
+	parsed, ok := asFloat(value)
+	if !ok {
+		return 0, false, fmt.Errorf("%w: %s is not a number", ErrSettingsValueInvalid, field)
+	}
+	return parsed, true, nil
+}
+
 func asObject(value any) (map[string]any, bool) {
 	switch typed := value.(type) {
 	case Document:
@@ -138,5 +150,36 @@ func asObject(value any) (map[string]any, bool) {
 		return typed, true
 	default:
 		return nil, false
+	}
+}
+
+func asFloat(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case float64:
+		return typed, true
+	case float32:
+		return float64(typed), true
+	case int:
+		return float64(typed), true
+	case int8:
+		return float64(typed), true
+	case int16:
+		return float64(typed), true
+	case int32:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case uint:
+		return float64(typed), true
+	case uint8:
+		return float64(typed), true
+	case uint16:
+		return float64(typed), true
+	case uint32:
+		return float64(typed), true
+	case uint64:
+		return float64(typed), true
+	default:
+		return 0, false
 	}
 }

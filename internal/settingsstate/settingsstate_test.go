@@ -66,7 +66,7 @@ func TestQueriesReadDefaultsAndExplicitValues(t *testing.T) {
 
 	backend := document["backend"].(map[string]any)
 	backend["renameRefactorMode"] = "NEVER_RENAME"
-	backend["autoRefetchCallableParamsOnLSPMismatch"] = false
+	backend["autoRefetchCallableParamsOnLspMismatch"] = false
 
 	mode, err = RenameRefactorModeForDocument(document)
 	if err != nil {
@@ -100,9 +100,66 @@ func TestQueriesRejectInvalidValues(t *testing.T) {
 	}
 
 	backend["renameRefactorMode"] = "ALWAYS_ASK"
-	backend["autoRefetchCallableParamsOnLSPMismatch"] = "nope"
+	backend["autoRefetchCallableParamsOnLspMismatch"] = "nope"
 	if _, err := AutoRefetchCallableParamsOnLSPMismatchEnabled(document); !errors.Is(err, ErrSettingsValueInvalid) {
 		t.Fatalf("expected ErrSettingsValueInvalid for mismatch-refetch, got %v", err)
+	}
+}
+
+func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+
+	settings, err := StructuralMutationSettingsForDocument(document)
+	if err != nil {
+		t.Fatalf("StructuralMutationSettingsForDocument defaults returned error: %v", err)
+	}
+	if got := settings.SectionSizingPolicy.ByType["TextBlock"]; got.MinWidth != 100 || got.MinHeight != 49 {
+		t.Fatalf("expected default TextBlock dimensions, got %#v", got)
+	}
+	if settings.TerminalDefaultHeight != 150 {
+		t.Fatalf("expected default terminal height 150, got %v", settings.TerminalDefaultHeight)
+	}
+
+	document["sectionSizingPolicy"].(map[string]any)["byType"].(map[string]any)["Chart"].(map[string]any)["minWidth"] = 150.0
+	document["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"] = 222.0
+
+	settings, err = StructuralMutationSettingsForDocument(document)
+	if err != nil {
+		t.Fatalf("StructuralMutationSettingsForDocument overrides returned error: %v", err)
+	}
+	if got := settings.SectionSizingPolicy.ByType["Chart"].MinWidth; got != 150 {
+		t.Fatalf("expected overridden Chart min width 150, got %v", got)
+	}
+	if settings.TerminalDefaultHeight != 222 {
+		t.Fatalf("expected overridden terminal height 222, got %v", settings.TerminalDefaultHeight)
+	}
+}
+
+func TestStructuralMutationSettingsForDocumentRejectsInvalidValues(t *testing.T) {
+	t.Parallel()
+
+	document, err := NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+
+	document["sectionSizingPolicy"].(map[string]any)["byType"].(map[string]any)["TextBlock"].(map[string]any)["maxWidth"] = "nope"
+	if _, err := StructuralMutationSettingsForDocument(document); !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid for section sizing policy, got %v", err)
+	}
+
+	document, err = NewDocument()
+	if err != nil {
+		t.Fatalf("NewDocument returned error: %v", err)
+	}
+	document["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"] = "auto"
+	if _, err := StructuralMutationSettingsForDocument(document); !errors.Is(err, ErrSettingsValueInvalid) {
+		t.Fatalf("expected ErrSettingsValueInvalid for terminal default height, got %v", err)
 	}
 }
 

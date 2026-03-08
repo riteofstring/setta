@@ -37,7 +37,7 @@ func FixedSectionSizeValue(value float64) SectionSizeValue {
 func (d *Document) SetSectionSizes(
 	projectID string,
 	sectionSizes map[string]SectionSize,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) error {
 	if d == nil {
 		return ErrProjectNotFound
@@ -47,10 +47,7 @@ func (d *Document) SetSectionSizes(
 	if err != nil {
 		return err
 	}
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		return err
-	}
+	policy := normalizeStructuralMutationSettings(settings).SectionSizingPolicy
 	if err := project.SetSectionSizes(sectionSizes, policy); err != nil {
 		return err
 	}
@@ -62,14 +59,14 @@ func (r *Runtime) SetSectionSizes(
 	ctx context.Context,
 	projectID string,
 	sectionSizes map[string]SectionSize,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (Snapshot, error) {
 	if r == nil {
 		return Snapshot{}, ErrRuntimeClosed
 	}
 
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetSectionSizes(projectID, sectionSizes, settingsDocument); err != nil {
+		if err := document.SetSectionSizes(projectID, sectionSizes, settings); err != nil {
 			return document, err
 		}
 		return document, nil

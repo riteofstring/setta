@@ -2,51 +2,8 @@ package projectstate
 
 import (
 	"context"
-	"errors"
-	"strconv"
 	"testing"
 )
-
-func TestResolveAutoLayoutSectionSizingPolicyDefaultsWhenSettingsProjectMissing(t *testing.T) {
-	t.Parallel()
-
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(Document{
-		SchemaVersion: CurrentSchemaVersion,
-		Projects:      map[string]Project{},
-	})
-	if err != nil {
-		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy returned error: %v", err)
-	}
-
-	if got := policy.ByType["TextBlock"]; got.MinWidth != 100 || got.MinHeight != 49 || got.MaxWidth != 100000 || got.MaxHeight != 100000 {
-		t.Fatalf("expected default TextBlock min dimensions {100 49}, got %#v", got)
-	}
-	if got := policy.ByType["MetaControl"]; got.MinWidth != 100 || got.MinHeight != 10 || got.MaxWidth != 100000 || got.MaxHeight != 100000 {
-		t.Fatalf("expected default MetaControl min dimensions {100 10}, got %#v", got)
-	}
-}
-
-func TestResolveAutoLayoutSectionSizingPolicyReadsSettingsProjectOverrides(t *testing.T) {
-	t.Parallel()
-
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsDocument(t, map[string]AutoLayoutSectionMinDimensions{
-		"TextBlock": {MinWidth: 321, MinHeight: 123, MaxWidth: 999, MaxHeight: 888},
-		"Chart":     {MinWidth: 444, MinHeight: 222, MaxWidth: 777, MaxHeight: 666},
-	}))
-	if err != nil {
-		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy returned error: %v", err)
-	}
-
-	if got := policy.ByType["TextBlock"]; got.MinWidth != 321 || got.MinHeight != 123 || got.MaxWidth != 999 || got.MaxHeight != 888 {
-		t.Fatalf("expected overridden TextBlock min dimensions {321 123}, got %#v", got)
-	}
-	if got := policy.ByType["Chart"]; got.MinWidth != 444 || got.MinHeight != 222 || got.MaxWidth != 777 || got.MaxHeight != 666 {
-		t.Fatalf("expected overridden Chart min dimensions {444 222}, got %#v", got)
-	}
-	if got := policy.ByType["Callable"]; got.MinWidth != 200 || got.MinHeight != 104 || got.MaxWidth != 100000 || got.MaxHeight != 100000 {
-		t.Fatalf("expected Callable defaults to remain intact, got %#v", got)
-	}
-}
 
 func TestProjectResolveAutoLayoutSectionDimensionsPrefersLayoutOverrideAndAutoFallback(t *testing.T) {
 	t.Parallel()
@@ -83,12 +40,12 @@ func TestRuntimeAutoLayoutTopLevelSectionsRewritesLayoutsWithoutOverlapAndPreser
 	t.Parallel()
 
 	runtime := openAutoLayoutTestRuntime(t)
-	settingsDocument := autoLayoutSettingsDocument(t, map[string]AutoLayoutSectionMinDimensions{
+	settings := testStructuralMutationSettings(map[string]AutoLayoutSectionMinDimensions{
 		"TextBlock": {MinWidth: 150, MinHeight: 80},
 	})
 
 	before := runtime.Snapshot().Document.Projects["project-alpha"]
-	if _, err := runtime.AutoLayoutTopLevelSections(context.Background(), "project-alpha", settingsDocument, 10); err != nil {
+	if _, err := runtime.AutoLayoutTopLevelSections(context.Background(), "project-alpha", settings, 10); err != nil {
 		t.Fatalf("AutoLayoutTopLevelSections returned error: %v", err)
 	}
 
@@ -104,21 +61,19 @@ func TestRuntimeAutoLayoutTopLevelSectionsRewritesLayoutsWithoutOverlapAndPreser
 		t.Fatal("expected active view mode layouts to stay in sync with project layouts")
 	}
 
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		t.Fatalf("ResolveAutoLayoutSectionSizingPolicy returned error: %v", err)
-	}
-	assertProjectLayoutsDoNotOverlap(t, project, policy)
+	assertProjectLayoutsDoNotOverlap(t, project, settings.SectionSizingPolicy)
 }
 
 func TestRuntimeAutoLayoutTopLevelSectionsRejectsNegativeMargin(t *testing.T) {
 	t.Parallel()
 
 	runtime := openAutoLayoutTestRuntime(t)
-	_, err := runtime.AutoLayoutTopLevelSections(context.Background(), "project-alpha", Document{
-		SchemaVersion: CurrentSchemaVersion,
-		Projects:      map[string]Project{},
-	}, -1)
+	_, err := runtime.AutoLayoutTopLevelSections(
+		context.Background(),
+		"project-alpha",
+		DefaultStructuralMutationSettings(),
+		-1,
+	)
 	if !IsInvalidAutoLayoutError(err) {
 		t.Fatalf("expected InvalidAutoLayoutError, got %v", err)
 	}
@@ -143,21 +98,14 @@ func TestRuntimeAutoLayoutTopLevelSectionsRejectsNonPositiveDimensions(t *testin
 		}
 	})
 
-	_, err = runtime.AutoLayoutTopLevelSections(context.Background(), "project-alpha", Document{
-		SchemaVersion: CurrentSchemaVersion,
-		Projects:      map[string]Project{},
-	}, 10)
+	_, err = runtime.AutoLayoutTopLevelSections(
+		context.Background(),
+		"project-alpha",
+		DefaultStructuralMutationSettings(),
+		10,
+	)
 	if !IsInvalidAutoLayoutError(err) {
 		t.Fatalf("expected InvalidAutoLayoutError, got %v", err)
-	}
-}
-
-func TestResolveAutoLayoutSectionSizingPolicyRejectsInvalidSettingsValue(t *testing.T) {
-	t.Parallel()
-
-	_, err := ResolveAutoLayoutSectionSizingPolicy(autoLayoutSettingsDocumentWithRawValue(t, "TextBlock", "maxWidth", "not-a-number"))
-	if !errors.Is(err, ErrSettingsValueInvalid) {
-		t.Fatalf("expected ErrSettingsValueInvalid, got %v", err)
 	}
 }
 
@@ -364,194 +312,6 @@ func autoLayoutInvalidDimensionProject(t *testing.T) Project {
 		t.Fatalf("normalize invalid auto layout project: %v", err)
 	}
 	return project
-}
-
-func autoLayoutSettingsDocument(
-	t *testing.T,
-	overrides map[string]AutoLayoutSectionMinDimensions,
-) Document {
-	t.Helper()
-
-	return autoLayoutSettingsDocumentWithValues(t, overrides, map[string]string{})
-}
-
-func autoLayoutSettingsDocumentWithRawValue(
-	t *testing.T,
-	sectionType string,
-	fieldName string,
-	rawValue string,
-) Document {
-	t.Helper()
-
-	return autoLayoutSettingsDocumentWithValues(
-		t,
-		map[string]AutoLayoutSectionMinDimensions{
-			sectionType: defaultAutoLayoutSectionSizingPolicy().ByType[sectionType],
-		},
-		map[string]string{
-			sectionType + "." + fieldName: rawValue,
-		},
-	)
-}
-
-func autoLayoutSettingsDocumentWithValues(
-	t *testing.T,
-	overrides map[string]AutoLayoutSectionMinDimensions,
-	rawValues map[string]string,
-) Document {
-	t.Helper()
-
-	codeObjVariantMap := map[string]string{}
-	codeObjs := map[string]CodeObject{}
-	codeObjVariants := map[string]CodeObjectVariant{}
-	codeObjImpls := map[string]CodeObjectImpl{}
-
-	addCodeObj := func(id string, name string, implType string, payload map[string]any) {
-		variantID := id + "-variant"
-		implID := id + "-impl"
-		codeObjs[id] = CodeObject{
-			ID:               id,
-			Name:             name,
-			VariantIDs:       []string{variantID},
-			DefaultVariantID: variantID,
-		}
-		codeObjVariants[variantID] = CodeObjectVariant{
-			ID:     variantID,
-			ImplID: implID,
-		}
-		codeObjImpls[implID] = CodeObjectImpl{
-			ID:      implID,
-			Type:    implType,
-			Payload: mustMarshalProjectObject(payload),
-		}
-		codeObjVariantMap[id] = variantID
-	}
-
-	rootID := "section-sizing-root"
-	byTypeID := "section-sizing-by-type"
-	childTypeIDs := make([]string, 0, len(overrides))
-	for sectionType := range overrides {
-		childTypeIDs = append(childTypeIDs, sectionType)
-	}
-
-	addCodeObj(rootID, "sectionSizingPolicyRoot", "NestedParam", map[string]any{
-		"id":       rootID + "-impl",
-		"type":     "NestedParam",
-		"children": []string{byTypeID},
-	})
-	addCodeObj(byTypeID, "byType", "NestedParam", map[string]any{
-		"id":       byTypeID + "-impl",
-		"type":     "NestedParam",
-		"children": childTypeIDs,
-	})
-
-	for sectionType, dimensions := range overrides {
-		typeID := sectionType
-		minWidthID := sectionType + "-min-width"
-		minHeightID := sectionType + "-min-height"
-		maxWidthID := sectionType + "-max-width"
-		maxHeightID := sectionType + "-max-height"
-
-		addCodeObj(typeID, sectionType, "NestedParam", map[string]any{
-			"id":       typeID + "-impl",
-			"type":     "NestedParam",
-			"children": []string{minWidthID, minHeightID, maxWidthID, maxHeightID},
-		})
-
-		minWidthValue := strconvFormat(dimensions.MinWidth)
-		if rawValue, ok := rawValues[sectionType+".minWidth"]; ok {
-			minWidthValue = rawValue
-		}
-		minHeightValue := strconvFormat(dimensions.MinHeight)
-		if rawValue, ok := rawValues[sectionType+".minHeight"]; ok {
-			minHeightValue = rawValue
-		}
-		maxWidthValue := strconvFormat(dimensions.MaxWidth)
-		if rawValue, ok := rawValues[sectionType+".maxWidth"]; ok {
-			maxWidthValue = rawValue
-		}
-		maxHeightValue := strconvFormat(dimensions.MaxHeight)
-		if rawValue, ok := rawValues[sectionType+".maxHeight"]; ok {
-			maxHeightValue = rawValue
-		}
-
-		addCodeObj(minWidthID, "minWidth", "TextParam", map[string]any{
-			"id":    minWidthID + "-impl",
-			"type":  "TextParam",
-			"value": minWidthValue,
-		})
-		addCodeObj(minHeightID, "minHeight", "TextParam", map[string]any{
-			"id":    minHeightID + "-impl",
-			"type":  "TextParam",
-			"value": minHeightValue,
-		})
-		addCodeObj(maxWidthID, "maxWidth", "TextParam", map[string]any{
-			"id":    maxWidthID + "-impl",
-			"type":  "TextParam",
-			"value": maxWidthValue,
-		})
-		addCodeObj(maxHeightID, "maxHeight", "TextParam", map[string]any{
-			"id":    maxHeightID + "-impl",
-			"type":  "TextParam",
-			"value": maxHeightValue,
-		})
-	}
-
-	settingsProject, err := Project{
-		ID:   "settings-home",
-		Name: "settings",
-		SectionVariantMap: map[string]string{
-			"section-sizing-policy": "section-sizing-policy-variant",
-		},
-		Sections: map[string]Section{
-			"section-sizing-policy": {
-				ID:               "section-sizing-policy",
-				Name:             "sectionSizingPolicy",
-				VariantIDs:       []string{"section-sizing-policy-variant"},
-				DefaultVariantID: "section-sizing-policy-variant",
-			},
-		},
-		SectionVariants: map[string]SectionVariant{
-			"section-sizing-policy-variant": {
-				ID:     "section-sizing-policy-variant",
-				ImplID: "section-sizing-policy-impl",
-			},
-		},
-		SectionImpls: map[string]SectionImpl{
-			"section-sizing-policy-impl": {
-				ID:   "section-sizing-policy-impl",
-				Kind: SectionKind("frontend"),
-				Payload: mustMarshalProjectObject(map[string]any{
-					"id":                "section-sizing-policy-impl",
-					"type":              "Dict",
-					"topLevelParamId":   rootID,
-					"codeObjVariantMap": codeObjVariantMap,
-				}),
-			},
-		},
-		CodeObjs:        codeObjs,
-		CodeObjVariants: codeObjVariants,
-		CodeObjImpls:    codeObjImpls,
-	}.Normalized()
-	if err != nil {
-		t.Fatalf("normalize auto layout settings project: %v", err)
-	}
-
-	document, err := Document{
-		SchemaVersion:    CurrentSchemaVersion,
-		DefaultProjectID: "settings-home",
-		Projects: map[string]Project{
-			"settings-home": settingsProject,
-		},
-	}.Normalized()
-	if err != nil {
-		t.Fatalf("normalize auto layout settings document: %v", err)
-	}
-	return document
-}
-
-func strconvFormat(value float64) string {
-	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func minProjectLayoutX(layouts map[string]TopLevelSectionLayout) float64 {

@@ -11,7 +11,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newAttachedTerminalWriteTestDocument())
-	settingsDocument := testChildCreationSettingsDocument(t, 222.0)
+	settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
 	terminalSectionID := "terminal-section"
 
 	attachSnapshot, err := runtime.SetCodeSectionAttachedTerminal(
@@ -19,7 +19,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 		"project-alpha",
 		"code-section",
 		&terminalSectionID,
-		settingsDocument,
+		settings,
 	)
 	if err != nil {
 		t.Fatalf("attach terminal: %v", err)
@@ -110,7 +110,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRoundTripsAttachAndDetach(t *testi
 		"project-alpha",
 		"code-section",
 		nil,
-		settingsDocument,
+		settings,
 	)
 	if err != nil {
 		t.Fatalf("detach terminal: %v", err)
@@ -160,7 +160,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalMovesTerminalFromExistingParent(t 
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newMovedAttachedTerminalWriteTestDocument())
-	settingsDocument := testChildCreationSettingsDocument(t, 222.0)
+	settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
 	terminalSectionID := "terminal-section"
 
 	snapshot, err := runtime.SetCodeSectionAttachedTerminal(
@@ -168,7 +168,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalMovesTerminalFromExistingParent(t 
 		"project-alpha",
 		"code-section",
 		&terminalSectionID,
-		settingsDocument,
+		settings,
 	)
 	if err != nil {
 		t.Fatalf("move terminal to code section: %v", err)
@@ -196,7 +196,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRejectsNonTerminalTarget(t *testin
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newAttachedTerminalWriteTestDocument())
-	settingsDocument := testChildCreationSettingsDocument(t, 222.0)
+	settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
 	textSectionID := "text-section"
 
 	_, err := runtime.SetCodeSectionAttachedTerminal(
@@ -204,7 +204,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRejectsNonTerminalTarget(t *testin
 		"project-alpha",
 		"code-section",
 		&textSectionID,
-		settingsDocument,
+		settings,
 	)
 	if !errors.Is(err, ErrTerminalSectionRequired) {
 		t.Fatalf("expected ErrTerminalSectionRequired, got %v", err)
@@ -215,7 +215,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRejectsNonCodeParent(t *testing.T)
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newAttachedTerminalWriteTestDocument())
-	settingsDocument := testChildCreationSettingsDocument(t, 222.0)
+	settings := testStructuralMutationSettingsWithTerminalHeight(222.0)
 	terminalSectionID := "terminal-section"
 
 	_, err := runtime.SetCodeSectionAttachedTerminal(
@@ -223,7 +223,7 @@ func TestRuntimeSetCodeSectionAttachedTerminalRejectsNonCodeParent(t *testing.T)
 		"project-alpha",
 		"terminal-section",
 		&terminalSectionID,
-		settingsDocument,
+		settings,
 	)
 	if !errors.Is(err, ErrCodeSectionRequired) {
 		t.Fatalf("expected ErrCodeSectionRequired, got %v", err)

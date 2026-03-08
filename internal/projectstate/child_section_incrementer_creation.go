@@ -22,7 +22,7 @@ type CreateChildSectionsViaIncrementerInput struct {
 func (d *Document) CreateChildSectionsViaIncrementer(
 	projectID string,
 	input CreateChildSectionsViaIncrementerInput,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (CreateChildSectionsResult, error) {
 	if d == nil {
 		return CreateChildSectionsResult{}, ErrProjectNotFound
@@ -32,11 +32,12 @@ func (d *Document) CreateChildSectionsViaIncrementer(
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
-	policy, err := ResolveAutoLayoutSectionSizingPolicy(settingsDocument)
-	if err != nil {
-		return CreateChildSectionsResult{}, err
-	}
-	result, err := project.CreateChildSectionsViaIncrementer(input, policy, settingsDocument)
+	normalizedSettings := normalizeStructuralMutationSettings(settings)
+	result, err := project.CreateChildSectionsViaIncrementer(
+		input,
+		normalizedSettings.SectionSizingPolicy,
+		normalizedSettings.TerminalDefaultHeight,
+	)
 	if err != nil {
 		return CreateChildSectionsResult{}, err
 	}
@@ -48,7 +49,7 @@ func (r *Runtime) CreateChildSectionsViaIncrementer(
 	ctx context.Context,
 	projectID string,
 	input CreateChildSectionsViaIncrementerInput,
-	settingsDocument Document,
+	settings StructuralMutationSettings,
 ) (Snapshot, CreateChildSectionsResult, error) {
 	if r == nil {
 		return Snapshot{}, CreateChildSectionsResult{}, ErrRuntimeClosed
@@ -57,7 +58,7 @@ func (r *Runtime) CreateChildSectionsViaIncrementer(
 	var result CreateChildSectionsResult
 	snapshot, err := r.MutateAndSave(ctx, func(document Document) (Document, error) {
 		var mutationErr error
-		result, mutationErr = document.CreateChildSectionsViaIncrementer(projectID, input, settingsDocument)
+		result, mutationErr = document.CreateChildSectionsViaIncrementer(projectID, input, settings)
 		if mutationErr != nil {
 			return document, mutationErr
 		}
@@ -72,7 +73,7 @@ func (r *Runtime) CreateChildSectionsViaIncrementer(
 func (p *Project) CreateChildSectionsViaIncrementer(
 	input CreateChildSectionsViaIncrementerInput,
 	policy AutoLayoutSectionSizingPolicy,
-	settingsDocument Document,
+	terminalDefaultHeight float64,
 ) (CreateChildSectionsResult, error) {
 	if p == nil {
 		return CreateChildSectionsResult{}, ErrProjectNotFound
@@ -92,7 +93,7 @@ func (p *Project) CreateChildSectionsViaIncrementer(
 		ImplType:    normalized.ImplType,
 		NumChildren: normalized.NumChildren,
 		StartIdx:    &startIdx,
-	}, policy, settingsDocument)
+	}, policy, terminalDefaultHeight)
 }
 
 func normalizeCreateChildSectionsViaIncrementerInput(input CreateChildSectionsViaIncrementerInput) (CreateChildSectionsViaIncrementerInput, error) {
