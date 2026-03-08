@@ -36,9 +36,13 @@ import {
 } from "state/definitions";
 import type { ResponseDataAndStatus } from "utils/endpointUtils";
 import { res200 } from "utils/endpointUtils";
-import * as generatedEndpoints from "utils/generatedEndpoints";
 import {
+  route_delete_sections,
+  route_group_sections,
   route_set_top_level_section_layout,
+  route_toggle_param_selected,
+  route_ungroup_groups,
+  route_unselect_all_params,
   route_set_viewport,
 } from "utils/generatedEndpoints";
 import {
@@ -64,25 +68,6 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
-
-const legacyGeneratedEndpoints = generatedEndpoints as Record<string, unknown>;
-
-function requireGeneratedEndpoint<
-  K extends
-    | "route_delete_sections"
-    | "route_group_sections"
-    | "route_toggle_param_selected"
-    | "route_ungroup_groups"
-    | "route_unselect_all_params",
->(name: K): (...args: Array<unknown>) => unknown {
-  const endpoint = legacyGeneratedEndpoints[name];
-  if (typeof endpoint !== "function") {
-    throw new Error(
-      `Generated endpoint ${name} is unavailable in the current canonical binding slice.`,
-    );
-  }
-  return endpoint;
-}
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -1523,7 +1508,7 @@ export function deleteAllActiveSections() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  requireGeneratedEndpoint("route_delete_sections")({
+  route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds: getActiveSectionUIIds(),
   });
@@ -1740,7 +1725,7 @@ export async function groupActiveSections() {
     return;
   }
   const sectionIds = getActiveSectionUIIds();
-  requireGeneratedEndpoint("route_group_sections")({
+  route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
   });
@@ -1753,7 +1738,7 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  requireGeneratedEndpoint("route_ungroup_groups")({
+  route_ungroup_groups({
     projectConfigId: getCurrProjectConfigId(),
     groupIds,
   });
@@ -1858,7 +1843,7 @@ export function toggleParamSelected(sectionId: string, paramInfoId: string) {
       );
     },
     send: (frontendOpId) =>
-      requireGeneratedEndpoint("route_toggle_param_selected")({
+      route_toggle_param_selected({
         projectConfigId: getCurrProjectConfigId(),
         sectionId,
         paramInfoId,
@@ -1905,7 +1890,7 @@ export function unselectAllParams() {
       }
     },
     send: (frontendOpId) =>
-      requireGeneratedEndpoint("route_unselect_all_params")({
+      route_unselect_all_params({
         projectConfigId: getCurrProjectConfigId(),
         frontendOpId,
       }),

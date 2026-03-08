@@ -37,6 +37,16 @@ export async function route_create_project_config(x: gt.CreateProjectConfigReque
   return await post(GoHTTPRoutes.createProjectConfig, x);
 
 }
+export async function route_delete_sections(x: gt.DeleteSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteSections, x);
+
+}
+export async function route_delete_selected_params(x: gt.DeleteSelectedParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteSelectedParams, x);
+
+}
 export async function route_create_workspace_launch_intent(x: gt.CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
 
   return await post(GoHTTPRoutes.createWorkspaceLaunchIntent, x);
@@ -157,9 +167,29 @@ export async function route_set_top_level_section_layout(x: gt.SetTopLevelSectio
   return await post(GoHTTPRoutes.setTopLevelSectionLayout, x);
 
 }
+export async function route_group_sections(x: gt.GroupSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.groupSections, x);
+
+}
+export async function route_ungroup_groups(x: gt.UngroupGroupsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.ungroupGroups, x);
+
+}
 export async function route_set_active_ids(x: gt.SetActiveIDsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setActiveIds, x);
+
+}
+export async function route_toggle_param_selected(x: gt.ToggleParamSelectedRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.toggleParamSelected, x);
+
+}
+export async function route_unselect_all_params(x: gt.UnselectAllParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.unselectAllParams, x);
 
 }
 export async function route_set_viewport(x: gt.SetViewportRequestInput): Promise<ResponseDataAndStatus<null>> {

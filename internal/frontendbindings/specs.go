@@ -96,6 +96,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "CREATE_PROJECT_CONFIG",
 				},
 				{
+					Name:     "deleteSections",
+					Path:     httpapi.RouteDeleteSections,
+					EnumName: "DELETE_SECTIONS",
+				},
+				{
+					Name:     "deleteSelectedParams",
+					Path:     httpapi.RouteDeleteSelectedParams,
+					EnumName: "DELETE_SELECTED_PARAMS",
+				},
+				{
 					Name:     "createWorkspaceLaunchIntent",
 					Path:     httpapi.RouteCreateWorkspaceLaunchIntent,
 					EnumName: "CREATE_WORKSPACE_LAUNCH_INTENT",
@@ -216,9 +226,29 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_TOP_LEVEL_SECTION_LAYOUT",
 				},
 				{
+					Name:     "groupSections",
+					Path:     httpapi.RouteGroupSections,
+					EnumName: "GROUP_SECTIONS",
+				},
+				{
+					Name:     "ungroupGroups",
+					Path:     httpapi.RouteUngroupGroups,
+					EnumName: "UNGROUP_GROUPS",
+				},
+				{
 					Name:     "setActiveIds",
 					Path:     httpapi.RouteSetActiveIDs,
 					EnumName: "SET_ACTIVE_IDS",
+				},
+				{
+					Name:     "toggleParamSelected",
+					Path:     httpapi.RouteToggleParamSelected,
+					EnumName: "TOGGLE_PARAM_SELECTED",
+				},
+				{
+					Name:     "unselectAllParams",
+					Path:     httpapi.RouteUnselectAllParams,
+					EnumName: "UNSELECT_ALL_PARAMS",
 				},
 				{
 					Name:     "setViewport",
@@ -397,6 +427,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "createProjectConfig",
 			RequestType:     reflect.TypeOf(CreateProjectConfigRequestInput{}),
 			ResponseType:    reflect.TypeOf(CreateProjectConfigResponse("")),
+		},
+		{
+			FunctionName:    "route_delete_sections",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteSections",
+			RequestType:     reflect.TypeOf(DeleteSectionsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_delete_selected_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteSelectedParams",
+			RequestType:     reflect.TypeOf(DeleteSelectedParamsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_create_workspace_launch_intent",
@@ -586,11 +630,39 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetTopLevelSectionLayoutRequestInput{}),
 		},
 		{
+			FunctionName:    "route_group_sections",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "groupSections",
+			RequestType:     reflect.TypeOf(GroupSectionsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_ungroup_groups",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "ungroupGroups",
+			RequestType:     reflect.TypeOf(UngroupGroupsRequestInput{}),
+		},
+		{
 			FunctionName:    "route_set_active_ids",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setActiveIds",
 			RequestType:     reflect.TypeOf(SetActiveIDsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_toggle_param_selected",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "toggleParamSelected",
+			RequestType:     reflect.TypeOf(ToggleParamSelectedRequestInput{}),
+		},
+		{
+			FunctionName:    "route_unselect_all_params",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "unselectAllParams",
+			RequestType:     reflect.TypeOf(UnselectAllParamsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_viewport",

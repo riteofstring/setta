@@ -22,6 +22,43 @@ type CreateProjectConfigRequestInput struct {
 
 type CreateProjectConfigResponse string
 
+type DeleteSectionsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionIDs      []string `json:"sectionIds"`
+}
+
+type DeleteSelectedParamsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	ParamInfoIDs    []string `json:"paramInfoIds"`
+}
+
+type GroupSectionsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionIDs      []string `json:"sectionIds"`
+}
+
+type UngroupGroupsRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	GroupIDs        []string `json:"groupIds"`
+}
+
+type ToggleParamSelectedRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	ParamInfoID     string  `json:"paramInfoId"`
+}
+
+type UnselectAllParamsRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+}
+
 type ViewportInput struct {
 	X    float64 `json:"x"`
 	Y    float64 `json:"y"`

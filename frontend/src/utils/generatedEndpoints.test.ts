@@ -4,6 +4,8 @@ import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_create_project_config,
+  route_delete_sections,
+  route_delete_selected_params,
   route_force_refresh_listener,
   route_get_app_catalog,
   route_get_app_definition,
@@ -17,6 +19,7 @@ import {
   route_get_listener_coverage,
   route_get_mcp_server_runtime_status,
   route_get_password_param_value,
+  route_group_sections,
   route_load_all_project_metadata,
   route_load_project_config,
   route_plugins_config,
@@ -24,10 +27,14 @@ import {
   route_plugins_restart,
   route_plugins_runtime,
   route_restart_language_server,
+  route_set_active_ids,
   route_set_app_definition,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
   route_set_viewport,
+  route_toggle_param_selected,
+  route_ungroup_groups,
+  route_unselect_all_params,
   route_type_check,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
@@ -256,6 +263,147 @@ describe("generatedEndpoints project shell and layout", () => {
             h: 250,
           },
         },
+      }),
+    });
+  });
+
+  it("posts section deletions with section ids", async () => {
+    await route_delete_sections({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a", "section-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteSections`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts delete-selected-param writes with the current request shape", async () => {
+    await route_delete_selected_params({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      paramInfoIds: ["param-a", "param-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteSelectedParams`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        paramInfoIds: ["param-a", "param-b"],
+      }),
+    });
+  });
+
+  it("posts section grouping writes", async () => {
+    await route_group_sections({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a", "section-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/groupSections`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts group ungroup writes", async () => {
+    await route_ungroup_groups({
+      projectConfigId: "project-alpha",
+      groupIds: ["group-a"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/ungroupGroups`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        groupIds: ["group-a"],
+      }),
+    });
+  });
+
+  it("posts active-id writes", async () => {
+    await route_set_active_ids({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-2a",
+      activeIds: ["section-a", "section-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setActiveIds`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-2a",
+        activeIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts param-selection toggles with frontend op ids", async () => {
+    await route_toggle_param_selected({
+      projectConfigId: "project-alpha",
+      sectionId: "callable-section",
+      paramInfoId: "param-a",
+      frontendOpId: "frontend-op-2b",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleParamSelected`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "callable-section",
+        paramInfoId: "param-a",
+        frontendOpId: "frontend-op-2b",
+      }),
+    });
+  });
+
+  it("posts unselect-all-param writes with frontend op ids", async () => {
+    await route_unselect_all_params({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-2c",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/unselectAllParams`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-2c",
       }),
     });
   });

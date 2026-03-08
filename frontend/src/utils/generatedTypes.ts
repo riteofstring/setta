@@ -929,6 +929,27 @@ export function createCreateProjectConfigRequestInput(options: Partial<CreatePro
 export type CreateProjectConfigResponse = string;
 
 
+export type DeleteSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createDeleteSectionsRequestInput(options: Partial<DeleteSectionsRequestInput> = {}): DeleteSectionsRequestInput {
+  return options as DeleteSectionsRequestInput;
+}
+
+
+export type DeleteSelectedParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoIds: Array<string>;
+};
+export function createDeleteSelectedParamsRequestInput(options: Partial<DeleteSelectedParamsRequestInput> = {}): DeleteSelectedParamsRequestInput {
+  return options as DeleteSelectedParamsRequestInput;
+}
+
+
 export const LaunchSettaFilesLocationEnum = {
   Auto: "auto",
   Local: "local",
@@ -1510,6 +1531,26 @@ export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetT
 }
 
 
+export type GroupSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createGroupSectionsRequestInput(options: Partial<GroupSectionsRequestInput> = {}): GroupSectionsRequestInput {
+  return options as GroupSectionsRequestInput;
+}
+
+
+export type UngroupGroupsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  groupIds: Array<string>;
+};
+export function createUngroupGroupsRequestInput(options: Partial<UngroupGroupsRequestInput> = {}): UngroupGroupsRequestInput {
+  return options as UngroupGroupsRequestInput;
+}
+
+
 export type SetActiveIDsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -1517,6 +1558,26 @@ export type SetActiveIDsRequestInput = {
 };
 export function createSetActiveIDsRequestInput(options: Partial<SetActiveIDsRequestInput> = {}): SetActiveIDsRequestInput {
   return options as SetActiveIDsRequestInput;
+}
+
+
+export type ToggleParamSelectedRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+export function createToggleParamSelectedRequestInput(options: Partial<ToggleParamSelectedRequestInput> = {}): ToggleParamSelectedRequestInput {
+  return options as ToggleParamSelectedRequestInput;
+}
+
+
+export type UnselectAllParamsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+};
+export function createUnselectAllParamsRequestInput(options: Partial<UnselectAllParamsRequestInput> = {}): UnselectAllParamsRequestInput {
+  return options as UnselectAllParamsRequestInput;
 }
 
 

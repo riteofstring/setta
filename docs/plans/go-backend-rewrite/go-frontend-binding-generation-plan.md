@@ -80,7 +80,7 @@ Current landed wedge:
   - current websocket route constants
   - current status/meta route constants
   - current project-shell route constants
-  - current project-state layout/presence route constants
+  - current project-state layout/presence/structure-selection route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
@@ -121,6 +121,13 @@ Current landed wedge:
       - `SetActiveIDsRequestInput`
       - `ViewportInput`
       - `SetViewportRequestInput`
+    - current structure/param-selection mutation payloads
+      - `DeleteSectionsRequestInput`
+      - `DeleteSelectedParamsRequestInput`
+      - `GroupSectionsRequestInput`
+      - `UngroupGroupsRequestInput`
+      - `ToggleParamSelectedRequestInput`
+      - `UnselectAllParamsRequestInput`
     - shared project-state/core types used by current callers
       - `SectionType`
       - `CodeObjType`
@@ -186,8 +193,14 @@ Current landed wedge:
     - `route_load_all_project_metadata`
     - `route_load_project_config`
     - `route_create_project_config`
+    - `route_delete_sections`
+    - `route_delete_selected_params`
     - `route_set_top_level_section_layout`
+    - `route_group_sections`
+    - `route_ungroup_groups`
     - `route_set_active_ids`
+    - `route_toggle_param_selected`
+    - `route_unselect_all_params`
     - `route_set_viewport`
   - workspace-launch endpoint wrappers
     - `route_create_workspace_launch_intent`
@@ -309,6 +322,10 @@ Current landed wedge:
   - the current project create/load flow plus the layout/selection/viewport
     publishers in `sectionInfos` now consume canonical Go-generated
     project-shell and current project-state bindings
+  - the current section delete/group/ungroup and param-selection callers in
+    `sectionInfos`, `SelectionContextMenu`, `DeleteOrHideButton`,
+    `UngroupButton`, `KwargsControls`, and `PluginArea` now consume canonical
+    Go-generated project-state mutation bindings
   - `plugins/runtime`, `plugins/restart`, and the current `PluginsPane`
     plugin runtime/mutation callers now consume canonical Go-generated plugin
     bindings for plugin runtime/status/config/restart/install/update/rollback

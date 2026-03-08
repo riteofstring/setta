@@ -21,10 +21,14 @@ import (
 const (
 	RouteGetLatestProjectState          = "/getLatestProjectState"
 	RouteCreateTopLevelSection          = "/createTopLevelSection"
+	RouteDeleteSections                 = "/deleteSections"
+	RouteDeleteSelectedParams           = "/deleteSelectedParams"
 	RouteCreateViewMode                 = "/createViewMode"
 	RouteSetActiveViewMode              = "/setActiveViewMode"
 	RouteToggleIsEditingViewMode        = "/toggleIsEditingViewMode"
 	RouteToggleSectionVisibility        = "/toggleSectionVisibility"
+	RouteGroupSections                  = "/groupSections"
+	RouteUngroupGroups                  = "/ungroupGroups"
 	RouteToggleViewModeUserFacing       = "/toggleViewModeUserFacing"
 	RouteToggleViewModeTab              = "/toggleViewModeTab"
 	RouteSetViewModeName                = "/setViewModeName"
@@ -47,6 +51,8 @@ const (
 	RouteSetCallableHideParams          = "/setCallableHideParams"
 	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
 	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
+	RouteToggleParamSelected            = "/toggleParamSelected"
+	RouteUnselectAllParams              = "/unselectAllParams"
 	RouteSetChatSectionSettings         = "/setChatSectionSettings"
 	RouteSetChatSectionState            = "/setChatSectionState"
 	RouteGetChatSectionChatID           = "/getChatSectionChatId"
@@ -133,6 +139,19 @@ type DeleteJSONSourceFileAndVariantRequest struct {
 	Filepath  string `json:"filepath"`
 }
 
+type DeleteSectionsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionIDs   []string `json:"sectionIds"`
+}
+
+type DeleteSelectedParamsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionID    string   `json:"sectionId"`
+	ParamInfoIDs []string `json:"paramInfoIds"`
+}
+
 type CreateTopLevelSectionRequest struct {
 	FrontendOpID       *string                `json:"frontendOpId"`
 	ProjectID          string                 `json:"projectConfigId"`
@@ -162,6 +181,18 @@ type ToggleSectionVisibilityRequest struct {
 	FrontendOpID *string  `json:"frontendOpId"`
 	ProjectID    string   `json:"projectConfigId"`
 	SectionIDs   []string `json:"sectionIds"`
+}
+
+type GroupSectionsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	SectionIDs   []string `json:"sectionIds"`
+}
+
+type UngroupGroupsRequest struct {
+	FrontendOpID *string  `json:"frontendOpId"`
+	ProjectID    string   `json:"projectConfigId"`
+	GroupIDs     []string `json:"groupIds"`
 }
 
 type ToggleViewModeUserFacingRequest struct {
@@ -310,6 +341,18 @@ type SetSectionPinnedParamsRequest struct {
 	PinnedParams []string `json:"pinnedParams"`
 }
 
+type ToggleParamSelectedRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	ParamInfoID  string  `json:"paramInfoId"`
+}
+
+type UnselectAllParamsRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+}
+
 type SetChatSectionSettingsRequest struct {
 	FrontendOpID           *string                         `json:"frontendOpId"`
 	ProjectID              string                          `json:"projectConfigId"`
@@ -407,11 +450,15 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPasswordParamValue, getPasswordParamValueHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSectionVariantOrAsk, deleteSectionVariantOrAskHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteJSONSourceFileAndVariant, deleteJSONSourceFileAndVariantHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSections, deleteSectionsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSelectedParams, deleteSelectedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTopLevelSection, createTopLevelSectionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateViewMode, createViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleIsEditingViewMode, toggleIsEditingViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleSectionVisibility, toggleSectionVisibilityHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGroupSections, groupSectionsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUngroupGroups, ungroupGroupsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleViewModeUserFacing, toggleViewModeUserFacingHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleViewModeTab, toggleViewModeTabHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetViewModeName, setViewModeNameHandler(deps))
@@ -434,6 +481,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleParamSelected, toggleParamSelectedHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUnselectAllParams, unselectAllParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionState, setChatSectionStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetChatSectionChatID, getChatSectionChatIDHandler(deps))
@@ -613,6 +662,69 @@ func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.H
 
 		if _, err := deps.ProjectState.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID); err != nil {
 			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteSectionsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, _, err := deps.ProjectState.DeleteSections(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.DeleteSectionsInput{SectionIDs: payload.SectionIDs},
+		); err != nil {
+			writeDeleteSectionsError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteSelectedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteSelectedParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, _, err := deps.ProjectState.DeleteSelectedParams(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.DeleteSelectedParamsInput{
+				SectionID:    payload.SectionID,
+				ParamInfoIDs: payload.ParamInfoIDs,
+			},
+		); err != nil {
+			writeParamSelectionMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -863,6 +975,72 @@ func toggleSectionVisibilityHandler(deps ProjectRouteDependencies) http.HandlerF
 
 		if _, err := deps.ProjectState.ToggleSectionVisibility(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.SectionIDs); err != nil {
 			writeViewModeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func groupSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[GroupSectionsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
+		if err != nil {
+			writeGroupSectionsError(w, r, err)
+			return
+		}
+		if _, err := deps.ProjectState.GroupSections(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.GroupSectionsInput{SectionIDs: payload.SectionIDs},
+			settings,
+		); err != nil {
+			writeGroupSectionsError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func ungroupGroupsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[UngroupGroupsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.UngroupGroups(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.UngroupGroupsInput{GroupIDs: payload.GroupIDs},
+		); err != nil {
+			writeUngroupGroupsError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -1450,6 +1628,68 @@ func setSectionPinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFu
 	}
 }
 
+func toggleParamSelectedHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ToggleParamSelectedRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.ToggleParamSelected(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.ToggleParamSelectedInput{
+				SectionID:   payload.SectionID,
+				ParamInfoID: payload.ParamInfoID,
+			},
+		); err != nil {
+			writeParamSelectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func unselectAllParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[UnselectAllParamsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.UnselectAllParams(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+		); err != nil {
+			writeParamSelectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetChatSectionSettingsRequest](r)
@@ -1794,6 +2034,22 @@ func writeDeleteSectionVariantError(w http.ResponseWriter, r *http.Request, err 
 	}
 }
 
+func writeDeleteSectionsError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrDeleteSectionsSectionIDsRequired),
+		errors.Is(err, projectstate.ErrDeleteSectionsSectionIDBlank):
+		writeError(w, r, http.StatusBadRequest, "section_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
 func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
@@ -1805,6 +2061,82 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
 	case errors.Is(err, projectstate.ErrSectionNotFound):
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeGroupSectionsError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrGroupSectionsSectionIDsRequired),
+		errors.Is(err, projectstate.ErrGroupSectionsSectionIDBlank):
+		writeError(w, r, http.StatusBadRequest, "section_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrGroupSectionsParentMismatch),
+		errors.Is(err, projectstate.ErrTopLevelSectionLayoutRequired),
+		errors.Is(err, projectstate.ErrChildSectionParentIDRequired),
+		errors.Is(err, projectstate.ErrChildSectionImplTypeRequired),
+		errors.Is(err, projectstate.ErrChildSectionImplTypeUnsupported),
+		errors.Is(err, projectstate.ErrChildSectionCountInvalid),
+		errors.Is(err, projectstate.ErrChildSectionStartIdxInvalid),
+		errors.Is(err, projectstate.ErrChildSectionParentUnsupported),
+		errors.Is(err, projectstate.ErrCodeSectionChildTypeInvalid),
+		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid),
+		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild):
+		writeError(w, r, http.StatusUnprocessableEntity, "group_sections_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeUngroupGroupsError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrUngroupGroupsGroupIDsRequired),
+		errors.Is(err, projectstate.ErrUngroupGroupsGroupIDBlank):
+		writeError(w, r, http.StatusBadRequest, "group_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrGroupSectionRequired),
+		errors.Is(err, projectstate.ErrTopLevelSectionLayoutRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "ungroup_groups_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeParamSelectionMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrCodeObjIDRequired):
+		writeError(w, r, http.StatusBadRequest, "param_info_id_required", "Param info id is required.")
+	case errors.Is(err, projectstate.ErrDeleteSelectedParamsParamIDBlank):
+		writeError(w, r, http.StatusBadRequest, "param_info_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound):
+		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
+	case errors.Is(err, projectstate.ErrParamSelectionUnsupported),
+		errors.Is(err, projectstate.ErrParamSelectionTargetUnsupported),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsUnsupported),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsRootMissing),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParamUnsupported),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentMissing),
+		errors.Is(err, projectstate.ErrDeleteSelectedParamsParentUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "param_selection_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

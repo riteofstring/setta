@@ -1583,6 +1583,212 @@ func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *t
 	}
 }
 
+func TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionStructureRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	groupResponse := post(RouteGroupSections, `{"projectConfigId":"project-alpha","sectionIds":["beta-section","alpha-section"]}`)
+	if groupResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 from groupSections, got %d with body %q", groupResponse.Code, groupResponse.Body.String())
+	}
+
+	groupedLatestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if groupedLatestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 grouped latest-state response, got %d with body %q", groupedLatestResponse.Code, groupedLatestResponse.Body.String())
+	}
+
+	var groupedPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(groupedLatestResponse.Body.Bytes(), &groupedPayload); err != nil {
+		t.Fatalf("decode grouped latest project payload: %v", err)
+	}
+
+	createdGroupID := ""
+	for sectionID := range groupedPayload.ProjectState.Sections {
+		switch sectionID {
+		case "alpha-section", "beta-section", "top-group", "top-child-a", "top-child-b", "nested-parent", "nested-group", "nested-child-a", "nested-child-b", "nested-sibling":
+			continue
+		default:
+			createdGroupID = sectionID
+		}
+	}
+	if createdGroupID == "" {
+		t.Fatal("expected groupSections to create a new group section")
+	}
+	if parent := groupedPayload.ProjectState.ParentSectionMap["alpha-section"]; parent == nil || *parent != createdGroupID {
+		t.Fatalf("expected alpha-section parent %q after grouping, got %#v", createdGroupID, parent)
+	}
+	if parent := groupedPayload.ProjectState.ParentSectionMap["beta-section"]; parent == nil || *parent != createdGroupID {
+		t.Fatalf("expected beta-section parent %q after grouping, got %#v", createdGroupID, parent)
+	}
+
+	ungroupResponse := post(RouteUngroupGroups, fmt.Sprintf(`{"projectConfigId":"project-alpha","groupIds":["%s"]}`, createdGroupID))
+	if ungroupResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 from ungroupGroups, got %d with body %q", ungroupResponse.Code, ungroupResponse.Body.String())
+	}
+
+	deleteResponse := post(RouteDeleteSections, `{"projectConfigId":"project-alpha","sectionIds":["top-group"]}`)
+	if deleteResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 from deleteSections, got %d with body %q", deleteResponse.Code, deleteResponse.Body.String())
+	}
+
+	finalLatestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if finalLatestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 final latest-state response, got %d with body %q", finalLatestResponse.Code, finalLatestResponse.Body.String())
+	}
+
+	var finalPayload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(finalLatestResponse.Body.Bytes(), &finalPayload); err != nil {
+		t.Fatalf("decode final latest project payload: %v", err)
+	}
+
+	if _, ok := finalPayload.ProjectState.Sections[createdGroupID]; ok {
+		t.Fatalf("expected temporary group %q to be removed after ungroup", createdGroupID)
+	}
+	for _, deletedSectionID := range []string{"top-group", "top-child-a", "top-child-b"} {
+		if _, ok := finalPayload.ProjectState.Sections[deletedSectionID]; ok {
+			t.Fatalf("expected %q to be removed after deleteSections", deletedSectionID)
+		}
+		if _, ok := finalPayload.ProjectState.ProjectConfig.SectionVariantMap[deletedSectionID]; ok {
+			t.Fatalf("expected %q variant mapping to be removed after deleteSections", deletedSectionID)
+		}
+	}
+	if parent := finalPayload.ProjectState.ParentSectionMap["alpha-section"]; parent != nil {
+		t.Fatalf("expected alpha-section to be top-level after ungroup, got parent %#v", parent)
+	}
+	if parent := finalPayload.ProjectState.ParentSectionMap["beta-section"]; parent != nil {
+		t.Fatalf("expected beta-section to be top-level after ungroup, got parent %#v", parent)
+	}
+	if _, ok := finalPayload.ProjectState.ProjectConfig.TopLevelSections["alpha-section"]; !ok {
+		t.Fatal("expected alpha-section top-level layout after ungroup")
+	}
+	if _, ok := finalPayload.ProjectState.ProjectConfig.TopLevelSections["beta-section"]; !ok {
+		t.Fatal("expected beta-section top-level layout after ungroup")
+	}
+}
+
+func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteToggleParamSelected,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child"}`,
+		},
+		{
+			route: RouteToggleParamSelected,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-secret"}`,
+		},
+		{
+			route: RouteDeleteSelectedParams,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoIds":["shared-child"]}`,
+		},
+		{
+			route: RouteUnselectAllParams,
+			body:  `{"projectConfigId":"project-alpha"}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	if _, ok := payload.ProjectState.CodeObjs["shared-child"]; ok {
+		t.Fatal("expected shared-child code object to be deleted")
+	}
+	if _, ok := payload.ProjectState.CodeObjs["shared-secret"]; !ok {
+		t.Fatal("expected shared-secret code object to remain")
+	}
+
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]
+	dictImplID := payload.ProjectState.SectionVariants[dictVariantID].Impl
+	dictPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[dictImplID])
+	if got := decodeProjectRouteStringArray(dictPayload["selectedParams"]); len(got) != 0 {
+		t.Fatalf("expected selectedParams to be cleared, got %#v", got)
+	}
+	codeObjVariantMap, ok := dictPayload["codeObjVariantMap"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected codeObjVariantMap object, got %#v", dictPayload["codeObjVariantMap"])
+	}
+	if _, ok := codeObjVariantMap["shared-child"]; ok {
+		t.Fatalf("expected deleted param to be removed from codeObjVariantMap, got %#v", codeObjVariantMap)
+	}
+}
+
 func TestRegisterProjectRoutesSetViewportReturnsInternalErrorWithoutActiveViewMode(t *testing.T) {
 	t.Parallel()
 
@@ -2300,18 +2506,24 @@ func newProjectRouteTestHandlerWithRenameService(
 		})
 	}
 	if chatSectionChatIDs == nil {
-		runStore, err := agentruns.NewRunStore(t.TempDir())
-		if err != nil {
-			t.Fatalf("new chat section run store: %v", err)
+		if projectRuntime == nil {
+			chatSectionChatIDs = projectRouteChatSectionChatIDServiceFunc(func(context.Context, string, string) (*string, error) {
+				return nil, nil
+			})
+		} else {
+			runStore, err := agentruns.NewRunStore(t.TempDir())
+			if err != nil {
+				t.Fatalf("new chat section run store: %v", err)
+			}
+			chatSectionService, err := chatsections.NewService(chatsections.ServiceOptions{
+				ProjectState: projectRuntime,
+				Runs:         runStore,
+			})
+			if err != nil {
+				t.Fatalf("new chat section service: %v", err)
+			}
+			chatSectionChatIDs = chatSectionService
 		}
-		chatSectionService, err := chatsections.NewService(chatsections.ServiceOptions{
-			ProjectState: projectRuntime,
-			Runs:         runStore,
-		})
-		if err != nil {
-			t.Fatalf("new chat section service: %v", err)
-		}
-		chatSectionChatIDs = chatSectionService
 	}
 	settingsDocument, err := settingsstate.NewDocument()
 	if err != nil {
@@ -2460,6 +2672,12 @@ func (f projectRouteRenameRefactorServiceFunc) AcceptRenameRefactor(context.Cont
 
 func (f projectRouteRenameRefactorServiceFunc) DeclineRenameRefactor(context.Context, string, string) error {
 	return nil
+}
+
+type projectRouteChatSectionChatIDServiceFunc func(ctx context.Context, projectID string, sectionID string) (*string, error)
+
+func (f projectRouteChatSectionChatIDServiceFunc) GetChatID(ctx context.Context, projectID string, sectionID string) (*string, error) {
+	return f(ctx, projectID, sectionID)
 }
 
 type stubProjectRouteRenameRefactorService struct {
@@ -2743,6 +2961,204 @@ func viewModesRouteTestProject(t *testing.T) projectstate.Project {
 	return project
 }
 
+func sectionStructureRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	topLevelSections := map[string]projectstate.TopLevelSectionLayout{
+		"alpha-section": {X: 120, Y: 40, ZIndex: 1},
+		"beta-section":  {X: 20, Y: 10, ZIndex: 2},
+		"top-group":     {X: 400, Y: 60, ZIndex: 3},
+		"nested-parent": {X: 700, Y: 80, ZIndex: 4},
+	}
+
+	return mustNormalizedProjectRouteProject(t, projectstate.Project{
+		ID:               "project-alpha",
+		Name:             "Alpha",
+		ActiveViewModeID: "focus",
+		TopLevelSectionIDs: []string{
+			"alpha-section",
+			"beta-section",
+			"top-group",
+			"nested-parent",
+		},
+		TopLevelSections: topLevelSections,
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID:               "focus",
+				TopLevelSections: topLevelSections,
+				VisibilityBySectionID: map[string]bool{
+					"alpha-section":  true,
+					"beta-section":   true,
+					"top-group":      true,
+					"top-child-a":    true,
+					"top-child-b":    true,
+					"nested-parent":  true,
+					"nested-group":   true,
+					"nested-child-a": true,
+					"nested-child-b": true,
+					"nested-sibling": true,
+				},
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"alpha-section":  "alpha-variant",
+			"beta-section":   "beta-variant",
+			"top-group":      "top-group-variant",
+			"top-child-a":    "top-child-a-variant",
+			"top-child-b":    "top-child-b-variant",
+			"nested-parent":  "nested-parent-variant",
+			"nested-group":   "nested-group-variant",
+			"nested-child-a": "nested-child-a-variant",
+			"nested-child-b": "nested-child-b-variant",
+			"nested-sibling": "nested-sibling-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"alpha-section": {
+				ID:               "alpha-section",
+				Name:             "Alpha Section",
+				VariantIDs:       []string{"alpha-variant"},
+				DefaultVariantID: "alpha-variant",
+			},
+			"beta-section": {
+				ID:               "beta-section",
+				Name:             "Beta Section",
+				VariantIDs:       []string{"beta-variant"},
+				DefaultVariantID: "beta-variant",
+			},
+			"top-group": {
+				ID:               "top-group",
+				Name:             "Top Group",
+				VariantIDs:       []string{"top-group-variant"},
+				DefaultVariantID: "top-group-variant",
+			},
+			"top-child-a": {
+				ID:               "top-child-a",
+				Name:             "Top Child A",
+				ParentSectionID:  "top-group",
+				VariantIDs:       []string{"top-child-a-variant"},
+				DefaultVariantID: "top-child-a-variant",
+			},
+			"top-child-b": {
+				ID:               "top-child-b",
+				Name:             "Top Child B",
+				ParentSectionID:  "top-group",
+				VariantIDs:       []string{"top-child-b-variant"},
+				DefaultVariantID: "top-child-b-variant",
+			},
+			"nested-parent": {
+				ID:               "nested-parent",
+				Name:             "Nested Parent",
+				VariantIDs:       []string{"nested-parent-variant"},
+				DefaultVariantID: "nested-parent-variant",
+			},
+			"nested-group": {
+				ID:               "nested-group",
+				Name:             "Nested Group",
+				ParentSectionID:  "nested-parent",
+				VariantIDs:       []string{"nested-group-variant"},
+				DefaultVariantID: "nested-group-variant",
+			},
+			"nested-child-a": {
+				ID:               "nested-child-a",
+				Name:             "Nested Child A",
+				ParentSectionID:  "nested-group",
+				VariantIDs:       []string{"nested-child-a-variant"},
+				DefaultVariantID: "nested-child-a-variant",
+			},
+			"nested-child-b": {
+				ID:               "nested-child-b",
+				Name:             "Nested Child B",
+				ParentSectionID:  "nested-group",
+				VariantIDs:       []string{"nested-child-b-variant"},
+				DefaultVariantID: "nested-child-b-variant",
+			},
+			"nested-sibling": {
+				ID:               "nested-sibling",
+				Name:             "Nested Sibling",
+				ParentSectionID:  "nested-parent",
+				VariantIDs:       []string{"nested-sibling-variant"},
+				DefaultVariantID: "nested-sibling-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"alpha-variant":          {ID: "alpha-variant", ImplID: "alpha-impl"},
+			"beta-variant":           {ID: "beta-variant", ImplID: "beta-impl"},
+			"top-group-variant":      {ID: "top-group-variant", ImplID: "top-group-impl"},
+			"top-child-a-variant":    {ID: "top-child-a-variant", ImplID: "top-child-a-impl"},
+			"top-child-b-variant":    {ID: "top-child-b-variant", ImplID: "top-child-b-impl"},
+			"nested-parent-variant":  {ID: "nested-parent-variant", ImplID: "nested-parent-impl"},
+			"nested-group-variant":   {ID: "nested-group-variant", ImplID: "nested-group-impl"},
+			"nested-child-a-variant": {ID: "nested-child-a-variant", ImplID: "nested-child-a-impl"},
+			"nested-child-b-variant": {ID: "nested-child-b-variant", ImplID: "nested-child-b-impl"},
+			"nested-sibling-variant": {ID: "nested-sibling-variant", ImplID: "nested-sibling-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"alpha-impl": {
+				ID:      "alpha-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "alpha-impl", "type": "TextBlock"}),
+			},
+			"beta-impl": {
+				ID:      "beta-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "beta-impl", "type": "TextBlock"}),
+			},
+			"top-group-impl": {
+				ID:   "top-group-impl",
+				Kind: projectstate.SectionKind("group"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":       "top-group-impl",
+					"type":     "Group",
+					"children": []string{"top-child-a", "top-child-b"},
+				}),
+			},
+			"top-child-a-impl": {
+				ID:      "top-child-a-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "top-child-a-impl", "type": "TextBlock"}),
+			},
+			"top-child-b-impl": {
+				ID:      "top-child-b-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "top-child-b-impl", "type": "TextBlock"}),
+			},
+			"nested-parent-impl": {
+				ID:   "nested-parent-impl",
+				Kind: projectstate.SectionKind("group"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":       "nested-parent-impl",
+					"type":     "Group",
+					"children": []string{"nested-group", "nested-sibling"},
+				}),
+			},
+			"nested-group-impl": {
+				ID:   "nested-group-impl",
+				Kind: projectstate.SectionKind("group"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":       "nested-group-impl",
+					"type":     "Group",
+					"children": []string{"nested-child-a", "nested-child-b"},
+				}),
+			},
+			"nested-child-a-impl": {
+				ID:      "nested-child-a-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "nested-child-a-impl", "type": "TextBlock"}),
+			},
+			"nested-child-b-impl": {
+				ID:      "nested-child-b-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "nested-child-b-impl", "type": "TextBlock"}),
+			},
+			"nested-sibling-impl": {
+				ID:      "nested-sibling-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "nested-sibling-impl", "type": "TextBlock"}),
+			},
+		},
+	})
+}
+
 func mustProjectRouteRawJSON(t *testing.T, value map[string]any) projectstate.RawJSON {
 	t.Helper()
 	encoded, err := json.Marshal(value)
@@ -2782,6 +3198,7 @@ func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
 				Payload: mustProjectRouteRawJSON(t, map[string]any{
 					"id":              "dict-a-impl",
 					"type":            "Dict",
+					"selectedParams":  []string{},
 					"topLevelParamId": "shared-root",
 					"codeObjVariantMap": map[string]string{
 						"shared-root":   "shared-root-variant",
@@ -2834,7 +3251,7 @@ func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
 			"shared-child-impl": {
 				ID:      "shared-child-impl",
 				Type:    "TextParam",
-				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "shared-child-impl", "type": "TextParam", "value": "seed"}),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "shared-child-impl", "type": "TextParam", "value": "seed", "coreNameEditable": true}),
 			},
 			"shared-secret-impl": {
 				ID:      "shared-secret-impl",
