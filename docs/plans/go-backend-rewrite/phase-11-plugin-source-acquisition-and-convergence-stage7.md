@@ -282,3 +282,6 @@ Rationale:
   real ownership gap
 - a later dedicated stage can decide cleanly between a real Go hook and an
   intentionally manual-only transport
+
+That follow-on planning now lives in
+`phase-11-plugin-restart-stage8.md`.

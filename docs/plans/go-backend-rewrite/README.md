@@ -396,11 +396,14 @@ Use the docs in this order:
     plugin source acquisition and lockfile convergence slice: Go-owned
     `setta plugins install|update|pin|lock apply`, leaving only
     `plugins restart` separate
-129. `spike-mcp.md`
+129. `phase-11-plugin-restart-stage8.md`
+  - focused implementation-plan doc for the last packaged plugin CLI gap:
+    Go-owned manual-only `setta plugins restart`
+130. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-130. `spike-pty.md`
+131. `spike-pty.md`
    - PTY uncertainty-reduction plan
-131. `spike-lsp.md`
+132. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

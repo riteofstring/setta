@@ -187,8 +187,11 @@ Phase 11 Stage 6 is now complete in
 Phase 11 Stage 7 is now complete in
 `phase-11-plugin-source-acquisition-and-convergence-stage7.md`.
 
+Phase 11 Stage 8 is now planned in
+`phase-11-plugin-restart-stage8.md`.
+
 The only remaining Python-owned plugin command is the separate restart
-surface:
+surface scheduled by that plan:
 
 - `plugins restart`
 
@@ -262,6 +265,11 @@ surface:
   - the shipped Go CLI now wires the production candidate provider into the
     shared plugin service
   - the only remaining Python-owned plugin command is `plugins restart`
+- 2026-03-08: added the dedicated plugin Stage 8 plan.
+  - the final packaged plugin CLI gap is now explicitly `setta plugins
+    restart`
+  - the stage is scoped as a manual-only Go transport migration, not a new
+    runtime restart-hook implementation
 
 ## Verification
 
