@@ -164,6 +164,18 @@ chat-section read transport:
 - stale section `chatId` clearing through the existing project-state mutation
   path when no durable chat run remains
 
+With those Phase 18 slices landed, the next caller-backed direct frontend gap
+is no longer in AI/chat. The post-Phase-18 rerank now selects the
+project-shell route cluster as the next executable phase:
+
+- project boot/load routes
+- project create/save/delete/rename routes
+- notification read/delete routes
+
+The adjacent git read cluster remains caller-backed but separate, and dormant
+listener-chat plus detached-run routes remain explicitly out of scope until a
+real caller changes that rerank.
+
 The current bounded Go-owned Phase 12 surface now includes:
 
 - `internal/externalagentconfigs`
@@ -1569,16 +1581,16 @@ Do not weaken this rule during the rewrite.
    - do not reopen a broad LiteLLM-equivalent managed runtime
    - do reuse the landed Phase 14 managed-run foundations for the now-reranked
      direct frontend managed chat slice
-6. The post-Phase-17 rerank is now complete.
+6. The post-Phase-18 rerank is now complete.
    - the inventory outcome is recorded in
-     `phase-18-remaining-ai-chat-and-transcription-route-inventory-and-rerank.md`
-   - the next executable slice is recorded in
-     `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
-   - transcription-session runtime remains the next adjacent AI follow-on
-     after the managed-chat slice
-   - external `.env` or `llm_config.json` watch parity should only reopen if a
-     concrete runtime caller proves that polling or direct mutation responses
-     are insufficient
+     `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
+   - the next executable phase is recorded in
+     `phase-19-project-shell-route-cluster-plan.md`
+   - the adjacent git read cluster remains the next caller-backed direct
+     frontend follow-on after project shell
+   - dormant listener-chat, detached-run, and non-caller-backed
+     default-project routes should remain out of scope until a concrete caller
+     proves otherwise
 
 ## Planning Conclusion
 

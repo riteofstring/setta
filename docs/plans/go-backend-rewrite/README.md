@@ -693,12 +693,21 @@ Use the docs in this order:
   - focused Phase 18 closeout doc for the opportunistic Go ownership of the
     dormant `POST /getChatSectionChatId` route over project-state reads and
     durable chat-run validation
-190. `spike-mcp.md`
+190. `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
+  - focused closeout inventory doc for the remaining caller-backed direct
+    frontend route surface after the landed Phase 18 AI/chat closeout,
+    reranking project-shell routes ahead of git and dormant listener/run
+    transport
+191. `phase-19-project-shell-route-cluster-plan.md`
+  - focused current-work plan for Go-owned project-shell load, rename,
+    notification, save, and project lifecycle transport over the landed
+    `projectstate` and `projectview` foundations
+192. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-191. `spike-pty.md`
+193. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-192. `spike-lsp.md`
+194. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
