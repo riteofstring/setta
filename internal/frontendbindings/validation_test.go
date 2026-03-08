@@ -2100,6 +2100,142 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 }`,
 		},
 		{
+			name: "BaseCodeObjImpl",
+			root: reflect.TypeOf(BaseCodeObjImpl{}),
+			kind: "alias",
+			alias: `{
+  type: CodeObjType;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
+  children?: Array<string>;
+  coreNameType?: ParamNameType;
+  coreNameEditable?: boolean;
+  passingStyle?: ParameterPassingStyle;
+  typeAnnotation?: string;
+  defaultVal?: string;
+  value?: string;
+  [key: string]: unknown;
+}`,
+		},
+		{
+			name: "CodeParamCodeObjImpl",
+			root: reflect.TypeOf(CodeParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+}`,
+			hasFactoryTS: true,
+		},
+		{
+			name: "CodeCallableCodeObjImpl",
+			root: reflect.TypeOf(CodeCallableCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeCallable;
+  children: Array<string>;
+}`,
+		},
+		{
+			name: "NestedParamCodeObjImpl",
+			root: reflect.TypeOf(NestedParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.NestedParam;
+  children: Array<string>;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+}`,
+		},
+		{
+			name: "BaseCodeObjImplUnion",
+			root: reflect.TypeOf(BaseCodeObjImplUnion{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl`,
+		},
+		{
+			name: "BaseChildlessCodeObjImplUnion",
+			root: reflect.TypeOf(BaseChildlessCodeObjImplUnion{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl`,
+		},
+		{
+			name: "BaseParamCodeObjImplUnion",
+			root: reflect.TypeOf(BaseParamCodeObjImplUnion{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl`,
+		},
+		{
+			name: "BaseParentCodeObjImplUnion",
+			root: reflect.TypeOf(BaseParentCodeObjImplUnion{}),
+			kind: "alias",
+			alias: `CodeCallableCodeObjImpl
+  | NestedParamCodeObjImpl`,
+		},
+		{
+			name: "UserDefaultCodeParamCodeObjImpl",
+			root: reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "coreNameType", TypeExpr: "ParamNameType", Optional: false},
+				{Name: "coreNameEditable", TypeExpr: "boolean", Optional: false},
+				{Name: "typeAnnotation", TypeExpr: "string", Optional: false},
+				{Name: "defaultVal", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
 			name: "UserDefaultListRootSectionImpl",
 			root: reflect.TypeOf(UserDefaultListRootSectionImpl{}),
 			kind: "object",

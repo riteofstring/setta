@@ -613,6 +613,24 @@ type UserDefaultDictSectionImpl struct{}
 
 type BaseDictSectionImplUnion struct{}
 
+type BaseCodeObjImpl struct{}
+
+type CodeParamCodeObjImpl struct{}
+
+type CodeCallableCodeObjImpl struct{}
+
+type NestedParamCodeObjImpl struct{}
+
+type BaseCodeObjImplUnion struct{}
+
+type BaseChildlessCodeObjImplUnion struct{}
+
+type BaseParamCodeObjImplUnion struct{}
+
+type BaseParentCodeObjImplUnion struct{}
+
+type UserDefaultCodeParamCodeObjImpl struct{}
+
 type UserDefaultTaskBoardSectionImpl struct{}
 
 type TaskBoardSectionImpl struct{}
@@ -1841,39 +1859,9 @@ function resolveGeneratedFactoryInputs<
   };
 }
 
-export type BaseCodeObjImpl = {
-  type: CodeObjType;
-  id: string;
-  name: string;
-  description: string;
-  isPreset: boolean;
-  children?: Array<string>;
-  coreNameType?: ParamNameType;
-  coreNameEditable?: boolean;
-  passingStyle?: ParameterPassingStyle;
-  typeAnnotation?: string;
-  defaultVal?: string;
-  value?: string;
-  [key: string]: unknown;
-};
-export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeParam;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-
 export type ColorPickerChoice = {
   color: string;
   description: string;
-};
-
-export type CodeCallableCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.CodeCallable;
-  children: Array<string>;
 };
 
 export type TextParamCodeObjImpl = BaseCodeObjImpl & {
@@ -2023,116 +2011,6 @@ export type DropzoneParamCodeObjImpl = BaseCodeObjImpl & {
   maxAttachments?: number | null;
   placeholder: string;
 };
-
-export type NestedParamCodeObjImpl = BaseCodeObjImpl & {
-  type: typeof CodeObjTypeEnum.NestedParam;
-  children: Array<string>;
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  passingStyle: ParameterPassingStyle;
-  typeAnnotation: string;
-};
-
-export type BaseCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeCallableCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-export type BaseChildlessCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl;
-export type BaseParamCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
-export type BaseParentCodeObjImplUnion =
-  | CodeCallableCodeObjImpl
-  | NestedParamCodeObjImpl;
-
-export type UserDefaultCodeParamCodeObjImpl = {
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-export function createUserDefaultCodeParamCodeObjImpl(
-  options: Partial<UserDefaultCodeParamCodeObjImpl> = {},
-): UserDefaultCodeParamCodeObjImpl {
-  return mergeGeneratedOptions(
-    {
-      coreNameType: ParamNameTypeEnum.TEXT,
-      coreNameEditable: false,
-      typeAnnotation: "",
-      defaultVal: "",
-      value: "",
-    },
-    options,
-  );
-}
-
-export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeParamCodeObjImpl>
-    | Partial<CodeParamCodeObjImpl> = {},
-  overrides?: Partial<CodeParamCodeObjImpl>,
-): CodeParamCodeObjImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeParamCodeObjImpl,
-    CodeParamCodeObjImpl
-  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: CodeObjTypeEnum.CodeParam,
-      id: "",
-      name: "",
-      description: "",
-      isPreset: false,
-      coreNameType: resolved.defaults.coreNameType,
-      coreNameEditable: resolved.defaults.coreNameEditable,
-      passingStyle: ParameterPassingStyleEnum.DEFAULT,
-      typeAnnotation: resolved.defaults.typeAnnotation,
-      defaultVal: resolved.defaults.defaultVal,
-      value: resolved.defaults.value,
-    },
-    resolved.overrides,
-  );
-}
 
 export type ChartData = ChartDataValue;
 

@@ -997,6 +997,157 @@ func newTypeConverter() *typeConverter {
   jsonSourceMissing: boolean;
 }`,
 			),
+			reflect.TypeOf(BaseCodeObjImpl{}): aliasDeclaration(
+				"BaseCodeObjImpl",
+				`{
+  type: CodeObjType;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
+  children?: Array<string>;
+  coreNameType?: ParamNameType;
+  coreNameEditable?: boolean;
+  passingStyle?: ParameterPassingStyle;
+  typeAnnotation?: string;
+  defaultVal?: string;
+  value?: string;
+  [key: string]: unknown;
+}`,
+			),
+			reflect.TypeOf(CodeParamCodeObjImpl{}): aliasDeclarationWithFactory(
+				"CodeParamCodeObjImpl",
+				`BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+}`,
+				`export function createCodeParamCodeObjImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeParamCodeObjImpl>
+    | Partial<CodeParamCodeObjImpl> = {},
+  overrides?: Partial<CodeParamCodeObjImpl>,
+): CodeParamCodeObjImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeParamCodeObjImpl,
+    CodeParamCodeObjImpl
+  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: CodeObjTypeEnum.CodeParam,
+      id: "",
+      name: "",
+      description: "",
+      isPreset: false,
+      coreNameType: resolved.defaults.coreNameType,
+      coreNameEditable: resolved.defaults.coreNameEditable,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      typeAnnotation: resolved.defaults.typeAnnotation,
+      defaultVal: resolved.defaults.defaultVal,
+      value: resolved.defaults.value,
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(CodeCallableCodeObjImpl{}): aliasDeclaration(
+				"CodeCallableCodeObjImpl",
+				`BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeCallable;
+  children: Array<string>;
+}`,
+			),
+			reflect.TypeOf(NestedParamCodeObjImpl{}): aliasDeclaration(
+				"NestedParamCodeObjImpl",
+				`BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.NestedParam;
+  children: Array<string>;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+}`,
+			),
+			reflect.TypeOf(BaseCodeObjImplUnion{}): aliasDeclaration(
+				"BaseCodeObjImplUnion",
+				`BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl`,
+			),
+			reflect.TypeOf(BaseChildlessCodeObjImplUnion{}): aliasDeclaration(
+				"BaseChildlessCodeObjImplUnion",
+				`BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl`,
+			),
+			reflect.TypeOf(BaseParamCodeObjImplUnion{}): aliasDeclaration(
+				"BaseParamCodeObjImplUnion",
+				`BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl`,
+			),
+			reflect.TypeOf(BaseParentCodeObjImplUnion{}): aliasDeclaration(
+				"BaseParentCodeObjImplUnion",
+				`CodeCallableCodeObjImpl
+  | NestedParamCodeObjImpl`,
+			),
+			reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultCodeParamCodeObjImpl",
+				`mergeGeneratedOptions(
+    {
+      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameEditable: false,
+      typeAnnotation: "",
+      defaultVal: "",
+      value: "",
+    },
+    options,
+  )`,
+				TypeProperty{Name: "coreNameType", TypeExpr: "ParamNameType"},
+				TypeProperty{Name: "coreNameEditable", TypeExpr: "boolean"},
+				TypeProperty{Name: "typeAnnotation", TypeExpr: "string"},
+				TypeProperty{Name: "defaultVal", TypeExpr: "string"},
+				TypeProperty{Name: "value", TypeExpr: "string"},
+			),
 			reflect.TypeOf(UserDefaultListRootSectionImpl{}): objectDeclarationWithCreateExpr(
 				"UserDefaultListRootSectionImpl",
 				`mergeGeneratedOptions(

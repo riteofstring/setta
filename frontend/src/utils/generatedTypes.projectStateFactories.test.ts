@@ -26,7 +26,9 @@ import {
   createUserDefaultTerminalSectionImpl,
   createUserDefaultTextBlockSectionImpl,
   createViewModeConfig,
+  isBaseChildlessCodeObjImpl,
   isBaseDictSectionImpl,
+  isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
   ListRootViewModeEnum,
   ParamNameTypeEnum,
@@ -253,6 +255,12 @@ describe("generated project state factories", () => {
     expect(isBaseParentCodeObjImpl(codeCallableImpl)).toBe(true);
     expect(isBaseParentCodeObjImpl(nestedParamImpl)).toBe(true);
     expect(isBaseParentCodeObjImpl(codeParamImpl)).toBe(false);
+    expect(isBaseParamCodeObjImpl(codeCallableImpl)).toBe(false);
+    expect(isBaseParamCodeObjImpl(nestedParamImpl)).toBe(true);
+    expect(isBaseParamCodeObjImpl(codeParamImpl)).toBe(true);
+    expect(isBaseChildlessCodeObjImpl(codeCallableImpl)).toBe(false);
+    expect(isBaseChildlessCodeObjImpl(nestedParamImpl)).toBe(false);
+    expect(isBaseChildlessCodeObjImpl(codeParamImpl)).toBe(true);
     if (!isBaseParentCodeObjImpl(nestedParamImpl)) {
       throw new Error("expected nested param to satisfy base parent code obj");
     }
