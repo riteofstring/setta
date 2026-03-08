@@ -1055,6 +1055,83 @@ func TestBrowserSupportEnumsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestTaskBoardSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "TaskBoardViewMode",
+			root: reflect.TypeOf(TaskBoardViewMode("")),
+			values: []EnumValue{
+				{Name: "task_list", Value: "task_list"},
+				{Name: "kanban", Value: "kanban"},
+			},
+		},
+		{
+			name: "TaskBoardTaskRecurrence",
+			root: reflect.TypeOf(TaskBoardTaskRecurrence("")),
+			values: []EnumValue{
+				{Name: "none", Value: "none"},
+				{Name: "hourly", Value: "hourly"},
+				{Name: "daily", Value: "daily"},
+				{Name: "specified_days", Value: "specified_days"},
+				{Name: "specified_months", Value: "specified_months"},
+				{Name: "specified_years", Value: "specified_years"},
+			},
+		},
+		{
+			name: "TaskBoardRecurringWeekday",
+			root: reflect.TypeOf(TaskBoardRecurringWeekday("")),
+			values: []EnumValue{
+				{Name: "monday", Value: "monday"},
+				{Name: "tuesday", Value: "tuesday"},
+				{Name: "wednesday", Value: "wednesday"},
+				{Name: "thursday", Value: "thursday"},
+				{Name: "friday", Value: "friday"},
+				{Name: "saturday", Value: "saturday"},
+				{Name: "sunday", Value: "sunday"},
+			},
+		},
+		{
+			name: "TaskBoardRecurringMonth",
+			root: reflect.TypeOf(TaskBoardRecurringMonth("")),
+			values: []EnumValue{
+				{Name: "january", Value: "january"},
+				{Name: "february", Value: "february"},
+				{Name: "march", Value: "march"},
+				{Name: "april", Value: "april"},
+				{Name: "may", Value: "may"},
+				{Name: "june", Value: "june"},
+				{Name: "july", Value: "july"},
+				{Name: "august", Value: "august"},
+				{Name: "september", Value: "september"},
+				{Name: "october", Value: "october"},
+				{Name: "november", Value: "november"},
+				{Name: "december", Value: "december"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
 func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1391,6 +1468,106 @@ func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
   typesColumnWidth?: number | null;
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
+}`,
+			hasFactoryTS: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
+func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "TaskBoardColumn",
+			root: reflect.TypeOf(TaskBoardColumn{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "color", TypeExpr: "string", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "TaskBoardTask",
+			root: reflect.TypeOf(TaskBoardTask{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "title", TypeExpr: "string", Optional: false},
+				{Name: "description", TypeExpr: "string", Optional: false},
+				{Name: "completed", TypeExpr: "boolean", Optional: false},
+				{Name: "columnId", TypeExpr: "string | null", Optional: true},
+				{Name: "dueDateIso", TypeExpr: "string", Optional: false},
+				{Name: "recurrence", TypeExpr: "TaskBoardTaskRecurrence", Optional: false},
+				{Name: "recurrenceDays", TypeExpr: "Array<TaskBoardRecurringWeekday>", Optional: false},
+				{Name: "recurrenceMonths", TypeExpr: "Array<TaskBoardRecurringMonth>", Optional: false},
+				{Name: "recurrenceYears", TypeExpr: "Array<number>", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "UserDefaultTaskBoardSectionImpl",
+			root: reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "viewMode", TypeExpr: "TaskBoardViewMode", Optional: false},
+				{Name: "columns", TypeExpr: "Array<TaskBoardColumn> | null", Optional: false},
+				{Name: "tasks", TypeExpr: "Array<TaskBoardTask>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "TaskBoardSectionImpl",
+			root: reflect.TypeOf(TaskBoardSectionImpl{}),
+			kind: "alias",
+			alias: `Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.TaskBoard;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
 }`,
 			hasFactoryTS: true,
 		},

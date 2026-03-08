@@ -1073,6 +1073,53 @@ export const BrowserSearchScopeEnum = {
 export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
 
 
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+
+export const TaskBoardTaskRecurrenceEnum = {
+  none: "none",
+  hourly: "hourly",
+  daily: "daily",
+  specified_days: "specified_days",
+  specified_months: "specified_months",
+  specified_years: "specified_years",
+} as const;
+export type TaskBoardTaskRecurrence = ObjectValues<typeof TaskBoardTaskRecurrenceEnum>;
+
+
+export const TaskBoardRecurringWeekdayEnum = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+export type TaskBoardRecurringWeekday = ObjectValues<typeof TaskBoardRecurringWeekdayEnum>;
+
+
+export const TaskBoardRecurringMonthEnum = {
+  january: "january",
+  february: "february",
+  march: "march",
+  april: "april",
+  may: "may",
+  june: "june",
+  july: "july",
+  august: "august",
+  september: "september",
+  october: "october",
+  november: "november",
+  december: "december",
+} as const;
+export type TaskBoardRecurringMonth = ObjectValues<typeof TaskBoardRecurringMonthEnum>;
+
+
 export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
 
 
@@ -1536,6 +1583,141 @@ export function createBrowserSectionImpl(
       savedSearches: resolved.defaults.savedSearches,
     },
     resolved.overrides,
+  );
+}
+
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(options: Partial<TaskBoardColumn> = {}): TaskBoardColumn {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(options: Partial<TaskBoardTask> = {}): TaskBoardTask {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: TaskBoardTaskRecurrenceEnum.none,
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+
+export type UserDefaultTaskBoardSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn> | null;
+  tasks: Array<TaskBoardTask>;
+};
+export function createUserDefaultTaskBoardSectionImpl(options: Partial<UserDefaultTaskBoardSectionImpl> = {}): UserDefaultTaskBoardSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 720,
+        height: 430,
+      },
+      viewMode: TaskBoardViewModeEnum.kanban,
+      columns: null,
+      tasks: [],
+    },
+    options,
+  );
+}
+
+
+export type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.TaskBoard;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+};
+export function createTaskBoardSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTaskBoardSectionImpl>
+    | Partial<TaskBoardSectionImpl> = {},
+  overrides?: Partial<TaskBoardSectionImpl>,
+): TaskBoardSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTaskBoardSectionImpl,
+    TaskBoardSectionImpl
+  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
+  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
+    ...resolved.overrides,
+  };
+  if (normalizedOverrides.columns === undefined) {
+    delete normalizedOverrides.columns;
+  }
+  if (normalizedOverrides.tasks === undefined) {
+    delete normalizedOverrides.tasks;
+  }
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TaskBoard,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      viewMode: resolved.defaults.viewMode,
+      columns:
+        resolved.defaults.columns === null ||
+        resolved.defaults.columns === undefined
+          ? []
+          : cloneGeneratedValue(resolved.defaults.columns),
+      tasks: resolved.defaults.tasks,
+    },
+    normalizedOverrides,
   );
 }
 
@@ -2185,55 +2367,6 @@ export const ChartTypeEnum = {
   scatter: "scatter",
 } as const;
 export type ChartType = ObjectValues<typeof ChartTypeEnum>;
-
-export const TaskBoardViewModeEnum = {
-  task_list: "task_list",
-  kanban: "kanban",
-} as const;
-export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
-
-export const TaskBoardTaskRecurrenceEnum = {
-  none: "none",
-  hourly: "hourly",
-  daily: "daily",
-  specified_days: "specified_days",
-  specified_months: "specified_months",
-  specified_years: "specified_years",
-} as const;
-export type TaskBoardTaskRecurrence = ObjectValues<
-  typeof TaskBoardTaskRecurrenceEnum
->;
-
-export const TaskBoardRecurringWeekdayEnum = {
-  monday: "monday",
-  tuesday: "tuesday",
-  wednesday: "wednesday",
-  thursday: "thursday",
-  friday: "friday",
-  saturday: "saturday",
-  sunday: "sunday",
-} as const;
-export type TaskBoardRecurringWeekday = ObjectValues<
-  typeof TaskBoardRecurringWeekdayEnum
->;
-
-export const TaskBoardRecurringMonthEnum = {
-  january: "january",
-  february: "february",
-  march: "march",
-  april: "april",
-  may: "may",
-  june: "june",
-  july: "july",
-  august: "august",
-  september: "september",
-  october: "october",
-  november: "november",
-  december: "december",
-} as const;
-export type TaskBoardRecurringMonth = ObjectValues<
-  typeof TaskBoardRecurringMonthEnum
->;
 
 export const SpreadsheetGridDensityEnum = {
   compact: "compact",
@@ -3721,67 +3854,6 @@ export type UserDefaultTerminalSectionImpl = {
   positionAndSizeLocked: boolean;
 };
 
-export type TaskBoardColumn = {
-  id: string;
-  name: string;
-  color: string;
-  sortIndex: number;
-};
-export function createTaskBoardColumn(
-  options: Partial<TaskBoardColumn> = {},
-): TaskBoardColumn {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      color: "#3b82f6",
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type TaskBoardTask = {
-  id: string;
-  title: string;
-  description: string;
-  completed: boolean;
-  columnId?: string | null;
-  dueDateIso: string;
-  recurrence: TaskBoardTaskRecurrence;
-  recurrenceDays: Array<TaskBoardRecurringWeekday>;
-  recurrenceMonths: Array<TaskBoardRecurringMonth>;
-  recurrenceYears: Array<number>;
-  sortIndex: number;
-};
-export function createTaskBoardTask(
-  options: Partial<TaskBoardTask> = {},
-): TaskBoardTask {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      title: "",
-      description: "",
-      completed: false,
-      columnId: null,
-      dueDateIso: "",
-      recurrence: TaskBoardTaskRecurrenceEnum.none,
-      recurrenceDays: [],
-      recurrenceMonths: [],
-      recurrenceYears: [],
-      sortIndex: 0,
-    },
-    options,
-  );
-}
-
-export type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
-  type: typeof SectionTypeEnum.TaskBoard;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn>;
-  tasks: Array<TaskBoardTask>;
-};
-
 export type ChartSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Chart;
   dataPath: string;
@@ -3798,19 +3870,6 @@ export type UserDefaultChartSectionImpl = {
   positionAndSizeLocked: boolean;
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
-};
-
-export type UserDefaultTaskBoardSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn> | null;
-  tasks: Array<TaskBoardTask>;
 };
 
 export type SpreadsheetSectionImpl = BaseSectionImpl & {
@@ -4303,76 +4362,6 @@ export function createChartSectionImpl(
       chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
     },
     resolved.overrides,
-  );
-}
-
-function resolveGeneratedTaskBoardColumns(
-  columns: Array<TaskBoardColumn> | null | undefined,
-): Array<TaskBoardColumn> {
-  if (columns === null || columns === undefined) {
-    return [];
-  }
-  return cloneGeneratedValue(columns);
-}
-
-export function createUserDefaultTaskBoardSectionImpl(
-  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
-): UserDefaultTaskBoardSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 720,
-        height: 430,
-      },
-      viewMode: TaskBoardViewModeEnum.kanban,
-      columns: null,
-      tasks: [],
-    },
-    options,
-  );
-}
-
-export function createTaskBoardSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTaskBoardSectionImpl>
-    | Partial<TaskBoardSectionImpl> = {},
-  overrides?: Partial<TaskBoardSectionImpl>,
-): TaskBoardSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTaskBoardSectionImpl,
-    TaskBoardSectionImpl
-  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
-  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
-    ...resolved.overrides,
-  };
-  if (normalizedOverrides.columns === undefined) {
-    delete normalizedOverrides.columns;
-  }
-  if (normalizedOverrides.tasks === undefined) {
-    delete normalizedOverrides.tasks;
-  }
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.TaskBoard,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      viewMode: resolved.defaults.viewMode,
-      columns: resolveGeneratedTaskBoardColumns(resolved.defaults.columns),
-      tasks: resolved.defaults.tasks,
-    },
-    normalizedOverrides,
   );
 }
 

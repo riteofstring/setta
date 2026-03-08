@@ -240,6 +240,41 @@ func newTypeConverter() *typeConverter {
 				{Name: "recursive", Value: "recursive"},
 				{Name: "local", Value: "local"},
 			},
+			reflect.TypeOf(TaskBoardViewMode("")): {
+				{Name: "task_list", Value: "task_list"},
+				{Name: "kanban", Value: "kanban"},
+			},
+			reflect.TypeOf(TaskBoardTaskRecurrence("")): {
+				{Name: "none", Value: "none"},
+				{Name: "hourly", Value: "hourly"},
+				{Name: "daily", Value: "daily"},
+				{Name: "specified_days", Value: "specified_days"},
+				{Name: "specified_months", Value: "specified_months"},
+				{Name: "specified_years", Value: "specified_years"},
+			},
+			reflect.TypeOf(TaskBoardRecurringWeekday("")): {
+				{Name: "monday", Value: "monday"},
+				{Name: "tuesday", Value: "tuesday"},
+				{Name: "wednesday", Value: "wednesday"},
+				{Name: "thursday", Value: "thursday"},
+				{Name: "friday", Value: "friday"},
+				{Name: "saturday", Value: "saturday"},
+				{Name: "sunday", Value: "sunday"},
+			},
+			reflect.TypeOf(TaskBoardRecurringMonth("")): {
+				{Name: "january", Value: "january"},
+				{Name: "february", Value: "february"},
+				{Name: "march", Value: "march"},
+				{Name: "april", Value: "april"},
+				{Name: "may", Value: "may"},
+				{Name: "june", Value: "june"},
+				{Name: "july", Value: "july"},
+				{Name: "august", Value: "august"},
+				{Name: "september", Value: "september"},
+				{Name: "october", Value: "october"},
+				{Name: "november", Value: "november"},
+				{Name: "december", Value: "december"},
+			},
 			reflect.TypeOf(EngineType("")): {
 				{Name: "setta_llm", Value: "setta_llm"},
 				{Name: "external_agent", Value: "external_agent"},
@@ -1081,6 +1116,133 @@ func newTypeConverter() *typeConverter {
       savedSearches: resolved.defaults.savedSearches,
     },
     resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(TaskBoardColumn{}): objectDeclarationWithCreateExpr(
+				"TaskBoardColumn",
+				`mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "color", TypeExpr: "string"},
+				TypeProperty{Name: "sortIndex", TypeExpr: "number"},
+			),
+			reflect.TypeOf(TaskBoardTask{}): objectDeclarationWithCreateExpr(
+				"TaskBoardTask",
+				`mergeGeneratedOptions(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: TaskBoardTaskRecurrenceEnum.none,
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "title", TypeExpr: "string"},
+				TypeProperty{Name: "description", TypeExpr: "string"},
+				TypeProperty{Name: "completed", TypeExpr: "boolean"},
+				TypeProperty{Name: "columnId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "dueDateIso", TypeExpr: "string"},
+				TypeProperty{Name: "recurrence", TypeExpr: "TaskBoardTaskRecurrence"},
+				TypeProperty{Name: "recurrenceDays", TypeExpr: "Array<TaskBoardRecurringWeekday>"},
+				TypeProperty{Name: "recurrenceMonths", TypeExpr: "Array<TaskBoardRecurringMonth>"},
+				TypeProperty{Name: "recurrenceYears", TypeExpr: "Array<number>"},
+				TypeProperty{Name: "sortIndex", TypeExpr: "number"},
+			),
+			reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultTaskBoardSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 720,
+        height: 430,
+      },
+      viewMode: TaskBoardViewModeEnum.kanban,
+      columns: null,
+      tasks: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "viewMode", TypeExpr: "TaskBoardViewMode"},
+				TypeProperty{Name: "columns", TypeExpr: "Array<TaskBoardColumn> | null"},
+				TypeProperty{Name: "tasks", TypeExpr: "Array<TaskBoardTask>"},
+			),
+			reflect.TypeOf(TaskBoardSectionImpl{}): aliasDeclarationWithFactory(
+				"TaskBoardSectionImpl",
+				`Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.TaskBoard;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+}`,
+				`export function createTaskBoardSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTaskBoardSectionImpl>
+    | Partial<TaskBoardSectionImpl> = {},
+  overrides?: Partial<TaskBoardSectionImpl>,
+): TaskBoardSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTaskBoardSectionImpl,
+    TaskBoardSectionImpl
+  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
+  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
+    ...resolved.overrides,
+  };
+  if (normalizedOverrides.columns === undefined) {
+    delete normalizedOverrides.columns;
+  }
+  if (normalizedOverrides.tasks === undefined) {
+    delete normalizedOverrides.tasks;
+  }
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TaskBoard,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      viewMode: resolved.defaults.viewMode,
+      columns:
+        resolved.defaults.columns === null ||
+        resolved.defaults.columns === undefined
+          ? []
+          : cloneGeneratedValue(resolved.defaults.columns),
+      tasks: resolved.defaults.tasks,
+    },
+    normalizedOverrides,
   );
 }`,
 			),
