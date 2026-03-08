@@ -3,13 +3,13 @@
 {{- range .RouteGroups }}
 export const {{ .ConstName }} = {
 {{- range .Routes }}
-  {{ .Name }}: "{{ .Path }}",
+  {{ .Name }}: {{ printf "%q" .Path }},
 {{- end }}
 } as const;
 
 {{- end }}
 export const RouteEnum = {
 {{- range .RouteEnumEntries }}
-  {{ .EnumName }}: "{{ .Path }}",
+  {{ .EnumName }}: {{ printf "%q" .Path }},
 {{- end }}
 } as const;

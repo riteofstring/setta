@@ -81,6 +81,35 @@ func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsEscapesRoutePathsInGeneratedRoutes(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings([]RouteGroup{
+		{
+			ConstName: "GoHTTPRoutes",
+			Routes: []NamedRoute{
+				{
+					Name:     "saveThing",
+					Path:     "/status/\"quoted\"\nnext\\slash",
+					EnumName: "SAVE_THING",
+				},
+			},
+		},
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		`saveThing: "/status/\"quoted\"\nnext\\slash",`,
+		`SAVE_THING: "/status/\"quoted\"\nnext\\slash",`,
+	} {
+		if !strings.Contains(bindings.RoutesTS, snippet) {
+			t.Fatalf("routes output missing escaped route path %q:\n%s", snippet, bindings.RoutesTS)
+		}
+	}
+}
+
 func TestBuildBindingsRendersStructuredHelperDeclarations(t *testing.T) {
 	t.Helper()
 
