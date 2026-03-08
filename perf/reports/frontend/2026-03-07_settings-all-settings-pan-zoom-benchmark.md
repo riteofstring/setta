@@ -3595,3 +3595,73 @@ New benchmark stages:
   - the expensive part left is the hit-test loop itself, especially `getNodesInside(...)` walking all sections and reading geometry on every drag step
 - So the next best target for selection-rectangle performance is:
   - replace the DOM-rect hit testing in `getNodesInside(...)` with cached node geometry from the flow store / node internals
+
+## Addendum: marquee hit-testing now uses node internals instead of per-step DOM section rect scans
+
+- Date: `2026-03-08`
+- Goal: remove the remaining geometry-read cost during `Shift` + marquee selection after durable active-id sync was already deferred.
+- Hypothesis:
+  - after the sync fix, the main remaining marquee cost was `getNodesInside(...)`
+  - that path still walked all sections and read DOM geometry with `getBoundingClientRect()` on every drag step
+  - for top-level canvas marquee selection, live node internals should be a correct geometry source and should avoid those DOM reads
+
+### Change
+
+- Updated `getNodesInside(...)` in `frontend/src/forks/xyflow/core/utils/graph.ts`:
+  - it now iterates `useNodeInternals.getState().x.values()`
+  - it computes overlap directly from node `position`, `width`, and `height`
+  - it preserves the old behavior that nodes with unknown dimensions are still treated as selectable
+- Left the existing DOM-backed helpers in `graph.ts` intact for other call sites that still need real DOM bounds.
+- Added targeted coverage in `frontend/src/forks/xyflow/core/utils/graph.test.ts` for:
+  - overlap resolution from node internals
+  - partial-overlap mode
+  - unknown-dimension fallback behavior
+
+### Method
+
+- Reloaded the live headed browser on:
+  - `http://127.0.0.1:3009/settings?settingsBenchmarkStage=full`
+- Reused the same synthetic marquee-drag harness as the previous addendum:
+  - same viewport
+  - same drag shape across the visible Settings sections
+  - same instrumentation for per-step durations, render counters, `/api/setActiveIds`, and `getBoundingClientRect()` call counts
+- Recorded an after-change trace during the drag.
+
+### Visual validation
+
+- `full` after the node-internals rerun:
+  - `perf/artifacts/frontend/settings-all-settings/selection-rect-node-internals-2026-03-08/full-selection-rect-node-internals-visible.png`
+
+### Results
+
+- The node-internals path removed almost all section DOM geometry reads during the drag:
+  - previous committed marquee baseline: `765` section `getBoundingClientRect()` calls across `18` steps
+  - new node-internals rerun: `6` section `getBoundingClientRect()` calls total
+- Durable active-id sync behavior stayed correct:
+  - `/api/setActiveIds` requests: still `1` total for the same drag
+- Step durations improved again and mostly stayed in the single-digit to low-teens band:
+  - `11.60, 18.70, 7.90, 4.70, 7.80, 7.80, 8.10, 8.10, 17.20, 4.60, 6.20, 7.80, 7.70, 5.30, 6.80, 13.80, 31.20, 3.50 ms`
+- Selection progression during the rerun:
+  - active counts by step: `0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 3, 6, 6`
+- The remaining large sample was now a late drag spike, not repeated per-section rect reads:
+  - max step in the main rerun: `31.20ms`
+
+### Trace follow-up
+
+- Trace artifact:
+  - `perf/artifacts/frontend/settings-all-settings/selection-rect-node-internals-2026-03-08/full-selection-rect-node-internals-trace.json`
+- DevTools no longer pointed at section DOM rect scans as the main marquee cost.
+- The main remaining signal in the trace was a forced reflow inside:
+  - `frontend/src/forks/xyflow/core/components/NodesSelection.tsx`
+- I ran one browser-only control with `HTMLElement.prototype.focus` temporarily suppressed to check whether the selection-overlay autofocus was the whole remaining issue.
+- That did not materially change the drag profile:
+  - focus-suppressed max step: `30.40ms`
+- So the remaining marquee floor is not the old section-rect scan anymore, and it is probably not just the `focus()` call by itself.
+
+### Conclusion
+
+- This change is worth keeping.
+- The marquee hit-test loop now uses live node internals instead of repeatedly reading section DOM rects, which cut section `getBoundingClientRect()` calls from `765` down to `6` in the same drag shape.
+- The remaining selection hitch is now much smaller and has moved to a different bucket:
+  - selection-overlay/layout work in `NodesSelection.tsx`
+- So the next marquee-specific target, if we keep pushing this path, should be the selection overlay / forced-reflow work rather than geometry lookup.
