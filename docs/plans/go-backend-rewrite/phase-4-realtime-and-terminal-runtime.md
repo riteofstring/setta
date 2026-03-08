@@ -591,7 +591,7 @@ Completed:
 
 - added `internal/terminals/service.go`
 - introduced an explicit Go-owned terminal session boundary around:
-  - PTY creation via `github.com/aymanbagabas/go-pty`
+  - PTY creation via `github.com/aymanbagabas/go-pty` in the current codebase
   - session create/open reuse by terminal id
   - per-project/per-share-session ownership metadata
   - attach/detach subscriptions with buffered history replay
@@ -616,6 +616,14 @@ Tests:
   - deployment-style input rejection
   - share-session terminal cleanup
 - full Go suite passes with `./scripts/go.sh test ./...`
+
+Later planning note:
+
+- this historical landing used `github.com/aymanbagabas/go-pty`
+- the current rewrite recommendation has since moved to
+  `github.com/creack/pty` for the Unix PTY path, with Windows PTY handling
+  treated as an explicit follow-up instead of being inherited from the base
+  wrapper choice
 
 Deferred:
 

@@ -118,6 +118,10 @@ This snapshot accounts for all `27`.
 
 - `PyYAML`, `toml`, and `psutil` still appear in Python code, but Go already
   owns analogous behavior for rewritten surfaces.
+- `pywinpty` and `ptyprocess` map to the current Go `go-pty` runtime, but the
+  rewrite planning docs now treat the PTY library choice as a bounded follow-up
+  and prefer `creack/pty` for the Unix path rather than treating `go-pty` as a
+  permanently settled dependency.
 - `watchdog`, `pydantic`, and `jsonschema` also still exist in Python, but
   rewritten Go paths use custom Setta-owned replacements rather than a direct
   Go twin.

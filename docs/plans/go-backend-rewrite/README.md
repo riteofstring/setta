@@ -412,7 +412,8 @@ Use the docs in this order:
 131. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 132. `spike-pty.md`
-   - completed PTY spike outcome and terminal boundary decision record
+   - completed PTY spike outcome plus the current bounded Unix PTY library
+     follow-up note
 133. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 

@@ -13,6 +13,13 @@
 - avoids baking platform-specific PTY setup into repo-owned terminal logic
 - keeps `internal/terminals` focused on session ownership and policy
 
+Current planning note:
+
+- this file describes the PTY dependency currently used by the codebase
+- the rewrite docs now recommend a follow-up move to `github.com/creack/pty`
+  for the Unix PTY path because it is the more conservative ecosystem choice
+- keep this note until the code and `go.mod` actually change
+
 ## APIs We Use Now
 
 - `pty.New`

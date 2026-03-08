@@ -34,6 +34,10 @@ Retrieved on:
 - [fsnotify.md](./fsnotify.md)
   - `github.com/fsnotify/fsnotify`
   - not yet pinned in `go.mod`
+- [creack-pty.md](./creack-pty.md)
+  - `github.com/creack/pty`
+  - current rewrite recommendation for the Unix PTY follow-up; not yet pinned
+    directly in `go.mod`
 - [jsonschema-v6.md](./jsonschema-v6.md)
   - `github.com/santhosh-tekuri/jsonschema/v6`
   - not yet pinned in `go.mod`

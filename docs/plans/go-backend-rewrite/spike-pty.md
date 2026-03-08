@@ -9,20 +9,30 @@ The rewrite no longer needs to decide whether a Go PTY layer is viable. That
 decision is already represented by the `internal/terminals` runtime and the
 Phase 4 follow-up docs that built on it.
 
+What changed is the library recommendation. The current code landed on
+`go-pty`, but the rewrite docs now prefer `creack/pty` for the Unix PTY path
+because it is the more conservative and widely used choice.
+
 ## Status
 
 Current repo status as of 2026-03-08:
 
-- `github.com/aymanbagabas/go-pty` is pinned in `go.mod`
+- `github.com/aymanbagabas/go-pty` is still pinned in `go.mod`
 - `internal/terminals/service.go` owns PTY-backed terminal session lifecycle
 - `internal/wsapi/routes.go` and `internal/httpapi/terminal_routes.go` keep the
   websocket and HTTP layers thin above that service
 - the focused Phase 4 terminal/runtime migration docs are complete
+- the current rewrite recommendation is to move the Unix PTY path to
+  `github.com/creack/pty` before treating the PTY library choice as fully
+  settled
 
 ## Recommendation
 
-Use `github.com/aymanbagabas/go-pty` behind a custom `internal/terminals`
-service boundary.
+Use `github.com/creack/pty` behind a custom `internal/terminals` service
+boundary for the Unix PTY path.
+
+Keep Windows PTY handling as an explicit follow-up instead of relying on a
+smaller cross-platform wrapper as the default architecture choice.
 
 Keep PTY details isolated from transport and product policy:
 
@@ -61,9 +71,10 @@ The current Go direction intentionally keeps:
 
 macOS and Linux viability are proven by the core terminal service coverage.
 
-Windows support is still handled through the chosen PTY library plus
-platform-specific helpers in `internal/terminals`, but Phase 4 did not treat
-Windows UX polish as a blocker before the Unix path was stable.
+The updated rewrite recommendation no longer treats Windows PTY handling as a
+free consequence of the base PTY wrapper choice. If Windows terminal parity
+still matters for the rewrite target, it should land as an explicit follow-up
+over the Unix-first `creack/pty` path.
 
 ## Exit Criteria Result
 
@@ -86,7 +97,9 @@ The original spike exit criteria are satisfied well enough to proceed:
 
 ## Next Step
 
-Treat this spike as closed.
+Treat PTY viability as proven, but treat the library choice as a small
+follow-up rather than fully closed.
 
-Future terminal work should start from the completed Phase 4 docs or a new
-bounded runtime follow-up, not from reconsidering the PTY library choice.
+Future terminal work should start from the completed Phase 4 docs plus a
+bounded `go-pty` to `creack/pty` follow-up inside `internal/terminals`, not
+from reopening the broader terminal architecture.

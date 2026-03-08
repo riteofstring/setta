@@ -16,7 +16,7 @@
 | LLM provider adapters                       | Official provider SDKs only at the edge                                                | Provider auth/transport/streaming clients                                          | medium     | use library                 |
 | LLM/chat orchestration                      | custom                                                                                 | Conversation state, tool orchestration, model routing, retries, streaming behavior | high       | write ourselves             |
 | Subprocess orchestration                    | `os/exec` + `errgroup`                                                                 | Spawn, supervise, cancel, restart, capture stdio                                   | high       | stdlib                      |
-| PTY terminals                               | `aymanbagabas/go-pty` + `golang.org/x/term`                                            | Cross-platform PTY/ConPTY + terminal raw mode/resize                               | medium     | use library                 |
+| PTY terminals                               | `creack/pty` for the Unix PTY path + explicit Windows follow-up                        | Conservative PTY lifecycle ownership without tying the rewrite to a smaller wrapper | medium     | use library                 |
 | LSP client/session layer                    | custom adapter; optionally `sourcegraph/jsonrpc2` inside it                            | JSON-RPC framing and LSP session glue over stdio                                   | medium     | write ourselves             |
 | File watching                               | `fsnotify` + custom recursive/debounce layer                                           | Filesystem notifications                                                           | high       | use library                 |
 | Plugins / extensibility                     | custom manifest + subprocess/MCP boundary                                              | Discovery, compatibility, lifecycle, isolation                                     | high       | write ourselves             |
@@ -100,10 +100,10 @@ Best default choice: stay file-backed. Best conservative choice: same. Best if y
 
 ### Subprocess orchestration, PTY terminals, and LSP
 
-* **Recommended library choice:** `os/exec` for subprocesses, `aymanbagabas/go-pty` + `x/term` for PTY, and a custom LSP manager with an optional `sourcegraph/jsonrpc2` helper.
-* **Why it fits this backend specifically:** `os/exec` is already the right base for child processes and long-running subprocesses. `errgroup` pairs well with it for supervision/cancellation. For PTY, cross-platform support matters, and `go-pty` explicitly supports Unix PTYs and Windows via ConPTY; that is the key reason to prefer it over Unix-only `creack/pty`. `x/term` gives you raw mode, restore, and terminal sizing. This stack is explicit, testable, and low ceremony. ([Go Packages][14])
-* **Main alternatives considered:** `creack/pty`; full LSP/JSON-RPC frameworks.
-* **Why those alternatives lost:** `creack/pty` is Unix-only, and even its examples are explicitly not intended as production code. For LSP specifically, the Go ecosystem is weaker than it should be for a polished general-purpose client stack. `sourcegraph/jsonrpc2` is useful as a small transport helper because it supports VS Code-style `Content-Length` framing, but it is not a full LSP client and notes that batch requests/responses are unsupported. `go.lsp.dev/protocol` is convenient for types, but its published spec version is 3.15.3 while the current published LSP spec line is 3.17.0. `GLSP` describes itself as an early release and is oriented toward implementing servers. So the right answer is a custom LSP adapter and manager, not betting the architecture on a Go LSP framework. ([Go Packages][15])
+* **Recommended library choice:** `os/exec` for subprocesses, `creack/pty` for the Unix PTY path, and a custom LSP manager with an optional `sourcegraph/jsonrpc2` helper.
+* **Why it fits this backend specifically:** `os/exec` is already the right base for child processes and long-running subprocesses. `errgroup` pairs well with it for supervision/cancellation. For PTY, the most conservative choice is the older and more widely used Unix PTY package instead of a thinner cross-platform abstraction that carries more ecosystem risk. This keeps the Unix terminal path boring and lets the rewrite make Windows PTY handling an explicit later decision instead of smuggling it in through the base dependency choice. This stack is explicit, testable, and low ceremony. ([Go Packages][14])
+* **Main alternatives considered:** `aymanbagabas/go-pty`; full LSP/JSON-RPC frameworks.
+* **Why those alternatives lost:** `go-pty` has a cleaner abstraction surface and cross-platform ambition, but it is a smaller and less conservative ecosystem choice. For LSP specifically, the Go ecosystem is weaker than it should be for a polished general-purpose client stack. `sourcegraph/jsonrpc2` is useful as a small transport helper because it supports VS Code-style `Content-Length` framing, but it is not a full LSP client and notes that batch requests/responses are unsupported. `go.lsp.dev/protocol` is convenient for types, but its published spec version is 3.15.3 while the current published LSP spec line is 3.17.0. `GLSP` describes itself as an early release and is oriented toward implementing servers. So the right answer is a custom LSP adapter and manager, not betting the architecture on a Go LSP framework. ([Go Packages][15])
 * **Whether we should wrap the library behind our own interface:** **Yes.** Use internal `ProcessSupervisor`, `TerminalService`, and `LSPService` boundaries.
 
 ### File watching
@@ -246,7 +246,7 @@ These choices influence almost everything else.
 **probably use this**
 
 * `gorilla/securecookie`
-* `aymanbagabas/go-pty`
+* `creack/pty`
 * official provider SDKs like `openai-go` and `anthropic-sdk-go`, but only behind adapters
 * `invopop/jsonschema` for selective schema generation
 * `sourcegraph/jsonrpc2`, but only inside a custom LSP adapter
@@ -297,5 +297,5 @@ These choices influence almost everything else.
 [18]: https://github.com/hashicorp/go-plugin/blob/master/README.md "https://github.com/hashicorp/go-plugin/blob/master/README.md"
 [19]: https://go.dev/blog/slog "https://go.dev/blog/slog"
 [20]: https://github.com/go-git/go-git "https://github.com/go-git/go-git"
-[21]: https://github.com/aymanbagabas/go-pty "https://github.com/aymanbagabas/go-pty"
+[21]: https://github.com/creack/pty "https://github.com/creack/pty"
 [22]: https://pkg.go.dev/go.lsp.dev/protocol "https://pkg.go.dev/go.lsp.dev/protocol"

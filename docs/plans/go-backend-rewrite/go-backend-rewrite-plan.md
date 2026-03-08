@@ -27,11 +27,12 @@ external-agent AI path still owned in `backend/setta/routers/ai.py`,
 `backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
 
-The practical next step is still not "rerun the early spikes" or re-decide the
-initial library choices. MCP, PTY, LSP, and file-state decisions are already
-locked in practice by the current Go implementation. New work should start
-from the remaining concrete gap in Phase 12, not by reopening completed
-foundation choices.
+The practical next step is still not "rerun the early spikes" or broadly
+re-decide the initial library choices. MCP, LSP, and file-state decisions are
+already locked in practice by the current Go implementation. The PTY runtime
+shape is also proven, but the PTY library choice still has a bounded Unix-path
+follow-up tracked in `spike-pty.md`. New work should start from the remaining
+concrete gap in Phase 12, not by reopening completed foundation choices.
 
 ## Current Reality
 
@@ -110,14 +111,25 @@ These are strong enough to plan around now.
 
 - MCP SDK choice:
   - using `github.com/modelcontextprotocol/go-sdk` behind `internal/mcpx`
-- PTY layer:
-  - using `github.com/aymanbagabas/go-pty` behind `internal/terminals`
 - LSP stack:
   - using a custom `internal/lsp` manager with explicit stdio framing and
     lifecycle control
 
 These no longer need pre-implementation spikes in the current repo state. See
-`spike-mcp.md`, `spike-pty.md`, and `spike-lsp.md` for the recorded outcomes.
+`spike-mcp.md` and `spike-lsp.md` for the recorded outcomes.
+
+### Chosen In Docs, Runtime Follow-Up Still Pending
+
+- PTY layer:
+  - current code uses `github.com/aymanbagabas/go-pty` behind
+    `internal/terminals`
+  - current rewrite recommendation is to switch to `github.com/creack/pty`
+    for the Unix PTY path because it is the more conservative and widely used
+    ecosystem choice
+  - Windows PTY handling should be an explicit follow-up decision instead of
+    being inherited from a smaller cross-platform wrapper
+
+See `spike-pty.md` for the updated PTY note.
 
 ### Still Defer Until Needed
 
@@ -469,11 +481,14 @@ Outcome:
 
 Status:
 
-- complete
+- follow-up selected
 
 Outcome:
 
-- use `github.com/aymanbagabas/go-pty` behind `internal/terminals`
+- current code uses `github.com/aymanbagabas/go-pty` behind
+  `internal/terminals`
+- current rewrite recommendation is to move the Unix PTY path to
+  `github.com/creack/pty`
 - keep attach/detach/history, resize, termination, scope filtering, and input
   policy custom
 - keep websocket and HTTP transport layers thin above the PTY owner
@@ -581,8 +596,10 @@ Do not weaken this rule during the rewrite.
 1. Keep the roadmap and phase docs synchronized with the current shipped code
    so closed phases do not look active again and the remaining external-agent
    AI gap does not disappear from planning context.
-2. Treat MCP, PTY, LSP, and file-state choices as locked unless a concrete new
-   requirement breaks them.
+2. Treat MCP, LSP, and file-state choices as locked unless a concrete new
+   requirement breaks them, and keep the PTY discussion bounded to the planned
+   `go-pty` to `creack/pty` Unix follow-up rather than reopening terminal
+   architecture more broadly.
 3. Start the next runtime work from
    `phase-12-managed-chat-runtime-and-ai-route-foundation.md`, not by
    reopening closed phases or early spikes.

@@ -89,7 +89,8 @@ It should include:
 - agent-profile CRUD routes
 - app-spec streaming and unrelated app-generation follow-ons
 - launcher, installer, packaged CLI, or release-surface work
-- reopening MCP, PTY, or LSP library decisions
+- reopening MCP or LSP library decisions, or broad PTY architecture questions
+  outside the bounded Unix PTY library follow-up
 - a direct port of the old Python object graph or any compatibility shim back
   through Python
 
