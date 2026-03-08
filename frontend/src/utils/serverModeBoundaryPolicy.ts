@@ -1,4 +1,5 @@
-import { RouteEnum, type ServerModeResponse } from "./generatedTypes";
+import { RouteEnum } from "./generatedRoutes";
+import type { ServerModeResponse } from "./generatedTypes";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
 export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";

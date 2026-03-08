@@ -145,37 +145,14 @@ export function validateViewModeNameInput(name: string): string | null {
   return null;
 }
 
-export function validateWindowSpaceNameInput(name: string): string | null {
-  const baseError = validateName(name, {
-    label: "Window space name",
-    reservedNames: [],
-    allowEmpty: false,
-    allowedCharsRegex: SIMPLE_NAME_REGEX,
-    requirePythonIdentifier: false,
-  });
-  if (baseError) {
-    return baseError;
-  }
-  const normalized = name.trim();
-  const slug = sanitizeNameForSlug(normalized);
-  if (!slug) {
-    return "Window space name is invalid after sanitization.";
-  }
-  return null;
-}
-
 export function validateSectionNameInput(name: string): string | null {
-  const baseError = validateName(name, {
+  return validateName(name, {
     label: "Section name",
     reservedNames: SECTION_RESERVED_NAMES,
     allowEmpty: false,
     allowedCharsRegex: SIMPLE_NAME_REGEX,
     requirePythonIdentifier: false,
   });
-  if (baseError) {
-    return baseError;
-  }
-  return null;
 }
 
 export function validateParamNameInput(
@@ -191,9 +168,7 @@ export function validateParamNameInput(
     reservedNames: PARAM_RESERVED_NAMES,
     allowEmpty: options.allowEmpty,
     requirePythonIdentifier: options.requirePythonIdentifier,
-    ...(options.skipPathChecks === undefined
-      ? {}
-      : { skipPathChecks: options.skipPathChecks }),
+    skipPathChecks: options.skipPathChecks,
   });
 }
 

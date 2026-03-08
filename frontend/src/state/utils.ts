@@ -1,4 +1,3 @@
-import { resetAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import { clearAllAppSpecPatchStreams } from "state/appSpecPatchStreaming";
 import { StateCreator } from "zustand";
@@ -60,5 +59,4 @@ export function resetProjectStores() {
   resetStores(STATE_TYPES.PROJECT_STATE);
   resetStreamingTracker();
   clearAllAppSpecPatchStreams();
-  resetAuthoritativeProjectChatWindowingState();
 }

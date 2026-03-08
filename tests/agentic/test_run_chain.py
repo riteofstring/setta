@@ -28,7 +28,6 @@ class TestRunChainRunner:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
-                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
@@ -72,7 +71,6 @@ class TestRunChainRunner:
             project_config = ProjectConfig()
             project_state = ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
-                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
             dbe.write_project(project_state)
