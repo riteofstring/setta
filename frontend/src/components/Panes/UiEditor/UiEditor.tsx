@@ -1,6 +1,6 @@
-import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
+import _ from "lodash";
 import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { BsCardChecklist } from "react-icons/bs";
@@ -39,58 +39,20 @@ export function UiEditor() {
     rootRef: uiEditorRef,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const activeSectionId = useProjectState(
-    (x) => x.projectConfig.activeIds[0] ?? null,
+  const sectionIds = useProjectState(
+    (x) => x.projectConfig.activeIds,
+    _.isEqual,
   );
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
-    activeSectionId,
+    sectionIds[0] ?? null,
   );
   const { vis, width } = useLocalStorage(
     (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
     shallow,
   );
-  const renderUiEditorContent =
-    getRequestedSettingsAllSettingsBenchmarkStageFromWindow() !==
-    "full-ui-editor-shell";
   // const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
   // const inputTitle =
   // selectedTabName === UIEditorTabNameEnum.InfoConfig ? infoTabTooltip : null;
-
-  if (!renderUiEditorContent) {
-    return (
-      <div
-        id="UiEditorPane"
-        className="contents"
-        ref={uiEditorRef}
-        data-tab-scope="ui-editor"
-      >
-        <div
-          data-testid="ui-editor-icon-rail"
-          className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
-          style={{
-            top: "calc(var(--setta-titlebar-height) + 36px)",
-            bottom: hasViewModeTabs ? "36px" : "0px",
-          }}
-        />
-        <PaneContainer
-          paneName={PaneNameEnum.uiEditor}
-          right={true}
-          minimumWidth={getPaneMinimumWidth(PaneNameEnum.uiEditor)}
-          vis={vis}
-          width={width}
-        >
-          <aside
-            className="mx-auto grid h-full min-h-0 w-[calc(100%_-_1rem)]"
-            data-testid="ui-editor-benchmark-shell"
-          >
-            <div className="place-self-center text-xs font-semibold uppercase tracking-wide text-setta-300 dark:text-setta-600">
-              Benchmark Shell
-            </div>
-          </aside>
-        </PaneContainer>
-      </div>
-    );
-  }
 
   const commonProps = {
     vis,
@@ -169,9 +131,9 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {activeSectionId && vis && selectedTabName ? (
+        {sectionIds.length === 1 && sectionIds[0] && vis && selectedTabName ? (
           <TabsVisible
-            sectionId={activeSectionId}
+            sectionId={sectionIds[0]}
             selectedTabName={selectedTabName}
             // inputTitle={inputTitle}
           />
