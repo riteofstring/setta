@@ -366,12 +366,18 @@ describe("project chat slash-command resolution", () => {
 
 describe("getProjectChatBlockedReasonMessage", () => {
   it("returns deterministic blocked copy for each hydration error code", () => {
+    expect(getProjectChatBlockedReasonMessage("llm_disallowed")).toContain(
+      "no longer allows LLM access",
+    );
     expect(getProjectChatBlockedReasonMessage("chat_not_found")).toContain(
       "not found during hydration",
     );
     expect(
       getProjectChatBlockedReasonMessage("chat_provenance_missing"),
     ).toContain("missing provenance metadata");
+    expect(
+      getProjectChatBlockedReasonMessage("chat_runtime_ambiguous"),
+    ).toContain("multiple chat runtimes");
     expect(
       getProjectChatBlockedReasonMessage("engine_config_missing"),
     ).toContain("saved engine config is no longer available");
