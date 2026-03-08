@@ -265,14 +265,17 @@ Use the docs in this order:
     `install_plugin`, `uninstall_plugin`, `rescan_plugins`, `update_plugin`,
     and `rollback_plugin` over the completed plugin-management runtime owners
 94. `phase-6-python-environment-introspection-foundation.md`
-  - focused implementation-plan doc for the explicit Go Python-environment
-    selection and package-inspection owner required before
-    `getInstalledPythonPackages`
-95. `spike-mcp.md`
+  - completed implementation-plan doc for the explicit Go Python-environment
+    selection, package-inspection owner, and `getInstalledPythonPackages`
+    transport parity slice
+95. `phase-7-runtime-surface-inventory.md`
+  - entry inventory doc for the remaining Python-owned non-MCP backend runtime
+    surface after the completed Phase 6 MCP closeout
+96. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-96. `spike-pty.md`
+97. `spike-pty.md`
    - PTY uncertainty-reduction plan
-97. `spike-lsp.md`
+98. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -14,7 +14,7 @@ The goal is to expose the remaining plugin-management MCP tools
 Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
-- the remaining non-project-state Python MCP gap count is 1
+- the remaining non-project-state Python MCP gap count is 0
 - Go now owns:
   - plugin manifest/state/install-metadata/history persistence
   - filesystem discovery/rescan ownership
@@ -30,7 +30,6 @@ Current repo status as of 2026-03-08:
 - Go still does not own:
   - a real remote plugin candidate provider for install/update in the
     production app
-  - `getInstalledPythonPackages`
 
 ## Scope
 
@@ -102,12 +101,11 @@ This slice covered:
 
 ## Next Recommended Step
 
-Move to the explicit Python-environment runtime prerequisite in
-`phase-6-python-environment-introspection-foundation.md`.
+Move to the post-MCP runtime inventory in
+`phase-7-runtime-surface-inventory.md`.
 
-That is now the highest-leverage next step because plugin-management MCP parity
-is complete and `getInstalledPythonPackages` is the only remaining
-non-project-state Python MCP gap.
+Plugin-management MCP parity is complete, and the rewrite now needs a bounded
+Phase 7 entry point outside the closed Python MCP surface.
 
 ## Verification Targets
 
@@ -124,3 +122,6 @@ non-project-state Python MCP gap.
 - 2026-03-08: wired the IDE app to a real Go plugin mutation service while
   preserving explicit provider-unavailable failures for install/update until a
   real candidate provider lands.
+- 2026-03-08: completed the follow-on Python-environment introspection slice,
+  so the Python-owned MCP surface is now fully closed and the next step has
+  moved to the broader Phase 7 runtime inventory.

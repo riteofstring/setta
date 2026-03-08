@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This doc inventories the remaining Python-owned MCP surface after the completed
-Go parity work for `BaseProjectManager.@project_state_tool`, the completed
-general utility/read cluster, and the completed `report_completion_status`
-slice.
+This doc inventories the Python-owned MCP surface that remained after the
+completed Go parity work for `BaseProjectManager.@project_state_tool`, the
+completed general utility/read cluster, and the completed
+`report_completion_status` slice.
 
-The project-state overlap is closed. What remains is the broader Python MCP
-tool set implemented in `backend/setta/mcp/tools/*.py`.
+That inventory is now complete and closed. The broader Python MCP tool set in
+`backend/setta/mcp/tools/*.py` now has full Go parity.
 
 ## Status
 
@@ -19,13 +19,14 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 24 of those now have Go parity:
+- all 25 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
   - `search_mcp_tools`
   - `get_mcp_server_runtime_status`
   - `getProjectConfigNamesAndIds`
+  - `getInstalledPythonPackages`
   - `getTerminalOutput`
   - `get_app_catalog`
   - `list_app_components`
@@ -44,7 +45,7 @@ Current repo status as of 2026-03-08:
   - `rescan_plugins`
   - `update_plugin`
   - `rollback_plugin`
-- the remaining 1 tool is now the blocked environment-introspection gap
+- there is no remaining Python-owned MCP surface in scope for this inventory
 
 ## Inputs
 
@@ -87,6 +88,7 @@ Go already owns the following Python MCP tools that do not come from
 - `search_mcp_tools`
 - `get_mcp_server_runtime_status`
 - `getProjectConfigNamesAndIds`
+- `getInstalledPythonPackages`
 - `getTerminalOutput`
 - `get_app_catalog`
 - `list_app_components`
@@ -103,14 +105,7 @@ Go already owns the following Python MCP tools that do not come from
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Environment Introspection Gap
-
-- `getInstalledPythonPackages`
-
-This should not be implemented until Go has an explicit source of truth for
-which Python environment the tool is supposed to inspect. Shelling out to an
-arbitrary interpreter would violate the rewrite requirement to avoid
-heuristics.
+None. This inventory is closed.
 
 ## Working Decisions
 
@@ -122,32 +117,33 @@ heuristics.
 - treat `run_agent_profile` transport as complete and closed
 - treat the bounded `stream_app_definition` slice as complete and closed
 - treat the plugin-management transport slice as complete and closed
+- treat the environment-introspection slice as complete and closed
+- treat the full non-project-state Python MCP surface as complete and closed
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
-- treat `getInstalledPythonPackages` as still blocked on explicit Go ownership
-  of Python-environment selection instead of implementing heuristic interpreter
-  discovery
 
 ## Recommended Next Step
 
-Execute the explicit Python-environment runtime prerequisite in
-`phase-6-python-environment-introspection-foundation.md`.
+Start the broader post-MCP rewrite handoff in
+`phase-7-runtime-surface-inventory.md`.
 
-This is now the highest-leverage next slice because:
+That is now the highest-leverage next step because:
 
-- it is the only remaining non-project-state Python MCP gap
-- `getInstalledPythonPackages` still lacks an explicit Go source of truth for
-  which Python environment to inspect
-- implementing the tool before that runtime owner would require heuristic
-  interpreter selection, which conflicts with the rewrite constraints
+- the Python MCP overlap is complete, so the next meaningful work is no longer
+  another MCP parity slice
+- the remaining rewrite risk has shifted to non-MCP backend surfaces such as
+  launcher/runtime-control and deployment publish/list flows
+- Phase 7 needs a fresh inventory before choosing the next bounded runtime
+  owner to implement
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins -run 'Test(ParseSourceSpec|RetargetSourceSpec|Service)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|PluginManagementTools)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsPluginManagementTools|SupportsAgentProfileReadTools|SupportsRunAgentProfile|SupportsStreamAppDefinition|SupportsUISettingSearchReadWrite)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsPluginManagementToolsOverAuthenticatedSSE|ToolCallRouteSupportsPluginManagementTools|ServerSupportsRunAgentProfileOverAuthenticatedSSE|ToolCallRouteSupportsRunAgentProfile|ServerSupportsStreamAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsStreamAppDefinition|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/pythonenv ./internal/lsp -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|GetInstalledPythonPackagesReturnsProviderPayload|SearchMCPToolsUsesDiscoverableToolsAndServerFilters|GetMCPServerRuntimeStatusReturnsClientStatuses|GetProjectConfigNamesAndIDsReturnsSortedMetadata|GetTerminalOutputReturnsBufferedHistory|GetAppCatalogAndListAppComponentsReturnDefaultCatalog|GetSettaDocsLoadsDefaultBundleAndRejectsEscapes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRouteSupportsUtilityReadInitTools' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUtilityReadToolsOverAuthenticatedSSE|ToolCallRouteSupportsUtilityReadInitTools)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -199,3 +195,6 @@ This is now the highest-leverage next slice because:
   `uninstall_plugin`, `rescan_plugins`, `update_plugin`, and
   `rollback_plugin`, reducing the remaining non-project-state Python MCP gap
   count from 6 to 1.
+- 2026-03-08: completed Go MCP parity for `getInstalledPythonPackages`,
+  reducing the remaining non-project-state Python MCP gap count from 1 to 0
+  and closing the full Python-owned MCP surface tracked by this inventory.

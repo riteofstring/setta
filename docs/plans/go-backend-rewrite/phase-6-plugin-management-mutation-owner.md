@@ -15,7 +15,7 @@ owners instead of a Python shim.
 Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
-- the remaining non-project-state Python MCP gap count is 1
+- the remaining non-project-state Python MCP gap count is 0
 - Go now owns:
   - plugin manifest/state/install-metadata/history persistence in
     `internal/plugins`
@@ -29,7 +29,8 @@ Current repo status as of 2026-03-08:
   - typed mutation result payloads in `internal/plugins/mutation_types.go`
   - plugin-management MCP transport parity for the five mutation tools
 - Go does not yet own:
-  - `getInstalledPythonPackages`
+  - a real remote plugin candidate provider for install/update in the
+    production app
 
 ## Scope
 
@@ -119,7 +120,8 @@ This slice should cover:
    - expose `install_plugin`, `uninstall_plugin`, `rescan_plugins`,
      `update_plugin`, and `rollback_plugin` as thin MCP handlers
    - status: completed 2026-03-08
-   - next detailed scope: `phase-6-python-environment-introspection-foundation.md`
+   - next detailed scope after the completed MCP closeout:
+     `phase-7-runtime-surface-inventory.md`
 
 ## Verification Targets
 
@@ -144,5 +146,9 @@ This slice should cover:
   install/update/rollback/uninstall lifecycle, local-source update rejection,
   and backend uninstall tombstones.
 - 2026-03-08: completed plugin-management MCP transport parity, so the next
-  remaining non-project-state MCP gap is the blocked
-  `getInstalledPythonPackages` environment-introspection slice.
+  remaining non-project-state MCP gap moved to the Python-environment
+  introspection slice.
+- 2026-03-08: completed the Python-environment introspection slice and
+  `getInstalledPythonPackages` transport parity, so the Python-owned MCP
+  surface is now fully closed and the next step is the broader Phase 7 runtime
+  inventory.
