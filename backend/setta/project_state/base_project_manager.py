@@ -5191,7 +5191,7 @@ class BaseProjectManager(ABC):
         )
 
     @enqueue_method
-    async def mark_linked_chat_section_chat_start_succeeded(
+    async def persist_linked_chat_section_binding(
         self,
         project_config_id: ID,
         section_id: ID,
@@ -5199,25 +5199,44 @@ class BaseProjectManager(ABC):
     ) -> None:
         reservation_key = (project_config_id, section_id)
         reservation = self._linked_chat_section_reservations.get(reservation_key)
-        if reservation is None or reservation.chat_id != chat_id:
-            return
-        if reservation.has_started_run:
-            raise ValueError("Linked chat reservation success reported more than once.")
+        if reservation is None:
+            raise KeyError(
+                "Linked chat binding persistence reported without a reservation."
+            )
+        if reservation.chat_id != chat_id:
+            raise KeyError(
+                "Linked chat binding persistence reported for the wrong chat id."
+            )
         project_state = self.get_single_config_state(project_config_id)
-        if section_id in project_state.sections:
-            section_impl = get_curr_effective_section_impl(project_state, section_id)
-            if (
-                isinstance(section_impl, ChatSectionImpl)
-                and section_impl.chatId != chat_id
-            ):
-                set_chat_section_chat_id(project_state, section_id, chat_id)
-                await self._update_and_broadcast_project_state_no_name_validation(
-                    project_state
-                )
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        if section_impl.chatId == chat_id:
+            return
+        set_chat_section_chat_id(project_state, section_id, chat_id)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def mark_linked_chat_section_run_started(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None:
+            raise KeyError("Linked chat run start reported without a reservation.")
+        if reservation.chat_id != chat_id:
+            raise KeyError("Linked chat run start reported for the wrong chat id.")
+        if reservation.has_started_run:
+            raise ValueError("Linked chat run start reported more than once.")
         reservation.has_started_run = True
 
     @enqueue_method
-    async def release_linked_chat_section_chat_start_failure(
+    async def release_linked_chat_section_start_failure(
         self,
         project_config_id: ID,
         section_id: ID,

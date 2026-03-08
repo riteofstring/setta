@@ -531,7 +531,7 @@ async def _create_linked_chat_sections(
 
 
 @pytest.mark.asyncio
-async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and_releases_busy_state() -> (
+async def test_linked_chat_admission_persists_fresh_binding_before_run_start_and_releases_busy_state() -> (
     None
 ):
     async with real_project_manager() as fixture:
@@ -559,7 +559,7 @@ async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and
             manager._linked_chat_section_reservations
         )
 
-        await manager.mark_linked_chat_section_chat_start_succeeded(
+        await manager.persist_linked_chat_section_binding(
             project_config_id,
             target_section_id,
             admission.chat_id,
@@ -573,6 +573,10 @@ async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and
             ).chatId
             == admission.chat_id
         )
+        reservation = manager._linked_chat_section_reservations[
+            (project_config_id, target_section_id)
+        ]
+        assert reservation.has_started_run is False
         with pytest.raises(LinkedChatAdmissionError, match="already handling"):
             await manager.admit_linked_chat_section_invocation(
                 project_config_id,
@@ -580,6 +584,12 @@ async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and
                 target_section_id,
             )
 
+        await manager.mark_linked_chat_section_run_started(
+            project_config_id,
+            target_section_id,
+            admission.chat_id,
+        )
+        assert reservation.has_started_run is True
         await manager.complete_linked_chat_section_invocation(
             project_config_id,
             target_section_id,
@@ -593,7 +603,7 @@ async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and
             target_section_id,
         )
         assert second_admission.chat_id == admission.chat_id
-        await manager.release_linked_chat_section_chat_start_failure(
+        await manager.release_linked_chat_section_start_failure(
             project_config_id,
             target_section_id,
             second_admission.chat_id,
@@ -602,7 +612,7 @@ async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and
 
 
 @pytest.mark.asyncio
-async def test_linked_chat_start_failure_clears_fresh_reservation_without_persisting_chat_id() -> (
+async def test_linked_chat_start_failure_clears_fresh_binding_after_persisting_chat_id() -> (
     None
 ):
     async with real_project_manager() as fixture:
@@ -617,7 +627,12 @@ async def test_linked_chat_start_failure_clears_fresh_reservation_without_persis
             caller_section_id,
             target_section_id,
         )
-        await manager.release_linked_chat_section_chat_start_failure(
+        await manager.persist_linked_chat_section_binding(
+            project_config_id,
+            target_section_id,
+            admission.chat_id,
+        )
+        await manager.release_linked_chat_section_start_failure(
             project_config_id,
             target_section_id,
             admission.chat_id,
@@ -669,7 +684,12 @@ async def test_linked_chat_start_failure_preserves_existing_binding_and_releases
             ChatSectionImpl,
         ).chatId == ID("linked-thread-1")
 
-        await manager.release_linked_chat_section_chat_start_failure(
+        await manager.persist_linked_chat_section_binding(
+            project_config_id,
+            target_section_id,
+            admission.chat_id,
+        )
+        await manager.release_linked_chat_section_start_failure(
             project_config_id,
             target_section_id,
             admission.chat_id,

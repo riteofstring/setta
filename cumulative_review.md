@@ -814,3 +814,33 @@ Verification:
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/routers/test_mcp_linked_chat_tool.py` passed: 28 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone managed project chat route reopens when deployment policy allows LLM again"` passed: 1 test.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/reef_still/chat` confirmed the same standalone managed-chat route blocked under `allowLLM=false` and reopened in place when `allowLLM=true`, without navigation or reload.
+
+## 2026-03-10 22:27:35 PDT
+
+Implemented the linked-chat atomicity fix from the consolidated review pass and simplified the reservation lifecycle so the persisted binding, run-start marker, and failure cleanup are explicit separate steps.
+
+What changed:
+- Reworked `backend/setta/agentic/linked_chat_invocation.py` so linked-chat invocation now persists the target section `chatId` before `runner.start_run(...)`, rolls back MCP run authorization on every failure before launch, and only marks the reservation as started after the runner accepts the run.
+- Replaced the old overloaded manager transition methods in `backend/setta/project_state/base_project_manager.py` with three focused methods: `persist_linked_chat_section_binding(...)`, `mark_linked_chat_section_run_started(...)`, and `release_linked_chat_section_start_failure(...)`.
+- Removed the hidden "run already escaped but `has_started_run` is still false" state from the lifecycle. A `binding_start_failed` response is now a real no-op with respect to run execution for both managed LLM and external-agent linked chats.
+- Updated the route-level linked-chat test harness in `tests/routers/test_mcp_linked_chat_tool.py` so its dummy reservation model matches the real manager contract instead of folding persistence and start into a single method.
+- Tightened backend regressions so binding-persistence failure asserts zero runner calls, managed and external `run_start_failed` paths assert binding cleanup, and deployment single-run reservations are rolled back when binding persistence fails before launch.
+- Updated the real-manager persistence tests in `tests/project_state/test_project_chat_windowing_persistence.py` to assert the new two-phase state transition directly: binding can be persisted while the reservation is still pre-start, then the run-start marker flips separately.
+
+UX before/after:
+- Before: a linked-chat call could report `binding_start_failed` after a real linked run had already started, so retrying the same action could execute the target twice and could spend deployment run quota on a "failed" attempt.
+- After: any `binding_start_failed` result means no linked run escaped. Retry behavior is predictable, the target is not secretly running, and deployment run accounting stays accurate.
+- Before: a failed launch path for a fresh target could leave the lifecycle semantics ambiguous because binding persistence and run start were treated as one transition.
+- After: the target binding is either durably present and owned by the active reservation, or it is explicitly removed as part of the same failed-start cleanup path.
+
+DX before/after:
+- Before: linked-chat start semantics were hard to reason about because one method both persisted the binding and declared the run started, which made post-start failure handling brittle and easy to regress.
+- After: each lifecycle step has one job, the control flow is shallow, and the tests lock the exact invariant the reviews called out.
+- Before: the regression suite encoded the duplicate-run bug as acceptable retry behavior.
+- After: the tests assert atomic launch semantics across manager-level persistence, route-level managed runs, route-level external-agent runs, and deployment quota accounting.
+
+Verification:
+- `source activate.sh && python -m ruff check backend/setta/agentic/linked_chat_invocation.py backend/setta/project_state/base_project_manager.py tests/routers/test_mcp_linked_chat_tool.py tests/project_state/test_project_chat_windowing_persistence.py` passed.
+- `source activate.sh && python -m pytest tests/project_state/test_project_chat_windowing_persistence.py -q` passed: 14 tests.
+- `source activate.sh && python -m pytest tests/routers/test_mcp_linked_chat_tool.py -q` passed: 30 tests.
+- No Playwright or CDP verification was added for this entry because the change is backend-only and does not alter user-visible UI rendering.

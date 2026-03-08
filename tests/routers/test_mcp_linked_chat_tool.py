@@ -1,4 +1,5 @@
 import asyncio
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Callable
 
@@ -72,6 +73,13 @@ from tests.utils.manager_fixture import real_project_manager, real_settings_mana
 ensure_setta_mcp_tools_loaded()
 
 
+@dataclass(slots=True)
+class _DummyLinkedChatSectionReservation:
+    chat_id: ID
+    clear_persisted_binding_on_failure: bool
+    has_started_run: bool = False
+
+
 class _DummyLinkedChatProjectManager:
     def __init__(self, project_state_single: ProjectStateSingleConfig) -> None:
         self._backend = merge_single_config_into_backend(
@@ -84,9 +92,9 @@ class _DummyLinkedChatProjectManager:
         self.set_chat_section_chat_id_calls: list[tuple[ID, ID, ID | None]] = []
         self.linked_chat_reservation_calls: list[tuple[ID, ID, ID]] = []
         self._linked_chat_section_reservations: dict[
-            tuple[ID, ID], dict[str, object]
+            tuple[ID, ID], _DummyLinkedChatSectionReservation
         ] = {}
-        self.mark_started_exception: Exception | None = None
+        self.persist_binding_exception: Exception | None = None
         self.before_admission_hook: (
             Callable[["_DummyLinkedChatProjectManager"], None] | None
         ) = None
@@ -136,11 +144,12 @@ class _DummyLinkedChatProjectManager:
             ChatSectionImpl,
         ).chatId
         next_chat_id = current_chat_id or create_new_id()
-        self._linked_chat_section_reservations[reservation_key] = {
-            "chat_id": next_chat_id,
-            "has_started_run": False,
-            "clear_persisted_binding_on_failure": current_chat_id is None,
-        }
+        self._linked_chat_section_reservations[reservation_key] = (
+            _DummyLinkedChatSectionReservation(
+                chat_id=next_chat_id,
+                clear_persisted_binding_on_failure=current_chat_id is None,
+            )
+        )
         self.linked_chat_reservation_calls.append(
             (project_config_id, section_id, next_chat_id)
         )
@@ -211,7 +220,7 @@ class _DummyLinkedChatProjectManager:
             effective_engine_config_id=target_section_impl.engineConfigId,
         )
 
-    async def mark_linked_chat_section_chat_start_succeeded(
+    async def persist_linked_chat_section_binding(
         self,
         project_config_id: ID,
         section_id: ID,
@@ -220,10 +229,14 @@ class _DummyLinkedChatProjectManager:
         reservation = self._linked_chat_section_reservations.get(
             (project_config_id, section_id)
         )
-        if reservation is None or reservation["chat_id"] != chat_id:
-            return
-        if bool(reservation["has_started_run"]):
-            raise ValueError("Linked chat reservation success reported more than once.")
+        if reservation is None:
+            raise KeyError(
+                "Linked chat binding persistence reported without a reservation."
+            )
+        if reservation.chat_id != chat_id:
+            raise KeyError(
+                "Linked chat binding persistence reported for the wrong chat id."
+            )
         project_state = convert_backend_to_single_config(
             self._backend, project_config_id
         )
@@ -241,11 +254,27 @@ class _DummyLinkedChatProjectManager:
                 (project_config_id, section_id, chat_id)
             )
             self.history.revision += 1
-        if self.mark_started_exception is not None:
-            raise self.mark_started_exception
-        reservation["has_started_run"] = True
+        if self.persist_binding_exception is not None:
+            raise self.persist_binding_exception
 
-    async def release_linked_chat_section_chat_start_failure(
+    async def mark_linked_chat_section_run_started(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation = self._linked_chat_section_reservations.get(
+            (project_config_id, section_id)
+        )
+        if reservation is None:
+            raise KeyError("Linked chat run start reported without a reservation.")
+        if reservation.chat_id != chat_id:
+            raise KeyError("Linked chat run start reported for the wrong chat id.")
+        if reservation.has_started_run:
+            raise ValueError("Linked chat run start reported more than once.")
+        reservation.has_started_run = True
+
+    async def release_linked_chat_section_start_failure(
         self,
         project_config_id: ID,
         section_id: ID,
@@ -253,11 +282,12 @@ class _DummyLinkedChatProjectManager:
     ) -> None:
         reservation_key = (project_config_id, section_id)
         reservation = self._linked_chat_section_reservations.get(reservation_key)
-        if reservation is None or reservation["chat_id"] != chat_id:
+        if reservation is None or reservation.chat_id != chat_id:
             return
         del self._linked_chat_section_reservations[reservation_key]
-        if bool(reservation["has_started_run"]) or not bool(
-            reservation["clear_persisted_binding_on_failure"]
+        if (
+            reservation.has_started_run
+            or not reservation.clear_persisted_binding_on_failure
         ):
             return
 
@@ -287,9 +317,9 @@ class _DummyLinkedChatProjectManager:
     ) -> None:
         reservation_key = (project_config_id, section_id)
         reservation = self._linked_chat_section_reservations.get(reservation_key)
-        if reservation is None or reservation["chat_id"] != chat_id:
+        if reservation is None or reservation.chat_id != chat_id:
             return
-        if not bool(reservation["has_started_run"]):
+        if not reservation.has_started_run:
             raise ValueError(
                 "Linked chat reservation completion reported before run start."
             )
@@ -1081,6 +1111,71 @@ async def test_tools_call_invoke_linked_chat_denies_second_deployment_run_when_m
     assert share_runtime_state.get_session_run_count(request_session_id) == 1
     assert share_runtime_state.increment_calls == []
     assert share_runtime_state.rollback_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_rolls_back_reserved_deployment_run_when_binding_persistence_fails(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(
+            allowRun=True,
+            allowLLM=True,
+            allowMultipleRuns=False,
+        ),
+        seed_target_chat_id=False,
+    )
+    manager.persist_binding_exception = RuntimeError(
+        "synthetic binding persistence failure"
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "binding_start_failed"
+    assert agent_runner.calls == []
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.get_session_run_count(request_session_id) == 0
+    assert share_runtime_state.increment_calls == []
+    assert share_runtime_state.rollback_calls == [request_session_id]
 
 
 @pytest.mark.asyncio
@@ -1979,7 +2074,7 @@ async def test_tools_call_invoke_linked_chat_retries_cleanly_after_runner_unavai
 
 
 @pytest.mark.asyncio
-async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_start_fails(
+async def test_tools_call_invoke_linked_chat_cleans_up_binding_when_managed_start_fails(
     tmp_path,
 ) -> None:
     (
@@ -2023,7 +2118,11 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_sta
     assert payload["structuredContent"]["reason"] == "run_start_failed"
     assert payload["structuredContent"]["message"] == "synthetic startup failure"
     assert agent_runner.calls
-    assert manager.set_chat_section_chat_id_calls == []
+    failed_chat_id = ID(agent_runner.calls[0][1]["chatId"])
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, failed_chat_id),
+        (project_config_id, target_section_id, None),
+    ]
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,
         project_config_id,
@@ -2040,7 +2139,7 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_sta
 
 
 @pytest.mark.asyncio
-async def test_tools_call_invoke_linked_chat_releases_partial_binding_when_start_binding_fails(
+async def test_tools_call_invoke_linked_chat_keeps_start_atomic_when_binding_persistence_fails(
     tmp_path,
 ) -> None:
     (
@@ -2055,7 +2154,7 @@ async def test_tools_call_invoke_linked_chat_releases_partial_binding_when_start
         tmp_path,
         seed_target_chat_id=False,
     )
-    manager.mark_started_exception = RuntimeError(
+    manager.persist_binding_exception = RuntimeError(
         "synthetic binding persistence failure"
     )
     tmp_project_id = canonical_to_temporary[project_config_id]
@@ -2090,7 +2189,14 @@ async def test_tools_call_invoke_linked_chat_releases_partial_binding_when_start
         first_payload["structuredContent"]["message"]
         == "synthetic binding persistence failure"
     )
+    assert agent_runner.calls == []
     assert manager._linked_chat_section_reservations == {}
+    first_failed_chat_id = manager.set_chat_section_chat_id_calls[0][2]
+    assert isinstance(first_failed_chat_id, ID)
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, first_failed_chat_id),
+        (project_config_id, target_section_id, None),
+    ]
 
     project_state_after_failure = convert_backend_to_single_config(
         manager.project_state_backend,
@@ -2105,7 +2211,7 @@ async def test_tools_call_invoke_linked_chat_releases_partial_binding_when_start
         is None
     )
 
-    manager.mark_started_exception = None
+    manager.persist_binding_exception = None
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         second_response = await client.post(
@@ -2116,12 +2222,116 @@ async def test_tools_call_invoke_linked_chat_releases_partial_binding_when_start
     assert second_response.status_code == 200
     second_payload = second_response.json()
     assert second_payload["isError"] is False
-    assert len(agent_runner.calls) == 2
+    assert len(agent_runner.calls) == 1
     assert manager._linked_chat_section_reservations == {}
-    first_started_chat_id = ID(agent_runner.calls[0][1]["chatId"])
-    second_started_chat_id = ID(agent_runner.calls[1][1]["chatId"])
+    second_started_chat_id = ID(agent_runner.calls[0][1]["chatId"])
     assert manager.set_chat_section_chat_id_calls == [
-        (project_config_id, target_section_id, first_started_chat_id),
+        (project_config_id, target_section_id, first_failed_chat_id),
+        (project_config_id, target_section_id, None),
+        (project_config_id, target_section_id, second_started_chat_id),
+    ]
+    project_state_after_retry = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state_after_retry,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        == second_started_chat_id
+    )
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_keeps_external_start_atomic_when_binding_persistence_fails(
+    tmp_path,
+) -> None:
+    external_runner = _DummyExternalAgentRunner()
+    (
+        app,
+        _agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        engine_type=EngineType.external_agent,
+        external_agent_runner_override=external_runner,
+    )
+    manager.persist_binding_exception = RuntimeError(
+        "synthetic binding persistence failure"
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["isError"] is True
+    assert first_payload["structuredContent"]["reason"] == "binding_start_failed"
+    assert external_runner.calls == []
+    assert manager._linked_chat_section_reservations == {}
+    first_failed_chat_id = manager.set_chat_section_chat_id_calls[0][2]
+    assert isinstance(first_failed_chat_id, ID)
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, first_failed_chat_id),
+        (project_config_id, target_section_id, None),
+    ]
+
+    project_state_after_failure = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state_after_failure,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
+
+    manager.persist_binding_exception = None
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["isError"] is False
+    assert len(external_runner.calls) == 1
+    assert manager._linked_chat_section_reservations == {}
+    second_started_chat_id = ID(external_runner.calls[0][3]["chatId"])
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, first_failed_chat_id),
         (project_config_id, target_section_id, None),
         (project_config_id, target_section_id, second_started_chat_id),
     ]
@@ -2272,7 +2482,7 @@ async def test_tools_call_invoke_linked_chat_cleans_up_reservations_when_externa
 
 
 @pytest.mark.asyncio
-async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_start_fails(
+async def test_tools_call_invoke_linked_chat_cleans_up_binding_when_external_start_fails(
     tmp_path,
 ) -> None:
     external_runner = _FailingStartDummyExternalAgentRunner()
@@ -2320,7 +2530,11 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_st
         payload["structuredContent"]["message"] == "synthetic external startup failure"
     )
     assert external_runner.calls
-    assert manager.set_chat_section_chat_id_calls == []
+    failed_chat_id = ID(external_runner.calls[0][3]["chatId"])
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, failed_chat_id),
+        (project_config_id, target_section_id, None),
+    ]
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,
         project_config_id,
@@ -2699,13 +2913,12 @@ async def test_tools_call_invoke_linked_chat_blocks_overlapping_runs_for_fresh_t
             ).chatId
             == first_reserved_chat_id
         )
-        assert manager._linked_chat_section_reservations == {
-            (project_config_id, target_section_id): {
-                "chat_id": first_reserved_chat_id,
-                "has_started_run": True,
-                "clear_persisted_binding_on_failure": True,
-            }
-        }
+        reservation = manager._linked_chat_section_reservations[
+            (project_config_id, target_section_id)
+        ]
+        assert reservation.chat_id == first_reserved_chat_id
+        assert reservation.has_started_run is True
+        assert reservation.clear_persisted_binding_on_failure is True
 
         second_response = await client.post(
             "/__setta__/tools/call", json=request_payload

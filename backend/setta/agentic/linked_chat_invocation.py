@@ -34,26 +34,39 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
 )
 
 
-async def _mark_linked_chat_section_binding_started(
+async def _persist_linked_chat_section_binding(
     manager: Any,
     project_config_id: ID,
     section_id: ID,
     chat_id: ID,
 ) -> None:
-    await manager.mark_linked_chat_section_chat_start_succeeded(
+    await manager.persist_linked_chat_section_binding(
         project_config_id,
         section_id,
         chat_id,
     )
 
 
-async def _release_linked_chat_section_binding_failure(
+async def _mark_linked_chat_section_run_started(
     manager: Any,
     project_config_id: ID,
     section_id: ID,
     chat_id: ID,
 ) -> None:
-    await manager.release_linked_chat_section_chat_start_failure(
+    await manager.mark_linked_chat_section_run_started(
+        project_config_id,
+        section_id,
+        chat_id,
+    )
+
+
+async def _release_linked_chat_section_start_failure(
+    manager: Any,
+    project_config_id: ID,
+    section_id: ID,
+    chat_id: ID,
+) -> None:
+    await manager.release_linked_chat_section_start_failure(
         project_config_id,
         section_id,
         chat_id,
@@ -150,7 +163,7 @@ async def invoke_linked_chat(
         reason: str,
         message: str,
     ) -> CallToolResult:
-        await _release_linked_chat_section_binding_failure(
+        await _release_linked_chat_section_start_failure(
             manager,
             agentic_context.project_config_id,
             target_section_id,
@@ -218,7 +231,7 @@ async def invoke_linked_chat(
                 share_session_id=run_start_authorization.share_session_id,
             )
         except HTTPException:
-            await _release_linked_chat_section_binding_failure(
+            await _release_linked_chat_section_start_failure(
                 manager,
                 agentic_context.project_config_id,
                 target_section_id,
@@ -268,7 +281,7 @@ async def invoke_linked_chat(
             engine_config_id=admission.effective_engine_config_id,
         )
     except ValueError as exc:
-        await _release_linked_chat_section_binding_failure(
+        await _release_linked_chat_section_start_failure(
             manager,
             agentic_context.project_config_id,
             target_section_id,
@@ -303,6 +316,27 @@ async def invoke_linked_chat(
         ],
     }
 
+    try:
+        await _persist_linked_chat_section_binding(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
+    except Exception as exc:
+        await _release_linked_chat_section_start_failure(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
+        await rollback_mcp_run_start(ctx, run_start_authorization)
+        return _build_error_result(
+            target_section_id=target_section_id,
+            reason="binding_start_failed",
+            message=str(exc),
+        )
+
     completed_run: AgentRun
     if resolved_engine.engine_config.engineType == EngineType.setta_llm:
         profile = admission.selected_profile
@@ -334,7 +368,7 @@ async def invoke_linked_chat(
             )
         except (KeyError, ValueError) as exc:
             await rollback_mcp_run_start(ctx, run_start_authorization)
-            await _release_linked_chat_section_binding_failure(
+            await _release_linked_chat_section_start_failure(
                 manager,
                 agentic_context.project_config_id,
                 target_section_id,
@@ -346,25 +380,12 @@ async def invoke_linked_chat(
                 message=str(exc),
             )
         commit_mcp_run_start(ctx, run_start_authorization)
-        try:
-            await _mark_linked_chat_section_binding_started(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-        except Exception as exc:
-            await _release_linked_chat_section_binding_failure(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-            return _build_error_result(
-                target_section_id=target_section_id,
-                reason="binding_start_failed",
-                message=str(exc),
-            )
+        await _mark_linked_chat_section_run_started(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
         try:
             completed_run = await runner.wait_for_run(run.id)
         finally:
@@ -405,7 +426,7 @@ async def invoke_linked_chat(
             )
         except (KeyError, ValueError) as exc:
             await rollback_mcp_run_start(ctx, run_start_authorization)
-            await _release_linked_chat_section_binding_failure(
+            await _release_linked_chat_section_start_failure(
                 manager,
                 agentic_context.project_config_id,
                 target_section_id,
@@ -417,25 +438,12 @@ async def invoke_linked_chat(
                 message=str(exc),
             )
         commit_mcp_run_start(ctx, run_start_authorization)
-        try:
-            await _mark_linked_chat_section_binding_started(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-        except Exception as exc:
-            await _release_linked_chat_section_binding_failure(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-            return _build_error_result(
-                target_section_id=target_section_id,
-                reason="binding_start_failed",
-                message=str(exc),
-            )
+        await _mark_linked_chat_section_run_started(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
+        )
         try:
             completed_run = await runner.wait_for_run(run.id)
         finally:
