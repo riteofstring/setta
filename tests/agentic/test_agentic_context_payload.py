@@ -1,11 +1,5 @@
-from pathlib import Path
-
 from setta.agentic.agentic_context import build_agentic_context_payload
-from setta.agentic.store import save_engine_configs
-from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
-from setta.llm.config import load_llm_config, save_llm_config
-from setta.types.agentic import EngineConfig, EngineType
 from setta.types.agentic_edges import (
     AgenticEdge,
     AgenticEdgeContextMode,
@@ -15,74 +9,17 @@ from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
     create_agentic_edge,
     create_top_level_section,
-    set_chat_section_settings,
     set_text_block_text,
 )
 from setta.types.id import ID
 from setta.types.project_config import Position, ProjectConfig
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_state import ProjectStateSingleConfig
-from setta.types.section_impls import (
-    ChatDictationMode,
-    ChatPermissionMode,
-    SectionType,
-)
+from setta.types.section_impls import SectionType
 
 from tests.types.test_helpers_lvl2 import build_callable_project_state
 
 
-def _build_context_inputs(tmp_path: Path):
-    dbe = DBE(tmp_path / "setta_files")
-    save_llm_config(
-        AllLLMConfigs(
-            configs={
-                "primary": LLMConfig(
-                    id="primary",
-                    model="claude-3-7-sonnet-latest",
-                    provider="anthropic",
-                )
-            },
-            default_config_id="primary",
-        ),
-        dbe,
-    )
-    return dbe, load_llm_config(dbe, allow_write=False)
-
-
-def _make_linked_chat_executable(
-    dbe: DBE,
-    project_state: ProjectStateSingleConfig,
-    section_id: ID,
-    *,
-    engine_config_id: ID = ID("engine-linked"),
-) -> None:
-    save_engine_configs(
-        dbe,
-        [
-            EngineConfig(
-                id=engine_config_id,
-                name="Linked Engine",
-                engineType=EngineType.setta_llm,
-                settaLlmConfigId="primary",
-            )
-        ],
-    )
-    set_chat_section_settings(
-        project_state,
-        section_id,
-        True,
-        engine_config_id,
-        None,
-        None,
-        False,
-        ChatPermissionMode.minimal,
-        True,
-        ChatDictationMode.auto,
-    )
-
-
-def test_build_agentic_context_payload_uses_formatter_for_ids(tmp_path: Path) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
+def test_build_agentic_context_payload_uses_formatter_for_ids() -> None:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="agentic-context-payload-test")
@@ -103,18 +40,16 @@ def test_build_agentic_context_payload_uses_formatter_for_ids(tmp_path: Path) ->
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.reference_only,
         ),
     )
 
     payload = build_agentic_context_payload(
-        dbe,
         project_state,
         chat_section_id,
-        llm_configs=llm_configs,
         format_section_id=lambda _section_id: "TEMP-ID",
     )
 
@@ -123,10 +58,7 @@ def test_build_agentic_context_payload_uses_formatter_for_ids(tmp_path: Path) ->
     assert payload.section_ids == [ID(context_section_id)]
 
 
-def test_build_agentic_context_payload_includes_inline_text_with_truncation(
-    tmp_path: Path,
-) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
+def test_build_agentic_context_payload_includes_inline_text_with_truncation() -> None:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="agentic-context-inline-test")
@@ -149,19 +81,14 @@ def test_build_agentic_context_payload_includes_inline_text_with_truncation(
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.inline_text,
         ),
     )
 
-    payload = build_agentic_context_payload(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-    )
+    payload = build_agentic_context_payload(project_state, chat_section_id)
 
     assert payload.section_ids == [ID(context_section_id)]
     assert "## Agentic Context" in payload.text
@@ -169,10 +96,7 @@ def test_build_agentic_context_payload_includes_inline_text_with_truncation(
     assert "... (40 more lines)" in payload.text
 
 
-def test_build_agentic_context_payload_summary_mode_uses_tighter_truncation(
-    tmp_path: Path,
-) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
+def test_build_agentic_context_payload_summary_mode_uses_tighter_truncation() -> None:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="agentic-context-summary-test")
@@ -195,29 +119,21 @@ def test_build_agentic_context_payload_summary_mode_uses_tighter_truncation(
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.summary,
         ),
     )
 
-    payload = build_agentic_context_payload(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-    )
+    payload = build_agentic_context_payload(project_state, chat_section_id)
 
     assert payload.section_ids == [ID(context_section_id)]
     assert f"[id: {context_section_id} | summary | fallback]" in payload.text
     assert "... (168 more lines)" in payload.text
 
 
-def test_build_agentic_context_payload_reference_only_omits_section_body(
-    tmp_path: Path,
-) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
+def test_build_agentic_context_payload_reference_only_omits_section_body() -> None:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="agentic-context-reference-only-test")
@@ -239,29 +155,21 @@ def test_build_agentic_context_payload_reference_only_omits_section_body(
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.reference_only,
         ),
     )
 
-    payload = build_agentic_context_payload(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-    )
+    payload = build_agentic_context_payload(project_state, chat_section_id)
 
     assert payload.section_ids == [ID(context_section_id)]
     assert f"[id: {context_section_id}]" in payload.text
     assert "### " not in payload.text
 
 
-def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_available(
-    tmp_path: Path,
-) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
+def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_available() -> None:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="agentic-context-summary-cache-test")
@@ -284,18 +192,16 @@ def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_ava
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.summary,
         ),
     )
 
     payload = build_agentic_context_payload(
-        dbe,
         project_state,
         chat_section_id,
-        llm_configs=llm_configs,
         summary_text_by_section_id={ID(context_section_id): "- cached summary bullet"},
     )
 
@@ -305,10 +211,7 @@ def test_build_agentic_context_payload_summary_mode_uses_cached_summary_when_ava
     assert "... (168 more lines)" not in payload.text
 
 
-def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_is_partial(
-    tmp_path: Path,
-) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
+def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_is_partial() -> None:
     project_state, callable_section_id, _ = build_callable_project_state("hello")
     settings = SettingsState()
     chat_section_id = create_top_level_section(
@@ -321,128 +224,18 @@ def test_build_agentic_context_payload_merges_missing_summary_sections_when_map_
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=callable_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=callable_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.inline_text,
         ),
     )
 
     payload = build_agentic_context_payload(
-        dbe,
         project_state,
         chat_section_id,
-        llm_configs=llm_configs,
         summary_by_section={},
     )
 
     assert payload.section_ids == [ID(callable_section_id)]
     assert "- param: hello" in payload.text
-
-
-def test_build_agentic_context_payload_includes_linked_chat_targets(
-    tmp_path: Path,
-) -> None:
-    dbe, llm_configs = _build_context_inputs(tmp_path)
-    settings = SettingsState()
-    project_state = ProjectStateSingleConfig(
-        projectConfig=ProjectConfig(name="agentic-context-linked-chat-test")
-    )
-    chat_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    linked_chat_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    project_state.sections[linked_chat_section_id].displayName = "Planner"
-    _make_linked_chat_executable(dbe, project_state, linked_chat_section_id)
-    create_agentic_edge(
-        project_state,
-        AgenticEdge(
-            id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=linked_chat_section_id,
-            kind=AgenticEdgeKind.chat_chat,
-            contextMode=AgenticEdgeContextMode.reference_only,
-        ),
-    )
-
-    payload = build_agentic_context_payload(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-        format_section_id=lambda _section_id: "TEMP-LINKED-CHAT",
-    )
-
-    assert payload.section_ids == [ID(linked_chat_section_id)]
-    assert "## Linked Chats" in payload.text
-    assert "`invoke_linked_chat`" in payload.text
-    assert "Planner [id: TEMP-LINKED-CHAT]" in payload.text
-
-
-def test_build_agentic_context_payload_omits_non_executable_linked_chat_targets(
-    tmp_path: Path,
-) -> None:
-    # Context discovery should only advertise linked chats that can actually run.
-    dbe, llm_configs = _build_context_inputs(tmp_path)
-    settings = SettingsState()
-    project_state = ProjectStateSingleConfig(
-        projectConfig=ProjectConfig(name="agentic-context-linked-chat-filter-test")
-    )
-    chat_section_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    valid_linked_chat_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    invalid_linked_chat_id = create_top_level_section(
-        settings,
-        project_state,
-        SectionType.Chat,
-        Position(),
-    )
-    project_state.sections[valid_linked_chat_id].displayName = "Planner"
-    project_state.sections[invalid_linked_chat_id].displayName = "Scriptable"
-    _make_linked_chat_executable(dbe, project_state, valid_linked_chat_id)
-    create_agentic_edge(
-        project_state,
-        AgenticEdge(
-            id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=valid_linked_chat_id,
-            kind=AgenticEdgeKind.chat_chat,
-        ),
-    )
-    create_agentic_edge(
-        project_state,
-        AgenticEdge(
-            id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=invalid_linked_chat_id,
-            kind=AgenticEdgeKind.chat_chat,
-        ),
-    )
-
-    payload = build_agentic_context_payload(
-        dbe,
-        project_state,
-        chat_section_id,
-        llm_configs=llm_configs,
-    )
-
-    assert payload.section_ids == [ID(valid_linked_chat_id)]
-    assert "Planner" in payload.text
-    assert "Scriptable" not in payload.text
