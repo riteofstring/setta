@@ -1,15 +1,12 @@
 # Go Rewrite Docs
 
-The Go backend rewrite is effectively closed for the current clean-break scope.
-This folder now has a small hot path for active agent work and a cold archive
-for historical phase material.
-That means there is no open-ended parity chase, not that every follow-on is
-forbidden; selected bounded follow-ons still belong in the current docs.
+This folder contains the active working docs for the Go backend rewrite plus a
+historical archive.
 
 ## Read Order
 
 1. `CURRENT.md`
-   - current state, deliberate boundaries, selected follow-on work, and agent workflow
+   - canonical doc map, selected follow-ons, and agent workflow
 2. `caller-backed-backend-surface-checklist.md`
    - fastest answer to "does the active caller reach Go?"
 3. `backend-capability-coverage-checklist.md`
@@ -24,13 +21,15 @@ forbidden; selected bounded follow-ons still belong in the current docs.
    - test bar for follow-on work
 8. `go-dependency-inventory-and-rationale.md`
    - current `go.mod` explanation
-9. `go-backend-rewrite-stack-recommendations.md`
-   - earlier design input, not the current source of truth
-10. `dependency-docs-local-reference.md`
+9. `docs/reference/dependencies/`
+   - local dependency reference notes and upstream doc snapshots
+10. `go-backend-rewrite-stack-recommendations.md`
+   - earlier design input, not the primary working source of truth
+11. `dependency-docs-local-reference.md`
    - dependency-doc acquisition rules
-11. `pyproject-dependency-replacement-snapshot.md`
+12. `pyproject-dependency-replacement-snapshot.md`
    - point-in-time Python dependency classification
-12. `archive/README.md`
+13. `archive/README.md`
    - historical `phase-*` and `spike-*` docs
 
 ## Agent Rules
@@ -51,7 +50,7 @@ forbidden; selected bounded follow-ons still belong in the current docs.
 - Do not add obscure Go libraries by default.
 - If a non-obvious library is proposed, document why the stdlib or a more
   established option is insufficient.
-- If an obscure library already appears in `go.mod`, treat it as current-state
+- If an obscure library already appears in `go.mod`, treat it as existing repo
   debt, not precedent.
 
 ## Go Toolchain Shortcut

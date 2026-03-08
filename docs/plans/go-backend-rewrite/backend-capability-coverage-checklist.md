@@ -53,7 +53,7 @@ Primary sources used for this checklist:
 | --- | --- | --- |
 | Go-owned | Packaged server/runtime entrypoints plus Go CLI helpers | `cmd/setta` and `cmd/setta-server` are the packaged Go entrypoints, while `cmd/setta-cli`, `internal/app`, `internal/runtime`, `internal/settacmd`, and `internal/settacli` own the broader Go command/runtime surface. |
 | Shared boundary | Packaged bootstrap wrappers and build/install shell around Go binaries | Go is the packaged runtime target, but root shell/python packaging wrappers still participate in build/install flow orchestration. |
-| Python-owned | Frontend route/type binding generation for backend contracts | `frontend/src/utils/generatedEndpoints.ts` and `frontend/src/utils/generatedTypes.ts` still derive from Python route/schema generation today, including many Go-owned transport surfaces; moving Go-owned HTTP/websocket contracts onto a Go-owned source of truth remains the selected follow-on in `CURRENT.md` and `go-backend-rewrite-plan.md`. |
+| Python-owned | Frontend route/type binding generation for backend contracts | `frontend/src/utils/generatedEndpoints.ts` and `frontend/src/utils/generatedTypes.ts` still derive from Python route/schema generation today, including many Go-owned transport surfaces; moving Go-owned HTTP/websocket contracts onto a Go-owned source of truth remains one of the selected follow-ons in `CURRENT.md` and `go-backend-rewrite-plan.md`. |
 | Python-owned | Dev reload/startup loop | Dev-only startup and reload remain explicit Python boundaries through `backend/setta/dev_start.py`, `backend/setta/server.py`, and related startup helpers. |
 | Go-owned | Runtime support packages | `internal/buildinfo`, `internal/config`, `internal/backendlogs`, `internal/observability`, `internal/settadocs`, and `internal/devworktree` are Go-owned support areas. |
 
@@ -116,9 +116,9 @@ Primary sources used for this checklist:
 | Status | Capability | Notes |
 | --- | --- | --- |
 | Go-owned | Agent profile/prompt template/engine/external-agent config stores | `internal/agentprofiles`, `internal/prompttemplates`, `internal/agentruns`, and `internal/externalagentconfigs` are Go-owned. |
-| Shared boundary | Managed chat and external-agent execution runtime | `internal/managedchat`, `internal/managedllm`, and `internal/externalagents` own the main runtime, but provider APIs and some runner processes remain explicit external boundaries. |
+| Shared boundary | Managed chat and external-agent execution runtime | `internal/managedchat`, `internal/managedllm`, and `internal/externalagents` own the main runtime, but provider APIs and some runner processes remain explicit external boundaries; for OpenAI-owned provider edges, the selected direction is to converge on `github.com/openai/openai-go/v3` rather than keep growing bespoke transport code. |
 | Go-owned | Agentic summary cache and follow-on runtime helpers | `internal/agenticsummarycache` plus related AI runtime plumbing are Go-owned. |
-| Go-owned | Transcription profiles and sessions | `internal/transcriptionprofiles` and `internal/transcriptionsessions` are Go-owned. |
+| Go-owned | Transcription profiles and sessions | `internal/transcriptionprofiles` and `internal/transcriptionsessions` are Go-owned; another selected follow-on is to move Go-owned OpenAI provider interaction details onto `github.com/openai/openai-go/v3`. |
 | Python-owned | Legacy direct chat CRUD/metadata transport surface | Python still owns the older direct chat CRUD/metadata route family even though the newer managed/external-agent runtime is Go-owned. |
 
 ## 9. Plugins and extensibility
@@ -145,4 +145,4 @@ When backend ownership changes:
 
 - update `caller-backed-backend-surface-checklist.md` if active caller reachability changed
 - update `backend-capability-coverage-checklist.md` if runtime/service/package ownership changed
-- update `CURRENT.md` if the rewrite scope or deliberate boundaries changed
+- update `CURRENT.md` if the canonical doc list, selected follow-ons, or workflow guidance changed

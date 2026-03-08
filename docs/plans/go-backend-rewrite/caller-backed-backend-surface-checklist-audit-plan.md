@@ -36,12 +36,12 @@ memory or prior chat context.
       `frontend/src/state/hooks/terminals/terminal.ts`
 - Go runtime owner packages:
   - relevant `internal/*` packages for whichever feature is being classified
-- Scope docs:
+- Working docs:
   - `docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist.md`
   - `docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`
   - `docs/plans/go-backend-rewrite/CURRENT.md`
-  - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` when scope
-    intent or reopening rules matter
+  - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md` when rewrite
+    rules, selected follow-ons, or reopening rules matter
 
 ## Audit invariants
 
@@ -120,7 +120,8 @@ memory or prior chat context.
    - Update `caller-backed-backend-surface-checklist.md`.
    - Update `backend-capability-coverage-checklist.md` when runtime/service
      ownership changed beyond caller transport status.
-   - Update `CURRENT.md` in the same change if the scope summary changed.
+   - Update `CURRENT.md` in the same change if the canonical doc list,
+     selected follow-ons, or workflow guidance changed.
    - Refresh the `Snapshot date` / `Last verified` stamps only after a
      substantive audit pass.
 

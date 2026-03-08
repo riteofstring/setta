@@ -134,11 +134,11 @@ Primary sources used for this checklist:
 | Complete | Engine config CRUD | Go owns list/single-item/create/update/delete through `internal/agentruns.EngineStore` and route transport. |
 | Complete | Agentic summary-cache status | Go owns `getAgenticSummaryCacheStatus`. |
 | Complete | Managed agent-run start/stop and run-chain start/stop | Phase 14 marks the bounded route/runtime mutation surface as Go-owned, including external-agent child steps inside run chains. |
-| Partial | Managed chat runtime | Go owns `getLLMResponse`, `getLLMChat`, `stopLLMChat`, live websocket streaming, MCP-tool execution, and bounded OpenAI execution, but the core frontend still connects to the Python-era `/api/frontend` websocket path instead of Go's `/ws/frontend`, and broader provider parity plus managed reasoning output are still intentionally incomplete. |
+| Partial | Managed chat runtime | Go owns `getLLMResponse`, `getLLMChat`, `stopLLMChat`, live websocket streaming, MCP-tool execution, and bounded OpenAI execution, but the core frontend still connects to the Python-era `/api/frontend` websocket path instead of Go's `/ws/frontend`, broader provider parity plus managed reasoning output are still intentionally incomplete, and the current OpenAI provider edge still needs the selected `openai-go` convergence follow-on. |
 | Partial | Managed tool-preview parity | The current Go runtime covers the landed `tool_argument_preview_delta` and `AIFollowToolResultUpdate` paths, not every historical preview kind, and those live preview updates still depend on the replacement `/ws/frontend` transport that the core frontend has not adopted yet. |
 | Partial | External-agent health/preflight parity | Current config/health reads are Go-owned, but richer Python-only plugin/env-var/cache preflight semantics remain deferred. |
 | Complete | Transcription-profile reads and CRUD | Go owns `getTranscriptionProfiles`, `createTranscriptionProfile`, `updateTranscriptionProfile`, and `deleteTranscriptionProfile`. |
-| Complete | Transcription-session file mode and realtime mode | Go owns `startTranscriptionSession`, `appendTranscriptionAudio`, `stopTranscriptionSession`, and `cancelTranscriptionSession`. |
+| Complete | Transcription-session file mode and realtime mode | Go owns `startTranscriptionSession`, `appendTranscriptionAudio`, `stopTranscriptionSession`, and `cancelTranscriptionSession`; the transport/runtime ownership is landed even though the current OpenAI provider edge still needs the selected `openai-go` convergence follow-on. |
 
 ## 7. Plugins and backend worker runtime
 

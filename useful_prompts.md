@@ -75,6 +75,8 @@ Read the docs in `docs/plans/go-backend-rewrite/` in this order:
 - `caller-backed-backend-surface-checklist.md`
 - `backend-capability-coverage-checklist.md`
 - `go-backend-rewrite-plan.md`
+- `go-dependency-inventory-and-rationale.md` when dependency choices are relevant
+- `docs/reference/dependencies/` when dependency, provider, transport, or library decisions are relevant
 - any other top-level rewrite doc that is directly relevant to the task
 - `archive/README.md` and specific archived phase/spike docs only if you need historical rationale
 
@@ -89,24 +91,26 @@ Important constraints for this rewrite:
 
 Before doing substantive work:
 1. Inspect the current repo state and recent relevant files.
-2. Determine whether the request is inside the current Go-owned scope or crosses a deliberate remaining boundary.
+2. Determine which current caller-backed surface, ownership bucket, or selected follow-on the request touches, and whether it crosses a documented Python/shared/external boundary.
 3. Summarize:
-   - the current rewrite status relevant to this task
-   - what seems complete already
-   - any deliberate boundary or omitted legacy surface implicated by the request
+   - the relevant checklist rows, code paths, and doc evidence for this task
+   - the ownership and caller-reachability picture relevant to the request
+   - any documented boundary, omitted legacy surface, or selected follow-on implicated by the request
    - the highest-leverage next step
 4. Then execute that next step end-to-end instead of stopping at a plan, unless the highest-leverage next step is clearly planning or inventory work.
 
 Working rules:
 - Before touching a subsystem, read the relevant current Go code, tests, and current rewrite docs for that subsystem. Read the relevant Python code/tests/docs as reference material when needed for capability or edge-case context.
+- When dependency or provider choices matter, read `go-dependency-inventory-and-rationale.md` and the relevant files under `docs/reference/dependencies/`.
 - Use `archive/` only when the current docs are insufficient and you need historical rationale.
-- If the work changes the current rewrite scope, deliberate boundaries, or feature-ownership status, update `CURRENT.md`, `caller-backed-backend-surface-checklist.md`, and `backend-capability-coverage-checklist.md`.
+- If the work changes caller reachability or feature ownership, update `caller-backed-backend-surface-checklist.md` and/or `backend-capability-coverage-checklist.md`.
+- Update `CURRENT.md` only when the canonical doc list, selected follow-ons, or workflow guidance changed.
 - Do not create a new numbered phase/spike doc unless a concrete issue or caller genuinely opens a new rewrite slice.
 - Keep transport layers thin.
 - Avoid band-aids and backward-compatibility shims.
 - Prefer robust source-of-truth pathways over heuristics.
 - Run the most relevant tests for the touched area, or explicitly state why they were not run.
-- At the end of any substantial chunk of work, update the relevant current source-of-truth doc if the task changed documented ownership, boundaries, or status.
+- At the end of any substantial chunk of work, update the relevant current source-of-truth doc if the task changed documented ownership, caller reachability, selected follow-ons, dependency decisions, or workflow guidance.
 - If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
 - Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
 
