@@ -1989,9 +1989,22 @@ Do not weaken this rule during the rewrite.
      - focused wheel-metadata tests plus `./build.sh` and
        `./verify_install.sh` now prove that the packaged build/install path
        still works with the narrower default dependency boundary
-   - the next selected Phase 31 work is the source/dev distribution story
-     above that landed wheel and dependency split, not more speculative
-     packaged dependency trimming
+   - the third Phase 31 slice is now landed for the explicit source/dev
+     distribution story above that wheel and dependency split:
+     - `init_env.sh` now installs `source`, `dev`, and `gemini` explicitly for
+       repo-local workflows instead of relying on `--all-extras`
+     - `dev_install.sh` remains the single higher-level source/dev bootstrap
+       wrapper above that explicit Python environment setup
+     - packaged `backend/setta/__init__.py` no longer imports
+       `backend_launcher`, so installed wheels/sdists can import `setta` and
+       run `python -m setta` without the legacy backend tree
+     - focused shell-wiring tests plus a disposable-venv packaged-entrypoint
+       test now guard both the repo-local bootstrap path and the slimmed
+       packaged import path
+   - Phase 31 is now complete for the current clean-break scope
+   - the next honest step is no longer another packaged-Python trim; it is a
+     broader rerank outside this track unless a concrete shipped runtime edge
+     proves more package-boundary work is still needed
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise

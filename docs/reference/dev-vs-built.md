@@ -28,11 +28,12 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
-- `dev_install.sh`: install deps for local dev (Python + pnpm), then clean build artifacts.
+- `dev_install.sh`: install deps for local dev, including the repo-local Python `source`, `dev`, and `gemini` extras, then install frontend deps, sidecars, and clean build artifacts.
 - `build.sh`: build the frontend bundle, stage built assets, then package the backend through the shared `./scripts/build_python_distribution_with_go_binaries.sh` helper.
 - `verify_install.sh`: packaging smoke test (runs the full `./build.sh` path, installs the resulting sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to validate the distribution packaging, not for normal dev.
   - sdist installs catch missing files/packaging errors; wheel installs match end-user installs but can skip sdist-only issues.
+- Built install flows use the packaged default dependency boundary, not the repo-local `source` / `dev` extras.
 - `install_built_setta.sh`: build + install the latest wheel into an isolated venv (`.venv_for_built_setta` by default).
 - `activate_built_setta.sh`: source-only helper to activate the isolated built venv and switch defaults to built runtime paths.
 

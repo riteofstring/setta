@@ -153,6 +153,23 @@ Possible outcomes:
 
 This slice should only start once Slice 1 has landed.
 
+Landed outcome:
+
+- repo-local source/dev setup now stays explicit through `init_env.sh`, which
+  installs the `source`, `dev`, and `gemini` extras instead of relying on
+  `--all-extras`
+- `dev_install.sh` remains the single higher-level source/dev bootstrap wrapper
+  above that explicit Python environment setup
+- source/dev docs now distinguish repo-local bootstrap from the narrower
+  packaged install path
+- the packaged import boundary is now aligned with the slimmed wheel: the
+  packaged `backend/setta/__init__.py` no longer imports `backend_launcher`,
+  so installed wheels and sdists can import `setta` and run `python -m setta`
+  without the legacy backend tree
+- focused shell-wiring tests now guard the explicit source/dev bootstrap path,
+  and packaged-distribution tests now install a slimmed wheel into a disposable
+  venv and execute the real packaged entrypoint modules
+
 ## Risks And Controls
 
 Risk:
@@ -192,18 +209,19 @@ Control:
 
 ## Verification
 
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_dev_install_script_wiring.py tests/start/test_distribution_script_wiring.py tests/start/test_packaged_distribution.py`
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_packaged_distribution.py tests/start/test_module_entrypoint.py`
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_distribution_script_wiring.py`
 - `./build.sh`
 - `./verify_install.sh`
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_module_entrypoint.py`
 
 ## Next Recommended Step
 
-Implement Slice 3:
+Phase 31 is now closed for the current clean-break scope.
 
-- make the source/dev install story explicit now that the packaged default
-  dependency boundary is narrow
-- decide whether the new `source` extra needs any developer-facing wrapper or
-  doc changes beyond the current `uv sync --all-extras` workflow
-- only reopen asset directories or default packaged dependencies if a concrete
-  packaged runtime callsite proves one is still missing
+The next honest step is a broader rerank outside the packaged Python boundary:
+
+- do not keep trimming packaged Python modules or dependencies by inertia
+- only reopen this track if a concrete shipped import/runtime edge or release
+  workflow still proves the boundary is too broad

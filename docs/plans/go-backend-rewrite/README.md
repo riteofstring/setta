@@ -783,8 +783,8 @@ Use the docs in this order:
     surface and dependency boundary
 212. `phase-31-packaged-python-boundary-slimdown-plan.md`
   - focused implementation-plan doc for the landed explicit wheel boundary,
-    the landed packaged-vs-source dependency split, and the remaining
-    source/dev distribution-story follow-on
+    the landed packaged-vs-source dependency split, and the landed explicit
+    repo-local source/dev bootstrap closeout for the current scope
 213. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 214. `spike-pty.md`

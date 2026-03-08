@@ -62,10 +62,12 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop local setup (uv sync + frontend deps + sidecars).
+  - One-stop local setup (repo-local Python `source`, `dev`, and `gemini`
+    extras + frontend deps + sidecars).
 - `./init_env.sh`
   - Creates/updates the Python environment.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync`.
+  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync` with
+    explicit `source`, `dev`, and `gemini` extras for repo workflows.
 
 ## Layer 2: Repo `scripts/` helpers
 
