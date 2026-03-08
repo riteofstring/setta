@@ -93,6 +93,111 @@ echo "python $*" >> "{command_log}"
     return sandbox_root, command_log, cleanup_count
 
 
+def _build_verify_install_sandbox(tmp_path: Path) -> tuple[Path, Path]:
+    sandbox_root = tmp_path / "verify_install_sandbox"
+    bin_dir = sandbox_root / "bin"
+    lib_dir = sandbox_root / "scripts" / "lib"
+    dist_dir = sandbox_root / "dist"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="verify_install.sh")
+    _copy_repo_file(
+        sandbox_root=sandbox_root,
+        relative_path="scripts/lib/distribution_artifact_path.sh",
+    )
+
+    command_log = sandbox_root / "command-log.txt"
+
+    write_stub_executable(
+        sandbox_root / "init_env.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo init-env >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "build.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo build >> "{command_log}"
+mkdir -p dist
+printf '%s\\n' 'sdist' > dist/setta-0.0.0.tar.gz
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "cleanup.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo cleanup >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "uv",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "uv $*" >> "{command_log}"
+""",
+    )
+
+    return sandbox_root, command_log
+
+
+def _build_install_built_setta_sandbox(tmp_path: Path) -> tuple[Path, Path]:
+    sandbox_root = tmp_path / "install_built_setta_sandbox"
+    bin_dir = sandbox_root / "bin"
+    lib_dir = sandbox_root / "scripts" / "lib"
+    dist_dir = sandbox_root / "dist"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    dist_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="install_built_setta.sh")
+    _copy_repo_file(
+        sandbox_root=sandbox_root,
+        relative_path="scripts/lib/install_root_path.sh",
+    )
+    _copy_repo_file(
+        sandbox_root=sandbox_root,
+        relative_path="scripts/lib/distribution_artifact_path.sh",
+    )
+
+    command_log = sandbox_root / "command-log.txt"
+
+    write_stub_executable(
+        sandbox_root / "build.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo build >> "{command_log}"
+mkdir -p dist
+printf '%s\\n' 'wheel' > dist/setta-0.0.0-py3-none-macosx_14_0_arm64.whl
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "cleanup.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo cleanup >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "uv",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "uv $*" >> "{command_log}"
+if [[ "$1" == "venv" ]]; then
+  install_root="${{@: -1}}"
+  mkdir -p "${{install_root}}/bin"
+  printf '%s\\n' '#!/usr/bin/env bash' > "${{install_root}}/bin/python"
+  chmod +x "${{install_root}}/bin/python"
+fi
+""",
+    )
+
+    return sandbox_root, command_log
+
+
 def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
@@ -201,3 +306,62 @@ def test_install_built_setta_still_reuses_build_sh_before_wheel_install() -> Non
 
     assert "./build.sh" in script
     assert 'uv pip install --python "$install_root_abs/bin/python" --force-reinstall "$wheel_path"' in script
+
+
+def test_verify_install_uses_shared_artifact_helper_for_sdist_selection(
+    tmp_path: Path,
+) -> None:
+    # The packaging smoke wrapper should install the one built sdist via the shared helper.
+    sandbox_root, command_log = _build_verify_install_sandbox(tmp_path)
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "verify_install.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "init-env",
+        "build",
+        f"uv pip install --force-reinstall {(sandbox_root / 'dist' / 'setta-0.0.0.tar.gz').resolve(strict=False)}",
+        "cleanup",
+    ]
+
+
+def test_install_built_setta_uses_shared_artifact_helper_for_wheel_selection(
+    tmp_path: Path,
+) -> None:
+    # The isolated built-install wrapper should install the one built wheel via the shared helper.
+    sandbox_root, command_log = _build_install_built_setta_sandbox(tmp_path)
+    install_root = sandbox_root / "built-venv"
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(sandbox_root / "install_built_setta.sh"),
+            "--install-root",
+            str(install_root),
+        ],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "build",
+        f"uv venv --clear --python 3.12 {install_root.resolve(strict=False)}",
+        (
+            "uv pip install --python "
+            f"{install_root.resolve(strict=False) / 'bin' / 'python'} "
+            "--force-reinstall "
+            f"{(sandbox_root / 'dist' / 'setta-0.0.0-py3-none-macosx_14_0_arm64.whl').resolve(strict=False)}"
+        ),
+        "cleanup",
+    ]
