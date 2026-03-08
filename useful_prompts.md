@@ -69,34 +69,43 @@ Read the diff of <commit hash>. Write a summary of the changes to a new doc call
 
 See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
 
-Read the docs in `docs/plans/go-backend-rewrite/` in order, starting with `README.md`, then `go-backend-rewrite-plan.md`, then any relevant phase or spike docs for the current work. Treat those docs as the working context for this rewrite.
+Read the docs in `docs/plans/go-backend-rewrite/` in this order:
+- `README.md`
+- `CURRENT.md`
+- `backend-feature-checklist.md`
+- `go-backend-rewrite-plan.md`
+- any other top-level rewrite doc that is directly relevant to the task
+- `archive/README.md` and specific archived phase/spike docs only if you need historical rationale
+
+Treat the top-level docs as the current source of truth and `archive/` as cold history, not the default working set.
 
 Important constraints for this rewrite:
 - This is a clean break. Do not preserve backward compatibility, legacy route shapes, storage migrations, or Python-shaped architecture unless I explicitly ask.
 - Current Python code, tests, and docs are reference material for product capabilities and edge cases, not a compatibility contract.
 - Prefer explicit Go runtime/service boundaries over framework magic or giant stateful singletons.
 - Use libraries for transport and OS integration; keep product semantics custom.
-- Avoid broadening scope beyond the current phase or spike unless a dependency makes it necessary.
+- Avoid broadening scope beyond the current deliberate rewrite boundary unless a concrete caller, workflow, release issue, or product decision makes it necessary.
 
 Before doing substantive work:
 1. Inspect the current repo state and recent relevant files.
-2. Determine what phase or spike the rewrite appears to be in.
+2. Determine whether the request is inside the current Go-owned scope or crosses a deliberate remaining boundary.
 3. Summarize:
-   - current phase/spike
-   - what seems complete
-   - what is in progress
+   - the current rewrite status relevant to this task
+   - what seems complete already
+   - any deliberate boundary or omitted legacy surface implicated by the request
    - the highest-leverage next step
 4. Then execute that next step end-to-end instead of stopping at a plan, unless the highest-leverage next step is clearly planning or inventory work.
 
 Working rules:
-- Before touching a subsystem, read the relevant current Python code, tests, and docs for that subsystem.
-- If the active work needs a new or updated phase/spike doc, create or update it.
-- If earlier planning docs are stale relative to the code, fix them.
+- Before touching a subsystem, read the relevant current Go code, tests, and current rewrite docs for that subsystem. Read the relevant Python code/tests/docs as reference material when needed for capability or edge-case context.
+- Use `archive/` only when the current docs are insufficient and you need historical rationale.
+- If the work changes the current rewrite scope, deliberate boundaries, or feature-ownership status, update `CURRENT.md` and `backend-feature-checklist.md`.
+- Do not create a new numbered phase/spike doc unless a concrete issue or caller genuinely opens a new rewrite slice.
 - Keep transport layers thin.
 - Avoid band-aids and backward-compatibility shims.
 - Prefer robust source-of-truth pathways over heuristics.
 - Run the most relevant tests for the touched area, or explicitly state why they were not run.
-- At the end of any substantial chunk of work, update the relevant phase/spike doc with what was completed, decisions made, open questions, and the next recommended step.
+- At the end of any substantial chunk of work, update the relevant current source-of-truth doc if the task changed documented ownership, boundaries, or status.
 - If blocked by a real architecture or product tradeoff, present one recommended option with rationale and stop. Otherwise keep executing.
 - Do not ask me to restate rewrite context unless the local state is genuinely ambiguous.
 

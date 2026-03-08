@@ -186,6 +186,6 @@ This snapshot accounts for all `27`.
   - `docstring-to-markdown` route still Python-owned
 - `backend/setta/api/hot_reload.py`
   - `watchfiles` still Python-owned
-- `docs/plans/go-backend-rewrite/phase-12-managed-chat-runtime-and-ai-route-foundation.md`
+- `docs/plans/go-backend-rewrite/archive/phase-12-managed-chat-runtime-and-ai-route-foundation.md`
   - records the rewrite decision to de-scope managed `setta_llm` in favor of
     external agents
