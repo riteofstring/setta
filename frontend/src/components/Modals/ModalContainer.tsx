@@ -2,7 +2,6 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect } from "react";
 import { openWorkspaceSwitcherModal } from "state/actions/modal";
 import { useModal } from "state/definitions";
-import { MODAL_OVERLAY_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { consumeOpenWorkspaceSwitcherRequest } from "utils/workspaceSwitcherLaunch";
 import { PublishAppDeploymentModal } from "./AppDeploymentsModal/PublishAppDeploymentModal";
 import { DeleteJSONSourceVariantModal } from "./DeleteFileModal/DeleteFileModal";
@@ -38,9 +37,7 @@ export function ModalContainer({ children }) {
     >
       {children}
       <Dialog.Portal>
-        <Dialog.Overlay
-          className={`fixed inset-0 ${MODAL_OVERLAY_Z_INDEX_CLASS_NAME} animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-black/45 backdrop-blur-sm`}
-        />
+        <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-black/45 backdrop-blur-sm" />
         <Dialog.Content className={contentClassName} data-tab-native>
           <ModalContent open={open} />
         </Dialog.Content>

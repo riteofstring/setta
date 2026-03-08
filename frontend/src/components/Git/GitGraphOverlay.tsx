@@ -3,12 +3,12 @@ import {
   gitFileStatusCategoryFromCommitFile,
   gitFileStatusVisuals,
 } from "components/Git/gitFileStatusVisuals";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   List,
+  type RowComponentProps,
   useDynamicRowHeight,
   useListRef,
-  type RowComponentProps,
 } from "react-window";
 import {
   clearGitGraphSelectedCommit,
@@ -395,18 +395,10 @@ export function buildGitGraphCommitDigest(
   return `${commits.length}:${digest.toString(16)}`;
 }
 
-export function GitGraphOverlay({
-  embedded = false,
-  showCloseButton = true,
-  extraHeaderActions = null,
-  leftSidebar = null,
-}: {
-  embedded?: boolean;
-  showCloseButton?: boolean;
-  extraHeaderActions?: ReactNode;
-  leftSidebar?: ReactNode;
-}) {
-  const graphState = useGitStore((x) => x.graph);
+export function GitGraphOverlay() {
+  const graphState = useGitStore((x) =>
+    x.overlay.kind === "graph" ? x.overlay.graph : null,
+  );
   const {
     darkMode,
     splitPct,
@@ -997,11 +989,7 @@ export function GitGraphOverlay({
     <section
       ref={overlayRef}
       data-testid="git-graph-overlay"
-      className={`flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-white dark:bg-setta-950 ${
-        embedded
-          ? "border-0 shadow-none"
-          : "border border-setta-200 shadow-sm dark:border-setta-800"
-      }`}
+      className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border border-setta-200 bg-white shadow-sm dark:border-setta-800 dark:bg-setta-950"
     >
       <header className="flex items-center gap-2 border-b border-setta-200/80 bg-white/80 px-3 py-2 backdrop-blur dark:border-setta-800/80 dark:bg-setta-950/70">
         <div className="min-w-0 flex-1">
@@ -1014,7 +1002,6 @@ export function GitGraphOverlay({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {extraHeaderActions}
           <input
             className="w-56 rounded-md border border-setta-200 bg-white px-2 py-1 text-xs text-setta-900 placeholder:text-setta-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-50 dark:placeholder:text-setta-500"
             placeholder="Filter commits…"
@@ -1038,15 +1025,13 @@ export function GitGraphOverlay({
           >
             Refresh
           </button>
-          {showCloseButton ? (
-            <button
-              type="button"
-              className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-              onClick={closeGitOverlay}
-            >
-              Close
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+            onClick={closeGitOverlay}
+          >
+            Close
+          </button>
         </div>
       </header>
 
@@ -1056,287 +1041,274 @@ export function GitGraphOverlay({
         </div>
       )}
 
-      <div className="flex min-h-0 min-w-0 flex-1">
-        {leftSidebar ? (
-          <aside
-            data-testid="git-graph-left-sidebar"
-            className="flex min-h-0 shrink-0 flex-col border-r border-setta-200 bg-setta-50/40 dark:border-setta-800 dark:bg-setta-900/30"
-            style={{ width: "clamp(15rem, 24%, 20rem)" }}
-          >
-            {leftSidebar}
-          </aside>
-        ) : null}
-
-        <div ref={panesWrapperRef} className="flex min-h-0 min-w-0 flex-1">
-          <section
-            data-testid="git-graph-history-pane"
-            className="flex min-h-0 flex-col overflow-hidden"
-            style={{
-              minWidth: `${GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX}px`,
-              width: `calc(var(${CSS_VAR_GIT_GRAPH_SPLIT_PCT}, ${DEFAULT_GIT_GRAPH_SPLIT_PCT}) * 1%)`,
-            }}
+      <div ref={panesWrapperRef} className="flex min-h-0 flex-1">
+        <section
+          data-testid="git-graph-history-pane"
+          className="flex min-h-0 flex-col overflow-hidden"
+          style={{
+            minWidth: `${GIT_GRAPH_HISTORY_PANE_MIN_WIDTH_PX}px`,
+            width: `calc(var(${CSS_VAR_GIT_GRAPH_SPLIT_PCT}, ${DEFAULT_GIT_GRAPH_SPLIT_PCT}) * 1%)`,
+          }}
+        >
+          <div
+            ref={commitHeaderRef}
+            className="grid gap-2 overflow-hidden border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
+            style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
           >
             <div
-              ref={commitHeaderRef}
-              className="grid gap-2 overflow-hidden border-b border-setta-200/70 bg-setta-50 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-800/70 dark:bg-setta-900 dark:text-setta-500"
-              style={{ gridTemplateColumns: COMMIT_GRID_TEMPLATE_COLUMNS }}
+              data-testid="git-graph-header-graph"
+              className="relative min-w-0 truncate pr-2"
             >
-              <div
-                data-testid="git-graph-header-graph"
-                className="relative min-w-0 truncate pr-2"
-              >
-                <span>Graph</span>
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-graph-message"
-                  label="Resize graph and message boundary"
-                  edge="right"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("graphMessage", event)
-                  }
-                />
-              </div>
-              <div
-                data-testid="git-graph-header-message"
-                className="min-w-0 truncate pl-2"
-              >
-                Message
-              </div>
-              <div
-                data-testid="git-graph-header-author"
-                className="relative min-w-0 truncate pl-2"
-              >
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-message-author"
-                  label="Resize message and author boundary"
-                  edge="left"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("messageAuthor", event)
-                  }
-                />
-                <span>Author</span>
-              </div>
-              <div
-                data-testid="git-graph-header-date"
-                className="relative min-w-0 truncate pl-2"
-              >
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-author-date"
-                  label="Resize author and date boundary"
-                  edge="left"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("authorDate", event)
-                  }
-                />
-                <span>Date</span>
-              </div>
-              <div
-                data-testid="git-graph-header-hash"
-                className="relative min-w-0 truncate pl-2"
-              >
-                <ColumnResizeHandle
-                  dataTestId="git-graph-col-resize-date-hash"
-                  label="Resize date and hash boundary"
-                  edge="left"
-                  onPointerDown={(event) =>
-                    beginColumnResizeDrag("dateHash", event)
-                  }
-                />
-                <span>Hash</span>
-              </div>
+              <span>Graph</span>
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-graph-message"
+                label="Resize graph and message boundary"
+                edge="right"
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("graphMessage", event)
+                }
+              />
             </div>
             <div
-              data-testid="git-graph-commit-list-wrapper"
-              className="min-h-0 min-w-0 flex-1 overflow-hidden"
-              ref={listWrapperRef}
+              data-testid="git-graph-header-message"
+              className="min-w-0 truncate pl-2"
             >
-              {graphState.isLoading ? (
-                <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
-                  Loading commits…
+              Message
+            </div>
+            <div
+              data-testid="git-graph-header-author"
+              className="relative min-w-0 truncate pl-2"
+            >
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-message-author"
+                label="Resize message and author boundary"
+                edge="left"
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("messageAuthor", event)
+                }
+              />
+              <span>Author</span>
+            </div>
+            <div
+              data-testid="git-graph-header-date"
+              className="relative min-w-0 truncate pl-2"
+            >
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-author-date"
+                label="Resize author and date boundary"
+                edge="left"
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("authorDate", event)
+                }
+              />
+              <span>Date</span>
+            </div>
+            <div
+              data-testid="git-graph-header-hash"
+              className="relative min-w-0 truncate pl-2"
+            >
+              <ColumnResizeHandle
+                dataTestId="git-graph-col-resize-date-hash"
+                label="Resize date and hash boundary"
+                edge="left"
+                onPointerDown={(event) =>
+                  beginColumnResizeDrag("dateHash", event)
+                }
+              />
+              <span>Hash</span>
+            </div>
+          </div>
+          <div
+            data-testid="git-graph-commit-list-wrapper"
+            className="min-h-0 min-w-0 flex-1 overflow-hidden"
+            ref={listWrapperRef}
+          >
+            {graphState.isLoading ? (
+              <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
+                Loading commits…
+              </div>
+            ) : (
+              <List
+                listRef={listRef}
+                rowComponent={GitCommitRow}
+                rowCount={filteredRows.length}
+                rowHeight={dynamicRowHeight}
+                className="nodrag"
+                onRowsRendered={(visibleRows) => {
+                  if (
+                    graphState.isLoading ||
+                    graphState.isLoadingMore ||
+                    graphState.loadMoreError !== null ||
+                    graphState.nextOffset === null ||
+                    !graphState.hasMore ||
+                    isFilterActive
+                  ) {
+                    return;
+                  }
+                  const remaining =
+                    filteredRows.length - 1 - visibleRows.stopIndex;
+                  if (remaining <= LOAD_MORE_THRESHOLD_ROWS) {
+                    void loadMoreGitGraphCommits();
+                  }
+                }}
+                rowProps={commitRowProps}
+                style={{
+                  height: listSize.height,
+                  width: listSize.width,
+                  overflowX: "hidden",
+                }}
+              />
+            )}
+          </div>
+          {!graphState.isLoading && (
+            <div
+              data-testid="git-graph-load-more-status"
+              className="min-h-[24px] border-t border-setta-200/70 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800/70 dark:text-setta-400"
+            >
+              {graphState.loadMoreError ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate">{graphState.loadMoreError}</span>
+                  <button
+                    type="button"
+                    data-testid="git-graph-load-more-retry"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+                    onClick={() =>
+                      void loadMoreGitGraphCommits({ force: true })
+                    }
+                  >
+                    Retry
+                  </button>
                 </div>
+              ) : graphState.isLoadingMore ? (
+                <span>Loading more commits…</span>
+              ) : isFilterActive ? (
+                <span>Filtering loaded commits only.</span>
+              ) : loadedCommitCount === 0 && !graphState.error ? (
+                <span>No commits yet on this ref.</span>
+              ) : graphState.isCapped ? (
+                <span>
+                  Showing first {loadedCommitCount.toLocaleString()} commits
+                  (cap reached).
+                </span>
+              ) : !graphState.hasMore && loadedCommitCount > 0 ? (
+                <span>Start of history reached.</span>
               ) : (
-                <List
-                  listRef={listRef}
-                  rowComponent={GitCommitRow}
-                  rowCount={filteredRows.length}
-                  rowHeight={dynamicRowHeight}
-                  className="nodrag"
-                  onRowsRendered={(visibleRows) => {
-                    if (
-                      graphState.isLoading ||
-                      graphState.isLoadingMore ||
-                      graphState.loadMoreError !== null ||
-                      graphState.nextOffset === null ||
-                      !graphState.hasMore ||
-                      isFilterActive
-                    ) {
-                      return;
-                    }
-                    const remaining =
-                      filteredRows.length - 1 - visibleRows.stopIndex;
-                    if (remaining <= LOAD_MORE_THRESHOLD_ROWS) {
-                      void loadMoreGitGraphCommits();
-                    }
-                  }}
-                  rowProps={commitRowProps}
-                  style={{
-                    height: listSize.height,
-                    width: listSize.width,
-                    overflowX: "hidden",
-                  }}
-                />
+                <span className="opacity-0">.</span>
               )}
             </div>
-            {!graphState.isLoading && (
-              <div
-                data-testid="git-graph-load-more-status"
-                className="min-h-[24px] border-t border-setta-200/70 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800/70 dark:text-setta-400"
-              >
-                {graphState.loadMoreError ? (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate">{graphState.loadMoreError}</span>
-                    <button
-                      type="button"
-                      data-testid="git-graph-load-more-retry"
-                      className="shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                      onClick={() =>
-                        void loadMoreGitGraphCommits({ force: true })
-                      }
-                    >
-                      Retry
-                    </button>
+          )}
+        </section>
+
+        <div
+          data-testid="git-graph-pane-splitter"
+          role="separator"
+          aria-label="Resize git graph panes"
+          className="group/resize relative w-3 cursor-col-resize bg-transparent"
+          onPointerDown={beginPaneSplitDrag}
+        >
+          <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
+        </div>
+
+        <section
+          data-testid="git-graph-diff-pane"
+          className="flex min-h-0 min-w-0 flex-1 flex-col"
+          style={{ minWidth: `${GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX}px` }}
+        >
+          <div className="border-b border-setta-200/70 px-3 py-2 dark:border-setta-800/70">
+            {selectedCommit ? (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-semibold text-setta-900 dark:text-setta-50">
+                      {selectedCommit.subject}
+                    </div>
+                    <div className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                      {selectedCommit.authorName} ·{" "}
+                      {DATE_FORMATTER.format(
+                        new Date(selectedCommit.authorTimeMs),
+                      )}{" "}
+                      · {selectedCommit.hash.slice(0, 8)}
+                    </div>
+                    {graphState.selectedCommitFilePath && (
+                      <div className="truncate font-mono text-[12px] text-setta-700 dark:text-setta-200">
+                        {graphState.selectedCommitFilePath}
+                      </div>
+                    )}
                   </div>
-                ) : graphState.isLoadingMore ? (
-                  <span>Loading more commits…</span>
-                ) : isFilterActive ? (
-                  <span>Filtering loaded commits only.</span>
-                ) : loadedCommitCount === 0 && !graphState.error ? (
-                  <span>No commits yet on this ref.</span>
-                ) : graphState.isCapped ? (
-                  <span>
-                    Showing first {loadedCommitCount.toLocaleString()} commits
-                    (cap reached).
-                  </span>
-                ) : !graphState.hasMore && loadedCommitCount > 0 ? (
-                  <span>Start of history reached.</span>
-                ) : (
-                  <span className="opacity-0">.</span>
+                  <button
+                    type="button"
+                    className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+                    onClick={() => void selectGitCommit(selectedCommit.hash)}
+                  >
+                    Reload
+                  </button>
+                </div>
+                {selectedCommit.decorations.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {selectedCommit.decorations.slice(0, 6).map((d) => (
+                      <span
+                        key={d}
+                        className="rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300"
+                      >
+                        {d}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
+            ) : (
+              <div className="text-xs text-setta-500 dark:text-setta-300">
+                Select a commit to view details.
+              </div>
             )}
-          </section>
-
-          <div
-            data-testid="git-graph-pane-splitter"
-            role="separator"
-            aria-label="Resize git graph panes"
-            className="group/resize relative w-3 cursor-col-resize bg-transparent"
-            onPointerDown={beginPaneSplitDrag}
-          >
-            <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-setta-200 group-hover/resize:bg-blue-400 dark:bg-setta-800 dark:group-hover/resize:bg-blue-400" />
           </div>
 
-          <section
-            data-testid="git-graph-diff-pane"
-            className="flex min-h-0 min-w-0 flex-1 flex-col"
-            style={{ minWidth: `${GIT_GRAPH_DIFF_PANE_MIN_WIDTH_PX}px` }}
-          >
-            <div className="border-b border-setta-200/70 px-3 py-2 dark:border-setta-800/70">
-              {selectedCommit ? (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-setta-900 dark:text-setta-50">
-                        {selectedCommit.subject}
-                      </div>
-                      <div className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                        {selectedCommit.authorName} ·{" "}
-                        {DATE_FORMATTER.format(
-                          new Date(selectedCommit.authorTimeMs),
-                        )}{" "}
-                        · {selectedCommit.hash.slice(0, 8)}
-                      </div>
-                      {graphState.selectedCommitFilePath && (
-                        <div className="truncate font-mono text-[12px] text-setta-700 dark:text-setta-200">
-                          {graphState.selectedCommitFilePath}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-                      onClick={() => void selectGitCommit(selectedCommit.hash)}
-                    >
-                      Reload
-                    </button>
-                  </div>
-                  {selectedCommit.decorations.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {selectedCommit.decorations.slice(0, 6).map((d) => (
-                        <span
-                          key={d}
-                          className="rounded-full border border-setta-200 bg-setta-50 px-2 py-0.5 text-[10px] font-semibold text-setta-600 dark:border-setta-800 dark:bg-setta-900 dark:text-setta-300"
-                        >
-                          {d}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-xs text-setta-500 dark:text-setta-300">
-                  Select a commit to view details.
-                </div>
-              )}
-            </div>
-
-            {selectedCommit &&
-              graphState.selectedCommitFileDiffResponse?.isTruncated && (
-                <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
-                  Diff output truncated for performance.
-                </div>
-              )}
-
-            {selectedCommit &&
-              graphState.selectedCommitDetails?.isTruncated && (
-                <div
-                  data-testid="git-graph-commit-details-truncated-warning"
-                  className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
-                >
-                  Commit details were truncated. The changed-file list may be
-                  incomplete.
-                </div>
-              )}
-
-            {selectedCommit && graphState.selectedCommitFileDiffError && (
-              <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
-                {graphState.selectedCommitFileDiffError}
+          {selectedCommit &&
+            graphState.selectedCommitFileDiffResponse?.isTruncated && (
+              <div className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                Diff output truncated for performance.
               </div>
             )}
 
-            <div className="min-h-0 flex-1 overflow-hidden">
-              {!selectedCommit ? (
-                <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
-                  Select a commit to view details.
-                </div>
-              ) : graphState.selectedCommitFileDiffIsLoading ? (
-                <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
-                  Loading file diff…
-                </div>
-              ) : graphState.selectedCommitFileDiffResponse?.diff ? (
-                <GitDiffCodeMirror
-                  value={graphState.selectedCommitFileDiffResponse.diff}
-                  filePathForLanguage={graphState.selectedCommitFilePath}
-                  height="100%"
-                  className="h-full min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
-                />
-              ) : (
-                <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
-                  Select a file to view its diff.
-                </div>
-              )}
+          {selectedCommit && graphState.selectedCommitDetails?.isTruncated && (
+            <div
+              data-testid="git-graph-commit-details-truncated-warning"
+              className="border-b border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              Commit details were truncated. The changed-file list may be
+              incomplete.
             </div>
-          </section>
-        </div>
+          )}
+
+          {selectedCommit && graphState.selectedCommitFileDiffError && (
+            <div className="border-b border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200">
+              {graphState.selectedCommitFileDiffError}
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {!selectedCommit ? (
+              <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
+                Select a commit to view details.
+              </div>
+            ) : graphState.selectedCommitFileDiffIsLoading ? (
+              <div className="flex h-full min-h-0 items-center justify-center text-xs text-setta-500 dark:text-setta-300">
+                Loading file diff…
+              </div>
+            ) : graphState.selectedCommitFileDiffResponse?.diff ? (
+              <GitDiffCodeMirror
+                value={graphState.selectedCommitFileDiffResponse.diff}
+                filePathForLanguage={graphState.selectedCommitFilePath}
+                height="100%"
+                className="h-full min-h-0 w-full min-w-0 [&_.cm-content]:text-[11px] [&_.cm-content]:leading-[16px] [&_.cm-editor]:h-full [&_.cm-scroller]:font-mono"
+              />
+            ) : (
+              <div className="flex h-full min-h-0 items-center justify-center px-6 text-xs text-setta-500 dark:text-setta-300">
+                Select a file to view its diff.
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </section>
   );
@@ -1495,7 +1467,10 @@ function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
     selectedCommitDetailsError,
     selectedFilePath,
   } = useGitStore((state) => {
-    if (!state.graph || state.graph.selectedCommitHash !== commitHash) {
+    if (
+      state.overlay.kind !== "graph" ||
+      state.overlay.graph.selectedCommitHash !== commitHash
+    ) {
       return {
         selectedCommitDetails: null,
         selectedCommitDetailsIsLoading: false,
@@ -1504,11 +1479,12 @@ function SelectedCommitDetails({ commitHash }: { commitHash: string }) {
       };
     }
     return {
-      selectedCommitDetails: state.graph.selectedCommitDetails,
+      selectedCommitDetails: state.overlay.graph.selectedCommitDetails,
       selectedCommitDetailsIsLoading:
-        state.graph.selectedCommitDetailsIsLoading,
-      selectedCommitDetailsError: state.graph.selectedCommitDetailsError,
-      selectedFilePath: state.graph.selectedCommitFilePath,
+        state.overlay.graph.selectedCommitDetailsIsLoading,
+      selectedCommitDetailsError:
+        state.overlay.graph.selectedCommitDetailsError,
+      selectedFilePath: state.overlay.graph.selectedCommitFilePath,
     };
   });
 

@@ -71,7 +71,6 @@ async def test_ide_state_supports_register_time_read_project_state(
     DBE(setta_files_root).write_project(
         ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
-            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
     )

@@ -1,12 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { matchRoutes } from "react-router-dom";
 import { resolveWorkspaceLaunchRouteKind } from "utils/serverModeBoundaryPolicy";
 import {
   resolveModeElementForServerMode,
   type ServerModeValue,
 } from "./modeRouteResolver";
-import { APP_ROUTE_IDS, APP_ROUTE_PATTERNS } from "./routeConfig";
 
 function modeSupportsWorkspaceLaunch(mode: ServerModeValue): boolean {
   return resolveWorkspaceLaunchRouteKind(mode) !== "blocked";
@@ -58,45 +56,5 @@ describe("resolveModeElementForServerMode", () => {
     expect(resolveWorkspaceLaunchRouteKind("launcher")).toBe("launcher");
     expect(resolveWorkspaceLaunchRouteKind("share")).toBe("blocked");
     expect(resolveWorkspaceLaunchRouteKind("app")).toBe("blocked");
-  });
-});
-
-describe("appRoutes", () => {
-  function getMatchedRouteId(pathname: string): string | undefined {
-    return matchRoutes(APP_ROUTE_PATTERNS, pathname)?.at(-1)?.route.id;
-  }
-
-  it("matches standalone project chat before the generic project route", () => {
-    expect(getMatchedRouteId("/demo/chat")).toBe(
-      APP_ROUTE_IDS.projectChatStandalone,
-    );
-  });
-
-  it("matches standalone project chat thread routes before the chat landing route", () => {
-    expect(getMatchedRouteId("/demo/chat/thread-123")).toBe(
-      APP_ROUTE_IDS.projectChatThreadStandalone,
-    );
-  });
-
-  it("matches standalone window-space routes before view and project routes", () => {
-    expect(getMatchedRouteId("/demo/windowspace/research_board")).toBe(
-      APP_ROUTE_IDS.windowSpaceStandalone,
-    );
-  });
-
-  it("keeps view mode routing ahead of standalone section routes", () => {
-    expect(getMatchedRouteId("/demo/view/analysis")).toBe(
-      APP_ROUTE_IDS.viewMode,
-    );
-  });
-
-  it("matches canonical section slugs on the namespaced standalone section route", () => {
-    expect(getMatchedRouteId("/demo/section/blue_star")).toBe(
-      APP_ROUTE_IDS.sectionStandalone,
-    );
-  });
-
-  it("leaves bare project paths on the generic project route", () => {
-    expect(getMatchedRouteId("/demo")).toBe(APP_ROUTE_IDS.project);
   });
 });

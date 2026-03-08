@@ -40,6 +40,47 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+$packageArtifactInput = $env:SETTA_DESKTOP_INSTALLER_PACKAGE_PATH
+if (-not $packageArtifactInput) {
+  $distDir = Join-Path $repoRoot "dist"
+  $packageArtifactMatches = @(
+    Get-ChildItem `
+      -LiteralPath $distDir `
+      -Filter "setta-$Version-*.whl" `
+      -File `
+      -ErrorAction SilentlyContinue
+  )
+  if (-not $packageArtifactMatches) {
+    Fail "Packaged Setta wheel not found under $distDir matching setta-$Version-*.whl. Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --wheel."
+  }
+  if ($packageArtifactMatches.Count -ne 1) {
+    $matchList = $packageArtifactMatches | ForEach-Object { "  - $($_.FullName)" }
+    Fail (
+      "Expected exactly one packaged Setta wheel under $distDir matching setta-$Version-*.whl, found " +
+      "$($packageArtifactMatches.Count).`n" +
+      ($matchList -join "`n")
+    )
+  }
+  $packageArtifact = $packageArtifactMatches[0]
+}
+else {
+  if ([System.IO.Path]::IsPathRooted($packageArtifactInput)) {
+    $packageArtifactPath = $packageArtifactInput
+  }
+  else {
+    $packageArtifactPath = Join-Path $repoRoot $packageArtifactInput
+  }
+  $packageArtifact = Get-Item -LiteralPath $packageArtifactPath -ErrorAction SilentlyContinue
+  if (-not $packageArtifact) {
+    Fail "Packaged Setta distribution not found at $packageArtifactPath. Build it first with ./scripts/build_python_distribution_with_go_binaries.sh --wheel."
+  }
+  if ($packageArtifact.PSIsContainer) {
+    Fail "Expected packaged Setta distribution file, got directory: $packageArtifactPath"
+  }
+}
+if (-not $packageArtifact.Name.EndsWith(".whl", [System.StringComparison]::OrdinalIgnoreCase)) {
+  Fail "Native installers currently bundle a Setta wheel (.whl), got '$($packageArtifact.Name)'."
+}
 $installScript = Join-Path $repoRoot "scripts\install_desktop_launcher.ps1"
 if (-not (Test-Path -LiteralPath $installScript -PathType Leaf)) {
   Fail "Missing install_desktop_launcher.ps1 at $installScript"
@@ -78,6 +119,9 @@ param(
 setta launcher remove --json @Args
 '@ | Set-Content -LiteralPath $removeScriptPath -Encoding UTF8
 
+  $packageCopy = Join-Path $sourceDir $packageArtifact.Name
+  Copy-Item -LiteralPath $packageArtifact.FullName -Destination $packageCopy -Force
+
   $wxsPath = Join-Path $tempRoot "installer.wxs"
   @"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -95,7 +139,7 @@ setta launcher remove --json @Args
     <CustomAction
       Id="RunDesktopBootstrap"
       Directory="SystemFolder"
-      ExeCommand='WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLBIN]setta-install-desktop.ps1" -Channel native-installer -InstallSource installer-managed -OpenMode chrome-app'
+      ExeCommand='WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLBIN]setta-install-desktop.ps1" -Package "[#PackageArtifactFile]" -Channel native-installer -InstallSource installer-managed -OpenMode chrome-app'
       Execute="deferred"
       Return="check"
       Impersonate="yes" />
@@ -105,7 +149,8 @@ setta launcher remove --json @Args
     </InstallExecuteSequence>
 
     <Feature Id="MainFeature" Title="Setta Desktop Bootstrap" Level="1">
-      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="BootstrapComponents" />
+      <ComponentGroupRef Id="PackageArtifactComponents" />
     </Feature>
   </Product>
 
@@ -114,18 +159,24 @@ setta launcher remove --json @Args
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Setta Desktop">
           <Directory Id="INSTALLBIN" Name="bin" />
+          <Directory Id="INSTALLPKG" Name="packages" />
         </Directory>
       </Directory>
     </Directory>
   </Fragment>
 
   <Fragment>
-    <ComponentGroup Id="ProductComponents" Directory="INSTALLBIN">
+    <ComponentGroup Id="BootstrapComponents" Directory="INSTALLBIN">
       <Component Id="InstallScriptComponent" Guid="*">
         <File Id="InstallScriptFile" Source="$(var.SourceDir)\setta-install-desktop.ps1" KeyPath="yes" />
       </Component>
       <Component Id="RemoveScriptComponent" Guid="*">
         <File Id="RemoveScriptFile" Source="$(var.SourceDir)\setta-remove-desktop.ps1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+    <ComponentGroup Id="PackageArtifactComponents" Directory="INSTALLPKG">
+      <Component Id="PackageArtifactComponent" Guid="*">
+        <File Id="PackageArtifactFile" Source="$(var.PackageArtifactPath)" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>
@@ -136,6 +187,7 @@ setta launcher remove --json @Args
   $candleArgs = @(
     "-nologo"
     "-dSourceDir=$sourceDir"
+    "-dPackageArtifactPath=$packageCopy"
     "-dProductVersion=$Version"
     "-out"
     "$wixobjPath"
@@ -188,6 +240,7 @@ setta launcher remove --json @Args
     Set-Content -LiteralPath $hashPath -Encoding ASCII
 
   Write-Output "Built Windows installer: $msiPath"
+  Write-Output "Bundled Setta package: $($packageArtifact.FullName)"
 }
 finally {
   if (Test-Path -LiteralPath $tempRoot) {
