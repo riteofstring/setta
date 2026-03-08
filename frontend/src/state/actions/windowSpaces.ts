@@ -36,10 +36,7 @@ import {
 import { createRandomName } from "utils/idNameCreation";
 import { sanitizeNameForSlug } from "utils/nameValidation";
 import { addTemporaryNotification } from "./notifications";
-import {
-  isProjectChatGitGraphEmbeddedPaneVisible,
-  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject,
-} from "./projectChatWindowingEphemeral";
+import { isProjectChatGitGraphEmbeddedPaneVisible } from "./projectChatWindowingEphemeral";
 
 type AuthoringFloatingViewport = {
   viewportWidthPx: number;
@@ -955,11 +952,9 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
       nextGitPaneVisibleInstanceIds.push(instance.instanceId);
     }
   }
-  replaceProjectChatWindowingState(nextWindowing);
-  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject(
-    state.projectConfig.id,
+  replaceProjectChatWindowingState(nextWindowing, {
     nextGitPaneVisibleInstanceIds,
-  );
+  });
 }
 
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<

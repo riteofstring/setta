@@ -8,6 +8,7 @@ import {
   useMisc,
   usePendingOperations,
   useProjectState,
+  useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -1646,5 +1647,241 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([
       "project-chat-window-2",
     ]);
+  });
+
+  it("rolls back git-pane visibility together with the workspace restore when the write is rejected", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Git Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-1": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.git_graph_mode,
+                title: "Saved Git Graph",
+                embeddedGitPaneVisible: true,
+                zIndex: 3,
+                normalizedBounds: {
+                  x: 0.2,
+                  y: 0.1,
+                  width: 0.4,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-1"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.git_graph_mode,
+            title: "Live Git Graph",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 1,
+            bounds: {
+              x: 600,
+              y: 120,
+              width: 320,
+              height: 280,
+            },
+          },
+        },
+      }),
+    });
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {},
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: { detail: "synthetic failure" },
+      status: 500,
+      hasResponse: true,
+    });
+
+    const previousWindowing = structuredClone(
+      useProjectState.getState().projectChatWindowing,
+    );
+    const previousVisibility = structuredClone(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    );
+
+    restoreWindowSpaceInWorkspace("space-1");
+    await flushOptimisticMutation();
+
+    expect(useProjectState.getState().projectChatWindowing).toEqual(
+      previousWindowing,
+    );
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual(previousVisibility);
+  });
+
+  it("preserves foreign-project git-pane visibility when restoring a workspace layout", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Git Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.git_graph_mode,
+                title: "Saved Git Graph",
+                embeddedGitPaneVisible: true,
+                zIndex: 2,
+                normalizedBounds: {
+                  x: 0.0,
+                  y: 0.0,
+                  width: 0.4,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "foreign-project",
+          "foreign-window",
+        )]: true,
+      },
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({
+      [buildProjectChatEphemeralWindowInstanceKey(
+        "foreign-project",
+        "foreign-window",
+      )]: true,
+      [buildProjectChatEphemeralWindowInstanceKey(
+        "project-id",
+        "project-chat-window-2",
+      )]: true,
+    });
+  });
+
+  it("is a strict no-op when deployment policy disallows restore-side layout changes", () => {
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-1",
+      sessionRunCount: 0,
+      sharePolicy: {
+        allowLLM: true,
+        allowLayoutChanges: false,
+        allowParamChanges: false,
+        allowVariantChanges: false,
+        allowRun: false,
+        allowMultipleRuns: false,
+      },
+      shareDeploymentName: "deployment",
+      shareDeploymentVersion: "v1",
+      deploymentMode: "share",
+    });
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Git Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-1": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.git_graph_mode,
+                title: "Saved Git Graph",
+                embeddedGitPaneVisible: true,
+                zIndex: 3,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.1,
+                  width: 0.4,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-1"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.git_graph_mode,
+            title: "Live Git Graph",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 1,
+            bounds: {
+              x: 500,
+              y: 140,
+              width: 320,
+              height: 260,
+            },
+          },
+        },
+      }),
+    });
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-id",
+          "project-chat-window-1",
+        )]: true,
+      },
+    });
+
+    const previousWindowing = structuredClone(
+      useProjectState.getState().projectChatWindowing,
+    );
+    const previousVisibility = structuredClone(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    );
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
+    expect(useProjectState.getState().projectChatWindowing).toEqual(
+      previousWindowing,
+    );
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual(previousVisibility);
   });
 });

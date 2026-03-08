@@ -35,8 +35,9 @@ import {
 } from "utils/generatedTypes";
 import {
   clearTrackedGitPaneGraphWindowIfMatches,
+  getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject,
   reconcileProjectChatWindowingEphemeralState,
-  resetProjectChatGitGraphEmbeddedPaneVisibility,
+  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject,
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,
 } from "./projectChatWindowingEphemeral";
@@ -1321,7 +1322,40 @@ export function getVisibleProjectChatWindowInstances(
 
 type ProjectChatWindowingStoreOptions = {
   syncActiveChatId?: string | undefined;
+  nextGitPaneVisibleInstanceIds?: Array<string> | undefined;
 };
+
+function applyProjectChatWindowingEphemeralState(
+  projectConfigId: string,
+  nextProjectChatWindowing: ProjectChatWindowingState,
+  options: ProjectChatWindowingStoreOptions,
+): void {
+  if (Object.hasOwn(options, "nextGitPaneVisibleInstanceIds")) {
+    replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject(
+      projectConfigId,
+      options.nextGitPaneVisibleInstanceIds ?? [],
+    );
+  }
+  reconcileProjectChatWindowingEphemeralState(
+    nextProjectChatWindowing,
+    projectConfigId,
+  );
+}
+
+function restoreProjectChatWindowingEphemeralState(
+  projectConfigId: string,
+  previousProjectChatWindowing: ProjectChatWindowingState,
+  previousGitPaneVisibleInstanceIds: Array<string>,
+): void {
+  replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject(
+    projectConfigId,
+    previousGitPaneVisibleInstanceIds,
+  );
+  reconcileProjectChatWindowingEphemeralState(
+    previousProjectChatWindowing,
+    projectConfigId,
+  );
+}
 
 function setProjectChatWindowingStateInStore(
   nextProjectChatWindowing: ProjectChatWindowingState,
@@ -1332,12 +1366,12 @@ function setProjectChatWindowingStateInStore(
     useProjectState.getState().projectChatWindowing;
   const previousActiveChatId = useAIStore.getState().activeChatId;
   const shouldSyncActiveChatId = Object.hasOwn(options, "syncActiveChatId");
-  if (projectConfigId) {
-    reconcileProjectChatWindowingEphemeralState(
-      nextProjectChatWindowing,
-      projectConfigId,
-    );
-  }
+  const previousGitPaneVisibleInstanceIds =
+    !projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID
+      ? []
+      : getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject(
+          projectConfigId,
+        );
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     useProjectState.setState((state) => {
       state.projectChatWindowing = nextProjectChatWindowing;
@@ -1352,6 +1386,11 @@ function setProjectChatWindowingStateInStore(
 
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
+      applyProjectChatWindowingEphemeralState(
+        projectConfigId,
+        nextProjectChatWindowing,
+        options,
+      );
       state.projectChatWindowing = nextProjectChatWindowing;
       if (shouldSyncActiveChatId) {
         useAIStore.setState({
@@ -1360,9 +1399,10 @@ function setProjectChatWindowingStateInStore(
       }
     },
     rollback: (state) => {
-      reconcileProjectChatWindowingEphemeralState(
-        previousProjectChatWindowing,
+      restoreProjectChatWindowingEphemeralState(
         projectConfigId,
+        previousProjectChatWindowing,
+        previousGitPaneVisibleInstanceIds,
       );
       state.projectChatWindowing = previousProjectChatWindowing;
       if (shouldSyncActiveChatId) {
@@ -1401,12 +1441,12 @@ function setProjectChatWindowChatIdInStore(
     useProjectState.getState().projectChatWindowing;
   const previousActiveChatId = useAIStore.getState().activeChatId;
   const shouldSyncActiveChatId = Object.hasOwn(options, "syncActiveChatId");
-  if (projectConfigId) {
-    reconcileProjectChatWindowingEphemeralState(
-      nextProjectChatWindowing,
-      projectConfigId,
-    );
-  }
+  const previousGitPaneVisibleInstanceIds =
+    !projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID
+      ? []
+      : getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject(
+          projectConfigId,
+        );
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     useProjectState.setState((state) => {
       state.projectChatWindowing = nextProjectChatWindowing;
@@ -1421,6 +1461,11 @@ function setProjectChatWindowChatIdInStore(
 
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
+      applyProjectChatWindowingEphemeralState(
+        projectConfigId,
+        nextProjectChatWindowing,
+        {},
+      );
       state.projectChatWindowing = nextProjectChatWindowing;
       if (shouldSyncActiveChatId) {
         useAIStore.setState({
@@ -1429,9 +1474,10 @@ function setProjectChatWindowChatIdInStore(
       }
     },
     rollback: (state) => {
-      reconcileProjectChatWindowingEphemeralState(
-        previousProjectChatWindowing,
+      restoreProjectChatWindowingEphemeralState(
         projectConfigId,
+        previousProjectChatWindowing,
+        previousGitPaneVisibleInstanceIds,
       );
       state.projectChatWindowing = previousProjectChatWindowing;
       if (shouldSyncActiveChatId) {
@@ -1464,12 +1510,12 @@ export async function flushPendingProjectChatWindowingWrites(): Promise<void> {
 
 export function replaceProjectChatWindowingState(
   nextProjectChatWindowing: ProjectChatWindowingState,
+  options: ProjectChatWindowingStoreOptions = {},
 ): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
   }
-  resetProjectChatGitGraphEmbeddedPaneVisibility();
-  setProjectChatWindowingStateInStore(nextProjectChatWindowing);
+  setProjectChatWindowingStateInStore(nextProjectChatWindowing, options);
 }
 
 export function createProjectChatWindowInstance(

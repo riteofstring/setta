@@ -948,7 +948,7 @@ async def test_tools_call_invoke_linked_chat_uses_request_scoped_share_session_i
                     "shareSessionId": spoofed_session_id,
                 },
             },
-    )
+        )
 
     assert response.status_code == 200
     assert agent_runner.calls
@@ -1126,6 +1126,63 @@ async def test_tools_call_invoke_linked_chat_denies_managed_runs_when_llm_is_dis
     assert response.status_code == 403
     assert agent_runner.calls == []
     assert manager.set_chat_section_chat_id_calls == []
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.session_backend_calls == [request_session_id]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_denies_external_agent_managed_runs_when_llm_is_disallowed(
+    tmp_path,
+) -> None:
+    external_agent_runner = _DummyExternalAgentRunner()
+    (
+        app,
+        _agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=True, allowLLM=False),
+        engine_type=EngineType.external_agent,
+        external_agent_runner_override=external_agent_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 403
+    assert external_agent_runner.calls == []
+    assert manager.set_chat_section_chat_id_calls == []
+    assert manager._linked_chat_section_reservations == {}
     assert {
         recorded_share_session_id for _, recorded_share_session_id in switcher.calls
     } == {request_session_id}

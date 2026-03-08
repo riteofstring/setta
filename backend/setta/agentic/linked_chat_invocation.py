@@ -208,7 +208,10 @@ async def invoke_linked_chat(
             reason="invalid_engine_config",
             message=str(exc),
         )
-    if resolved_engine.engine_config.engineType == EngineType.setta_llm:
+    if resolved_engine.engine_config.engineType in (
+        EngineType.setta_llm,
+        EngineType.external_agent,
+    ):
         try:
             await enforce_mcp_llm_allowed(
                 ctx,
@@ -223,6 +226,7 @@ async def invoke_linked_chat(
             )
             await rollback_mcp_run_start(ctx, run_start_authorization)
             raise
+    if resolved_engine.engine_config.engineType == EngineType.setta_llm:
         runner = ctx.fastmcp.state.agent_runner
         if runner.disabled:
             return await _build_post_admission_error_result(

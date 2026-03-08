@@ -1,3 +1,34 @@
+## 2026-03-10 20:01:34 PDT
+
+Implemented the remaining consolidated fixes from the latest top-level reviews for managed linked-chat admission and authoritative git-graph window-space restore behavior, then verified the updated paths with backend tests, frontend unit tests, Playwright, and CDP.
+
+Managed linked-chat admission:
+- `invoke_linked_chat(...)` now enforces the deployment/share `allowLLM` policy before branching between `setta_llm` and `external_agent` runners.
+- This removes the engine-specific hole where managed linked-chat invocations backed by `external_agent` could still run under `allowLLM=false` even though the normal managed chat routes and frontend surface gating already treated those runs as blocked.
+- Added a backend regression that exercises the `external_agent` managed linked-chat path under `allowLLM=false` and asserts the request fails with `403` and leaves no runner calls, chat binding writes, or lingering linked-chat reservations behind.
+
+Authoritative git-pane restore and rollback:
+- Window-space restore now passes the intended embedded git-pane visibility set through the same optimistic `projectChatWindowing` write path as the restored layout instead of mutating git-pane ephemera afterward.
+- The project-chat windowing store now captures the prior per-project embedded git-pane visibility set, applies the next set inside the optimistic transaction, and restores the prior set on rollback. A failed restore is now a true no-op for both layout and embedded git-pane state.
+- Removed the global restore-time git-pane reset and changed ephemera reconciliation to preserve foreign-project visibility keys during same-project mutations. Project A restoring a window space no longer wipes project B's embedded git-pane state.
+- Full project hydration keeps the previously intended cross-project cleanup by clearing embedded git-pane visibility for other projects before reconciling the newly loaded project. That preserves the existing load behavior while making restore and local windowing mutations project-scoped.
+
+UX before vs after:
+- Before: deployment/share `allowLLM=false` blocked managed chat in the main UI but still allowed managed linked-chat MCP execution when the target engine was `external_agent`. After: all managed linked-chat entrypoints obey the same `allowLLM` boundary regardless of engine type.
+- Before: restoring a saved git-graph layout could reset or overwrite embedded git-pane state outside the authoritative layout transaction, so a failed restore or read-only restore attempt could still leave the workspace visually out of sync. After: denied or rejected restores leave both the layout and git-pane visibility exactly as they were before the action.
+- Before: restoring a window space in one project could erase unrelated projects' git-pane visibility because the restore path cleared the whole ephemera map. After: restore only changes the active project's intended git-pane state.
+
+DX before vs after:
+- Before: managed linked-chat permission logic diverged by engine type, so developers had to reason about `setta_llm` and `external_agent` separately even though the product policy was "managed chat requires `allowLLM`". After: the shared admission path is the single source of truth.
+- Before: window-space restore split one user action across two state mutations, which made rollback behavior partial and hard to reason about in tests. After: restore-side git-pane state is carried in the same optimistic write contract as `projectChatWindowing`, with explicit rollback coverage.
+- Before: project-scoped git-pane ephemera was effectively global during restore and local windowing replacement. After: helper behavior matches the keyed state model, and project-load cleanup is explicit where cross-project pruning is actually intended.
+
+Verification:
+- `./scripts/run_backend_tests.sh tests/routers/test_mcp_linked_chat_tool.py -q -k 'llm_is_disallowed'` passed: 2 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.permissions.test.ts` passed: 38 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "failed workspace restore rolls back git-pane visibility with the layout"` passed: 1 test.
+- CDP verification seeded a live read-only `Window Spaces` scenario on the running app, confirmed the restore control stayed disabled, and confirmed a direct restore invocation left both the floating git-graph window bounds and embedded git-pane visibility unchanged.
+
 ## 2026-03-10 18:09:50 PDT
 
 Implemented the consolidated top-level review fixes for authoritative managed-chat surface admission, project-scoped chat hydration, and truthful layout-permission affordances, then verified the changed paths with Vitest, Playwright, and CDP.

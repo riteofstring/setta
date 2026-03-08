@@ -102,8 +102,12 @@ function pruneProjectChatGitGraphEmbeddedPaneVisibility(
     for (const ephemeralKey of Object.keys(visibilityByEphemeralKey)) {
       const parsedKey =
         parseProjectChatEphemeralWindowInstanceKey(ephemeralKey);
-      if (!parsedKey || parsedKey.projectConfigId !== projectConfigId) {
+      if (!parsedKey) {
         changed = true;
+        continue;
+      }
+      if (parsedKey.projectConfigId !== projectConfigId) {
+        nextVisibilityByEphemeralKey[ephemeralKey] = true;
         continue;
       }
       const instance =
@@ -135,21 +139,6 @@ function pruneProjectChatGitGraphEmbeddedPaneVisibility(
   });
 }
 
-export function resetProjectChatGitGraphEmbeddedPaneVisibility(): void {
-  useMisc.setState((state) => {
-    if (
-      Object.keys(state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId)
-        .length === 0
-    ) {
-      return state;
-    }
-    return {
-      ...state,
-      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {},
-    };
-  });
-}
-
 export function isProjectChatGitGraphEmbeddedPaneVisible(
   projectConfigId: string,
   instanceId: string,
@@ -163,6 +152,56 @@ export function isProjectChatGitGraphEmbeddedPaneVisible(
       ephemeralKey
     ] === true
   );
+}
+
+export function getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject(
+  projectConfigId: string,
+): Array<string> {
+  const visibleInstanceIds: Array<string> = [];
+  for (const ephemeralKey of Object.keys(
+    useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+  )) {
+    const parsedKey = parseProjectChatEphemeralWindowInstanceKey(ephemeralKey);
+    if (parsedKey?.projectConfigId !== projectConfigId) {
+      continue;
+    }
+    visibleInstanceIds.push(parsedKey.instanceId);
+  }
+  return visibleInstanceIds;
+}
+
+export function clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects(
+  projectConfigId: string,
+): void {
+  useMisc.setState((state) => {
+    const currentVisibility =
+      state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId;
+    const nextVisibility: Record<string, true> = {};
+    let changed = false;
+
+    for (const ephemeralKey of Object.keys(currentVisibility)) {
+      const parsedKey =
+        parseProjectChatEphemeralWindowInstanceKey(ephemeralKey);
+      if (!parsedKey) {
+        changed = true;
+        continue;
+      }
+      if (parsedKey.projectConfigId !== projectConfigId) {
+        changed = true;
+        continue;
+      }
+      nextVisibility[ephemeralKey] = true;
+    }
+
+    if (!changed) {
+      return state;
+    }
+
+    return {
+      ...state,
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: nextVisibility,
+    };
+  });
 }
 
 export function replaceProjectChatGitGraphEmbeddedPaneVisibilityForProject(
