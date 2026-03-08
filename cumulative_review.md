@@ -1,3 +1,31 @@
+## 2026-03-10 23:39:37 PDT
+
+Implemented the remaining consolidated review fixes for MCP HTTP tool runtime-policy enforcement, removed the superseded sub-agent wrapper path, and locked the policy boundary down with focused metadata and router coverage.
+
+MCP tools-call policy authority:
+- Added explicit runtime-policy metadata for discoverable Setta MCP tools. Tool annotations now carry `requiresLLM` and `startsRun`, so the tool definition itself is the source of truth for deployment/share policy requirements instead of the `/__setta__/tools/call` route guessing from tool names or relying on ad hoc tool-local checks.
+- `/__setta__/tools/call` now enforces runtime policy centrally before dispatch. `requiresLLM` tools go through the same deployment/share LLM gate as the canonical HTTP routes, and `startsRun` tools go through the same run-start and single-run-slot enforcement path used by linked chat.
+- Added pending MCP run-start authorization bookkeeping so run-start reservations are committed only after a tool actually starts a run, and rolled back automatically if the tool fails before start. This keeps session run counts correct for both normal multi-run deployments and single-run deployments that reserve a slot up front.
+
+Agent-profile MCP tool cleanup:
+- Marked `list_agent_profiles` and `get_agent_profile` as `requiresLLM`, closing the policy hole where `allowLLM=false` deployments could still enumerate profiles and read full profile definitions, including system prompts, through `/__setta__/tools/call`.
+- Marked `run_agent_profile` as both `requiresLLM` and `startsRun`, so it now obeys the same `allowRun`, `allowMultipleRuns`, and `allowLLM` contract as the supported run-start surfaces.
+- Simplified `run_agent_profile` to an explicit `start_run(...)` followed by `wait_for_run(...)`, with the MCP run-start authorization committed exactly when the run starts. Removed the now-dead `AgentRunner.run_sub_agent(...)` wrapper instead of leaving a second overlapping start/wait API behind.
+
+UX before vs after:
+- Before: deployment/share operators could disable LLM access or run access on the documented product surfaces, but the same session could still use `/__setta__/tools/call` to read agent profiles or start agent-profile runs through a less-protected path. After: those MCP HTTP calls fail closed with the same policy boundary as the canonical HTTP routes.
+- Before: single-run deployments could end up with route-dependent behavior because the MCP path did not share the same run-start admission contract. After: a tool that starts runs is admitted or rejected by the same central policy path regardless of entrypoint.
+
+DX before vs after:
+- Before: runtime policy for MCP tools depended on scattered tool-local behavior and implicit route knowledge, which made it easy to widen `/__setta__/tools/call` without realizing a tool lacked the corresponding policy checks. After: the policy contract is attached to the tool definition and enforced centrally at dispatch.
+- Before: the agent runner exposed both `start_run(...)` and a separate `run_sub_agent(...)` wrapper that encoded a second start/wait pattern. After: the MCP tool uses the same explicit start/wait flow as the rest of the runtime, which removes dead surface area and makes run-count commit timing easier to reason about.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/mcp/test_tool_runtime_policy_metadata.py tests/mcp/test_tool_access_metadata_completeness.py tests/routers/test_mcp_tools_call_runtime_policy.py tests/routers/test_mcp_linked_chat_tool.py -q` passed: 41 tests.
+- Added `tests/mcp/test_tool_runtime_policy_metadata.py` to lock the metadata contract on the affected MCP tools.
+- Added `tests/routers/test_mcp_tools_call_runtime_policy.py` to cover denied deployment/share reads, denied run starts under `allowRun=false`, denied single-run overflow, successful run-start bookkeeping, and rollback when run start fails before commit.
+- No Playwright or CDP verification was needed for this change because it does not alter a browser-visible UI path; the fix is backend runtime-policy enforcement only.
+
 ## 2026-03-10 20:01:34 PDT
 
 Implemented the remaining consolidated fixes from the latest top-level reviews for managed linked-chat admission and authoritative git-graph window-space restore behavior, then verified the updated paths with backend tests, frontend unit tests, Playwright, and CDP.

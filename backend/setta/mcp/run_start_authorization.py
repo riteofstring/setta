@@ -4,6 +4,8 @@ from mcp.server.fastmcp.server import Context
 
 from setta.runtime.context import RuntimeContext
 
+_PENDING_MCP_RUN_START_AUTHORIZATION_ATTR = "_pending_mcp_run_start_authorization"
+
 
 @dataclass(frozen=True)
 class MCPRunStartAuthorization:
@@ -63,3 +65,43 @@ async def rollback_mcp_run_start(
         await ctx.fastmcp.state.share_runtime_state.rollback_reserved_session_run_count(
             authorization.share_session_id
         )
+
+
+def _resolve_pending_run_start_session(ctx: Context) -> object | None:
+    try:
+        request_context = ctx.request_context
+    except ValueError:
+        return None
+    return getattr(request_context, "session", None)
+
+
+async def authorize_pending_mcp_run_start(ctx: Context) -> None:
+    authorization = await authorize_mcp_run_start(ctx)
+    session = _resolve_pending_run_start_session(ctx)
+    if session is None:
+        raise KeyError(
+            "Missing MCP request session for pending run-start authorization."
+        )
+    setattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, authorization)
+
+
+def commit_pending_mcp_run_start(ctx: Context) -> None:
+    session = _resolve_pending_run_start_session(ctx)
+    if session is None:
+        return
+    authorization = getattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, None)
+    if authorization is None:
+        return
+    delattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR)
+    commit_mcp_run_start(ctx, authorization)
+
+
+async def rollback_pending_mcp_run_start(ctx: Context) -> None:
+    session = _resolve_pending_run_start_session(ctx)
+    if session is None:
+        return
+    authorization = getattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, None)
+    if authorization is None:
+        return
+    delattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR)
+    await rollback_mcp_run_start(ctx, authorization)

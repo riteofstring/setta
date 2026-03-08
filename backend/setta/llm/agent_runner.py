@@ -360,35 +360,6 @@ class AgentRunner:
             raise KeyError(f"Agent run {run_id} not found")
         return run
 
-    async def run_sub_agent(
-        self,
-        profile: AgentProfile,
-        inputs: dict[str, Any] | None,
-    ) -> AgentRun:
-        context = self._build_context(
-            profile,
-            inputs,
-            emit_stream=False,
-            emit_ai_follow=False,
-        )
-        run = context.run
-        save_agent_run(self.dbe, run)
-        self._record_event(
-            run,
-            "run_started",
-            {
-                "profileId": str(profile.id),
-                "engineConfigId": str(context.engine_config_id),
-                "projectConfigId": str(context.project_config_id),
-                "chatId": str(context.chat_id),
-                "sectionId": str(context.section_id) if context.section_id else None,
-            },
-        )
-        self._record_snapshot(run, context.project_config_id)
-        await self._run_agent(context)
-        loaded = load_agent_run(self.dbe, run.id)
-        return loaded if loaded is not None else run
-
     async def stop_run(self, run_id: ID) -> AgentRun:
         task = self._tasks.get(run_id)
         run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)

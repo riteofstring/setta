@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi import HTTPException, Request, status
 from mcp.server.fastmcp.exceptions import ToolError
 from mcp.server.fastmcp.server import Context
+from mcp.server.fastmcp.tools import Tool
 from mcp.shared.context import RequestContext
 from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
@@ -15,6 +16,12 @@ from setta.agentic.agentic_scope import (
 )
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
+from setta.mcp.run_start_authorization import (
+    authorize_pending_mcp_run_start,
+    commit_pending_mcp_run_start,
+    enforce_mcp_llm_allowed,
+    rollback_pending_mcp_run_start,
+)
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.frontend_affinity_token import (
     validate_frontend_affinity_token_for_model,
@@ -144,7 +151,11 @@ async def route_call_mcp_tool(
             fastmcp=ctx.state.mcp_server,
             request_context=request_context,
         )
-        result = await tool.run(arguments, context=context, convert_result=True)
+        result = await _run_tool_with_runtime_policy(
+            tool,
+            arguments=arguments,
+            context=context,
+        )
     except UrlElicitationRequiredError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -219,3 +230,30 @@ def _build_mcp_request_context_meta(
     if share_session_id is not None:
         payload["shareSessionId"] = share_session_id
     return _MCPToolRequestContextMeta.model_validate(payload)
+
+
+async def _run_tool_with_runtime_policy(
+    tool: Tool,
+    *,
+    arguments: dict[str, Any],
+    context: Context,
+) -> Any:
+    requires_llm = bool(getattr(tool.annotations, "requiresLLM", False))
+    starts_run = bool(getattr(tool.annotations, "startsRun", False))
+    share_session_id = context.fastmcp._resolve_share_session_id(context)
+    if requires_llm:
+        await enforce_mcp_llm_allowed(
+            context,
+            share_session_id=share_session_id,
+        )
+    if starts_run:
+        await authorize_pending_mcp_run_start(context)
+    try:
+        result = await tool.run(arguments, context=context, convert_result=True)
+    except Exception:
+        if starts_run:
+            await rollback_pending_mcp_run_start(context)
+        raise
+    if starts_run:
+        commit_pending_mcp_run_start(context)
+    return result

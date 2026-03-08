@@ -1641,48 +1641,6 @@ class TestAgentRunner:
             assert "report_completion_status" in text
 
 
-class TestAgentRunnerSubAgent:
-    @pytest.mark.asyncio
-    async def test_run_sub_agent_records_events_and_completes(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            mcp_client = MultiMCPClient(config.mcpServers, disabled=True)
-            runner = _StubAgentRunner(dbe, mcp_client, frontend_sender)
-            runner.update_config(config)
-            runner.update_api_keys(dbe.read_dot_env())
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
-
-            run = await runner.run_sub_agent(
-                profile,
-                inputs={"prompt": "hello", "allowUnscoped": True},
-            )
-
-            assert run.status == AgentRunStatus.completed
-            loaded = load_agent_run(dbe, run.id)
-            assert loaded is not None
-            event_types = [event.type for event in loaded.events]
-            assert "run_started" in event_types
-            assert "snapshot" in event_types
-            assert "run_completed" in event_types
-
-
 class TestAgentRunnerStopRun:
     @pytest.mark.asyncio
     async def test_stop_run_does_not_override_completed(self) -> None:

@@ -18,7 +18,13 @@ from setta.agentic.linked_chat_invocation import (
 from setta.agentic.store import load_agent_profiles
 from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.mcp.errors import InvalidToolArgumentsError
-from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
+from setta.mcp.run_start_authorization import commit_pending_mcp_run_start
+from setta.mcp.tool_metadata import (
+    ToolAccessMetadata,
+    ToolRuntimePolicyMetadata,
+    attach_tool_access,
+    attach_tool_runtime_policy,
+)
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
 from setta.types.id import ID
@@ -121,6 +127,10 @@ attach_tool_access(
     list_agent_profiles,
     ToolAccessMetadata(accessType="read"),
 )
+attach_tool_runtime_policy(
+    list_agent_profiles,
+    ToolRuntimePolicyMetadata(requiresLLM=True),
+)
 
 
 @setta_tool
@@ -140,6 +150,10 @@ def get_agent_profile(profileId: ID, ctx: Context) -> AgentProfile:
 attach_tool_access(
     get_agent_profile,
     ToolAccessMetadata(accessType="read"),
+)
+attach_tool_runtime_policy(
+    get_agent_profile,
+    ToolRuntimePolicyMetadata(requiresLLM=True),
 )
 
 
@@ -161,13 +175,24 @@ async def run_agent_profile(
             runner = ctx.fastmcp.state.agent_runner
             if runner.disabled:
                 raise RuntimeError("Agent runner is not available")
-            return await runner.run_sub_agent(profile, inputs)
+            run = runner.start_run(
+                profile,
+                inputs,
+                emit_stream=False,
+                emit_ai_follow=False,
+            )
+            commit_pending_mcp_run_start(ctx)
+            return await runner.wait_for_run(run.id)
     raise KeyError(f"Agent profile {profileId} not found")
 
 
 attach_tool_access(
     run_agent_profile,
     ToolAccessMetadata(accessType="structural"),
+)
+attach_tool_runtime_policy(
+    run_agent_profile,
+    ToolRuntimePolicyMetadata(requiresLLM=True, startsRun=True),
 )
 
 

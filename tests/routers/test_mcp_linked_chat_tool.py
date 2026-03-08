@@ -453,10 +453,6 @@ class _DummyAgentRunner:
     async def wait_for_run(self, run_id: ID) -> AgentRun:
         return self._runs_by_id[run_id]
 
-    async def run_sub_agent(self, profile, inputs):
-        run = self.start_run(profile, inputs, emit_stream=False, emit_ai_follow=False)
-        return await self.wait_for_run(run.id)
-
 
 class _BlockingDummyAgentRunner(_DummyAgentRunner):
     def __init__(self) -> None:

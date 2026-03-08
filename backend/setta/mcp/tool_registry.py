@@ -17,6 +17,7 @@ from setta.mcp.tool_metadata import (
     get_tool_access,
     get_tool_argument_preview,
     get_tool_result_filter,
+    get_tool_runtime_policy,
     get_tool_search_category,
     get_tool_search_tags,
 )
@@ -172,7 +173,10 @@ def _build_tool_annotations(
         get_tool_search_tags(fn),
         get_tool_search_category(fn),
     )
+    tool_runtime_policy = get_tool_runtime_policy(fn)
     access_type = "structural"
+    requires_llm = False
+    starts_run = False
     retry_on_disconnect = True
     id_paths_by_type: dict[str, list[str]] = {}
     default_target_singleton_section: str | None = None
@@ -181,12 +185,17 @@ def _build_tool_annotations(
         retry_on_disconnect = tool_access.retryOnDisconnect
         id_paths_by_type = dict(tool_access.idPathsByType)
         default_target_singleton_section = tool_access.defaultTargetSingletonSection
+    if tool_runtime_policy is not None:
+        requires_llm = tool_runtime_policy.requiresLLM
+        starts_run = tool_runtime_policy.startsRun
     if not id_paths_by_type and ai_follow_tool_arguments is not None:
         id_paths_by_type = dict(ai_follow_tool_arguments.pathsByIdType)
     return ToolAnnotations.model_validate(
         SettaToolAnnotations(
             settaToolType=tool_type,
             accessType=access_type,
+            requiresLLM=requires_llm,
+            startsRun=starts_run,
             retryOnDisconnect=retry_on_disconnect,
             idPathsByType=id_paths_by_type,
             defaultTargetSingletonSection=default_target_singleton_section,
