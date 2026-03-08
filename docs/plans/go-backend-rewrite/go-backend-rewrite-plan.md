@@ -68,7 +68,8 @@ The completed `phase-12-codex-app-server-executor-runtime.md` and
 with real Codex, OpenCode, and Claude execution plus Go-owned active
 question-response transport. The current next step is the deferred
 Codex/OpenCode/Claude MCP-rich item-parity closeout work rather than another
-executor foundation.
+executor foundation, now narrowed into the Codex-first slice documented in
+`phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

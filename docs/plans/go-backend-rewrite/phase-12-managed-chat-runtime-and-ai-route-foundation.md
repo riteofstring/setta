@@ -76,6 +76,9 @@ Current repo status as of 2026-03-09:
     in Go
   - the remaining bounded gap is now the deferred MCP-rich parity closeout,
     not another executor or launcher slice
+  - the current implementation focus for that closeout is the Codex-first
+    slice in
+    `phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`
 
 ## Scope
 
