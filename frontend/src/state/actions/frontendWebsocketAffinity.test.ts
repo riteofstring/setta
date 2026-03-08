@@ -17,10 +17,21 @@ describe("frontendWebsocketAffinity", () => {
   it("builds a normalized currentAddress without embedding affinity capability state", () => {
     const first = buildFrontendAffinityCurrentAddress("/project-a");
     const second = buildFrontendAffinityCurrentAddress("/project-a");
+    const standaloneChat =
+      buildFrontendAffinityCurrentAddress("/project-a/chat");
+    const standaloneChatThread = buildFrontendAffinityCurrentAddress(
+      "/project-a/chat/thread-123",
+    );
+    const standaloneSection = buildFrontendAffinityCurrentAddress(
+      "/project-a/section/blue_star",
+    );
     const root = buildFrontendAffinityCurrentAddress("   ");
 
     expect(first).toBe(second);
     expect(first).toBe("/project-a");
+    expect(standaloneChat).toBe("/project-a/chat");
+    expect(standaloneChatThread).toBe("/project-a/chat/thread-123");
+    expect(standaloneSection).toBe("/project-a/section/blue_star");
     expect(root).toBe("/");
   });
 
