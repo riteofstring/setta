@@ -22,7 +22,6 @@ import {
 import React from "react";
 import { renderToString } from "react-dom/server";
 import * as websocketReceive from "state/actions/websocketReceive";
-import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import * as generatedEndpoints from "utils/generatedEndpoints";
@@ -351,11 +350,6 @@ describe("plugin runtime helpers", () => {
       state.sectionVariants = {};
       state.previewSectionVariantMap = {};
     });
-    useActiveSectionUI.setState({
-      activeIds: [],
-      pendingBackendSyncOpIds: [],
-      scheduledBackendSync: null,
-    });
     useShareSession.setState({
       isDeploymentMode: false,
       shareSessionId: null,
@@ -382,11 +376,6 @@ describe("plugin runtime helpers", () => {
       state.sectionImpls = {};
       state.sectionVariants = {};
       state.previewSectionVariantMap = {};
-    });
-    useActiveSectionUI.setState({
-      activeIds: [],
-      pendingBackendSyncOpIds: [],
-      scheduledBackendSync: null,
     });
     useShareSession.setState({
       isDeploymentMode: false,
@@ -1797,7 +1786,9 @@ describe("plugin runtime helpers", () => {
   it("supports readProjectState selectors and returns cloned snapshots", async () => {
     const sectionId = "section-runtime-plugin-read";
     seedRuntimePluginSectionState(sectionId);
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId];
+    });
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -1837,7 +1828,7 @@ describe("plugin runtime helpers", () => {
       activeIds: string[];
     };
     expect(refreshedProjectConfig.id).toBe("project-config-plugin-initial");
-    expect(refreshedProjectConfig.activeIds).toEqual([]);
+    expect(refreshedProjectConfig.activeIds).toEqual([sectionId]);
 
     const sectionSnapshot = host.readProjectState({
       kind: "section",
@@ -1873,7 +1864,9 @@ describe("plugin runtime helpers", () => {
   it("supports subscribeProjectState updates and unsubscribes cleanly", async () => {
     const sectionId = "section-runtime-plugin-subscribe";
     seedRuntimePluginSectionState(sectionId);
-    useActiveSectionUI.setState({ activeIds: [] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [];
+    });
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -1914,10 +1907,16 @@ describe("plugin runtime helpers", () => {
       },
     );
 
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
-    useActiveSectionUI.setState({ activeIds: [sectionId, "section-next"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId];
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId, "section-next"];
+    });
     unsubscribe();
-    useActiveSectionUI.setState({ activeIds: ["section-after-unsubscribe"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-unsubscribe"];
+    });
 
     expect(updates).toHaveLength(2);
     expect(updates[0]).toEqual({
@@ -1928,81 +1927,6 @@ describe("plugin runtime helpers", () => {
       nextValue: [sectionId, "section-next"],
       prevValue: [sectionId],
     });
-  });
-
-  it("keeps projectConfig subscriptions structural while activeSectionIds stays live", async () => {
-    const sectionId = "section-runtime-plugin-project-config";
-    seedRuntimePluginSectionState(sectionId);
-    useActiveSectionUI.setState({ activeIds: [] });
-    const moduleUrl =
-      "data:text/javascript," +
-      encodeURIComponent(
-        "export const apiVersion = 1;\n" +
-          "export function register(host) {\n" +
-          "  globalThis.__settaCapturedPluginHost = host;\n" +
-          "}\n",
-      );
-    const plugin = buildPluginListEntry({
-      frontend: {
-        entrypointUrl: moduleUrl,
-        styleUrl: null,
-      },
-      effectiveCapabilities: ["readProjectState", "subscribeProjectState"],
-    });
-
-    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
-      plugin,
-      "ide",
-    );
-    expect(result?.error).toBeNull();
-
-    const host = getCapturedPluginHost();
-    const projectConfigUpdates: Array<{
-      nextValue: unknown;
-      prevValue: unknown | null;
-    }> = [];
-    const activeSelectionUpdates: Array<{
-      nextValue: unknown;
-      prevValue: unknown | null;
-    }> = [];
-    const unsubscribeProjectConfig = host.subscribeProjectState(
-      { kind: "projectConfig" },
-      (nextValue, prevValue) => {
-        projectConfigUpdates.push({ nextValue, prevValue });
-      },
-      {
-        fireImmediately: false,
-      },
-    );
-    const unsubscribeActiveIds = host.subscribeProjectState(
-      { kind: "activeSectionIds" },
-      (nextValue, prevValue) => {
-        activeSelectionUpdates.push({ nextValue, prevValue });
-      },
-      {
-        fireImmediately: false,
-      },
-    );
-
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
-
-    expect(
-      host.readProjectState({
-        kind: "projectConfig",
-      }) as { activeIds: string[] },
-    ).toMatchObject({
-      activeIds: [],
-    });
-    expect(projectConfigUpdates).toEqual([]);
-    expect(activeSelectionUpdates).toEqual([
-      {
-        nextValue: [sectionId],
-        prevValue: [],
-      },
-    ]);
-
-    unsubscribeProjectConfig();
-    unsubscribeActiveIds();
   });
 
   it("rejects subscribeProjectState full selectors and invalid throttle options", async () => {
@@ -2366,13 +2290,17 @@ describe("plugin runtime helpers", () => {
     );
 
     await refreshPluginRuntime();
-    useActiveSectionUI.setState({ activeIds: ["section-after-first-load"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-first-load"];
+    });
     expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
 
     listPayload = buildPluginListResponse([]);
     statusPayload = buildPluginStatusResponse([]);
     await refreshPluginRuntime();
-    useActiveSectionUI.setState({ activeIds: ["section-after-cleanup"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-cleanup"];
+    });
     expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
   });
 
