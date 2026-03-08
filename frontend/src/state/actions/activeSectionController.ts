@@ -1,5 +1,7 @@
+import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
@@ -7,7 +9,10 @@ import {
   ActiveSectionPolicyResult,
   resolveActiveSectionChange,
 } from "./activeSectionPolicy";
-import { setActiveSectionIds } from "./activeSections";
+import {
+  type SetActiveSectionIdsOptions,
+  setActiveSectionIds,
+} from "./activeSections";
 import {
   getCurrEffectiveSectionImpl,
   getHighestAncestor,
@@ -132,8 +137,9 @@ function buildPolicyContext(
 
 export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
+  options?: SetActiveSectionIdsOptions,
 ): ActiveSectionControllerResult {
-  const activeIds = useProjectState.getState().projectConfig.activeIds;
+  const activeIds = getActiveSectionUIIds();
   const isSelectingParams = useMisc.getState().isSelectingParams;
   const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 
@@ -147,10 +153,14 @@ export function applyActiveSectionChange(
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
 
   if (activeIdsChanged) {
-    setActiveSectionIds(decision.nextActiveIds);
+    setActiveSectionIds(decision.nextActiveIds, options);
   }
 
-  if (decision.updateZIndex) {
+  const skipBenchmarkZIndexReorder =
+    getRequestedSettingsAllSettingsBenchmarkStageFromWindow() ===
+    "full-no-zindex";
+
+  if (decision.updateZIndex && !skipBenchmarkZIndexReorder) {
     const zIndexTargets = getZIndexTargets(intent);
     if (zIndexTargets.length > 0) {
       setZIndices(zIndexTargets, false);

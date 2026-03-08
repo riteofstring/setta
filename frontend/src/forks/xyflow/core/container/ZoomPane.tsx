@@ -166,6 +166,7 @@ const ZoomPane = ({
             // we can't use the start, zoom and end events from d3-zoom
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
+              useReactFlow.setState({ viewportInteractionActive: true });
               useMisc.setState({ isPanScrolling: true });
               isPanScrolling.current = true;
             }
@@ -173,6 +174,7 @@ const ZoomPane = ({
             if (isPanScrolling.current) {
               panScrollTimeout.current = setTimeout(() => {
                 isPanScrolling.current = false;
+                useReactFlow.setState({ viewportInteractionActive: false });
                 useMisc.setState({ isPanScrolling: false });
               }, 150);
             }
@@ -220,6 +222,7 @@ const ZoomPane = ({
           return;
         }
         isZoomingOrPanning.current = true;
+        useReactFlow.setState({ viewportInteractionActive: true });
 
         if (sourceEvent.type === "mousedown") {
           useReactFlow.setState({ paneDragging: true });
@@ -263,7 +266,10 @@ const ZoomPane = ({
         }
 
         isZoomingOrPanning.current = false;
-        useReactFlow.setState({ paneDragging: false });
+        useReactFlow.setState({
+          paneDragging: false,
+          viewportInteractionActive: false,
+        });
       });
     }
   }, [d3Zoom]);

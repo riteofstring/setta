@@ -2,9 +2,9 @@ import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
 import {
   useNodeInternals,
-  useProjectState,
   type ZustandNodeInternalsState,
 } from "state/definitions";
+import type { Node } from "../core/types";
 import { useReactFlow } from "../core/store";
 import { computeReadyToBeVisible } from "../core/store/utils";
 import MiniMapNode from "./MiniMapNode";
@@ -12,13 +12,40 @@ import type { GetMiniMapNodeAttribute, MiniMapNodesType } from "./types";
 
 const selectorNodes = (s: ZustandNodeInternalsState) =>
   getNodes(s).filter((node) => node.width && node.height);
+
+export function areMiniMapNodesGeometriesEqual(left: Node[], right: Node[]) {
+  if (left === right) {
+    return true;
+  }
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    const leftNode = left[index];
+    const rightNode = right[index];
+    if (!leftNode || !rightNode) {
+      return false;
+    }
+    if (
+      leftNode.id !== rightNode.id ||
+      leftNode.position.x !== rightNode.position.x ||
+      leftNode.position.y !== rightNode.position.y ||
+      leftNode.width !== rightNode.width ||
+      leftNode.height !== rightNode.height
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const getAttrFunction = (
   func: string | GetMiniMapNodeAttribute,
 ): GetMiniMapNodeAttribute => (typeof func === "function" ? func : () => func);
 
 function _MiniMapNodesReactive(props: MiniMapNodesType) {
   const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
-  const nodes = useNodeInternals(selectorNodes);
+  const nodes = useNodeInternals(selectorNodes, areMiniMapNodesGeometriesEqual);
   if (readyToBeVisible) {
     return <MiniMapNodes nodes={nodes} {...props} />;
   }
@@ -34,15 +61,12 @@ function _MiniMapNodes({
   nodeClassName = "",
   nodeBorderRadius = 5,
   nodeStrokeWidth = 2,
-  // We need to rename the prop to be `CapitalCase` so that JSX will render it as
-  // a component properly.
   nodeComponent: NodeComponent = MiniMapNode,
   onClick,
-}: MiniMapNodesType) {
+}: MiniMapNodesType & { nodes: Node[] }) {
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
-  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
 
   const isBrowser = typeof window !== "undefined";
   const isChrome = isBrowser && "chrome" in window;
@@ -61,7 +85,6 @@ function _MiniMapNodes({
             y={y}
             width={node.width!}
             height={node.height!}
-            selected={activeSectionIds.includes(node.id)}
             className={nodeClassNameFunc(node)}
             color={nodeColorFunc(node)}
             borderRadius={nodeBorderRadius}
