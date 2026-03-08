@@ -355,6 +355,18 @@ The roadmap should therefore stay honest here: there is no new caller-backed
 backend slice to open until a concrete product surface or runtime gap changes
 that evidence.
 
+The broader ownership rerank is now also recorded in
+`phase-25-remaining-python-ownership-inventory-and-rerank.md`.
+That pass confirmed that the remaining rewrite surface is no longer backend
+route/runtime ownership at all:
+
+- packaged backend/runtime and shipped command semantics are already Go-owned
+- the remaining meaningful Python ownership is concentrated in
+  `backend/setta/start.py` legacy fallback/startup behavior plus source/dev
+  and distribution/install workflow glue
+- if rewrite work continues, the next track is therefore legacy startup and
+  distribution boundary work, not another backend phase
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.
@@ -1764,7 +1776,7 @@ Do not weaken this rule during the rewrite.
    - do not reopen a broad LiteLLM-equivalent managed runtime
    - do reuse the landed Phase 14 managed-run foundations for the now-reranked
      direct frontend managed chat slice
-6. The post-Phase-24 rerank is now complete.
+6. The post-Phase-25 rerank is now complete.
    - the inventory outcome is recorded in
      `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
    - the completed project-shell phase is recorded in
@@ -1785,6 +1797,10 @@ Do not weaken this rule during the rewrite.
      `phase-23-post-artifact-direct-frontend-route-inventory-and-rerank.md`
    - the broader post-Phase-23 capability rerank is recorded in
      `phase-24-caller-backed-capability-gap-inventory-and-rerank.md`
+   - the broader remaining-Python-ownership rerank is recorded in
+     `phase-25-remaining-python-ownership-inventory-and-rerank.md`
+   - the next optional rewrite-track plan is recorded in
+     `phase-25-legacy-startup-and-distribution-boundary-plan.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1800,6 +1816,10 @@ Do not weaken this rule during the rewrite.
        without a concrete new caller or runtime gap
    - there is currently no new backend implementation slice selected by the
      roadmap evidence alone
+   - if rewrite work continues, the next track is now explicitly:
+     - legacy Python startup/fallback ownership
+     - source/dev startup wiring
+     - distribution/install workflow glue
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise

@@ -1,10 +1,10 @@
 # Setta CLI Commands
 
 This doc covers the commands exposed by the shipped `setta` CLI. The published
-entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
-Go-owned commands are handed off to packaged Go binaries, while any remaining
-Python-owned local commands still route through `backend/setta/start.py`.
-`setta plugins` is now fully Go-owned in the shipped CLI.
+entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher to the
+packaged Go binary for the current shipped command surface. Legacy
+`backend/setta/start.py` behavior remains as fallback/dev-oriented code rather
+than as the owner of the commands documented here.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -37,7 +37,7 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
-| `setta plugins` | yes | no | Split command cluster: Go owns authoring/local-link, status/lifecycle, and lockfile write; Python still owns install/update/pin, lock apply, and restart. |
+| `setta plugins` | yes | no | Fully Go-owned packaged plugin command cluster. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |

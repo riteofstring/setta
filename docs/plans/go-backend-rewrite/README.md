@@ -732,12 +732,20 @@ Use the docs in this order:
   - focused broader rerank doc showing that the remaining typed Go
     `unsupported` / `unavailable` branches still do not select a new
     caller-backed backend phase after Phase 23
-200. `spike-mcp.md`
+200. `phase-25-remaining-python-ownership-inventory-and-rerank.md`
+  - focused broader ownership rerank doc showing that the remaining rewrite
+    surface is now legacy Python startup/fallback and workflow/distribution
+    glue, not another backend runtime phase
+201. `phase-25-legacy-startup-and-distribution-boundary-plan.md`
+  - focused plan for the next optional rewrite track: reduce legacy
+    `setta.start` ownership and dev/distribution workflow glue without
+    reopening backend route/runtime work
+202. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-201. `spike-pty.md`
+203. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-202. `spike-lsp.md`
+204. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

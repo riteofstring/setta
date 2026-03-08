@@ -31,6 +31,14 @@ Current repo status as of 2026-03-10:
 - those branches need caller evidence before they should drive a new rewrite
   phase
 
+Postscript after the broader ownership rerank:
+
+- the follow-on ownership inventory is now recorded in
+  `phase-25-remaining-python-ownership-inventory-and-rerank.md`
+- that pass confirmed there is still no new backend implementation phase
+- this doc should now be read as the closeout of the capability-gap rerank,
+  not as the active broader rewrite boundary
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -237,3 +245,8 @@ Instead:
 - until then, prefer targeted regression hardening or product-driven slices
   when completed Go owners are touched, rather than reopening backend roadmap
   areas speculatively
+
+Later outcome:
+
+- the next broader rewrite boundary is now recorded in
+  `phase-25-remaining-python-ownership-inventory-and-rerank.md`
