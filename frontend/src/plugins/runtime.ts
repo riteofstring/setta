@@ -1,7 +1,7 @@
 import throttle from "lodash/throttle";
 import { useEffect } from "react";
+import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import {
   useActiveSectionUI,
   useProjectState,

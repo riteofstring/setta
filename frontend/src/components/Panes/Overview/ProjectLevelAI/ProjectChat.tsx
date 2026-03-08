@@ -16,7 +16,6 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
-import { buildOverviewProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
@@ -84,7 +83,6 @@ import { ProjectAISettings } from "./ProjectAISettings";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
-  type ProjectChatBlockedErrorCode,
 } from "./ProjectChatCore";
 import {
   focusInputWithoutSelectionById,
@@ -205,15 +203,6 @@ type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
   draftMessageByProjectConfigId: Record<string, string>;
   projectConfigId: string;
   nextDraftMessage: string;
-};
-
-type ProjectChatProps = {
-  surfaceId?: string;
-  chatId?: string | null | undefined;
-  setChatId?: (next: SetStateAction<string | null | undefined>) => void;
-  onBlockedErrorCodeChange?: (
-    errorCode: ProjectChatBlockedErrorCode | null,
-  ) => void;
 };
 
 export function resolveProjectChatThreadVisibilityFromResize({
@@ -443,45 +432,11 @@ export function setProjectChatAuxViewForActiveProject(
   });
 }
 
-export function ProjectChat({
-  surfaceId,
-  chatId: controlledChatId,
-  setChatId: controlledSetChatId,
-  onBlockedErrorCodeChange,
-}: ProjectChatProps = {}) {
-  const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const resolvedSurfaceId =
-    surfaceId ?? buildOverviewProjectChatSurfaceId(projectConfigId);
-  return (
-    <ProjectChatSurface
-      key={resolvedSurfaceId}
-      resolvedSurfaceId={resolvedSurfaceId}
-      controlledChatId={controlledChatId}
-      controlledSetChatId={controlledSetChatId}
-      onBlockedErrorCodeChange={onBlockedErrorCodeChange}
-    />
-  );
-}
-
-function ProjectChatSurface({
-  resolvedSurfaceId,
-  controlledChatId,
-  controlledSetChatId,
-  onBlockedErrorCodeChange,
-}: {
-  resolvedSurfaceId: string;
-  controlledChatId: string | null | undefined;
-  controlledSetChatId?: (
-    next: SetStateAction<string | null | undefined>,
-  ) => void;
-  onBlockedErrorCodeChange?: (
-    errorCode: ProjectChatBlockedErrorCode | null,
-  ) => void;
-}) {
-  const globalChatId = useAIStore((state) => state.activeChatId);
+export function ProjectChat() {
+  const chatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const setGlobalChatId = useCallback(
+  const setChatId = useCallback(
     (next: SetStateAction<string | null | undefined>) => {
       useAIStore.setState((state) => {
         const resolved =
@@ -491,9 +446,6 @@ function ProjectChatSurface({
     },
     [],
   );
-  const chatId =
-    controlledSetChatId !== undefined ? controlledChatId : globalChatId;
-  const setChatId = controlledSetChatId ?? setGlobalChatId;
   const [draftThreadState, setDraftThreadState] =
     useState<DraftProjectThreadState>({
       phase: "none",
@@ -507,17 +459,11 @@ function ProjectChatSurface({
   const [conversationFilterText, setConversationFilterText] = useState("");
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
-  const [chatContainerNode, setChatContainerNode] =
-    useState<HTMLDivElement | null>(null);
-  const [chatContainerWidth, setChatContainerWidth] = useState<number | null>(
-    null,
-  );
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
     if (chatId === null) {
-      const pendingMessages =
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]?.messages;
+      const pendingMessages = state.pendingChatDetails?.messages;
       if (Array.isArray(pendingMessages)) {
         return pendingMessages as Array<BaseChatMessageUnion>;
       }
@@ -534,10 +480,7 @@ function ProjectChatSurface({
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
     if (chatId === null) {
-      return Boolean(
-        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]
-          ?.waitingForResponse,
-      );
+      return Boolean(state.pendingChatDetails?.waitingForResponse);
     }
     if (typeof chatId !== "string") {
       return false;
@@ -549,6 +492,8 @@ function ProjectChatSurface({
     apiKeys,
     apiKeysAuthoritative,
     apiKeysInitialLoadComplete,
+    viewThreads,
+    projectChatThreadsExplicitlyClosedAtLargeWidth,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -561,6 +506,7 @@ function ProjectChatSurface({
     transcriptionProfilesInitialLoadComplete,
     projectChatDictationMode,
     projectChatTranscriptionProfileId,
+    projectChatSelectedEngineId,
     projectChatActivityAccordionOpenByDefault,
     projectChatActivityChildrenOpenByDefault,
     agentRunsLoadError,
@@ -570,6 +516,9 @@ function ProjectChatSurface({
       apiKeys: x.apiKeys,
       apiKeysAuthoritative: x.apiKeysAuthoritative,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+      viewThreads: x.viewThreads,
+      projectChatThreadsExplicitlyClosedAtLargeWidth:
+        x.projectChatThreadsExplicitlyClosedAtLargeWidth,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -584,6 +533,7 @@ function ProjectChatSurface({
         x.transcriptionProfilesInitialLoadComplete,
       projectChatDictationMode: x.projectChatDictationMode,
       projectChatTranscriptionProfileId: x.projectChatTranscriptionProfileId,
+      projectChatSelectedEngineId: x.projectChatSelectedEngineId,
       projectChatActivityAccordionOpenByDefault:
         x.projectChatActivityAccordionOpenByDefault,
       projectChatActivityChildrenOpenByDefault:
@@ -594,8 +544,6 @@ function ProjectChatSurface({
     _.isEqual,
   );
   const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
-  const effectiveInlineThreadsViewportWidth =
-    chatContainerWidth ?? overviewPaneWidth;
   const { threadAssignments, threadGroups } = useLocalStorage(
     (state) => ({
       threadAssignments:
@@ -606,33 +554,15 @@ function ProjectChatSurface({
     }),
     _.isEqual,
   );
-  const initialProjectChatAuxView = useLocalStorage(
-    (state): ProjectChatAuxView => {
-      return (
-        state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none"
-      );
+  const projectChatAuxView = useLocalStorage((state): ProjectChatAuxView => {
+    return state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
+  });
+  const setProjectChatAuxView = useCallback(
+    (nextAuxView: ProjectChatAuxView) => {
+      setProjectChatAuxViewForActiveProject(nextAuxView);
     },
+    [],
   );
-  const defaultViewThreads = useAIStore((state) => state.viewThreads);
-  const defaultProjectChatThreadsExplicitlyClosedAtLargeWidth = useAIStore(
-    (state) => state.projectChatThreadsExplicitlyClosedAtLargeWidth,
-  );
-  const defaultSelectedEngineId = useAIStore(
-    (state) => state.projectChatSelectedEngineId,
-  );
-  const [projectChatAuxView, setProjectChatAuxView] =
-    useState<ProjectChatAuxView>(initialProjectChatAuxView);
-  const [viewThreads, setViewThreads] = useState(defaultViewThreads);
-  const [
-    projectChatThreadsExplicitlyClosedAtLargeWidth,
-    setProjectChatThreadsExplicitlyClosedAtLargeWidth,
-  ] = useState(defaultProjectChatThreadsExplicitlyClosedAtLargeWidth);
-  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(
-    defaultSelectedEngineId,
-  );
-  useEffect(() => {
-    setProjectChatAuxView(initialProjectChatAuxView);
-  }, [initialProjectChatAuxView, projectConfigId]);
   const draftMessage = draftMessageByProjectConfigId[projectConfigId] ?? "";
   const setDraftMessage = useCallback(
     (next: SetStateAction<string>) => {
@@ -665,6 +595,10 @@ function ProjectChatSurface({
     return stored;
   });
 
+  const selectedEngineId = projectChatSelectedEngineId;
+  const setSelectedEngineId = useCallback((value: string | null) => {
+    useAIStore.setState({ projectChatSelectedEngineId: value });
+  }, []);
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
   const [selectedThreadGroupId, setSelectedThreadGroupId] = useState<
@@ -683,7 +617,7 @@ function ProjectChatSurface({
   const inlineThreadsResizableColumnRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedInlineThreadsResizeSyncRef = useRef(false);
   const previousLargeEnoughForInlineThreadsRef = useRef(
-    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX,
+    overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX,
   );
 
   const availableConfigGroups = useMemo(
@@ -1162,7 +1096,6 @@ function ProjectChatSurface({
           chatEngineConfigByChatId,
         });
       setSelectedEngineId(nextEngineId);
-      useAIStore.setState({ projectChatSelectedEngineId: nextEngineId });
       setProjectChatAuxView("none");
       setEngineSwitchContinuation(nextContinuation);
       if (nextContinuation) {
@@ -1290,48 +1223,9 @@ function ProjectChatSurface({
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
 
-  const handleChatContainerRef = useCallback((node: HTMLDivElement | null) => {
-    setChatContainerNode(node);
-  }, []);
-
-  useEffect(() => {
-    if (!chatContainerNode) {
-      return;
-    }
-
-    const syncChatContainerWidth = (nextWidth: number) => {
-      const roundedWidth = Math.max(0, Math.round(nextWidth));
-      setChatContainerWidth((currentWidth) => {
-        if (currentWidth === roundedWidth) {
-          return currentWidth;
-        }
-        return roundedWidth;
-      });
-    };
-
-    syncChatContainerWidth(chatContainerNode.getBoundingClientRect().width);
-
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const firstEntry = entries[0];
-      if (!firstEntry) {
-        return;
-      }
-      syncChatContainerWidth(firstEntry.contentRect.width);
-    });
-    resizeObserver.observe(chatContainerNode);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [chatContainerNode]);
-
   useEffect(() => {
     const isLargeEnoughForInlineThreads =
-      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
+      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
     const nextVisibility = resolveProjectChatThreadVisibilityFromResize({
       isInitialRun: !hasInitializedInlineThreadsResizeSyncRef.current,
       wasLargeEnoughForInlineThreads:
@@ -1347,24 +1241,23 @@ function ProjectChatSurface({
     if (nextVisibility === null || nextVisibility === viewThreads) {
       return;
     }
-    setViewThreads(nextVisibility);
+    useAIStore.setState({ viewThreads: nextVisibility });
   }, [
-    effectiveInlineThreadsViewportWidth,
+    overviewPaneWidth,
     projectChatThreadsExplicitlyClosedAtLargeWidth,
     viewThreads,
   ]);
 
   const showInlineThreads =
-    viewThreads &&
-    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
+    viewThreads && overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
   const inlineThreadsMaxWidth = useMemo(() => {
     const boundedMaxWidth = clamp(
-      effectiveInlineThreadsViewportWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
+      overviewPaneWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
       INLINE_THREADS_MIN_WIDTH_PX,
       INLINE_THREADS_MAX_WIDTH_PX,
     );
     return boundedMaxWidth;
-  }, [effectiveInlineThreadsViewportWidth]);
+  }, [overviewPaneWidth]);
   const resolvedInlineThreadsWidth = useMemo(() => {
     return clamp(
       inlineThreadsWidth,
@@ -1543,20 +1436,23 @@ function ProjectChatSurface({
       setProjectChatAuxView("none");
       return;
     }
-    setViewThreads(false);
-  }, [projectChatAuxView]);
+    useAIStore.setState({ viewThreads: false });
+  }, [projectChatAuxView, setProjectChatAuxView]);
   const handleToggleThreads = useCallback(() => {
     setProjectChatAuxView("none");
     const isLargeEnoughForInlineThreads =
-      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
-    setViewThreads((current) => {
-      const nextViewThreads = !current;
-      if (isLargeEnoughForInlineThreads) {
-        setProjectChatThreadsExplicitlyClosedAtLargeWidth(!nextViewThreads);
+      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+    useAIStore.setState((state) => {
+      const nextViewThreads = !state.viewThreads;
+      if (!isLargeEnoughForInlineThreads) {
+        return { viewThreads: nextViewThreads };
       }
-      return nextViewThreads;
+      return {
+        viewThreads: nextViewThreads,
+        projectChatThreadsExplicitlyClosedAtLargeWidth: !nextViewThreads,
+      };
     });
-  }, [effectiveInlineThreadsViewportWidth]);
+  }, [overviewPaneWidth, setProjectChatAuxView]);
   const handleOpenProjectSettingsAuxView = useCallback(() => {
     setProjectChatAuxView("ai_settings");
   }, [setProjectChatAuxView]);
@@ -1585,11 +1481,13 @@ function ProjectChatSurface({
       }
       setEngineSwitchContinuation(null);
       if (!showInlineThreads) {
-        setViewThreads(false);
+        useAIStore.setState({
+          viewThreads: false,
+        });
       }
       setProjectChatAuxView("none");
     },
-    [setChatId, showInlineThreads],
+    [setChatId, setProjectChatAuxView, showInlineThreads],
   );
   const handleNewChatClick = useCallback(() => {
     startNewChatDraft({
@@ -1617,7 +1515,7 @@ function ProjectChatSurface({
     if (!engineSwitchContinuation) {
       return;
     }
-    seedPendingChatDetails(activeConversationMessages, resolvedSurfaceId);
+    seedPendingChatDetails(activeConversationMessages);
     setChatId(null);
     setDraftThreadState({ phase: "idle" });
     setDraftThreadTargetGroupId(selectedThreadGroupId);
@@ -1626,15 +1524,17 @@ function ProjectChatSurface({
     );
     setEngineSwitchContinuation(null);
     if (!showInlineThreads) {
-      setViewThreads(false);
+      useAIStore.setState({
+        viewThreads: false,
+      });
     }
     setProjectChatAuxView("none");
   }, [
     activeConversationMessages,
     engineSwitchContinuation,
-    resolvedSurfaceId,
     selectedThreadGroupId,
     setChatId,
+    setProjectChatAuxView,
     showInlineThreads,
   ]);
   const returnToChatTooltipHandlers = useMemo(
@@ -1804,10 +1704,7 @@ function ProjectChatSurface({
     apiKeysInitialLoadComplete &&
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
-      <div
-        ref={handleChatContainerRef}
-        className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden @container"
-      >
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden @container">
         <nav className="flex flex-col border-b border-setta-100 dark:border-setta-800 [&_button]:cursor-pointer">
           <div className="flex w-full min-w-0 items-stretch">
             {showInlineThreads ? (
@@ -1957,7 +1854,7 @@ function ProjectChatSurface({
                   ) : null}
                   {showConversationFilter ? (
                     <search
-                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16.25rem]:col-span-1 @[16.25rem]:col-start-2 @[16.25rem]:row-start-1 @[44rem]:min-w-[11rem]"
+                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16.25rem]:col-span-1 @[16.25rem]:col-start-2 @[16.25rem]:row-start-1"
                       data-testid="project-chat-conversation-filter"
                     >
                       <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 pl-1">
@@ -2085,14 +1982,10 @@ function ProjectChatSurface({
                   inline={true}
                   closeOnSelect={false}
                   draftThread={draftThreadHint}
-                  draftWaitingForResponse={selectedChatWaitingForResponse}
                   selectedGroupId={selectedThreadGroupId}
                   onSelectedGroupChange={setSelectedThreadGroupId}
                   onStartNewThread={handleNewChatClick}
                   onStartNewThreadInGroup={handleNewChatInThreadGroup}
-                  onCloseThreadsView={() => {
-                    setViewThreads(false);
-                  }}
                   headerPortalTarget={inlineThreadsHeaderPortalTarget}
                 />
               </div>
@@ -2107,7 +2000,6 @@ function ProjectChatSurface({
                 </div>
               ) : (
                 <ProjectChatCore
-                  surfaceId={resolvedSurfaceId}
                   chatId={chatId}
                   draftMessage={draftMessage}
                   setDraftMessage={setDraftMessage}
@@ -2146,7 +2038,6 @@ function ProjectChatSurface({
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
-                  onBlockedErrorCodeChange={onBlockedErrorCodeChange}
                   activeConversationSearchMatchMessageId={
                     activeConversationSearchMatchMessageId
                   }
@@ -2169,19 +2060,14 @@ function ProjectChatSurface({
             engineConfigId={effectiveEngineId}
             closeOnSelect={true}
             draftThread={draftThreadHint}
-            draftWaitingForResponse={selectedChatWaitingForResponse}
             selectedGroupId={selectedThreadGroupId}
             onSelectedGroupChange={setSelectedThreadGroupId}
             onStartNewThread={handleNewChatClick}
             onStartNewThreadInGroup={handleNewChatInThreadGroup}
-            onCloseThreadsView={() => {
-              setViewThreads(false);
-            }}
           />
         ) : (
           <>
             <ProjectChatCore
-              surfaceId={resolvedSurfaceId}
               chatId={chatId}
               draftMessage={draftMessage}
               setDraftMessage={setDraftMessage}
@@ -2216,7 +2102,6 @@ function ProjectChatSurface({
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
-              onBlockedErrorCodeChange={onBlockedErrorCodeChange}
               activeConversationSearchMatchMessageId={
                 activeConversationSearchMatchMessageId
               }
