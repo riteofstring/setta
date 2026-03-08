@@ -716,12 +716,16 @@ Use the docs in this order:
   - focused current-work plan for Go-owned workspace file-browser, artifact,
     and binary-download transport over explicit file-browser and artifact
     owners
-196. `spike-mcp.md`
+196. `phase-22-ide-artifact-owner-plan.md`
+  - focused current-work doc for the bounded IDE-only artifact owner slice:
+    file import, cached artifact reads, active caller-backed artifact writes,
+    and file deletes over state-relative artifact ids
+197. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-197. `spike-pty.md`
+198. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-198. `spike-lsp.md`
+199. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

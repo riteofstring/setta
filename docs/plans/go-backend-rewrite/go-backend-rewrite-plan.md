@@ -1721,6 +1721,8 @@ Do not weaken this rule during the rewrite.
      `phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`
    - the current artifact/file-browser direct-frontend phase plan is recorded
      in `phase-22-artifact-and-file-browser-route-cluster-plan.md`
+   - the focused current-work artifact slice is recorded in
+     `phase-22-ide-artifact-owner-plan.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`

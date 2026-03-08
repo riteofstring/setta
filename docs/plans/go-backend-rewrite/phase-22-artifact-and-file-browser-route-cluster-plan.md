@@ -306,6 +306,13 @@ Status:
 
 - planned
 
+Focused current-work doc:
+
+- `phase-22-ide-artifact-owner-plan.md`
+  - narrows this slice to the bounded IDE owner surface, keeps public artifact
+    ids state-relative, and defers share/deployment overlay behavior to
+    Slice 3
+
 ### Slice 3: Share/deployment artifact session behavior and phase closeout
 
 Routes:
