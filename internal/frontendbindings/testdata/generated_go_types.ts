@@ -8360,7 +8360,6 @@ export function createSetTypeErrorIgnoreRequestInput(options: Partial<SetTypeErr
 }
 
 
-
 export type PluginListEntry = {
   pluginId: string;
   name: string;
@@ -8378,42 +8377,9 @@ export type PluginListEntry = {
   enablementSource: PluginEnablementSource | null;
   restartRequired: boolean;
 };
-export function createPluginListEntry(
-  options: Partial<PluginListEntry> = {},
-): PluginListEntry {
-  return {
-    pluginId: "",
-    name: "",
-    version: "",
-    sourceScope: "workspace",
-    sourceScopeLabel: "",
-    sourceManager: "setta",
-    sourceManagerHint: null,
-    canonicalSourceKey: "",
-    sourceDigestSha256: null,
-    frontend: {
-      entrypointUrl: null,
-      styleUrl: null,
-    },
-    content: {
-      hasBlueprints: false,
-      hasProjectTemplates: false,
-      hasPrompts: false,
-    },
-    config: {
-      hasSchema: false,
-      schemaJson: null as unknown as Record<string, unknown>,
-      schemaJsonDigestSha256: null,
-      currentConfig: null as unknown as Record<string, unknown>,
-      currentConfigDigestSha256: null,
-    },
-    effectiveCapabilities: [],
-    enablementSource: null,
-    restartRequired: false,
-    ...options,
-  };
+export function createPluginListEntry(options: Partial<PluginListEntry> = {}): PluginListEntry {
+  return options as PluginListEntry;
 }
-
 
 
 export type PluginListResponse = {
@@ -8425,7 +8391,6 @@ export type PluginListResponse = {
 export function createPluginListResponse(options: Partial<PluginListResponse> = {}): PluginListResponse {
   return options as PluginListResponse;
 }
-
 
 
 export type PluginStatusEntry = {
@@ -8452,36 +8417,9 @@ export type PluginStatusEntry = {
   runtimePayloadDigestSha256: string;
   errors: Array<PluginErrorInfo>;
 };
-export function createPluginStatusEntry(
-  options: Partial<PluginStatusEntry> = {},
-): PluginStatusEntry {
-  return {
-    pluginId: "",
-    name: "",
-    version: "",
-    state: PluginRuntimeStateEnum.active,
-    sourceScope: "workspace",
-    sourceScopeLabel: "",
-    sourceManager: "setta",
-    sourceManagerHint: null,
-    sourcePath: "",
-    canonicalSourceKey: "",
-    sourceDigestSha256: null,
-    shadowedBySourcePath: null,
-    requestedCapabilities: [],
-    effectiveCapabilities: [],
-    blockedCapabilities: [],
-    registeredLanguageServers: [],
-    registeredExternalAgentAdapters: [],
-    registeredCodegenTargets: [],
-    enablementSource: null,
-    restartRequired: false,
-    runtimePayloadDigestSha256: "",
-    errors: [],
-    ...options,
-  };
+export function createPluginStatusEntry(options: Partial<PluginStatusEntry> = {}): PluginStatusEntry {
+  return options as PluginStatusEntry;
 }
-
 
 
 export type PluginStatusResponse = {

@@ -958,6 +958,81 @@ func TestAIResponseContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		properties []TypeProperty
+	}{
+		{
+			name: "PluginListEntry",
+			root: reflect.TypeOf(PluginListEntry{}),
+			properties: []TypeProperty{
+				{Name: "pluginId", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "version", TypeExpr: "string", Optional: false},
+				{Name: "sourceScope", TypeExpr: "PluginScope", Optional: false},
+				{Name: "sourceScopeLabel", TypeExpr: "string", Optional: false},
+				{Name: "sourceManager", TypeExpr: "PluginSourceManager", Optional: false},
+				{Name: "sourceManagerHint", TypeExpr: "string | null", Optional: false},
+				{Name: "canonicalSourceKey", TypeExpr: "string", Optional: false},
+				{Name: "sourceDigestSha256", TypeExpr: "string | null", Optional: false},
+				{Name: "frontend", TypeExpr: "PluginFrontendDescriptor", Optional: false},
+				{Name: "content", TypeExpr: "PluginContentDescriptor", Optional: false},
+				{Name: "config", TypeExpr: "PluginConfigDescriptor", Optional: false},
+				{Name: "effectiveCapabilities", TypeExpr: "Array<string>", Optional: false},
+				{Name: "enablementSource", TypeExpr: "PluginEnablementSource | null", Optional: false},
+				{Name: "restartRequired", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "PluginStatusEntry",
+			root: reflect.TypeOf(PluginStatusEntry{}),
+			properties: []TypeProperty{
+				{Name: "pluginId", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "version", TypeExpr: "string", Optional: false},
+				{Name: "state", TypeExpr: "PluginRuntimeState", Optional: false},
+				{Name: "sourceScope", TypeExpr: "PluginScope", Optional: false},
+				{Name: "sourceScopeLabel", TypeExpr: "string", Optional: false},
+				{Name: "sourceManager", TypeExpr: "PluginSourceManager", Optional: false},
+				{Name: "sourceManagerHint", TypeExpr: "string | null", Optional: false},
+				{Name: "sourcePath", TypeExpr: "string", Optional: false},
+				{Name: "canonicalSourceKey", TypeExpr: "string", Optional: false},
+				{Name: "sourceDigestSha256", TypeExpr: "string | null", Optional: false},
+				{Name: "shadowedBySourcePath", TypeExpr: "string | null", Optional: false},
+				{Name: "requestedCapabilities", TypeExpr: "Array<string>", Optional: false},
+				{Name: "effectiveCapabilities", TypeExpr: "Array<string>", Optional: false},
+				{Name: "blockedCapabilities", TypeExpr: "Array<PluginBlockedCapability>", Optional: false},
+				{Name: "registeredLanguageServers", TypeExpr: "Array<PluginRegisteredLanguageServer>", Optional: false},
+				{Name: "registeredExternalAgentAdapters", TypeExpr: "Array<PluginRegisteredExternalAgentAdapter>", Optional: false},
+				{Name: "registeredCodegenTargets", TypeExpr: "Array<PluginRegisteredCodegenTarget>", Optional: false},
+				{Name: "enablementSource", TypeExpr: "PluginEnablementSource | null", Optional: false},
+				{Name: "restartRequired", TypeExpr: "boolean", Optional: false},
+				{Name: "runtimePayloadDigestSha256", TypeExpr: "string", Optional: false},
+				{Name: "errors", TypeExpr: "Array<PluginErrorInfo>", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestProjectStateValueObjectContractsUseConverterObjects(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(CodeFileBindingUpdate{})); err != nil {

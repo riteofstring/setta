@@ -8586,37 +8586,7 @@ export type PluginListEntry = {
 export function createPluginListEntry(
   options: Partial<PluginListEntry> = {},
 ): PluginListEntry {
-  return {
-    pluginId: "",
-    name: "",
-    version: "",
-    sourceScope: "workspace",
-    sourceScopeLabel: "",
-    sourceManager: "setta",
-    sourceManagerHint: null,
-    canonicalSourceKey: "",
-    sourceDigestSha256: null,
-    frontend: {
-      entrypointUrl: null,
-      styleUrl: null,
-    },
-    content: {
-      hasBlueprints: false,
-      hasProjectTemplates: false,
-      hasPrompts: false,
-    },
-    config: {
-      hasSchema: false,
-      schemaJson: null as unknown as Record<string, unknown>,
-      schemaJsonDigestSha256: null,
-      currentConfig: null as unknown as Record<string, unknown>,
-      currentConfigDigestSha256: null,
-    },
-    effectiveCapabilities: [],
-    enablementSource: null,
-    restartRequired: false,
-    ...options,
-  };
+  return options as PluginListEntry;
 }
 
 export type PluginListResponse = {
@@ -8658,31 +8628,7 @@ export type PluginStatusEntry = {
 export function createPluginStatusEntry(
   options: Partial<PluginStatusEntry> = {},
 ): PluginStatusEntry {
-  return {
-    pluginId: "",
-    name: "",
-    version: "",
-    state: PluginRuntimeStateEnum.active,
-    sourceScope: "workspace",
-    sourceScopeLabel: "",
-    sourceManager: "setta",
-    sourceManagerHint: null,
-    sourcePath: "",
-    canonicalSourceKey: "",
-    sourceDigestSha256: null,
-    shadowedBySourcePath: null,
-    requestedCapabilities: [],
-    effectiveCapabilities: [],
-    blockedCapabilities: [],
-    registeredLanguageServers: [],
-    registeredExternalAgentAdapters: [],
-    registeredCodegenTargets: [],
-    enablementSource: null,
-    restartRequired: false,
-    runtimePayloadDigestSha256: "",
-    errors: [],
-    ...options,
-  };
+  return options as PluginStatusEntry;
 }
 
 export type PluginStatusResponse = {
