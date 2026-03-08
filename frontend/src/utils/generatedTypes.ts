@@ -604,3 +604,100 @@ export function createAppDefinitionValidationResponse(
 ): AppDefinitionValidationResponse {
   return options as AppDefinitionValidationResponse;
 }
+
+export type TypeCheckRequestInput = {
+  projectConfigId: string;
+};
+export function createTypeCheckRequestInput(
+  options: Partial<TypeCheckRequestInput> = {},
+): TypeCheckRequestInput {
+  return options as TypeCheckRequestInput;
+}
+
+export type GetLatestLspDiagnosticsRequestInput = {
+  projectConfigId: string;
+};
+export function createGetLatestLspDiagnosticsRequestInput(
+  options: Partial<GetLatestLspDiagnosticsRequestInput> = {},
+): GetLatestLspDiagnosticsRequestInput {
+  return options as GetLatestLspDiagnosticsRequestInput;
+}
+
+export type SettaSectionTypeErrors = {
+  callable: Array<string>;
+  params: Record<string, Array<string>>;
+};
+export function createSettaSectionTypeErrors(
+  options: Partial<SettaSectionTypeErrors> = {},
+): SettaSectionTypeErrors {
+  return options as SettaSectionTypeErrors;
+}
+
+export type SettaProjectConfigDiagnostics = {
+  projectConfigId: string;
+  errors: Record<string, SettaSectionTypeErrors>;
+  isGenCode: boolean;
+};
+export function createSettaProjectConfigDiagnostics(
+  options: Partial<SettaProjectConfigDiagnostics> = {},
+): SettaProjectConfigDiagnostics {
+  return options as SettaProjectConfigDiagnostics;
+}
+
+export type SettaLspDiagnosticPosition = {
+  line: number;
+  character: number;
+};
+export function createSettaLspDiagnosticPosition(
+  options: Partial<SettaLspDiagnosticPosition> = {},
+): SettaLspDiagnosticPosition {
+  return options as SettaLspDiagnosticPosition;
+}
+
+export type SettaLspDiagnosticRange = {
+  start: SettaLspDiagnosticPosition;
+  end: SettaLspDiagnosticPosition;
+};
+export function createSettaLspDiagnosticRange(
+  options: Partial<SettaLspDiagnosticRange> = {},
+): SettaLspDiagnosticRange {
+  return options as SettaLspDiagnosticRange;
+}
+
+export type SettaLspDiagnostic = {
+  message: string;
+  severity: number | null;
+  code: unknown;
+  source: string | null;
+  range: SettaLspDiagnosticRange;
+  uri: string | null;
+};
+export function createSettaLspDiagnostic(
+  options: Partial<SettaLspDiagnostic> = {},
+): SettaLspDiagnostic {
+  return options as SettaLspDiagnostic;
+}
+
+export type SettaLspDiagnosticsPayload = {
+  projectConfigId: string;
+  genCode: SettaProjectConfigDiagnostics;
+  codeSections: Record<string, Array<SettaLspDiagnostic>>;
+  unmappedGenCode: Array<SettaLspDiagnostic>;
+};
+export function createSettaLspDiagnosticsPayload(
+  options: Partial<SettaLspDiagnosticsPayload> = {},
+): SettaLspDiagnosticsPayload {
+  return options as SettaLspDiagnosticsPayload;
+}
+
+export type SetTypeErrorIgnoreRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  ignoreTypeErrors: boolean;
+};
+export function createSetTypeErrorIgnoreRequestInput(
+  options: Partial<SetTypeErrorIgnoreRequestInput> = {},
+): SetTypeErrorIgnoreRequestInput {
+  return options as SetTypeErrorIgnoreRequestInput;
+}

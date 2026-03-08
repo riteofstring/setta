@@ -31,6 +31,10 @@ export const GoHTTPRoutes = {
   setAppDefinition: "/setAppDefinition",
   validateAppDefinition: "/validateAppDefinition",
   getAppCatalog: "/getAppCatalog",
+  restartLanguageServer: "/restartLanguageServer",
+  typeCheck: "/typeCheck",
+  getLatestLspDiagnostics: "/getLatestLspDiagnostics",
+  setTypeErrorIgnore: "/setTypeErrorIgnore",
 } as const;
 export const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
@@ -65,6 +69,10 @@ export const RouteEnum = {
   SET_APP_DEFINITION: "/setAppDefinition",
   VALIDATE_APP_DEFINITION: "/validateAppDefinition",
   GET_APP_CATALOG: "/getAppCatalog",
+  RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
+  TYPE_CHECK: "/typeCheck",
+  GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
+  SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   WEBSOCKET_FRONTEND: "/ws/frontend",
   WEBSOCKET_LISTENER_BY_ID: "/ws/listeners/{listenerID}",
   WEBSOCKET_TERMINAL_BY_SECTION: "/ws/terminals/{projectID}/{sectionID}",

@@ -175,6 +175,26 @@ func CurrentRouteGroups() []RouteGroup {
 					Path:     httpapi.RouteGetAppCatalog,
 					EnumName: "GET_APP_CATALOG",
 				},
+				{
+					Name:     "restartLanguageServer",
+					Path:     httpapi.RouteRestartLanguageServer,
+					EnumName: "RESTART_LANGUAGE_SERVER",
+				},
+				{
+					Name:     "typeCheck",
+					Path:     httpapi.RouteTypeCheck,
+					EnumName: "TYPE_CHECK",
+				},
+				{
+					Name:     "getLatestLspDiagnostics",
+					Path:     httpapi.RouteGetLatestLSPDiagnostics,
+					EnumName: "GET_LATEST_LSP_DIAGNOSTICS",
+				},
+				{
+					Name:     "setTypeErrorIgnore",
+					Path:     httpapi.RouteSetTypeErrorIgnore,
+					EnumName: "SET_TYPE_ERROR_IGNORE",
+				},
 			},
 		},
 		{
@@ -378,6 +398,34 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "validateAppDefinition",
 			RequestType:     reflect.TypeOf(ValidateAppDefinitionRequestInput{}),
 			ResponseType:    reflect.TypeOf(AppDefinitionValidationResponse{}),
+		},
+		{
+			FunctionName:    "route_restart_language_server",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "restartLanguageServer",
+		},
+		{
+			FunctionName:    "route_type_check",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "typeCheck",
+			RequestType:     reflect.TypeOf(TypeCheckRequestInput{}),
+		},
+		{
+			FunctionName:    "route_get_latest_lsp_diagnostics",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getLatestLspDiagnostics",
+			RequestType:     reflect.TypeOf(GetLatestLspDiagnosticsRequestInput{}),
+			ResponseType:    reflect.TypeOf(SettaLspDiagnosticsPayload{}),
+		},
+		{
+			FunctionName:    "route_set_type_error_ignore",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setTypeErrorIgnore",
+			RequestType:     reflect.TypeOf(SetTypeErrorIgnoreRequestInput{}),
 		},
 	}
 }

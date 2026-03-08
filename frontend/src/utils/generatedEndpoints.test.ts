@@ -5,9 +5,13 @@ import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_get_app_catalog,
   route_get_app_definition,
+  route_get_latest_lsp_diagnostics,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
+  route_restart_language_server,
   route_set_app_definition,
+  route_set_type_error_ignore,
+  route_type_check,
   route_validate_app_definition,
 } from "./generatedEndpoints";
 
@@ -218,6 +222,90 @@ describe("generatedEndpoints app definition", () => {
         appSpec: { root: "root", elements: {} },
         appSpecVersion: "v1",
         catalogId: "setta.app.default",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints lsp helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts type-check requests to the backend origin", async () => {
+    await route_type_check({ projectConfigId: "project-1" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/typeCheck`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ projectConfigId: "project-1" }),
+    });
+  });
+
+  it("posts latest-diagnostics reads with the project id", async () => {
+    await route_get_latest_lsp_diagnostics({ projectConfigId: "project-1" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getLatestLspDiagnostics`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ projectConfigId: "project-1" }),
+    });
+  });
+
+  it("posts restart-language-server requests without a payload", async () => {
+    await route_restart_language_server();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/restartLanguageServer`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("posts type-error ignore mutations with the current request shape", async () => {
+    await route_set_type_error_ignore({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      paramInfoId: "param-1",
+      ignoreTypeErrors: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTypeErrorIgnore`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        paramInfoId: "param-1",
+        ignoreTypeErrors: true,
       }),
     });
   });

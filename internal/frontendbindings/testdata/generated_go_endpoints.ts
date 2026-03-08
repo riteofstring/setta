@@ -117,3 +117,23 @@ export async function route_validate_app_definition(x: gt.ValidateAppDefinitionR
   return await post(GoHTTPRoutes.validateAppDefinition, x);
 
 }
+export async function route_restart_language_server(): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.restartLanguageServer, null);
+
+}
+export async function route_type_check(x: gt.TypeCheckRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.typeCheck, x);
+
+}
+export async function route_get_latest_lsp_diagnostics(x: gt.GetLatestLspDiagnosticsRequestInput): Promise<ResponseDataAndStatus<gt.SettaLspDiagnosticsPayload>> {
+
+  return await post(GoHTTPRoutes.getLatestLspDiagnostics, x);
+
+}
+export async function route_set_type_error_ignore(x: gt.SetTypeErrorIgnoreRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTypeErrorIgnore, x);
+
+}

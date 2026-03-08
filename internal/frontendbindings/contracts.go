@@ -423,3 +423,55 @@ type AppDefinitionMutationResponse struct {
 	AppSpec       any            `json:"appSpec"`
 	AppDefinition *AppDefinition `json:"appDefinition,omitempty"`
 }
+
+type SettaLspDiagnosticPosition struct {
+	Line      int `json:"line"`
+	Character int `json:"character"`
+}
+
+type SettaLspDiagnosticRange struct {
+	Start SettaLspDiagnosticPosition `json:"start"`
+	End   SettaLspDiagnosticPosition `json:"end"`
+}
+
+type SettaLspDiagnostic struct {
+	Message  string                  `json:"message"`
+	Severity *int                    `json:"severity"`
+	Code     any                     `json:"code"`
+	Source   *string                 `json:"source"`
+	Range    SettaLspDiagnosticRange `json:"range"`
+	URI      *string                 `json:"uri"`
+}
+
+type SettaSectionTypeErrors struct {
+	Callable []string            `json:"callable"`
+	Params   map[string][]string `json:"params"`
+}
+
+type SettaProjectConfigDiagnostics struct {
+	ProjectConfigID string                            `json:"projectConfigId"`
+	Errors          map[string]SettaSectionTypeErrors `json:"errors"`
+	IsGenCode       bool                              `json:"isGenCode"`
+}
+
+type SettaLspDiagnosticsPayload struct {
+	ProjectConfigID string                          `json:"projectConfigId"`
+	GenCode         SettaProjectConfigDiagnostics   `json:"genCode"`
+	CodeSections    map[string][]SettaLspDiagnostic `json:"codeSections"`
+	UnmappedGenCode []SettaLspDiagnostic            `json:"unmappedGenCode"`
+}
+
+type GetLatestLspDiagnosticsRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type TypeCheckRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type SetTypeErrorIgnoreRequestInput struct {
+	ProjectConfigID  string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	ParamInfoID      *string `json:"paramInfoId"`
+	IgnoreTypeErrors bool    `json:"ignoreTypeErrors"`
+}

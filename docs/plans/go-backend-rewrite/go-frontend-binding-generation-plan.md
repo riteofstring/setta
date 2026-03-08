@@ -138,6 +138,18 @@ Current landed wedge:
     - `route_get_app_definition`
     - `route_set_app_definition`
     - `route_validate_app_definition`
+  - LSP diagnostics/admin endpoint wrappers
+    - `route_get_latest_lsp_diagnostics`
+    - `route_restart_language_server`
+    - `route_set_type_error_ignore`
+    - `route_type_check`
+  - LSP diagnostics/admin contract types
+    - `SettaLspDiagnostic`
+    - `SettaLspDiagnosticRange`
+    - `SettaLspDiagnosticPosition`
+    - `SettaSectionTypeErrors`
+    - `SettaProjectConfigDiagnostics`
+    - `SettaLspDiagnosticsPayload`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -152,6 +164,9 @@ Current landed wedge:
     launcher-management bindings
   - `AppConfigPane` now consumes the canonical Go-generated app-config
     bindings
+  - `loadProjectConfig`, `processLspDiagnostics`, `requestTypeCheck`,
+    `restartLanguageServer`, and `TypeErrorContextMenu` are now covered by
+    canonical Go-generated LSP diagnostics/admin bindings
 
 ## Cutover Rule
 
