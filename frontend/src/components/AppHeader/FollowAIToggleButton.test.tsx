@@ -28,13 +28,8 @@ let memoryStorage: Storage;
 vi.mock("@radix-ui/react-menubar", async () => {
   const React = await import("react");
   const passthrough = (Tag: React.ElementType) => {
-    return ({
-      children,
-      align,
-      sideOffset,
-      alignOffset,
-      ...props
-    }: Record<string, unknown>) => React.createElement(Tag, props, children);
+    return ({ children, ...props }) =>
+      React.createElement(Tag, props, children);
   };
   const Fragment = ({ children }) =>
     React.createElement(React.Fragment, null, children);

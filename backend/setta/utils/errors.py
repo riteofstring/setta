@@ -12,7 +12,3 @@ class InvalidParamName(ValueError):
 
 class InvalidViewModeName(ValueError):
     pass
-
-
-class InvalidWindowSpaceName(ValueError):
-    pass

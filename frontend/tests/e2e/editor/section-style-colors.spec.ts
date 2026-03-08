@@ -29,9 +29,7 @@ async function ensureAppearanceAccordionExpanded(
     "section-config-accordion-appearance",
   );
   await expect(appearanceAccordionTrigger).toBeVisible();
-  if (
-    (await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true"
-  ) {
+  if ((await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true") {
     await appearanceAccordionTrigger.click();
   }
   await expect(appearanceAccordionTrigger).toHaveAttribute(
@@ -207,84 +205,6 @@ test.describe.serial("section style colors", () => {
           { timeout: 8000 },
         )
         .toBeNull();
-    } finally {
-      await cleanupIsolatedProject(page, projectContext);
-    }
-  });
-
-  test("updates the minimap swatch when section style color changes without geometry changes", async ({
-    page,
-  }) => {
-    await seedLocalStorage(page, {
-      overviewTab: "Overview",
-      overviewVis: true,
-      uiEditorVis: true,
-      uiEditorTab: { TextBlock: "SectionConfig" },
-      colorMode: "light",
-      darkMode: false,
-      showMinimap: true,
-    });
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page);
-
-    try {
-      const { sectionId } = await createTextBlockSection(
-        page,
-        projectContext.projectConfigId,
-        "__pw_section_style_minimap__",
-      );
-
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-      await expect(node).toBeVisible();
-      await node.click();
-
-      const uiEditorPane = page.locator("#UiEditorPane");
-      await expect(uiEditorPane).toBeVisible();
-      const styleBlock = await getStyleBlock(uiEditorPane);
-
-      const sectionChrome = node
-        .locator(`section[data-section-id="${sectionId}"]`)
-        .first();
-      await expect(sectionChrome).toBeVisible();
-
-      const minimapNode = page
-        .locator(
-          `[data-testid="rf__minimap"] [data-minimap-node-id="${sectionId}"]`,
-        )
-        .first();
-      await expect(minimapNode).toBeVisible();
-
-      const baselineFill = await minimapNode.evaluate(
-        (element) => window.getComputedStyle(element).fill,
-      );
-
-      const colorInput = styleBlock.locator('input[type="color"]').first();
-      await expect(colorInput).toBeVisible();
-      await colorInput.evaluate((el: HTMLInputElement, value: string) => {
-        const proto = window.HTMLInputElement.prototype;
-        const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
-        descriptor?.set?.call(el, value);
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      }, "#ff0000");
-
-      await expect
-        .poll(async () => {
-          return await sectionChrome.evaluate((el) => {
-            return window.getComputedStyle(el).backgroundColor;
-          });
-        })
-        .toBe("rgb(255, 224, 224)");
-
-      await expect
-        .poll(async () => {
-          return await minimapNode.evaluate((element) => {
-            return window.getComputedStyle(element).fill;
-          });
-        })
-        .toBe("rgb(255, 224, 224)");
-
-      expect(baselineFill).not.toBe("rgb(255, 224, 224)");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -529,31 +449,23 @@ test.describe.serial("section style colors", () => {
         `[data-edge-param-id="${edgeParamId}"][data-edge-param-side="in"]`,
       );
       await expect(edgeRow).toBeVisible();
-      await expect
-        .poll(async () => {
-          return await edgeRow.evaluate((el) => {
-            const strip = el.closest(`section[data-params-fixed="true"]`);
-            if (!(strip instanceof HTMLElement)) {
-              return null;
-            }
-            return window.getComputedStyle(strip).backgroundColor;
-          });
-        })
-        .toBe("rgb(204, 255, 204)");
+      await expect.poll(async () => {
+        return await edgeRow.evaluate((el) => {
+          const strip = el.closest(`section[data-params-fixed="true"]`);
+          if (!(strip instanceof HTMLElement)) {
+            return null;
+          }
+          return window.getComputedStyle(strip).backgroundColor;
+        });
+      }).toBe("rgb(204, 255, 204)");
 
       const argEdgeHandle = page.locator(
         `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${edgeParamId}"]`,
       );
       await expect(argEdgeHandle).toBeVisible();
-      await expect(argEdgeHandle).toHaveCSS(
-        "background-color",
-        "rgb(166, 255, 166)",
-      );
+      await expect(argEdgeHandle).toHaveCSS("background-color", "rgb(166, 255, 166)");
       await argEdgeHandle.hover();
-      await expect(argEdgeHandle).toHaveCSS(
-        "background-color",
-        "rgb(89, 255, 89)",
-      );
+      await expect(argEdgeHandle).toHaveCSS("background-color", "rgb(89, 255, 89)");
       const argEdgeHandleBox = await argEdgeHandle.boundingBox();
       if (!argEdgeHandleBox) {
         throw new Error("Missing arg edge handle bounding box.");
@@ -667,15 +579,18 @@ test.describe.serial("section style colors", () => {
       const previewColor = "#00ffff";
       const finalColor = "#22cc88";
 
-      await colorInput.evaluate((el: HTMLInputElement, colors: string[]) => {
-        // React tracks input values using the native setter; use it so onInput fires reliably.
-        const proto = window.HTMLInputElement.prototype;
-        const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
-        for (const color of colors) {
-          descriptor?.set?.call(el, color);
-          el.dispatchEvent(new Event("input", { bubbles: true }));
-        }
-      }, draggedColors);
+      await colorInput.evaluate(
+        (el: HTMLInputElement, colors: string[]) => {
+          // React tracks input values using the native setter; use it so onInput fires reliably.
+          const proto = window.HTMLInputElement.prototype;
+          const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+          for (const color of colors) {
+            descriptor?.set?.call(el, color);
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        },
+        draggedColors,
+      );
 
       await expect(styleBlock.getByText(previewColor).first()).toBeVisible();
       await expect.poll(() => styleColorRequestCount).toBe(0);
@@ -702,12 +617,15 @@ test.describe.serial("section style colors", () => {
         )
         .toBeNull();
 
-      await colorInput.evaluate((el: HTMLInputElement, color: string) => {
-        const proto = window.HTMLInputElement.prototype;
-        const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
-        descriptor?.set?.call(el, color);
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      }, finalColor);
+      await colorInput.evaluate(
+        (el: HTMLInputElement, color: string) => {
+          const proto = window.HTMLInputElement.prototype;
+          const descriptor = Object.getOwnPropertyDescriptor(proto, "value");
+          descriptor?.set?.call(el, color);
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        },
+        finalColor,
+      );
 
       await expect(styleBlock.getByText(finalColor).first()).toBeVisible();
       await expect.poll(() => styleColorRequestCount).toBe(1);

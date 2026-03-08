@@ -32,7 +32,6 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -160,7 +159,6 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
-          projectChatWindowing: createProjectChatWindowingState(),
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
         })),
@@ -281,36 +279,6 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
-type ActiveSectionUIState = {
-  activeIds: Array<string>;
-  selectionGeneration: number;
-  backendGeneration: number;
-  backendHydrationEnabled: boolean;
-  pendingBackendSyncOpIds: Array<string>;
-  pendingBackendSyncGenerationByOpId: Record<string, number>;
-  scheduledBackendSync: {
-    projectConfigId: string;
-    activeIds: Array<string>;
-    generation: number;
-  } | null;
-};
-
-export const useActiveSectionUI = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(
-      withResetFn<ActiveSectionUIState>(() => ({
-        activeIds: [],
-        selectionGeneration: 0,
-        backendGeneration: 0,
-        backendHydrationEnabled: true,
-        pendingBackendSyncOpIds: [],
-        pendingBackendSyncGenerationByOpId: {},
-        scheduledBackendSync: null,
-      })),
-    ),
-  ),
-);
-
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
   dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
@@ -391,83 +359,6 @@ export const useNodeInternals = withProjectState(
     })),
   ),
 );
-
-type AtomicallyPublishedProjectStoreState = {
-  projectState: ZustandProjectState;
-  nodeInternals: ZustandNodeInternalsState;
-  activeSectionUI: ActiveSectionUIState;
-};
-
-let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
-  null;
-
-function patchPublishedProjectStoreGetState<TState>(
-  store: {
-    getState: () => TState;
-  },
-  readRawState: () => TState,
-  getPublishedState: (
-    publication: AtomicallyPublishedProjectStoreState,
-  ) => TState,
-) {
-  store.getState = (() => {
-    const publication = stagedProjectStorePublication;
-    if (publication !== null) {
-      return getPublishedState(publication);
-    }
-    return readRawState();
-  }) as typeof store.getState;
-}
-
-const readRawProjectState = useProjectState.getState.bind(useProjectState);
-const readRawActiveSectionUIState =
-  useActiveSectionUI.getState.bind(useActiveSectionUI);
-const readRawNodeInternalsState =
-  useNodeInternals.getState.bind(useNodeInternals);
-
-patchPublishedProjectStoreGetState(
-  useProjectState,
-  readRawProjectState,
-  (publication) => publication.projectState,
-);
-patchPublishedProjectStoreGetState(
-  useActiveSectionUI,
-  readRawActiveSectionUIState,
-  (publication) => publication.activeSectionUI,
-);
-patchPublishedProjectStoreGetState(
-  useNodeInternals,
-  readRawNodeInternalsState,
-  (publication) => publication.nodeInternals,
-);
-
-export function runWithAtomicallyPublishedProjectStores(
-  nextState: {
-    projectState: ZustandProjectState;
-    nodeInternals: ZustandNodeInternalsState;
-    activeSectionUI?: Partial<ActiveSectionUIState> | null;
-  },
-  fn: () => void,
-) {
-  const previousPublication = stagedProjectStorePublication;
-  stagedProjectStorePublication = {
-    projectState: nextState.projectState,
-    nodeInternals: nextState.nodeInternals,
-    activeSectionUI:
-      nextState.activeSectionUI === null ||
-      typeof nextState.activeSectionUI === "undefined"
-        ? readRawActiveSectionUIState()
-        : {
-            ...readRawActiveSectionUIState(),
-            ...nextState.activeSectionUI,
-          },
-  };
-  try {
-    fn();
-  } finally {
-    stagedProjectStorePublication = previousPublication;
-  }
-}
 
 type ZustandNotificationState = { notifications: Array<SettaNotification> };
 
@@ -830,11 +721,6 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
-        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
-        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
-          string,
-          true
-        >,
       })),
     ),
   ),
@@ -1086,7 +972,6 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
-export type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -1095,7 +980,6 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
-  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -1171,7 +1055,6 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
-      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1327,6 +1210,7 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
+
         return merged;
       },
       partialize: (state) => ({

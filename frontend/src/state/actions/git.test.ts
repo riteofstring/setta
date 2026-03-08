@@ -1,4 +1,3 @@
-import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useGitStore } from "state/git";
 import {
   route_get_git_commit_details,
@@ -35,10 +34,6 @@ vi.mock("utils/generatedEndpoints", () => ({
   route_get_git_diff: vi.fn(),
   route_get_git_log: vi.fn(),
   route_get_git_status: vi.fn(),
-}));
-
-vi.mock("state/actions/projectChatWindowing", () => ({
-  ensureTrackedGitPaneGraphWindow: vi.fn(),
 }));
 
 function commit(hash: string, parents: string[]): GitCommit {
@@ -92,40 +87,36 @@ function setGraphOverlayState({
   const rowResult = computeGitGraphRowsWithState(response.commits);
   useGitStore.setState((state) => ({
     ...state,
-    graph: {
-      allRefs: true,
-      response,
-      seenCommitHashes: new Set(response.commits.map((commit) => commit.hash)),
-      rows: rowResult.rows,
-      rowComputationState: rowResult.rowComputationState,
-      filterText,
-      isLoading: false,
-      isLoadingMore: false,
-      error: null,
-      loadMoreError,
-      hasMore: response.hasMore,
-      nextOffset: response.nextOffset,
-      pageSize: response.pageSize,
-      isCapped: response.isCapped,
-      selectedCommitHash: null,
-      selectedCommitDetails: null,
-      selectedCommitDetailsIsLoading: false,
-      selectedCommitDetailsError: null,
-      selectedCommitFilePath: null,
-      selectedCommitFileDiffResponse: null,
-      selectedCommitFileDiffIsLoading: false,
-      selectedCommitFileDiffError: null,
+    overlay: {
+      kind: "graph",
+      graph: {
+        allRefs: true,
+        response,
+        seenCommitHashes: new Set(
+          response.commits.map((commit) => commit.hash),
+        ),
+        rows: rowResult.rows,
+        rowComputationState: rowResult.rowComputationState,
+        filterText,
+        isLoading: false,
+        isLoadingMore: false,
+        error: null,
+        loadMoreError,
+        hasMore: response.hasMore,
+        nextOffset: response.nextOffset,
+        pageSize: response.pageSize,
+        isCapped: response.isCapped,
+        selectedCommitHash: null,
+        selectedCommitDetails: null,
+        selectedCommitDetailsIsLoading: false,
+        selectedCommitDetailsError: null,
+        selectedCommitFilePath: null,
+        selectedCommitFileDiffResponse: null,
+        selectedCommitFileDiffIsLoading: false,
+        selectedCommitFileDiffError: null,
+      },
     },
   }));
-}
-
-function getGraphState() {
-  const graph = useGitStore.getState().graph;
-  expect(graph).not.toBeNull();
-  if (!graph) {
-    throw new Error("Expected git graph state.");
-  }
-  return graph;
 }
 
 function setGitStatusResponse(
@@ -212,23 +203,27 @@ describe("git graph actions", () => {
       pageSize: 2,
     });
 
-    const graph = getGraphState();
-    expect(graph.response?.commits.map((entry) => entry.hash)).toEqual([
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.response?.commits.map((entry) => entry.hash)).toEqual([
       "c3",
       "c2",
       "c1",
     ]);
     const expectedRows = computeGitGraphRowsWithState([c3, c2, c1]).rows;
-    expect(graph.rows).toEqual(expectedRows);
-    expect(Array.from(graph.seenCommitHashes).sort()).toEqual([
+    expect(overlay.graph.rows).toEqual(expectedRows);
+    expect(Array.from(overlay.graph.seenCommitHashes).sort()).toEqual([
       "c1",
       "c2",
       "c3",
     ]);
-    expect(graph.isLoadingMore).toBe(false);
-    expect(graph.hasMore).toBe(false);
-    expect(graph.nextOffset).toBeNull();
-    expect(graph.loadMoreError).toBeNull();
+    expect(overlay.graph.isLoadingMore).toBe(false);
+    expect(overlay.graph.hasMore).toBe(false);
+    expect(overlay.graph.nextOffset).toBeNull();
+    expect(overlay.graph.loadMoreError).toBeNull();
   });
 
   it("does not request another page while a graph filter is active", async () => {
@@ -250,9 +245,13 @@ describe("git graph actions", () => {
     await loadMoreGitGraphCommits();
 
     expect(route_get_git_log).not.toHaveBeenCalled();
-    const graph = getGraphState();
-    expect(graph.isLoadingMore).toBe(false);
-    expect(graph.loadMoreError).toBeNull();
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.isLoadingMore).toBe(false);
+    expect(overlay.graph.loadMoreError).toBeNull();
   });
 
   it("stores load-more errors when a pagination request fails", async () => {
@@ -277,12 +276,16 @@ describe("git graph actions", () => {
 
     await loadMoreGitGraphCommits();
 
-    const graph = getGraphState();
-    expect(graph.isLoadingMore).toBe(false);
-    expect(graph.loadMoreError).toBe(
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.isLoadingMore).toBe(false);
+    expect(overlay.graph.loadMoreError).toBe(
       "backend failed while loading more commits",
     );
-    expect(graph.nextOffset).toBe(2);
+    expect(overlay.graph.nextOffset).toBe(2);
   });
 
   it("does not auto-load more again after a load-more error until retry is explicit", async () => {
@@ -597,9 +600,13 @@ describe("git graph actions", () => {
     });
     await selectGitCommit("b4c5d6");
     await vi.waitFor(() => {
-      const graph = getGraphState();
-      expect(graph.selectedCommitHash).toBe("b4c5d6");
-      expect(graph.selectedCommitFileDiffResponse).toBeNull();
+      const overlay = useGitStore.getState().overlay;
+      expect(overlay.kind).toBe("graph");
+      if (overlay.kind !== "graph") {
+        return;
+      }
+      expect(overlay.graph.selectedCommitHash).toBe("b4c5d6");
+      expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
     });
 
     const calls = vi.mocked(route_get_git_commit_file_diff).mock.calls;
@@ -724,9 +731,13 @@ describe("git graph actions", () => {
       oldPath: null,
     });
 
-    const graph = getGraphState();
-    expect(graph.selectedCommitFileDiffResponse).toBeNull();
-    expect(graph.selectedCommitFileDiffError).toBe(
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffError).toBe(
       "File is not part of this commit diff.",
     );
   });
@@ -766,11 +777,15 @@ describe("git graph actions", () => {
     expect(route_get_git_commit_details).not.toHaveBeenCalled();
     expect(route_get_git_commit_file_diff).not.toHaveBeenCalled();
 
-    const graph = getGraphState();
-    const firstCommit = graph.response?.commits[0];
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    const firstCommit = overlay.graph.response?.commits[0];
     expect(firstCommit?.hash).toBe("abc123");
-    expect(graph.allRefs).toBe(false);
-    expect(graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.allRefs).toBe(false);
+    expect(overlay.graph.selectedCommitHash).toBeNull();
   });
 
   it("does not duplicate preload state writes when opening git graph overlay", async () => {
@@ -800,7 +815,6 @@ describe("git graph actions", () => {
 
     await openGitGraphOverlay();
 
-    expect(ensureTrackedGitPaneGraphWindow).toHaveBeenCalledTimes(1);
     expect(setStateSpy).toHaveBeenCalledTimes(2);
     setStateSpy.mockRestore();
   });
@@ -819,49 +833,52 @@ describe("git graph actions", () => {
       }),
     });
     useGitStore.setState((state) => {
-      if (!state.graph) {
+      if (state.overlay.kind !== "graph") {
         return state;
       }
       return {
         ...state,
-        graph: {
-          ...state.graph,
-          selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createGetGitCommitDetailsResponse({
-            repoRoot: "/repo",
-            commitHash: "b4c5d6",
-            parents: ["a1b2c3"],
-            authorName: "B",
-            authorEmail: "b@example.com",
-            authorTimeMs: 2,
-            committerName: "B",
-            committerEmail: "b@example.com",
-            committerTimeMs: 2,
-            subject: "B",
-            body: "",
-            isTruncated: false,
-            files: [
-              {
-                path: "b.txt",
-                oldPath: null,
-                status: "M",
-                additions: 1,
-                deletions: 1,
-              },
-            ],
-          }),
-          selectedCommitDetailsIsLoading: false,
-          selectedCommitDetailsError: null,
-          selectedCommitFilePath: "b.txt",
-          selectedCommitFileDiffResponse: {
-            repoRoot: "/repo",
-            commitHash: "b4c5d6",
-            path: "b.txt",
-            diff: "stale",
-            isTruncated: false,
+        overlay: {
+          kind: "graph",
+          graph: {
+            ...state.overlay.graph,
+            selectedCommitHash: "b4c5d6",
+            selectedCommitDetails: createGetGitCommitDetailsResponse({
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              parents: ["a1b2c3"],
+              authorName: "B",
+              authorEmail: "b@example.com",
+              authorTimeMs: 2,
+              committerName: "B",
+              committerEmail: "b@example.com",
+              committerTimeMs: 2,
+              subject: "B",
+              body: "",
+              isTruncated: false,
+              files: [
+                {
+                  path: "b.txt",
+                  oldPath: null,
+                  status: "M",
+                  additions: 1,
+                  deletions: 1,
+                },
+              ],
+            }),
+            selectedCommitDetailsIsLoading: false,
+            selectedCommitDetailsError: null,
+            selectedCommitFilePath: "b.txt",
+            selectedCommitFileDiffResponse: {
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              path: "b.txt",
+              diff: "stale",
+              isTruncated: false,
+            },
+            selectedCommitFileDiffIsLoading: false,
+            selectedCommitFileDiffError: null,
           },
-          selectedCommitFileDiffIsLoading: false,
-          selectedCommitFileDiffError: null,
         },
       };
     });
@@ -880,15 +897,19 @@ describe("git graph actions", () => {
 
     await refreshGitGraphOverlay();
 
-    const graphAfterRefresh = getGraphState();
-    expect(graphAfterRefresh.selectedCommitHash).toBeNull();
-    expect(graphAfterRefresh.selectedCommitDetails).toBeNull();
-    expect(graphAfterRefresh.selectedCommitDetailsIsLoading).toBe(false);
-    expect(graphAfterRefresh.selectedCommitDetailsError).toBeNull();
-    expect(graphAfterRefresh.selectedCommitFilePath).toBeNull();
-    expect(graphAfterRefresh.selectedCommitFileDiffResponse).toBeNull();
-    expect(graphAfterRefresh.selectedCommitFileDiffIsLoading).toBe(false);
-    expect(graphAfterRefresh.selectedCommitFileDiffError).toBeNull();
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.selectedCommitDetails).toBeNull();
+    expect(overlay.graph.selectedCommitDetailsIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitDetailsError).toBeNull();
+    expect(overlay.graph.selectedCommitFilePath).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitFileDiffError).toBeNull();
   });
 
   it("clears selected commit details and diff state when selection is cleared", async () => {
@@ -905,64 +926,71 @@ describe("git graph actions", () => {
       }),
     });
     useGitStore.setState((state) => {
-      if (!state.graph) {
+      if (state.overlay.kind !== "graph") {
         return state;
       }
       return {
         ...state,
-        graph: {
-          ...state.graph,
-          selectedCommitHash: "b4c5d6",
-          selectedCommitDetails: createGetGitCommitDetailsResponse({
-            repoRoot: "/repo",
-            commitHash: "b4c5d6",
-            parents: ["a1b2c3"],
-            authorName: "B",
-            authorEmail: "b@example.com",
-            authorTimeMs: 2,
-            committerName: "B",
-            committerEmail: "b@example.com",
-            committerTimeMs: 2,
-            subject: "B",
-            body: "",
-            isTruncated: false,
-            files: [
-              {
-                path: "b.txt",
-                oldPath: null,
-                status: "M",
-                additions: 1,
-                deletions: 1,
-              },
-            ],
-          }),
-          selectedCommitDetailsIsLoading: true,
-          selectedCommitDetailsError: "stale details error",
-          selectedCommitFilePath: "b.txt",
-          selectedCommitFileDiffResponse: {
-            repoRoot: "/repo",
-            commitHash: "b4c5d6",
-            path: "b.txt",
-            diff: "stale",
-            isTruncated: false,
+        overlay: {
+          kind: "graph",
+          graph: {
+            ...state.overlay.graph,
+            selectedCommitHash: "b4c5d6",
+            selectedCommitDetails: createGetGitCommitDetailsResponse({
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              parents: ["a1b2c3"],
+              authorName: "B",
+              authorEmail: "b@example.com",
+              authorTimeMs: 2,
+              committerName: "B",
+              committerEmail: "b@example.com",
+              committerTimeMs: 2,
+              subject: "B",
+              body: "",
+              isTruncated: false,
+              files: [
+                {
+                  path: "b.txt",
+                  oldPath: null,
+                  status: "M",
+                  additions: 1,
+                  deletions: 1,
+                },
+              ],
+            }),
+            selectedCommitDetailsIsLoading: true,
+            selectedCommitDetailsError: "stale details error",
+            selectedCommitFilePath: "b.txt",
+            selectedCommitFileDiffResponse: {
+              repoRoot: "/repo",
+              commitHash: "b4c5d6",
+              path: "b.txt",
+              diff: "stale",
+              isTruncated: false,
+            },
+            selectedCommitFileDiffIsLoading: true,
+            selectedCommitFileDiffError: "stale diff error",
           },
-          selectedCommitFileDiffIsLoading: true,
-          selectedCommitFileDiffError: "stale diff error",
         },
       };
     });
 
     clearGitGraphSelectedCommit();
 
-    const graphAfterClear = getGraphState();
-    expect(graphAfterClear.selectedCommitHash).toBeNull();
-    expect(graphAfterClear.selectedCommitDetails).toBeNull();
-    expect(graphAfterClear.selectedCommitDetailsIsLoading).toBe(false);
-    expect(graphAfterClear.selectedCommitDetailsError).toBeNull();
-    expect(graphAfterClear.selectedCommitFilePath).toBeNull();
-    expect(graphAfterClear.selectedCommitFileDiffResponse).toBeNull();
-    expect(graphAfterClear.selectedCommitFileDiffIsLoading).toBe(false);
-    expect(graphAfterClear.selectedCommitFileDiffError).toBeNull();
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.selectedCommitDetails).toBeNull();
+    expect(overlay.graph.selectedCommitDetailsIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitDetailsError).toBeNull();
+    expect(overlay.graph.selectedCommitFilePath).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffIsLoading).toBe(false);
+    expect(overlay.graph.selectedCommitFileDiffError).toBeNull();
   });
 
   it("clears stale git graph rows when refresh fails", async () => {
@@ -985,14 +1013,18 @@ describe("git graph actions", () => {
 
     await refreshGitGraphOverlay();
 
-    const graphAfterFailedRefresh = getGraphState();
-    expect(graphAfterFailedRefresh.response).toBeNull();
-    expect(graphAfterFailedRefresh.rows).toHaveLength(0);
-    expect(graphAfterFailedRefresh.seenCommitHashes.size).toBe(0);
-    expect(graphAfterFailedRefresh.selectedCommitHash).toBeNull();
-    expect(graphAfterFailedRefresh.selectedCommitDetails).toBeNull();
-    expect(graphAfterFailedRefresh.selectedCommitFileDiffResponse).toBeNull();
-    expect(graphAfterFailedRefresh.error).toBe("git log failed on refresh");
-    expect(graphAfterFailedRefresh.isLoading).toBe(false);
+    const overlay = useGitStore.getState().overlay;
+    expect(overlay.kind).toBe("graph");
+    if (overlay.kind !== "graph") {
+      return;
+    }
+    expect(overlay.graph.response).toBeNull();
+    expect(overlay.graph.rows).toHaveLength(0);
+    expect(overlay.graph.seenCommitHashes.size).toBe(0);
+    expect(overlay.graph.selectedCommitHash).toBeNull();
+    expect(overlay.graph.selectedCommitDetails).toBeNull();
+    expect(overlay.graph.selectedCommitFileDiffResponse).toBeNull();
+    expect(overlay.graph.error).toBe("git log failed on refresh");
+    expect(overlay.graph.isLoading).toBe(false);
   });
 });

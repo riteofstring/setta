@@ -42,8 +42,6 @@
 - `examples/listener/app.py` – example deployment listener entrypoint (`listener/app.py`).
 
 ## Other Docs
-- `../perf/README.md` – append-only performance report workflow and artifact policy.
-- `../perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md` – Settings `All Settings` pan/zoom and activation benchmark log, including the split active-section UI store follow-ups.
 - `reference/agent-cli-integration.md` – CLI integration notes for agent workflows.
 - `reference/auth-and-sessions.md` – auth tokens, cookies, share sessions, and refresh behavior.
 - `reference/chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
@@ -69,7 +67,18 @@
 - `notes/setta-assessment.md` – product/market assessment and positioning notes.
 
 ## Plans
+- `plans/go-backend-rewrite/README.md` – index for the Go backend rewrite planning docs.
+- `plans/go-backend-rewrite/go-backend-rewrite-plan.md` – repo-specific plan for a Go backend rewrite (stack decisions, package layout, migration phases, spikes, parity strategy).
+- `plans/go-backend-rewrite/go-backend-rewrite-stack-recommendations.md` – captured stack and library recommendations research for the Go rewrite.
+- `plans/go-backend-rewrite/testing-strategy.md` – rewrite-wide testing strategy, coverage expectations, harness model, and cross-platform testing rules.
+- `plans/go-backend-rewrite/phase-0-capability-inventory-and-harness.md` – detailed plan for capability inventory, reference-harness design, and keep/redesign/drop calls before implementation.
+- `plans/go-backend-rewrite/phase-1-foundation-runtime.md` – detailed plan for the first implementation phase: server skeleton, runtime wiring, config/path policy, and filesystem helpers.
+- `plans/go-backend-rewrite/phase-2-auth-modes-request-context.md` – implementation plan for bootstrap auth, signed cookies, mode policy helpers, request context, and share-session extraction.
+- `plans/go-backend-rewrite/spike-mcp.md` – uncertainty-reduction spike plan for MCP server/client support and abstraction boundaries.
+- `plans/go-backend-rewrite/spike-pty.md` – uncertainty-reduction spike plan for PTY-backed terminal support and session behavior.
+- `plans/go-backend-rewrite/spike-lsp.md` – uncertainty-reduction spike plan for LSP framing, lifecycle, and minimum viable language-server support.
 - `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
+- `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
 - `plans/ralph-mode.md` – planning notes for ralph mode.
