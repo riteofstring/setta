@@ -791,6 +791,212 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "dataPath", TypeExpr: "string", Optional: true},
 				TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: true},
 			),
+			reflect.TypeOf(CallableSectionImpl{}): aliasDeclarationWithFactory(
+				"CallableSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Callable;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  callable?: string | null;
+  hideParams: boolean;
+}`,
+				`export function createCallableSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCallableSectionImpl>
+    | Partial<CallableSectionImpl> = {},
+  overrides?: Partial<CallableSectionImpl>,
+): CallableSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCallableSectionImpl,
+    CallableSectionImpl
+  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Callable,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
+      paramFilter: resolved.defaults.paramFilter,
+      columnWidth: resolved.defaults.columnWidth,
+      configLanguage: resolved.defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: resolved.defaults.edgeInputParams,
+      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
+      callable: null,
+      hideParams: resolved.defaults.hideParams,
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(BaseParentSectionImplUnion{}): aliasDeclaration(
+				"BaseParentSectionImplUnion",
+				`BaseSectionImpl & {
+  children: Array<string>;
+}`,
+			),
+			reflect.TypeOf(BaseSectionWithParamsImplUnion{}): aliasDeclaration(
+				"BaseSectionWithParamsImplUnion",
+				`BaseSectionImpl & {
+  codeObjVariantMap: Record<string, string>;
+}`,
+			),
+			reflect.TypeOf(DictSectionImpl{}): aliasDeclarationWithFactory(
+				"DictSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+}`,
+				`export function createDictSectionImpl(
+  defaults: UserDefaultDictSectionImpl,
+  overrides: Partial<DictSectionImpl> = {},
+): DictSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Dict,
+      id: "",
+      name: "",
+      isFrozen: defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: defaults.tagColor,
+      styleColor: defaults.styleColor,
+      size: defaults.size,
+      aspectRatio: defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: defaults.isMinimized,
+      positionAndSizeLocked: defaults.positionAndSizeLocked,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: defaults.hideUnpinnedParams,
+      paramFilter: defaults.paramFilter,
+      columnWidth: defaults.columnWidth,
+      configLanguage: defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: defaults.edgeInputParams,
+      edgeOutputPorts: defaults.edgeOutputPorts,
+      topLevelParamId: null,
+      isJsonSource: defaults.isJsonSource,
+      jsonSourceKeys: defaults.jsonSourceKeys,
+      jsonSourceMissing: false,
+    },
+    overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(UserDefaultCallableSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultCallableSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionWithParamsDefaults(),
+      hideParams: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "hideUnpinnedParams", TypeExpr: "boolean"},
+				TypeProperty{Name: "paramFilter", TypeExpr: "string"},
+				TypeProperty{Name: "columnWidth", TypeExpr: "number | null"},
+				TypeProperty{Name: "configLanguage", TypeExpr: "ConfigLanguage"},
+				TypeProperty{Name: "edgeInputParams", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>"},
+				TypeProperty{Name: "hideParams", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(UserDefaultDictSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultDictSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionWithParamsDefaults(),
+      isJsonSource: false,
+      jsonSourceKeys: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "hideUnpinnedParams", TypeExpr: "boolean"},
+				TypeProperty{Name: "paramFilter", TypeExpr: "string"},
+				TypeProperty{Name: "columnWidth", TypeExpr: "number | null"},
+				TypeProperty{Name: "configLanguage", TypeExpr: "string"},
+				TypeProperty{Name: "edgeInputParams", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>"},
+				TypeProperty{Name: "isJsonSource", TypeExpr: "boolean"},
+				TypeProperty{Name: "jsonSourceKeys", TypeExpr: "Array<string>"},
+			),
+			reflect.TypeOf(BaseDictSectionImplUnion{}): aliasDeclaration(
+				"BaseDictSectionImplUnion",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+}`,
+			),
 			reflect.TypeOf(UserDefaultListRootSectionImpl{}): objectDeclarationWithCreateExpr(
 				"UserDefaultListRootSectionImpl",
 				`mergeGeneratedOptions(

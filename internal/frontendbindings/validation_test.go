@@ -1973,6 +1973,133 @@ func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.
 			},
 		},
 		{
+			name: "CallableSectionImpl",
+			root: reflect.TypeOf(CallableSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Callable;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  callable?: string | null;
+  hideParams: boolean;
+}`,
+			hasFactoryTS: true,
+		},
+		{
+			name: "BaseParentSectionImplUnion",
+			root: reflect.TypeOf(BaseParentSectionImplUnion{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  children: Array<string>;
+}`,
+		},
+		{
+			name: "BaseSectionWithParamsImplUnion",
+			root: reflect.TypeOf(BaseSectionWithParamsImplUnion{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  codeObjVariantMap: Record<string, string>;
+}`,
+		},
+		{
+			name: "DictSectionImpl",
+			root: reflect.TypeOf(DictSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+}`,
+			hasFactoryTS: true,
+		},
+		{
+			name: "UserDefaultCallableSectionImpl",
+			root: reflect.TypeOf(UserDefaultCallableSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: false},
+				{Name: "paramFilter", TypeExpr: "string", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "configLanguage", TypeExpr: "ConfigLanguage", Optional: false},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: false},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: false},
+				{Name: "hideParams", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "UserDefaultDictSectionImpl",
+			root: reflect.TypeOf(UserDefaultDictSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: false},
+				{Name: "paramFilter", TypeExpr: "string", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "configLanguage", TypeExpr: "string", Optional: false},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: false},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: false},
+				{Name: "isJsonSource", TypeExpr: "boolean", Optional: false},
+				{Name: "jsonSourceKeys", TypeExpr: "Array<string>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "BaseDictSectionImplUnion",
+			root: reflect.TypeOf(BaseDictSectionImplUnion{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+}`,
+		},
+		{
 			name: "UserDefaultListRootSectionImpl",
 			root: reflect.TypeOf(UserDefaultListRootSectionImpl{}),
 			kind: "object",

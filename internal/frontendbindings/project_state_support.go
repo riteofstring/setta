@@ -599,6 +599,20 @@ type TerminalSectionImpl struct{}
 
 type BaseSectionImplUnion struct{}
 
+type CallableSectionImpl struct{}
+
+type BaseParentSectionImplUnion struct{}
+
+type BaseSectionWithParamsImplUnion struct{}
+
+type DictSectionImpl struct{}
+
+type UserDefaultCallableSectionImpl struct{}
+
+type UserDefaultDictSectionImpl struct{}
+
+type BaseDictSectionImplUnion struct{}
+
 type UserDefaultTaskBoardSectionImpl struct{}
 
 type TaskBoardSectionImpl struct{}
@@ -2124,62 +2138,6 @@ export type ChartData = ChartDataValue;
 
 export type ChartDataType = ChartDataValue;
 
-export type CallableSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Callable;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  callable?: string | null;
-  hideParams: boolean;
-};
-export type BaseParentSectionImplUnion = BaseSectionImpl & {
-  children: Array<string>;
-};
-export type BaseSectionWithParamsImplUnion = BaseSectionImpl & {
-  codeObjVariantMap: Record<string, string>;
-};
-export type DictSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  topLevelParamId: string | null;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-  jsonSourceMissing: boolean;
-};
-
-export type UserDefaultCallableSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  hideParams: boolean;
-};
-
 function createGeneratedBaseSectionDefaults(): {
   isFrozen: boolean;
   tagColor: string | null;
@@ -2251,136 +2209,6 @@ function createGeneratedBaseCodeSectionDefaults(): {
     codeFileBinding: null,
     attachedTerminalSectionId: null,
   };
-}
-
-export type UserDefaultDictSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-};
-export function createUserDefaultDictSectionImpl(
-  options: Partial<UserDefaultDictSectionImpl> = {},
-): UserDefaultDictSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
-      isJsonSource: false,
-      jsonSourceKeys: [],
-    },
-    options,
-  );
-}
-
-export function createDictSectionImpl(
-  defaults: UserDefaultDictSectionImpl,
-  overrides: Partial<DictSectionImpl> = {},
-): DictSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Dict,
-      id: "",
-      name: "",
-      isFrozen: defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: defaults.tagColor,
-      styleColor: defaults.styleColor,
-      size: defaults.size,
-      aspectRatio: defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: defaults.isMinimized,
-      positionAndSizeLocked: defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: defaults.hideUnpinnedParams,
-      paramFilter: defaults.paramFilter,
-      columnWidth: defaults.columnWidth,
-      configLanguage: defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: defaults.edgeInputParams,
-      edgeOutputPorts: defaults.edgeOutputPorts,
-      topLevelParamId: null,
-      isJsonSource: defaults.isJsonSource,
-      jsonSourceKeys: defaults.jsonSourceKeys,
-      jsonSourceMissing: false,
-    },
-    overrides,
-  );
-}
-
-export function createUserDefaultCallableSectionImpl(
-  options: Partial<UserDefaultCallableSectionImpl> = {},
-): UserDefaultCallableSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
-      hideParams: false,
-    },
-    options,
-  );
-}
-
-export function createCallableSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCallableSectionImpl>
-    | Partial<CallableSectionImpl> = {},
-  overrides?: Partial<CallableSectionImpl>,
-): CallableSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCallableSectionImpl,
-    CallableSectionImpl
-  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Callable,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
-      paramFilter: resolved.defaults.paramFilter,
-      columnWidth: resolved.defaults.columnWidth,
-      configLanguage: resolved.defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: resolved.defaults.edgeInputParams,
-      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
-      callable: null,
-      hideParams: resolved.defaults.hideParams,
-    },
-    resolved.overrides,
-  );
 }
 
 export type SharePolicy = {
@@ -3467,24 +3295,6 @@ export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.DropzoneParam,
   CodeObjTypeEnum.NestedParam,
 ]);
-
-export type BaseDictSectionImplUnion = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
-  codeObjVariantMap: Record<string, string>;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  pinnedParams: Array<string>;
-  selectedParams: Array<string>;
-  ignoreTypeErrors: TypeErrorIgnoreState;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  topLevelParamId: string | null;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-  jsonSourceMissing: boolean;
-};
 
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Code,
