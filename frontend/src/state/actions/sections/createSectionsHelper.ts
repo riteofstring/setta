@@ -165,21 +165,6 @@ export function useCreateSectionsList() {
     },
   ];
 
-  const workflowGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    {
-      name: "State Machine Start",
-      implSpecs: { type: SectionTypeEnum.StateMachineStart },
-    },
-    {
-      name: "State Machine Gate",
-      implSpecs: { type: SectionTypeEnum.StateMachineGate },
-    },
-    {
-      name: "State Machine End",
-      implSpecs: { type: SectionTypeEnum.StateMachineEnd },
-    },
-  ];
-
   const otherGroupItems: Array<CreateSectionsContextMenuInfo> = [
     { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
@@ -297,10 +282,6 @@ export function useCreateSectionsList() {
     {
       group: "Artifacts",
       items: artifactGroupItems,
-    },
-    {
-      group: "Workflow",
-      items: workflowGroupItems,
     },
     {
       group: "Other",
