@@ -35,7 +35,6 @@ def _find_api_route(*, route_path: str, routers: list) -> APIRoute:
 @pytest.mark.parametrize(
     "route_path",
     [
-        Route.TOOLS_CALL.value,
         Route.RESTART_LANGUAGE_SERVER.value,
         Route.TYPE_CHECK.value,
         Route.STREAM_APP_SPEC.value,
@@ -70,6 +69,7 @@ def test_full_runtime_routes_use_full_runtime_guard(route_path: str) -> None:
 @pytest.mark.parametrize(
     "route_path",
     [
+        Route.TOOLS_CALL.value,
         Route.UPDATE_ARTIFACTS.value,
         Route.GET_ATTACHMENT_DOWNLOAD_URL.value,
         Route.GET_ATTACHMENT_DOWNLOAD_URLS.value,
@@ -84,6 +84,7 @@ def test_non_launcher_routes_use_non_launcher_guard(route_path: str) -> None:
     route = _find_api_route(
         route_path=route_path,
         routers=[
+            mcp_tools_router,
             artifact_router,
             attachments_router,
             terminals_http_router,

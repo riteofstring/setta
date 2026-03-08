@@ -122,6 +122,8 @@ describe("Overview rail offsets", () => {
     );
     const style = extractRailStyle(markup);
 
+    expect(markup).toContain('data-testid="overview-icon-rail"');
+    expect(markup).toContain("z-[32]");
     expect(style).toContain("bottom:0px");
   });
 
@@ -157,6 +159,7 @@ describe("Overview rail offsets", () => {
     );
     const style = extractRailStyle(markup);
 
+    expect(markup).toContain("z-[32]");
     expect(style).toContain("bottom:36px");
   });
 
