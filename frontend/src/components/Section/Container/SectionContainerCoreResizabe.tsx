@@ -1,6 +1,7 @@
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
+import React from "react";
 import {
   getOpenExternalProjectChatWindowInstanceForSectionInState,
   getProjectChatWindowModeForSectionInState,
@@ -49,7 +50,6 @@ import { getBgColor } from "./utils";
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
-  isActiveSection: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
@@ -57,10 +57,9 @@ type SectionContainerCoreResizableProps = {
   hideHeader?: boolean;
 };
 
-export function SectionContainerCoreResizable({
+function _SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
-  isActiveSection,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
@@ -81,7 +80,6 @@ export function SectionContainerCoreResizable({
     return {
       isMinimized: impl.isMinimized,
       isYouTube: false,
-      // isYouTube: getIsYouTubeSection(sectionId, x),
       textBlockMetaControlStyle:
         impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
       hasEmbeddedTerminal:
@@ -113,7 +111,6 @@ export function SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -151,10 +148,9 @@ export function SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : hideHeader ? null : (
+      ) : !hideHeader ? (
         <SectionHeader
           sectionId={sectionId}
-          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
@@ -171,7 +167,7 @@ export function SectionContainerCoreResizable({
             ) : null
           }
         />
-      )}
+      ) : null}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
       <CanvasSectionBody
         sectionId={sectionId}
@@ -183,6 +179,10 @@ export function SectionContainerCoreResizable({
     </CustomResizable>
   );
 }
+
+export const SectionContainerCoreResizable = React.memo(
+  _SectionContainerCoreResizable,
+);
 
 export function AreaSwitch({
   sectionId,
@@ -290,6 +290,9 @@ function CanvasSectionBody({
         dataTestId="section-canvas-window-placeholder"
       />
     );
+  }
+  if (isMinimized) {
+    return null;
   }
 
   return (

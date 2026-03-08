@@ -1,7 +1,15 @@
 import { useReactFlow } from "forks/xyflow/core/store";
+import { unstable_batchedUpdates } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
+  getHydratedActiveSectionUIState,
+  sanitizeProjectStateActiveIds,
+  useActiveSectionUI,
+} from "state/activeSectionUI";
+import {
+  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
   useNodeInternals,
@@ -66,6 +74,7 @@ export async function loadProjectState(
   const normalizedProjectState = normalizeLoadedProjectState(projectState);
   const { viewport, viewportInitialized } =
     normalizedProjectState.projectConfig;
+  cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -76,17 +85,34 @@ export async function loadProjectState(
       transform: [x, y, zoom],
     });
   }
-  useProjectState.setState({
-    ...normalizedProjectState,
+  const nextProjectState = {
+    ...sanitizeProjectStateActiveIds(normalizedProjectState),
     previewSectionVariantMap: {},
-  });
+  };
+  const nextActiveSectionUIState = getHydratedActiveSectionUIState(
+    normalizedProjectState.projectConfig.activeIds,
+  );
+  const nextNodesMap = createNodesMapFromProjectConfigChildren(
+    nextProjectState,
+    useNodeInternals.getState().x,
+  );
+  runWithAtomicallyPublishedProjectStores(
+    {
+      projectState: nextProjectState,
+      nodeInternals: { x: nextNodesMap },
+      activeSectionUI: nextActiveSectionUIState,
+    },
+    () => {
+      unstable_batchedUpdates(() => {
+        useProjectState.setState(nextProjectState);
+        useNodeInternals.setState({ x: nextNodesMap });
+        if (nextActiveSectionUIState !== null) {
+          useActiveSectionUI.setState(nextActiveSectionUIState);
+        }
+      });
+    },
+  );
   applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
-  useNodeInternals.setState((state) => ({
-    x: createNodesMapFromProjectConfigChildren(
-      useProjectState.getState(),
-      state.x,
-    ),
-  }));
   return true;
 }
 

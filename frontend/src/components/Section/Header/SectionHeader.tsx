@@ -12,6 +12,7 @@ import {
   getCurrEffectiveSectionImplOfType,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
   useAIFollow,
   useLspDiagnostics,
@@ -42,7 +43,6 @@ import { ToggleTextBlockDisplayModeButton } from "./ToggleTextBlockDisplayModeBu
 
 type SectionHeaderProps = {
   sectionId: string;
-  isActiveSection: boolean;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
@@ -59,7 +59,6 @@ type SectionHeaderProps = {
 
 function _SectionHeader({
   sectionId,
-  isActiveSection,
   sectionTypeName,
   isInOtherProjectConfigs,
   isUserView,
@@ -205,7 +204,6 @@ function _SectionHeader({
       )}
       <MaybeCardTitle
         sectionId={sectionId}
-        isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         sectionTypeName={sectionTypeName}
         hasSectionStyleTheme={hasSectionStyleTheme}
@@ -545,11 +543,11 @@ function getSeverityMeta(severity: number | null | undefined) {
 
 function MaybeCardTitle({
   sectionId,
-  isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,
   hasSectionStyleTheme,
 }) {
+  const isActiveSection = useIsSectionUIActive(sectionId);
   return sectionTypeName === SectionTypeEnum.TextBlock ? (
     <TextBlockCardTitle
       sectionId={sectionId}

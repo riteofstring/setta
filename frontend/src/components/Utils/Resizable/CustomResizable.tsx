@@ -46,7 +46,6 @@ export function CustomResizable({
   sectionId,
   bgColor,
   isYouTube,
-  isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
   hasSectionStyleTheme = false,
@@ -63,7 +62,6 @@ export function CustomResizable({
       sectionId={sectionId}
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -86,7 +84,6 @@ function CustomResizableCore({
   sectionId,
   bgColor,
   isYouTube,
-  isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
   hasSectionStyleTheme,
@@ -391,7 +388,6 @@ function CustomResizableCore({
       as={as}
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
@@ -425,7 +421,6 @@ function CustomResizableSuperCore({
   as,
   bgColor,
   isYouTube,
-  isActiveSection,
   isMetaControl,
   hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
@@ -479,7 +474,6 @@ function CustomResizableSuperCore({
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
 
-  const zIndexClass = isActiveSection ? "z-[150]" : "z-10";
   // MetaControl sections render outboard controls near the agentic handles.
   // On hover, raise the resizable stacking context above the handles so menus
   // remain clickable.

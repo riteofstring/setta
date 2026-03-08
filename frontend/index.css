@@ -515,7 +515,7 @@ input[type="color" i] {
 }
 
 .transition-radius {
-  transition-property: border-radius, box-shadow, drop-shadow, outline;
+  transition-property: border-radius, box-shadow, drop-shadow;
   transition-duration: 170ms;
   animation-timing-function: ease-in-out;
 }
