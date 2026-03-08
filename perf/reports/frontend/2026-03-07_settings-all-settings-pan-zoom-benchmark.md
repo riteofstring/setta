@@ -4014,3 +4014,337 @@ New benchmark stages:
   - semantic preview hidden-live keeps activation close to the current live/opacity-hidden path
   - `SnapDOM hidden-live` still has a very large visual-settle penalty
 - So if the product direction is “show an acceptable inactive preview while keeping activation fast,” the semantic-preview path is the better candidate.
+
+## Addendum: compositor layer promotion is the first exact-live-content pan/zoom win
+
+- Goal: test whether the browser can keep the fully live `All Settings` DOM visible while restoring pan/zoom headroom, by promoting section shells and/or section body roots into isolated compositor layers instead of repainting all descendants every frame.
+- Scope:
+  - benchmark-only stages on the current branch head
+  - no semantic preview, no SnapDOM, no hidden body content
+  - exact live section DOM remains visible in all stages
+- New stages:
+  - `full-section-shell-layer-promoted`
+  - `full-section-body-layer-promoted`
+  - `full-section-shell-body-layer-promoted`
+- Implementation under test:
+  - section shell promotion in `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - body-root promotion in `frontend/src/components/Section/Container/SettingsAllSettingsBenchmarkSnapdomSectionBody.tsx`
+  - benchmark stage wiring in `frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+
+### Visual validation
+
+- `full` baseline screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/layer-promotion-2026-03-08/full-visible.png`
+- `full-section-shell-layer-promoted` screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/layer-promotion-2026-03-08/full-section-shell-layer-promoted-visible.png`
+- Live shell-promotion sanity check:
+  - `42` shell promotion markers
+  - `0` body promotion markers
+  - `426` live code widgets still present
+  - sampled row minimum width: `514.00px`
+  - sampled narrow rows: `0`
+- Trace artifact:
+  - `perf/artifacts/frontend/settings-all-settings/layer-promotion-2026-03-08/full-section-shell-layer-promoted-pan-trace.json`
+
+### Pan/zoom comparison
+
+- Comparison method for this addendum:
+  - live headed browser on `http://127.0.0.1:3009/settings`
+  - same browser-side fit-all transform replay used across stages
+  - per run:
+    - fit all section shells into view with fixed padding
+    - settle `500ms`
+    - `60` pan down/right frames
+    - `60` pan back up/left frames
+    - `30` zoom-in frames
+    - `30` zoom-out frames
+  - `3` repeated runs per stage
+  - metrics captured from `requestAnimationFrame` deltas
+
+#### `full` fit-all replay baseline
+
+- DOM count: `8595`
+- Layer promotion markers:
+  - shell: `0`
+  - body: `0`
+- Runs:
+  - `48.43 FPS`
+  - `48.27 FPS`
+  - `49.93 FPS`
+- Average:
+  - `48.88 FPS`
+
+#### `full-section-shell-layer-promoted`
+
+- DOM count: `8595`
+- Layer promotion markers:
+  - shell: `42`
+  - body: `0`
+- Runs:
+  - `120.65 FPS`
+  - `120.05 FPS`
+  - `119.98 FPS`
+- Average:
+  - `120.23 FPS`
+
+#### `full-section-body-layer-promoted`
+
+- DOM count: `8595`
+- Layer promotion markers:
+  - shell: `0`
+  - body: `42`
+- Runs:
+  - `96.09 FPS`
+  - `97.86 FPS`
+  - `96.94 FPS`
+- Average:
+  - `96.96 FPS`
+
+#### `full-section-shell-body-layer-promoted`
+
+- DOM count: `8595`
+- Layer promotion markers:
+  - shell: `42`
+  - body: `42`
+- Runs:
+  - `117.35 FPS`
+  - `120.34 FPS`
+  - `121.04 FPS`
+- Average:
+  - `119.58 FPS`
+
+#### `full` same-session rerun
+
+- DOM count: `8595`
+- Runs:
+  - `49.49 FPS`
+  - `49.88 FPS`
+  - `50.29 FPS`
+- Average:
+  - `49.89 FPS`
+
+### Conclusion
+
+- This is the first branch result that keeps exact live section content visible and still recovers the hidden-body class of pan/zoom performance.
+- Shell-only promotion is the strongest simple variant:
+  - `full`: `48.88 FPS`
+  - `full-section-shell-layer-promoted`: `120.23 FPS`
+  - gain: about `+71.35 FPS`
+- Body-only promotion is also a large win, but smaller:
+  - `96.96 FPS`
+- Adding body promotion on top of shell promotion does not materially improve over shell-only:
+  - `119.58 FPS` vs `120.23 FPS`
+- DOM count stayed exactly the same (`8595`) across all four stages, and the live widgets/rows remained present. So the gain is not DOM reduction. It is a paint/compositing pipeline change.
+- The strongest interpretation is:
+  - the browser can handle this content at high pan/zoom FPS
+  - but only if section shells are promoted into isolated layers instead of being repainted as one large transformed DOM surface
+- This makes shell-level compositor promotion the highest-value next production change for pan/zoom on this branch.
+
+## Addendum: gesture-scoped shell promotion keeps the pan/zoom win without the idle-shell regression
+
+### Goal
+
+- Validate whether the compositor-layer win can be limited to active viewport motion instead of keeping all section shells promoted all the time.
+- Target:
+  - exact live section content
+  - no semantic preview
+  - no SnapDOM
+  - no hidden body content
+  - no idle-shell promotion while the canvas is resting
+
+### Implementation under test
+
+- New benchmark-only stage:
+  - `full-section-shell-layer-promoted-during-gesture`
+- Wiring:
+  - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+    - tracks `viewportInteractionActive` for drag-pan, wheel pan, and wheel/pinch zoom
+  - `frontend/src/forks/xyflow/core/store/initialState.ts`
+  - `frontend/src/forks/xyflow/core/types/general.ts`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+    - shell promotion only applies when `viewportInteractionActive === true`
+  - `frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+    - exposes a benchmark-only browser helper so the headed replay can toggle the same gesture flag deterministically
+
+### Visual validation
+
+- Resting screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/gesture-shell-layer-promotion-2026-03-08/full-section-shell-layer-promoted-during-gesture-rest-visible.png`
+- Active promotion screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/gesture-shell-layer-promotion-2026-03-08/full-section-shell-layer-promoted-during-gesture-active-visible.png`
+- Live shell-promotion sanity check:
+  - resting marker count: `0`
+  - during helper-driven gesture state: `42`
+  - after gesture state reset: `0`
+- The stage still renders exact live content:
+  - DOM count: `8595`
+  - same live section tree as `full`
+
+### Pan/zoom comparison
+
+- Comparison method for this addendum:
+  - live headed browser on `http://127.0.0.1:3009/settings`
+  - same fit-all replay as the previous layer-promotion addendum
+  - viewport transform is driven directly on `.react-flow__viewport`
+  - for the gesture-scoped stage only, the benchmark helper toggles the same `viewportInteractionActive` flag used by real pan/zoom
+  - `3` repeated runs per stage
+
+#### `full`
+
+- DOM count: `8595`
+- Resting shell promotion markers: `0`
+- Runs:
+  - `49.81 FPS`
+  - `50.30 FPS`
+  - `50.19 FPS`
+- Average:
+  - `50.10 FPS`
+
+#### `full-section-shell-layer-promoted-during-gesture`
+
+- DOM count: `8595`
+- Resting shell promotion markers: `0`
+- Shell promotion mode markers: `42`
+- Runs:
+  - `119.88 FPS`
+  - `119.91 FPS`
+  - `119.87 FPS`
+- Average:
+  - `119.88 FPS`
+
+#### `full-section-shell-layer-promoted`
+
+- DOM count: `8595`
+- Resting shell promotion markers: `42`
+- Runs:
+  - `120.00 FPS`
+  - `119.87 FPS`
+  - `120.00 FPS`
+- Average:
+  - `119.95 FPS`
+
+### Activation comparison
+
+- Comparison method for this addendum:
+  - live headed browser
+  - section-to-section clicking on the same two section shells
+  - `click to active` = `data-section-active="true"` flips
+  - `click to visual settle` = shell visual signature stays unchanged for `4` consecutive animation frames
+  - warmed averages use runs `3-6` after the first two clicks
+
+#### `full`
+
+- Warmed average click to active:
+  - `15.20ms`
+- Warmed average click to visual settle:
+  - `41.40ms`
+
+#### `full-section-shell-layer-promoted-during-gesture`
+
+- Warmed average click to active:
+  - `16.47ms`
+- Warmed average click to visual settle:
+  - `43.43ms`
+
+#### `full-section-shell-layer-promoted`
+
+- Warmed average click to active:
+  - `17.95ms`
+- Warmed average click to visual settle:
+  - `49.65ms`
+
+### Conclusion
+
+- Gesture-scoped shell promotion preserves almost the entire exact-live-content compositor win:
+  - `full`: `50.10 FPS`
+  - `full-section-shell-layer-promoted-during-gesture`: `119.88 FPS`
+  - `full-section-shell-layer-promoted`: `119.95 FPS`
+- It does that without paying the idle-shell activation tax of the always-on version:
+  - `full`: `15.20ms` active / `41.40ms` settle
+  - `gesture-scoped`: `16.47ms` active / `43.43ms` settle
+  - `always-on`: `17.95ms` active / `49.65ms` settle
+- So the strongest current production candidate for pan/zoom is no longer semantic preview or SnapDOM. It is shell-level compositor promotion that turns on only while the viewport is actively moving.
+
+## Addendum: promote gesture-scoped shell promotion into production
+
+### Goal
+
+- Validate the real production `full` stage after turning gesture-scoped shell promotion on by default during viewport interaction.
+- Confirm that the pan/zoom win survives outside the isolated benchmark stage.
+- Recheck warmed click activation after the production promotion, with the build already finished.
+
+### Implementation under test
+
+- Production `full` now promotes section shells while `viewportInteractionActive === true`.
+- Benchmark stages can still opt out so the earlier isolated comparisons remain valid.
+- Main files:
+  - `frontend/src/forks/xyflow/core/container/ZoomPane.tsx`
+  - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - `frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+
+### Visual validation
+
+- Production `full` screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/production-viewport-shell-promotion-2026-03-08/full-production-visible.png`
+- Production `full` rerun screenshot:
+  - `perf/artifacts/frontend/settings-all-settings/production-viewport-shell-promotion-2026-03-08/full-production-revalidated-visible.png`
+- Live shell-promotion sanity check on the production `full` stage:
+  - resting shell promotion markers: `0`
+  - helper-driven viewport-interaction markers: `42`
+  - DOM count: `8595`
+
+### Pan/zoom rerun
+
+- Comparison method for this addendum:
+  - live headed browser on `http://127.0.0.1:3009/settings?settingsBenchmarkStage=full`
+  - same fit-all replay style as the previous addendum
+  - production `full` stage only
+  - `3` repeated runs
+
+#### `full` with production gesture-scoped shell promotion
+
+- DOM count: `8595`
+- Runs:
+  - `120.04 FPS`
+  - `120.55 FPS`
+  - `120.01 FPS`
+- Average:
+  - `120.20 FPS`
+
+### Activation rerun
+
+- Comparison method for this addendum:
+  - live headed browser
+  - production `full` stage only
+  - section-to-section clicking on the same two visible section shells
+  - `click to active` = `data-section-active=\"true\"` flips
+  - `click to visual settle` = shell visual signature stays unchanged for `4` consecutive animation frames
+  - warmed averages use runs `3-6` after the first two clicks
+
+#### `full` with production gesture-scoped shell promotion
+
+- Runs:
+  - `23.70ms` active / `61.40ms` settle
+  - `25.20ms` active / `50.00ms` settle
+  - `21.50ms` active / `50.10ms` settle
+  - `22.10ms` active / `49.30ms` settle
+  - `21.30ms` active / `50.10ms` settle
+  - `22.80ms` active / `49.20ms` settle
+- Warmed average click to active:
+  - `21.93ms`
+- Warmed average click to visual settle:
+  - `49.67ms`
+
+### Conclusion
+
+- The gesture-scoped compositor win survives the real production path:
+  - production `full`: `120.20 FPS`
+- Production `full` now lands in the same performance class as the best isolated shell-promotion benchmark stages while keeping exact live section content visible.
+- Warmed click activation remains acceptable after the production promotion:
+  - `21.93ms` click to active
+  - `49.67ms` click to visual settle
+- So this branch now has a concrete high-performance no-preview pan/zoom path:
+  - exact live content
+  - no semantic preview
+  - no SnapDOM
+  - shell-level compositor promotion only during active viewport motion

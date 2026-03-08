@@ -1,3 +1,4 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   createContext,
@@ -39,6 +40,10 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_STAGES = [
   "full-no-zindex",
   "full-ui-active-store",
   "full",
+  "full-section-shell-layer-promoted-during-gesture",
+  "full-section-shell-layer-promoted",
+  "full-section-body-layer-promoted",
+  "full-section-shell-body-layer-promoted",
   "full-section-snapdom",
   "full-section-opacity-hidden",
   "full-section-opacity-1pct",
@@ -102,6 +107,9 @@ declare global {
     __settaSettingsBenchmarkRenderCounters?:
       | SettingsAllSettingsBenchmarkRenderCounterSnapshot
       | undefined;
+    __settaSettingsBenchmarkSetViewportInteractionActive?:
+      | ((active: boolean) => void)
+      | undefined;
   }
 }
 
@@ -128,6 +136,10 @@ type SettingsAllSettingsBenchmarkValue = {
   renderParamSortable: boolean;
   renderUiEditorContent?: boolean;
   skipActivationZIndexReorder?: boolean;
+  promoteSectionShellLayer?: boolean;
+  promoteSectionBodyLayer?: boolean;
+  promoteSectionLayerDuringViewportInteractionOnly?: boolean;
+  allowProductionViewportShellPromotion?: boolean;
   renderSectionBodySnapdomPreview: boolean;
   renderSectionBodySemanticPreview?: boolean;
   sectionBodyHiddenOpacity?: number | null;
@@ -159,6 +171,10 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
   renderParamSortable: true,
   renderUiEditorContent: true,
   skipActivationZIndexReorder: false,
+  promoteSectionShellLayer: false,
+  promoteSectionBodyLayer: false,
+  promoteSectionLayerDuringViewportInteractionOnly: false,
+  allowProductionViewportShellPromotion: false,
   renderSectionBodySnapdomPreview: false,
   renderSectionBodySemanticPreview: false,
   sectionBodyHiddenOpacity: null,
@@ -875,6 +891,126 @@ function resolveBenchmarkValue(
         nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: true,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
+      };
+    case "full-section-shell-layer-promoted-during-gesture":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        promoteSectionShellLayer: true,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: true,
+        allowProductionViewportShellPromotion: false,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
+      };
+    case "full-section-shell-layer-promoted":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        promoteSectionShellLayer: true,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
+      };
+    case "full-section-body-layer-promoted":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: true,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
+        renderSectionBodySnapdomPreview: false,
+        sectionBodyHiddenOpacity: null,
+      };
+    case "full-section-shell-body-layer-promoted":
+      return {
+        active: true,
+        stage,
+        renderSectionHeader: true,
+        renderSectionBody: true,
+        renderFullSectionBody: true,
+        useSyntheticSectionBody: false,
+        renderStaticParamList: false,
+        renderGroupContainerStaticRows: false,
+        renderSectionHandles: true,
+        renderLiveParamLabels: true,
+        renderFlatParamLayout: false,
+        renderSimpleGridParamLayout: false,
+        renderNestedChildSubtrees: true,
+        paramStructureScope: "all",
+        renderParamInput: true,
+        renderParamWidgets: true,
+        textFamilyWidgetScope: "all",
+        nonTextWidgetScope: "all",
+        renderParamChrome: true,
+        renderParamSortable: true,
+        promoteSectionShellLayer: true,
+        promoteSectionBodyLayer: true,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
         renderSectionBodySnapdomPreview: false,
         sectionBodyHiddenOpacity: null,
       };
@@ -900,6 +1036,10 @@ function resolveBenchmarkValue(
         nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
         renderSectionBodySnapdomPreview: true,
         sectionBodyHiddenOpacity: null,
         keepSectionBodyMountedWithSnapdomPreview: false,
@@ -926,6 +1066,10 @@ function resolveBenchmarkValue(
         nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
         renderSectionBodySnapdomPreview: false,
         sectionBodyHiddenOpacity: 0,
         keepSectionBodyMountedWithSnapdomPreview: false,
@@ -952,6 +1096,10 @@ function resolveBenchmarkValue(
         nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
         renderSectionBodySnapdomPreview: false,
         sectionBodyHiddenOpacity: 0.01,
         keepSectionBodyMountedWithSnapdomPreview: false,
@@ -978,6 +1126,10 @@ function resolveBenchmarkValue(
         nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
         renderSectionBodySnapdomPreview: true,
         renderSectionBodySemanticPreview: false,
         sectionBodyHiddenOpacity: null,
@@ -1005,6 +1157,10 @@ function resolveBenchmarkValue(
         nonTextWidgetScope: "all",
         renderParamChrome: true,
         renderParamSortable: true,
+        promoteSectionShellLayer: false,
+        promoteSectionBodyLayer: false,
+        promoteSectionLayerDuringViewportInteractionOnly: false,
+        allowProductionViewportShellPromotion: false,
         renderSectionBodySnapdomPreview: false,
         renderSectionBodySemanticPreview: true,
         sectionBodyHiddenOpacity: null,
@@ -1046,6 +1202,27 @@ export function SettingsAllSettingsBenchmarkProvider({
       value.active ? value.stage : "off",
     );
   }, [value.active, value.stage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    if (!value.active) {
+      window.__settaSettingsBenchmarkSetViewportInteractionActive = undefined;
+      return;
+    }
+
+    window.__settaSettingsBenchmarkSetViewportInteractionActive = (
+      active: boolean,
+    ) => {
+      useReactFlow.setState({ viewportInteractionActive: active });
+    };
+
+    return () => {
+      window.__settaSettingsBenchmarkSetViewportInteractionActive = undefined;
+    };
+  }, [value.active]);
 
   return (
     <SettingsAllSettingsBenchmarkContext.Provider value={value}>

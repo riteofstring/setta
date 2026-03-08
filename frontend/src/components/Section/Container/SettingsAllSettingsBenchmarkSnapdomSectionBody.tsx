@@ -1,5 +1,4 @@
 import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
-import { createPortal } from "react-dom";
 import {
   type CSSProperties,
   type PropsWithChildren,
@@ -8,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useIsSectionUIActive } from "state/activeSectionUI";
 import { SettingsAllSettingsBenchmarkSemanticSectionPreview } from "./SettingsAllSettingsBenchmarkSemanticSectionPreview";
 
@@ -48,6 +48,8 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
   const hiddenOpacity = benchmark.sectionBodyHiddenOpacity ?? null;
   const shouldUseOpacityHidden =
     benchmark.active && hiddenOpacity !== null && hiddenOpacity >= 0;
+  const shouldPromoteSectionBodyLayer =
+    benchmark.active && benchmark.promoteSectionBodyLayer === true;
   const shouldKeepMountedWithSnapdomPreview =
     benchmark.active &&
     benchmark.keepSectionBodyMountedWithSnapdomPreview === true;
@@ -188,7 +190,12 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
     }
 
     setBodyBounds(resolveSectionBodyBounds(liveBodyRoot, root));
-  }, [isActiveSection, previewHost, shouldUseSemanticPreview, shouldUseSnapdomPreview]);
+  }, [
+    isActiveSection,
+    previewHost,
+    shouldUseSemanticPreview,
+    shouldUseSnapdomPreview,
+  ]);
 
   const effectiveStatus: SnapdomStatus = isActiveSection
     ? "live-active"
@@ -268,6 +275,43 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
       }
     };
   }, [hiddenLiveMode, hiddenOpacity]);
+
+  useLayoutEffect(() => {
+    const liveBodyRoot = liveBodyRootRef.current;
+    const liveChildren = getLiveBodyChildren(liveBodyRoot);
+    if (liveChildren.length === 0 || !shouldPromoteSectionBodyLayer) {
+      return;
+    }
+
+    const restoreEntries = liveChildren.map((child) => ({
+      child,
+      willChange: child.style.willChange,
+      transform: child.style.transform,
+      backfaceVisibility: child.style.backfaceVisibility,
+      isolation: child.style.isolation,
+    }));
+
+    for (const entry of restoreEntries) {
+      entry.child.style.willChange = mergeWillChange(
+        entry.child.style.willChange,
+        "transform",
+      );
+      entry.child.style.transform = appendTranslateZ(
+        entry.child.style.transform,
+      );
+      entry.child.style.backfaceVisibility = "hidden";
+      entry.child.style.isolation = "isolate";
+    }
+
+    return () => {
+      for (const entry of restoreEntries) {
+        entry.child.style.willChange = entry.willChange;
+        entry.child.style.transform = entry.transform;
+        entry.child.style.backfaceVisibility = entry.backfaceVisibility;
+        entry.child.style.isolation = entry.isolation;
+      }
+    };
+  }, [shouldPromoteSectionBodyLayer]);
 
   const previewOverlay =
     shouldShowSnapdomPreview &&
@@ -354,6 +398,9 @@ export function SettingsAllSettingsBenchmarkSnapdomSectionBody({
             : shouldKeepMountedWithSnapdomPreview || shouldUseSemanticPreview
               ? hiddenLiveStatus
               : undefined
+        }
+        data-settings-benchmark-section-body-layer-promotion={
+          shouldPromoteSectionBodyLayer ? sectionId : undefined
         }
         ref={liveBodyRootRef}
       >
@@ -465,7 +512,9 @@ function SectionSemanticPreviewOverlay({
       data-settings-benchmark-section-semantic-preview-overlay={sectionId}
       style={overlayStyle}
     >
-      <SettingsAllSettingsBenchmarkSemanticSectionPreview sectionId={sectionId} />
+      <SettingsAllSettingsBenchmarkSemanticSectionPreview
+        sectionId={sectionId}
+      />
     </div>
   );
 }
@@ -642,4 +691,25 @@ function resolveFinitePositiveNumber(value: number): number {
   }
 
   return Math.round(value * 100) / 100;
+}
+
+function mergeWillChange(currentValue: string, property: string): string {
+  const currentParts = currentValue
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  if (currentParts.includes(property)) {
+    return currentValue;
+  }
+  return [...currentParts, property].join(", ");
+}
+
+function appendTranslateZ(currentValue: string): string {
+  if (currentValue.includes("translateZ(")) {
+    return currentValue;
+  }
+  if (currentValue.length === 0 || currentValue === "none") {
+    return "translateZ(0)";
+  }
+  return `${currentValue} translateZ(0)`;
 }

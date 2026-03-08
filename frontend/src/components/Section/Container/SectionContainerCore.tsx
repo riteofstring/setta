@@ -2,6 +2,7 @@ import {
   useSettingsAllSettingsBenchmark,
   useSettingsAllSettingsBenchmarkRenderCounter,
 } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -116,6 +117,23 @@ function _SectionContainerCore({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const shouldUseProductionViewportShellPromotion =
+    !benchmark.active ||
+    benchmark.allowProductionViewportShellPromotion === true;
+  const shouldGateSectionShellLayerPromotionToViewportInteraction =
+    benchmark.active &&
+    benchmark.promoteSectionLayerDuringViewportInteractionOnly === true;
+  const shouldPromoteSectionShellLayerFromBenchmark =
+    benchmark.active &&
+    benchmark.promoteSectionShellLayer === true &&
+    (!shouldGateSectionShellLayerPromotionToViewportInteraction ||
+      viewportInteractionActive);
+  const shouldPromoteSectionShellLayer =
+    (shouldUseProductionViewportShellPromotion && viewportInteractionActive) ||
+    shouldPromoteSectionShellLayerFromBenchmark;
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -130,6 +148,15 @@ function _SectionContainerCore({
         "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
       } as React.CSSProperties)
     : undefined;
+  const sectionShellStyle = shouldPromoteSectionShellLayer
+    ? ({
+        ...sectionStyleVars,
+        willChange: "transform",
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+        isolation: "isolate",
+      } as React.CSSProperties)
+    : sectionStyleVars;
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
     : "";
@@ -196,7 +223,17 @@ function _SectionContainerCore({
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
       data-section-active={isActiveSection ? "true" : "false"}
-      style={sectionStyleVars}
+      data-settings-benchmark-section-shell-layer-promotion-mode={
+        benchmark.active && benchmark.promoteSectionShellLayer === true
+          ? shouldGateSectionShellLayerPromotionToViewportInteraction
+            ? "viewport-interaction"
+            : "always"
+          : undefined
+      }
+      data-settings-benchmark-section-shell-layer-promotion={
+        shouldPromoteSectionShellLayer ? sectionId : undefined
+      }
+      style={sectionShellStyle}
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />

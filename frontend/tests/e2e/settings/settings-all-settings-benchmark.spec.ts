@@ -34,6 +34,10 @@ const STAGES = [
   "full-no-zindex",
   "full-ui-active-store",
   "full",
+  "full-section-shell-layer-promoted-during-gesture",
+  "full-section-shell-layer-promoted",
+  "full-section-body-layer-promoted",
+  "full-section-shell-body-layer-promoted",
   "full-section-snapdom",
   "full-section-opacity-hidden",
   "full-section-opacity-1pct",
@@ -95,6 +99,9 @@ type StageMetrics = {
   sectionOpacityHiddenCount: number;
   sectionOpacityHiddenHiddenCount: number;
   sectionOpacityHiddenVisibleActiveCount: number;
+  sectionShellLayerPromotionCount: number;
+  sectionShellLayerPromotionViewportInteractionModeCount: number;
+  sectionBodyLayerPromotionCount: number;
 };
 
 const RENDER_COUNTER_SCOPES = [
@@ -662,7 +669,120 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(metricsByStage.get("full")?.sectionSnapdomCount).toBe(0);
   expect(metricsByStage.get("full")?.sectionSnapdomPreviewCount).toBe(0);
   expect(metricsByStage.get("full")?.sectionSemanticPreviewCount).toBe(0);
-  expect(metricsByStage.get("full")?.sectionSemanticPreviewOverlayCount).toBe(0);
+  expect(metricsByStage.get("full")?.sectionSemanticPreviewOverlayCount).toBe(
+    0,
+  );
+  expect(metricsByStage.get("full")?.sectionShellLayerPromotionCount).toBe(0);
+  expect(
+    metricsByStage.get("full")
+      ?.sectionShellLayerPromotionViewportInteractionModeCount,
+  ).toBe(0);
+  expect(metricsByStage.get("full")?.sectionBodyLayerPromotionCount).toBe(0);
+
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.sectionShellLayerPromotionCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.sectionShellLayerPromotionViewportInteractionModeCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.sectionBodyLayerPromotionCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.sectionSemanticPreviewCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted-during-gesture")
+      ?.sectionOpacityHiddenCount,
+  ).toBe(0);
+
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")
+      ?.sectionShellLayerPromotionCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")
+      ?.sectionShellLayerPromotionViewportInteractionModeCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")
+      ?.sectionBodyLayerPromotionCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")
+      ?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")
+      ?.sectionSemanticPreviewCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-layer-promoted")
+      ?.sectionOpacityHiddenCount,
+  ).toBe(0);
+
+  expect(
+    metricsByStage.get("full-section-body-layer-promoted")?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-body-layer-promoted")
+      ?.sectionShellLayerPromotionCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-body-layer-promoted")
+      ?.sectionBodyLayerPromotionCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-body-layer-promoted")?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-body-layer-promoted")
+      ?.sectionSemanticPreviewCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-body-layer-promoted")
+      ?.sectionOpacityHiddenCount,
+  ).toBe(0);
+
+  expect(
+    metricsByStage.get("full-section-shell-body-layer-promoted")
+      ?.staticRowCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-body-layer-promoted")
+      ?.sectionShellLayerPromotionCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-shell-body-layer-promoted")
+      ?.sectionBodyLayerPromotionCount,
+  ).toBeGreaterThan(0);
+  expect(
+    metricsByStage.get("full-section-shell-body-layer-promoted")
+      ?.sectionSnapdomCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-body-layer-promoted")
+      ?.sectionSemanticPreviewCount,
+  ).toBe(0);
+  expect(
+    metricsByStage.get("full-section-shell-body-layer-promoted")
+      ?.sectionOpacityHiddenCount,
+  ).toBe(0);
 
   expect(metricsByStage.get("full-section-snapdom")?.staticRowCount).toBe(0);
   expect(
@@ -1023,7 +1143,9 @@ test("section shells do not transition outline on activation", async ({
   await openBenchmarkStage(page, "full");
 
   const transition = await page.evaluate(() => {
-    const section = document.querySelector<HTMLElement>("section[data-section-id]");
+    const section = document.querySelector<HTMLElement>(
+      "section[data-section-id]",
+    );
     if (!section) {
       throw new Error("Missing section shell.");
     }
@@ -1633,6 +1755,16 @@ async function collectStageMetrics(page: Page): Promise<StageMetrics> {
         ).length,
       sectionOpacityHiddenVisibleActiveCount: flowRoot.querySelectorAll(
         '[data-settings-benchmark-section-opacity-hidden-status="visible-active"]',
+      ).length,
+      sectionShellLayerPromotionCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-shell-layer-promotion]",
+      ).length,
+      sectionShellLayerPromotionViewportInteractionModeCount:
+        flowRoot.querySelectorAll(
+          '[data-settings-benchmark-section-shell-layer-promotion-mode="viewport-interaction"]',
+        ).length,
+      sectionBodyLayerPromotionCount: flowRoot.querySelectorAll(
+        "[data-settings-benchmark-section-body-layer-promotion]",
       ).length,
     };
   });
