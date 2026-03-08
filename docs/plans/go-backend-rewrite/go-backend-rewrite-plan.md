@@ -75,15 +75,16 @@ also landed in
 - Go-owned external MCP runtime-status snapshot persistence and IDE-route
   readback
 
-The current next step is the bounded OpenCode follow-on tracked in
-`phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md`:
+The bounded OpenCode follow-on tracked in
+`phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md` is now
+landed:
 
-- richer OpenCode tool-result persistence over the now-landed runtime helpers
+- richer OpenCode tool-result persistence over the shared runtime helpers
 - OpenCode external MCP runtime-status seeding and persisted snapshot parity
 
-Claude rich item / MCP status parity remains the next follow-on after that,
-plus any still-missing Codex non-`response_item` rich items that prove
-user-facing.
+The current next step is now the remaining Claude rich item / MCP status
+follow-on over those same helpers, plus any still-missing Codex
+non-`response_item` rich items that prove user-facing.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

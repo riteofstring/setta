@@ -31,14 +31,32 @@ Completed before this slice:
 - Codex-first rich item, tool-result, and external MCP status parity in
   `phase-12-codex-rich-item-tool-result-and-mcp-status-parity.md`
 
-Still missing before this slice:
+Completed in this slice:
 
-- OpenCode tool-result message persistence for completed/error tool parts
-- OpenCode handling for terminal payloads that carry assistant text and
-  tool-result data in the same payload
-- Go-owned OpenCode external MCP status seeding from runtime config / fetched
-  status payloads plus persisted snapshot readback
-- any follow-on Claude rich item / MCP status parity
+- `internal/externalagents/opencode_rich_items.go` plus
+  `internal/externalagents/opencode_executor.go`
+  - richer OpenCode tool-result persistence from completed/error tool parts
+  - richer generic OpenCode payload handling for same-payload assistant text,
+    tool-call metadata, and tool-result output
+  - persisted `tool_result` run events for OpenCode-rich outputs
+- `internal/externalagents/external_mcp_status.go`
+  - OpenCode config-backed unknown status seeding from generated
+    `OPENCODE_CONFIG`
+  - fetched server-mode `/mcp` payload normalization over the shared external
+    runtime-status helpers
+- `internal/externalagents/opencode_executor.go`
+  - OpenCode external MCP status seeding after runtime activation
+  - persisted snapshot closeout on completion/failure over the shared runtime
+    path
+- focused tests in:
+  - `internal/externalagents/opencode_executor_test.go`
+  - `internal/externalagents/runtime_test.go`
+
+Still missing after this slice:
+
+- Claude rich item/tool-result parity over the same runtime helpers
+- Claude external MCP status parity over the same runtime helpers
+- any still-missing Codex non-`response_item` rich items that prove user-facing
 
 ## Scope
 
@@ -115,21 +133,42 @@ This slice should deliver:
    - This slice should prove the helper reuse pattern for a second adapter
      before broadening into the remaining Claude follow-on.
 
+## Landing Outcome
+
+1. Landed richer OpenCode tool-result persistence for completed tool parts and
+   same-payload assistant text plus tool-result output.
+2. Reused the shared runtime snapshot helpers for OpenCode config-backed and
+   server-mode external MCP status ownership.
+3. Added focused OpenCode executor tests for tool-part persistence,
+   same-payload persistence, and persisted MCP runtime-status readback.
+4. Narrowed the remaining Phase 12 gap to the Claude follow-on plus any small
+   residual Codex rich-item gaps.
+
 ## Verification
 
 - `./scripts/go.sh test ./internal/externalagents -run 'OpenCode|Runtime'`
 - `./scripts/go.sh test ./internal/httpapi -run 'MCPRuntimeStatus|ExternalAgent'`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
+## Decisions Made
+
+- keep OpenCode richer item handling inside the existing Go executor/parser
+  boundary instead of broadening the send service or routes
+- reuse the shared external MCP status helpers instead of adding another
+  OpenCode-only runtime store
+- seed OpenCode MCP statuses from generated config for every run mode and merge
+  fetched server-mode payloads above that source of truth
+- keep Claude explicitly deferred until the OpenCode helper pattern is proven
+
 ## Open Questions
 
-- whether OpenCode raw MCP payload capture during active streaming is needed in
-  this slice
-  - recommendation: no, keep this slice bounded to seeded status ownership from
-    generated config and fetched startup payloads unless a user-facing gap shows
-    raw-stream capture is required
+- whether OpenCode raw MCP payload capture during active streaming is needed
+  after the landed startup/config seeding
+  - recommendation: still no, unless a concrete user-facing runtime-status gap
+    appears that startup/config seeding cannot cover
 
 ## Next Recommended Step
 
-- reuse the same runtime/status helper pattern for the remaining Claude
-  follow-on only after the OpenCode parity slice is landed and verified
+- scope the remaining Claude rich item/tool-result and MCP status follow-on on
+  the same runtime helpers now that both Codex and OpenCode parity slices are
+  landed

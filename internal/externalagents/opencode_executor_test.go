@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 )
 
@@ -163,7 +166,210 @@ func TestOpenCodeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 }
 
 type openCodeFixtureOptions struct {
-	scenario string
+	scenario   string
+	runMode    externalagentconfigs.RunMode
+	baseURL    *string
+	managedMCP map[string]any
+}
+
+func TestOpenCodeExecutorPersistsToolResultFromCompletedToolPart(t *testing.T) {
+	t.Parallel()
+
+	// Verify completed tool-part state becomes a persisted tool result plus a
+	// summarized run event through the Go-owned OpenCode executor path.
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "tool_result_part"})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Report task completion"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode rich run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	toolResultFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role != "tool" || stringValue(message["tool_call_id"]) != "tool-report-part" {
+			continue
+		}
+		if got := stringValue(message["tool_name"]); got != "setta__report_completion_status" {
+			t.Fatalf("unexpected tool result name %q", got)
+		}
+		resultPayload, ok := mapValue(message["result"])
+		if !ok {
+			t.Fatalf("expected tool result payload, got %#v", message["result"])
+		}
+		structured, ok := mapValue(resultPayload["structuredContent"])
+		if !ok || !boolValue(structured["completionIntent"]) {
+			t.Fatalf("unexpected structured tool result %#v", resultPayload)
+		}
+		toolResultFound = true
+	}
+	if !toolResultFound {
+		t.Fatalf("expected persisted tool result message, got %#v", messages)
+	}
+	eventFound := false
+	for _, event := range persisted.Events {
+		if event.Type == "tool_result" && stringValue(event.Payload["toolCallId"]) == "tool-report-part" {
+			eventFound = true
+			break
+		}
+	}
+	if !eventFound {
+		t.Fatalf("expected persisted tool_result event, got %#v", persisted.Events)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestOpenCodeExecutorPreservesSamePayloadAssistantTextAndToolResult(t *testing.T) {
+	t.Parallel()
+
+	// Verify a single OpenCode payload can persist assistant text, tool-call
+	// metadata, and the matching tool result without dropping the assistant text.
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{scenario: "same_payload"})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Finish the task and report completion"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode same-payload run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	assistantFound := false
+	toolResultFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role == "assistant" && extractMessageText(message) == "Task A is done." {
+			rawToolCalls, ok := message["tool_calls"].([]any)
+			if !ok || len(rawToolCalls) != 1 {
+				t.Fatalf("expected assistant tool call payload, got %#v", message)
+			}
+			assistantFound = true
+		}
+		if role == "tool" && stringValue(message["tool_call_id"]) == "tool-report-same" {
+			if got := stringValue(message["tool_name"]); got != "setta__report_completion_status" {
+				t.Fatalf("unexpected tool result name %q", got)
+			}
+			toolResultFound = true
+		}
+	}
+	if !assistantFound {
+		t.Fatalf("expected persisted assistant text from same payload, got %#v", messages)
+	}
+	if !toolResultFound {
+		t.Fatalf("expected persisted same-payload tool result, got %#v", messages)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestOpenCodeExecutorPersistsServerModeMCPStatusSnapshot(t *testing.T) {
+	t.Parallel()
+
+	// Verify server-mode runs merge runtime-config seeding with fetched `/mcp`
+	// status payloads and persist the resulting snapshot into run outputs.
+	statusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"servers":[{"id":"filesystem","connected":true,"transport":"stdio","command":"npx @modelcontextprotocol/server-filesystem .","toolCount":3}]}`))
+	}))
+	defer statusServer.Close()
+
+	fixture := newOpenCodeExecutorFixture(t, openCodeFixtureOptions{
+		scenario: "complete",
+		runMode:  externalagentconfigs.RunModeServer,
+		baseURL:  stringPtr(statusServer.URL),
+		managedMCP: map[string]any{
+			"filesystem": map[string]any{
+				"transport": "stdio",
+				"command":   "npx @modelcontextprotocol/server-filesystem .",
+			},
+		},
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello from OpenCode server mode"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start opencode server-mode run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(&result.ChatID, &fixture.engineID)
+	if err != nil {
+		t.Fatalf("read persisted external runtime statuses: %v", err)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("expected one persisted status row, got %#v", statuses)
+	}
+	if got := statuses[0].ServerID; got != "filesystem" {
+		t.Fatalf("unexpected server id %q", got)
+	}
+	if statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected connected runtime state, got %#v", statuses[0])
+	}
+	if statuses[0].ToolCount != 3 {
+		t.Fatalf("expected fetched tool count, got %#v", statuses[0])
+	}
 }
 
 type openCodeExecutorFixture struct {
@@ -181,6 +387,10 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 
 	root := t.TempDir()
 	commandPath := writeOpenCodeFixtureCommand(t, options.scenario)
+	runMode := options.runMode
+	if runMode == "" {
+		runMode = externalagentconfigs.RunModeSDK
+	}
 
 	engines, err := agentruns.NewEngineStore(root)
 	if err != nil {
@@ -216,13 +426,15 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 			ID:                 configID,
 			Name:               "OpenCode fixture",
 			ToolType:           externalagentconfigs.ToolTypeOpenCode,
-			RunMode:            externalagentconfigs.RunModeSDK,
+			RunMode:            runMode,
 			CommandPath:        &commandPath,
+			BaseURL:            stringPtr(derefOptionalString(options.baseURL)),
 			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 			SettingsManagedBlock: &externalagentconfigs.SettingsManagedBlock{
 				OpenCode: &externalagentconfigs.OpenCodeSettingsBlock{
 					Model:      &managedModel,
 					Permission: map[string]any{"shell": "ask"},
+					MCP:        cloneAnyMap(options.managedMCP),
 				},
 			},
 		},
@@ -276,7 +488,7 @@ func newOpenCodeExecutorFixture(t *testing.T, options openCodeFixtureOptions) op
 				ConfigID:  configID,
 				Name:      "OpenCode fixture",
 				ToolType:  externalagentconfigs.ToolTypeOpenCode,
-				RunMode:   externalagentconfigs.RunModeSDK,
+				RunMode:   runMode,
 				Supported: true,
 				Available: true,
 				Issues:    []string{},
@@ -459,6 +671,113 @@ func runOpenCodeFixtureProcess(scenario string) error {
 					return err
 				}
 				continue
+			case "tool_result_part":
+				if err := emit(map[string]any{
+					"type": "session.updated",
+					"properties": map[string]any{
+						"info": map[string]any{
+							"id": "session-tool-result-part",
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				if err := emit(map[string]any{
+					"type": "message.updated",
+					"properties": map[string]any{
+						"info": map[string]any{
+							"id":   "assistant-tool-part",
+							"role": "assistant",
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				for _, rawPart := range []map[string]any{
+					{
+						"id":        "part-tool-result-1",
+						"messageID": "assistant-tool-part",
+						"type":      "tool",
+						"tool":      "setta_report_completion_status",
+						"callID":    "tool-report-part",
+						"state": map[string]any{
+							"status": "pending",
+							"input": map[string]any{
+								"completionIntent": true,
+							},
+						},
+					},
+					{
+						"id":        "part-tool-result-1",
+						"messageID": "assistant-tool-part",
+						"type":      "tool",
+						"tool":      "setta_report_completion_status",
+						"callID":    "tool-report-part",
+						"state": map[string]any{
+							"status": "completed",
+							"input": map[string]any{
+								"completionIntent": true,
+							},
+							"output": map[string]any{
+								"structuredContent": map[string]any{
+									"completionIntent":     true,
+									"requiresVerification": false,
+								},
+							},
+						},
+					},
+				} {
+					if err := emit(map[string]any{
+						"type": "message.part.updated",
+						"properties": map[string]any{
+							"part": rawPart,
+						},
+					}); err != nil {
+						return err
+					}
+				}
+				if err := emitOpenCodeAssistantTurn(emit, "session-tool-result-part", "assistant-tool-result-summary", "part-tool-result-summary", "Tool result persisted"); err != nil {
+					return err
+				}
+				return nil
+			case "same_payload":
+				if err := emit(map[string]any{
+					"type": "session.updated",
+					"properties": map[string]any{
+						"info": map[string]any{
+							"id": "session-same-payload",
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				if err := emit(map[string]any{
+					"id":   "assistant-same-payload",
+					"text": "Task A is done.",
+					"tool_call": map[string]any{
+						"id":        "tool-report-same",
+						"name":      "setta_report_completion_status",
+						"arguments": `{"completionIntent":true}`,
+					},
+					"tool_call_id": "tool-report-same",
+					"tool_name":    "setta_report_completion_status",
+					"result": map[string]any{
+						"structuredContent": map[string]any{
+							"completionIntent":     true,
+							"requiresVerification": true,
+							"checkResults": []any{
+								map[string]any{
+									"checkName": "pytest",
+									"required":  true,
+									"status":    "passed",
+								},
+							},
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				return nil
 			default:
 				return fmt.Errorf("unsupported opencode fixture scenario %q", scenario)
 			}

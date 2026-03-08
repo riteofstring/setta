@@ -162,6 +162,62 @@ func appendToolResultMessage(
 	state.Messages = append(state.Messages, message)
 }
 
+func toolResultMessagePresent(state *ChatState, toolCallID string) bool {
+	if state == nil || strings.TrimSpace(toolCallID) == "" {
+		return false
+	}
+	for _, message := range state.Messages {
+		role, err := messageRole(message)
+		if err != nil || role != "tool" {
+			continue
+		}
+		if strings.TrimSpace(stringValue(message["tool_call_id"])) == toolCallID {
+			return true
+		}
+	}
+	return false
+}
+
+func lookupToolCallContext(state *ChatState, toolCallID string) (string, map[string]any) {
+	if state == nil || strings.TrimSpace(toolCallID) == "" {
+		return "", map[string]any{}
+	}
+	for _, message := range state.Messages {
+		rawToolCalls, ok := message["tool_calls"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawToolCall := range rawToolCalls {
+			toolCall, ok := rawToolCall.(map[string]any)
+			if !ok {
+				continue
+			}
+			if strings.TrimSpace(stringValue(toolCall["id"])) != toolCallID {
+				continue
+			}
+			function, _ := mapValue(toolCall["function"])
+			if function == nil {
+				return "", map[string]any{}
+			}
+			name := strings.TrimSpace(stringValue(function["name"]))
+			arguments, _ := mapValue(function["arguments"])
+			if arguments == nil {
+				arguments = map[string]any{}
+			}
+			return name, cloneAnyMap(arguments)
+		}
+	}
+	if state.ToolCallArguments != nil {
+		if encoded := strings.TrimSpace(state.ToolCallArguments[toolCallID]); encoded != "" {
+			parsed := map[string]any{}
+			if err := json.Unmarshal([]byte(encoded), &parsed); err == nil {
+				return "", parsed
+			}
+		}
+	}
+	return "", map[string]any{}
+}
+
 func appendQuestionResultMessage(state *ChatState, toolCallID string, answers map[string]string) {
 	if state.ToolCallArguments != nil {
 		delete(state.ToolCallArguments, toolCallID)

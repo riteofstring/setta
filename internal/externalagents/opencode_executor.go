@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -157,6 +158,7 @@ func (e *OpenCodeExecutor) Start(ctx context.Context, request StartRequest) (Sta
 	if strings.TrimSpace(configPath) != "" {
 		envMap["OPENCODE_CONFIG"] = configPath
 	}
+	startupMCPStatusPayload := e.fetchOpenCodeMCPStatusPayload(ctx, request.ExternalConfig)
 
 	nodeCommand := resolveBundledNodeCommand(derefOptionalString(request.ExternalConfig.CommandPath))
 	cmd := exec.Command(nodeCommand, e.sidecarPath)
@@ -205,7 +207,7 @@ func (e *OpenCodeExecutor) Start(ctx context.Context, request StartRequest) (Sta
 		cancelled:    make(chan struct{}),
 	}
 	startupFailed = false
-	go e.runLoop(request, session, controller, cleanupPaths)
+	go e.runLoop(request, session, controller, cleanupPaths, configPath, startupMCPStatusPayload)
 	return StartResponse{Controller: controller}, nil
 }
 
@@ -214,6 +216,8 @@ func (e *OpenCodeExecutor) runLoop(
 	session *openCodeSession,
 	controller *openCodeRunController,
 	cleanupPaths []string,
+	configPath string,
+	startupMCPStatusPayload any,
 ) {
 	defer func() {
 		_ = controller.Cancel()
@@ -226,6 +230,10 @@ func (e *OpenCodeExecutor) runLoop(
 		e.runtime.DeactivateRun(request.Run.ID)
 	}()
 	if !controller.waitForRuntimeReady() {
+		return
+	}
+	if err := e.seedOpenCodeMCPStatuses(request.Run.ID, configPath, startupMCPStatusPayload); err != nil && !errors.Is(err, ErrRunNotActive) {
+		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 		return
 	}
 
@@ -318,7 +326,29 @@ func (e *OpenCodeExecutor) handleEvent(
 		return false, false, errors.New(message)
 	default:
 		changed, err := parser.handle(payload, state)
-		return false, changed, err
+		if err != nil {
+			return false, changed, err
+		}
+		toolResults := parser.takeToolResults()
+		if len(toolResults) == 0 {
+			return false, changed, nil
+		}
+		run, err := e.runs.Load(request.Run.ID)
+		if err != nil {
+			return false, changed, err
+		}
+		for _, toolResult := range toolResults {
+			appendRunEvent(&run, "tool_result", map[string]any{
+				"toolCallId": toolResult.ToolCallID,
+				"toolName":   toolResult.ToolName,
+				"result":     deepCloneJSONValue(toolResult.Result),
+				"isError":    toolResult.IsError,
+			}, e.timeNow())
+		}
+		if err := e.runs.Save(run); err != nil {
+			return false, changed, err
+		}
+		return false, changed, nil
 	}
 }
 
@@ -345,6 +375,7 @@ func (e *OpenCodeExecutor) finalizeRun(runID string, state ChatState, sessionID 
 	finishedAt := e.timeNow().UTC()
 	run.Status = agentruns.RunStatusCompleted
 	run.FinishedAt = &finishedAt
+	e.runtime.attachMCPStatusSnapshot(&run)
 	appendRunEvent(&run, "run_completed", map[string]any{}, finishedAt)
 	return e.runs.Save(run)
 }
@@ -366,6 +397,7 @@ func (e *OpenCodeExecutor) markRunFailed(runID string, runErr error, stderrLines
 	if len(stderrLines) > 0 {
 		payload["cliStderr"] = append([]string(nil), stderrLines...)
 	}
+	e.runtime.attachMCPStatusSnapshot(&run)
 	appendRunEvent(&run, "run_failed", payload, finishedAt)
 	return e.runs.Save(run)
 }
@@ -455,6 +487,41 @@ func (e *OpenCodeExecutor) buildRuntimeEnv(config externalagentconfigs.Config) m
 		envMap[trimmedKey] = e.processEnv[trimmedKey]
 	}
 	return envMap
+}
+
+func (e *OpenCodeExecutor) fetchOpenCodeMCPStatusPayload(ctx context.Context, config externalagentconfigs.Config) any {
+	if config.RunMode != externalagentconfigs.RunModeServer {
+		return nil
+	}
+	baseURL := strings.TrimSpace(derefOptionalString(config.BaseURL))
+	if baseURL == "" {
+		return nil
+	}
+	statusURL := strings.TrimRight(baseURL, "/") + "/mcp"
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL, nil)
+	if err != nil {
+		return nil
+	}
+	client := &http.Client{Timeout: time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil
+	}
+	var payload any
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return nil
+	}
+	return payload
+}
+
+func (e *OpenCodeExecutor) seedOpenCodeMCPStatuses(runID string, configPath string, startupPayload any) error {
+	statuses := buildUnknownOpenCodeMCPStatuses(configPath)
+	statuses = append(statuses, buildOpenCodeMCPStatuses(startupPayload, e.timeNow)...)
+	return e.runtime.UpsertMCPStatuses(runID, statuses)
 }
 
 func (e *OpenCodeExecutor) prepareOpenCodeConfig(config externalagentconfigs.Config, chatID string, inputs map[string]any) (string, error) {
@@ -852,6 +919,7 @@ type openCodeEventParser struct {
 	messageRoles map[string]string
 	pendingParts map[string][]map[string]any
 	partTextByID map[string]string
+	toolResults  []openCodeToolResultMetadata
 }
 
 func newOpenCodeEventParser(runtime *Runtime, request StartRequest) *openCodeEventParser {
@@ -861,10 +929,12 @@ func newOpenCodeEventParser(runtime *Runtime, request StartRequest) *openCodeEve
 		messageRoles: map[string]string{},
 		pendingParts: map[string][]map[string]any{},
 		partTextByID: map[string]string{},
+		toolResults:  []openCodeToolResultMetadata{},
 	}
 }
 
 func (p *openCodeEventParser) handle(payload map[string]any, state *ChatState) (bool, error) {
+	p.toolResults = p.toolResults[:0]
 	switch strings.TrimSpace(stringValue(payload["type"])) {
 	case "message.updated":
 		return p.handleMessageUpdated(payload, state)
@@ -873,8 +943,17 @@ func (p *openCodeEventParser) handle(payload map[string]any, state *ChatState) (
 	case "assistant_message":
 		return p.handleAssistantMessage(payload, state)
 	default:
-		return false, nil
+		return p.handleGenericPayload(payload, state)
 	}
+}
+
+func (p *openCodeEventParser) takeToolResults() []openCodeToolResultMetadata {
+	if len(p.toolResults) == 0 {
+		return []openCodeToolResultMetadata{}
+	}
+	results := append([]openCodeToolResultMetadata(nil), p.toolResults...)
+	p.toolResults = p.toolResults[:0]
+	return results
 }
 
 func (p *openCodeEventParser) handleMessageUpdated(payload map[string]any, state *ChatState) (bool, error) {
@@ -997,23 +1076,13 @@ func (p *openCodeEventParser) handleAssistantMessage(payload map[string]any, sta
 }
 
 func (p *openCodeEventParser) handleToolPart(messageID string, part map[string]any, state *ChatState) (bool, error) {
-	toolCallID := strings.TrimSpace(stringValue(part["callID"]))
-	if toolCallID == "" {
+	toolCall, toolResult := applyOpenCodeToolPart(state, messageID, part)
+	if toolCall.ToolCallID == "" {
 		return false, nil
 	}
-	toolName := normalizeOpenCodeToolName(stringValue(part["tool"]))
-	toolState, _ := mapValue(part["state"])
-	if toolState == nil {
-		toolState = map[string]any{}
-	}
-	arguments := extractOpenCodeToolArgumentsDict(toolState)
-	if len(arguments) > 0 {
-		setToolCallArguments(state, toolCallID, arguments)
-	}
-	upsertAssistantToolCall(state, messageID, toolCallID, toolName, arguments)
-	if toolName == askUserQuestionToolName {
+	if toolCall.ToolName == askUserQuestionToolName {
 		if err := p.runtime.RegisterQuestion(QuestionState{
-			ToolCallID:      toolCallID,
+			ToolCallID:      toolCall.ToolCallID,
 			RunID:           p.request.Run.ID,
 			ProjectConfigID: p.request.ProjectConfigID,
 			ChatID:          p.request.ChatID,
@@ -1022,7 +1091,32 @@ func (p *openCodeEventParser) handleToolPart(messageID string, part map[string]a
 			return true, err
 		}
 	}
+	if toolResult != nil {
+		p.toolResults = append(p.toolResults, *toolResult)
+	}
 	return true, nil
+}
+
+func (p *openCodeEventParser) handleGenericPayload(payload map[string]any, state *ChatState) (bool, error) {
+	changed, toolCalls, toolResults := applyOpenCodeGenericPayload(state, payload)
+	for _, toolCall := range toolCalls {
+		if toolCall.ToolName != askUserQuestionToolName {
+			continue
+		}
+		if err := p.runtime.RegisterQuestion(QuestionState{
+			ToolCallID:      toolCall.ToolCallID,
+			RunID:           p.request.Run.ID,
+			ProjectConfigID: p.request.ProjectConfigID,
+			ChatID:          p.request.ChatID,
+			SectionID:       cloneOptionalString(p.request.SectionID),
+		}); err != nil && !errors.Is(err, ErrRunNotActive) {
+			return changed, err
+		}
+	}
+	if len(toolResults) > 0 {
+		p.toolResults = append(p.toolResults, toolResults...)
+	}
+	return changed, nil
 }
 
 func (p *openCodeEventParser) extractPartDelta(part map[string]any, properties map[string]any, textKey string) string {
@@ -1112,26 +1206,6 @@ func normalizeOpenCodeToolName(raw string) string {
 		return askUserQuestionToolName
 	}
 	return normalized
-}
-
-func extractOpenCodeToolArgumentsDict(state map[string]any) map[string]any {
-	if state == nil {
-		return map[string]any{}
-	}
-	inputValue := state["input"]
-	if inputValue == nil {
-		return map[string]any{}
-	}
-	switch typed := inputValue.(type) {
-	case map[string]any:
-		return cloneAnyMap(typed)
-	case string:
-		parsed := map[string]any{}
-		if err := json.Unmarshal([]byte(typed), &parsed); err == nil {
-			return parsed
-		}
-	}
-	return map[string]any{}
 }
 
 func resolveBundledNodeCommand(commandPath string) string {
