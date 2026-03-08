@@ -10,7 +10,10 @@ def _repo_root() -> Path:
 
 
 def _write_minimal_distribution_project(
-    tmp_path: Path, *, include_go_binaries: bool
+    tmp_path: Path,
+    *,
+    include_go_binaries: bool,
+    use_repo_packaged_entrypoint_modules: bool = False,
 ) -> Path:
     project_root = tmp_path / "packaged-project"
     package_root = project_root / "backend" / "setta"
@@ -26,15 +29,26 @@ def _write_minimal_distribution_project(
     )
     (project_root / "README.md").write_text("# temp package\n", encoding="utf-8")
     (project_root / "LICENSE").write_text("Apache-2.0\n", encoding="utf-8")
-    (package_root / "__init__.py").write_text('__version__ = "0.0.0"\n', encoding="utf-8")
-    (package_root / "__main__.py").write_text(
-        "from setta.entrypoint import main\n",
-        encoding="utf-8",
-    )
-    (package_root / "entrypoint.py").write_text(
-        "def main() -> None:\n    return None\n",
-        encoding="utf-8",
-    )
+    if use_repo_packaged_entrypoint_modules:
+        for relative_path in ("__init__.py", "__main__.py", "entrypoint.py"):
+            (package_root / relative_path).write_text(
+                (_repo_root() / "backend" / "setta" / relative_path).read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+    else:
+        (package_root / "__init__.py").write_text(
+            '__version__ = "0.0.0"\n', encoding="utf-8"
+        )
+        (package_root / "__main__.py").write_text(
+            "from setta.entrypoint import main\n",
+            encoding="utf-8",
+        )
+        (package_root / "entrypoint.py").write_text(
+            "def main() -> None:\n    return None\n",
+            encoding="utf-8",
+        )
     (package_root / "dev_start.py").write_text(
         "def main() -> int:\n    return 0\n",
         encoding="utf-8",
@@ -146,7 +160,7 @@ def test_wheel_build_with_packaged_go_binaries_uses_platform_tags(
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
-    wheel_paths = list(outdir.glob("setta-0.0.0-*.whl"))
+    wheel_paths = list(outdir.glob("setta-*.whl"))
     assert len(wheel_paths) == 1
     wheel_path = wheel_paths[0]
     assert not wheel_path.name.endswith("-any.whl")
@@ -176,7 +190,7 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
     combined_output = f"{result.stdout}\n{result.stderr}"
     assert result.returncode == 0, combined_output
 
-    wheel_paths = list(outdir.glob("setta-0.0.0-*.whl"))
+    wheel_paths = list(outdir.glob("setta-*.whl"))
     assert len(wheel_paths) == 1
 
     with zipfile.ZipFile(wheel_paths[0]) as wheel_archive:
@@ -258,3 +272,75 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     assert "Requires-Dist: click==8.2.1; extra == 'source'" in source_requires
     assert "Requires-Dist: fastapi==0.115.12; extra == 'source'" in source_requires
     assert "Requires-Dist: mcp==1.25.0; extra == 'source'" in source_requires
+
+
+def test_wheel_installs_and_runs_real_packaged_entrypoint_modules(
+    tmp_path: Path,
+) -> None:
+    # The real packaged Python modules should stay import-safe when installed
+    # without the legacy backend tree that source/dev workflows still carry.
+    project_root = _write_minimal_distribution_project(
+        tmp_path,
+        include_go_binaries=True,
+        use_repo_packaged_entrypoint_modules=True,
+    )
+    outdir = tmp_path / "dist"
+
+    result = _build_wheel(project_root, outdir)
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
+
+    wheel_paths = list(outdir.glob("setta-*.whl"))
+    assert len(wheel_paths) == 1
+    wheel_path = wheel_paths[0]
+
+    venv_dir = tmp_path / "venv"
+    venv_result = subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_dir)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert venv_result.returncode == 0, (
+        f"{venv_result.stdout}\n{venv_result.stderr}"
+    ).strip()
+
+    venv_python = venv_dir / "bin" / "python"
+    install_result = subprocess.run(
+        [str(venv_python), "-m", "pip", "install", "--no-deps", str(wheel_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert install_result.returncode == 0, (
+        f"{install_result.stdout}\n{install_result.stderr}"
+    ).strip()
+
+    args_capture = tmp_path / "go-args.txt"
+    go_stub = tmp_path / "setta-go"
+    go_stub.write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{args_capture}"
+printf 'setta version from go\\n'
+""",
+        encoding="utf-8",
+    )
+    go_stub.chmod(0o755)
+
+    env = os.environ.copy()
+    env["SETTA_GO_CLI_BIN"] = str(go_stub)
+    run_result = subprocess.run(
+        [str(venv_python), "-m", "setta", "version"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+
+    assert run_result.returncode == 0, (
+        f"{run_result.stdout}\n{run_result.stderr}"
+    ).strip()
+    assert "setta version from go" in run_result.stdout
+    assert args_capture.read_text(encoding="utf-8").strip() == "version"
