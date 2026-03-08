@@ -1033,6 +1033,54 @@ export function createCodeFileBindingUpdate(options: Partial<CodeFileBindingUpda
 }
 
 
+export const WebsocketConnectionTypeEnum = {
+  CLI: "CLI",
+  SERVER: "SERVER",
+  PYTHON_LOGGER: "PYTHON_LOGGER",
+  PYTHON_SCRIPT: "PYTHON_SCRIPT",
+  FRONTEND: "FRONTEND",
+} as const;
+export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
+
+
+export const WebsocketMsgTypeForFrontendEnum = {
+  AllConnections: "AllConnections",
+  FrontendIdentity: "FrontendIdentity",
+  Notification: "Notification",
+  LLMStreamingResponse: "LLMStreamingResponse",
+  LSPDiagnostics: "LSPDiagnostics",
+  NameValidationErrors: "NameValidationErrors",
+  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
+  TerminalMetadata: "TerminalMetadata",
+  UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateSettings: "UpdateSettings",
+  AllProjectMetadata: "AllProjectMetadata",
+  UpdateArtifacts: "UpdateArtifacts",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  LLMConfigUpdated: "LLMConfigUpdated",
+  LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  BackendLogEvent: "BackendLogEvent",
+  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  UISettingReveal: "UISettingReveal",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
+  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
+} as const;
+export type WebsocketMsgTypeForFrontend = ObjectValues<typeof WebsocketMsgTypeForFrontendEnum>;
+
+
+export const WebsocketMsgTypeForBackendEnum = {
+  CurrentAddressUpdate: "CurrentAddressUpdate",
+  UISettingRevealResult: "UISettingRevealResult",
+  RealtimeUIChange: "RealtimeUIChange",
+  RealtimeDependencyEvent: "RealtimeDependencyEvent",
+} as const;
+export type WebsocketMsgTypeForBackend = ObjectValues<typeof WebsocketMsgTypeForBackendEnum>;
+
+
 export type WebsocketConnectionInfo = {
   id: string;
   connectionType: WebsocketConnectionType;
@@ -1065,56 +1113,14 @@ export function createWebsocketMsgCurrentAddressUpdate(options: Partial<Websocke
 }
 
 
-
-export const WebsocketConnectionTypeEnum = {
-  CLI: "CLI",
-  SERVER: "SERVER",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
-  PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  FRONTEND: "FRONTEND",
-} as const;
-export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
-
-export const WebsocketMsgTypeForFrontendEnum = {
-  AllConnections: "AllConnections",
-  FrontendIdentity: "FrontendIdentity",
-  Notification: "Notification",
-  LLMStreamingResponse: "LLMStreamingResponse",
-  LSPDiagnostics: "LSPDiagnostics",
-  NameValidationErrors: "NameValidationErrors",
-  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
-  TerminalMetadata: "TerminalMetadata",
-  UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  UpdateSettings: "UpdateSettings",
-  AllProjectMetadata: "AllProjectMetadata",
-  UpdateArtifacts: "UpdateArtifacts",
-  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
-  LLMConfigUpdated: "LLMConfigUpdated",
-  LLMApiKeysUpdated: "LLMApiKeysUpdated",
-  BackendLogEvent: "BackendLogEvent",
-  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
-  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
-  UISettingReveal: "UISettingReveal",
-  AgentProfilesUpdated: "AgentProfilesUpdated",
-  PromptTemplatesUpdated: "PromptTemplatesUpdated",
-  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
-  EngineConfigsUpdated: "EngineConfigsUpdated",
-  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
-} as const;
-export type WebsocketMsgTypeForFrontend = ObjectValues<typeof WebsocketMsgTypeForFrontendEnum>;
-
-export const WebsocketMsgTypeForBackendEnum = {
-  CurrentAddressUpdate: "CurrentAddressUpdate",
-  UISettingRevealResult: "UISettingRevealResult",
-  RealtimeUIChange: "RealtimeUIChange",
-  RealtimeDependencyEvent: "RealtimeDependencyEvent",
-} as const;
-export type WebsocketMsgTypeForBackend = ObjectValues<typeof WebsocketMsgTypeForBackendEnum>;
-
 export type UISettingRevealActivationStep = {
   type: string;
   itemValue: string;
 };
+export function createUISettingRevealActivationStep(options: Partial<UISettingRevealActivationStep> = {}): UISettingRevealActivationStep {
+  return options as UISettingRevealActivationStep;
+}
+
 
 export type UISettingRevealTarget = {
   settingId: string;
@@ -1128,6 +1134,10 @@ export type UISettingRevealTarget = {
   pluginRevealKey?: string | null;
   revealActivationSteps: Array<UISettingRevealActivationStep>;
 };
+export function createUISettingRevealTarget(options: Partial<UISettingRevealTarget> = {}): UISettingRevealTarget {
+  return options as UISettingRevealTarget;
+}
+
 
 export type UISettingRevealContent = {
   projectConfigId: string;
@@ -1137,6 +1147,10 @@ export type UISettingRevealContent = {
   durationMs: number;
   requestId: string;
 };
+export function createUISettingRevealContent(options: Partial<UISettingRevealContent> = {}): UISettingRevealContent {
+  return options as UISettingRevealContent;
+}
+
 
 export type UISettingRevealResultStatus = {
   settingId: string;
@@ -1144,49 +1158,84 @@ export type UISettingRevealResultStatus = {
   errorCode?: string | null;
   errorMessage?: string | null;
 };
+export function createUISettingRevealResultStatus(options: Partial<UISettingRevealResultStatus> = {}): UISettingRevealResultStatus {
+  return options as UISettingRevealResultStatus;
+}
+
 
 export type UISettingRevealResultContent = {
   projectConfigId: string;
   requestId: string;
   statuses: Array<UISettingRevealResultStatus>;
 };
+export function createUISettingRevealResultContent(options: Partial<UISettingRevealResultContent> = {}): UISettingRevealResultContent {
+  return options as UISettingRevealResultContent;
+}
+
+
+export type WebsocketMsgRealtimeUIChangeContent = {
+  projectConfigId: string;
+  dependencyKey: BaseDependencyKeyUnion;
+  value: BaseDependencyValueUnion;
+};
+export function createWebsocketMsgRealtimeUIChangeContent(options: Partial<WebsocketMsgRealtimeUIChangeContent> = {}): WebsocketMsgRealtimeUIChangeContent {
+  return options as WebsocketMsgRealtimeUIChangeContent;
+}
+
 
 export type WebsocketMsgRealtimeUIChange = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange;
-  content: {
-    projectConfigId: string;
-    dependencyKey: BaseDependencyKeyUnion;
-    value: BaseDependencyValueUnion;
-  };
+  content: WebsocketMsgRealtimeUIChangeContent;
 };
+export function createWebsocketMsgRealtimeUIChange(options: Partial<WebsocketMsgRealtimeUIChange> = {}): WebsocketMsgRealtimeUIChange {
+  return options as WebsocketMsgRealtimeUIChange;
+}
+
+
+export type WebsocketMsgRealtimeDependencyEventContent = {
+  projectConfigId: string;
+  dependencyEvent: DependencyEvent;
+};
+export function createWebsocketMsgRealtimeDependencyEventContent(options: Partial<WebsocketMsgRealtimeDependencyEventContent> = {}): WebsocketMsgRealtimeDependencyEventContent {
+  return options as WebsocketMsgRealtimeDependencyEventContent;
+}
+
 
 export type WebsocketMsgRealtimeDependencyEvent = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent;
-  content: {
-    projectConfigId: string;
-    dependencyEvent: DependencyEvent;
-  };
+  content: WebsocketMsgRealtimeDependencyEventContent;
 };
+export function createWebsocketMsgRealtimeDependencyEvent(options: Partial<WebsocketMsgRealtimeDependencyEvent> = {}): WebsocketMsgRealtimeDependencyEvent {
+  return options as WebsocketMsgRealtimeDependencyEvent;
+}
+
 
 export type WebsocketMsgUISettingRevealResult = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult;
   content: UISettingRevealResultContent;
 };
+export function createWebsocketMsgUISettingRevealResult(options: Partial<WebsocketMsgUISettingRevealResult> = {}): WebsocketMsgUISettingRevealResult {
+  return options as WebsocketMsgUISettingRevealResult;
+}
 
-export type WebsocketMsg =
-  | WebsocketMsgCurrentAddressUpdate
-  | WebsocketMsgRealtimeUIChange
-  | WebsocketMsgRealtimeDependencyEvent
-  | WebsocketMsgUISettingRevealResult;
+
+export type WebsocketMsg = WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult;
+
 
 export type FrontendWebsocketMsgUnion = {
   id?: string | null;
   messageType: WebsocketMsgTypeForFrontend;
   content: any;
 };
+export function createFrontendWebsocketMsgUnion(options: Partial<FrontendWebsocketMsgUnion> = {}): FrontendWebsocketMsgUnion {
+  return options as FrontendWebsocketMsgUnion;
+}
+
+
+
 
 type SafeParseSuccess<T> = {
   success: true;

@@ -1,7 +1,10 @@
 import {
+  type FrontendWebsocketMsgUnion,
   UISettingRevealContentSchema,
   WebsocketConnectionTypeEnum,
+  type WebsocketMsgRealtimeDependencyEvent,
   WebsocketMsgTypeForBackendEnum,
+  WebsocketMsgTypeForFrontendEnum,
   createGetGitLogResponse,
   createGitCommit,
   createWebsocketConnectionInfo,
@@ -81,5 +84,35 @@ describe("generated git and websocket support", () => {
       ]);
     }
     expect(invalidResult.success).toBe(false);
+  });
+
+  it("exports canonical websocket union contracts for inbound and outbound messages", () => {
+    const outbound: WebsocketMsgRealtimeDependencyEvent = {
+      id: null,
+      messageType: WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
+      content: {
+        projectConfigId: "project-1",
+        dependencyEvent: {
+          dependencyKey: {
+            type: "Section",
+            sectionId: "section-1",
+          },
+          payload: null,
+          timestampMs: 1,
+        },
+      },
+    };
+    const inbound: FrontendWebsocketMsgUnion = {
+      id: null,
+      messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+      content: { requestId: "request-1" },
+    };
+
+    expect(outbound.messageType).toBe(
+      WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
+    );
+    expect(inbound.messageType).toBe(
+      WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+    );
   });
 });

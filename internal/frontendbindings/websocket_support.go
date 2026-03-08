@@ -2,141 +2,141 @@ package frontendbindings
 
 type WebsocketFrontendSupport struct{}
 
+type WebsocketConnectionType string
+
+const (
+	WebsocketConnectionTypeCLI          WebsocketConnectionType = "CLI"
+	WebsocketConnectionTypeServer       WebsocketConnectionType = "SERVER"
+	WebsocketConnectionTypePythonLogger WebsocketConnectionType = "PYTHON_LOGGER"
+	WebsocketConnectionTypePythonScript WebsocketConnectionType = "PYTHON_SCRIPT"
+	WebsocketConnectionTypeFrontend     WebsocketConnectionType = "FRONTEND"
+)
+
+type WebsocketMsgTypeForFrontend string
+
+const (
+	WebsocketMsgTypeForFrontendAllConnections               WebsocketMsgTypeForFrontend = "AllConnections"
+	WebsocketMsgTypeForFrontendFrontendIdentity             WebsocketMsgTypeForFrontend = "FrontendIdentity"
+	WebsocketMsgTypeForFrontendNotification                 WebsocketMsgTypeForFrontend = "Notification"
+	WebsocketMsgTypeForFrontendLLMStreamingResponse         WebsocketMsgTypeForFrontend = "LLMStreamingResponse"
+	WebsocketMsgTypeForFrontendLSPDiagnostics               WebsocketMsgTypeForFrontend = "LSPDiagnostics"
+	WebsocketMsgTypeForFrontendNameValidationErrors         WebsocketMsgTypeForFrontend = "NameValidationErrors"
+	WebsocketMsgTypeForFrontendReturnRenameRefactor         WebsocketMsgTypeForFrontend = "ReturnRenameRefactorResults"
+	WebsocketMsgTypeForFrontendTerminalMetadata             WebsocketMsgTypeForFrontend = "TerminalMetadata"
+	WebsocketMsgTypeForFrontendUpdateFrontendProjectState   WebsocketMsgTypeForFrontend = "UpdateFrontendProjectState"
+	WebsocketMsgTypeForFrontendUpdateSettings               WebsocketMsgTypeForFrontend = "UpdateSettings"
+	WebsocketMsgTypeForFrontendAllProjectMetadata           WebsocketMsgTypeForFrontend = "AllProjectMetadata"
+	WebsocketMsgTypeForFrontendUpdateArtifacts              WebsocketMsgTypeForFrontend = "UpdateArtifacts"
+	WebsocketMsgTypeForFrontendListenerCoverageSnapshot     WebsocketMsgTypeForFrontend = "ListenerCoverageSnapshot"
+	WebsocketMsgTypeForFrontendLLMConfigUpdated             WebsocketMsgTypeForFrontend = "LLMConfigUpdated"
+	WebsocketMsgTypeForFrontendLLMAPIKeysUpdated            WebsocketMsgTypeForFrontend = "LLMApiKeysUpdated"
+	WebsocketMsgTypeForFrontendBackendLogEvent              WebsocketMsgTypeForFrontend = "BackendLogEvent"
+	WebsocketMsgTypeForFrontendAIFollowToolArguments        WebsocketMsgTypeForFrontend = "AIFollowToolArgumentsUpdate"
+	WebsocketMsgTypeForFrontendAIFollowToolResult           WebsocketMsgTypeForFrontend = "AIFollowToolResultUpdate"
+	WebsocketMsgTypeForFrontendUISettingReveal              WebsocketMsgTypeForFrontend = "UISettingReveal"
+	WebsocketMsgTypeForFrontendAgentProfilesUpdated         WebsocketMsgTypeForFrontend = "AgentProfilesUpdated"
+	WebsocketMsgTypeForFrontendPromptTemplatesUpdated       WebsocketMsgTypeForFrontend = "PromptTemplatesUpdated"
+	WebsocketMsgTypeForFrontendExternalAgentConfigsUpdated  WebsocketMsgTypeForFrontend = "ExternalAgentConfigsUpdated"
+	WebsocketMsgTypeForFrontendEngineConfigsUpdated         WebsocketMsgTypeForFrontend = "EngineConfigsUpdated"
+	WebsocketMsgTypeForFrontendTranscriptionProfilesUpdated WebsocketMsgTypeForFrontend = "TranscriptionProfilesUpdated"
+)
+
+type WebsocketMsgTypeForBackend string
+
+const (
+	WebsocketMsgTypeForBackendCurrentAddressUpdate    WebsocketMsgTypeForBackend = "CurrentAddressUpdate"
+	WebsocketMsgTypeForBackendUISettingRevealResult   WebsocketMsgTypeForBackend = "UISettingRevealResult"
+	WebsocketMsgTypeForBackendRealtimeUIChange        WebsocketMsgTypeForBackend = "RealtimeUIChange"
+	WebsocketMsgTypeForBackendRealtimeDependencyEvent WebsocketMsgTypeForBackend = "RealtimeDependencyEvent"
+)
+
 type WebsocketConnectionInfo struct {
-	ID             string  `json:"id"`
-	ConnectionType string  `json:"connectionType"`
-	CurrentAddress *string `json:"currentAddress"`
-	ShareSessionID *string `json:"shareSessionId"`
+	ID             string                  `json:"id"`
+	ConnectionType WebsocketConnectionType `json:"connectionType"`
+	CurrentAddress *string                 `json:"currentAddress"`
+	ShareSessionID *string                 `json:"shareSessionId"`
 }
 
 type WebsocketMsgCurrentAddressUpdate struct {
-	ID          *string `json:"id,omitempty"`
-	MessageType string  `json:"messageType"`
-	Content     string  `json:"content"`
+	ID          *string                    `json:"id,omitempty"`
+	MessageType WebsocketMsgTypeForBackend `json:"messageType"`
+	Content     string                     `json:"content"`
 }
 
+type UISettingRevealActivationStep struct {
+	Type      string `json:"type"`
+	ItemValue string `json:"itemValue"`
+}
+
+type UISettingRevealTarget struct {
+	SettingID             string                          `json:"settingId"`
+	Side                  string                          `json:"side"`
+	OverviewTabKey        *string                         `json:"overviewTabKey,omitempty"`
+	UIEditorTabName       *string                         `json:"uiEditorTabName,omitempty"`
+	PluginID              *string                         `json:"pluginId,omitempty"`
+	PaneID                *string                         `json:"paneId,omitempty"`
+	Strategy              string                          `json:"strategy"`
+	AnchorID              *string                         `json:"anchorId,omitempty"`
+	PluginRevealKey       *string                         `json:"pluginRevealKey,omitempty"`
+	RevealActivationSteps []UISettingRevealActivationStep `json:"revealActivationSteps"`
+}
+
+type UISettingRevealContent struct {
+	ProjectConfigID string                  `json:"projectConfigId"`
+	ChatID          *string                 `json:"chatId,omitempty"`
+	ActiveSectionID *string                 `json:"activeSectionId,omitempty"`
+	Reveals         []UISettingRevealTarget `json:"reveals"`
+	DurationMS      int                     `json:"durationMs"`
+	RequestID       string                  `json:"requestId"`
+}
+
+type UISettingRevealResultStatus struct {
+	SettingID    string  `json:"settingId"`
+	Status       string  `json:"status"`
+	ErrorCode    *string `json:"errorCode,omitempty"`
+	ErrorMessage *string `json:"errorMessage,omitempty"`
+}
+
+type UISettingRevealResultContent struct {
+	ProjectConfigID string                        `json:"projectConfigId"`
+	RequestID       string                        `json:"requestId"`
+	Statuses        []UISettingRevealResultStatus `json:"statuses"`
+}
+
+type WebsocketMsgRealtimeUIChangeContent struct {
+	ProjectConfigID string                   `json:"projectConfigId"`
+	DependencyKey   BaseDependencyKeyUnion   `json:"dependencyKey"`
+	Value           BaseDependencyValueUnion `json:"value"`
+}
+
+type WebsocketMsgRealtimeUIChange struct {
+	ID          *string                             `json:"id,omitempty"`
+	MessageType WebsocketMsgTypeForBackend          `json:"messageType"`
+	Content     WebsocketMsgRealtimeUIChangeContent `json:"content"`
+}
+
+type WebsocketMsgRealtimeDependencyEventContent struct {
+	ProjectConfigID string          `json:"projectConfigId"`
+	DependencyEvent DependencyEvent `json:"dependencyEvent"`
+}
+
+type WebsocketMsgRealtimeDependencyEvent struct {
+	ID          *string                                    `json:"id,omitempty"`
+	MessageType WebsocketMsgTypeForBackend                 `json:"messageType"`
+	Content     WebsocketMsgRealtimeDependencyEventContent `json:"content"`
+}
+
+type WebsocketMsgUISettingRevealResult struct {
+	ID          *string                      `json:"id,omitempty"`
+	MessageType WebsocketMsgTypeForBackend   `json:"messageType"`
+	Content     UISettingRevealResultContent `json:"content"`
+}
+
+type WebsocketMsg struct{}
+
+type FrontendWebsocketMsgUnion struct{}
+
 const websocketFrontendSupportRawTS = `
-export const WebsocketConnectionTypeEnum = {
-  CLI: "CLI",
-  SERVER: "SERVER",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
-  PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  FRONTEND: "FRONTEND",
-} as const;
-export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
-
-export const WebsocketMsgTypeForFrontendEnum = {
-  AllConnections: "AllConnections",
-  FrontendIdentity: "FrontendIdentity",
-  Notification: "Notification",
-  LLMStreamingResponse: "LLMStreamingResponse",
-  LSPDiagnostics: "LSPDiagnostics",
-  NameValidationErrors: "NameValidationErrors",
-  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
-  TerminalMetadata: "TerminalMetadata",
-  UpdateFrontendProjectState: "UpdateFrontendProjectState",
-  UpdateSettings: "UpdateSettings",
-  AllProjectMetadata: "AllProjectMetadata",
-  UpdateArtifacts: "UpdateArtifacts",
-  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
-  LLMConfigUpdated: "LLMConfigUpdated",
-  LLMApiKeysUpdated: "LLMApiKeysUpdated",
-  BackendLogEvent: "BackendLogEvent",
-  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
-  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
-  UISettingReveal: "UISettingReveal",
-  AgentProfilesUpdated: "AgentProfilesUpdated",
-  PromptTemplatesUpdated: "PromptTemplatesUpdated",
-  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
-  EngineConfigsUpdated: "EngineConfigsUpdated",
-  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
-} as const;
-export type WebsocketMsgTypeForFrontend = ObjectValues<typeof WebsocketMsgTypeForFrontendEnum>;
-
-export const WebsocketMsgTypeForBackendEnum = {
-  CurrentAddressUpdate: "CurrentAddressUpdate",
-  UISettingRevealResult: "UISettingRevealResult",
-  RealtimeUIChange: "RealtimeUIChange",
-  RealtimeDependencyEvent: "RealtimeDependencyEvent",
-} as const;
-export type WebsocketMsgTypeForBackend = ObjectValues<typeof WebsocketMsgTypeForBackendEnum>;
-
-export type UISettingRevealActivationStep = {
-  type: string;
-  itemValue: string;
-};
-
-export type UISettingRevealTarget = {
-  settingId: string;
-  side: string;
-  overviewTabKey?: string | null;
-  uiEditorTabName?: string | null;
-  pluginId?: string | null;
-  paneId?: string | null;
-  strategy: string;
-  anchorId?: string | null;
-  pluginRevealKey?: string | null;
-  revealActivationSteps: Array<UISettingRevealActivationStep>;
-};
-
-export type UISettingRevealContent = {
-  projectConfigId: string;
-  chatId?: string | null;
-  activeSectionId?: string | null;
-  reveals: Array<UISettingRevealTarget>;
-  durationMs: number;
-  requestId: string;
-};
-
-export type UISettingRevealResultStatus = {
-  settingId: string;
-  status: "revealed" | "failed";
-  errorCode?: string | null;
-  errorMessage?: string | null;
-};
-
-export type UISettingRevealResultContent = {
-  projectConfigId: string;
-  requestId: string;
-  statuses: Array<UISettingRevealResultStatus>;
-};
-
-export type WebsocketMsgRealtimeUIChange = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange;
-  content: {
-    projectConfigId: string;
-    dependencyKey: BaseDependencyKeyUnion;
-    value: BaseDependencyValueUnion;
-  };
-};
-
-export type WebsocketMsgRealtimeDependencyEvent = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent;
-  content: {
-    projectConfigId: string;
-    dependencyEvent: DependencyEvent;
-  };
-};
-
-export type WebsocketMsgUISettingRevealResult = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult;
-  content: UISettingRevealResultContent;
-};
-
-export type WebsocketMsg =
-  | WebsocketMsgCurrentAddressUpdate
-  | WebsocketMsgRealtimeUIChange
-  | WebsocketMsgRealtimeDependencyEvent
-  | WebsocketMsgUISettingRevealResult;
-
-export type FrontendWebsocketMsgUnion = {
-  id?: string | null;
-  messageType: WebsocketMsgTypeForFrontend;
-  content: any;
-};
 
 type SafeParseSuccess<T> = {
   success: true;

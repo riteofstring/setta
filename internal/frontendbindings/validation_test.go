@@ -1202,33 +1202,62 @@ func TestArtifactSupportUsesConverterDeclarations(t *testing.T) {
 	}
 }
 
-func TestWebsocketSupportUsesConverterDeclarations(t *testing.T) {
+func TestWebsocketEnumsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		properties    []TypeProperty
-		hasCreateExpr bool
+		name   string
+		root   reflect.Type
+		values []EnumValue
 	}{
 		{
-			name: "WebsocketConnectionInfo",
-			root: reflect.TypeOf(WebsocketConnectionInfo{}),
-			properties: []TypeProperty{
-				{Name: "id", TypeExpr: "string", Optional: false},
-				{Name: "connectionType", TypeExpr: "WebsocketConnectionType", Optional: false},
-				{Name: "currentAddress", TypeExpr: "string | null", Optional: false},
-				{Name: "shareSessionId", TypeExpr: "string | null", Optional: false},
+			name: "WebsocketConnectionType",
+			root: reflect.TypeOf(WebsocketConnectionType("")),
+			values: []EnumValue{
+				{Name: "CLI", Value: "CLI"},
+				{Name: "SERVER", Value: "SERVER"},
+				{Name: "PYTHON_LOGGER", Value: "PYTHON_LOGGER"},
+				{Name: "PYTHON_SCRIPT", Value: "PYTHON_SCRIPT"},
+				{Name: "FRONTEND", Value: "FRONTEND"},
 			},
-			hasCreateExpr: true,
 		},
 		{
-			name: "WebsocketMsgCurrentAddressUpdate",
-			root: reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}),
-			properties: []TypeProperty{
-				{Name: "id", TypeExpr: "string | null", Optional: true},
-				{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate", Optional: false},
-				{Name: "content", TypeExpr: "string", Optional: false},
+			name: "WebsocketMsgTypeForFrontend",
+			root: reflect.TypeOf(WebsocketMsgTypeForFrontend("")),
+			values: []EnumValue{
+				{Name: "AllConnections", Value: "AllConnections"},
+				{Name: "FrontendIdentity", Value: "FrontendIdentity"},
+				{Name: "Notification", Value: "Notification"},
+				{Name: "LLMStreamingResponse", Value: "LLMStreamingResponse"},
+				{Name: "LSPDiagnostics", Value: "LSPDiagnostics"},
+				{Name: "NameValidationErrors", Value: "NameValidationErrors"},
+				{Name: "ReturnRenameRefactorResults", Value: "ReturnRenameRefactorResults"},
+				{Name: "TerminalMetadata", Value: "TerminalMetadata"},
+				{Name: "UpdateFrontendProjectState", Value: "UpdateFrontendProjectState"},
+				{Name: "UpdateSettings", Value: "UpdateSettings"},
+				{Name: "AllProjectMetadata", Value: "AllProjectMetadata"},
+				{Name: "UpdateArtifacts", Value: "UpdateArtifacts"},
+				{Name: "ListenerCoverageSnapshot", Value: "ListenerCoverageSnapshot"},
+				{Name: "LLMConfigUpdated", Value: "LLMConfigUpdated"},
+				{Name: "LLMApiKeysUpdated", Value: "LLMApiKeysUpdated"},
+				{Name: "BackendLogEvent", Value: "BackendLogEvent"},
+				{Name: "AIFollowToolArgumentsUpdate", Value: "AIFollowToolArgumentsUpdate"},
+				{Name: "AIFollowToolResultUpdate", Value: "AIFollowToolResultUpdate"},
+				{Name: "UISettingReveal", Value: "UISettingReveal"},
+				{Name: "AgentProfilesUpdated", Value: "AgentProfilesUpdated"},
+				{Name: "PromptTemplatesUpdated", Value: "PromptTemplatesUpdated"},
+				{Name: "ExternalAgentConfigsUpdated", Value: "ExternalAgentConfigsUpdated"},
+				{Name: "EngineConfigsUpdated", Value: "EngineConfigsUpdated"},
+				{Name: "TranscriptionProfilesUpdated", Value: "TranscriptionProfilesUpdated"},
 			},
-			hasCreateExpr: true,
+		},
+		{
+			name: "WebsocketMsgTypeForBackend",
+			root: reflect.TypeOf(WebsocketMsgTypeForBackend("")),
+			values: []EnumValue{
+				{Name: "CurrentAddressUpdate", Value: "CurrentAddressUpdate"},
+				{Name: "UISettingRevealResult", Value: "UISettingRevealResult"},
+				{Name: "RealtimeUIChange", Value: "RealtimeUIChange"},
+				{Name: "RealtimeDependencyEvent", Value: "RealtimeDependencyEvent"},
+			},
 		},
 	}
 
@@ -1240,8 +1269,188 @@ func TestWebsocketSupportUsesConverterDeclarations(t *testing.T) {
 			}
 
 			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
-			if declaration.Kind != "object" {
-				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestWebsocketSupportUsesConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name: "WebsocketConnectionInfo",
+			root: reflect.TypeOf(WebsocketConnectionInfo{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "connectionType", TypeExpr: "WebsocketConnectionType", Optional: false},
+				{Name: "currentAddress", TypeExpr: "string | null", Optional: false},
+				{Name: "shareSessionId", TypeExpr: "string | null", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "WebsocketMsgCurrentAddressUpdate",
+			root: reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string | null", Optional: true},
+				{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate", Optional: false},
+				{Name: "content", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "UISettingRevealActivationStep",
+			root: reflect.TypeOf(UISettingRevealActivationStep{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "string", Optional: false},
+				{Name: "itemValue", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "UISettingRevealTarget",
+			root: reflect.TypeOf(UISettingRevealTarget{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "settingId", TypeExpr: "string", Optional: false},
+				{Name: "side", TypeExpr: "string", Optional: false},
+				{Name: "overviewTabKey", TypeExpr: "string | null", Optional: true},
+				{Name: "uiEditorTabName", TypeExpr: "string | null", Optional: true},
+				{Name: "pluginId", TypeExpr: "string | null", Optional: true},
+				{Name: "paneId", TypeExpr: "string | null", Optional: true},
+				{Name: "strategy", TypeExpr: "string", Optional: false},
+				{Name: "anchorId", TypeExpr: "string | null", Optional: true},
+				{Name: "pluginRevealKey", TypeExpr: "string | null", Optional: true},
+				{Name: "revealActivationSteps", TypeExpr: "Array<UISettingRevealActivationStep>", Optional: false},
+			},
+		},
+		{
+			name: "UISettingRevealContent",
+			root: reflect.TypeOf(UISettingRevealContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "chatId", TypeExpr: "string | null", Optional: true},
+				{Name: "activeSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "reveals", TypeExpr: "Array<UISettingRevealTarget>", Optional: false},
+				{Name: "durationMs", TypeExpr: "number", Optional: false},
+				{Name: "requestId", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "UISettingRevealResultStatus",
+			root: reflect.TypeOf(UISettingRevealResultStatus{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "settingId", TypeExpr: "string", Optional: false},
+				{Name: "status", TypeExpr: `"revealed" | "failed"`, Optional: false},
+				{Name: "errorCode", TypeExpr: "string | null", Optional: true},
+				{Name: "errorMessage", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "UISettingRevealResultContent",
+			root: reflect.TypeOf(UISettingRevealResultContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "requestId", TypeExpr: "string", Optional: false},
+				{Name: "statuses", TypeExpr: "Array<UISettingRevealResultStatus>", Optional: false},
+			},
+		},
+		{
+			name: "WebsocketMsgRealtimeUIChangeContent",
+			root: reflect.TypeOf(WebsocketMsgRealtimeUIChangeContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "dependencyKey", TypeExpr: "BaseDependencyKeyUnion", Optional: false},
+				{Name: "value", TypeExpr: "BaseDependencyValueUnion", Optional: false},
+			},
+		},
+		{
+			name: "WebsocketMsgRealtimeUIChange",
+			root: reflect.TypeOf(WebsocketMsgRealtimeUIChange{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string | null", Optional: true},
+				{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange", Optional: false},
+				{Name: "content", TypeExpr: "WebsocketMsgRealtimeUIChangeContent", Optional: false},
+			},
+		},
+		{
+			name: "WebsocketMsgRealtimeDependencyEventContent",
+			root: reflect.TypeOf(WebsocketMsgRealtimeDependencyEventContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "dependencyEvent", TypeExpr: "DependencyEvent", Optional: false},
+			},
+		},
+		{
+			name: "WebsocketMsgRealtimeDependencyEvent",
+			root: reflect.TypeOf(WebsocketMsgRealtimeDependencyEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string | null", Optional: true},
+				{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent", Optional: false},
+				{Name: "content", TypeExpr: "WebsocketMsgRealtimeDependencyEventContent", Optional: false},
+			},
+		},
+		{
+			name: "WebsocketMsgUISettingRevealResult",
+			root: reflect.TypeOf(WebsocketMsgUISettingRevealResult{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string | null", Optional: true},
+				{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult", Optional: false},
+				{Name: "content", TypeExpr: "UISettingRevealResultContent", Optional: false},
+			},
+		},
+		{
+			name:  "WebsocketMsg",
+			root:  reflect.TypeOf(WebsocketMsg{}),
+			kind:  "alias",
+			alias: "WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult",
+		},
+		{
+			name: "FrontendWebsocketMsgUnion",
+			root: reflect.TypeOf(FrontendWebsocketMsgUnion{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string | null", Optional: true},
+				{Name: "messageType", TypeExpr: "WebsocketMsgTypeForFrontend", Optional: false},
+				{Name: "content", TypeExpr: "any", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
 			}
 			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
 				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
