@@ -89,6 +89,22 @@ export function ChatSharedEdgeHandles({ isUserView }: { isUserView: boolean }) {
         className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle-safe-zone chat-shared-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
+        id={SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart}
+        type="source"
+        position={HandlePosition.Left}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics chat-shared-handle-metrics agentic-handle chat-shared-handle agentic-handle--target agentic-handle--reverse-start${connectionVisibility.hasIncoming ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
+        data-testid={`chat-shared-reverse-start-handle-${sectionId}`}
+        data-reverse-start="true"
+        aria-hidden="true"
+        tabIndex={-1}
+        isConnectable={canEditStructure}
+        isConnectableStart={canEditStructure}
+        isConnectableEnd={false}
+        connectionStartSemanticType="target"
+        isValidConnection={isValidSharedChatEdgeConnection}
+        onConnect={createSharedChatEdgeFromConnection}
+      />
+      <Handle
         id={SHARED_CHAT_EDGE_HANDLE_IDS.target}
         type="target"
         position={HandlePosition.Left}

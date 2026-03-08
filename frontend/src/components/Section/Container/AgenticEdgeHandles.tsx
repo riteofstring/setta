@@ -57,6 +57,22 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
+        id={AGENTIC_EDGE_HANDLE_IDS.reverseStart}
+        type="source"
+        position={HandlePosition.Left}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle agentic-handle--target agentic-handle--reverse-start${hasIncomingAgenticEdge ? " agentic-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}`}
+        data-testid={`agentic-reverse-start-handle-${sectionId}`}
+        data-reverse-start="true"
+        aria-hidden="true"
+        tabIndex={-1}
+        isConnectable={canEditStructure}
+        isConnectableStart={canEditStructure}
+        isConnectableEnd={false}
+        connectionStartSemanticType="target"
+        isValidConnection={isValidAgenticEdgeConnection}
+        onConnect={createAgenticEdgeFromConnection}
+      />
+      <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.target}
         type="target"
         position={HandlePosition.Left}

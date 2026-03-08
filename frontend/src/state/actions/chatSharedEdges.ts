@@ -5,7 +5,10 @@ import {
   isValidAgenticEdgeConnection,
   normalizeAgenticConnectionHandles,
 } from "./agenticEdges";
-import type { ChatSharedEdgeMode } from "./chatSharedHandleIds";
+import {
+  SHARED_CHAT_EDGE_HANDLE_IDS,
+  type ChatSharedEdgeMode,
+} from "./chatSharedHandleIds";
 import {
   getConnectionDebugPayload,
   logWorkflowDebug,
@@ -28,12 +31,19 @@ export function getChatSharedEdgeModeLabel(mode: ChatSharedEdgeMode): string {
 function resolveSharedChatConnection(
   connection: Connection,
 ): SharedChatConnectionResolution | null {
-  const normalizedAgenticConnection =
-    normalizeAgenticConnectionHandles(connection);
-  const normalizedWorkflowConnection =
-    normalizeWorkflowConnectionHandles(connection);
-  const canCreateAgenticEdge = isValidAgenticEdgeConnection(connection);
-  const canCreateWorkflowEdge = isValidStateMachineEdgeConnection(connection);
+  const normalizedSharedConnection = normalizeSharedChatConnection(connection);
+  const normalizedAgenticConnection = normalizeAgenticConnectionHandles(
+    normalizedSharedConnection,
+  );
+  const normalizedWorkflowConnection = normalizeWorkflowConnectionHandles(
+    normalizedSharedConnection,
+  );
+  const canCreateAgenticEdge = isValidAgenticEdgeConnection(
+    normalizedSharedConnection,
+  );
+  const canCreateWorkflowEdge = isValidStateMachineEdgeConnection(
+    normalizedSharedConnection,
+  );
   if (canCreateAgenticEdge && canCreateWorkflowEdge) {
     const preferredMode = useLocalStorage.getState().chatSharedEdgeMode;
     return preferredMode === "workflow"
@@ -59,6 +69,24 @@ function resolveSharedChatConnection(
     };
   }
   return null;
+}
+
+function normalizeSharedChatConnection(connection: Connection): Connection {
+  if (connection.targetHandle === SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart) {
+    return {
+      ...connection,
+      targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+    };
+  }
+  if (connection.sourceHandle !== SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart) {
+    return connection;
+  }
+  return {
+    source: connection.target,
+    sourceHandle: connection.targetHandle,
+    target: connection.source,
+    targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+  };
 }
 
 export function isValidSharedChatEdgeConnection(

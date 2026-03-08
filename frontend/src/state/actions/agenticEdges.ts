@@ -22,6 +22,7 @@ import { isWorkflowHandleId } from "./stateMachineEdges";
 export const AGENTIC_EDGE_HANDLE_IDS = {
   source: "agentic-edge-source",
   target: "agentic-edge-target",
+  reverseStart: "agentic-edge-reverse-start",
 } as const;
 
 function getSectionTypeById(
@@ -83,18 +84,62 @@ function resolveAgenticKindForConnection(
   return resolveAgenticEdgeKind(types.sourceType, types.targetType);
 }
 
+function normalizeReverseStartedAgenticConnection(
+  connection: Connection,
+): Connection {
+  if (connection.sourceHandle !== AGENTIC_EDGE_HANDLE_IDS.reverseStart) {
+    return connection;
+  }
+  return {
+    source: connection.target,
+    sourceHandle: connection.targetHandle,
+    target: connection.source,
+    targetHandle: AGENTIC_EDGE_HANDLE_IDS.target,
+  };
+}
+
 export function normalizeAgenticConnectionHandles(
   connection: Connection,
 ): Connection {
+  const normalizedReverseConnection =
+    normalizeReverseStartedAgenticConnection(connection);
   return {
-    ...connection,
-    sourceHandle: isSharedChatHandleId(connection.sourceHandle)
+    ...normalizedReverseConnection,
+    sourceHandle: isSharedChatHandleId(normalizedReverseConnection.sourceHandle)
       ? AGENTIC_EDGE_HANDLE_IDS.source
-      : connection.sourceHandle,
-    targetHandle: isSharedChatHandleId(connection.targetHandle)
-      ? AGENTIC_EDGE_HANDLE_IDS.target
-      : connection.targetHandle,
+      : normalizedReverseConnection.sourceHandle,
+    targetHandle:
+      normalizedReverseConnection.targetHandle ===
+      AGENTIC_EDGE_HANDLE_IDS.reverseStart
+        ? AGENTIC_EDGE_HANDLE_IDS.target
+        : isSharedChatHandleId(normalizedReverseConnection.targetHandle)
+          ? AGENTIC_EDGE_HANDLE_IDS.target
+          : normalizedReverseConnection.targetHandle,
   };
+}
+
+function usesSharedChatHandleOnNormalizedSource(
+  connection: Connection,
+  normalizedConnection: Connection,
+): boolean {
+  return (
+    (isSharedChatHandleId(connection.sourceHandle) &&
+      normalizedConnection.source === connection.source) ||
+    (isSharedChatHandleId(connection.targetHandle) &&
+      normalizedConnection.source === connection.target)
+  );
+}
+
+function usesSharedChatHandleOnNormalizedTarget(
+  connection: Connection,
+  normalizedConnection: Connection,
+): boolean {
+  return (
+    (isSharedChatHandleId(connection.sourceHandle) &&
+      normalizedConnection.target === connection.source) ||
+    (isSharedChatHandleId(connection.targetHandle) &&
+      normalizedConnection.target === connection.target)
+  );
 }
 
 export function isValidAgenticEdgeConnection(connection: Connection): boolean {
@@ -119,13 +164,13 @@ export function isValidAgenticEdgeConnection(connection: Connection): boolean {
     return true;
   }
   if (
-    isSharedChatHandleId(connection.sourceHandle) &&
+    usesSharedChatHandleOnNormalizedSource(connection, normalizedConnection) &&
     types.sourceType !== SectionTypeEnum.Chat
   ) {
     return false;
   }
   if (
-    isSharedChatHandleId(connection.targetHandle) &&
+    usesSharedChatHandleOnNormalizedTarget(connection, normalizedConnection) &&
     types.targetType !== SectionTypeEnum.Chat
   ) {
     return false;

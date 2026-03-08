@@ -356,4 +356,35 @@ describe("agentic edge connections", () => {
     );
     expect(route_create_agentic_edge).not.toHaveBeenCalled();
   });
+
+  it("normalizes reverse drags from agentic targets back to chat-to-section edges", async () => {
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = {
+      source: sectionCode,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.reverseStart,
+      target: sectionA,
+      targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.source,
+    };
+
+    expect(isValidAgenticEdgeConnection(connection)).toBe(true);
+
+    createAgenticEdgeFromConnection(connection);
+
+    const edges = useProjectState.getState().projectConfig.agenticEdges;
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toEqual(
+      expect.objectContaining({
+        sourceSectionId: sectionA,
+        targetSectionId: sectionCode,
+        kind: AgenticEdgeKindEnum.chat_section,
+      }),
+    );
+  });
 });

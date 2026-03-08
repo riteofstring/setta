@@ -192,8 +192,46 @@ export function handlePointerDown({
   }
 
   function onPointerUp(event: MouseEvent | TouchEvent) {
-    if ((closestHandle || handleDomNode) && connection && isValid) {
-      onConnect?.(connection);
+    let resolvedClosestHandle = closestHandle;
+    let resolvedConnection = connection;
+    let resolvedIsValid = isValid;
+
+    if (!resolvedClosestHandle && handleId?.includes("reverse")) {
+      const { transform } = getState();
+      const fallback = getClosestHandle(
+        event,
+        doc,
+        pointToRendererPoint(
+          getEventPosition(event, containerBounds),
+          transform,
+          false,
+          [1, 1],
+          true,
+        ),
+        Math.max(connectionRadius, 80),
+        handleLookup,
+        allowHandle,
+        (handle) =>
+          isValidHandle(
+            handle,
+            connectionMode,
+            nodeId,
+            handleId,
+            isTarget ? "target" : "source",
+            isValidConnection,
+            doc,
+          ),
+      );
+      resolvedClosestHandle = fallback.handle;
+      resolvedConnection = fallback.validHandleResult.connection;
+      resolvedIsValid = fallback.validHandleResult.isValid;
+    }
+    if (
+      (resolvedClosestHandle || handleDomNode) &&
+      resolvedConnection &&
+      resolvedIsValid
+    ) {
+      onConnect?.(resolvedConnection);
     }
 
     if (edgeUpdaterType) {

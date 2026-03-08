@@ -333,7 +333,7 @@ test.describe.serial("state machine sections", () => {
       await expect(chatSourceHandle).toBeVisible();
       await expect(
         page.locator(
-          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]`,
+          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
         ),
       ).toHaveCount(1);
       await expect(
@@ -350,6 +350,31 @@ test.describe.serial("state machine sections", () => {
       await expect(page.getByTestId(`workflow-target-handle-${gateSectionId}`)).toBeVisible();
       await expect(gateSourceHandle).toBeVisible();
       await expect(endTargetHandle).toBeVisible();
+
+      await dragHandleToHandle(
+        page,
+        page.getByTestId(`workflow-reverse-start-handle-${endSectionId}`),
+        page.getByTestId(`chat-shared-source-handle-${chatSectionId}`),
+      );
+
+      await expect
+        .poll(
+          async () =>
+            await readStateMachineEdges(page, projectContext.projectConfigId),
+          { timeout: 8000 },
+        )
+        .toHaveLength(1);
+      await expect
+        .poll(
+          async () =>
+            (await readStateMachineEdges(page, projectContext.projectConfigId))[0],
+          { timeout: 8000 },
+        )
+        .toMatchObject({
+          machineGroupId: "workflow-main",
+          sourceSectionId: chatSectionId,
+          targetSectionId: endSectionId,
+        });
 
       await createStateMachineEdge(page, projectContext.projectConfigId, {
         machineGroupId: "workflow-main",
@@ -379,21 +404,6 @@ test.describe.serial("state machine sections", () => {
           searchEnabled: null,
         },
       });
-      await createStateMachineEdge(page, projectContext.projectConfigId, {
-        machineGroupId: "workflow-main",
-        sourceSectionId: chatSectionId,
-        sourcePortId: "workflow-source",
-        targetSectionId: endSectionId,
-        targetPortId: "workflow-target",
-        sourceFilter: {
-          type: "run_completed",
-          signalName: null,
-          payloadField: null,
-          equals: null,
-        },
-        targetAction: null,
-      });
-
       await expect
         .poll(
           async () =>
@@ -937,4 +947,46 @@ async function expectNodeTextWithinBounds(
   expect(bounds.targetBottom).toBeLessThanOrEqual(bounds.nodeBottom);
   expect(bounds.targetLeft).toBeGreaterThanOrEqual(bounds.nodeLeft);
   expect(bounds.targetRight).toBeLessThanOrEqual(bounds.nodeRight);
+}
+
+async function dragHandleToHandle(
+  page: Page,
+  dragStartHandle: Locator,
+  dragEndHandle: Locator,
+): Promise<void> {
+  const dragStartNodeId = await getHandleNodeId(dragStartHandle);
+  const dragStartNode = page.getByTestId(`rf__node-${dragStartNodeId}`);
+
+  await dragStartNode.hover();
+  await expect(dragStartHandle).toBeVisible();
+
+  const dragStartBox = await dragStartHandle.boundingBox();
+  if (!dragStartBox) {
+    throw new Error("Unable to resolve drag start handle bounds.");
+  }
+  await page.mouse.move(
+    dragStartBox.x + dragStartBox.width / 2,
+    dragStartBox.y + dragStartBox.height / 2,
+  );
+  await page.mouse.down();
+
+  await expect(dragEndHandle).toBeVisible();
+  const dragEndBox = await dragEndHandle.boundingBox();
+  if (!dragEndBox) {
+    throw new Error("Unable to resolve drag end handle bounds.");
+  }
+  await page.mouse.move(
+    dragEndBox.x + dragEndBox.width / 2,
+    dragEndBox.y + dragEndBox.height / 2,
+    { steps: 10 },
+  );
+  await page.mouse.up();
+}
+
+async function getHandleNodeId(handle: Locator): Promise<string> {
+  const nodeId = await handle.getAttribute("data-nodeid");
+  if (!nodeId) {
+    throw new Error("Missing data-nodeid on edge handle.");
+  }
+  return nodeId;
 }

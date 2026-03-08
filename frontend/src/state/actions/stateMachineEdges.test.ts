@@ -339,6 +339,38 @@ describe("state machine edge creation", () => {
     );
   });
 
+  it("normalizes reverse drags from workflow targets back to source-to-target edges", async () => {
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const reverseConnection: Connection = {
+      source: endSectionId,
+      sourceHandle: STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart,
+      target: startSectionId,
+      targetHandle: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+    };
+
+    expect(isValidStateMachineEdgeConnection(reverseConnection)).toBe(true);
+
+    createStateMachineEdgeFromConnection(reverseConnection);
+
+    const edge = useProjectState.getState().projectConfig.stateMachineEdges[0];
+    expect(edge).toEqual(
+      expect.objectContaining({
+        sourceSectionId: startSectionId,
+        targetSectionId: endSectionId,
+        sourcePortId: STATE_MACHINE_EDGE_HANDLE_IDS.source,
+        targetPortId: STATE_MACHINE_EDGE_HANDLE_IDS.target,
+      }),
+    );
+  });
+
   it("rejects non-workflow handles and unresolved chat-only machine groups", () => {
     expect(
       isValidStateMachineEdgeConnection({

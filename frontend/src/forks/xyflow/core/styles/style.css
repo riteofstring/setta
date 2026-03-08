@@ -318,6 +318,32 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
   border-width: 0;
 }
 
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+  z-index: 161;
+  background: transparent;
+  border-width: 0;
+}
+
+.react-flow__node:hover
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--always-visible,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--selecting {
+  opacity: 0;
+}
+
+.react-flow[data-connecting="true"]
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.react-flow:has(.react-flow__connectionline)
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .react-flow__handle.agentic-handle.react-flow__handle-left {
   left: calc(
     -1 * (var(--agentic-handle-render-size) + var(--agentic-handle-gap))

@@ -127,6 +127,22 @@ export function StateMachineEdgeHandles({
             className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle-safe-zone workflow-handle-safe-zone workflow-handle-safe-zone--left`}
           />
           <Handle
+            id={STATE_MACHINE_EDGE_HANDLE_IDS.reverseStart}
+            type="source"
+            position={HandlePosition.Left}
+            className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics workflow-handle-metrics workflow-handle-scope${chatOffsetClassName} agentic-handle workflow-handle workflow-handle--target agentic-handle--reverse-start${connectionVisibility.hasIncoming ? " agentic-handle--connected workflow-handle--connected" : ""}${isSelectingEdge ? " agentic-handle--selecting" : ""}${alwaysVisibleClassName}`}
+            data-testid={`workflow-reverse-start-handle-${sectionId}`}
+            data-reverse-start="true"
+            aria-hidden="true"
+            tabIndex={-1}
+            isConnectable={canEditStructure}
+            isConnectableStart={canEditStructure}
+            isConnectableEnd={false}
+            connectionStartSemanticType="target"
+            isValidConnection={isValidStateMachineEdgeConnection}
+            onConnect={createStateMachineEdgeFromConnection}
+          />
+          <Handle
             id={STATE_MACHINE_EDGE_HANDLE_IDS.target}
             type="target"
             position={HandlePosition.Left}

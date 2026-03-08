@@ -1,6 +1,7 @@
 export const SHARED_CHAT_EDGE_HANDLE_IDS = {
   source: "chat-shared-edge-source",
   target: "chat-shared-edge-target",
+  reverseStart: "chat-shared-edge-reverse-start",
 } as const;
 
 export type ChatSharedEdgeMode = "agentic" | "workflow";
@@ -11,7 +12,8 @@ export function isSharedChatHandleId(
 ): boolean {
   return (
     handleId === SHARED_CHAT_EDGE_HANDLE_IDS.source ||
-    handleId === SHARED_CHAT_EDGE_HANDLE_IDS.target
+    handleId === SHARED_CHAT_EDGE_HANDLE_IDS.target ||
+    handleId === SHARED_CHAT_EDGE_HANDLE_IDS.reverseStart
   );
 }
 
@@ -27,7 +29,11 @@ function getEdgeHandleFamily(
   if (isSharedChatHandleId(handleId)) {
     return "shared";
   }
-  if (handleId === "workflow-source" || handleId === "workflow-target") {
+  if (
+    handleId === "workflow-source" ||
+    handleId === "workflow-target" ||
+    handleId === "workflow-reverse-start"
+  ) {
     return "workflow";
   }
   return "other";
