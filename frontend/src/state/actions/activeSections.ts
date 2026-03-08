@@ -1,15 +1,20 @@
 import _ from "lodash";
-import { getActiveSectionUIIds, setActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  clearPendingActiveSectionBackendSyncOp,
+  getActiveSectionUIIds,
+  markPendingActiveSectionBackendSyncOp,
+  setActiveSectionUIIds,
+} from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
-  useProjectState,
   useServerMode,
-  ZustandProjectState,
+  useProjectState,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   getTopLevelSectionIdsForDisplay,
@@ -26,16 +31,11 @@ export type SetActiveSectionIdsOptions = {
   forceDurableSync?: boolean;
 };
 
-function optimisticActiveIdsUpdate(
-  apply: (state: ZustandProjectState) => void,
-) {
+function sendProjectActiveSectionIdsToBackend(ids: Array<string>) {
   const projectConfigId = getCurrProjectConfigId();
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     const serverMode = useServerMode.getState();
     if (serverMode.modeResolved && serverMode.mode === "app") {
-      // App mode can render before the IDE project config is hydrated; active ids are
-      // irrelevant there, so keep this as a local-only update.
-      useProjectState.setState(apply);
       return;
     }
     console.warn(
@@ -43,29 +43,24 @@ function optimisticActiveIdsUpdate(
         projectConfigId,
       )}.`,
     );
-    useProjectState.setState(apply);
     return;
   }
-  return dispatchOptimisticProjectStateUpdate({
-    apply,
-    send: (frontendOpId) => {
-      return route_set_active_ids({
-        projectConfigId,
-        activeIds: useProjectState.getState().projectConfig.activeIds,
-        frontendOpId,
-      });
-    },
-  });
-}
-
-function applyProjectActiveSectionIds(ids: Array<string>) {
-  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
-  if (_.isEqual(currentActiveIds, ids)) {
-    return;
-  }
-  optimisticActiveIdsUpdate((state) => {
-    state.projectConfig.activeIds = ids;
-  });
+  const frontendOpId = createNewId();
+  markPendingActiveSectionBackendSyncOp(frontendOpId);
+  void route_set_active_ids({
+    projectConfigId,
+    activeIds: ids,
+    frontendOpId,
+  })
+    .then((res) => {
+      if (res200(res)) {
+        return;
+      }
+      clearPendingActiveSectionBackendSyncOp(frontendOpId);
+    })
+    .catch(() => {
+      clearPendingActiveSectionBackendSyncOp(frontendOpId);
+    });
 }
 
 function shouldDeferProjectActiveSectionIdsSync() {
@@ -98,7 +93,7 @@ function flushPendingProjectActiveIdsSync() {
   const nextActiveIds = pendingProjectActiveIds;
   pendingProjectActiveIds = null;
   pendingProjectActiveIdsAnimationFrame = null;
-  applyProjectActiveSectionIds(nextActiveIds);
+  sendProjectActiveSectionIdsToBackend(nextActiveIds);
 }
 
 function scheduleProjectActiveSectionIdsSync(ids: Array<string>) {
@@ -121,12 +116,9 @@ export function setActiveSectionIds(
 ) {
   const { syncMode = "auto", forceDurableSync = false } = options;
   const currentUIActiveIds = getActiveSectionUIIds();
-  const currentDurableActiveIds =
-    useProjectState.getState().projectConfig.activeIds;
   const uiChanged = !_.isEqual(currentUIActiveIds, ids);
-  const durableChanged = !_.isEqual(currentDurableActiveIds, ids);
 
-  if (!uiChanged && !(forceDurableSync && durableChanged)) {
+  if (!uiChanged && !forceDurableSync) {
     return;
   }
 
@@ -135,11 +127,6 @@ export function setActiveSectionIds(
   }
 
   if (syncMode === "ui-only") {
-    cancelPendingProjectActiveIdsSync();
-    return;
-  }
-
-  if (!durableChanged) {
     cancelPendingProjectActiveIdsSync();
     return;
   }
@@ -153,7 +140,7 @@ export function setActiveSectionIds(
 
   if (resolvedSyncMode === "immediate") {
     cancelPendingProjectActiveIdsSync();
-    applyProjectActiveSectionIds(ids);
+    sendProjectActiveSectionIdsToBackend(ids);
     return;
   }
   scheduleProjectActiveSectionIdsSync(ids);

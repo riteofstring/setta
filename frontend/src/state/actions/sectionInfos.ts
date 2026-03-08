@@ -12,7 +12,11 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
+import {
+  getActiveSectionUIIds,
+  reconcileActiveSectionUIIdsFromBackend,
+  sanitizeProjectStateActiveIds,
+} from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -998,15 +1002,20 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
+  reconcileActiveSectionUIIdsFromBackend(
+    x.projectState.projectConfig.activeIds,
+    x.completedOpIds,
+  );
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
   );
+  const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
   unstable_batchedUpdates(() => {
     usePendingOperations.setState({ pending: nextPending });
     useNodeInternals.setState({ x: nextNodesMap });
-    useProjectState.setState(() => x.projectState);
+    useProjectState.setState(() => sanitizedProjectState);
   });
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
@@ -1435,7 +1444,7 @@ export function deleteAllActiveSections() {
   }
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
-    sectionIds: useProjectState.getState().projectConfig.activeIds,
+    sectionIds: getActiveSectionUIIds(),
   });
 }
 

@@ -67,9 +67,7 @@ describe("activeSections", () => {
     setActiveSectionIds(["section-a"]);
 
     expect(spy).not.toHaveBeenCalled();
-    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
-      "section-a",
-    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
   });
 
@@ -88,9 +86,7 @@ describe("activeSections", () => {
 
     expect(endpointSpy).not.toHaveBeenCalled();
     expect(warnSpy).toHaveBeenCalled();
-    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
-      "section-a",
-    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
   });
 
@@ -122,10 +118,13 @@ describe("activeSections", () => {
 
     scheduledFrame?.(16);
 
-    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
-      "section-a",
-    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(endpointSpy).toHaveBeenCalledOnce();
+    expect(endpointSpy).toHaveBeenCalledWith({
+      activeIds: ["section-a"],
+      frontendOpId: expect.any(String),
+      projectConfigId: "project-a",
+    });
   });
 
   it("keeps marquee-style UI-only active-id updates out of the durable project/backend path until forced to sync", () => {
@@ -161,9 +160,12 @@ describe("activeSections", () => {
 
     scheduledFrame?.(16);
 
-    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
-      "section-a",
-    ]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(endpointSpy).toHaveBeenCalledOnce();
+    expect(endpointSpy).toHaveBeenCalledWith({
+      activeIds: ["section-a"],
+      frontendOpId: expect.any(String),
+      projectConfigId: "project-a",
+    });
   });
 });

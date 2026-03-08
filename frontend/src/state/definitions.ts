@@ -281,13 +281,17 @@ export const usePendingOperations = withProjectState(
 
 type ActiveSectionUIState = {
   activeIds: Array<string>;
+  pendingBackendSyncOpIds: Array<string>;
 };
 
 export const useActiveSectionUI = withProjectState(
   createWithEqualityFn(
-    withResetFn<ActiveSectionUIState>(() => ({
-      activeIds: [],
-    })),
+    subscribeWithSelector(
+      withResetFn<ActiveSectionUIState>(() => ({
+        activeIds: [],
+        pendingBackendSyncOpIds: [],
+      })),
+    ),
   ),
 );
 

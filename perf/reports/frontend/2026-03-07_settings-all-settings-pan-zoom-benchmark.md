@@ -3773,3 +3773,95 @@ New benchmark stages:
   - selection-rectangle mouseup no longer rebuilds selection bounds from DOM rect reads
 - The remaining ordinary click lag is now mostly post-handler frame delay, not handler JS time.
 - The strongest remaining visual/compositing lever identified in this pass was the minimap panel shadow, so removing that shadow is also worth keeping.
+
+## 2026-03-08 addendum: remove frontend `projectConfig.activeIds` duplication and make the UI store authoritative
+
+### Goal
+
+- Continue reducing section activation latency by removing the last frontend duplication of `activeIds`.
+- Keep `activeIds` as immediate UI state only in the small active-section store, rather than mirroring it into the giant `useProjectState` store on every activation.
+- Preserve backend `/setActiveIds` sync, but stop using `useProjectState.projectConfig.activeIds` as the frontend live activation source.
+
+### Implementation
+
+- Added the authoritative frontend active-section helpers in:
+  - `frontend/src/state/activeSectionUI.ts`
+- Expanded the lightweight store shape in:
+  - `frontend/src/state/definitions.ts`
+- Removed frontend `projectConfig.activeIds` writes from:
+  - `frontend/src/state/actions/activeSections.ts`
+- Sanitized loaded/backend project state before storing it in `useProjectState`:
+  - `frontend/src/state/actions/project/loadProject.ts`
+  - `frontend/src/state/actions/sectionInfos.ts`
+- Moved remaining frontend consumers that still needed live active ids:
+  - `frontend/src/plugins/runtime.ts`
+  - `frontend/src/state/actions/uiSettingReveal.ts`
+
+### Verification
+
+- `pnpm -C frontend exec vitest run src/state/actions/activeSections.test.ts src/state/actions/uiSettingReveal.test.ts src/plugins/runtime.test.ts`
+- `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/project/loadProject.test.ts`
+- `pnpm -C frontend build`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+
+### Visual validation
+
+- Baseline visible `full` stage after the refactor:
+  - `perf/artifacts/frontend/settings-all-settings/active-ids-ui-only-2026-03-08/full-ui-active-store-removal-visible.png`
+- Activated visible `full` stage after the refactor:
+  - `perf/artifacts/frontend/settings-all-settings/active-ids-ui-only-2026-03-08/full-ui-active-store-removal-active-visible.png`
+
+### Live activation results
+
+- Same live page:
+  - `http://127.0.0.1:3009/settings?settingsBenchmarkStage=full`
+- Browser-side harness through CDP:
+  - `click to active`: when the target section shell's `data-section-active="true"` flips
+  - `click to visual settle`: when shell visual state stops changing for 4 consecutive animation frames
+
+#### 1. First click from no active selection
+
+- `22.70ms` click to active
+- `46.90ms` click to visual settle
+
+#### 2. Warmed direct section-to-section switching
+
+- Runs:
+  - `21.90ms / 52.00ms`
+  - `20.60ms / 51.30ms`
+  - `20.50ms / 60.40ms`
+  - `16.60ms / 52.20ms`
+  - `15.80ms / 43.90ms`
+  - `19.50ms / 44.80ms`
+- Warm averages:
+  - `19.15ms` click to active
+  - `50.77ms` click to visual settle
+
+#### 3. Comparison to the prior warmed direct-switch baseline
+
+- Previous warmed direct switching from the prior addendum:
+  - `40.22ms` click to active
+  - `60.32ms` click to visual settle
+- New warmed direct switching:
+  - `19.15ms` click to active
+  - `50.77ms` click to visual settle
+- Delta:
+  - `-21.07ms` click to active
+  - `-9.55ms` click to visual settle
+
+### Trace result
+
+- Trace artifact:
+  - `perf/artifacts/frontend/settings-all-settings/active-ids-ui-only-2026-03-08/full-ui-active-store-removal-activation-trace.json`
+- DevTools INP breakdown for the longest activation interaction:
+  - total: `106ms`
+  - input delay: `5ms`
+  - processing duration: `79ms`
+  - presentation delay: `22ms`
+
+### Conclusion
+
+- Removing frontend `activeIds` duplication from `useProjectState` is a real activation win.
+- The first click is now already in the low-`20ms` / mid-`40ms` band on the live Settings benchmark page.
+- Warmed direct switching is now about half the previous click-to-active latency.
+- The remaining activation floor is no longer dominated by giant-store active-id writes; after this change, the remaining trace is mostly regular interaction processing plus a smaller presentation delay.
