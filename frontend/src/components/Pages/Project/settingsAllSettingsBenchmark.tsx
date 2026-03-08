@@ -2,6 +2,7 @@ import _ from "lodash";
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   type PropsWithChildren,
 } from "react";
@@ -59,6 +60,41 @@ export type SettingsAllSettingsBenchmarkNonTextWidgetScope =
   | "switch-only"
   | "other-only"
   | "all-except-dropdown";
+
+export const SETTINGS_ALL_SETTINGS_BENCHMARK_RENDER_COUNTER_SCOPES = [
+  "section-shell",
+  "section-core-resizable",
+  "section-header",
+  "kwargs-controls",
+  "get-param-switch",
+  "param-switch",
+  "param-container",
+] as const;
+
+export type SettingsAllSettingsBenchmarkRenderCounterScope =
+  (typeof SETTINGS_ALL_SETTINGS_BENCHMARK_RENDER_COUNTER_SCOPES)[number];
+
+type SettingsAllSettingsBenchmarkRenderCounterEntry = {
+  commitCount: number;
+  entities: Record<string, number>;
+};
+
+export type SettingsAllSettingsBenchmarkRenderCounterSnapshot = {
+  stage: SettingsAllSettingsBenchmarkStage | "off";
+  commitSequence: number;
+  counters: Record<
+    SettingsAllSettingsBenchmarkRenderCounterScope,
+    SettingsAllSettingsBenchmarkRenderCounterEntry
+  >;
+};
+
+declare global {
+  interface Window {
+    __settaSettingsBenchmarkRenderCounters?:
+      | SettingsAllSettingsBenchmarkRenderCounterSnapshot
+      | undefined;
+  }
+}
 
 type SettingsAllSettingsBenchmarkValue = {
   active: boolean;
@@ -120,6 +156,84 @@ const DEFAULT_VALUE: SettingsAllSettingsBenchmarkValue = {
 
 const SettingsAllSettingsBenchmarkContext =
   createContext<SettingsAllSettingsBenchmarkValue>(DEFAULT_VALUE);
+
+function createEmptySettingsAllSettingsBenchmarkRenderCounters(): Record<
+  SettingsAllSettingsBenchmarkRenderCounterScope,
+  SettingsAllSettingsBenchmarkRenderCounterEntry
+> {
+  return Object.fromEntries(
+    SETTINGS_ALL_SETTINGS_BENCHMARK_RENDER_COUNTER_SCOPES.map((scope) => [
+      scope,
+      { commitCount: 0, entities: {} },
+    ]),
+  ) as Record<
+    SettingsAllSettingsBenchmarkRenderCounterScope,
+    SettingsAllSettingsBenchmarkRenderCounterEntry
+  >;
+}
+
+function getSettingsAllSettingsBenchmarkRenderCounterStore(): SettingsAllSettingsBenchmarkRenderCounterSnapshot | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  if (!window.__settaSettingsBenchmarkRenderCounters) {
+    window.__settaSettingsBenchmarkRenderCounters = {
+      stage: "off",
+      commitSequence: 0,
+      counters: createEmptySettingsAllSettingsBenchmarkRenderCounters(),
+    };
+  }
+  return window.__settaSettingsBenchmarkRenderCounters;
+}
+
+export function setSettingsAllSettingsBenchmarkRenderCounterStage(
+  stage: SettingsAllSettingsBenchmarkStage | "off",
+) {
+  const store = getSettingsAllSettingsBenchmarkRenderCounterStore();
+  if (!store) {
+    return;
+  }
+  store.stage = stage;
+}
+
+export function resetSettingsAllSettingsBenchmarkRenderCounters() {
+  const store = getSettingsAllSettingsBenchmarkRenderCounterStore();
+  if (!store) {
+    return;
+  }
+  store.commitSequence = 0;
+  store.counters = createEmptySettingsAllSettingsBenchmarkRenderCounters();
+}
+
+export function recordSettingsAllSettingsBenchmarkRender(
+  scope: SettingsAllSettingsBenchmarkRenderCounterScope,
+  entityId?: string,
+) {
+  const store = getSettingsAllSettingsBenchmarkRenderCounterStore();
+  if (!store) {
+    return;
+  }
+  const entry = store.counters[scope];
+  entry.commitCount += 1;
+  if (entityId) {
+    entry.entities[entityId] = (entry.entities[entityId] ?? 0) + 1;
+  }
+  store.commitSequence += 1;
+}
+
+export function useSettingsAllSettingsBenchmarkRenderCounter(
+  scope: SettingsAllSettingsBenchmarkRenderCounterScope,
+  entityId?: string,
+) {
+  const benchmark = useSettingsAllSettingsBenchmark();
+
+  useEffect(() => {
+    if (!benchmark.active) {
+      return;
+    }
+    recordSettingsAllSettingsBenchmarkRender(scope, entityId);
+  });
+}
 
 function isSettingsAllSettingsBenchmarkStage(
   value: string | null,
@@ -860,6 +974,12 @@ export function SettingsAllSettingsBenchmarkProvider({
       resolveBenchmarkValue(requestedStage, projectName, activeViewModeName),
     [activeViewModeName, projectName, requestedStage],
   );
+
+  useEffect(() => {
+    setSettingsAllSettingsBenchmarkRenderCounterStage(
+      value.active ? value.stage : "off",
+    );
+  }, [value.active, value.stage]);
 
   return (
     <SettingsAllSettingsBenchmarkContext.Provider value={value}>

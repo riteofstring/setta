@@ -88,6 +88,41 @@ type StageMetrics = {
   sectionOpacityHiddenVisibleActiveCount: number;
 };
 
+const RENDER_COUNTER_SCOPES = [
+  "section-shell",
+  "section-core-resizable",
+  "section-header",
+  "kwargs-controls",
+  "get-param-switch",
+  "param-switch",
+  "param-container",
+] as const;
+
+type RenderCounterScope = (typeof RENDER_COUNTER_SCOPES)[number];
+
+type RenderCounterEntry = {
+  commitCount: number;
+  entityCount: number;
+};
+
+type RenderCounterSnapshot = {
+  stage: string;
+  commitSequence: number;
+  counters: Record<RenderCounterScope, RenderCounterEntry>;
+};
+
+type BrowserRenderCounterStore = {
+  stage: string;
+  commitSequence: number;
+  counters: Record<
+    RenderCounterScope,
+    {
+      commitCount: number;
+      entities: Record<string, number>;
+    }
+  >;
+};
+
 test("all settings benchmark stages progressively restore section complexity", async ({
   page,
 }) => {
@@ -514,9 +549,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("non-text-widgets")?.comboboxInputCount,
   ).toBeGreaterThan(0);
-  expect(metricsByStage.get("non-text-widgets")?.switchWidgetCount).toBeGreaterThan(
-    0,
-  );
+  expect(
+    metricsByStage.get("non-text-widgets")?.switchWidgetCount,
+  ).toBeGreaterThan(0);
   expect(metricsByStage.get("non-text-widgets")?.nonTextWidgetShellCount).toBe(
     0,
   );
@@ -528,9 +563,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("dropdown-widgets")?.nonTextWidgetShellCount,
   ).toBeGreaterThan(0);
-  expect(metricsByStage.get("dropdown-widgets")?.comboboxInputCount).toBeGreaterThan(
-    0,
-  );
+  expect(
+    metricsByStage.get("dropdown-widgets")?.comboboxInputCount,
+  ).toBeGreaterThan(0);
   expect(metricsByStage.get("dropdown-widgets")?.switchWidgetCount).toBe(0);
   expect(metricsByStage.get("dropdown-widgets")?.codeTextWidgetCount).toBe(0);
   expect(metricsByStage.get("dropdown-widgets")?.textTextWidgetCount).toBe(0);
@@ -546,9 +581,9 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("switch-widgets")?.nonTextWidgetShellCount,
   ).toBeGreaterThan(0);
   expect(metricsByStage.get("switch-widgets")?.comboboxInputCount).toBe(0);
-  expect(metricsByStage.get("switch-widgets")?.switchWidgetCount).toBeGreaterThan(
-    0,
-  );
+  expect(
+    metricsByStage.get("switch-widgets")?.switchWidgetCount,
+  ).toBeGreaterThan(0);
 
   expect(metricsByStage.get("other-non-text-widgets")?.paramUiShellCount).toBe(
     0,
@@ -573,8 +608,7 @@ test("all settings benchmark stages progressively restore section complexity", a
     metricsByStage.get("non-text-widgets-no-dropdown")?.textWidgetShellCount,
   ).toBeGreaterThan(0);
   expect(
-    metricsByStage.get("non-text-widgets-no-dropdown")
-      ?.nonTextWidgetShellCount,
+    metricsByStage.get("non-text-widgets-no-dropdown")?.nonTextWidgetShellCount,
   ).toBeGreaterThan(0);
   expect(
     metricsByStage.get("non-text-widgets-no-dropdown")?.comboboxInputCount,
@@ -683,9 +717,9 @@ test("all settings benchmark stages progressively restore section complexity", a
   expect(
     metricsByStage.get("full-section-opacity-hidden")?.sampleParamRowCount,
   ).toBeGreaterThan(0);
-  expect(
-    metricsByStage.get("full-section-opacity-1pct")?.staticRowCount,
-  ).toBe(0);
+  expect(metricsByStage.get("full-section-opacity-1pct")?.staticRowCount).toBe(
+    0,
+  );
   expect(
     metricsByStage.get("full-section-opacity-1pct")?.sectionSnapdomCount,
   ).toBe(0);
@@ -854,6 +888,50 @@ test("full-section-snapdom-hidden-live reveals a clicked section body without lo
   );
 });
 
+test("activation render counters expose shared shell rerenders", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  for (const stage of ["param-container-shell", "full"] as const) {
+    await openBenchmarkStage(page, stage);
+    await resetRenderCounters(page);
+
+    const inactiveSection = page.locator(
+      'section[data-section-id][data-section-active="false"]',
+    );
+    await expect(inactiveSection.first()).toBeVisible();
+    const targetSectionId =
+      (await inactiveSection.first().getAttribute("data-section-id")) ?? "";
+    expect(targetSectionId.length).toBeGreaterThan(0);
+    const targetSection = page.locator(
+      `section[data-section-id="${targetSectionId}"]`,
+    );
+    await targetSection.click();
+    await expect(targetSection).toHaveAttribute("data-section-active", "true");
+
+    await page.waitForFunction(() => {
+      const store = (
+        window as Window & {
+          __settaSettingsBenchmarkRenderCounters?: BrowserRenderCounterStore;
+        }
+      ).__settaSettingsBenchmarkRenderCounters;
+      return Boolean(store && store.commitSequence > 0);
+    });
+
+    const snapshot = await collectRenderCounterSnapshot(page);
+    expect(snapshot.stage).toBe(stage);
+    expect(snapshot.commitSequence).toBeGreaterThan(0);
+    expect(snapshot.counters["section-shell"].commitCount).toBeGreaterThan(0);
+    expect(
+      RENDER_COUNTER_SCOPES.reduce(
+        (sum, scope) => sum + snapshot.counters[scope].entityCount,
+        0,
+      ),
+    ).toBeGreaterThan(0);
+  }
+});
+
 async function openBenchmarkStage(
   page: Page,
   stage: (typeof STAGES)[number],
@@ -916,6 +994,58 @@ async function openBenchmarkStage(
   }
 }
 
+async function resetRenderCounters(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const store = (
+      window as Window & {
+        __settaSettingsBenchmarkRenderCounters?: BrowserRenderCounterStore;
+      }
+    ).__settaSettingsBenchmarkRenderCounters;
+    if (!store) {
+      throw new Error("Missing Settings benchmark render counter store.");
+    }
+    store.commitSequence = 0;
+    for (const scope of Object.keys(store.counters)) {
+      const entry = store.counters[scope as keyof typeof store.counters];
+      entry.commitCount = 0;
+      for (const entityId of Object.keys(entry.entities)) {
+        delete entry.entities[entityId];
+      }
+    }
+  });
+}
+
+async function collectRenderCounterSnapshot(
+  page: Page,
+): Promise<RenderCounterSnapshot> {
+  return page.evaluate((expectedScopes) => {
+    const store = (
+      window as Window & {
+        __settaSettingsBenchmarkRenderCounters?: BrowserRenderCounterStore;
+      }
+    ).__settaSettingsBenchmarkRenderCounters;
+    if (!store) {
+      throw new Error("Missing Settings benchmark render counter store.");
+    }
+    const counters = Object.fromEntries(
+      expectedScopes.map((scope) => [
+        scope,
+        {
+          commitCount: store.counters[scope]?.commitCount ?? 0,
+          entityCount: Object.keys(store.counters[scope]?.entities ?? {})
+            .length,
+        },
+      ]),
+    ) as Record<RenderCounterScope, RenderCounterEntry>;
+
+    return {
+      stage: store.stage,
+      commitSequence: store.commitSequence,
+      counters,
+    };
+  }, RENDER_COUNTER_SCOPES);
+}
+
 async function waitForSectionSnapdomStage(
   page: Page,
   expectHiddenLive: boolean,
@@ -950,7 +1080,9 @@ async function waitForSectionSnapdomStage(
       return false;
     }
 
-    return previews.every((preview) => preview.complete && preview.naturalWidth > 0);
+    return previews.every(
+      (preview) => preview.complete && preview.naturalWidth > 0,
+    );
   }, expectHiddenLive);
 }
 
@@ -989,58 +1121,54 @@ async function assertSectionSnapdomPreviewFidelity(page: Page): Promise<void> {
     );
     const sample = roots
       .map((root) => {
-      const sectionId =
-        root.getAttribute("data-settings-benchmark-section-snapdom") ?? "";
-      const overlay = document.querySelector<HTMLElement>(
-        `[data-settings-benchmark-section-snapdom-preview-overlay="${sectionId}"]`,
-      );
-      const preview = overlay?.querySelector<HTMLImageElement>(
-        "[data-settings-benchmark-section-snapdom-preview]",
-      );
-      const captureWidth = Number(
-        root.getAttribute("data-settings-benchmark-section-snapdom-capture-width") ??
-          "0",
-      );
-      const captureHeight = Number(
-        root.getAttribute("data-settings-benchmark-section-snapdom-capture-height") ??
-          "0",
-      );
-      const overlayRect = overlay?.getBoundingClientRect();
-      const liveChildWidths = Array.from(root.children)
-        .filter((child): child is HTMLElement => child instanceof HTMLElement)
-        .map((child) => child.getBoundingClientRect().width / viewportScale)
-        .filter((width) => Number.isFinite(width) && width > 0);
-      const minLiveChildWidth =
-        liveChildWidths.length > 0 ? Math.min(...liveChildWidths) : 0;
-      const overlayWidth =
-        overlayRect !== undefined
-          ? overlayRect.width / viewportScale
-          : 0;
-      const overlayHeight =
-        overlayRect !== undefined
-          ? overlayRect.height / viewportScale
-          : 0;
+        const sectionId =
+          root.getAttribute("data-settings-benchmark-section-snapdom") ?? "";
+        const overlay = document.querySelector<HTMLElement>(
+          `[data-settings-benchmark-section-snapdom-preview-overlay="${sectionId}"]`,
+        );
+        const preview = overlay?.querySelector<HTMLImageElement>(
+          "[data-settings-benchmark-section-snapdom-preview]",
+        );
+        const captureWidth = Number(
+          root.getAttribute(
+            "data-settings-benchmark-section-snapdom-capture-width",
+          ) ?? "0",
+        );
+        const captureHeight = Number(
+          root.getAttribute(
+            "data-settings-benchmark-section-snapdom-capture-height",
+          ) ?? "0",
+        );
+        const overlayRect = overlay?.getBoundingClientRect();
+        const liveChildWidths = Array.from(root.children)
+          .filter((child): child is HTMLElement => child instanceof HTMLElement)
+          .map((child) => child.getBoundingClientRect().width / viewportScale)
+          .filter((width) => Number.isFinite(width) && width > 0);
+        const minLiveChildWidth =
+          liveChildWidths.length > 0 ? Math.min(...liveChildWidths) : 0;
+        const overlayWidth =
+          overlayRect !== undefined ? overlayRect.width / viewportScale : 0;
+        const overlayHeight =
+          overlayRect !== undefined ? overlayRect.height / viewportScale : 0;
 
-      return {
-        naturalWidth: preview?.naturalWidth ?? 0,
-        naturalHeight: preview?.naturalHeight ?? 0,
-        overlayWidth,
-        overlayHeight,
-        captureWidth,
-        captureHeight,
-        minLiveChildWidth,
-        liveChildCount: liveChildWidths.length,
-        isUndersized:
-          (preview?.naturalWidth ?? 0) <
-            Math.max(100, captureWidth * 0.5) ||
-          (preview?.naturalHeight ?? 0) <
-            Math.max(100, captureHeight * 0.5),
-        isCollapsed:
-          liveChildWidths.length === 0 ||
-          minLiveChildWidth < 250 ||
-          overlayWidth < 250 ||
-          overlayHeight < 40,
-      };
+        return {
+          naturalWidth: preview?.naturalWidth ?? 0,
+          naturalHeight: preview?.naturalHeight ?? 0,
+          overlayWidth,
+          overlayHeight,
+          captureWidth,
+          captureHeight,
+          minLiveChildWidth,
+          liveChildCount: liveChildWidths.length,
+          isUndersized:
+            (preview?.naturalWidth ?? 0) < Math.max(100, captureWidth * 0.5) ||
+            (preview?.naturalHeight ?? 0) < Math.max(100, captureHeight * 0.5),
+          isCollapsed:
+            liveChildWidths.length === 0 ||
+            minLiveChildWidth < 250 ||
+            overlayWidth < 250 ||
+            overlayHeight < 40,
+        };
       })
       .filter((preview) => preview.naturalWidth > 0 && preview.overlayWidth > 0)
       .slice(0, 8);

@@ -1,4 +1,7 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  useSettingsAllSettingsBenchmark,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useSortable } from "forks/dnd-kit/adapter";
 import {
   applyZoomToTransform,
@@ -47,6 +50,10 @@ type ParamSwitchProps = {
 };
 
 function _ParamSwitch(props: ParamSwitchProps) {
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "param-switch",
+    `${props.sectionId}:${props.paramInfoId}`,
+  );
   if (isTempParam(props.paramInfoId)) {
     return <TempParamSwitch {...props} />;
   }

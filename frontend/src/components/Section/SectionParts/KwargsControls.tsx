@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmarkRenderCounter } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { useLayoutEffect, useMemo, useRef } from "react";
@@ -54,6 +55,7 @@ function getDeletableSelectedParamIds(
 }
 
 export function KwargsControls({ sectionId }: KwargsControlsProps) {
+  useSettingsAllSettingsBenchmarkRenderCounter("kwargs-controls", sectionId);
   const controlsRef = useRef<HTMLElement | null>(null);
   const lastMeasuredHeightRef = useRef<number | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
@@ -508,7 +510,9 @@ function ParamFilter({
     ),
   );
   const solelyActiveSectionId = useProjectState((x) =>
-    x.projectConfig.activeIds.length === 1 ? x.projectConfig.activeIds[0] : null,
+    x.projectConfig.activeIds.length === 1
+      ? x.projectConfig.activeIds[0]
+      : null,
   );
   const paramFilterValue = paramsImpl.paramFilter;
   const sectionIsActive = solelyActiveSectionId === sectionId;

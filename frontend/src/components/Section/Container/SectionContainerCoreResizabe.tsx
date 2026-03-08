@@ -1,5 +1,8 @@
 import type { SettingsAllSettingsBenchmarkStage } from "components/Pages/Project/settingsAllSettingsBenchmark";
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  useSettingsAllSettingsBenchmark,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import React from "react";
@@ -60,6 +63,10 @@ function _SectionContainerCoreResizable({
   hideHeader = false,
 }: SectionContainerCoreResizableProps) {
   const benchmark = useSettingsAllSettingsBenchmark();
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "section-core-resizable",
+    sectionId,
+  );
   const {
     isMinimized,
     isYouTube,

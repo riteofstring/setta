@@ -1,4 +1,7 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  useSettingsAllSettingsBenchmark,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -44,6 +47,7 @@ function _SectionContainerCore({
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
   const benchmark = useSettingsAllSettingsBenchmark();
+  useSettingsAllSettingsBenchmarkRenderCounter("section-shell", sectionId);
   const {
     isActiveSection,
     sectionTypeName,

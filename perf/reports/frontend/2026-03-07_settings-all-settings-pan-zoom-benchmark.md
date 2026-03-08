@@ -2947,3 +2947,148 @@ New benchmark stages:
   - moving active chrome out of the heavy body path does help
   - but it does not uncover a new large widget-specific cliff
   - the remaining activation lag is still centered on the shared section / row shell path
+
+## Addendum: activation render counters show the remaining React work is now concentrated in the section shell, and the visible lag is amplified by the shell outline transition
+
+- Date: `2026-03-07`
+- Goal: identify which shared-shell components still commit on plain section activation after the earlier activation optimizations.
+- Method:
+  - added benchmark-only commit counters to:
+    - `SectionContainerCore`
+    - `SectionContainerCoreResizable`
+    - `SectionHeader`
+    - `KwargsControls`
+    - `GetParamSwitch`
+    - `ParamSwitch`
+    - `ParamContainer`
+  - exposed those counters on `window.__settaSettingsBenchmarkRenderCounters`
+  - for each run:
+    - reset counters
+    - click one inactive section in the live headed `All Settings` canvas
+    - wait for `data-section-active="true"`
+    - wait two `requestAnimationFrame` ticks
+    - record per-scope commit counts and unique entity counts
+
+### Visual validation
+
+- `full` benchmark stage:
+  - `perf/artifacts/frontend/settings-all-settings/activation-render-counters-2026-03-07/full-stage-visible.png`
+- `full` after one activation:
+  - `perf/artifacts/frontend/settings-all-settings/activation-render-counters-2026-03-07/full-stage-after-activation-visible.png`
+- `param-container-shell` benchmark stage:
+  - `perf/artifacts/frontend/settings-all-settings/activation-render-counters-2026-03-07/param-container-shell-visible.png`
+
+### Activation render-counter results
+
+- `full`
+  - average `119.02ms` from click to active-attribute + settle check
+  - runs `167.30`, `131.70`, `123.60`, `100.00`, `72.50`
+  - stable counter snapshot on every run:
+    - `section-shell`: `2` commits across `2` section entities
+    - `section-core-resizable`: `0`
+    - `section-header`: `0`
+    - `kwargs-controls`: `0`
+    - `get-param-switch`: `0`
+    - `param-switch`: `0`
+    - `param-container`: `0`
+
+- `param-container-shell`
+  - average `101.46ms`
+  - runs `141.20`, `109.30`, `107.30`, `99.70`, `49.80`
+  - stable counter snapshot on every run:
+    - `section-shell`: `2` commits across `2` section entities
+    - `section-core-resizable`: `0`
+    - `section-header`: `0`
+    - `kwargs-controls`: `0`
+    - `get-param-switch`: `0`
+    - `param-switch`: `0`
+    - `param-container`: `0`
+
+### What the counters mean
+
+- After the earlier activation work, plain section activation is no longer causing a heavy section-body rerender.
+- The measured React commit work is now limited to the old active section shell and the new active section shell.
+- So the remaining activation cost is no longer explained by:
+  - `KwargsControls`
+  - param-row recursion
+  - `ParamContainer`
+  - `ParamSwitch`
+  - the header subtree
+- The next true React-side hotspot is now the outer section shell itself, especially the active-state path in `SectionContainerCore`.
+
+### Visual-lag A/B: active state vs outline transition
+
+- On a live active section shell, `getComputedStyle(...)` reported:
+  - `transition-property: border-radius, box-shadow, drop-shadow, outline`
+  - `transition-duration: 0.17s`
+
+- With the normal production transition still enabled, repeated `full`-stage clicks measured:
+  - average `78.82ms` from click to `data-section-active="true"`
+  - average `86.32ms` more for the outline color to finish settling
+  - average total perceived settle time `180.96ms`
+
+- Browser-only control experiment: injected
+  - `section[data-section-id] { transition-property: none !important; transition-duration: 0s !important; }`
+
+- With only that temporary transition override, repeated `full`-stage clicks measured:
+  - average `80.32ms` from click to `data-section-active="true"`
+  - average `0.64ms` more for the outline to settle
+  - average total `94.52ms`
+
+### Conclusion
+
+- The remaining activation story now has two distinct parts:
+  - real active-state update cost: roughly `80ms`
+  - additional visible shell-animation cost: roughly `86ms`
+- So the user-visible “section becomes active slowly” symptom is now explained substantially by the section-shell outline transition, not just React/rendering work.
+- The next likely high-value fixes are:
+  - reduce or remove the active outline transition on section shells
+  - then, if more improvement is still needed, optimize the now-isolated `SectionContainerCore` active-state path itself
+
+## Addendum: section activation is not blocked on backend `setActiveIds` acknowledgement
+
+- Date: `2026-03-08`
+- Goal: test whether the remaining plain section-activation lag is caused by the backend `setActiveIds` response path rather than the optimistic local update.
+- Method:
+  - stayed on the live headed `full` benchmark stage
+  - installed a browser-only `fetch` harness for `/setActiveIds`
+  - compared three modes over repeated section clicks:
+    - `normal`: real backend request/response
+    - `stub200`: intercepted and returned an immediate local `200`
+    - `hang`: intercepted and never resolved, so no backend acknowledgement could arrive at all
+  - measured:
+    - click to `data-section-active="true"`
+    - click to visual settle on the section shell
+    - `/setActiveIds` resolution timing when present
+
+### Results
+
+- `normal`
+  - average click to active: `83.04ms`
+  - average click to visual settle: `270.34ms`
+  - average `/setActiveIds` response time: `103.52ms`
+
+- `stub200`
+  - average click to active: `86.86ms`
+  - average click to visual settle: `276.38ms`
+  - average synthetic `/setActiveIds` response time: `8.64ms`
+
+- `hang`
+  - average click to active: `90.96ms`
+  - average click to visual settle: `281.80ms`
+  - `/setActiveIds` never resolved
+
+### Interpretation
+
+- The initial activation behavior stays in the same band even when the backend acknowledgement never arrives.
+- That means the remaining lag is not gated on receiving new project state from the backend for this interaction.
+- This matches the code path:
+  - `applyActiveSectionChange(...)` calls `setActiveSectionIds(...)`
+  - `setActiveSectionIds(...)` uses `dispatchOptimisticProjectStateUpdate(...)`
+  - `dispatchOptimisticProjectStateUpdate(...)` writes local Zustand state first with `useProjectState.setState(apply)` and only then sends `route_set_active_ids(...)`
+  - the `200` path only acknowledges the pending op; it does not write project state again
+
+### Conclusion
+
+- For plain section activation, the remaining lag is local frontend work plus the shell transition, not backend acknowledgement latency.
+- This does not rule out unrelated later backend sync noise elsewhere in the app, but it does rule it out as the cause of the activation delay measured here.

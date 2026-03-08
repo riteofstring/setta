@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmarkRenderCounter } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
 import React, { useLayoutEffect, useRef } from "react";
@@ -57,6 +58,7 @@ function _SectionHeader({
   isRoot,
   hasSectionStyleTheme,
 }: SectionHeaderProps) {
+  useSettingsAllSettingsBenchmarkRenderCounter("section-header", sectionId);
   const headerRef = useRef<HTMLElement | null>(null);
   const heightKey = getSectionHeaderHeightKey(sectionId);
 

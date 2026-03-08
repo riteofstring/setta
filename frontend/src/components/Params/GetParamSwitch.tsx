@@ -1,4 +1,7 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  useSettingsAllSettingsBenchmark,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { matchSorter } from "match-sorter";
 import { useMemo } from "react";
@@ -34,6 +37,10 @@ export function GetParamSwitch({
   hasSectionStyleTheme: boolean;
 }) {
   const benchmark = useSettingsAllSettingsBenchmark();
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "get-param-switch",
+    `${sectionId}:${listKey}:${isTopLevel ? "top" : "nested"}:${paramIds[0] ?? "none"}:${paramIds[paramIds.length - 1] ?? "none"}:${paramIds.length}`,
+  );
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuard(
       x,

@@ -1,18 +1,19 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  useSettingsAllSettingsBenchmark,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { GetParamSwitch } from "components/Params/GetParamSwitch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import {
-  getCurrEffectiveCodeObjImpl,
-} from "state/actions/sectionInfos";
+import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamInput } from "./ParamItems/ParamInput";
 import { ResizeHandle } from "./ResizeHandle";
-import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
   "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
@@ -42,6 +43,10 @@ function _ParamContainer({
   benchmarkParamRowMode,
 }) {
   const benchmark = useSettingsAllSettingsBenchmark();
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "param-container",
+    `${sectionId}:${paramInfoId}`,
+  );
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
   );
@@ -197,7 +202,10 @@ function _ParamContainer({
         role={undefined}
       >
         {!isKwarg ? (
-          <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
+          <div
+            className="section-key overflow-hidden"
+            style={{ width: columnWidth }}
+          >
             {children}
           </div>
         ) : (
@@ -245,7 +253,10 @@ function _ParamContainer({
       role={undefined}
     >
       {!isKwarg ? (
-        <div className="section-key overflow-hidden" style={{ width: columnWidth }}>
+        <div
+          className="section-key overflow-hidden"
+          style={{ width: columnWidth }}
+        >
           {children}
         </div>
       ) : (
