@@ -22,7 +22,6 @@ type GitDiffOverlayState = {
 };
 
 type GitGraphOverlayState = {
-  projectConfigId: string | null;
   allRefs: boolean;
   response: GetGitLogResponse | null;
   seenCommitHashes: Set<string>;
@@ -49,7 +48,8 @@ type GitGraphOverlayState = {
 
 type GitOverlayState =
   | { kind: "none" }
-  | { kind: "diff"; diff: GitDiffOverlayState };
+  | { kind: "diff"; diff: GitDiffOverlayState }
+  | { kind: "graph"; graph: GitGraphOverlayState };
 
 type GitStatusState = {
   response: GetGitStatusResponse | null;
@@ -64,7 +64,6 @@ type GitStatusState = {
 type GitState = {
   status: GitStatusState;
   overlay: GitOverlayState;
-  graph: GitGraphOverlayState | null;
 };
 
 export const useGitStore = createWithEqualityFn(
@@ -76,6 +75,5 @@ export const useGitStore = createWithEqualityFn(
       error: null,
     },
     overlay: { kind: "none" },
-    graph: null,
   })),
 );

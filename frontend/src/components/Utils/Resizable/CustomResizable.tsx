@@ -31,7 +31,6 @@ import {
 } from "utils/constants";
 import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
-import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   getChangedSize,
@@ -480,16 +479,12 @@ function CustomResizableSuperCore({
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
-  const inputClasses = getSectionSurfaceClassName({
-    bgColor,
-    hasSectionStyleTheme,
-    positionAndSizeLocked,
-    shouldDisablePointerEvents,
-    isYouTube,
-    frameClassName,
-    layoutClassName: layoutClassNameToUse,
-    metaHoverZIndexClassName: metaHoverZIndexClass,
-  });
+  const sectionStyleChromeClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
+    : "";
+  const inputClasses = `${
+    shouldDisablePointerEvents ? "pointer-events-none select-none" : ""
+  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} z-10 ${metaHoverZIndexClass} ${frameClassName} ${sectionStyleChromeClassName}`;
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {
