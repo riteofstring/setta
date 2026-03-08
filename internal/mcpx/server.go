@@ -20,6 +20,7 @@ import (
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/settadocs"
 	"setta/internal/statefs"
 	"setta/internal/tools"
 )
@@ -35,6 +36,10 @@ type Server struct {
 	registry             *tools.Registry
 	projectState         projectStateProvider
 	lspDiagnostics       lspDiagnosticsProvider
+	mcpStatuses          mcpStatusProvider
+	terminals            terminalHistoryProvider
+	docs                 *settadocs.Loader
+	toolSearch           *tools.SearchIndex
 	temporaryIDs         *TemporaryIDStore
 	server               *sdkmcp.Server
 	handler              http.Handler
@@ -54,6 +59,9 @@ type ServerOptions struct {
 	SectionNames                   sectionNameProvider
 	CallableSignatures             projectstate.CallableSignatureResolver
 	LSPDiagnostics                 lspDiagnosticsProvider
+	MCPStatuses                    mcpStatusProvider
+	Terminals                      terminalHistoryProvider
+	DocsRoot                       string
 	TemporaryIDMapPath             string
 }
 
@@ -133,6 +141,14 @@ type lspDiagnosticsProvider interface {
 	ReapplyCodeSectionIgnoreState(project projectstate.Project, sectionID string) error
 }
 
+type mcpStatusProvider interface {
+	RuntimeStatuses() []ServerRuntimeStatus
+}
+
+type terminalHistoryProvider interface {
+	History(sessionID string) (string, error)
+}
+
 type listMCPToolsResult struct {
 	Tools []string `json:"tools"`
 }
@@ -163,8 +179,14 @@ type toolError struct {
 }
 
 var unscopedToolNames = map[string]struct{}{
-	"list_mcp_tools":      {},
-	"set_agentic_context": {},
+	"getProjectConfigNamesAndIds":   {},
+	"get_app_catalog":               {},
+	"get_mcp_server_runtime_status": {},
+	"get_setta_docs":                {},
+	"list_app_components":           {},
+	"list_mcp_tools":                {},
+	"search_mcp_tools":              {},
+	"set_agentic_context":           {},
 }
 
 func (e *toolError) Error() string {
@@ -193,8 +215,17 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		registry:             registry,
 		projectState:         opts.ProjectState,
 		lspDiagnostics:       opts.LSPDiagnostics,
+		mcpStatuses:          opts.MCPStatuses,
+		terminals:            opts.Terminals,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
+	}
+	if strings.TrimSpace(opts.DocsRoot) != "" {
+		docsLoader, err := settadocs.NewLoader(opts.DocsRoot)
+		if err != nil {
+			return nil, err
+		}
+		instance.docs = docsLoader
 	}
 	if strings.TrimSpace(opts.TemporaryIDMapPath) != "" {
 		temporaryIDs, err := NewTemporaryIDStore(opts.TemporaryIDMapPath)
@@ -204,6 +235,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		instance.temporaryIDs = temporaryIDs
 	}
 
+	searchEntries := []tools.SearchEntry{}
 	for _, definition := range defaultToolDefinitions(
 		instance,
 		workspaceRoot,
@@ -222,7 +254,16 @@ func NewServer(opts ServerOptions) (*Server, error) {
 			return nil, err
 		}
 		instance.addTool(registered, definition.InputSchema, definition.OutputSchema)
+		if registered.Metadata.Kind == tools.KindDiscoverable {
+			searchEntries = append(searchEntries, tools.SearchEntry{
+				Name:        registered.Name,
+				Description: registered.Description,
+				Metadata:    registered.Metadata,
+				InputSchema: definition.InputSchema,
+			})
+		}
 	}
+	instance.toolSearch = tools.BuildSearchIndex(searchEntries)
 
 	instance.handler = sdkmcp.NewSSEHandler(func(*http.Request) *sdkmcp.Server {
 		return instance.server
@@ -2675,6 +2716,254 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"tools"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "search_mcp_tools",
+				Description: "Return the MCP tools that best match a natural-language query.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindInit,
+					AccessType: tools.AccessTypeRead,
+				},
+				Handler: newSearchMCPToolsHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"query": map[string]any{
+						"type":        "string",
+						"description": "Search query describing the MCP capability to find.",
+					},
+					"limit": map[string]any{
+						"type":        "integer",
+						"description": "Maximum number of matches to return; values less than 1 use the default size.",
+					},
+					"serverIds": map[string]any{
+						"type":        "array",
+						"description": "Optional MCP server ids used to scope results.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"query"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"results": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"name":        map[string]any{"type": "string"},
+								"description": map[string]any{"type": "string"},
+								"category":    map[string]any{"type": "string"},
+							},
+							"required": []string{"name", "description"},
+						},
+					},
+				},
+				"required": []string{"results"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "get_mcp_server_runtime_status",
+				Description: "Return runtime MCP connection status for every configured MCP server.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindInit,
+					AccessType: tools.AccessTypeRead,
+				},
+				Handler: newGetMCPServerRuntimeStatusHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"servers": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"serverId":      map[string]any{"type": "string"},
+								"state":         map[string]any{"type": "string"},
+								"toolCount":     map[string]any{"type": "integer"},
+								"lastError":     map[string]any{"type": "string"},
+								"missingEnvVar": map[string]any{"type": "string"},
+							},
+							"required": []string{"serverId", "state", "toolCount"},
+						},
+					},
+				},
+				"required": []string{"servers"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "getProjectConfigNamesAndIds",
+				Description: "Return metadata for every known project config.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindInit,
+					AccessType: tools.AccessTypeRead,
+				},
+				Handler: newGetProjectConfigNamesAndIDsHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigs": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"name": map[string]any{"type": "string"},
+								"id":   map[string]any{"type": "string"},
+							},
+							"required": []string{"name", "id"},
+						},
+					},
+				},
+				"required": []string{"projectConfigs"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "getTerminalOutput",
+				Description: "Returns the history of outputs of a terminal.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindDiscoverable,
+					AccessType: tools.AccessTypeRead,
+					IDPathsByType: map[tools.IDType][]string{
+						tools.IDTypeSection: {"sectionId"},
+					},
+					SearchCategory: "terminal",
+					SearchTags:     []string{"terminal", "history", "output", "shell"},
+				},
+				Handler: newGetTerminalOutputHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sectionId": map[string]any{
+						"type":        "string",
+						"description": "Top-level terminal section id whose buffered output should be returned.",
+					},
+				},
+				"required": []string{"sectionId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "get_app_catalog",
+				Description: "Return the JSON render catalog used for app generation.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"app", "catalog", "components", "generation"},
+				},
+				Handler: newGetAppCatalogHandler(),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"catalog": map[string]any{
+						"type": "object",
+					},
+				},
+				"required": []string{"catalog"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "list_app_components",
+				Description: "List the allowed component types for app generation.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "project",
+					SearchTags:     []string{"app", "components", "catalog", "generation"},
+				},
+				Handler: newListAppComponentsHandler(),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"components": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"components"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "get_setta_docs",
+				Description: "Return docs from the Setta docs directory.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindInit,
+					AccessType: tools.AccessTypeRead,
+				},
+				Handler: newGetSettaDocsHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"docIds": map[string]any{
+						"type":        "array",
+						"description": "Optional doc ids or doc-relative paths to include; omit for the default listener-focused set.",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"docs": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"doc_id":  map[string]any{"type": "string"},
+								"path":    map[string]any{"type": "string"},
+								"content": map[string]any{"type": "string"},
+							},
+							"required": []string{"doc_id", "path", "content"},
+						},
+					},
+					"available_docs": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"docs", "available_docs"},
 			},
 		},
 	}
@@ -6138,7 +6427,7 @@ func buildToolSuccessResult(payload any) (*sdkmcp.CallToolResult, error) {
 		return nil, fmt.Errorf("marshal tool result: %w", err)
 	}
 
-	var structured map[string]any
+	var structured any
 	if err := json.Unmarshal(encoded, &structured); err != nil {
 		return nil, fmt.Errorf("decode tool result: %w", err)
 	}

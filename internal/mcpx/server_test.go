@@ -6,15 +6,20 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/appspec"
 	"setta/internal/projectstate"
+	"setta/internal/terminals"
 	"setta/internal/tools"
 )
 
@@ -138,8 +143,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 56 {
-		t.Fatalf("expected 56 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 63 {
+		t.Fatalf("expected 63 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -376,11 +381,18 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"delete_sections",
 		"delete_selected_params",
 		"format_code",
+		"getProjectConfigNamesAndIds",
+		"getTerminalOutput",
+		"get_app_catalog",
 		"get_app_definition",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
+		"get_mcp_server_runtime_status",
+		"get_setta_docs",
+		"list_app_components",
 		"list_mcp_tools",
 		"read_file_range",
+		"search_mcp_tools",
 		"set_agentic_context",
 		"set_app_definition",
 		"set_callable",
@@ -990,8 +1002,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 56 {
-		t.Fatalf("expected 56 registered tool names, got %#v", listNames)
+	if len(listNames) != 63 {
+		t.Fatalf("expected 63 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -8609,6 +8621,404 @@ func assertDiagnosticsPayload(t *testing.T, payload any) {
 	}
 	if unmapped := mustStructuredList(t, diagnostics["unmappedGenCode"]); len(unmapped) != 0 {
 		t.Fatalf("expected scoped diagnostics to drop unmapped gen code, got %#v", unmapped)
+	}
+}
+
+func TestServerSearchMCPToolsUsesDiscoverableToolsAndServerFilters(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_mcp_tools",
+		Arguments: map[string]any{
+			"query": "section size settings",
+			"limit": 2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_mcp_tools: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected search_mcp_tools success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	results := mustStructuredList(t, payload["results"])
+	if len(results) == 0 {
+		t.Fatal("expected at least one search result")
+	}
+	first := mustStructuredMap(t, results[0])
+	if first["name"] != "set_section_sizes" {
+		t.Fatalf("expected set_section_sizes as top search result, got %#v", first)
+	}
+	for _, rawResult := range results {
+		entry := mustStructuredMap(t, rawResult)
+		if entry["name"] == "search_mcp_tools" {
+			t.Fatalf("expected init search tool to be excluded from search results, got %#v", results)
+		}
+	}
+
+	filtered, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_mcp_tools",
+		Arguments: map[string]any{
+			"query":     "section size settings",
+			"serverIds": []any{"filesystem"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call filtered search_mcp_tools: %v", err)
+	}
+	if filtered.IsError {
+		t.Fatalf("expected filtered search_mcp_tools success, got %#v", filtered.StructuredContent)
+	}
+	filteredPayload := mustStructuredMap(t, filtered.StructuredContent)
+	if got := mustStructuredList(t, filteredPayload["results"]); len(got) != 0 {
+		t.Fatalf("expected non-setta server filter to return no results, got %#v", got)
+	}
+}
+
+func TestServerGetMCPServerRuntimeStatusReturnsClientStatuses(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	statusClient, err := NewClient(ClientOptions{
+		Servers: map[string]ServerConfig{
+			DefaultServerID: {
+				Transport: TransportSSE,
+				URL:       "http://127.0.0.1:8000/mcp",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new status client: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		MCPStatuses:    statusClient,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_mcp_server_runtime_status",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call get_mcp_server_runtime_status: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected get_mcp_server_runtime_status success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	servers := mustStructuredList(t, payload["servers"])
+	if len(servers) != 1 {
+		t.Fatalf("expected one runtime status, got %#v", servers)
+	}
+	serverStatus := mustStructuredMap(t, servers[0])
+	if serverStatus["serverId"] != DefaultServerID {
+		t.Fatalf("expected default server id, got %#v", serverStatus["serverId"])
+	}
+	if serverStatus["state"] != string(RuntimeStateUnknown) {
+		t.Fatalf("expected unknown runtime state before client start, got %#v", serverStatus["state"])
+	}
+	if serverStatus["toolCount"] != float64(0) {
+		t.Fatalf("expected zero tool count before client start, got %#v", serverStatus["toolCount"])
+	}
+}
+
+func TestServerGetProjectConfigNamesAndIDsReturnsSortedMetadata(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, err := projectRuntime.MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-zeta"] = projectstate.Project{
+			ID:   "project-zeta",
+			Name: "Zeta",
+		}
+		document.Projects["project-beta"] = projectstate.Project{
+			ID:   "project-beta",
+			Name: "beta",
+		}
+		return document, nil
+	})
+	if err != nil {
+		t.Fatalf("seed additional project metadata: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "getProjectConfigNamesAndIds",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call getProjectConfigNamesAndIds: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	projectConfigs := mustStructuredList(t, payload["projectConfigs"])
+	if len(projectConfigs) != 3 {
+		t.Fatalf("expected three project configs, got %#v", projectConfigs)
+	}
+	first := mustStructuredMap(t, projectConfigs[0])
+	second := mustStructuredMap(t, projectConfigs[1])
+	third := mustStructuredMap(t, projectConfigs[2])
+	if first["name"] != "Alpha" || second["name"] != "beta" || third["name"] != "Zeta" {
+		t.Fatalf("expected sorted project metadata, got %#v", projectConfigs)
+	}
+}
+
+func TestServerGetTerminalOutputReturnsBufferedHistory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY-backed terminal history tests currently target macOS and Linux")
+	}
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	terminalService := openScopedTestTerminalService(t)
+	sessionID := terminals.BuildTerminalID("allowed-section", "")
+	if _, _, err := terminalService.Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    quietScopedTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open scoped test terminal: %v", err)
+	}
+
+	attachment := attachScopedTestTerminal(t, terminalService, sessionID)
+	if err := terminalService.Write(sessionID, []byte("tool history line\n")); err != nil {
+		t.Fatalf("write terminal history: %v", err)
+	}
+	output := waitForScopedTestOutputContains(t, attachment, "tool history line")
+	if !strings.Contains(output, "tool history line") {
+		t.Fatalf("expected written terminal output, got %q", output)
+	}
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		Terminals:      terminalService,
+	})
+	defer clientSession.Close()
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "getTerminalOutput",
+		Arguments: map[string]any{
+			"sectionId": "allowed-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call getTerminalOutput: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected getTerminalOutput success, got %#v", result.StructuredContent)
+	}
+
+	history, ok := result.StructuredContent.(string)
+	if !ok {
+		t.Fatalf("expected string terminal output payload, got %#v", result.StructuredContent)
+	}
+	if !strings.Contains(history, "tool history line") {
+		t.Fatalf("expected terminal history to include written line, got %q", history)
+	}
+}
+
+func TestServerGetAppCatalogAndListAppComponentsReturnDefaultCatalog(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	catalogResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_app_catalog",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call get_app_catalog: %v", err)
+	}
+	if catalogResult.IsError {
+		t.Fatalf("expected get_app_catalog success, got %#v", catalogResult.StructuredContent)
+	}
+	catalogPayload := mustStructuredMap(t, catalogResult.StructuredContent)
+	catalog := mustStructuredMap(t, catalogPayload["catalog"])
+	if catalog["id"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, catalog["id"])
+	}
+	components := mustStructuredList(t, catalog["components"])
+	if len(components) == 0 || mustStructuredMap(t, components[0])["type"] != "Stack" {
+		t.Fatalf("expected catalog to start with Stack, got %#v", components)
+	}
+	actions := mustStructuredList(t, catalog["actions"])
+	if len(actions) != 5 {
+		t.Fatalf("expected five catalog actions, got %#v", actions)
+	}
+
+	componentResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "list_app_components",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call list_app_components: %v", err)
+	}
+	if componentResult.IsError {
+		t.Fatalf("expected list_app_components success, got %#v", componentResult.StructuredContent)
+	}
+	componentPayload := mustStructuredMap(t, componentResult.StructuredContent)
+	componentTypes := mustStructuredList(t, componentPayload["components"])
+	if len(componentTypes) == 0 || componentTypes[0] != "Stack" {
+		t.Fatalf("expected ordered component list, got %#v", componentTypes)
+	}
+}
+
+func TestServerGetSettaDocsLoadsDefaultBundleAndRejectsEscapes(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	writeScopedTestDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-examples.md"), "# Examples\n")
+	writeScopedTestDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "emit_to_frontend.md"), "# Emit\n")
+	writeScopedTestDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-hot-reload.md"), "# Hot Reload\n")
+	writeScopedTestDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-realtime-behavior.md"), "# Realtime\n")
+	writeScopedTestDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "listener-flows.md"), "# Listener Flows\n")
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSessionWithOptions(t, workspaceRoot, projectRuntime, ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		DocsRoot:       filepath.Join(workspaceRoot, "docs"),
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_setta_docs",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call get_setta_docs: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected get_setta_docs success, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	docs := mustStructuredList(t, payload["docs"])
+	if len(docs) != 4 {
+		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+	availableDocs := mustStringList(t, payload["available_docs"])
+	if !slices.Contains(availableDocs, "listener_flows") {
+		t.Fatalf("expected listener_flows alias in available docs, got %#v", availableDocs)
+	}
+
+	invalid, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_setta_docs",
+		Arguments: map[string]any{
+			"docIds": []any{"../outside"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call invalid get_setta_docs: %v", err)
+	}
+	if !invalid.IsError {
+		t.Fatal("expected get_setta_docs path escape to fail")
+	}
+	invalidPayload := mustStructuredMap(t, invalid.StructuredContent)
+	if invalidPayload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments for invalid docs path, got %#v", invalidPayload)
+	}
+}
+
+func openScopedTestTerminalService(t *testing.T) *terminals.Service {
+	t.Helper()
+
+	service, err := terminals.New(terminals.Options{})
+	if err != nil {
+		t.Fatalf("new scoped test terminal service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(context.Background()); err != nil {
+			t.Fatalf("close scoped test terminal service: %v", err)
+		}
+	})
+	return service
+}
+
+func quietScopedTestCatCommand(t *testing.T) []string {
+	t.Helper()
+
+	shell := requireScopedTestCommand(t, "sh")
+	return []string{shell, "-c", "stty -echo; cat"}
+}
+
+func requireScopedTestCommand(t *testing.T, name string) string {
+	t.Helper()
+
+	path, err := exec.LookPath(name)
+	if err != nil {
+		t.Skipf("required command %q not available: %v", name, err)
+	}
+	return path
+}
+
+func attachScopedTestTerminal(t *testing.T, service *terminals.Service, sessionID string) *terminals.Attachment {
+	t.Helper()
+
+	attachment, err := service.Attach(sessionID)
+	if err != nil {
+		t.Fatalf("attach scoped test terminal %q: %v", sessionID, err)
+	}
+	t.Cleanup(attachment.Close)
+	return attachment
+}
+
+func waitForScopedTestOutputContains(t *testing.T, attachment *terminals.Attachment, needle string) string {
+	t.Helper()
+
+	buffer := strings.Builder{}
+	buffer.Write(attachment.History)
+	if strings.Contains(buffer.String(), needle) {
+		return buffer.String()
+	}
+
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case chunk, ok := <-attachment.Output:
+			if !ok {
+				t.Fatalf("attachment output closed before %q appeared; collected output: %q", needle, buffer.String())
+			}
+			buffer.Write(chunk)
+			if strings.Contains(buffer.String(), needle) {
+				return buffer.String()
+			}
+		case <-timeout.C:
+			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
+		}
+	}
+}
+
+func writeScopedTestDocsFile(t *testing.T, path string, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir docs parent: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write docs file: %v", err)
 	}
 }
 

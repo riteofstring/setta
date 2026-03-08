@@ -24,6 +24,7 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/terminals"
 )
 
 func TestAppIDEMCPServerRejectsUnauthorizedClients(t *testing.T) {
@@ -97,8 +98,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 56 {
-		t.Fatalf("expected 56 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 63 {
+		t.Fatalf("expected 63 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -116,8 +117,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 56 {
-		t.Fatalf("expected 56 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 63 {
+		t.Fatalf("expected 63 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -128,11 +129,29 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "format_code") {
 		t.Fatalf("expected format_code in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "getProjectConfigNamesAndIds") {
+		t.Fatalf("expected getProjectConfigNamesAndIds in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "set_gen_code_prefix") {
 		t.Fatalf("expected set_gen_code_prefix in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_gen_code_suffix") {
 		t.Fatalf("expected set_gen_code_suffix in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "getTerminalOutput") {
+		t.Fatalf("expected getTerminalOutput in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "get_app_catalog") {
+		t.Fatalf("expected get_app_catalog in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "get_mcp_server_runtime_status") {
+		t.Fatalf("expected get_mcp_server_runtime_status in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "get_setta_docs") {
+		t.Fatalf("expected get_setta_docs in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "list_app_components") {
+		t.Fatalf("expected list_app_components in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_group_overflow_mode") {
 		t.Fatalf("expected set_group_overflow_mode in registered tool names, got %#v", rawNames)
@@ -151,6 +170,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "validate_app_definition") {
 		t.Fatalf("expected validate_app_definition in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "search_mcp_tools") {
+		t.Fatalf("expected search_mcp_tools in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
 		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
@@ -258,6 +280,375 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	codeSections := mustStructuredMapValue(t, diagnosticsPayload["codeSections"])
 	if len(codeSections) != 0 {
 		t.Fatalf("expected no diagnostics before registry population, got %#v", codeSections)
+	}
+}
+
+func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	searchResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "search_mcp_tools",
+		Arguments: map[string]any{
+			"query": "section size settings",
+			"limit": 2,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call search_mcp_tools: %v", err)
+	}
+	if searchResult.IsError {
+		t.Fatalf("expected search_mcp_tools success, got %#v", searchResult.StructuredContent)
+	}
+	searchPayload := mustStructuredMapValue(t, searchResult.StructuredContent)
+	searchEntries := mustStructuredListValue(t, searchPayload["results"])
+	if len(searchEntries) == 0 || mustStructuredMapValue(t, searchEntries[0])["name"] != "set_section_sizes" {
+		t.Fatalf("expected set_section_sizes search result, got %#v", searchEntries)
+	}
+
+	projectsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "getProjectConfigNamesAndIds",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call getProjectConfigNamesAndIds: %v", err)
+	}
+	if projectsResult.IsError {
+		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", projectsResult.StructuredContent)
+	}
+	projectsPayload := mustStructuredMapValue(t, projectsResult.StructuredContent)
+	projectConfigs := mustStructuredListValue(t, projectsPayload["projectConfigs"])
+	if len(projectConfigs) != 1 || mustStructuredMapValue(t, projectConfigs[0])["id"] != "project-alpha" {
+		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
+	}
+
+	catalogResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_app_catalog",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call get_app_catalog: %v", err)
+	}
+	if catalogResult.IsError {
+		t.Fatalf("expected get_app_catalog success, got %#v", catalogResult.StructuredContent)
+	}
+	catalogPayload := mustStructuredMapValue(t, catalogResult.StructuredContent)
+	catalog := mustStructuredMapValue(t, catalogPayload["catalog"])
+	if catalog["id"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, catalog["id"])
+	}
+
+	componentsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "list_app_components",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call list_app_components: %v", err)
+	}
+	if componentsResult.IsError {
+		t.Fatalf("expected list_app_components success, got %#v", componentsResult.StructuredContent)
+	}
+	componentsPayload := mustStructuredMapValue(t, componentsResult.StructuredContent)
+	componentTypes := mustStringSliceValue(t, componentsPayload["components"])
+	if len(componentTypes) == 0 || componentTypes[0] != "Stack" {
+		t.Fatalf("expected ordered component list, got %#v", componentTypes)
+	}
+
+	docsResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_setta_docs",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call get_setta_docs: %v", err)
+	}
+	if docsResult.IsError {
+		t.Fatalf("expected get_setta_docs success, got %#v", docsResult.StructuredContent)
+	}
+	docsPayload := mustStructuredMapValue(t, docsResult.StructuredContent)
+	docs := mustStructuredListValue(t, docsPayload["docs"])
+	if len(docs) != 4 {
+		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+}
+
+func TestAppIDEMCPServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
+
+	serverURL := "http://" + listener.Addr().String()
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   serverURL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, serverURL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	toolsResult, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "get_mcp_server_runtime_status",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call get_mcp_server_runtime_status: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected get_mcp_server_runtime_status success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	servers := mustStructuredListValue(t, payload["servers"])
+	if len(servers) != 1 {
+		t.Fatalf("expected one server status, got %#v", servers)
+	}
+	serverStatus := mustStructuredMapValue(t, servers[0])
+	if serverStatus["serverId"] != mcpx.DefaultServerID {
+		t.Fatalf("expected default server id, got %#v", serverStatus["serverId"])
+	}
+	if serverStatus["state"] != string(mcpx.RuntimeStateConnected) {
+		t.Fatalf("expected connected runtime state, got %#v", serverStatus["state"])
+	}
+	if toolCount, ok := serverStatus["toolCount"].(float64); !ok || int(toolCount) != len(toolsResult.Tools) {
+		t.Fatalf("expected toolCount %d, got %#v", len(toolsResult.Tools), serverStatus["toolCount"])
+	}
+}
+
+func TestAppIDEMCPServerSupportsGetTerminalOutputOverAuthenticatedSSE(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	sessionID := terminals.BuildTerminalID("allowed-section", "")
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open app terminal: %v", err)
+	}
+	attachment := attachAppTestTerminal(t, app.Terminals(), sessionID)
+	if err := app.Terminals().Write(sessionID, []byte("authenticated sse terminal output\n")); err != nil {
+		t.Fatalf("write terminal output: %v", err)
+	}
+	waitForAppTestOutputContains(t, attachment, "authenticated sse terminal output")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "getTerminalOutput",
+		Arguments: map[string]any{
+			"sectionId": "allowed-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call getTerminalOutput: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected getTerminalOutput success, got %#v", result.StructuredContent)
+	}
+	history, ok := result.StructuredContent.(string)
+	if !ok {
+		t.Fatalf("expected string terminal history, got %#v", result.StructuredContent)
+	}
+	if !strings.Contains(history, "authenticated sse terminal output") {
+		t.Fatalf("expected terminal history to include written output, got %q", history)
+	}
+}
+
+func TestAppIDEMCPServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticatedSSE(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	writeAppTemporaryIDMap(t, filepath.Join(cfg.Paths.RuntimeRoot, "temporary_id_map.json"), map[string]string{
+		"project-alpha":   "11",
+		"chat-1":          "12",
+		"chat-section":    "13",
+		"allowed-section": "14",
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	sessionID := terminals.BuildTerminalID("allowed-section", "")
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open app terminal: %v", err)
+	}
+	attachment := attachAppTestTerminal(t, app.Terminals(), sessionID)
+	if err := app.Terminals().Write(sessionID, []byte("temporary terminal output\n")); err != nil {
+		t.Fatalf("write terminal output: %v", err)
+	}
+	waitForAppTestOutputContains(t, attachment, "temporary terminal output")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"chatId":          "12",
+			"sectionId":       "13",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected temp-id set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "getTerminalOutput",
+		Arguments: map[string]any{
+			"sectionId": "14",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id getTerminalOutput: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id getTerminalOutput success, got %#v", result.StructuredContent)
+	}
+	history, ok := result.StructuredContent.(string)
+	if !ok {
+		t.Fatalf("expected string terminal history, got %#v", result.StructuredContent)
+	}
+	if !strings.Contains(history, "temporary terminal output") {
+		t.Fatalf("expected terminal history to include written output, got %q", history)
 	}
 }
 
@@ -6344,6 +6735,21 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 
 	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
 
+	mcpClient := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	mcpSession, err := mcpClient.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   serverURL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, serverURL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer mcpSession.Close()
+
+	toolsResult, err := mcpSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
 	client := mustAuthenticatedMCPHTTPClient(t, app, serverURL)
 	response, err := client.Post(
 		serverURL+"/api/mcpServerRuntimeStatus",
@@ -6379,11 +6785,415 @@ func TestAppIDEMCPRuntimeStatusRouteReportsConnectedSelfClient(t *testing.T) {
 	if payload.Servers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", payload.Servers[0].State)
 	}
-	if payload.Servers[0].ToolCount != 43 {
-		t.Fatalf("expected tool count 43, got %d", payload.Servers[0].ToolCount)
+	if payload.Servers[0].ToolCount != len(toolsResult.Tools) {
+		t.Fatalf("expected tool count %d, got %d", len(toolsResult.Tools), payload.Servers[0].ToolCount)
 	}
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected no external servers, got %d", len(payload.ExternalServers))
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+
+	searchResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"search_mcp_tools",
+			"arguments":{"query":"section size settings","limit":2}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post search_mcp_tools tool call route: %v", err)
+	}
+	defer searchResponse.Body.Close()
+
+	if searchResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(searchResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", searchResponse.StatusCode, string(body))
+	}
+
+	searchPayload := decodeAppToolCallRoutePayload(t, searchResponse.Body)
+	if searchPayload.IsError {
+		t.Fatalf("expected search_mcp_tools success, got %#v", searchPayload.StructuredContent)
+	}
+	searchResult := mustStructuredMapValue(t, searchPayload.StructuredContent)
+	searchEntries := mustStructuredListValue(t, searchResult["results"])
+	if len(searchEntries) == 0 || mustStructuredMapValue(t, searchEntries[0])["name"] != "set_section_sizes" {
+		t.Fatalf("expected set_section_sizes search result, got %#v", searchEntries)
+	}
+
+	projectsResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"getProjectConfigNamesAndIds",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post getProjectConfigNamesAndIds tool call route: %v", err)
+	}
+	defer projectsResponse.Body.Close()
+
+	if projectsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(projectsResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", projectsResponse.StatusCode, string(body))
+	}
+
+	projectsPayload := decodeAppToolCallRoutePayload(t, projectsResponse.Body)
+	if projectsPayload.IsError {
+		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", projectsPayload.StructuredContent)
+	}
+	projectsResult := mustStructuredMapValue(t, projectsPayload.StructuredContent)
+	projectConfigs := mustStructuredListValue(t, projectsResult["projectConfigs"])
+	if len(projectConfigs) != 1 || mustStructuredMapValue(t, projectConfigs[0])["id"] != "project-alpha" {
+		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
+	}
+
+	docsResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"get_setta_docs",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post get_setta_docs tool call route: %v", err)
+	}
+	defer docsResponse.Body.Close()
+
+	if docsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(docsResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", docsResponse.StatusCode, string(body))
+	}
+
+	docsPayload := decodeAppToolCallRoutePayload(t, docsResponse.Body)
+	if docsPayload.IsError {
+		t.Fatalf("expected get_setta_docs success, got %#v", docsPayload.StructuredContent)
+	}
+	docsResult := mustStructuredMapValue(t, docsPayload.StructuredContent)
+	docs := mustStructuredListValue(t, docsResult["docs"])
+	if len(docs) != 4 {
+		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsGetMCPServerRuntimeStatus(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	cfg.Server.Port = listener.Addr().(*net.TCPAddr).Port
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+
+	server := &http.Server{Handler: app.Handler()}
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.Serve(listener)
+	}()
+
+	serverURL := "http://" + listener.Addr().String()
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("shutdown http server: %v", err)
+		}
+		err := <-serverErrors
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("serve app: %v", err)
+		}
+	})
+
+	waitForAppMCPClientState(t, app, mcpx.RuntimeStateConnected)
+
+	mcpClient := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	mcpSession, err := mcpClient.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   serverURL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, serverURL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer mcpSession.Close()
+
+	toolsResult, err := mcpSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools: %v", err)
+	}
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, serverURL)
+	response, err := client.Post(
+		serverURL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"get_mcp_server_runtime_status",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post get_mcp_server_runtime_status tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	if payload.IsError {
+		t.Fatalf("expected get_mcp_server_runtime_status success, got %#v", payload.StructuredContent)
+	}
+	result := mustStructuredMapValue(t, payload.StructuredContent)
+	servers := mustStructuredListValue(t, result["servers"])
+	if len(servers) != 1 {
+		t.Fatalf("expected one server status, got %#v", servers)
+	}
+	serverStatus := mustStructuredMapValue(t, servers[0])
+	if serverStatus["serverId"] != mcpx.DefaultServerID {
+		t.Fatalf("expected default server id, got %#v", serverStatus["serverId"])
+	}
+	if serverStatus["state"] != string(mcpx.RuntimeStateConnected) {
+		t.Fatalf("expected connected runtime state, got %#v", serverStatus["state"])
+	}
+	if toolCount, ok := serverStatus["toolCount"].(float64); !ok || int(toolCount) != len(toolsResult.Tools) {
+		t.Fatalf("expected toolCount %d, got %#v", len(toolsResult.Tools), serverStatus["toolCount"])
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+
+	catalogResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"get_app_catalog",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post get_app_catalog tool call route: %v", err)
+	}
+	defer catalogResponse.Body.Close()
+
+	if catalogResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(catalogResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", catalogResponse.StatusCode, string(body))
+	}
+
+	catalogPayload := decodeAppToolCallRoutePayload(t, catalogResponse.Body)
+	if catalogPayload.IsError {
+		t.Fatalf("expected get_app_catalog success, got %#v", catalogPayload.StructuredContent)
+	}
+	catalogResult := mustStructuredMapValue(t, catalogPayload.StructuredContent)
+	catalog := mustStructuredMapValue(t, catalogResult["catalog"])
+	if catalog["id"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, catalog["id"])
+	}
+
+	componentsResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"list_app_components",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post list_app_components tool call route: %v", err)
+	}
+	defer componentsResponse.Body.Close()
+
+	if componentsResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(componentsResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", componentsResponse.StatusCode, string(body))
+	}
+
+	componentsPayload := decodeAppToolCallRoutePayload(t, componentsResponse.Body)
+	if componentsPayload.IsError {
+		t.Fatalf("expected list_app_components success, got %#v", componentsPayload.StructuredContent)
+	}
+	componentsResult := mustStructuredMapValue(t, componentsPayload.StructuredContent)
+	componentTypes := mustStringSliceValue(t, componentsResult["components"])
+	if len(componentTypes) == 0 || componentTypes[0] != "Stack" {
+		t.Fatalf("expected ordered component list, got %#v", componentTypes)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsGetTerminalOutput(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	sessionID := terminals.BuildTerminalID("allowed-section", "")
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open app terminal: %v", err)
+	}
+	attachment := attachAppTestTerminal(t, app.Terminals(), sessionID)
+	if err := app.Terminals().Write(sessionID, []byte("route terminal output\n")); err != nil {
+		t.Fatalf("write route terminal output: %v", err)
+	}
+	waitForAppTestOutputContains(t, attachment, "route terminal output")
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"getTerminalOutput",
+			"arguments":{"sectionId":"allowed-section"},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post getTerminalOutput tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	if payload.IsError {
+		t.Fatalf("expected getTerminalOutput success, got %#v", payload.StructuredContent)
+	}
+	history, ok := payload.StructuredContent.(string)
+	if !ok {
+		t.Fatalf("expected string terminal history, got %#v", payload.StructuredContent)
+	}
+	if !strings.Contains(history, "route terminal output") {
+		t.Fatalf("expected route terminal history to include written output, got %q", history)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteGetSettaDocsRejectsPathEscapes(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	seedAppSettaDocsBundle(t, cfg.Paths.WorkspaceRoot)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"get_setta_docs",
+			"arguments":{"docIds":["../outside"]}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post get_setta_docs tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	if !payload.IsError {
+		t.Fatal("expected get_setta_docs path escape to fail")
+	}
+	structured := mustStructuredMapValue(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments code, got %#v", structured["code"])
 	}
 }
 
@@ -9819,6 +10629,43 @@ func assertAppBoundSetCodeState(t *testing.T, app *App, expectedCode string) {
 	if impl.Kind != projectstate.SectionKind("callable") {
 		t.Fatalf("expected callable section impl, got %q", impl.Kind)
 	}
+}
+
+func seedAppSettaDocsBundle(t *testing.T, workspaceRoot string) {
+	t.Helper()
+
+	writeAppDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-examples.md"), "# Examples\n")
+	writeAppDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "emit_to_frontend.md"), "# Emit\n")
+	writeAppDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-hot-reload.md"), "# Hot Reload\n")
+	writeAppDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-realtime-behavior.md"), "# Realtime\n")
+	writeAppDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "listener-flows.md"), "# Listener Flows\n")
+}
+
+func writeAppDocsFile(t *testing.T, path string, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir docs parent: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write docs file %s: %v", path, err)
+	}
+}
+
+func decodeAppToolCallRoutePayload(t *testing.T, body io.Reader) struct {
+	StructuredContent any  `json:"structuredContent"`
+	IsError           bool `json:"isError"`
+} {
+	t.Helper()
+
+	var payload struct {
+		StructuredContent any  `json:"structuredContent"`
+		IsError           bool `json:"isError"`
+	}
+	if err := json.NewDecoder(body).Decode(&payload); err != nil {
+		t.Fatalf("decode tool call route response: %v", err)
+	}
+	return payload
 }
 
 func writeAppTemporaryIDMap(t *testing.T, path string, payload map[string]string) {

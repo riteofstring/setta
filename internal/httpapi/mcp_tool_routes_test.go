@@ -10,10 +10,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/appspec"
@@ -21,6 +24,7 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/terminals"
 )
 
 func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
@@ -5262,6 +5266,325 @@ func TestMCPToolCallRouteBlockedOutsideFullIDE(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-examples.md"), "# Examples\n")
+	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "emit_to_frontend.md"), "# Emit\n")
+	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-hot-reload.md"), "# Hot Reload\n")
+	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-realtime-behavior.md"), "# Realtime\n")
+	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "listener-flows.md"), "# Listener Flows\n")
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	statusClient, err := mcpx.NewClient(mcpx.ClientOptions{
+		Servers: map[string]mcpx.ServerConfig{
+			mcpx.DefaultServerID: {
+				Transport: mcpx.TransportSSE,
+				URL:       "http://127.0.0.1:8000/mcp",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("new status client: %v", err)
+	}
+
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+		MCPStatuses:    statusClient,
+		DocsRoot:       filepath.Join(workspaceRoot, "docs"),
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	searchResponse := postMCPToolRoute(t, handler, `{
+		"tool":"search_mcp_tools",
+		"arguments":{"query":"section size settings","limit":2}
+	}`)
+	if searchResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", searchResponse.Code, searchResponse.Body.String())
+	}
+	searchPayload := decodeCallToolRouteResult(t, searchResponse.Body.Bytes())
+	if searchPayload.IsError {
+		t.Fatalf("expected search_mcp_tools success, got %#v", searchPayload.StructuredContent)
+	}
+	searchResult := mustStructuredMapForRoute(t, searchPayload.StructuredContent)
+	searchEntries := mustStructuredListForRoute(t, searchResult["results"])
+	if len(searchEntries) == 0 || mustStructuredMapForRoute(t, searchEntries[0])["name"] != "set_section_sizes" {
+		t.Fatalf("expected set_section_sizes search result, got %#v", searchEntries)
+	}
+
+	statusResponse := postMCPToolRoute(t, handler, `{
+		"tool":"get_mcp_server_runtime_status",
+		"arguments":{}
+	}`)
+	if statusResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", statusResponse.Code, statusResponse.Body.String())
+	}
+	statusPayload := decodeCallToolRouteResult(t, statusResponse.Body.Bytes())
+	if statusPayload.IsError {
+		t.Fatalf("expected get_mcp_server_runtime_status success, got %#v", statusPayload.StructuredContent)
+	}
+	statusResult := mustStructuredMapForRoute(t, statusPayload.StructuredContent)
+	serverStatuses := mustStructuredListForRoute(t, statusResult["servers"])
+	if len(serverStatuses) != 1 || mustStructuredMapForRoute(t, serverStatuses[0])["serverId"] != mcpx.DefaultServerID {
+		t.Fatalf("expected one default runtime status, got %#v", serverStatuses)
+	}
+
+	projectsResponse := postMCPToolRoute(t, handler, `{
+		"tool":"getProjectConfigNamesAndIds",
+		"arguments":{}
+	}`)
+	if projectsResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", projectsResponse.Code, projectsResponse.Body.String())
+	}
+	projectsPayload := decodeCallToolRouteResult(t, projectsResponse.Body.Bytes())
+	if projectsPayload.IsError {
+		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", projectsPayload.StructuredContent)
+	}
+	projectsResult := mustStructuredMapForRoute(t, projectsPayload.StructuredContent)
+	projectConfigs := mustStructuredListForRoute(t, projectsResult["projectConfigs"])
+	if len(projectConfigs) != 1 || mustStructuredMapForRoute(t, projectConfigs[0])["id"] != "project-alpha" {
+		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
+	}
+
+	docsResponse := postMCPToolRoute(t, handler, `{
+		"tool":"get_setta_docs",
+		"arguments":{}
+	}`)
+	if docsResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", docsResponse.Code, docsResponse.Body.String())
+	}
+	docsPayload := decodeCallToolRouteResult(t, docsResponse.Body.Bytes())
+	if docsPayload.IsError {
+		t.Fatalf("expected get_setta_docs success, got %#v", docsPayload.StructuredContent)
+	}
+	docsResult := mustStructuredMapForRoute(t, docsPayload.StructuredContent)
+	docs := mustStructuredListForRoute(t, docsResult["docs"])
+	if len(docs) != 4 {
+		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+}
+
+func TestMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	catalogResponse := postMCPToolRoute(t, handler, `{
+		"tool":"get_app_catalog",
+		"arguments":{}
+	}`)
+	if catalogResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", catalogResponse.Code, catalogResponse.Body.String())
+	}
+	catalogPayload := decodeCallToolRouteResult(t, catalogResponse.Body.Bytes())
+	if catalogPayload.IsError {
+		t.Fatalf("expected get_app_catalog success, got %#v", catalogPayload.StructuredContent)
+	}
+	catalogResult := mustStructuredMapForRoute(t, catalogPayload.StructuredContent)
+	catalog := mustStructuredMapForRoute(t, catalogResult["catalog"])
+	if catalog["id"] != appspec.DefaultCatalogID {
+		t.Fatalf("expected catalog id %q, got %#v", appspec.DefaultCatalogID, catalog["id"])
+	}
+
+	componentsResponse := postMCPToolRoute(t, handler, `{
+		"tool":"list_app_components",
+		"arguments":{}
+	}`)
+	if componentsResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", componentsResponse.Code, componentsResponse.Body.String())
+	}
+	componentsPayload := decodeCallToolRouteResult(t, componentsResponse.Body.Bytes())
+	if componentsPayload.IsError {
+		t.Fatalf("expected list_app_components success, got %#v", componentsPayload.StructuredContent)
+	}
+	componentsResult := mustStructuredMapForRoute(t, componentsPayload.StructuredContent)
+	componentTypes := mustStringListForRoute(t, componentsResult["components"])
+	if len(componentTypes) == 0 || componentTypes[0] != "Stack" {
+		t.Fatalf("expected ordered component list, got %#v", componentTypes)
+	}
+}
+
+func TestMCPToolCallRouteSupportsGetTerminalOutput(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("PTY-backed terminal history tests currently target macOS and Linux")
+	}
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	terminalService := openMCPToolRouteTerminalService(t)
+	sessionID := terminals.BuildTerminalID("allowed-section", "")
+	if _, _, err := terminalService.Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    quietMCPToolRouteCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open route terminal: %v", err)
+	}
+	attachment := attachMCPToolRouteTerminal(t, terminalService, sessionID)
+	if err := terminalService.Write(sessionID, []byte("route terminal output\n")); err != nil {
+		t.Fatalf("write route terminal output: %v", err)
+	}
+	waitForMCPToolRouteOutputContains(t, attachment, "route terminal output")
+
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+		Terminals:      terminalService,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"getTerminalOutput",
+		"arguments":{"sectionId":"allowed-section"},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected getTerminalOutput success, got %#v", payload.StructuredContent)
+	}
+	history, ok := payload.StructuredContent.(string)
+	if !ok {
+		t.Fatalf("expected string terminal output payload, got %#v", payload.StructuredContent)
+	}
+	if !strings.Contains(history, "route terminal output") {
+		t.Fatalf("expected route terminal history to include written output, got %q", history)
+	}
+}
+
+func TestMCPToolCallRouteGetSettaDocsRejectsPathEscapes(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	writeMCPToolRouteDocsFile(t, filepath.Join(workspaceRoot, "docs", "reference", "setta-listener-examples.md"), "# Examples\n")
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  workspaceRoot,
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+		DocsRoot:       filepath.Join(workspaceRoot, "docs"),
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"get_setta_docs",
+		"arguments":{"docIds":["../outside"]}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if !payload.IsError {
+		t.Fatal("expected invalid docs path to fail")
+	}
+	structured := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if structured["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments, got %#v", structured["code"])
+	}
+}
+
 func openMCPToolRouteProjectRuntime(t *testing.T) *projectstate.Runtime {
 	t.Helper()
 
@@ -5764,6 +6087,88 @@ func (s routeCodeUpdateService) FormatCode(ctx context.Context, projectID string
 	return nil
 }
 
+func openMCPToolRouteTerminalService(t *testing.T) *terminals.Service {
+	t.Helper()
+
+	service, err := terminals.New(terminals.Options{})
+	if err != nil {
+		t.Fatalf("new route terminal service: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := service.Close(context.Background()); err != nil {
+			t.Fatalf("close route terminal service: %v", err)
+		}
+	})
+	return service
+}
+
+func quietMCPToolRouteCatCommand(t *testing.T) []string {
+	t.Helper()
+
+	shell := requireMCPToolRouteCommand(t, "sh")
+	return []string{shell, "-c", "stty -echo; cat"}
+}
+
+func requireMCPToolRouteCommand(t *testing.T, name string) string {
+	t.Helper()
+
+	path, err := exec.LookPath(name)
+	if err != nil {
+		t.Skipf("required command %q not available: %v", name, err)
+	}
+	return path
+}
+
+func attachMCPToolRouteTerminal(t *testing.T, service *terminals.Service, sessionID string) *terminals.Attachment {
+	t.Helper()
+
+	attachment, err := service.Attach(sessionID)
+	if err != nil {
+		t.Fatalf("attach route terminal %q: %v", sessionID, err)
+	}
+	t.Cleanup(attachment.Close)
+	return attachment
+}
+
+func waitForMCPToolRouteOutputContains(t *testing.T, attachment *terminals.Attachment, needle string) string {
+	t.Helper()
+
+	buffer := strings.Builder{}
+	buffer.Write(attachment.History)
+	if strings.Contains(buffer.String(), needle) {
+		return buffer.String()
+	}
+
+	timeout := time.NewTimer(5 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case chunk, ok := <-attachment.Output:
+			if !ok {
+				t.Fatalf("route terminal output closed before %q appeared; collected output: %q", needle, buffer.String())
+			}
+			buffer.Write(chunk)
+			if strings.Contains(buffer.String(), needle) {
+				return buffer.String()
+			}
+		case <-timeout.C:
+			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
+		}
+	}
+}
+
+func writeMCPToolRouteDocsFile(t *testing.T, path string, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir route docs parent: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write route docs file: %v", err)
+	}
+}
+
 func writeTemporaryIDMapForRouteTest(t *testing.T, path string, payload map[string]string) {
 	t.Helper()
 
@@ -5792,6 +6197,31 @@ func mustStructuredMapForRoute(t *testing.T, value any) map[string]any {
 		t.Fatalf("decode structured map: %v", err)
 	}
 	return decoded
+}
+
+func mustStructuredListForRoute(t *testing.T, value any) []any {
+	t.Helper()
+
+	switch typed := value.(type) {
+	case []any:
+		return typed
+	case []map[string]any:
+		output := make([]any, 0, len(typed))
+		for _, entry := range typed {
+			output = append(output, entry)
+		}
+		return output
+	default:
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			t.Fatalf("marshal structured list: %v", err)
+		}
+		var decoded []any
+		if err := json.Unmarshal(encoded, &decoded); err != nil {
+			t.Fatalf("decode structured list: %v", err)
+		}
+		return decoded
+	}
 }
 
 func mustStringListForRoute(t *testing.T, value any) []string {

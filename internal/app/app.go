@@ -416,6 +416,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			SectionNames:                   renameRefactors,
 			CallableSignatures:             lspSignature,
 			LSPDiagnostics:                 lspDiagnostics,
+			MCPStatuses:                    mcpClient,
+			Terminals:                      terminalService,
+			DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
 			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
 		})
 		if err != nil {
