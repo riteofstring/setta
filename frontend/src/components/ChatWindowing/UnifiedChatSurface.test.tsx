@@ -17,6 +17,12 @@ vi.mock("components/Section/Layouts/ChatArea", () => ({
   ),
 }));
 
+vi.mock("components/Git/GitGraphWindowContent", () => ({
+  GitGraphWindowContent: () => (
+    <div data-testid="mock-git-graph-window-content">git graph</div>
+  ),
+}));
+
 type MockProjectState = {
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
   sections: Record<
@@ -91,6 +97,37 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain('data-testid="mock-section-chat"');
     expect(markup).toContain("section chat:section-123");
     expect(markup).not.toContain('data-testid="mock-project-chat"');
+  });
+
+  it("renders git graph content for git-graph mode with section host chrome", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.git_graph_mode}
+        host="section_layout"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('data-chat-surface-mode="git_graph_mode"');
+    expect(markup).toContain('data-chat-surface-host="section_layout"');
+    expect(markup).toContain('data-testid="mock-git-graph-window-content"');
+    expect(markup).not.toContain('data-testid="mock-section-chat"');
+    expect(markup).not.toContain('data-testid="mock-project-chat"');
+  });
+
+  it("uses the standalone host chrome for standalone project chat", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="standalone_page"
+      />,
+    );
+
+    expect(markup).toContain('data-chat-surface-host="standalone_page"');
+    expect(markup).toContain('data-testid="mock-project-chat"');
+    expect(markup).not.toContain("section-main-full-w");
+    expect(markup).not.toContain("rounded-2xl");
+    expect(markup).not.toContain("border-setta-200");
   });
 
   it("shows a clear warning when section mode is missing section id", () => {
@@ -173,5 +210,40 @@ describe("UnifiedChatSurface", () => {
     );
     expect(markup).toContain("section-main-full-w");
     expect(markup).not.toContain('data-testid="mock-project-chat"');
+  });
+
+  it("bypasses canvas placeholders for standalone section chat surfaces", () => {
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.section_mode,
+            isClosed: false,
+            isMinimized: false,
+          },
+        },
+      }),
+      sections: {
+        "section-123": { name: "Section Chat" },
+      },
+    };
+
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.section_mode}
+        host="standalone_page"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('data-chat-surface-host="standalone_page"');
+    expect(markup).toContain('data-testid="mock-section-chat"');
+    expect(markup).not.toContain(
+      'data-testid="project-chat-canvas-floating-placeholder"',
+    );
   });
 });

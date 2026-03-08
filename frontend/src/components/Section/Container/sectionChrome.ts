@@ -8,6 +8,7 @@ type SectionContainerShellClassNameOptions = {
   hasSectionStyleTheme: boolean;
   positionAndSizeLocked: boolean;
   forceHideOutline?: boolean;
+  hideBorder?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
   isJoinedAttachedTerminalChild?: boolean;
   omitAgenticHandleScopeClass?: boolean;
@@ -28,6 +29,7 @@ type SectionSurfaceClassNameOptions = {
   zIndexClassName?: string;
   metaHoverZIndexClassName?: string;
   cornerClassName?: string;
+  hideFrameBorder?: boolean;
 };
 
 function joinClassNames(...parts: Array<string | false | null | undefined>) {
@@ -42,6 +44,7 @@ export function getSectionContainerShellClassName({
   hasSectionStyleTheme,
   positionAndSizeLocked,
   forceHideOutline = false,
+  hideBorder = false,
   joinedCorners = "none",
   isJoinedAttachedTerminalChild = false,
   omitAgenticHandleScopeClass = false,
@@ -91,6 +94,7 @@ export function getSectionContainerShellClassName({
   const borderColorClassName = !positionAndSizeLocked
     ? "border-white dark:border-setta-700"
     : "border-setta-400/90 dark:border-setta-800";
+  const borderWidthClassName = hideBorder ? "border-0" : "border";
   const defaultCornerClassName = !positionAndSizeLocked
     ? "rounded-lg"
     : "rounded-sm";
@@ -98,8 +102,9 @@ export function getSectionContainerShellClassName({
   return joinClassNames(
     handleScopeClassName,
     themedHandleScopeClassName,
-    "group/card-section transition-radius relative dndline border outline",
+    "group/card-section transition-radius relative dndline outline",
     sizeClassName,
+    borderWidthClassName,
     borderColorClassName,
     cornerClassName ?? defaultCornerClassName,
     joinedCornerClassName,
@@ -124,18 +129,23 @@ export function getSectionSurfaceClassName({
   zIndexClassName = "z-10",
   metaHoverZIndexClassName = "",
   cornerClassName,
+  hideFrameBorder = false,
 }: SectionSurfaceClassNameOptions): string {
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
     : "";
+  const frameBorderClassName = hideFrameBorder
+    ? "before:border-0"
+    : "before:border";
 
   return joinClassNames(
     shouldDisablePointerEvents && "pointer-events-none select-none",
     bgColor,
     layoutClassNameToUse,
-    "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border",
+    "relative grid h-full transition-radius before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0",
+    frameBorderClassName,
     cornerClassName ?? (!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"),
     isYouTube && "overflow-clip",
     zIndexClassName,

@@ -8,6 +8,7 @@ import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "state/actions/chatMergeUtils";
+import { setPersistedProjectChatWindowingState } from "state/actions/projectChatWindowingPersistence";
 import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
@@ -1073,6 +1074,10 @@ export function processProjectStateUpdateFromBackend(
     useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => x.projectState);
   });
+  setPersistedProjectChatWindowingState(
+    x.projectState.projectConfig.id,
+    x.projectState.projectChatWindowing,
+  );
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }

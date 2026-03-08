@@ -77,8 +77,8 @@ export function SectionWindowToggleButton({
   return (
     <button
       type="button"
-      aria-label="Open section in docked window"
-      title="Open section in docked window"
+      aria-label="Open section in floating window"
+      title="Open section in floating window"
       className={className}
       onClick={() => {
         showSectionInProjectChatWindow(sectionId);

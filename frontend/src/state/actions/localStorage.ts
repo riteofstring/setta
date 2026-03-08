@@ -17,7 +17,7 @@ export function toggleMiniMap() {
   useLocalStorage.setState((state) => ({ showMinimap: !state.showMinimap }));
 }
 
-export function setMiniMapSide(minimapSide: MiniMapSide) {
+function setMiniMapSide(minimapSide: MiniMapSide) {
   useLocalStorage.setState({ minimapSide });
 }
 

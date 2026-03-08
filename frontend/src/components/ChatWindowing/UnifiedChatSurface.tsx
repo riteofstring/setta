@@ -1,3 +1,4 @@
+import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
 import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectChat";
 import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
@@ -10,23 +11,27 @@ import {
 } from "utils/generatedTypes";
 
 type ChatSurfaceHost = ChatWindowPlacement | "section_layout";
+type StandaloneChatSurfaceHost = ChatSurfaceHost | "standalone_page";
 
 type UnifiedChatSurfaceProps = {
   mode: ChatWindowMode;
-  host: ChatSurfaceHost;
+  host: StandaloneChatSurfaceHost;
   sectionId?: string | null;
   className?: string;
   dataTestId?: string;
 };
 
 function resolveSurfaceHostClasses(
-  host: ChatSurfaceHost,
+  host: StandaloneChatSurfaceHost,
   className?: string,
 ): string {
-  const baseClassName =
-    host === "section_layout"
-      ? "section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden"
-      : "flex min-h-0 flex-1 flex-col";
+  let baseClassName = "flex min-h-0 flex-1 flex-col";
+  if (host === "section_layout") {
+    baseClassName =
+      "section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden";
+  } else if (host === "standalone_page") {
+    baseClassName = "flex min-h-0 flex-1 flex-col overflow-hidden";
+  }
   if (!className) {
     return baseClassName;
   }
@@ -71,6 +76,19 @@ export function UnifiedChatSurface({
         data-testid={dataTestId}
       >
         <ProjectChat />
+      </div>
+    );
+  }
+
+  if (mode === ChatWindowModeEnum.git_graph_mode) {
+    return (
+      <div
+        className={resolveSurfaceHostClasses(host, className)}
+        data-chat-surface-mode={mode}
+        data-chat-surface-host={host}
+        data-testid={dataTestId}
+      >
+        <GitGraphWindowContent />
       </div>
     );
   }

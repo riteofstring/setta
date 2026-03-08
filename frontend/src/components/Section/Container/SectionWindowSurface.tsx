@@ -25,7 +25,8 @@ type SectionWindowSurfaceProps = {
   sectionId: string;
   headerActions: React.ReactNode;
   roundedClassName: string;
-  chatHost: ChatWindowPlacement;
+  chatHost: ChatWindowPlacement | "standalone_page";
+  bodyOverride?: React.ReactNode;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
@@ -37,8 +38,10 @@ export function SectionWindowSurface({
   headerActions,
   roundedClassName,
   chatHost,
+  bodyOverride = null,
   headerProps,
 }: SectionWindowSurfaceProps) {
+  const isStandalonePage = chatHost === "standalone_page";
   const {
     sectionTypeName,
     isActiveSection,
@@ -97,14 +100,16 @@ export function SectionWindowSurface({
     hasSectionStyleTheme,
     positionAndSizeLocked,
     forceHideOutline: true,
+    hideBorder: isStandalonePage,
     sizeClassName: "h-full w-full",
-    cornerClassName: roundedClassName,
+    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
   });
   const innerShellClassName = getSectionSurfaceClassName({
     bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
-    cornerClassName: roundedClassName,
+    cornerClassName: isStandalonePage ? "rounded-none" : roundedClassName,
+    hideFrameBorder: isStandalonePage,
   });
 
   return (
@@ -132,14 +137,16 @@ export function SectionWindowSurface({
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
         >
-          <AreaSwitch
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            bgColor={bgColor}
-            isMinimized={isMinimized}
-            isUserView={false}
-            chatHost={chatHost}
-          />
+          {bodyOverride ?? (
+            <AreaSwitch
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              bgColor={bgColor}
+              isMinimized={isMinimized}
+              isUserView={false}
+              chatHost={chatHost}
+            />
+          )}
         </div>
       </div>
     </section>

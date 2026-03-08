@@ -12,11 +12,12 @@ import {
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState } from "state/definitions";
 import {
-  type ChatWindowPlacement,
   SectionTypeEnum,
+  type ChatWindowPlacement,
   type SectionType,
 } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
+import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { BrowserArea } from "../Layouts/BrowserArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
@@ -40,7 +41,6 @@ import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
-import { SectionWindowToggleButton } from "../Header/SectionWindowToggleButton";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
@@ -197,7 +197,7 @@ export function AreaSwitch({
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
-  chatHost?: ChatWindowPlacement | "section_layout";
+  chatHost?: ChatWindowPlacement | "section_layout" | "standalone_page";
 }) {
   if (isMinimized) {
     return null;
@@ -236,7 +236,7 @@ export function AreaSwitch({
     case SectionTypeEnum.GenPythonMetadata:
       return <GenPythonMetadataArea sectionId={sectionId} />;
     case SectionTypeEnum.Terminal:
-      return <TerminalArea sectionId={sectionId} />;
+      return <TerminalArea sectionId={sectionId} host={chatHost} />;
     case SectionTypeEnum.IFrame:
       return <IframeArea sectionId={sectionId} />;
     case SectionTypeEnum.Chat:
@@ -308,7 +308,7 @@ function ChatSectionArea({
   host,
 }: {
   sectionId: string;
-  host: ChatWindowPlacement | "section_layout";
+  host: ChatWindowPlacement | "section_layout" | "standalone_page";
 }) {
   const mode = useProjectState((state) =>
     getProjectChatWindowModeForSectionInState(
@@ -316,11 +316,5 @@ function ChatSectionArea({
       sectionId,
     ),
   );
-  return (
-    <UnifiedChatSurface
-      mode={mode}
-      host={host}
-      sectionId={sectionId}
-    />
-  );
+  return <UnifiedChatSurface mode={mode} host={host} sectionId={sectionId} />;
 }

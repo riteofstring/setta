@@ -1569,7 +1569,7 @@ export function ProjectChat() {
               className={`min-w-0 flex-1 @container ${showInlineThreads ? "pl-2" : ""}`}
             >
               <div className={PROJECT_CHAT_CONTENT_SHELL_CLASS}>
-                <div className="mt-2 grid w-full min-w-0 items-center gap-2 [grid-template-columns:auto_auto] @[44rem]:[grid-template-columns:auto_minmax(0,1fr)_auto]">
+                <div className="mt-2 grid w-full min-w-0 items-center gap-2 [grid-template-columns:auto_auto] @[16rem]:[grid-template-columns:auto_minmax(0,1fr)_auto]">
                   <div className="flex min-w-0 items-center gap-2">
                     {showReturnOnlyNav ? (
                       <button
@@ -1671,7 +1671,7 @@ export function ProjectChat() {
                   ) : null}
                   {showConversationFilter ? (
                     <search
-                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[44rem]:col-span-1 @[44rem]:col-start-2 @[44rem]:row-start-1 @[44rem]:min-w-[11rem]"
+                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16rem]:col-span-1 @[16rem]:col-start-2 @[16rem]:row-start-1 @[44rem]:min-w-[11rem]"
                       data-testid="project-chat-conversation-filter"
                     >
                       <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 pl-1">

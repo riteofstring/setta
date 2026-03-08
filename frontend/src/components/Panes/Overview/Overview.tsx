@@ -25,6 +25,7 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -141,7 +142,7 @@ export function Overview() {
     >
       <div
         data-testid="overview-icon-rail"
-        className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        className={`fixed left-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",
           bottom: hasViewModeTabs ? "36px" : "0px",

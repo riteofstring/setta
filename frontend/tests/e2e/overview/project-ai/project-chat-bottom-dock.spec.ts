@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  createTextBlockSection,
   ensureAppReady,
   ensureManagedChatEngine,
   openIsolatedProject,
@@ -317,6 +318,18 @@ async function collapseSidePanesForWindowInteraction(
   });
 }
 
+async function setActiveSections(
+  page: Page,
+  sectionIds: string[],
+): Promise<void> {
+  await page.evaluate(async (ids) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections.ts"
+    );
+    setActiveSectionIds(ids);
+  }, sectionIds);
+}
+
 async function ensureDockedWindow(page: Page, index = 0): Promise<Locator> {
   const dockedWindow = page
     .getByTestId("project-chat-bottom-dock-window-panel")
@@ -368,8 +381,8 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
     const uiEditorRailZIndex = await uiEditorRail.evaluate((node) =>
       Number.parseInt(getComputedStyle(node).zIndex || "0", 10),
     );
-    expect(stripZIndex).toBeGreaterThan(overviewRailZIndex);
-    expect(stripZIndex).toBeGreaterThan(uiEditorRailZIndex);
+    expect(overviewRailZIndex).toBeGreaterThan(stripZIndex);
+    expect(uiEditorRailZIndex).toBeGreaterThan(stripZIndex);
 
     const dockWindow = page.getByTestId("project-chat-bottom-dock-window");
     await expect(dockWindow).toBeVisible();
@@ -896,6 +909,79 @@ test("project chat keyboard shortcuts snap the focused floating window to direct
   }
 });
 
+test("project chat snap shortcuts can open the active canvas section directly into quarter presets", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+    const { sectionId, sectionName } = await createTextBlockSection(
+      page,
+      projectContext.projectConfigId,
+      "Snap Target",
+    );
+    await setActiveSections(page, [sectionId]);
+
+    const isMac = await page.evaluate(() =>
+      navigator.userAgent.includes("Mac"),
+    );
+    const modKey = isMac ? "Meta" : "Control";
+
+    await page.keyboard.press(`${modKey}+Alt+Shift+Q`);
+    const floatingWindow = page.getByTestId("project-chat-floating-window");
+    await expect(floatingWindow).toHaveCount(1);
+    await expect(floatingWindow.first()).toHaveAttribute(
+      "data-chat-window-snap-preset",
+      "top_left",
+    );
+    await expect(floatingWindow.first().getByText(sectionName)).toBeVisible();
+
+    const topLeftMetrics = await getFloatingWindowMetrics(
+      floatingWindow.first(),
+    );
+    const topLeftWorkArea = getFloatingWorkArea(topLeftMetrics);
+    expect(
+      Math.abs(topLeftMetrics.left - topLeftWorkArea.left),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(topLeftMetrics.top - topLeftWorkArea.top),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(topLeftMetrics.width - topLeftWorkArea.width / 2),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(topLeftMetrics.height - topLeftWorkArea.height / 2),
+    ).toBeLessThanOrEqual(2);
+
+    await page.keyboard.press(`${modKey}+Alt+Shift+W`);
+    await expect(floatingWindow.first()).toHaveAttribute(
+      "data-chat-window-snap-preset",
+      "top_right",
+    );
+    const topRightMetrics = await getFloatingWindowMetrics(
+      floatingWindow.first(),
+    );
+    const topRightWorkArea = getFloatingWorkArea(topRightMetrics);
+    expect(
+      Math.abs(
+        topRightMetrics.left -
+          (topRightWorkArea.left + topRightWorkArea.width / 2),
+      ),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(topRightMetrics.top - topRightWorkArea.top),
+    ).toBeLessThanOrEqual(2);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat windows support floating drag/resize, z-order focus, and maximize restore", async ({
   page,
 }) => {
@@ -931,8 +1017,8 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
       .evaluate((node) =>
         Number.parseInt(getComputedStyle(node).zIndex || "0", 10),
       );
-    expect(firstFloatingLayerZIndex).toBeGreaterThan(overviewRailZIndex);
-    expect(firstFloatingLayerZIndex).toBeGreaterThan(uiEditorRailZIndex);
+    expect(overviewRailZIndex).toBeGreaterThan(firstFloatingLayerZIndex);
+    expect(uiEditorRailZIndex).toBeGreaterThan(firstFloatingLayerZIndex);
     const firstFloatingHandleBeforeSecondUndock =
       firstFloatingWindowBeforeSecondUndock.getByTestId(
         "project-chat-floating-window-drag-handle",
@@ -1196,6 +1282,84 @@ test("project chat floating windows show inline threads and chat together when r
   }
 });
 
+test("project chat floating windows keep conversation search inline until narrow widths", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+
+    const floatingWindow = await ensureFloatingWindow(page);
+    const instanceId = await floatingWindow.getAttribute(
+      "data-chat-window-instance-id",
+    );
+    if (!instanceId) {
+      throw new Error("Expected floating window instance id.");
+    }
+
+    await page.evaluate(async (targetInstanceId) => {
+      const { setProjectChatWindowBounds } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      const { useProjectState } = await import("/src/state/definitions.ts");
+      const instance =
+        useProjectState.getState().projectChatWindowing.instancesById[
+          targetInstanceId
+        ];
+      if (!instance) {
+        throw new Error(`Missing project chat window ${targetInstanceId}.`);
+      }
+      setProjectChatWindowBounds(targetInstanceId, {
+        ...instance.bounds,
+        width: 360,
+        height: Math.max(instance.bounds.height, 360),
+      });
+    }, instanceId);
+
+    await expect
+      .poll(async () =>
+        Math.round((await floatingWindow.boundingBox())?.width ?? 0),
+      )
+      .toBeLessThanOrEqual(400);
+
+    const newChatButton = floatingWindow.getByRole("button", {
+      name: "New Chat",
+    });
+    const settingsButton = floatingWindow.getByRole("button", {
+      name: "Project AI Settings",
+    });
+    const conversationFilter = floatingWindow.getByTestId(
+      "project-chat-conversation-filter",
+    );
+    await expect(newChatButton).toBeVisible();
+    await expect(settingsButton).toBeVisible();
+    await expect(conversationFilter).toBeVisible();
+
+    const newChatBox = await newChatButton.boundingBox();
+    const settingsBox = await settingsButton.boundingBox();
+    const conversationFilterBox = await conversationFilter.boundingBox();
+    if (!newChatBox || !settingsBox || !conversationFilterBox) {
+      throw new Error("Expected project chat header controls.");
+    }
+
+    const filterCenterY =
+      conversationFilterBox.y + conversationFilterBox.height / 2;
+    const newChatCenterY = newChatBox.y + newChatBox.height / 2;
+    const settingsCenterY = settingsBox.y + settingsBox.height / 2;
+
+    expect(Math.abs(filterCenterY - newChatCenterY)).toBeLessThan(16);
+    expect(Math.abs(filterCenterY - settingsCenterY)).toBeLessThan(16);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat floating windows keep titlebar and minimum visibility guardrails across drag/resize/viewport changes", async ({
   page,
 }) => {
@@ -1405,6 +1569,200 @@ test("project chat floating drag shows snap ghost zones and snaps to quarter/hal
       (node) => getComputedStyle(node).boxShadow,
     );
     expectBoxShadowToBeCleared(rightHalfSnapShadow);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat dragging a snapped window restores its previous floating size", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+
+    const floatingWindow = await ensureFloatingWindow(page);
+    const dragHandle = floatingWindow.getByTestId(
+      "project-chat-floating-window-drag-handle",
+    );
+    const initialBounds = await floatingWindow.boundingBox();
+    if (!initialBounds) {
+      throw new Error("Expected initial floating window bounds.");
+    }
+
+    const dragHandleToPoint = async (targetX: number, targetY: number) => {
+      const dragHandleBounds = await dragHandle.boundingBox();
+      if (!dragHandleBounds) {
+        throw new Error("Expected floating drag handle bounds.");
+      }
+      const startX = dragHandleBounds.x + dragHandleBounds.width / 2;
+      const startY = dragHandleBounds.y + dragHandleBounds.height / 2;
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.mouse.move(targetX, targetY, { steps: 20 });
+      await page.mouse.up();
+    };
+
+    const viewportSize = page.viewportSize();
+    if (!viewportSize) {
+      throw new Error("Expected browser viewport size.");
+    }
+
+    await dragHandleToPoint(viewportSize.width - 3, viewportSize.height / 2);
+    await expect(floatingWindow).toHaveAttribute(
+      "data-chat-window-snap-preset",
+      "right",
+    );
+
+    await dragHandleToPoint(
+      Math.round(viewportSize.width * 0.58),
+      Math.round(viewportSize.height * 0.34),
+    );
+
+    await expect
+      .poll(async () =>
+        floatingWindow.getAttribute("data-chat-window-snap-preset"),
+      )
+      .toBeNull();
+
+    const restoredBounds = await floatingWindow.boundingBox();
+    if (!restoredBounds) {
+      throw new Error("Expected restored floating window bounds after unsnap.");
+    }
+
+    expect(
+      Math.abs(restoredBounds.width - initialBounds.width),
+    ).toBeLessThanOrEqual(24);
+    expect(
+      Math.abs(restoredBounds.height - initialBounds.height),
+    ).toBeLessThanOrEqual(24);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat dragging a snapped window with no prior floating bounds falls back to the default floating size", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+
+    const created = await page.evaluate(async () => {
+      const [windowing, generatedTypes, snapLayout] = await Promise.all([
+        import("/src/state/actions/projectChatWindowing.ts"),
+        import("/src/utils/generatedTypes.ts"),
+        import("/src/components/ChatWindowing/projectChatSnapLayout.ts"),
+      ]);
+      const pane = document.querySelector(".react-flow__pane");
+      const workspaceTopInsetPx =
+        pane instanceof HTMLElement ? pane.getBoundingClientRect().top : 40;
+      const viewModeTabs = document.querySelector(
+        '[data-testid="view-mode-tabs-bar"]',
+      );
+      let bottomInsetPx = 0;
+      if (viewModeTabs instanceof HTMLElement) {
+        const tabsRect = viewModeTabs.getBoundingClientRect();
+        if (
+          tabsRect.height > 0 &&
+          tabsRect.top >= window.innerHeight - tabsRect.height - 2
+        ) {
+          bottomInsetPx = tabsRect.height;
+        }
+      }
+      const snappedBounds = snapLayout.buildFloatingSnapBounds(
+        "right",
+        window.innerWidth,
+        window.innerHeight,
+        {
+          left: 40,
+          right: 40,
+          top: workspaceTopInsetPx,
+          bottom: bottomInsetPx,
+        },
+      );
+      const expectedDefaultBounds = windowing.resolveDefaultFloatingChatBounds({
+        viewportWidthPx: window.innerWidth,
+        viewportHeightPx: window.innerHeight,
+        workspaceTopInsetPx,
+        bottomInsetPx,
+        sideRailWidthPx: 40,
+        minWidthPx: 380,
+        minHeightPx: 240,
+      });
+      const instanceId = windowing.createProjectChatWindowInstance({
+        placement: generatedTypes.ChatWindowPlacementEnum.floating,
+        bounds: snappedBounds,
+      });
+      return {
+        instanceId,
+        expectedDefaultBounds,
+      };
+    });
+
+    const floatingWindow = page.locator(
+      `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${created.instanceId}"]`,
+    );
+    await expect(floatingWindow).toBeVisible();
+    await expect(floatingWindow).toHaveAttribute(
+      "data-chat-window-snap-preset",
+      "right",
+    );
+
+    const dragHandle = floatingWindow.getByTestId(
+      "project-chat-floating-window-drag-handle",
+    );
+    const dragHandleBounds = await dragHandle.boundingBox();
+    if (!dragHandleBounds) {
+      throw new Error("Expected snapped floating drag handle bounds.");
+    }
+    const viewportSize = page.viewportSize();
+    if (!viewportSize) {
+      throw new Error("Expected browser viewport size.");
+    }
+
+    const startX = dragHandleBounds.x + dragHandleBounds.width / 2;
+    const startY = dragHandleBounds.y + dragHandleBounds.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(
+      Math.round(viewportSize.width * 0.55),
+      Math.round(viewportSize.height * 0.36),
+      { steps: 20 },
+    );
+    await page.mouse.up();
+
+    await expect
+      .poll(async () =>
+        floatingWindow.getAttribute("data-chat-window-snap-preset"),
+      )
+      .toBeNull();
+
+    const restoredBounds = await floatingWindow.boundingBox();
+    if (!restoredBounds) {
+      throw new Error(
+        "Expected restored floating window bounds after default unsnap.",
+      );
+    }
+
+    expect(
+      Math.abs(restoredBounds.width - created.expectedDefaultBounds.width),
+    ).toBeLessThanOrEqual(24);
+    expect(
+      Math.abs(restoredBounds.height - created.expectedDefaultBounds.height),
+    ).toBeLessThanOrEqual(24);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -1621,7 +1979,7 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
   }
 });
 
-test("project chat windows keep project-ai surface and section chrome when reopened from the canvas", async ({
+test("project chat windows reopen canvas-bound sections as centered floating windows while keeping section chrome", async ({
   page,
 }) => {
   await setOverviewTab(page, "ProjectAIChat");
@@ -1674,40 +2032,57 @@ test("project chat windows keep project-ai surface and section chrome when reope
         ),
     ).toBeVisible();
 
-    await page
-      .locator(
-        `[data-testid="section-window-toggle"][data-section-id="${sectionId}"]`,
-      )
-      .click();
+    await page.evaluate(async (targetSectionId) => {
+      const { showSectionInProjectChatWindow } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      showSectionInProjectChatWindow(targetSectionId);
+    }, sectionId);
 
-    const reopenedDockedWindow = page.locator(
-      `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${instanceId}"]`,
+    const reopenedFloatingWindow = page.locator(
+      `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${instanceId}"]`,
     );
-    await expect(reopenedDockedWindow).toBeVisible();
+    await expect(reopenedFloatingWindow).toBeVisible();
     await expect(
       page.locator(
         `[data-testid="project-chat-canvas-floating-placeholder"][data-chat-window-section-id="${sectionId}"]`,
       ),
     ).toBeVisible();
     await expect(
-      reopenedDockedWindow.getByRole("button", { name: "Follow chat" }),
+      reopenedFloatingWindow.getByRole("button", { name: "Follow chat" }),
     ).toBeVisible();
     await expect(
-      reopenedDockedWindow.getByTestId("project-chat-window-close"),
+      reopenedFloatingWindow.getByTestId("project-chat-window-close"),
     ).toBeVisible();
+    const reopenedFloatingMetrics = await getFloatingWindowMetrics(
+      reopenedFloatingWindow,
+    );
+    const floatingWorkArea = getFloatingWorkArea(reopenedFloatingMetrics);
+    expect(
+      Math.abs(
+        reopenedFloatingMetrics.left -
+          (floatingWorkArea.left +
+            (floatingWorkArea.width - reopenedFloatingMetrics.width) / 2),
+      ),
+    ).toBeLessThanOrEqual(2);
+    expect(
+      Math.abs(
+        reopenedFloatingMetrics.top -
+          (floatingWorkArea.top +
+            (floatingWorkArea.height - reopenedFloatingMetrics.height) / 2),
+      ),
+    ).toBeLessThanOrEqual(2);
     await page.getByTestId("project-chat-bottom-dock-create").click();
     const dockPanels = page.getByTestId(
       "project-chat-bottom-dock-window-panel",
     );
-    await expect(dockPanels).toHaveCount(2);
+    await expect(dockPanels).toHaveCount(1);
     const dockInstanceIds = await dockPanels.evaluateAll((nodes) =>
       nodes
         .map((node) => node.getAttribute("data-chat-window-instance-id"))
         .filter((value): value is string => Boolean(value)),
     );
-    const plainInstanceId = dockInstanceIds.find(
-      (value) => value !== instanceId,
-    );
+    const plainInstanceId = dockInstanceIds[0];
     if (!plainInstanceId) {
       throw new Error("Expected a plain docked chat window to compare chrome.");
     }
@@ -1715,13 +2090,13 @@ test("project chat windows keep project-ai surface and section chrome when reope
       `[data-testid="project-chat-bottom-dock-window-panel"][data-chat-window-instance-id="${plainInstanceId}"]`,
     );
     await expect(
-      reopenedDockedWindow.getByTestId("section-window-surface"),
+      reopenedFloatingWindow.getByTestId("section-window-surface"),
     ).toBeVisible();
     await expect(
       plainDockedWindow.getByTestId("project-chat-window-surface"),
     ).toBeVisible();
     const sectionChrome = await getWindowHeaderChromeMetrics(
-      reopenedDockedWindow.getByTestId("section-window-surface"),
+      reopenedFloatingWindow.getByTestId("section-window-surface"),
     );
     const plainChrome = await getWindowHeaderChromeMetrics(
       plainDockedWindow.getByTestId("project-chat-window-surface"),
@@ -1747,7 +2122,7 @@ test("project chat windows keep project-ai surface and section chrome when reope
     expect(plainChrome.closeColor).toBe(sectionChrome.closeColor);
     await expectNoActiveOutlineOnPointerDown(
       page,
-      reopenedDockedWindow.getByTestId("section-window-surface"),
+      reopenedFloatingWindow.getByTestId("section-window-surface"),
     );
 
     await page.evaluate(
@@ -1765,7 +2140,7 @@ test("project chat windows keep project-ai surface and section chrome when reope
         sectionId,
       },
     );
-    await expect(reopenedDockedWindow).toHaveCount(0);
+    await expect(reopenedFloatingWindow).toHaveCount(0);
     await expect(plainDockedWindow).toBeVisible();
     await expect(dockPanels).toHaveCount(1);
 
@@ -1806,6 +2181,124 @@ test("project chat windows keep project-ai surface and section chrome when reope
     );
     await expect(plainDockedWindow).toBeVisible();
     await expect(dockPanels).toHaveCount(1);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("section pop-out opens above existing floating windows by default", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+    const { sectionId } = await createTextBlockSection(
+      page,
+      projectContext.projectConfigId,
+      "Research Notes",
+    );
+    await collapseSidePanesForWindowInteraction(page);
+    const baselineFloatingWindowId = await page.evaluate(async () => {
+      const { createProjectChatWindowInstance } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      const { ChatWindowPlacementEnum } = await import(
+        "/src/utils/generatedTypes.ts"
+      );
+      return createProjectChatWindowInstance({
+        placement: ChatWindowPlacementEnum.floating,
+        title: "Baseline Floating Chat",
+      });
+    });
+    const baselineFloatingWindow = page.locator(
+      `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${baselineFloatingWindowId}"]`,
+    );
+    await expect(baselineFloatingWindow).toBeVisible();
+
+    await page.evaluate(async (targetSectionId) => {
+      const { showSectionInProjectChatWindow } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      showSectionInProjectChatWindow(targetSectionId);
+    }, sectionId);
+
+    const sectionFloatingWindow = page
+      .getByTestId("project-chat-floating-window")
+      .filter({
+        has: page.locator(
+          `[data-testid="section-window-surface"][data-section-id="${sectionId}"]`,
+        ),
+      });
+    await expect(sectionFloatingWindow).toBeVisible();
+    const zIndices = await Promise.all([
+      baselineFloatingWindow.evaluate((node) =>
+        Number.parseInt(getComputedStyle(node).zIndex, 10),
+      ),
+      sectionFloatingWindow.evaluate((node) =>
+        Number.parseInt(getComputedStyle(node).zIndex, 10),
+      ),
+    ]);
+    expect(zIndices[1]).toBeGreaterThan(zIndices[0]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("minimized docked section windows keep their section icon in the tray", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+    await collapseSidePanesForWindowInteraction(page);
+    const { sectionId } = await createTextBlockSection(
+      page,
+      projectContext.projectConfigId,
+      "Tray Notes",
+    );
+
+    await page.evaluate(async (targetSectionId) => {
+      const { showSectionInProjectChatWindow } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      const { ChatWindowPlacementEnum } = await import(
+        "/src/utils/generatedTypes.ts"
+      );
+      showSectionInProjectChatWindow(
+        targetSectionId,
+        ChatWindowPlacementEnum.bottom_docked,
+      );
+    }, sectionId);
+
+    const dockedSectionWindow = page
+      .getByTestId("project-chat-bottom-dock-window-panel")
+      .filter({
+        has: page.locator(
+          `[data-testid="section-window-surface"][data-section-id="${sectionId}"]`,
+        ),
+      });
+    await expect(dockedSectionWindow).toBeVisible();
+
+    await dockedSectionWindow
+      .getByTestId("project-chat-window-minimize")
+      .click();
+
+    const minimizedPill = page.getByTestId("project-chat-bottom-dock-pill");
+    await expect(minimizedPill).toHaveCount(1);
+    await expect(
+      minimizedPill.first().getByTestId("project-chat-bottom-dock-pill-icon"),
+    ).toHaveAttribute("data-chat-window-icon-mode", "section_mode");
+    await expect(
+      minimizedPill.first().getByTestId("project-chat-bottom-dock-pill-icon"),
+    ).toHaveAttribute("data-chat-window-icon-section-type", "TextBlock");
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

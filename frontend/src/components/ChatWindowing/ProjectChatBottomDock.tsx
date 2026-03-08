@@ -8,15 +8,23 @@ import {
   type FloatingSnapResizeHandle,
   type FloatingWindowBoundaryInsets,
 } from "components/ChatWindowing/projectChatSnapLayout";
-import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import {
-  getSectionContainerShellClassName,
-  getSectionSurfaceClassName,
-} from "components/Section/Container/sectionChrome";
+  PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX,
+  PROJECT_CHAT_SIDE_RAIL_WIDTH_PX,
+  PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX,
+  resolveProjectChatFloatingBoundaryInsets,
+} from "components/ChatWindowing/projectChatViewport";
+import { ProjectChatWindowIcon } from "components/ChatWindowing/ProjectChatWindowIcon";
+import {
+  ProjectChatWindowSurface,
+  SECTION_WINDOW_ACTION_BUTTON_CLASS,
+  SECTION_WINDOW_CLOSE_BUTTON_CLASS,
+  SECTION_WINDOW_MINIMIZE_BUTTON_CLASS,
+} from "components/ChatWindowing/ProjectChatWindowSurface";
+import { buildProjectChatWindowTitle } from "components/ChatWindowing/projectChatWindowTitles";
+import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
+import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
 import { SectionWindowSurface } from "components/Section/Container/SectionWindowSurface";
-import { getBgColor } from "components/Section/Container/utils";
-import { HeaderIcon } from "components/Section/Header/HeaderIcon";
-import { getTitleStyles } from "components/Section/Header/SectionHeader";
 import _ from "lodash";
 import {
   useCallback,
@@ -26,7 +34,6 @@ import {
   useRef,
   useState,
   type PointerEvent,
-  type ReactNode,
 } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 import {
@@ -40,40 +47,44 @@ import {
 import { RiChat3Line } from "react-icons/ri";
 import {
   bootProjectChatWindowToCanvasSection,
+  clearTrackedGitPaneGraphWindowIfMatches,
   closeProjectChatWindow,
   createProjectChatWindowInstance,
   focusProjectChatWindow,
+  getOpenExternalProjectChatWindowInstanceForSectionInState,
   maximizeProjectChatWindow,
   minimizeProjectChatWindow,
   reopenProjectChatWindow,
   resolveDefaultDockedChatHeightPx,
+  resolveDefaultFloatingChatBounds,
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,
   setProjectChatWindowDockFractions,
   setProjectChatWindowPlacement,
   setProjectChatWindowTitle,
+  showSectionInProjectChatWindow,
   unmaximizeProjectChatWindow,
 } from "state/actions/projectChatWindowing";
 import {
   NULL_PROJECT_CONFIG_ID,
+  useLocalStorage,
+  useMisc,
   useProjectState,
   useSettings,
   useShareSession,
 } from "state/definitions";
-import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
-  SectionTypeEnum,
   type ChatWindowBounds,
 } from "utils/generatedTypes";
-import { validateSectionNameInput } from "utils/nameValidation";
 import { isMacOs } from "utils/utils";
 
 type ResolvedWindowPill = {
   instanceId: string;
   title: string;
+  mode: (typeof ChatWindowModeEnum)[keyof typeof ChatWindowModeEnum];
   isClosed: boolean;
   isMinimized: boolean;
   placement: (typeof ChatWindowPlacementEnum)[keyof typeof ChatWindowPlacementEnum];
@@ -95,6 +106,13 @@ type WindowResizeDirection =
   | "top_right"
   | "bottom_left"
   | "bottom_right";
+
+type PaneTrackedRect = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
 
 type ActiveSingleDockResize = {
   pointerId: number;
@@ -118,7 +136,10 @@ type ActiveFloatingDrag = {
   startX: number;
   startY: number;
   startBounds: ChatWindowBounds;
+  dragBoundsStart: ChatWindowBounds;
   lastBounds: ChatWindowBounds;
+  restoreBoundsOnUnsnap: ChatWindowBounds | null;
+  hasActivatedUnsnap: boolean;
 };
 
 type ActiveFloatingResize = {
@@ -156,9 +177,10 @@ type ActiveFloatingSnapResize = {
 
 const DOCK_BAR_HEIGHT_PX = 40;
 const DOCK_BAR_FLOAT_BOTTOM_OFFSET_PX = 0;
-const VIEW_MODE_TABS_HEIGHT_PX = 36;
-const SIDE_RAIL_WIDTH_PX = 40;
-const FALLBACK_WORKSPACE_TOP_INSET_PX = 40;
+const VIEW_MODE_TABS_HEIGHT_PX = PROJECT_CHAT_VIEW_MODE_TABS_HEIGHT_PX;
+const SIDE_RAIL_WIDTH_PX = PROJECT_CHAT_SIDE_RAIL_WIDTH_PX;
+const FALLBACK_WORKSPACE_TOP_INSET_PX =
+  PROJECT_CHAT_FALLBACK_WORKSPACE_TOP_INSET_PX;
 const DOCK_SURFACE_MAX_WIDTH_PX = 1160;
 const DOCK_SURFACE_MIN_WIDTH_PX = 420;
 const DOCK_SURFACE_HORIZONTAL_MARGIN_PX = 20;
@@ -173,6 +195,7 @@ const CYCLE_CONTROL_BUTTON_WIDTH_PX = 24;
 const PILL_GAP_PX = 4;
 const MENU_MODE_TRIGGER_WIDTH_PX = 28;
 const CHAT_WINDOW_LAYER_Z_INDEX = 24;
+const TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX = 31;
 const CHAT_WINDOW_SNAP_PREVIEW_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 1;
 const CHAT_WINDOW_TOGGLE_Z_INDEX = CHAT_WINDOW_LAYER_Z_INDEX + 2;
 const CHAT_WINDOW_ENTER_ANIMATION_PRIME_DELAY_MS = 16;
@@ -200,8 +223,13 @@ const FLOATING_WINDOW_MIN_HEIGHT_PX = 240;
 const FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX = 32;
 const FLOATING_WINDOW_MIN_VISIBLE_WIDTH_PX = 120;
 const FLOATING_SNAP_EDGE_THRESHOLD_PX = 84;
+const FLOATING_UNSNAP_DRAG_THRESHOLD_PX = 6;
 const CHAT_WINDOW_MINIMIZE_EXIT_DURATION_MS = 115;
 const CHAT_WINDOW_CLOSE_EXIT_DURATION_MS = 125;
+const SNAP_TOP_LEFT_SHORTCUT = "Mod + Alt + Shift + Q";
+const SNAP_TOP_RIGHT_SHORTCUT = "Mod + Alt + Shift + W";
+const SNAP_BOTTOM_LEFT_SHORTCUT = "Mod + Alt + Shift + A";
+const SNAP_BOTTOM_RIGHT_SHORTCUT = "Mod + Alt + Shift + S";
 
 type ParsedShortcut = {
   mod: boolean;
@@ -434,28 +462,6 @@ function isInteractiveWindowHeaderTarget(target: EventTarget | null): boolean {
   );
 }
 
-function buildWindowTitle(
-  instanceId: string,
-  sectionIdOrNull: string | null,
-  customTitle: string | null,
-  sectionNamesById: Record<string, string>,
-): string {
-  if (sectionIdOrNull) {
-    const sectionName = sectionNamesById[sectionIdOrNull];
-    if (typeof sectionName === "string" && sectionName.trim().length > 0) {
-      return sectionName;
-    }
-  }
-  if (typeof customTitle === "string" && customTitle.trim().length > 0) {
-    return customTitle.trim();
-  }
-  const suffix = instanceId.split("-").pop() ?? "";
-  if (/^\d+$/.test(suffix)) {
-    return `Chat Window ${suffix}`;
-  }
-  return instanceId.replaceAll("-", " ");
-}
-
 function clampNumber(
   value: number,
   minValue: number,
@@ -608,18 +614,6 @@ function getViewportDimensions(): { width: number; height: number } | null {
   return { width, height };
 }
 
-function resolveFloatingWindowBoundaryInsets(
-  floatingBottomInsetPx: number,
-  workspaceTopInsetPx: number,
-): FloatingWindowBoundaryInsets {
-  return {
-    left: SIDE_RAIL_WIDTH_PX,
-    right: SIDE_RAIL_WIDTH_PX,
-    top: workspaceTopInsetPx,
-    bottom: floatingBottomInsetPx,
-  };
-}
-
 function clampFloatingBoundsToViewport(
   bounds: ChatWindowBounds,
   viewportWidthPx: number,
@@ -731,14 +725,6 @@ function buildPillBaseClass(isActive: boolean): string {
   return "border-setta-300 bg-setta-100 text-setta-700 hover:bg-setta-200 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:hover:bg-setta-850";
 }
 
-const SECTION_WINDOW_ACTION_BUTTON_CLASS =
-  "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-500 transition focus-visible:ring-2 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-100";
-const SECTION_WINDOW_MINIMIZE_BUTTON_CLASS =
-  "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 transition focus-visible:ring-2 hover:bg-blue-500 hover:text-white dark:text-setta-600 dark:hover:bg-blue-500 dark:hover:text-white";
-const SECTION_WINDOW_CLOSE_BUTTON_CLASS =
-  "nodrag inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-transparent p-0 text-setta-600 transition focus-visible:ring-2 hover:bg-red-500 hover:text-white dark:text-setta-600 dark:hover:bg-red-500 dark:hover:text-white";
-const CHAT_WINDOW_HEADER_ICON_CLASS =
-  "nodrag mr-1 flex shrink-0 select-none items-center justify-center rounded-full p-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 dark:text-setta-200";
 const DOCKED_CHAT_WINDOW_SHADOW_CLASS =
   "shadow-[0_-1px_6px_rgba(15,23,42,0.08)] dark:shadow-[0_-1px_6px_rgba(0,0,0,0.18)]";
 const FLOATING_CHAT_WINDOW_SHADOW_CLASS =
@@ -784,301 +770,6 @@ function getChatWindowEnterAnimationClass(
         ? "origin-bottom-right"
         : "origin-top-right";
   return `${originClassName} transform-gpu will-change-[transform,opacity] transition-[transform,opacity] duration-[110ms] ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none translate-y-5 scale-[0.985] opacity-0`;
-}
-
-type ChatWindowHeaderAction = {
-  key: string;
-  label: string;
-  testId: string;
-  instanceId: string;
-  icon: ReactNode;
-  className?: string;
-  disabled?: boolean;
-  onClick: () => void;
-};
-
-type ProjectChatWindowHeaderProps = {
-  title: string;
-  instanceId: string;
-  actions: ChatWindowHeaderAction[];
-  onTitleClick: () => void;
-  onTitleCommit?: (nextTitle: string) => void;
-  headerClassName?: string;
-  dragHandleTestId?: string;
-  onTitlePointerDown?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onTitlePointerMove?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onTitlePointerUp?: (event: PointerEvent<HTMLParagraphElement>) => void;
-};
-
-function ProjectChatWindowTitle({
-  title,
-  instanceId,
-  onActivate,
-  onCommitTitle,
-  dragHandleTestId,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
-}: {
-  title: string;
-  instanceId: string;
-  onActivate: () => void;
-  onCommitTitle?: (nextTitle: string) => void;
-  dragHandleTestId?: string;
-  onPointerDown?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onPointerMove?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onPointerUp?: (event: PointerEvent<HTMLParagraphElement>) => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const titleRef = useRef<HTMLParagraphElement | null>(null);
-  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
-    useEditableOnSubmit(
-      title,
-      (nextTitle) => {
-        onCommitTitle?.(nextTitle);
-      },
-      (value) => validateSectionNameInput(value) === null,
-      false,
-      (value) => value.trim(),
-    );
-  const validationError = validateSectionNameInput(inputValue);
-  const errorClassName = validationError
-    ? "text-red-500 dark:text-red-300 border-red-400"
-    : "";
-  const titleProps = getTitleStyles({
-    isActiveSection: false,
-    isInOtherProjectConfigs: false,
-    sectionTypeName: SectionTypeEnum.Chat,
-    hasSectionStyleTheme: false,
-  });
-  const editingClassName =
-    `${titleProps.editing ?? ""} ${errorClassName}`.trim();
-  const notEditingClassName =
-    `${titleProps.notEditing ?? ""} ${errorClassName}`.trim();
-
-  useEffect(() => {
-    if (!isEditing || !inputRef.current) {
-      return;
-    }
-    inputRef.current.focus({ preventScroll: true });
-    const titleLength = inputRef.current.value.length;
-    inputRef.current.setSelectionRange(0, titleLength);
-  }, [isEditing]);
-
-  useEffect(() => {
-    if (onCommitTitle) {
-      return;
-    }
-    setIsEditing(false);
-  }, [onCommitTitle]);
-
-  if (isEditing && onCommitTitle) {
-    return (
-      <div className="relative flex min-w-0 flex-1 flex-col">
-        <input
-          ref={inputRef}
-          value={inputValue}
-          onChange={onChange}
-          onBlur={(event) => {
-            const focusTitleAfterBlur = blurTriggeredByEscapeKey.current;
-            void onBlur(event);
-            setIsEditing(false);
-            if (focusTitleAfterBlur) {
-              requestAnimationFrame(() => {
-                titleRef.current?.focus({ preventScroll: true });
-              });
-            }
-          }}
-          onKeyDown={(event) => {
-            onKeyDown(event);
-            if (event.code === "Enter" || event.code === "Escape") {
-              setIsEditing(false);
-            }
-          }}
-          className={editingClassName}
-          data-testid="project-chat-window-title-input"
-          data-chat-window-instance-id={instanceId}
-        />
-        {validationError ? (
-          <div className="pointer-events-none absolute left-0 top-full z-20 mt-1 max-w-[220px] whitespace-pre-line rounded-md border border-red-300 bg-red-50 px-2 py-1 text-[10px] font-medium leading-snug text-red-700 shadow-sm dark:border-red-900 dark:bg-[#120000] dark:text-red-200">
-            <span className="absolute -top-1 left-3 h-2 w-2 rotate-45 border-l border-t border-red-300 bg-red-50 dark:border-red-900 dark:bg-[#120000]" />
-            {validationError}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
-
-  return (
-    <p
-      ref={titleRef}
-      className={notEditingClassName}
-      tabIndex={0}
-      onClick={() => {
-        onActivate();
-      }}
-      onDoubleClick={(event) => {
-        if (!onCommitTitle) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        setIsEditing(true);
-      }}
-      onKeyDown={(event) => {
-        if (event.code === "Space") {
-          event.preventDefault();
-          if (onCommitTitle) {
-            setIsEditing(true);
-          }
-        }
-      }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      title={title}
-      data-testid={dragHandleTestId ?? "project-chat-window-title"}
-      data-project-chat-window-title="true"
-      data-chat-window-instance-id={instanceId}
-    >
-      {title}
-    </p>
-  );
-}
-
-function ProjectChatWindowHeader({
-  title,
-  instanceId,
-  actions,
-  onTitleClick,
-  onTitleCommit,
-  headerClassName,
-  dragHandleTestId,
-  onTitlePointerDown,
-  onTitlePointerMove,
-  onTitlePointerUp,
-}: ProjectChatWindowHeaderProps) {
-  return (
-    <header
-      className={`section-title mx-2 flex shrink-0 flex-row items-center ${headerClassName ?? ""}`}
-      data-testid="project-chat-window-header"
-    >
-      <div
-        className={CHAT_WINDOW_HEADER_ICON_CLASS}
-        data-testid="project-chat-window-header-icon"
-      >
-        <HeaderIcon
-          sectionId={instanceId}
-          sectionTypeName={SectionTypeEnum.Chat}
-          isInOtherProjectConfigs={false}
-          isListElement={false}
-        />
-      </div>
-      <ProjectChatWindowTitle
-        title={title}
-        instanceId={instanceId}
-        onActivate={onTitleClick}
-        onCommitTitle={onTitleCommit}
-        dragHandleTestId={dragHandleTestId}
-        onPointerDown={onTitlePointerDown}
-        onPointerMove={onTitlePointerMove}
-        onPointerUp={onTitlePointerUp}
-      />
-      <div className="z-10 ml-auto flex items-center">
-        {actions.map((action) => (
-          <button
-            key={`${instanceId}-${action.key}`}
-            type="button"
-            className={action.className ?? SECTION_WINDOW_ACTION_BUTTON_CLASS}
-            onClick={action.onClick}
-            disabled={action.disabled}
-            aria-label={action.label}
-            data-testid={action.testId}
-            data-chat-window-instance-id={action.instanceId}
-          >
-            {action.icon}
-          </button>
-        ))}
-      </div>
-    </header>
-  );
-}
-
-type ProjectChatWindowSurfaceProps = {
-  title: string;
-  instanceId: string;
-  actions: ChatWindowHeaderAction[];
-  onTitleClick: () => void;
-  onTitleCommit?: (nextTitle: string) => void;
-  roundedClassName: string;
-  headerClassName?: string;
-  dragHandleTestId?: string;
-  onTitlePointerDown?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onTitlePointerMove?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  onTitlePointerUp?: (event: PointerEvent<HTMLParagraphElement>) => void;
-  children: ReactNode;
-};
-
-function ProjectChatWindowSurface({
-  title,
-  instanceId,
-  actions,
-  onTitleClick,
-  onTitleCommit,
-  roundedClassName,
-  headerClassName,
-  dragHandleTestId,
-  onTitlePointerDown,
-  onTitlePointerMove,
-  onTitlePointerUp,
-  children,
-}: ProjectChatWindowSurfaceProps) {
-  const bgColor = getBgColor(SectionTypeEnum.Chat);
-  const outerShellClassName = getSectionContainerShellClassName({
-    isActiveSection: false,
-    isGlobalVariables: false,
-    isInOtherProjectConfigs: false,
-    useMetaControlStyle: false,
-    hasSectionStyleTheme: false,
-    positionAndSizeLocked: false,
-    forceHideOutline: true,
-    sizeClassName: "h-full w-full",
-    cornerClassName: roundedClassName,
-  });
-  const innerShellClassName = getSectionSurfaceClassName({
-    bgColor,
-    hasSectionStyleTheme: false,
-    positionAndSizeLocked: false,
-    cornerClassName: roundedClassName,
-  });
-
-  return (
-    <section
-      className={outerShellClassName}
-      data-testid="project-chat-window-surface"
-    >
-      <div className={innerShellClassName}>
-        <ProjectChatWindowHeader
-          title={title}
-          instanceId={instanceId}
-          actions={actions}
-          onTitleClick={onTitleClick}
-          onTitleCommit={onTitleCommit}
-          headerClassName={headerClassName}
-          dragHandleTestId={dragHandleTestId}
-          onTitlePointerDown={onTitlePointerDown}
-          onTitlePointerMove={onTitlePointerMove}
-          onTitlePointerUp={onTitlePointerUp}
-        />
-        <div
-          className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
-        >
-          {children}
-        </div>
-      </div>
-    </section>
-  );
 }
 
 type MinimizedPillStripProps = {
@@ -1290,7 +981,12 @@ function MinimizedPillStrip({
               key={`measure-full-${pill.instanceId}`}
               className="inline-flex h-7 shrink-0 items-center gap-1 rounded-b-none rounded-t-md border border-b-transparent bg-setta-100 px-2 text-xs"
             >
-              <RiChat3Line size={12} className="shrink-0" />
+              <ProjectChatWindowIcon
+                mode={pill.mode}
+                instanceId={pill.instanceId}
+                sectionId={pill.sectionId}
+                className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
+              />
               <span className="max-w-[9.5rem] truncate">{pill.title}</span>
             </div>
           ))}
@@ -1307,7 +1003,12 @@ function MinimizedPillStrip({
               key={`measure-compact-${pill.instanceId}`}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-b-none rounded-t-md border border-b-transparent bg-setta-100"
             >
-              <RiChat3Line size={14} />
+              <ProjectChatWindowIcon
+                mode={pill.mode}
+                instanceId={pill.instanceId}
+                sectionId={pill.sectionId}
+                className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
+              />
             </div>
           ))}
         </div>
@@ -1373,9 +1074,12 @@ function MinimizedPillStrip({
                     data-testid="project-chat-bottom-dock-menu-item"
                     data-chat-window-instance-id={pill.instanceId}
                   >
-                    <RiChat3Line
-                      size={13}
-                      className="shrink-0 text-setta-500 dark:text-setta-400"
+                    <ProjectChatWindowIcon
+                      mode={pill.mode}
+                      instanceId={pill.instanceId}
+                      sectionId={pill.sectionId}
+                      className="inline-flex shrink-0 items-center justify-center text-setta-500 dark:text-setta-400"
+                      dataTestId="project-chat-bottom-dock-pill-icon"
                     />
                     <span className="min-w-0 flex-1 truncate">
                       {pill.title}
@@ -1410,7 +1114,13 @@ function MinimizedPillStrip({
                     pillExitAnimationsById[pill.instanceId] ?? undefined
                   }
                 >
-                  <RiChat3Line size={14} />
+                  <ProjectChatWindowIcon
+                    mode={pill.mode}
+                    instanceId={pill.instanceId}
+                    sectionId={pill.sectionId}
+                    className="inline-flex items-center justify-center text-setta-600 dark:text-setta-300"
+                    dataTestId="project-chat-bottom-dock-pill-icon"
+                  />
                 </button>
               );
             }
@@ -1434,7 +1144,13 @@ function MinimizedPillStrip({
                   pillExitAnimationsById[pill.instanceId] ?? undefined
                 }
               >
-                <RiChat3Line size={12} className="shrink-0" />
+                <ProjectChatWindowIcon
+                  mode={pill.mode}
+                  instanceId={pill.instanceId}
+                  sectionId={pill.sectionId}
+                  className="inline-flex shrink-0 items-center justify-center text-setta-600 dark:text-setta-300"
+                  dataTestId="project-chat-bottom-dock-pill-icon"
+                />
                 <span className="max-w-[9.5rem] truncate">{pill.title}</span>
               </button>
             );
@@ -1487,21 +1203,37 @@ export function ProjectChatBottomDock() {
     }),
     _.isEqual,
   );
-  const { projectConfigId, order, instancesById, sectionNamesById } =
-    useProjectState(
-      (state) => ({
-        projectConfigId: state.projectConfig.id,
-        order: state.projectChatWindowing.order,
-        instancesById: state.projectChatWindowing.instancesById,
-        sectionNamesById: Object.fromEntries(
-          Object.entries(state.sections).map(([sectionId, section]) => [
-            sectionId,
-            section.name,
-          ]),
-        ),
-      }),
-      _.isEqual,
-    );
+  const {
+    projectConfigId,
+    order,
+    instancesById,
+    sectionNamesById,
+    activeSectionId,
+  } = useProjectState(
+    (state) => ({
+      projectConfigId: state.projectConfig.id,
+      order: state.projectChatWindowing.order,
+      instancesById: state.projectChatWindowing.instancesById,
+      activeSectionId: state.projectConfig.activeIds[0] ?? null,
+      sectionNamesById: Object.fromEntries(
+        Object.entries(state.sections).map(([sectionId, section]) => [
+          sectionId,
+          section.name,
+        ]),
+      ),
+    }),
+    _.isEqual,
+  );
+  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
+    (state) => ({
+      overviewTrueWidth: state.overviewTrueWidth,
+      uiEditorTrueWidth: state.uiEditorTrueWidth,
+    }),
+    _.isEqual,
+  );
+  const trackedGitPaneGraphWindowInstanceId = useMisc(
+    (state) => state.projectChatTrackedGitPaneGraphWindowInstanceId,
+  );
   const [pillDisplayMode, setPillDisplayMode] =
     useState<PillDisplayMode>("full");
   const [pillCycleStartIndex, setPillCycleStartIndex] = useState(0);
@@ -1536,6 +1268,10 @@ export function ProjectChatBottomDock() {
   >({});
   const [windowEnterAnimationPrimesById, setWindowEnterAnimationPrimesById] =
     useState<Record<string, ChatWindowEnterAnimationKind>>({});
+  const [trackedGitPaneGraphRect, setTrackedGitPaneGraphRect] =
+    useState<PaneTrackedRect | null>(null);
+  const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
+  const floatingBottomInsetPx = dockBottomOffsetPx;
   const pillViewportRef = useRef<HTMLDivElement | null>(null);
   const fullMeasureRowRef = useRef<HTMLDivElement | null>(null);
   const compactMeasureRowRef = useRef<HTMLDivElement | null>(null);
@@ -1553,6 +1289,15 @@ export function ProjectChatBottomDock() {
   const pillExitTimeoutsRef = useRef<Record<string, number>>({});
   const windowEnterPrimeTimeoutsRef = useRef<Record<string, number>>({});
   const windowEnterAnimationTimeoutsRef = useRef<Record<string, number>>({});
+  const floatingPreviewBoundsRef = useRef<Record<string, ChatWindowBounds>>({});
+  const queuedFloatingPreviewBoundsRef = useRef<Record<
+    string,
+    ChatWindowBounds
+  > | null>(null);
+  const floatingPreviewAnimationFrameRef = useRef<number | null>(null);
+  const floatingRestoreBoundsByIdRef = useRef<Record<string, ChatWindowBounds>>(
+    {},
+  );
 
   useEffect(() => {
     if (!showChatWindowing) {
@@ -1621,8 +1366,54 @@ export function ProjectChatBottomDock() {
     };
   }, []);
 
+  useLayoutEffect(() => {
+    if (!trackedGitPaneGraphWindowInstanceId) {
+      setTrackedGitPaneGraphRect(null);
+      return;
+    }
+    const left = overviewTrueWidth;
+    const top = workspaceTopInsetPx;
+    const width = viewportWidthPx - overviewTrueWidth - uiEditorTrueWidth;
+    const height = viewportHeightPx - workspaceTopInsetPx - dockBottomOffsetPx;
+    if (width <= 0 || height <= 0) {
+      setTrackedGitPaneGraphRect(null);
+      return;
+    }
+    const nextRect: PaneTrackedRect = {
+      left,
+      top,
+      width,
+      height,
+    };
+    setTrackedGitPaneGraphRect((current) => {
+      if (
+        current &&
+        Math.abs(current.left - nextRect.left) <= 0.5 &&
+        Math.abs(current.top - nextRect.top) <= 0.5 &&
+        Math.abs(current.width - nextRect.width) <= 0.5 &&
+        Math.abs(current.height - nextRect.height) <= 0.5
+      ) {
+        return current;
+      }
+      return nextRect;
+    });
+  }, [
+    dockBottomOffsetPx,
+    overviewTrueWidth,
+    trackedGitPaneGraphWindowInstanceId,
+    uiEditorTrueWidth,
+    workspaceTopInsetPx,
+    viewportHeightPx,
+    viewportWidthPx,
+  ]);
+
   useEffect(() => {
     return () => {
+      if (floatingPreviewAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(floatingPreviewAnimationFrameRef.current);
+      }
+      floatingPreviewAnimationFrameRef.current = null;
+      queuedFloatingPreviewBoundsRef.current = null;
       for (const timeoutId of Object.values(windowExitTimeoutsRef.current)) {
         window.clearTimeout(timeoutId);
       }
@@ -1646,6 +1437,10 @@ export function ProjectChatBottomDock() {
     };
   }, []);
 
+  useEffect(() => {
+    floatingPreviewBoundsRef.current = floatingPreviewBoundsById;
+  }, [floatingPreviewBoundsById]);
+
   const orderedPills = useMemo<ResolvedWindowPill[]>(() => {
     const output: ResolvedWindowPill[] = [];
     const seen = new Set<string>();
@@ -1666,12 +1461,14 @@ export function ProjectChatBottomDock() {
       }
       output.push({
         instanceId,
-        title: buildWindowTitle(
+        title: buildProjectChatWindowTitle(
+          instance.mode,
           instanceId,
           instance.sectionIdOrNull,
           instance.title,
           sectionNamesById,
         ),
+        mode: instance.mode,
         isClosed: instance.isClosed,
         isMinimized: instance.isMinimized,
         placement: instance.placement,
@@ -1694,12 +1491,14 @@ export function ProjectChatBottomDock() {
       }
       output.push({
         instanceId,
-        title: buildWindowTitle(
+        title: buildProjectChatWindowTitle(
+          instance.mode,
           instanceId,
           instance.sectionIdOrNull,
           instance.title,
           sectionNamesById,
         ),
+        mode: instance.mode,
         isClosed: instance.isClosed,
         isMinimized: instance.isMinimized,
         placement: instance.placement,
@@ -1809,13 +1608,11 @@ export function ProjectChatBottomDock() {
     return activeWindow?.instanceId ?? null;
   }, [openFloatingPills]);
 
-  const dockBottomOffsetPx = hasViewModeTabs ? VIEW_MODE_TABS_HEIGHT_PX : 0;
-  const floatingBottomInsetPx = dockBottomOffsetPx;
   const floatingWindowBoundaryInsets = useMemo(
     () =>
-      resolveFloatingWindowBoundaryInsets(
-        floatingBottomInsetPx,
+      resolveProjectChatFloatingBoundaryInsets(
         workspaceTopInsetPx,
+        floatingBottomInsetPx,
       ),
     [floatingBottomInsetPx, workspaceTopInsetPx],
   );
@@ -1871,6 +1668,7 @@ export function ProjectChatBottomDock() {
     () => buildFloatingSnapResizeHandles(snappedFloatingWindows),
     [snappedFloatingWindows],
   );
+
   const dockAvailableHeightPx = useMemo(() => {
     const fallbackViewportHeight = 900;
     const resolvedViewportHeight =
@@ -2367,6 +2165,7 @@ export function ProjectChatBottomDock() {
       if (!instancesById[instanceId]) {
         return;
       }
+      clearTrackedGitPaneGraphWindowIfMatches(instanceId);
       clearWindowEnterAnimation(instanceId);
       setWindowExitAnimationsById((current) => {
         if (current[instanceId] === kind) {
@@ -2624,9 +2423,155 @@ export function ProjectChatBottomDock() {
     [floatingWindowBoundaryInsets],
   );
 
-  const snapFloatingWindowByPreset = useCallback(
-    (preset: "left" | "right" | "top" | "bottom") => {
-      if (!activeFloatingWindowId) {
+  const resolveDefaultFloatingBoundsForCurrentViewport = useCallback(() => {
+    const viewport = getViewportDimensions();
+    return clampFloatingBoundsForCurrentViewport(
+      resolveDefaultFloatingChatBounds({
+        viewportWidthPx: viewport?.width ?? viewportWidthPx,
+        viewportHeightPx: viewport?.height ?? viewportHeightPx,
+        workspaceTopInsetPx,
+        bottomInsetPx: floatingBottomInsetPx,
+        sideRailWidthPx: SIDE_RAIL_WIDTH_PX,
+        minWidthPx: FLOATING_WINDOW_MIN_WIDTH_PX,
+        minHeightPx: FLOATING_WINDOW_MIN_HEIGHT_PX,
+      }),
+    );
+  }, [
+    clampFloatingBoundsForCurrentViewport,
+    floatingBottomInsetPx,
+    viewportHeightPx,
+    viewportWidthPx,
+    workspaceTopInsetPx,
+  ]);
+
+  const resolveFloatingRestoreBounds = useCallback(
+    (instanceId: string): ChatWindowBounds => {
+      const existingBounds = floatingRestoreBoundsByIdRef.current[instanceId];
+      if (existingBounds) {
+        return clampFloatingBoundsForCurrentViewport(existingBounds);
+      }
+      return resolveDefaultFloatingBoundsForCurrentViewport();
+    },
+    [
+      clampFloatingBoundsForCurrentViewport,
+      resolveDefaultFloatingBoundsForCurrentViewport,
+    ],
+  );
+
+  const positionFloatingBoundsForUnsnap = useCallback(
+    ({
+      currentBounds,
+      restoreBounds,
+      pointerX,
+      pointerY,
+    }: {
+      currentBounds: ChatWindowBounds;
+      restoreBounds: ChatWindowBounds;
+      pointerX: number;
+      pointerY: number;
+    }): ChatWindowBounds => {
+      const pointerOffsetFractionX = clampNumber(
+        (pointerX - currentBounds.x) / Math.max(1, currentBounds.width),
+        0.15,
+        0.85,
+      );
+      const pointerOffsetY = clampNumber(
+        pointerY - currentBounds.y,
+        8,
+        FLOATING_WINDOW_TITLE_BAR_HEIGHT_PX - 8,
+      );
+      return clampFloatingBoundsForCurrentViewport({
+        ...restoreBounds,
+        x: pointerX - restoreBounds.width * pointerOffsetFractionX,
+        y: pointerY - pointerOffsetY,
+      });
+    },
+    [clampFloatingBoundsForCurrentViewport],
+  );
+
+  useEffect(() => {
+    const nextRestoreBoundsById = {
+      ...floatingRestoreBoundsByIdRef.current,
+    };
+    let changed = false;
+
+    for (const pill of openFloatingPills) {
+      if (floatingSnapPresetById[pill.instanceId]) {
+        continue;
+      }
+      const bounds = floatingBoundsById[pill.instanceId];
+      if (!bounds) {
+        continue;
+      }
+      const clampedBounds = clampFloatingBoundsForCurrentViewport(bounds);
+      const existing = nextRestoreBoundsById[pill.instanceId];
+      if (existing && areBoundsEqual(existing, clampedBounds)) {
+        continue;
+      }
+      nextRestoreBoundsById[pill.instanceId] = clampedBounds;
+      changed = true;
+    }
+
+    for (const instanceId of Object.keys(nextRestoreBoundsById)) {
+      if (instancesById[instanceId]) {
+        continue;
+      }
+      delete nextRestoreBoundsById[instanceId];
+      changed = true;
+    }
+
+    if (changed) {
+      floatingRestoreBoundsByIdRef.current = nextRestoreBoundsById;
+    }
+  }, [
+    clampFloatingBoundsForCurrentViewport,
+    floatingBoundsById,
+    floatingSnapPresetById,
+    instancesById,
+    openFloatingPills,
+  ]);
+
+  const resolveSnapTargetWindowId = useCallback((): string | null => {
+    if (activeFloatingWindowId) {
+      return activeFloatingWindowId;
+    }
+    if (!activeSectionId) {
+      if (!activeVisibleWindowId) {
+        return null;
+      }
+      const activeVisibleWindow = instancesById[activeVisibleWindowId];
+      if (!activeVisibleWindow) {
+        return null;
+      }
+      if (activeVisibleWindow.placement !== ChatWindowPlacementEnum.floating) {
+        setProjectChatWindowPlacement(
+          activeVisibleWindowId,
+          ChatWindowPlacementEnum.floating,
+        );
+      }
+      return activeVisibleWindowId;
+    }
+    showSectionInProjectChatWindow(
+      activeSectionId,
+      ChatWindowPlacementEnum.floating,
+    );
+    return (
+      getOpenExternalProjectChatWindowInstanceForSectionInState(
+        useProjectState.getState().projectChatWindowing,
+        activeSectionId,
+      )?.instanceId ?? null
+    );
+  }, [
+    activeFloatingWindowId,
+    activeSectionId,
+    activeVisibleWindowId,
+    instancesById,
+  ]);
+
+  const snapWindowTargetByPreset = useCallback(
+    (preset: FloatingSnapPreset) => {
+      const targetWindowId = resolveSnapTargetWindowId();
+      if (!targetWindowId) {
         return;
       }
       const viewport = getViewportDimensions();
@@ -2641,14 +2586,14 @@ export function ProjectChatBottomDock() {
           floatingWindowBoundaryInsets,
         ),
       );
-      setProjectChatWindowBounds(activeFloatingWindowId, nextBounds);
-      focusProjectChatWindow(activeFloatingWindowId);
+      setProjectChatWindowBounds(targetWindowId, nextBounds);
+      focusProjectChatWindow(targetWindowId);
       setIsCanvasVisibilitySuppressed(false);
     },
     [
-      activeFloatingWindowId,
       clampFloatingBoundsForCurrentViewport,
       floatingWindowBoundaryInsets,
+      resolveSnapTargetWindowId,
     ],
   );
 
@@ -2666,6 +2611,10 @@ export function ProjectChatBottomDock() {
     const parsedSnapRight = parseShortcut(chatWindowingShortcuts.snapRight);
     const parsedSnapTop = parseShortcut(chatWindowingShortcuts.snapTop);
     const parsedSnapBottom = parseShortcut(chatWindowingShortcuts.snapBottom);
+    const parsedSnapTopLeft = parseShortcut(SNAP_TOP_LEFT_SHORTCUT);
+    const parsedSnapTopRight = parseShortcut(SNAP_TOP_RIGHT_SHORTCUT);
+    const parsedSnapBottomLeft = parseShortcut(SNAP_BOTTOM_LEFT_SHORTCUT);
+    const parsedSnapBottomRight = parseShortcut(SNAP_BOTTOM_RIGHT_SHORTCUT);
     const macOs = isMacOs();
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -2712,43 +2661,59 @@ export function ProjectChatBottomDock() {
         return;
       }
 
-      if (
-        activeFloatingWindowId &&
-        isShortcutPressed(event, eventCode, parsedSnapLeft, macOs)
-      ) {
+      if (isShortcutPressed(event, eventCode, parsedSnapLeft, macOs)) {
         event.preventDefault();
         event.stopPropagation();
-        snapFloatingWindowByPreset("left");
+        snapWindowTargetByPreset("left");
         return;
       }
 
-      if (
-        activeFloatingWindowId &&
-        isShortcutPressed(event, eventCode, parsedSnapRight, macOs)
-      ) {
+      if (isShortcutPressed(event, eventCode, parsedSnapRight, macOs)) {
         event.preventDefault();
         event.stopPropagation();
-        snapFloatingWindowByPreset("right");
+        snapWindowTargetByPreset("right");
         return;
       }
 
-      if (
-        activeFloatingWindowId &&
-        isShortcutPressed(event, eventCode, parsedSnapTop, macOs)
-      ) {
+      if (isShortcutPressed(event, eventCode, parsedSnapTop, macOs)) {
         event.preventDefault();
         event.stopPropagation();
-        snapFloatingWindowByPreset("top");
+        snapWindowTargetByPreset("top");
         return;
       }
 
-      if (
-        activeFloatingWindowId &&
-        isShortcutPressed(event, eventCode, parsedSnapBottom, macOs)
-      ) {
+      if (isShortcutPressed(event, eventCode, parsedSnapBottom, macOs)) {
         event.preventDefault();
         event.stopPropagation();
-        snapFloatingWindowByPreset("bottom");
+        snapWindowTargetByPreset("bottom");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapTopLeft, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("top_left");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapTopRight, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("top_right");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapBottomLeft, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("bottom_left");
+        return;
+      }
+
+      if (isShortcutPressed(event, eventCode, parsedSnapBottomRight, macOs)) {
+        event.preventDefault();
+        event.stopPropagation();
+        snapWindowTargetByPreset("bottom_right");
       }
     };
 
@@ -2757,7 +2722,7 @@ export function ProjectChatBottomDock() {
       document.removeEventListener("keydown", onKeyDown, true);
     };
   }, [
-    activeFloatingWindowId,
+    activeSectionId,
     activeVisibleWindowId,
     chatWindowingShortcuts.canvasToggle,
     chatWindowingShortcuts.maximizeFocused,
@@ -2767,86 +2732,130 @@ export function ProjectChatBottomDock() {
     chatWindowingShortcuts.snapRight,
     chatWindowingShortcuts.snapTop,
     hasOverlayWindows,
-    snapFloatingWindowByPreset,
+    instancesById,
+    snapWindowTargetByPreset,
     startWindowExitAnimation,
   ]);
 
-  const handleFloatingBoundsPreview = useCallback(
-    (instanceId: string, bounds: ChatWindowBounds) => {
-      setFloatingPreviewBoundsById((current) => {
-        const existing = current[instanceId];
-        if (
-          existing &&
-          existing.x === bounds.x &&
-          existing.y === bounds.y &&
-          existing.width === bounds.width &&
-          existing.height === bounds.height
-        ) {
-          return current;
-        }
-        return {
-          ...current,
-          [instanceId]: bounds,
-        };
-      });
+  const commitQueuedFloatingPreviewBounds = useCallback(() => {
+    floatingPreviewAnimationFrameRef.current = null;
+    const nextBoundsById = queuedFloatingPreviewBoundsRef.current;
+    queuedFloatingPreviewBoundsRef.current = null;
+    if (!nextBoundsById) {
+      return;
+    }
+    floatingPreviewBoundsRef.current = nextBoundsById;
+    setFloatingPreviewBoundsById((current) =>
+      current === nextBoundsById ? current : nextBoundsById,
+    );
+  }, []);
+
+  const scheduleFloatingPreviewBoundsCommit = useCallback(() => {
+    if (floatingPreviewAnimationFrameRef.current !== null) {
+      return;
+    }
+    floatingPreviewAnimationFrameRef.current = window.requestAnimationFrame(
+      commitQueuedFloatingPreviewBounds,
+    );
+  }, [commitQueuedFloatingPreviewBounds]);
+
+  const setFloatingPreviewBoundsImmediately = useCallback(
+    (nextBoundsById: Record<string, ChatWindowBounds>) => {
+      if (floatingPreviewAnimationFrameRef.current !== null) {
+        window.cancelAnimationFrame(floatingPreviewAnimationFrameRef.current);
+      }
+      floatingPreviewAnimationFrameRef.current = null;
+      queuedFloatingPreviewBoundsRef.current = null;
+      floatingPreviewBoundsRef.current = nextBoundsById;
+      setFloatingPreviewBoundsById((current) =>
+        current === nextBoundsById ? current : nextBoundsById,
+      );
     },
     [],
+  );
+
+  const handleFloatingBoundsPreview = useCallback(
+    (instanceId: string, bounds: ChatWindowBounds) => {
+      const current =
+        queuedFloatingPreviewBoundsRef.current ??
+        floatingPreviewBoundsRef.current;
+      const existing = current[instanceId];
+      if (existing && areBoundsEqual(existing, bounds)) {
+        return;
+      }
+      const next = {
+        ...current,
+        [instanceId]: bounds,
+      };
+      queuedFloatingPreviewBoundsRef.current = next;
+      floatingPreviewBoundsRef.current = next;
+      scheduleFloatingPreviewBoundsCommit();
+    },
+    [scheduleFloatingPreviewBoundsCommit],
   );
 
   const handleFloatingBoundsPreviewBatch = useCallback(
     (boundsByInstanceId: Record<string, ChatWindowBounds>) => {
-      setFloatingPreviewBoundsById((current) => {
-        let next = current;
-        for (const [instanceId, bounds] of Object.entries(boundsByInstanceId)) {
-          const existing = next[instanceId];
-          if (
-            existing &&
-            existing.x === bounds.x &&
-            existing.y === bounds.y &&
-            existing.width === bounds.width &&
-            existing.height === bounds.height
-          ) {
-            continue;
-          }
-          if (next === current) {
-            next = { ...current };
-          }
-          next[instanceId] = bounds;
+      const current =
+        queuedFloatingPreviewBoundsRef.current ??
+        floatingPreviewBoundsRef.current;
+      let next = current;
+      for (const [instanceId, bounds] of Object.entries(boundsByInstanceId)) {
+        const existing = next[instanceId];
+        if (existing && areBoundsEqual(existing, bounds)) {
+          continue;
         }
-        return next;
-      });
+        if (next === current) {
+          next = { ...current };
+        }
+        next[instanceId] = bounds;
+      }
+      if (next === current) {
+        return;
+      }
+      queuedFloatingPreviewBoundsRef.current = next;
+      floatingPreviewBoundsRef.current = next;
+      scheduleFloatingPreviewBoundsCommit();
     },
-    [],
+    [scheduleFloatingPreviewBoundsCommit],
   );
 
-  const clearFloatingBoundsPreview = useCallback((instanceId: string) => {
-    setFloatingPreviewBoundsById((current) => {
+  const clearFloatingBoundsPreview = useCallback(
+    (instanceId: string) => {
+      const current =
+        queuedFloatingPreviewBoundsRef.current ??
+        floatingPreviewBoundsRef.current;
       if (!current[instanceId]) {
-        return current;
+        return;
       }
       const next = { ...current };
       delete next[instanceId];
-      return next;
-    });
-  }, []);
+      setFloatingPreviewBoundsImmediately(next);
+    },
+    [setFloatingPreviewBoundsImmediately],
+  );
 
   const clearFloatingBoundsPreviewBatch = useCallback(
     (instanceIds: string[]) => {
-      setFloatingPreviewBoundsById((current) => {
-        let next = current;
-        for (const instanceId of instanceIds) {
-          if (!next[instanceId]) {
-            continue;
-          }
-          if (next === current) {
-            next = { ...current };
-          }
-          delete next[instanceId];
+      const current =
+        queuedFloatingPreviewBoundsRef.current ??
+        floatingPreviewBoundsRef.current;
+      let next = current;
+      for (const instanceId of instanceIds) {
+        if (!next[instanceId]) {
+          continue;
         }
-        return next;
-      });
+        if (next === current) {
+          next = { ...current };
+        }
+        delete next[instanceId];
+      }
+      if (next === current) {
+        return;
+      }
+      setFloatingPreviewBoundsImmediately(next);
     },
-    [],
+    [setFloatingPreviewBoundsImmediately],
   );
 
   const updateActiveFloatingSnapPreview = useCallback(
@@ -2941,17 +2950,42 @@ export function ProjectChatBottomDock() {
         return;
       }
       const previewBounds = floatingPreviewBoundsById[pill.instanceId];
-      const startBounds = clampFloatingBoundsForCurrentViewport(
+      const currentBounds = clampFloatingBoundsForCurrentViewport(
         previewBounds ?? pill.bounds,
       );
-      const clonedBounds = { ...startBounds };
+      const snapPreset = floatingSnapPresetById[pill.instanceId] ?? null;
+      const restoreBoundsOnUnsnap = snapPreset
+        ? resolveFloatingRestoreBounds(pill.instanceId)
+        : null;
+      if (
+        restoreBoundsOnUnsnap &&
+        !floatingRestoreBoundsByIdRef.current[pill.instanceId]
+      ) {
+        floatingRestoreBoundsByIdRef.current = {
+          ...floatingRestoreBoundsByIdRef.current,
+          [pill.instanceId]: { ...restoreBoundsOnUnsnap },
+        };
+      }
+      const dragBoundsStart = restoreBoundsOnUnsnap
+        ? positionFloatingBoundsForUnsnap({
+            currentBounds,
+            restoreBounds: restoreBoundsOnUnsnap,
+            pointerX: event.clientX,
+            pointerY: event.clientY,
+          })
+        : currentBounds;
+      const clonedCurrentBounds = { ...currentBounds };
+      const clonedDragBoundsStart = { ...dragBoundsStart };
       activeFloatingDragRef.current = {
         pointerId: event.pointerId,
         instanceId: pill.instanceId,
         startX: event.clientX,
         startY: event.clientY,
-        startBounds: clonedBounds,
-        lastBounds: clonedBounds,
+        startBounds: clonedCurrentBounds,
+        dragBoundsStart: clonedDragBoundsStart,
+        lastBounds: clonedCurrentBounds,
+        restoreBoundsOnUnsnap,
+        hasActivatedUnsnap: restoreBoundsOnUnsnap === null,
       };
       updateActiveFloatingSnapPreview(null);
       handleFocusWindow(pill.instanceId);
@@ -2961,7 +2995,10 @@ export function ProjectChatBottomDock() {
     [
       clampFloatingBoundsForCurrentViewport,
       floatingPreviewBoundsById,
+      floatingSnapPresetById,
       handleFocusWindow,
+      positionFloatingBoundsForUnsnap,
+      resolveFloatingRestoreBounds,
       updateActiveFloatingSnapPreview,
     ],
   );
@@ -2974,10 +3011,21 @@ export function ProjectChatBottomDock() {
       }
       const deltaX = event.clientX - activeDrag.startX;
       const deltaY = event.clientY - activeDrag.startY;
+      const dragDistance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+      if (
+        activeDrag.restoreBoundsOnUnsnap &&
+        !activeDrag.hasActivatedUnsnap &&
+        dragDistance >= FLOATING_UNSNAP_DRAG_THRESHOLD_PX
+      ) {
+        activeDrag.hasActivatedUnsnap = true;
+      }
+      const dragBoundsStart = activeDrag.hasActivatedUnsnap
+        ? activeDrag.dragBoundsStart
+        : activeDrag.startBounds;
       const nextBounds = clampFloatingBoundsForCurrentViewport({
-        ...activeDrag.startBounds,
-        x: activeDrag.startBounds.x + deltaX,
-        y: activeDrag.startBounds.y + deltaY,
+        ...dragBoundsStart,
+        x: dragBoundsStart.x + deltaX,
+        y: dragBoundsStart.y + deltaY,
       });
       const viewport = getViewportDimensions();
       if (viewport) {
@@ -3006,7 +3054,9 @@ export function ProjectChatBottomDock() {
         updateActiveFloatingSnapPreview(null);
       }
       activeDrag.lastBounds = nextBounds;
-      handleFloatingBoundsPreview(activeDrag.instanceId, nextBounds);
+      if (activeDrag.hasActivatedUnsnap) {
+        handleFloatingBoundsPreview(activeDrag.instanceId, nextBounds);
+      }
     },
     [
       clampFloatingBoundsForCurrentViewport,
@@ -3025,6 +3075,11 @@ export function ProjectChatBottomDock() {
       const activeSnap = activeFloatingSnapPreviewRef.current;
       if (activeSnap && activeSnap.instanceId === activeDrag.instanceId) {
         setProjectChatWindowBounds(activeDrag.instanceId, activeSnap.bounds);
+      } else if (!activeDrag.hasActivatedUnsnap) {
+        setProjectChatWindowBounds(
+          activeDrag.instanceId,
+          activeDrag.startBounds,
+        );
       } else {
         setProjectChatWindowBounds(
           activeDrag.instanceId,
@@ -3580,6 +3635,9 @@ export function ProjectChatBottomDock() {
   const maximizedEnterAnimationPrime = openMaximizedWindow
     ? windowEnterAnimationPrimesById[openMaximizedWindow.instanceId] ?? null
     : null;
+  const isPaneTrackedMaximizedGitGraphWindow =
+    openMaximizedWindow?.mode === ChatWindowModeEnum.git_graph_mode &&
+    openMaximizedWindow?.instanceId === trackedGitPaneGraphWindowInstanceId;
 
   if (!showChatWindowing) {
     return null;
@@ -3789,6 +3847,7 @@ export function ProjectChatBottomDock() {
                         ) : (
                           <ProjectChatWindowSurface
                             title={pill.title}
+                            mode={pill.mode}
                             instanceId={pill.instanceId}
                             roundedClassName={
                               DOCKED_WINDOWED_CHAT_ROUNDED_CLASS
@@ -3796,9 +3855,16 @@ export function ProjectChatBottomDock() {
                             onTitleClick={() => {
                               handleFocusWindow(pill.instanceId);
                             }}
-                            onTitleCommit={(nextTitle) => {
-                              handleSetWindowTitle(pill.instanceId, nextTitle);
-                            }}
+                            onTitleCommit={
+                              pill.mode === ChatWindowModeEnum.git_graph_mode
+                                ? undefined
+                                : (nextTitle) => {
+                                    handleSetWindowTitle(
+                                      pill.instanceId,
+                                      nextTitle,
+                                    );
+                                  }
+                            }
                             actions={[
                               ...(showDockHeaderCycleControls
                                 ? [
@@ -3884,10 +3950,17 @@ export function ProjectChatBottomDock() {
                               },
                             ]}
                           >
-                            <UnifiedChatSurface
-                              mode={ChatWindowModeEnum.project_ai_mode}
-                              host={ChatWindowPlacementEnum.bottom_docked}
-                            />
+                            {pill.mode === ChatWindowModeEnum.git_graph_mode ? (
+                              <GitGraphWindowContent
+                                instanceId={pill.instanceId}
+                                showEmbeddedGitPaneToggle
+                              />
+                            ) : (
+                              <UnifiedChatSurface
+                                mode={pill.mode}
+                                host={ChatWindowPlacementEnum.bottom_docked}
+                              />
+                            )}
                           </ProjectChatWindowSurface>
                         )}
                         {DOCK_WINDOW_RESIZE_HANDLES.map((handle) => (
@@ -4161,6 +4234,7 @@ export function ProjectChatBottomDock() {
                   ) : (
                     <ProjectChatWindowSurface
                       title={pill.title}
+                      mode={pill.mode}
                       instanceId={pill.instanceId}
                       roundedClassName={
                         floatingSnapPreset
@@ -4171,9 +4245,13 @@ export function ProjectChatBottomDock() {
                       onTitleClick={() => {
                         handleFocusWindow(pill.instanceId);
                       }}
-                      onTitleCommit={(nextTitle) => {
-                        handleSetWindowTitle(pill.instanceId, nextTitle);
-                      }}
+                      onTitleCommit={
+                        pill.mode === ChatWindowModeEnum.git_graph_mode
+                          ? undefined
+                          : (nextTitle) => {
+                              handleSetWindowTitle(pill.instanceId, nextTitle);
+                            }
+                      }
                       dragHandleTestId="project-chat-floating-window-drag-handle"
                       onTitlePointerDown={(event) => {
                         handleFloatingDragPointerDown(event, pill);
@@ -4237,10 +4315,17 @@ export function ProjectChatBottomDock() {
                         },
                       ]}
                     >
-                      <UnifiedChatSurface
-                        mode={ChatWindowModeEnum.project_ai_mode}
-                        host={ChatWindowPlacementEnum.floating}
-                      />
+                      {pill.mode === ChatWindowModeEnum.git_graph_mode ? (
+                        <GitGraphWindowContent
+                          instanceId={pill.instanceId}
+                          showEmbeddedGitPaneToggle
+                        />
+                      ) : (
+                        <UnifiedChatSurface
+                          mode={pill.mode}
+                          host={ChatWindowPlacementEnum.floating}
+                        />
+                      )}
                     </ProjectChatWindowSurface>
                   )}
                   {floatingSnapPreset
@@ -4290,14 +4375,28 @@ export function ProjectChatBottomDock() {
             ChatWindowPlacementEnum.maximized,
           )}`}
           style={{
-            zIndex: CHAT_WINDOW_LAYER_Z_INDEX,
-            left: SIDE_RAIL_WIDTH_PX,
-            right: SIDE_RAIL_WIDTH_PX,
-            top: workspaceTopInsetPx,
-            bottom: dockBottomOffsetPx,
+            zIndex: isPaneTrackedMaximizedGitGraphWindow
+              ? TRACKED_PANE_CHAT_WINDOW_LAYER_Z_INDEX
+              : CHAT_WINDOW_LAYER_Z_INDEX,
+            ...(isPaneTrackedMaximizedGitGraphWindow && trackedGitPaneGraphRect
+              ? {
+                  left: trackedGitPaneGraphRect.left,
+                  top: trackedGitPaneGraphRect.top,
+                  width: trackedGitPaneGraphRect.width,
+                  height: trackedGitPaneGraphRect.height,
+                }
+              : {
+                  left: SIDE_RAIL_WIDTH_PX,
+                  right: SIDE_RAIL_WIDTH_PX,
+                  top: workspaceTopInsetPx,
+                  bottom: dockBottomOffsetPx,
+                }),
           }}
           data-testid="project-chat-maximized-window"
           data-chat-window-instance-id={openMaximizedWindow.instanceId}
+          data-chat-window-tracked-pane-target={
+            isPaneTrackedMaximizedGitGraphWindow ? "git_overview" : undefined
+          }
           data-chat-window-exit-animation={maximizedExitAnimation ?? undefined}
           data-chat-window-enter-animation={
             maximizedEnterAnimation ?? undefined
@@ -4389,17 +4488,22 @@ export function ProjectChatBottomDock() {
             ) : (
               <ProjectChatWindowSurface
                 title={openMaximizedWindow.title}
+                mode={openMaximizedWindow.mode}
                 instanceId={openMaximizedWindow.instanceId}
                 roundedClassName="rounded-none"
                 onTitleClick={() => {
                   handleFocusWindow(openMaximizedWindow.instanceId);
                 }}
-                onTitleCommit={(nextTitle) => {
-                  handleSetWindowTitle(
-                    openMaximizedWindow.instanceId,
-                    nextTitle,
-                  );
-                }}
+                onTitleCommit={
+                  openMaximizedWindow.mode === ChatWindowModeEnum.git_graph_mode
+                    ? undefined
+                    : (nextTitle) => {
+                        handleSetWindowTitle(
+                          openMaximizedWindow.instanceId,
+                          nextTitle,
+                        );
+                      }
+                }
                 actions={[
                   {
                     key: "show_in_canvas",
@@ -4457,10 +4561,20 @@ export function ProjectChatBottomDock() {
                   },
                 ]}
               >
-                <UnifiedChatSurface
-                  mode={ChatWindowModeEnum.project_ai_mode}
-                  host={ChatWindowPlacementEnum.maximized}
-                />
+                {openMaximizedWindow.mode ===
+                ChatWindowModeEnum.git_graph_mode ? (
+                  <GitGraphWindowContent
+                    instanceId={openMaximizedWindow.instanceId}
+                    showEmbeddedGitPaneToggle={
+                      !isPaneTrackedMaximizedGitGraphWindow
+                    }
+                  />
+                ) : (
+                  <UnifiedChatSurface
+                    mode={openMaximizedWindow.mode}
+                    host={ChatWindowPlacementEnum.maximized}
+                  />
+                )}
               </ProjectChatWindowSurface>
             )}
           </article>

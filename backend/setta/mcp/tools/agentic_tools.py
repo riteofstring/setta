@@ -7,13 +7,13 @@ from setta.agentic.agentic_scope import (
     normalize_linked_chat_invocation_chain_section_ids,
     normalize_linked_chat_invocation_depth,
 )
-from setta.agentic.linked_chat_invocation import (
-    invoke_linked_chat as invoke_linked_chat_impl,
-)
 from setta.agentic.completion_report import (
     CheckResult,
     CompletionStatusReport,
     build_completion_status_report,
+)
+from setta.agentic.linked_chat_invocation import (
+    invoke_linked_chat as invoke_linked_chat_impl,
 )
 from setta.agentic.store import load_agent_profiles
 from setta.frontend_affinity_token import parse_frontend_affinity_token

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
+  denormalizeFloatingBounds,
+  normalizeFloatingBounds,
   resolveFloatingSnapPresetFromBounds,
   type FloatingWindowBoundaryInsets,
 } from "./projectChatSnapLayout";
@@ -239,6 +241,42 @@ describe("project chat snap layout helpers", () => {
         width: 760,
         height: 480,
       },
+    });
+  });
+
+  it("round-trips normalized floating bounds across different viewport sizes", () => {
+    // Serialized window-space bounds should preserve relative layout when rehydrated elsewhere.
+    const normalized = normalizeFloatingBounds(
+      {
+        x: 160,
+        y: 120,
+        width: 640,
+        height: 420,
+      },
+      1200,
+      900,
+      TEST_INSETS,
+    );
+
+    expect(normalized).toEqual({
+      x: 120 / 1120,
+      y: 80 / 860,
+      width: 640 / 1120,
+      height: 420 / 860,
+    });
+
+    expect(
+      denormalizeFloatingBounds(normalized, 1600, 1000, {
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0,
+      }),
+    ).toEqual({
+      x: (120 / 1120) * 1600,
+      y: (80 / 860) * 1000,
+      width: (640 / 1120) * 1600,
+      height: (420 / 860) * 1000,
     });
   });
 });

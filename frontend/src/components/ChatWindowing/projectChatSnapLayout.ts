@@ -1,4 +1,7 @@
-import { type ChatWindowBounds } from "utils/generatedTypes";
+import {
+  type ChatWindowBounds,
+  type NormalizedFloatingWindowBounds,
+} from "utils/generatedTypes";
 
 export type FloatingSnapPreset =
   | "left"
@@ -17,7 +20,7 @@ export type FloatingWindowBoundaryInsets = {
   bottom: number;
 };
 
-export type SnappedFloatingWindow = {
+type SnappedFloatingWindow = {
   instanceId: string;
   bounds: ChatWindowBounds;
   snapPreset: FloatingSnapPreset;
@@ -32,7 +35,7 @@ export type FloatingSnapResizeHandle = {
   trailingInstanceIds: string[];
 };
 
-export type FloatingSnapResizeState = {
+type FloatingSnapResizeState = {
   axis: FloatingSnapResizeHandle["axis"];
   coordinate: number;
   leadingInstanceIds: string[];
@@ -76,6 +79,19 @@ function getBoundaryRect(
     minY,
     maxY,
   };
+}
+
+function clampFraction(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  if (value <= 0) {
+    return 0;
+  }
+  if (value >= 1) {
+    return 1;
+  }
+  return value;
 }
 
 function areClose(
@@ -255,6 +271,54 @@ export function buildFloatingSnapBounds(
     y: minY + halfHeight,
     width: halfWidth,
     height: halfHeight,
+  };
+}
+
+export function normalizeFloatingBounds(
+  bounds: ChatWindowBounds,
+  viewportWidthPx: number,
+  viewportHeightPx: number,
+  insets: FloatingWindowBoundaryInsets,
+): NormalizedFloatingWindowBounds {
+  const { minX, maxX, minY, maxY } = getBoundaryRect(
+    viewportWidthPx,
+    viewportHeightPx,
+    insets,
+  );
+  const availableWidthPx = Math.max(1, maxX - minX);
+  const availableHeightPx = Math.max(1, maxY - minY);
+  return {
+    x: clampFraction((bounds.x - minX) / availableWidthPx),
+    y: clampFraction((bounds.y - minY) / availableHeightPx),
+    width: clampFraction(bounds.width / availableWidthPx),
+    height: clampFraction(bounds.height / availableHeightPx),
+  };
+}
+
+export function denormalizeFloatingBounds(
+  normalizedBounds: NormalizedFloatingWindowBounds,
+  viewportWidthPx: number,
+  viewportHeightPx: number,
+  insets: FloatingWindowBoundaryInsets,
+): ChatWindowBounds {
+  const { minX, maxX, minY, maxY } = getBoundaryRect(
+    viewportWidthPx,
+    viewportHeightPx,
+    insets,
+  );
+  const availableWidthPx = Math.max(1, maxX - minX);
+  const availableHeightPx = Math.max(1, maxY - minY);
+  return {
+    x: minX + availableWidthPx * clampFraction(normalizedBounds.x),
+    y: minY + availableHeightPx * clampFraction(normalizedBounds.y),
+    width: Math.max(
+      1,
+      availableWidthPx * clampFraction(normalizedBounds.width),
+    ),
+    height: Math.max(
+      1,
+      availableHeightPx * clampFraction(normalizedBounds.height),
+    ),
   };
 }
 
