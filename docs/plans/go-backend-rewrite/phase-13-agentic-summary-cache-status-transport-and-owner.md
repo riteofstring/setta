@@ -92,7 +92,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /updateEngineConfig`
   - `POST /createTranscriptionProfile`
   - `POST /updateTranscriptionProfile`
   - `POST /deleteTranscriptionProfile`
@@ -112,7 +111,6 @@ Remaining Python-owned agentic routes outside this slice:
 - `POST /createExternalAgentConfig`
 - `POST /updateExternalAgentConfig`
 - `POST /deleteExternalAgentConfig`
-- `POST /updateEngineConfig`
 - `POST /createTranscriptionProfile`
 - `POST /updateTranscriptionProfile`
 - `POST /deleteTranscriptionProfile`
@@ -216,7 +214,9 @@ This slice delivered:
   `phase-13-engine-config-read-transport.md`
 - the transcription-profile hydration follow-up is now landed in
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
-- open the next bounded Phase 13 doc around `POST /updateEngineConfig`
+- the engine-config update follow-up is now landed in
+  `phase-13-engine-config-update-transport.md`
+- open the next bounded Phase 13 doc around agent-profile CRUD transport
 - keep `getAgentProfile`, `getAgentRun`, `getPromptTemplate`,
   `getExternalAgentConfig`, and `getEngineConfig` deferred until a concrete
   caller makes one of them higher leverage than the remaining direct frontend

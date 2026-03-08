@@ -110,7 +110,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /updateEngineConfig`
   - `POST /createTranscriptionProfile`
   - `POST /updateTranscriptionProfile`
   - `POST /deleteTranscriptionProfile`
@@ -228,6 +227,8 @@ This slice delivered:
   `phase-13-engine-config-read-transport.md`
 - the transcription-profile hydration follow-up is now landed in
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
-- open the next bounded Phase 13 doc around `POST /updateEngineConfig` and keep
-  the remaining write routes separate unless a dependency forces them to
+- the engine-config update follow-up is now landed in
+  `phase-13-engine-config-update-transport.md`
+- open the next bounded Phase 13 doc around agent-profile CRUD transport and
+  keep the remaining write routes separate unless a dependency forces them to
   combine

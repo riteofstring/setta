@@ -366,6 +366,91 @@ func TestEngineStoreRejectsInvalidPayload(t *testing.T) {
 	}
 }
 
+func TestEngineStoreUpdateReplacesPersistedConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	settaConfigID := "claude-sonnet"
+	if err := store.Write([]EngineConfig{
+		{
+			ID:               "engine-primary",
+			Name:             "Primary",
+			EngineType:       EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	externalConfigID := "external-codex"
+	updated, err := store.Update(EngineConfig{
+		ID:                    "engine-primary",
+		Name:                  "Primary updated",
+		EngineType:            EngineTypeExternalAgent,
+		ExternalAgentConfigID: &externalConfigID,
+	})
+	if err != nil {
+		t.Fatalf("update engine config: %v", err)
+	}
+	if updated.Name != "Primary updated" {
+		t.Fatalf("expected updated name, got %#v", updated)
+	}
+	if updated.ExternalAgentConfigID == nil || *updated.ExternalAgentConfigID != externalConfigID {
+		t.Fatalf("expected updated external config id, got %#v", updated)
+	}
+
+	loaded, err := store.Get("engine-primary")
+	if err != nil {
+		t.Fatalf("load updated engine config: %v", err)
+	}
+	if loaded.Name != "Primary updated" {
+		t.Fatalf("expected persisted updated config, got %#v", loaded)
+	}
+	if loaded.EngineType != EngineTypeExternalAgent {
+		t.Fatalf("expected persisted external-agent engine type, got %#v", loaded)
+	}
+}
+
+func TestEngineStoreUpdateRejectsMissingAndInvalidConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	if err := store.Write([]EngineConfig{
+		{
+			ID:         "engine-primary",
+			Name:       "Primary",
+			EngineType: EngineTypeSettaLLM,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	_, err = store.Update(EngineConfig{
+		ID:         "engine-missing",
+		Name:       "Missing",
+		EngineType: EngineTypeSettaLLM,
+	})
+	if !errors.Is(err, ErrEngineConfigNotFound) {
+		t.Fatalf("expected missing engine config error, got %v", err)
+	}
+
+	_, err = store.Update(EngineConfig{
+		ID:   "engine-primary",
+		Name: "Primary",
+	})
+	if !errors.Is(err, ErrInvalidEngineConfig) {
+		t.Fatalf("expected invalid engine config error, got %v", err)
+	}
+}
+
 func stringPtr(value string) *string {
 	return &value
 }

@@ -64,7 +64,8 @@ Current frontend behavior relevant to scoping:
 
 - the current startup/hydration path only needs the full engine-config list
 - no direct frontend caller in the current worktree uses `POST /getEngineConfig`
-- direct engine mutation callers still use `POST /updateEngineConfig`
+- direct engine mutation callers still used `POST /updateEngineConfig` when
+  this read slice was planned
 - websocket `EngineConfigsUpdated` exists, but current same-tab hydration and
   mutation flows do not require broadcast parity for this read slice
 - current callers are in IDE/settings/chat surfaces; no concrete share-mode
@@ -94,7 +95,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /updateEngineConfig`
   - `POST /createTranscriptionProfile`
   - `POST /updateTranscriptionProfile`
   - `POST /deleteTranscriptionProfile`
@@ -170,9 +170,8 @@ This slice delivered:
    - Leave engine-config mutation/broadcast work to a later bounded slice.
 
 5. Keep the follow-up bounded.
-   - After this read slice lands, move to the next bounded write transport such
-     as `POST /updateEngineConfig` instead of bundling multiple CRUD surfaces
-     together.
+   - After this read slice lands, move to the next bounded write transport
+     instead of bundling multiple CRUD surfaces together.
 
 ## Verification
 
@@ -201,6 +200,8 @@ This slice delivered:
 
 - the transcription-profile hydration follow-up is now landed in
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
-- open the next bounded Phase 13 doc around `POST /updateEngineConfig` and keep
-  the remaining CRUD clusters separate unless a dependency forces them to
+- the engine-config update follow-up is now landed in
+  `phase-13-engine-config-update-transport.md`
+- open the next bounded Phase 13 doc around agent-profile CRUD transport and
+  keep the remaining CRUD clusters separate unless a dependency forces them to
   combine

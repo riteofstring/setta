@@ -489,12 +489,17 @@ Use the docs in this order:
   - focused completed-slice doc for the bounded transcription-profile
     hydration gap: Go-owned `GET /getTranscriptionProfiles` transport plus a
     live capability owner over `internal/llmconfig.Runtime`
-148. `spike-mcp.md`
+148. `phase-13-engine-config-update-transport.md`
+  - focused completed-slice doc for the bounded engine-config write gap:
+    Go-owned `POST /updateEngineConfig` transport over the landed
+    `internal/agentruns.EngineStore`, with websocket fan-out intentionally
+    deferred
+149. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-149. `spike-pty.md`
+150. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-150. `spike-lsp.md`
+151. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

@@ -127,6 +127,14 @@ func (c EngineConfig) normalized() (EngineConfig, error) {
 	return normalized, nil
 }
 
+func NormalizeEngineConfig(config EngineConfig) (EngineConfig, error) {
+	normalized, err := config.normalized()
+	if err != nil {
+		return EngineConfig{}, fmt.Errorf("%w: %v", ErrInvalidEngineConfig, err)
+	}
+	return normalized, nil
+}
+
 func (r Run) normalized() (Run, error) {
 	normalized := Run{
 		ID:        strings.TrimSpace(r.ID),

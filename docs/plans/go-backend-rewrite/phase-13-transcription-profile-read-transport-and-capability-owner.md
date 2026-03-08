@@ -108,7 +108,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /updateEngineConfig`
   - `POST /createTranscriptionProfile`
   - `POST /updateTranscriptionProfile`
   - `POST /deleteTranscriptionProfile`
@@ -215,7 +214,9 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded Phase 13 doc around `POST /updateEngineConfig` over the
-  already-landed Go engine store
-- keep the agent-profile, external-agent-config, and transcription-profile CRUD
-  clusters separate unless a dependency forces them to combine
+- the engine-config update follow-up is now landed in
+  `phase-13-engine-config-update-transport.md`
+- open the next bounded Phase 13 doc around agent-profile CRUD transport over
+  the already-landed Go agent-profile store
+- keep the external-agent-config and transcription-profile CRUD clusters
+  separate unless a dependency forces them to combine

@@ -97,7 +97,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /updateEngineConfig`
   - `POST /createTranscriptionProfile`
   - `POST /updateTranscriptionProfile`
   - `POST /deleteTranscriptionProfile`
@@ -220,5 +219,7 @@ This slice delivered:
   `phase-13-engine-config-read-transport.md`
 - the transcription-profile hydration follow-up is now landed in
   `phase-13-transcription-profile-read-transport-and-capability-owner.md`
-- the next bounded direct frontend dependency is `POST /updateEngineConfig`
-  over the already-landed Go engine store
+- the engine-config update follow-up is now landed in
+  `phase-13-engine-config-update-transport.md`
+- the next bounded direct frontend dependency is agent-profile CRUD transport
+  over the already-landed Go agent-profile store

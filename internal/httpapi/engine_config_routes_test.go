@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -116,12 +117,166 @@ func TestRegisterEngineConfigRoutesReturnsInternalErrorForInvalidPayload(t *test
 	}
 }
 
+func TestRegisterEngineConfigRoutesUpdatesConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	settaConfigID := "claude-sonnet"
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-1",
+			Name:             "Claude",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: &settaConfigID,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateEngineConfig,
+		strings.NewReader(`{"config":{"id":"engine-1","name":"Codex","engineType":"external_agent","externalAgentConfigId":"external-codex"}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var updated agentruns.EngineConfig
+	if err := json.Unmarshal(response.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode updated config: %v", err)
+	}
+	if updated.Name != "Codex" || updated.EngineType != agentruns.EngineTypeExternalAgent {
+		t.Fatalf("unexpected updated engine config %#v", updated)
+	}
+	if updated.ExternalAgentConfigID == nil || *updated.ExternalAgentConfigID != "external-codex" {
+		t.Fatalf("expected updated external agent config id, got %#v", updated)
+	}
+
+	persisted, err := store.Get("engine-1")
+	if err != nil {
+		t.Fatalf("load persisted engine config: %v", err)
+	}
+	if persisted.Name != "Codex" || persisted.EngineType != agentruns.EngineTypeExternalAgent {
+		t.Fatalf("unexpected persisted engine config %#v", persisted)
+	}
+}
+
+func TestRegisterEngineConfigRoutesReturnsNotFoundForMissingConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateEngineConfig,
+		strings.NewReader(`{"config":{"id":"engine-missing","name":"Claude","engineType":"setta_llm"}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "engine_config_not_found" {
+		t.Fatalf("expected engine_config_not_found, got %#v", payload)
+	}
+}
+
+func TestRegisterEngineConfigRoutesRejectsInvalidJSON(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateEngineConfig, strings.NewReader(`{"config"`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json, got %#v", payload)
+	}
+}
+
+func TestRegisterEngineConfigRoutesRejectsMissingConfigPayload(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateEngineConfig, strings.NewReader(`{}`))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "engine_config_required" {
+		t.Fatalf("expected engine_config_required, got %#v", payload)
+	}
+}
+
+func TestRegisterEngineConfigRoutesRejectsInvalidConfigPayload(t *testing.T) {
+	t.Parallel()
+
+	store := newEngineConfigRouteTestStore(t)
+	if err := store.Write([]agentruns.EngineConfig{
+		{
+			ID:         "engine-1",
+			Name:       "Claude",
+			EngineType: agentruns.EngineTypeSettaLLM,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+	handler := newEngineConfigRouteTestHandler(t, config.ModeIDE, store)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteUpdateEngineConfig,
+		strings.NewReader(`{"config":{"id":"engine-1","name":"Claude"}}`),
+	)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_engine_config" {
+		t.Fatalf("expected invalid_engine_config, got %#v", payload)
+	}
+}
+
 func TestRegisterEngineConfigRoutesBlocksShareMode(t *testing.T) {
 	t.Parallel()
 
 	store := newEngineConfigRouteTestStore(t)
 	handler := newEngineConfigRouteTestHandler(t, config.ModeShare, store)
-	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetEngineConfigs, nil)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteUpdateEngineConfig, strings.NewReader(`{}`))
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)

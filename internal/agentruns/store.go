@@ -22,6 +22,7 @@ const (
 
 var (
 	ErrRootRequired         = errors.New("agent runs root is required")
+	ErrInvalidEngineConfig  = errors.New("invalid engine config")
 	ErrEngineConfigNotFound = errors.New("engine config not found")
 	ErrRunNotFound          = errors.New("agent run not found")
 )
@@ -113,6 +114,31 @@ func (s *EngineStore) Write(configs []EngineConfig) error {
 		return fmt.Errorf("write engine configs: %w", err)
 	}
 	return nil
+}
+
+func (s *EngineStore) Update(config EngineConfig) (EngineConfig, error) {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return EngineConfig{}, ErrRootRequired
+	}
+	normalized, err := NormalizeEngineConfig(config)
+	if err != nil {
+		return EngineConfig{}, err
+	}
+	configs, err := s.List()
+	if err != nil {
+		return EngineConfig{}, err
+	}
+	for index, entry := range configs {
+		if entry.ID != normalized.ID {
+			continue
+		}
+		configs[index] = normalized
+		if err := s.Write(configs); err != nil {
+			return EngineConfig{}, err
+		}
+		return normalized, nil
+	}
+	return EngineConfig{}, fmt.Errorf("%w: %q", ErrEngineConfigNotFound, normalized.ID)
 }
 
 func NewRunStore(root string) (*RunStore, error) {
