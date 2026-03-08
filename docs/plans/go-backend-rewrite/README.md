@@ -271,11 +271,15 @@ Use the docs in this order:
 95. `phase-7-runtime-surface-inventory.md`
   - entry inventory doc for the remaining Python-owned non-MCP backend runtime
     surface after the completed Phase 6 MCP closeout
-96. `spike-mcp.md`
+96. `phase-7-deployment-publish-and-list-runtime.md`
+  - focused implementation-plan doc for the first bounded Phase 7 slice:
+    Go-owned share/app deployment publication and metadata listing above the
+    completed deployment runtime/session read foundation
+97. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-97. `spike-pty.md`
+98. `spike-pty.md`
    - PTY uncertainty-reduction plan
-98. `spike-lsp.md`
+99. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

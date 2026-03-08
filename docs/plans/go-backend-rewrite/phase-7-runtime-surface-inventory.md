@@ -24,11 +24,13 @@ Current repo status as of 2026-03-08:
   - launcher installation and status management
   - share/app deployment publish and listing flows
   - bootstrap and launcher-origin handoff behavior around launched workspaces
+- nothing is currently in progress in the worktree
 
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
 - `docs/plans/go-backend-rewrite/phase-6-post-project-state-mcp-surface-inventory.md`
+- `docs/reference/sharing-mode-vs-ide-mode.md`
 - `backend/setta/routers/launch.py`
 - `backend/setta/routers/launcher_home.py`
 - `backend/setta/routers/status.py`
@@ -45,6 +47,21 @@ Current repo status as of 2026-03-08:
    - the Python routers for `launch.py`, `launcher_home.py`, and launcher parts
      of `status.py` expose workspace launch, recent-workspace storage, launcher
      installation/update/remove, and launcher-mode filesystem browsing
+   - current route overlap includes:
+     - `/launch`
+     - `/createWorkspaceLaunchIntent`
+     - `/launcherStatus`
+     - `/setupLauncher`
+     - `/repairLauncher`
+     - `/removeLauncher`
+     - `/updateLauncher`
+     - `/launcherRecentWorkspaces`
+     - `/addLauncherRecentWorkspace`
+     - `/removeLauncherRecentWorkspace`
+     - `/pinLauncherRecentWorkspace`
+     - `/launcherFilesystemRoots`
+     - `/listLauncherDirectory`
+     - `/openLauncherWorkspace`
    - there is no obvious Go HTTP route cluster that owns those flows today
 
 2. Deployment runtime has partial Go ownership
@@ -52,6 +69,23 @@ Current repo status as of 2026-03-08:
      and app deployments
    - Python still owns deployment publication plus deployment listing/latest
      metadata routes in `share_deployments.py` and `app_deployments.py`
+   - current missing route overlap includes:
+     - `GET /share/deployments`
+     - `GET /share/deployments/{deploymentName}/versions`
+     - `GET /share/deployments/{deploymentName}/latest`
+     - `POST /share/deployments`
+     - `GET /app/deployments`
+     - `GET /app/deployments/{deploymentName}/versions`
+     - `GET /app/deployments/{deploymentName}/latest`
+     - `POST /app/deployments`
+   - Python tests show that this slice depends on:
+     - publish-time copy/rebase of artifacts, code files, and structured-data
+       sources into the deployment root
+     - share/app policy defaults and `runSnapshotMode != never`
+     - monotonically increasing deployment version directories per deployment
+       name
+     - app-spec copy/rebase for app deployments
+     - optional listener entrypoint copy into `listener/app.py`
 
 3. Bootstrap and launcher-origin handoff are still tied to Python routers
    - `backend/setta/routers/bootstrap.py` still carries launcher-origin trust
@@ -66,15 +100,19 @@ Current repo status as of 2026-03-08:
   owner cluster with clear persistence/process boundaries
 - prefer a cluster that already has partial Go runtime support underneath it
   when that yields a smaller and more coherent first Phase 7 slice
+- treat deployment publication/listing as the strongest first Phase 7
+  candidate because Go already owns the deployment manifest/policy/session
+  runtime below it
+- keep launcher/bootstrap work deferred until deployment publication/listing is
+  scoped cleanly, because launcher still spans auth handoff, filesystem
+  browsing, OS integration, and origin-trust behavior
 
 ## Recommended Next Step
 
-Execute a focused inventory and scoping pass for launcher/runtime-control and
-deployment publication/listing routes, then choose the smaller coherent entry
-slice.
+Move to the dedicated deployment publication/listing implementation-plan doc in
+`phase-7-deployment-publish-and-list-runtime.md`.
 
-The current recommended option is to start with the deployment publication and
-listing cluster because:
+That is now the highest-leverage next step because:
 
 - Go already owns `internal/deployments` plus deployment read/session routes
 - that makes publish/list parity a smaller extension of an existing Go runtime
@@ -82,6 +120,13 @@ listing cluster because:
   boundary
 - launcher/bootstrap work still appears to span more OS integration, auth
   handoff, and frontend-origin trust behavior
+
+## Progress Notes
+
+- 2026-03-08: completed the first Phase 7 runtime inventory pass and confirmed
+  that the best bounded entry slice is share/app deployment publication and
+  metadata listing above the already completed Go deployment session/state
+  runtime.
 
 ## Verification
 
