@@ -375,6 +375,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	var agentRunService *agentruns.Service
+	var pluginMutationService *plugins.Service
 	if modePolicy.IsIDE() && projectRuntime != nil {
 		engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
@@ -423,6 +424,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			LLM:                    llmRuntime,
 			TemporaryIDs:           temporaryIDs,
 			CompletionGuardEnabled: true,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			SettaHome:      cfg.Paths.SettaHome,
+			ServerMode:     cfg.Server.Mode,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -489,6 +500,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			SettingsState:                  settingsRuntime,
 			SectionNames:                   renameRefactors,
 			CallableSignatures:             lspSignature,
+			PluginMutations:                pluginMutationService,
 			LSPDiagnostics:                 lspDiagnostics,
 			MCPStatuses:                    mcpClient,
 			Terminals:                      terminalService,

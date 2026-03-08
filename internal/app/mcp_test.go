@@ -99,8 +99,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 72 {
-		t.Fatalf("expected 72 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 77 {
+		t.Fatalf("expected 77 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -118,8 +118,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 72 {
-		t.Fatalf("expected 72 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 77 {
+		t.Fatalf("expected 77 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -160,6 +160,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "get_ui_setting_value") {
 		t.Fatalf("expected get_ui_setting_value in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "install_plugin") {
+		t.Fatalf("expected install_plugin in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "list_app_components") {
 		t.Fatalf("expected list_app_components in registered tool names, got %#v", rawNames)
 	}
@@ -169,8 +172,14 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "report_completion_status") {
 		t.Fatalf("expected report_completion_status in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "rescan_plugins") {
+		t.Fatalf("expected rescan_plugins in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "reveal_ui_setting") {
 		t.Fatalf("expected reveal_ui_setting in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "rollback_plugin") {
+		t.Fatalf("expected rollback_plugin in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "run_agent_profile") {
 		t.Fatalf("expected run_agent_profile in registered tool names, got %#v", rawNames)
@@ -202,8 +211,14 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
 		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "uninstall_plugin") {
+		t.Fatalf("expected uninstall_plugin in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "set_ui_setting_value") {
 		t.Fatalf("expected set_ui_setting_value in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "update_plugin") {
+		t.Fatalf("expected update_plugin in registered tool names, got %#v", rawNames)
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{

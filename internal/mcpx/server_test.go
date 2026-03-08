@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 72 {
-		t.Fatalf("expected 72 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 77 {
+		t.Fatalf("expected 77 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -169,6 +169,11 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var listAgentProfilesTool *sdkmcp.Tool
 	var getAgentProfileTool *sdkmcp.Tool
 	var runAgentProfileTool *sdkmcp.Tool
+	var installPluginTool *sdkmcp.Tool
+	var uninstallPluginTool *sdkmcp.Tool
+	var rescanPluginsTool *sdkmcp.Tool
+	var updatePluginTool *sdkmcp.Tool
+	var rollbackPluginTool *sdkmcp.Tool
 	var getAppDefinitionTool *sdkmcp.Tool
 	var validateAppDefinitionTool *sdkmcp.Tool
 	var setAppDefinitionTool *sdkmcp.Tool
@@ -267,6 +272,21 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "run_agent_profile" {
 			runAgentProfileTool = tool
+		}
+		if tool.Name == "install_plugin" {
+			installPluginTool = tool
+		}
+		if tool.Name == "uninstall_plugin" {
+			uninstallPluginTool = tool
+		}
+		if tool.Name == "rescan_plugins" {
+			rescanPluginsTool = tool
+		}
+		if tool.Name == "update_plugin" {
+			updatePluginTool = tool
+		}
+		if tool.Name == "rollback_plugin" {
+			rollbackPluginTool = tool
 		}
 		if tool.Name == "get_app_definition" {
 			getAppDefinitionTool = tool
@@ -408,12 +428,15 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"get_mcp_server_runtime_status",
 		"get_setta_docs",
 		"get_ui_setting_value",
+		"install_plugin",
 		"list_agent_profiles",
 		"list_app_components",
 		"list_mcp_tools",
 		"read_file_range",
 		"report_completion_status",
+		"rescan_plugins",
 		"reveal_ui_setting",
+		"rollback_plugin",
 		"run_agent_profile",
 		"search_mcp_tools",
 		"search_ui_settings",
@@ -451,8 +474,10 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"toggle_group_orientation",
 		"toggle_minimized",
 		"toggle_position_locks",
+		"uninstall_plugin",
 		"update_app_definition",
 		"update_param_impl_config",
+		"update_plugin",
 		"validate_app_definition",
 	}
 	for index, name := range expectedNames {
@@ -520,6 +545,21 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if runAgentProfileTool == nil {
 		t.Fatal("expected run_agent_profile tool")
+	}
+	if installPluginTool == nil {
+		t.Fatal("expected install_plugin tool")
+	}
+	if uninstallPluginTool == nil {
+		t.Fatal("expected uninstall_plugin tool")
+	}
+	if rescanPluginsTool == nil {
+		t.Fatal("expected rescan_plugins tool")
+	}
+	if updatePluginTool == nil {
+		t.Fatal("expected update_plugin tool")
+	}
+	if rollbackPluginTool == nil {
+		t.Fatal("expected rollback_plugin tool")
 	}
 	if getAppDefinitionTool == nil {
 		t.Fatal("expected get_app_definition tool")
@@ -819,6 +859,41 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if paths, ok := runAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected run_agent_profile to have no id target paths, got %#v", paths)
 	}
+	installPluginMeta := mustStructuredMap(t, installPluginTool.Meta[toolMetaNamespace])
+	if installPluginMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for install_plugin, got %#v", installPluginMeta["accessType"])
+	}
+	if paths, ok := installPluginMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected install_plugin to have no id target paths, got %#v", paths)
+	}
+	uninstallPluginMeta := mustStructuredMap(t, uninstallPluginTool.Meta[toolMetaNamespace])
+	if uninstallPluginMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for uninstall_plugin, got %#v", uninstallPluginMeta["accessType"])
+	}
+	if paths, ok := uninstallPluginMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected uninstall_plugin to have no id target paths, got %#v", paths)
+	}
+	rescanPluginsMeta := mustStructuredMap(t, rescanPluginsTool.Meta[toolMetaNamespace])
+	if rescanPluginsMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for rescan_plugins, got %#v", rescanPluginsMeta["accessType"])
+	}
+	if paths, ok := rescanPluginsMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected rescan_plugins to have no id target paths, got %#v", paths)
+	}
+	updatePluginMeta := mustStructuredMap(t, updatePluginTool.Meta[toolMetaNamespace])
+	if updatePluginMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for update_plugin, got %#v", updatePluginMeta["accessType"])
+	}
+	if paths, ok := updatePluginMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected update_plugin to have no id target paths, got %#v", paths)
+	}
+	rollbackPluginMeta := mustStructuredMap(t, rollbackPluginTool.Meta[toolMetaNamespace])
+	if rollbackPluginMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for rollback_plugin, got %#v", rollbackPluginMeta["accessType"])
+	}
+	if paths, ok := rollbackPluginMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected rollback_plugin to have no id target paths, got %#v", paths)
+	}
 	getAppDefinitionMeta := mustStructuredMap(t, getAppDefinitionTool.Meta[toolMetaNamespace])
 	if getAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for get_app_definition, got %#v", getAppDefinitionMeta["accessType"])
@@ -1065,8 +1140,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 72 {
-		t.Fatalf("expected 72 registered tool names, got %#v", listNames)
+	if len(listNames) != 77 {
+		t.Fatalf("expected 77 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

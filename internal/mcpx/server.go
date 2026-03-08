@@ -38,6 +38,7 @@ type Server struct {
 	logger               *slog.Logger
 	registry             *tools.Registry
 	projectState         projectStateProvider
+	pluginMutations      pluginMutationProvider
 	lspDiagnostics       lspDiagnosticsProvider
 	mcpStatuses          mcpStatusProvider
 	terminals            terminalHistoryProvider
@@ -64,6 +65,7 @@ type ServerOptions struct {
 	SettingsState                  settingsStateProvider
 	SectionNames                   sectionNameProvider
 	CallableSignatures             projectstate.CallableSignatureResolver
+	PluginMutations                pluginMutationProvider
 	LSPDiagnostics                 lspDiagnosticsProvider
 	MCPStatuses                    mcpStatusProvider
 	Terminals                      terminalHistoryProvider
@@ -173,6 +175,14 @@ type agentRunProvider interface {
 	RunSubAgent(ctx context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error)
 }
 
+type pluginMutationProvider interface {
+	Rescan() (plugins.DiscoverySnapshot, error)
+	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
+	Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error)
+	Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
+	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
+}
+
 type listMCPToolsResult struct {
 	Tools []string `json:"tools"`
 }
@@ -211,10 +221,15 @@ var unscopedToolNames = map[string]struct{}{
 	"list_app_components":           {},
 	"list_agent_profiles":           {},
 	"list_mcp_tools":                {},
+	"install_plugin":                {},
+	"rollback_plugin":               {},
+	"rescan_plugins":                {},
 	"run_agent_profile":             {},
 	"report_completion_status":      {},
 	"search_mcp_tools":              {},
 	"set_agentic_context":           {},
+	"uninstall_plugin":              {},
+	"update_plugin":                 {},
 }
 
 func (e *toolError) Error() string {
@@ -242,6 +257,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		logger:               opts.Logger,
 		registry:             registry,
 		projectState:         opts.ProjectState,
+		pluginMutations:      opts.PluginMutations,
 		lspDiagnostics:       opts.LSPDiagnostics,
 		mcpStatuses:          opts.MCPStatuses,
 		terminals:            opts.Terminals,
@@ -3206,6 +3222,137 @@ func defaultToolDefinitions(
 				"required": []string{"profileId"},
 			},
 			OutputSchema: agentRunSchema(),
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "install_plugin",
+				Description: "Install a plugin from a GitHub or PyPI source spec.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "plugins",
+					SearchTags:     []string{"plugin", "install", "github", "pypi", "structural"},
+				},
+				Handler: newInstallPluginHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"sourceSpec": map[string]any{
+						"type":        "string",
+						"description": "Plugin source spec such as github:owner/repo#ref or pypi:package==version.",
+					},
+					"scope":     pluginScopeSchema(),
+					"installer": pluginInstallerSchema(),
+					"enable": map[string]any{
+						"type":        "boolean",
+						"description": "Whether the plugin should be enabled immediately after install. Defaults to true.",
+					},
+					"force": map[string]any{
+						"type":        "boolean",
+						"description": "Whether an existing managed install target may be overwritten. Defaults to false.",
+					},
+				},
+				"required": []string{"sourceSpec"},
+			},
+			OutputSchema: pluginInstallResponseSchema(),
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "uninstall_plugin",
+				Description: "Uninstall a managed plugin by id.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "plugins",
+					SearchTags:     []string{"plugin", "uninstall", "remove", "structural"},
+				},
+				Handler: newUninstallPluginHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"pluginId": map[string]any{
+						"type":        "string",
+						"description": "Installed plugin id to remove.",
+					},
+					"scope": pluginScopeSchema(),
+				},
+				"required": []string{"pluginId"},
+			},
+			OutputSchema: pluginUninstallResponseSchema(),
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "rescan_plugins",
+				Description: "Rescan the managed plugin directories and return aggregate installed and active counts.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "plugins",
+					SearchTags:     []string{"plugin", "rescan", "refresh", "structural"},
+				},
+				Handler: newRescanPluginsHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: pluginsRescanResponseSchema(),
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "update_plugin",
+				Description: "Update a managed plugin to the latest source target or to an explicit requested version/ref.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "plugins",
+					SearchTags:     []string{"plugin", "update", "upgrade", "structural"},
+				},
+				Handler: newUpdatePluginHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"pluginId": map[string]any{
+						"type":        "string",
+						"description": "Installed plugin id to update.",
+					},
+					"scope": pluginScopeSchema(),
+					"to": map[string]any{
+						"type":        "string",
+						"description": "Optional explicit version, ref, or fully qualified source target.",
+					},
+				},
+				"required": []string{"pluginId"},
+			},
+			OutputSchema: pluginUpdateResponseSchema(),
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "rollback_plugin",
+				Description: "Restore a managed plugin from its most recent saved rollback snapshot.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "plugins",
+					SearchTags:     []string{"plugin", "rollback", "restore", "structural"},
+				},
+				Handler: newRollbackPluginHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"pluginId": map[string]any{
+						"type":        "string",
+						"description": "Installed plugin id to restore.",
+					},
+					"scope": pluginScopeSchema(),
+				},
+				"required": []string{"pluginId"},
+			},
+			OutputSchema: pluginRollbackResponseSchema(),
 		},
 	}
 
