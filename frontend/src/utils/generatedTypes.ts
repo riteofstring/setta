@@ -1009,6 +1009,16 @@ export type UpdateArtifactMsgContent = {
   updateType: "update" | "delete";
 };
 
+export type CodeFileBindingUpdate = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+};
+export function createCodeFileBindingUpdate(
+  options: Partial<CodeFileBindingUpdate> = {},
+): CodeFileBindingUpdate {
+  return options as CodeFileBindingUpdate;
+}
+
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -6740,6 +6750,11 @@ export type SetTextBlockDisplayModeRequestInput = {
   sectionId: string;
   textDisplayMode: TextBlockDisplayMode;
 };
+export function createSetTextBlockDisplayModeRequestInput(
+  options: Partial<SetTextBlockDisplayModeRequestInput> = {},
+): SetTextBlockDisplayModeRequestInput {
+  return options as SetTextBlockDisplayModeRequestInput;
+}
 
 export type SetTextBlockFormatRequestInput = {
   frontendOpId?: string | null;
@@ -6747,6 +6762,11 @@ export type SetTextBlockFormatRequestInput = {
   sectionId: string;
   format: TextBlockFormat;
 };
+export function createSetTextBlockFormatRequestInput(
+  options: Partial<SetTextBlockFormatRequestInput> = {},
+): SetTextBlockFormatRequestInput {
+  return options as SetTextBlockFormatRequestInput;
+}
 
 export type SetTextBlockHeadingAsSectionNameRequestInput = {
   frontendOpId?: string | null;
@@ -7615,6 +7635,11 @@ export type SetSpreadsheetSectionSettingsRequestInput = {
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
 };
+export function createSetSpreadsheetSectionSettingsRequestInput(
+  options: Partial<SetSpreadsheetSectionSettingsRequestInput> = {},
+): SetSpreadsheetSectionSettingsRequestInput {
+  return options as SetSpreadsheetSectionSettingsRequestInput;
+}
 
 export type SetTaskBoardSectionStateRequestInput = {
   frontendOpId?: string | null;
@@ -7667,6 +7692,11 @@ export type SetChartTypeRequestInput = {
   sectionId: string;
   chartType: ChartType;
 };
+export function createSetChartTypeRequestInput(
+  options: Partial<SetChartTypeRequestInput> = {},
+): SetChartTypeRequestInput {
+  return options as SetChartTypeRequestInput;
+}
 
 export type SetChartSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -7676,17 +7706,17 @@ export type SetChartSettingsRequestInput = {
   changedSettings: Array<string>;
 };
 
-export type CodeFileBindingUpdate = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-};
-
 export type SetCodeFileBindingRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   binding: CodeFileBindingUpdate;
 };
+export function createSetCodeFileBindingRequestInput(
+  options: Partial<SetCodeFileBindingRequestInput> = {},
+): SetCodeFileBindingRequestInput {
+  return options as SetCodeFileBindingRequestInput;
+}
 
 export type ToggleParamSelectedRequestInput = {
   frontendOpId?: string | null;

@@ -339,6 +339,16 @@ type BrowserAreaViewMode string
 
 type BrowserSearchScope string
 
+type SpreadsheetGridDensity string
+
+type ChartType string
+
+type TextBlockDisplayMode string
+
+type TextBlockFormat string
+
+type CodeFileAccessMode string
+
 type EdgePort struct {
 	ID       string `json:"id"`
 	Accessor string `json:"accessor"`
@@ -360,6 +370,11 @@ type BrowserSavedSearch struct {
 	TypeFilters BrowserSavedSearchTypeFilters `json:"typeFilters"`
 	Color       string                        `json:"color"`
 	QuickInfo   string                        `json:"quickInfo"`
+}
+
+type CodeFileBindingUpdate struct {
+	CanonicalPath string             `json:"canonical_path"`
+	AccessMode    CodeFileAccessMode `json:"access_mode"`
 }
 
 type SetSectionParamFilterRequestInput struct {
@@ -461,7 +476,15 @@ type SetSpreadsheetFilePathRequestInput struct {
 	ActiveSheet     *string `json:"activeSheet"`
 }
 
-type SetSpreadsheetSectionSettingsRequestInput struct{}
+type SetSpreadsheetSectionSettingsRequestInput struct {
+	FrontendOpID               *string                `json:"frontendOpId,omitempty"`
+	ProjectConfigID            string                 `json:"projectConfigId"`
+	SectionID                  string                 `json:"sectionId"`
+	ReadOnly                   bool                   `json:"readOnly"`
+	ShowRowNumbers             bool                   `json:"showRowNumbers"`
+	Density                    SpreadsheetGridDensity `json:"density"`
+	AutoReloadOnExternalChange bool                   `json:"autoReloadOnExternalChange"`
+}
 
 type SetTaskBoardSectionStateRequestInput struct{}
 
@@ -488,7 +511,12 @@ type SetChartAreaDataPathRequestInput struct {
 	DataPath        string  `json:"dataPath"`
 }
 
-type SetChartTypeRequestInput struct{}
+type SetChartTypeRequestInput struct {
+	FrontendOpID    *string   `json:"frontendOpId,omitempty"`
+	ProjectConfigID string    `json:"projectConfigId"`
+	SectionID       string    `json:"sectionId"`
+	ChartType       ChartType `json:"chartType"`
+}
 
 type SetChartSettingsRequestInput struct{}
 
@@ -499,9 +527,19 @@ type SetTextBlockTextRequestInput struct {
 	Text            string  `json:"text"`
 }
 
-type SetTextBlockDisplayModeRequestInput struct{}
+type SetTextBlockDisplayModeRequestInput struct {
+	FrontendOpID    *string              `json:"frontendOpId,omitempty"`
+	ProjectConfigID string               `json:"projectConfigId"`
+	SectionID       string               `json:"sectionId"`
+	TextDisplayMode TextBlockDisplayMode `json:"textDisplayMode"`
+}
 
-type SetTextBlockFormatRequestInput struct{}
+type SetTextBlockFormatRequestInput struct {
+	FrontendOpID    *string         `json:"frontendOpId,omitempty"`
+	ProjectConfigID string          `json:"projectConfigId"`
+	SectionID       string          `json:"sectionId"`
+	Format          TextBlockFormat `json:"format"`
+}
 
 type SetTextBlockHeadingAsSectionNameRequestInput struct {
 	FrontendOpID         *string `json:"frontendOpId,omitempty"`
@@ -524,7 +562,12 @@ type SetTextBlockMasterFontSizeRequestInput struct {
 	MasterFontSizePx float64 `json:"masterFontSizePx"`
 }
 
-type SetCodeFileBindingRequestInput struct{}
+type SetCodeFileBindingRequestInput struct {
+	FrontendOpID    *string               `json:"frontendOpId,omitempty"`
+	ProjectConfigID string                `json:"projectConfigId"`
+	SectionID       string                `json:"sectionId"`
+	Binding         CodeFileBindingUpdate `json:"binding"`
+}
 
 type ViewportInput struct {
 	X    float64 `json:"x"`
@@ -720,18 +763,6 @@ export type SetSectionSizesRequestInput = {
 };
 `
 
-const setSpreadsheetSectionSettingsRequestInputRawTS = `
-export type SetSpreadsheetSectionSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-`
-
 const setTaskBoardSectionStateRequestInputRawTS = `
 export type SetTaskBoardSectionStateRequestInput = {
   frontendOpId?: string | null;
@@ -753,15 +784,6 @@ export type AppendDrawAreaLayerItemRequestInput = {
 };
 `
 
-const setChartTypeRequestInputRawTS = `
-export type SetChartTypeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartType: ChartType;
-};
-`
-
 const setChartSettingsRequestInputRawTS = `
 export type SetChartSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -769,38 +791,6 @@ export type SetChartSettingsRequestInput = {
   sectionId: string;
   chartSettings: BaseChartSettingsUnion;
   changedSettings: Array<string>;
-};
-`
-
-const setTextBlockDisplayModeRequestInputRawTS = `
-export type SetTextBlockDisplayModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  textDisplayMode: TextBlockDisplayMode;
-};
-`
-
-const setTextBlockFormatRequestInputRawTS = `
-export type SetTextBlockFormatRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  format: TextBlockFormat;
-};
-`
-
-const setCodeFileBindingRequestInputRawTS = `
-export type CodeFileBindingUpdate = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-};
-
-export type SetCodeFileBindingRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  binding: CodeFileBindingUpdate;
 };
 `
 

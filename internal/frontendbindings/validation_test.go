@@ -490,6 +490,19 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 			},
 		},
 		{
+			name: "SetSpreadsheetSectionSettingsRequestInput",
+			root: reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "readOnly", TypeExpr: "boolean", Optional: false},
+				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: false},
+				{Name: "density", TypeExpr: "SpreadsheetGridDensity", Optional: false},
+				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
 			name: "SetImageAreaImagePathRequestInput",
 			root: reflect.TypeOf(SetImageAreaImagePathRequestInput{}),
 			properties: []TypeProperty{
@@ -520,6 +533,16 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 			},
 		},
 		{
+			name: "SetChartTypeRequestInput",
+			root: reflect.TypeOf(SetChartTypeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "chartType", TypeExpr: "ChartType", Optional: false},
+			},
+		},
+		{
 			name: "SetTextBlockTextRequestInput",
 			root: reflect.TypeOf(SetTextBlockTextRequestInput{}),
 			properties: []TypeProperty{
@@ -527,6 +550,26 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
 				{Name: "sectionId", TypeExpr: "string", Optional: false},
 				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetTextBlockDisplayModeRequestInput",
+			root: reflect.TypeOf(SetTextBlockDisplayModeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode", Optional: false},
+			},
+		},
+		{
+			name: "SetTextBlockFormatRequestInput",
+			root: reflect.TypeOf(SetTextBlockFormatRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "format", TypeExpr: "TextBlockFormat", Optional: false},
 			},
 		},
 		{
@@ -559,6 +602,16 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 				{Name: "masterFontSizePx", TypeExpr: "number", Optional: false},
 			},
 		},
+		{
+			name: "SetCodeFileBindingRequestInput",
+			root: reflect.TypeOf(SetCodeFileBindingRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "binding", TypeExpr: "CodeFileBindingUpdate", Optional: false},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -576,6 +629,26 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
 			}
 		})
+	}
+}
+
+func TestProjectStateValueObjectContractsUseConverterObjects(t *testing.T) {
+	converter := newTypeConverter()
+	if err := converter.AddRootType(reflect.TypeOf(CodeFileBindingUpdate{})); err != nil {
+		t.Fatalf("AddRootType(CodeFileBindingUpdate) error = %v", err)
+	}
+
+	declaration := requireDeclaration(t, converter.Declarations(), "CodeFileBindingUpdate")
+	if declaration.Kind != "object" {
+		t.Fatalf("CodeFileBindingUpdate declaration kind = %q, want %q", declaration.Kind, "object")
+	}
+
+	expected := []TypeProperty{
+		{Name: "canonical_path", TypeExpr: "string", Optional: false},
+		{Name: "access_mode", TypeExpr: "CodeFileAccessMode", Optional: false},
+	}
+	if !reflect.DeepEqual(declaration.Properties, expected) {
+		t.Fatalf("CodeFileBindingUpdate properties = %#v, want %#v", declaration.Properties, expected)
 	}
 }
 
