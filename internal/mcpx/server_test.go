@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 66 {
-		t.Fatalf("expected 66 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 67 {
+		t.Fatalf("expected 67 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -168,6 +168,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setWatchCodeInputsTool *sdkmcp.Tool
 	var listAgentProfilesTool *sdkmcp.Tool
 	var getAgentProfileTool *sdkmcp.Tool
+	var runAgentProfileTool *sdkmcp.Tool
 	var getAppDefinitionTool *sdkmcp.Tool
 	var validateAppDefinitionTool *sdkmcp.Tool
 	var setAppDefinitionTool *sdkmcp.Tool
@@ -262,6 +263,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "get_agent_profile" {
 			getAgentProfileTool = tool
+		}
+		if tool.Name == "run_agent_profile" {
+			runAgentProfileTool = tool
 		}
 		if tool.Name == "get_app_definition" {
 			getAppDefinitionTool = tool
@@ -404,6 +408,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"report_completion_status",
+		"run_agent_profile",
 		"search_mcp_tools",
 		"set_agentic_context",
 		"set_app_definition",
@@ -503,6 +508,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if getAgentProfileTool == nil {
 		t.Fatal("expected get_agent_profile tool")
+	}
+	if runAgentProfileTool == nil {
+		t.Fatal("expected run_agent_profile tool")
 	}
 	if getAppDefinitionTool == nil {
 		t.Fatal("expected get_app_definition tool")
@@ -792,6 +800,13 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if paths, ok := getAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
 		t.Fatalf("expected get_agent_profile to have no id target paths, got %#v", paths)
 	}
+	runAgentProfileMeta := mustStructuredMap(t, runAgentProfileTool.Meta[toolMetaNamespace])
+	if runAgentProfileMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for run_agent_profile, got %#v", runAgentProfileMeta["accessType"])
+	}
+	if paths, ok := runAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected run_agent_profile to have no id target paths, got %#v", paths)
+	}
 	getAppDefinitionMeta := mustStructuredMap(t, getAppDefinitionTool.Meta[toolMetaNamespace])
 	if getAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for get_app_definition, got %#v", getAppDefinitionMeta["accessType"])
@@ -1034,8 +1049,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 66 {
-		t.Fatalf("expected 66 registered tool names, got %#v", listNames)
+	if len(listNames) != 67 {
+		t.Fatalf("expected 67 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

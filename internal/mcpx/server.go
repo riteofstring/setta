@@ -18,6 +18,7 @@ import (
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
+	"setta/internal/agentruns"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -43,6 +44,7 @@ type Server struct {
 	toolSearch           *tools.SearchIndex
 	temporaryIDs         *TemporaryIDStore
 	agentProfiles        agentProfileProvider
+	agentRuns            agentRunProvider
 	server               *sdkmcp.Server
 	handler              http.Handler
 	agenticContextMu     sync.RWMutex
@@ -66,6 +68,7 @@ type ServerOptions struct {
 	DocsRoot                       string
 	TemporaryIDMapPath             string
 	AgentProfiles                  agentProfileProvider
+	AgentRuns                      agentRunProvider
 }
 
 type toolDefinition struct {
@@ -157,6 +160,11 @@ type agentProfileProvider interface {
 	Get(profileID string) (agentprofiles.Profile, error)
 }
 
+type agentRunProvider interface {
+	Disabled() bool
+	RunSubAgent(ctx context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error)
+}
+
 type listMCPToolsResult struct {
 	Tools []string `json:"tools"`
 }
@@ -195,6 +203,7 @@ var unscopedToolNames = map[string]struct{}{
 	"list_app_components":           {},
 	"list_agent_profiles":           {},
 	"list_mcp_tools":                {},
+	"run_agent_profile":             {},
 	"report_completion_status":      {},
 	"search_mcp_tools":              {},
 	"set_agentic_context":           {},
@@ -229,6 +238,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		mcpStatuses:          opts.MCPStatuses,
 		terminals:            opts.Terminals,
 		agentProfiles:        opts.AgentProfiles,
+		agentRuns:            opts.AgentRuns,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
@@ -3106,6 +3116,34 @@ func defaultToolDefinitions(
 				"required": []string{"profileId"},
 			},
 			OutputSchema: agentProfileSchema(),
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "run_agent_profile",
+				Description: "Start a managed agent run using the specified stored profile and return the final persisted run.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "agentic",
+					SearchTags:     []string{"agent", "profile", "run", "managed", "execute"},
+				},
+				Handler: newRunAgentProfileHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"profileId": map[string]any{
+						"type":        "string",
+						"description": "Stored agent profile id to execute.",
+					},
+					"inputs": map[string]any{
+						"type":        "object",
+						"description": "Optional managed-run input payload passed through to the agent run service.",
+					},
+				},
+				"required": []string{"profileId"},
+			},
+			OutputSchema: agentRunSchema(),
 		},
 	}
 

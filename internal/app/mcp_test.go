@@ -99,8 +99,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 66 {
-		t.Fatalf("expected 66 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 67 {
+		t.Fatalf("expected 67 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -118,8 +118,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 66 {
-		t.Fatalf("expected 66 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 67 {
+		t.Fatalf("expected 67 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -162,6 +162,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "report_completion_status") {
 		t.Fatalf("expected report_completion_status in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "run_agent_profile") {
+		t.Fatalf("expected run_agent_profile in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_group_overflow_mode") {
 		t.Fatalf("expected set_group_overflow_mode in registered tool names, got %#v", rawNames)
@@ -574,6 +577,70 @@ func TestAppIDEMCPServerSupportsAgentProfileReadToolsOverAuthenticatedSSE(t *tes
 	profile := mustStructuredMapValue(t, getResult.StructuredContent)
 	if profile["name"] != "Alpha" {
 		t.Fatalf("expected Alpha profile, got %#v", profile)
+	}
+}
+
+func TestAppIDEMCPServerSupportsRunAgentProfileOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	engineConfigID := "engine-primary"
+	saveAppAgentProfiles(t, cfg, []agentprofiles.Profile{
+		{
+			ID:             "profile-alpha",
+			Name:           "Alpha",
+			Description:    "Primary profile",
+			SystemPrompt:   "You are alpha.",
+			EngineConfigID: &engineConfigID,
+			ToolAllowlist:  []string{},
+		},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "run_agent_profile",
+		Arguments: map[string]any{
+			"profileId": "profile-alpha",
+			"inputs": map[string]any{
+				"allowUnscoped": true,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call run_agent_profile: %v", err)
+	}
+	if !result.IsError {
+		t.Fatalf("expected disabled run_agent_profile to fail, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	if payload["code"] != "internal_error" {
+		t.Fatalf("expected internal_error code, got %#v", payload["code"])
+	}
+	if payload["message"] != "Agent runner is not available" {
+		t.Fatalf("expected disabled message, got %#v", payload["message"])
 	}
 }
 
@@ -7237,6 +7304,72 @@ func TestAppIDEMCPToolCallRouteSupportsAgentProfileReadTools(t *testing.T) {
 	profile := mustStructuredMapValue(t, getPayload.StructuredContent)
 	if profile["name"] != "Alpha" {
 		t.Fatalf("expected Alpha profile, got %#v", profile)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsRunAgentProfile(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	engineConfigID := "engine-primary"
+	saveAppAgentProfiles(t, cfg, []agentprofiles.Profile{
+		{
+			ID:             "profile-alpha",
+			Name:           "Alpha",
+			Description:    "Primary profile",
+			SystemPrompt:   "You are alpha.",
+			EngineConfigID: &engineConfigID,
+			ToolAllowlist:  []string{},
+		},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"run_agent_profile",
+			"arguments":{
+				"profileId":"profile-alpha",
+				"inputs":{"allowUnscoped":true}
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post run_agent_profile tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	if !payload.IsError {
+		t.Fatalf("expected disabled run_agent_profile to fail, got %#v", payload.StructuredContent)
+	}
+	structured := mustStructuredMapValue(t, payload.StructuredContent)
+	if structured["code"] != "internal_error" {
+		t.Fatalf("expected internal_error code, got %#v", structured["code"])
+	}
+	if structured["message"] != "Agent runner is not available" {
+		t.Fatalf("expected disabled message, got %#v", structured["message"])
 	}
 }
 

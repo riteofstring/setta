@@ -485,6 +485,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
 			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
 			AgentProfiles:                  agentProfileStore,
+			AgentRuns:                      agentRunService,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
