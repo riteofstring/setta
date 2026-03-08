@@ -8,12 +8,15 @@ import {
   useShareSession,
 } from "state/definitions";
 import { C } from "utils/c";
+import { C_ADDRESSES } from "utils/c_addresses";
+import { replaceAddressParams } from "utils/endpointUtils";
+import { RouteEnum } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   clearPendingSectionTextFocus,
   isPendingSectionTextFocus,
 } from "utils/tabbingLogic";
 import { scrollSensitivityUpdater, terminalTheme } from "./utils";
-import { buildTerminalWebsocketUrl } from "./websocketUrl";
 
 type TerminalSession = {
   ws: WebSocket;
@@ -243,13 +246,13 @@ function acquireTerminalSession({
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.open(container);
-  const wsTerminalAddress = buildTerminalWebsocketUrl({
-    projectConfigId,
-    sectionId,
-    shareSessionId,
-    isDeploymentMode,
-    legacyClientID: id,
-  });
+  const baseAddress = `${C_ADDRESSES.WEBSOCKET}${replaceAddressParams(
+    RouteEnum.TERMINAL,
+    { projectConfigId, sectionId, id },
+  )}`;
+  const wsTerminalAddress = shareSessionId
+    ? `${baseAddress}?shareSessionId=${encodeURIComponent(shareSessionId)}`
+    : baseAddress;
   const ws = new WebSocket(wsTerminalAddress);
 
   const session: TerminalSession = {

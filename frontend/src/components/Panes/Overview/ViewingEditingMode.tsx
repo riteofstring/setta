@@ -38,6 +38,7 @@ import {
 } from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";
 import { ProjectConfigs } from "./ProjectConfigs";
+import { WindowSpacesPane } from "./WindowSpacesPane";
 
 const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 const VIEW_MODES_MIN_HEIGHT = 120;
@@ -70,7 +71,8 @@ export function ViewingEditingMode() {
         isEditingViewMode: x.projectConfig.isEditingViewMode,
       };
     }, _.isEqual);
-  const { canEditVariants, canEditStructure } = useShareCapabilities();
+  const { canEditVariants, canEditStructure, canEditLayout } =
+    useShareCapabilities();
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
   const [isViewModesCollapsed, setIsViewModesCollapsed] = useState(false);
   const [isProjectConfigsCollapsed, setIsProjectConfigsCollapsed] =
@@ -227,6 +229,11 @@ export function ViewingEditingMode() {
           New View Mode
         </button>
       </div>
+
+      <WindowSpacesPane
+        isEditing={isEditingViewMode}
+        canEditLayout={canEditLayout}
+      />
 
       <div
         ref={panesContainerRef}

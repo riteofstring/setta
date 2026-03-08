@@ -12,6 +12,7 @@ import { useLocalStorage } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
   UIEditorTabName,
   UIEditorTabNameEnum,
@@ -68,7 +69,7 @@ export function UiEditor() {
     >
       <div
         data-testid="ui-editor-icon-rail"
-        className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        className={`fixed right-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",
           bottom: hasViewModeTabs ? "36px" : "0px",

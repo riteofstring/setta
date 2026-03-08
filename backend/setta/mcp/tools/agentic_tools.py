@@ -2,16 +2,29 @@ from typing import Any
 
 from mcp.server.fastmcp.server import Context
 
-from setta.agentic.agentic_scope import AgenticContext
+from setta.agentic.agentic_scope import (
+    AgenticContext,
+    normalize_linked_chat_invocation_chain_section_ids,
+    normalize_linked_chat_invocation_depth,
+)
 from setta.agentic.completion_report import (
     CheckResult,
     CompletionStatusReport,
     build_completion_status_report,
 )
+from setta.agentic.linked_chat_invocation import (
+    invoke_linked_chat as invoke_linked_chat_impl,
+)
 from setta.agentic.store import load_agent_profiles
 from setta.frontend_affinity_token import parse_frontend_affinity_token
 from setta.mcp.errors import InvalidToolArgumentsError
-from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
+from setta.mcp.run_start_authorization import commit_pending_mcp_run_start
+from setta.mcp.tool_metadata import (
+    ToolAccessMetadata,
+    ToolRuntimePolicyMetadata,
+    attach_tool_access,
+    attach_tool_runtime_policy,
+)
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
 from setta.types.id import ID
@@ -25,6 +38,8 @@ def set_agentic_context(
     sectionId: ID | None = None,
     frontendAffinityToken: str | None = None,
     allowUnscoped: bool = False,
+    linkedChatInvocationDepth: int = 0,
+    linkedChatInvocationChainSectionIds: list[ID] | None = None,
     ctx: Context,
 ) -> dict[str, Any]:
     """
@@ -36,6 +51,8 @@ def set_agentic_context(
         sectionId: Chat section id (required unless allowUnscoped=true).
         frontendAffinityToken: Frontend affinity token for reveal routing.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
+        linkedChatInvocationDepth: Current linked-chat recursion depth.
+        linkedChatInvocationChainSectionIds: Current linked-chat caller chain.
     """
     if sectionId is None and not allowUnscoped:
         raise InvalidToolArgumentsError(
@@ -47,6 +64,14 @@ def set_agentic_context(
         )
     try:
         frontend_affinity_token = parse_frontend_affinity_token(frontendAffinityToken)
+        linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
+            linkedChatInvocationDepth
+        )
+        linked_chat_invocation_chain_section_ids = (
+            normalize_linked_chat_invocation_chain_section_ids(
+                linkedChatInvocationChainSectionIds
+            )
+        )
     except (TypeError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc
     ctx.fastmcp.set_agentic_context_for_session(
@@ -57,6 +82,8 @@ def set_agentic_context(
             section_id=sectionId,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allowUnscoped,
+            linked_chat_invocation_depth=linked_chat_invocation_depth,
+            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         ),
     )
     return {"status": "ok"}
@@ -100,6 +127,10 @@ attach_tool_access(
     list_agent_profiles,
     ToolAccessMetadata(accessType="read"),
 )
+attach_tool_runtime_policy(
+    list_agent_profiles,
+    ToolRuntimePolicyMetadata(requiresLLM=True),
+)
 
 
 @setta_tool
@@ -119,6 +150,10 @@ def get_agent_profile(profileId: ID, ctx: Context) -> AgentProfile:
 attach_tool_access(
     get_agent_profile,
     ToolAccessMetadata(accessType="read"),
+)
+attach_tool_runtime_policy(
+    get_agent_profile,
+    ToolRuntimePolicyMetadata(requiresLLM=True),
 )
 
 
@@ -140,11 +175,53 @@ async def run_agent_profile(
             runner = ctx.fastmcp.state.agent_runner
             if runner.disabled:
                 raise RuntimeError("Agent runner is not available")
-            return await runner.run_sub_agent(profile, inputs)
+            run = runner.start_run(
+                profile,
+                inputs,
+                emit_stream=False,
+                emit_ai_follow=False,
+            )
+            commit_pending_mcp_run_start(ctx)
+            return await runner.wait_for_run(run.id)
     raise KeyError(f"Agent profile {profileId} not found")
 
 
 attach_tool_access(
     run_agent_profile,
     ToolAccessMetadata(accessType="structural"),
+)
+attach_tool_runtime_policy(
+    run_agent_profile,
+    ToolRuntimePolicyMetadata(requiresLLM=True, startsRun=True),
+)
+
+
+@setta_tool
+async def invoke_linked_chat(
+    *,
+    targetSectionId: ID,
+    prompt: str,
+    ctx: Context,
+):
+    """
+    Invoke a directly linked chat section as a bounded tool endpoint.
+
+    Args:
+        targetSectionId: Linked target chat section id from a direct `chat_chat` edge.
+        prompt: Prompt to send to the linked chat.
+    """
+    return await invoke_linked_chat_impl(
+        target_section_id=targetSectionId,
+        prompt=prompt,
+        ctx=ctx,
+    )
+
+
+attach_tool_access(
+    invoke_linked_chat,
+    ToolAccessMetadata(
+        accessType="peer_chat",
+        retryOnDisconnect=False,
+        idPathsByType={"section": ["targetSectionId"]},
+    ),
 )
