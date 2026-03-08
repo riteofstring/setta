@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/settingsstate"
+	"setta/internal/statefs"
 )
 
 const (
@@ -54,6 +56,8 @@ const (
 	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
 	RouteSetWatchCodeInputs             = "/setWatchCodeInputs"
 	RouteGetPasswordParamValue          = "/getPasswordParamValue"
+	RouteDeleteSectionVariantOrAsk      = "/deleteSectionVariantOrAsk"
+	RouteDeleteJSONSourceFileAndVariant = "/deleteJsonSourceFileAndVariant"
 )
 
 var (
@@ -114,6 +118,19 @@ type GetPasswordParamValueRequest struct {
 
 type GetPasswordParamValueResponse struct {
 	Value string `json:"value"`
+}
+
+type DeleteSectionVariantOrAskRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
+	VariantID string `json:"variantId"`
+}
+
+type DeleteJSONSourceFileAndVariantRequest struct {
+	ProjectID string `json:"projectConfigId"`
+	SectionID string `json:"sectionId"`
+	VariantID string `json:"variantId"`
+	Filepath  string `json:"filepath"`
 }
 
 type CreateTopLevelSectionRequest struct {
@@ -388,6 +405,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPasswordParamValue, getPasswordParamValueHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteSectionVariantOrAsk, deleteSectionVariantOrAskHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteJSONSourceFileAndVariant, deleteJSONSourceFileAndVariantHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTopLevelSection, createTopLevelSectionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateViewMode, createViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
@@ -486,6 +505,117 @@ func getPasswordParamValueHandler(deps ProjectRouteDependencies) http.HandlerFun
 			return
 		}
 		writeJSON(w, http.StatusOK, GetPasswordParamValueResponse{Value: value})
+	}
+}
+
+func deleteSectionVariantOrAskHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteSectionVariantOrAskRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		variantID := strings.TrimSpace(payload.VariantID)
+		if variantID == "" {
+			writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		promptPath, requiresPrompt, err := deps.ProjectState.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
+		if err != nil {
+			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		if requiresPrompt {
+			resolvedPath, err := statefs.ResolveWithinRoot(deps.WorkspaceRoot, promptPath, "File path")
+			if err != nil {
+				writeError(w, r, http.StatusForbidden, "filepath_forbidden", "File path must be within the project root.")
+				return
+			}
+			writeJSON(w, http.StatusOK, resolvedPath)
+			return
+		}
+
+		if _, err := deps.ProjectState.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID); err != nil {
+			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteJSONSourceFileAndVariantRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		variantID := strings.TrimSpace(payload.VariantID)
+		if variantID == "" {
+			writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		promptPath, requiresPrompt, err := deps.ProjectState.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
+		if err != nil {
+			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		if !requiresPrompt {
+			writeError(w, r, http.StatusUnprocessableEntity, "json_source_variant_required", "Section variant must resolve to a JSON source variant.")
+			return
+		}
+
+		resolvedPath, err := statefs.ResolveWithinRoot(deps.WorkspaceRoot, promptPath, "File path")
+		if err != nil {
+			writeError(w, r, http.StatusForbidden, "filepath_forbidden", "File path must be within the project root.")
+			return
+		}
+		if err := os.Remove(resolvedPath); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				writeJSON(w, http.StatusOK, nil)
+				return
+			}
+			writeJSON(w, http.StatusOK, nil)
+			return
+		}
+
+		if _, err := deps.ProjectState.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID); err != nil {
+			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
 	}
 }
 
@@ -1637,6 +1767,28 @@ func writeGetPasswordParamValueError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
 	case errors.Is(err, projectstate.ErrPasswordParamRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "password_param_required", "Param info must resolve to a password param.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeDeleteSectionVariantError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrSectionVariantIDRequired):
+		writeError(w, r, http.StatusBadRequest, "variant_id_required", "Variant id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrSectionVariantNotFound),
+		errors.Is(err, projectstate.ErrSectionVariantMembership):
+		writeError(w, r, http.StatusNotFound, "variant_not_found", "Variant not found.")
+	case errors.Is(err, projectstate.ErrSectionVariantDeletePromptPathRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "json_source_filepath_required", "JSON source variants must have a file path.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

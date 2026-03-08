@@ -228,6 +228,208 @@ func TestRegisterProjectRoutesGetPasswordParamValueRejectsNonPasswordParam(t *te
 	}
 }
 
+func TestRegisterProjectRoutesDeleteSectionVariantOrAskReturnsWorkspacePathForJSONSourceVariant(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, "data"), 0o755); err != nil {
+		t.Fatalf("mkdir workspace data: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantDeletionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteSectionVariantOrAsk,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var filepathPayload string
+	if err := json.Unmarshal(response.Body.Bytes(), &filepathPayload); err != nil {
+		t.Fatalf("decode filepath payload: %v", err)
+	}
+	if filepathPayload != filepath.Join(workspaceRoot, "data", "source.json") {
+		t.Fatalf("expected json-source filepath %q, got %q", filepath.Join(workspaceRoot, "data", "source.json"), filepathPayload)
+	}
+	if _, ok := projectRuntime.Snapshot().Document.Projects["project-alpha"].SectionVariants["json-variant-a"]; !ok {
+		t.Fatal("did not expect prompt-only route to delete the json-source variant")
+	}
+}
+
+func TestRegisterProjectRoutesDeleteSectionVariantOrAskDeletesNonJSONSourceVariant(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantDeletionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteSectionVariantOrAsk,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-b"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null delete response body, got %q", response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	sourceSection := project.Sections["source-section"]
+	if !reflect.DeepEqual(sourceSection.VariantIDs, []string{"source-variant-a"}) {
+		t.Fatalf("expected source-section variants [source-variant-a], got %#v", sourceSection.VariantIDs)
+	}
+	if got := project.SectionVariantMap["source-section"]; got != "source-variant-a" {
+		t.Fatalf("expected active source-section variant source-variant-a, got %q", got)
+	}
+}
+
+func TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantDeletesWorkspaceFileAndVariant(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	targetPath := filepath.Join(workspaceRoot, "data", "source.json")
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		t.Fatalf("mkdir json-source parent: %v", err)
+	}
+	if err := os.WriteFile(targetPath, []byte(`{"ok":true}`), 0o644); err != nil {
+		t.Fatalf("seed json-source file: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantDeletionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteJSONSourceFileAndVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","filepath":"`+targetPath+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if _, err := os.Stat(targetPath); !os.IsNotExist(err) {
+		t.Fatalf("expected json-source file to be removed, stat err=%v", err)
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	jsonSection := project.Sections["json-section"]
+	if !reflect.DeepEqual(jsonSection.VariantIDs, []string{"json-variant-b"}) {
+		t.Fatalf("expected json-section variants [json-variant-b], got %#v", jsonSection.VariantIDs)
+	}
+	if got := project.SectionVariantMap["json-section"]; got != "json-variant-b" {
+		t.Fatalf("expected active json-section variant json-variant-b, got %q", got)
+	}
+	if _, ok := project.SectionVariants["json-variant-a"]; ok {
+		t.Fatal("did not expect deleted json-source variant to remain in project state")
+	}
+}
+
+func TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantRejectsPathsOutsideWorkspaceRoot(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	project := sectionVariantDeletionRouteTestProject(t)
+	jsonVariant := project.SectionVariants["json-variant-a"]
+	jsonVariant.Name = "../outside.json"
+	project.SectionVariants["json-variant-a"] = jsonVariant
+	project = mustNormalizedProjectRouteProject(t, project)
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, workspaceRoot, nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteJSONSourceFileAndVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","filepath":"../outside.json"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"filepath_forbidden"`) {
+		t.Fatalf("expected filepath_forbidden body, got %q", response.Body.String())
+	}
+	if _, ok := projectRuntime.Snapshot().Document.Projects["project-alpha"].SectionVariants["json-variant-a"]; !ok {
+		t.Fatal("did not expect forbidden filepath request to delete the json-source variant")
+	}
+}
+
 func TestRegisterProjectRoutesReturnsCompletedFrontendOpIDsAfterMutation(t *testing.T) {
 	t.Parallel()
 
@@ -2645,4 +2847,82 @@ func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
 		t.Fatalf("normalize password route test project: %v", err)
 	}
 	return project
+}
+
+func sectionVariantDeletionRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	return mustNormalizedProjectRouteProject(t, projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"source-section": "source-variant-b",
+			"json-section":   "json-variant-a",
+		},
+		Sections: map[string]projectstate.Section{
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source",
+				VariantIDs:       []string{"source-variant-a", "source-variant-b"},
+				DefaultVariantID: "source-variant-b",
+			},
+			"json-section": {
+				ID:               "json-section",
+				Name:             "JSON Source",
+				VariantIDs:       []string{"json-variant-a", "json-variant-b"},
+				DefaultVariantID: "json-variant-a",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"source-variant-a": {
+				ID:     "source-variant-a",
+				ImplID: "source-impl-a",
+			},
+			"source-variant-b": {
+				ID:     "source-variant-b",
+				ImplID: "source-impl-b",
+			},
+			"json-variant-a": {
+				ID:     "json-variant-a",
+				ImplID: "json-impl-a",
+				Name:   "data/source.json",
+			},
+			"json-variant-b": {
+				ID:     "json-variant-b",
+				ImplID: "json-impl-b",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"source-impl-a": {
+				ID:      "source-impl-a",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "source-impl-a", "type": "TextBlock"}),
+			},
+			"source-impl-b": {
+				ID:      "source-impl-b",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "source-impl-b", "type": "TextBlock"}),
+			},
+			"json-impl-a": {
+				ID:      "json-impl-a",
+				Kind:    projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "json-impl-a", "type": "Dict", "isJsonSource": true, "jsonSourceKeys": []string{"config"}}),
+			},
+			"json-impl-b": {
+				ID:      "json-impl-b",
+				Kind:    projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "json-impl-b", "type": "Dict"}),
+			},
+		},
+	})
+}
+
+func mustNormalizedProjectRouteProject(t *testing.T, project projectstate.Project) projectstate.Project {
+	t.Helper()
+
+	normalized, err := project.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project route project: %v", err)
+	}
+	return normalized
 }
