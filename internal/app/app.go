@@ -150,6 +150,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		agentRunRuntime       *agentruns.Runtime
+		managedLiveRuntime    *managedchat.LiveRuntime
 		managedChatService    *managedchat.Service
 		appGenSkillService    *appgenskills.Service
 		runChainRuntime       *runchains.Runtime
@@ -730,8 +731,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		managedLiveRuntime = managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
+			Broadcaster: websocketHub,
+		})
 		agentRunRuntime, err = agentruns.NewRuntime(agentruns.RuntimeOptions{
-			Service: agentRunService,
+			Service:        agentRunService,
+			LiveRunTracker: managedLiveRuntime,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -744,6 +749,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			LLM:          llmRuntime,
 			Profiles:     agentProfileStore,
 			Starter:      agentRunRuntime,
+			Live:         managedLiveRuntime,
 			Stopper:      agentRunRuntime,
 		})
 		if err != nil {

@@ -13,6 +13,7 @@ const (
 	MessageTypeNotification                = "Notification"
 	MessageTypeAllConnections              = "AllConnections"
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
+	MessageTypeLLMStreamingResponse        = "LLMStreamingResponse"
 	MessageTypeAIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
 	MessageTypeUISettingReveal             = "UISettingReveal"
 	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
@@ -35,6 +36,18 @@ const (
 	NotificationTypeSave    NotificationType = "save"
 )
 
+const (
+	StreamingEventTypeMessageStart        = "message_start"
+	StreamingEventTypeDelta               = "delta"
+	StreamingEventTypeToolCallDelta       = "tool_call_delta"
+	StreamingEventTypeToolArgumentPreview = "tool_argument_preview_delta"
+	StreamingEventTypeToolResult          = "tool_result"
+	StreamingEventTypeMessageStop         = "message_stop"
+	StreamingEventTypeMessageFinalized    = "message_finalized"
+	MessageContentTypeTextDelta           = "text_delta"
+	MessageContentTypeThinkingDelta       = "thinking_delta"
+)
+
 type FrontendIdentityContent struct {
 	FrontendAffinityToken string `json:"frontendAffinityToken"`
 }
@@ -43,6 +56,78 @@ type AIFollowToolArgumentsUpdateContent struct {
 	ProjectConfigID string              `json:"projectConfigId"`
 	ChatID          string              `json:"chatId"`
 	IDsByType       map[string][]string `json:"idsByType"`
+}
+
+type MessageTextDelta struct {
+	Type  string `json:"type"`
+	Index int    `json:"index"`
+	Text  string `json:"text"`
+}
+
+type MessageThinkingDelta struct {
+	Type      string  `json:"type"`
+	Index     int     `json:"index"`
+	Thinking  string  `json:"thinking"`
+	Summary   *string `json:"summary"`
+	Signature *string `json:"signature"`
+}
+
+type MessageStartEvent struct {
+	Type    string         `json:"type"`
+	Message map[string]any `json:"message"`
+}
+
+type MessageDeltaEvent struct {
+	Type      string `json:"type"`
+	MessageID string `json:"message_id"`
+	Content   []any  `json:"content"`
+}
+
+type ToolCallDeltaEvent struct {
+	Type           string  `json:"type"`
+	MessageID      string  `json:"message_id"`
+	ToolCallID     string  `json:"tool_call_id"`
+	ArgumentsDelta string  `json:"arguments_delta"`
+	ToolName       *string `json:"tool_name"`
+}
+
+type ToolResultEvent struct {
+	Type   string         `json:"type"`
+	Result map[string]any `json:"result"`
+}
+
+type ToolArgumentPreviewDeltaEvent struct {
+	Type              string              `json:"type"`
+	MessageID         string              `json:"message_id"`
+	ToolCallID        string              `json:"tool_call_id"`
+	ToolName          string              `json:"tool_name"`
+	ArgumentsDelta    string              `json:"arguments_delta"`
+	PreviewKind       string              `json:"preview_kind"`
+	TargetIDsByType   map[string][]string `json:"target_ids_by_type"`
+	PreviewValueDelta string              `json:"preview_value_delta"`
+}
+
+type MessageStopEvent struct {
+	Type      string `json:"type"`
+	MessageID string `json:"message_id"`
+}
+
+type MessageFinalizedEvent struct {
+	Type    string         `json:"type"`
+	Message map[string]any `json:"message"`
+}
+
+type LLMStreamingResponseContent struct {
+	ChatID          string  `json:"chatId"`
+	Chunk           any     `json:"chunk"`
+	SectionID       *string `json:"sectionId"`
+	ProjectConfigID *string `json:"projectConfigId"`
+}
+
+type LLMStreamingResponseMessage struct {
+	ID          *string                     `json:"id"`
+	MessageType string                      `json:"messageType"`
+	Content     LLMStreamingResponseContent `json:"content"`
 }
 
 type UISettingRevealActivationStep struct {
@@ -112,6 +197,8 @@ type FrontendIdentityMessage struct {
 	MessageType string                  `json:"messageType"`
 	Content     FrontendIdentityContent `json:"content"`
 }
+
+type LLMStreamingResponseEnvelope = LLMStreamingResponseMessage
 
 type AIFollowToolArgumentsUpdateMessage struct {
 	MessageType string                             `json:"messageType"`
@@ -191,6 +278,13 @@ func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMe
 		Content: FrontendIdentityContent{
 			FrontendAffinityToken: frontendAffinityToken,
 		},
+	}
+}
+
+func NewLLMStreamingResponseMessage(content LLMStreamingResponseContent) LLMStreamingResponseMessage {
+	return LLMStreamingResponseMessage{
+		MessageType: MessageTypeLLMStreamingResponse,
+		Content:     content,
 	}
 }
 

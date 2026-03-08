@@ -11,14 +11,21 @@ import (
 
 var ErrRuntimeServiceRequired = fmt.Errorf("managed agent runtime service is required")
 
+type LiveRunTracker interface {
+	ActivateRun(run Run)
+	DeactivateRun(runID string)
+}
+
 type RuntimeOptions struct {
-	Service     *Service
-	BaseContext context.Context
+	Service        *Service
+	BaseContext    context.Context
+	LiveRunTracker LiveRunTracker
 }
 
 type Runtime struct {
-	service     *Service
-	baseContext context.Context
+	service        *Service
+	baseContext    context.Context
+	liveRunTracker LiveRunTracker
 
 	mu     sync.RWMutex
 	active map[string]activeRunState
@@ -38,9 +45,10 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 		baseContext = context.Background()
 	}
 	return &Runtime{
-		service:     options.Service,
-		baseContext: baseContext,
-		active:      map[string]activeRunState{},
+		service:        options.Service,
+		baseContext:    baseContext,
+		liveRunTracker: options.LiveRunTracker,
+		active:         map[string]activeRunState{},
 	}, nil
 }
 
@@ -67,9 +75,15 @@ func (r *Runtime) StartRun(profile agentprofiles.Profile, inputs map[string]any)
 		done:   done,
 	}
 	r.mu.Unlock()
+	if r.liveRunTracker != nil {
+		r.liveRunTracker.ActivateRun(runContext.run.Clone())
+	}
 
 	go func() {
 		defer close(done)
+		if r.liveRunTracker != nil {
+			defer r.liveRunTracker.DeactivateRun(runID)
+		}
 		_, _ = r.service.executeRun(ctx, runContext)
 		r.mu.Lock()
 		delete(r.active, runID)

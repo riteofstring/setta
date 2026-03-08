@@ -17,6 +17,31 @@ type blockingExecutor struct {
 	release chan struct{}
 }
 
+type captureLiveRunTracker struct {
+	activated   chan Run
+	deactivated chan string
+}
+
+func (c *captureLiveRunTracker) ActivateRun(run Run) {
+	if c == nil || c.activated == nil {
+		return
+	}
+	select {
+	case c.activated <- run.Clone():
+	default:
+	}
+}
+
+func (c *captureLiveRunTracker) DeactivateRun(runID string) {
+	if c == nil || c.deactivated == nil {
+		return
+	}
+	select {
+	case c.deactivated <- runID:
+	default:
+	}
+}
+
 func (e *blockingExecutor) Execute(ctx context.Context, _ ExecutionRequest) (ExecutionResult, error) {
 	if e.started != nil {
 		select {
@@ -73,6 +98,64 @@ func TestRuntimeStartRunReturnsRunningAndCompletes(t *testing.T) {
 	}
 	if completed.Status != RunStatusCompleted {
 		t.Fatalf("expected completed run, got %q", completed.Status)
+	}
+}
+
+func TestRuntimeStartRunActivatesAndClearsLiveTracker(t *testing.T) {
+	t.Parallel()
+
+	executor := &blockingExecutor{
+		result: ExecutionResult{
+			Outputs: map[string]any{"messages": []any{}},
+		},
+	}
+	service, _, _, _ := buildServiceFixture(t, nil)
+	service.executor = executor
+	tracker := &captureLiveRunTracker{
+		activated:   make(chan Run, 1),
+		deactivated: make(chan string, 1),
+	}
+	runtime, err := NewRuntime(RuntimeOptions{
+		Service:        service,
+		LiveRunTracker: tracker,
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+
+	run, err := runtime.StartRun(agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}, map[string]any{
+		"allowUnscoped": true,
+	})
+	if err != nil {
+		t.Fatalf("start run: %v", err)
+	}
+
+	select {
+	case activated := <-tracker.activated:
+		if activated.ID != run.ID {
+			t.Fatalf("expected activated run %q, got %q", run.ID, activated.ID)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for live tracker activation")
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := runtime.WaitForRun(waitCtx, run.ID); err != nil {
+		t.Fatalf("wait for run: %v", err)
+	}
+
+	select {
+	case deactivated := <-tracker.deactivated:
+		if deactivated != run.ID {
+			t.Fatalf("expected deactivated run %q, got %q", run.ID, deactivated)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for live tracker deactivation")
 	}
 }
 
