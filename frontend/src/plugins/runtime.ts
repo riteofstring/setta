@@ -2,11 +2,7 @@ import throttle from "lodash/throttle";
 import { useEffect } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
-import {
-  useActiveSectionUI,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
@@ -893,7 +889,7 @@ function getRawSelectedProjectState(
     return state.projectConfig;
   }
   if (selector.kind === "activeSectionIds") {
-    return useActiveSectionUI.getState().activeIds;
+    return state.projectConfig.activeIds;
   }
   if (selector.kind === "singletonSections") {
     return state.singletonSections;
@@ -934,22 +930,6 @@ function getRawSelectedProjectState(
 function projectStateSubscriptionEquality(
   selector: PluginProjectStateSelector,
 ): ((left: unknown, right: unknown) => boolean) | undefined {
-  if (selector.kind === "activeSectionIds") {
-    return (left, right) => {
-      if (!Array.isArray(left) || !Array.isArray(right)) {
-        return false;
-      }
-      if (left.length !== right.length) {
-        return false;
-      }
-      for (let index = 0; index < left.length; index += 1) {
-        if (left[index] !== right[index]) {
-          return false;
-        }
-      }
-      return true;
-    };
-  }
   if (selector.kind !== "sections") {
     return undefined;
   }
@@ -1352,28 +1332,14 @@ function registerPluginModule({
         notify = throttledNotify;
         cancelThrottle = () => throttledNotify.cancel();
       }
-      const unsubscribe =
-        normalizedSelector.kind === "activeSectionIds"
-          ? useActiveSectionUI.subscribe(
-              (state) => state.activeIds,
-              (nextRawValue, prevRawValue) =>
-                notify(nextRawValue, prevRawValue),
-              {
-                fireImmediately,
-                equalityFn:
-                  projectStateSubscriptionEquality(normalizedSelector),
-              },
-            )
-          : useProjectState.subscribe(
-              (state) => getRawSelectedProjectState(state, normalizedSelector),
-              (nextRawValue, prevRawValue) =>
-                notify(nextRawValue, prevRawValue),
-              {
-                fireImmediately,
-                equalityFn:
-                  projectStateSubscriptionEquality(normalizedSelector),
-              },
-            );
+      const unsubscribe = useProjectState.subscribe(
+        (state) => getRawSelectedProjectState(state, normalizedSelector),
+        (nextRawValue, prevRawValue) => notify(nextRawValue, prevRawValue),
+        {
+          fireImmediately,
+          equalityFn: projectStateSubscriptionEquality(normalizedSelector),
+        },
+      );
       const cleanup = () => {
         unsubscribe();
         if (cancelThrottle) {

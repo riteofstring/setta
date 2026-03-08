@@ -28,7 +28,7 @@ export function ResponsiveMiniMap() {
       }}
       nodeBorderRadius={5}
       style={{ transform: `translateX(-${uiEditorWidth}px)` }}
-      className="overflow-hidden rounded-md border border-solid border-[#ffffff00] backdrop-blur-sm transition-transform"
+      className="overflow-hidden rounded-md border border-solid border-[#ffffff00] shadow-md backdrop-blur-sm transition-transform"
       maskColor={darkMode ? "rgb(20, 22, 31, 0.5)" : "rgb(51, 65, 85, 0.3)"}
       maskStrokeColor={
         darkMode ? "rgba(226, 232, 240, 0.9)" : "rgba(30, 41, 59, 0.6)"
