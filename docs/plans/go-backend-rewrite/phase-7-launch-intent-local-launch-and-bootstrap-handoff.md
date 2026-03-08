@@ -129,12 +129,16 @@ Do not include:
   reusable local IDE session launcher to carry `profileLookupHome` so
   profile-based local launches keep resolving profiles from the current
   runtime's lookup home.
+- 2026-03-08: created
+  `phase-7-ssh-remote-launch-and-rollback.md` for the remaining SSH/remote
+  `/launch` branch and completed Stage 1 from that doc by adding the
+  deterministic `internal/sshx` foundation plus focused unit tests.
 
 ## Recommended Next Step
 
-Create the next focused Phase 7 plan doc for SSH/remote launch parity, then
-move the remaining remote `/launch` branch and remote rollback behavior as a
-separate follow-up slice.
+Implement Stage 2 from `phase-7-ssh-remote-launch-and-rollback.md`: the
+`internal/sshx` remote connect/tunnel runtime, then move the remaining remote
+`/launch` branch and rollback behavior on top of that owner.
 
 ## Verification
 

@@ -22,6 +22,8 @@ As of 2026-03-08:
   - trusted frontend-origin storage/proof validation
   - launched-workspace trust persistence and local rollback for newly started
     local sessions
+  - deterministic SSH parsing and remote payload utility ownership in
+    `internal/sshx/foundation.go`
 - Python still owns:
   - the SSH/remote branch of `POST /launch`
   - remote session discovery/start/connect-info handling in
@@ -113,6 +115,10 @@ before the first shell-execution owner is wired.
   heuristics
 - treat CLI docs/tests as product references for remote behavior, not a
   requirement to port CLI entrypoints in this slice
+- use shell-compatible SSH arg parsing via `github.com/google/shlex` instead of
+  adding an ad hoc argument splitter
+- reject invalid `settaFilesLocation` values at the utility boundary instead of
+  silently downgrading them during remote log-path resolution
 
 ## Recommended Landing Order
 
@@ -127,9 +133,20 @@ before the first shell-execution owner is wired.
 - 2026-03-08: created this focused Phase 7 doc after completing the local
   launch/bootstrap handoff slice and confirming that the only meaningful
   Python-owned launch gap is now the SSH/remote branch plus rollback behavior.
+- 2026-03-08: completed Stage 1 from this doc by adding
+  `internal/sshx/foundation.go` plus focused unit coverage in
+  `internal/sshx/foundation_test.go`. Go now owns deterministic SSH argument
+  parsing, control-socket defaulting, remote JSON/session/connect-info parsing,
+  remote log-path resolution, and tunnel key/arg utility logic.
+
+## Open Questions
+
+None blocking Stage 2. The remaining work is implementation, not boundary
+selection: remote command execution, session discovery/start/wait, tunnel
+metadata ownership, and remote rollback should stay inside `internal/sshx`.
 
 ## Recommended Next Step
 
-Implement Stage 1 from this doc: add an `internal/sshx` foundation for
-deterministic SSH argument handling, remote JSON/session/connect-info parsing,
-and tunnel/log utility logic, with focused unit tests.
+Implement Stage 2 from this doc: add the `internal/sshx` remote connect and
+tunnel runtime for SSH command execution, remote session discovery/start/wait,
+connect-info fetch/validation, and reusable tunnel lifecycle ownership.

@@ -52,6 +52,8 @@ Current repo status as of 2026-03-08:
   - bootstrap handoff parity for workspace-history and launcher-origin
     storage in `internal/httpapi/bootstrap_page.go` and
     `internal/httpapi/httpapi.go`
+  - deterministic SSH parsing and remote payload utility ownership in
+    `internal/sshx/foundation.go`
 - Python still appears to own major non-MCP backend surface in:
   - SSH/remote launch behavior
   - remote rollback behavior around launched workspaces
@@ -119,17 +121,18 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Create the next focused Phase 7 plan doc for SSH/remote launch parity, then
-execute that follow-up slice after the completed local launch/bootstrap
-handoff work.
+Implement Stage 2 from
+`phase-7-ssh-remote-launch-and-rollback.md`: the `internal/sshx` remote
+connect/tunnel runtime.
 
 That is now the highest-leverage next step because:
 
 - launcher management and local launch/bootstrap handoff are now complete in Go
-- the remaining Python-owned runtime gap is concentrated in the SSH/remote
-  launch branch and its remote rollback behavior
-- that remaining boundary is large enough to deserve its own explicit Phase 7
-  follow-up plan
+- the dedicated Phase 7 SSH/remote follow-up plan now exists and its Stage 1
+  deterministic foundation is complete
+- the remaining Python-owned runtime gap is concentrated in remote command
+  execution, session discovery/start, tunnel lifecycle ownership, and remote
+  rollback behavior
 
 ## Progress Notes
 
@@ -208,6 +211,16 @@ That is now the highest-leverage next step because:
   proof append, launched workspace trust persistence, and rollback for newly
   started local sessions. The next recommended step is a dedicated SSH/remote
   launch follow-up plan doc.
+- 2026-03-08: created
+  `phase-7-ssh-remote-launch-and-rollback.md` to isolate the remaining
+  SSH/remote `/launch` branch and remote rollback behavior from the completed
+  local handoff slice.
+- 2026-03-08: completed Stage 1 from
+  `phase-7-ssh-remote-launch-and-rollback.md` by adding the deterministic
+  `internal/sshx` foundation for SSH arg parsing, remote payload/session/
+  connect-info parsing, remote log-path resolution, and tunnel utility logic.
+  The next recommended step is Stage 2 from that doc: the remote connect and
+  tunnel runtime.
 
 ## Verification
 

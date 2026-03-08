@@ -42,6 +42,10 @@ As of 2026-03-08:
   - local `POST /launch`
   - launcher-origin proof append and launched-workspace trust persistence
   - rollback for newly started local sessions when trust persistence fails
+- Go now owns the Stage 1 SSH/remote launch foundation:
+  - deterministic SSH arg parsing and control-socket defaulting
+  - remote JSON/session/connect-info parsing
+  - remote log-path and tunnel utility logic in `internal/sshx/foundation.go`
 - Python still owns:
   - SSH/remote launch plus remote rollback behavior in `launch.py`
 - the remaining Phase 7 launcher gap is now concentrated around
@@ -194,14 +198,13 @@ This remains the recommended option because:
 
 ## Recommended Next Step
 
-Create the next focused Phase 7 plan doc for SSH/remote launch parity, then
-execute that follow-up slice after the completed local launch/bootstrap
-handoff work.
+Implement Stage 2 from `phase-7-ssh-remote-launch-and-rollback.md`: the
+`internal/sshx` remote connect/tunnel runtime.
 
 Recommended landing order:
 
-1. SSH/remote launch parity planning
-2. remote launch / rollback ownership
+1. `internal/sshx` remote connect/tunnel runtime
+2. remote `/launch` orchestration plus rollback ownership
 3. any follow-up CLI or cleanup work after those owners land
 
 ## Progress Notes
@@ -256,3 +259,10 @@ Recommended landing order:
   workspace trust persistence, and rollback for newly started local sessions.
   The next recommended step is a dedicated SSH/remote launch follow-up plan
   doc and slice.
+- 2026-03-08: created
+  `phase-7-ssh-remote-launch-and-rollback.md` to track the remaining
+  SSH/remote `/launch` and rollback work as a separate follow-up slice.
+- 2026-03-08: completed Stage 1 from
+  `phase-7-ssh-remote-launch-and-rollback.md` by adding the deterministic
+  `internal/sshx` foundation and focused tests. The next recommended step is
+  Stage 2 from that doc: the remote connect and tunnel runtime.
