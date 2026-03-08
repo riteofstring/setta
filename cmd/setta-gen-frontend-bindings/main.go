@@ -39,7 +39,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "setta-gen-frontend-bindings: %v\n", err)
 		os.Exit(1)
 	}
-	if err := writeOutput(trimmedEndpointsOutputPath, frontendbindings.RenderStatusEndpointsTS()); err != nil {
+	if err := writeOutput(trimmedEndpointsOutputPath, frontendbindings.RenderGoEndpointsTS()); err != nil {
 		fmt.Fprintf(os.Stderr, "setta-gen-frontend-bindings: %v\n", err)
 		os.Exit(1)
 	}

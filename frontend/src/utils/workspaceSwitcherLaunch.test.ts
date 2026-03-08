@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { LaunchRequestInput } from "./generatedTypes";
+import type { LaunchRequestInput } from "./generatedGoEndpoints";
 import {
   consumeOpenWorkspaceSwitcherRequest,
   readPendingWorkspaceLaunch,

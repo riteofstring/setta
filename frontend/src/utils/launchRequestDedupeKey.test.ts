@@ -1,4 +1,4 @@
-import type { LaunchRequestInput } from "utils/generatedTypes";
+import type { LaunchRequestInput } from "utils/generatedGoEndpoints";
 import { describe, expect, it } from "vitest";
 import { buildLaunchRequestDedupeKey } from "./launchRequestDedupeKey";
 
