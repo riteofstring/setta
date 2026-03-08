@@ -813,16 +813,22 @@ func tsTypeReference(t reflect.Type) string {
 	if t == nil {
 		return "null"
 	}
+	nullable := false
 	for t.Kind() == reflect.Pointer {
+		nullable = true
 		t = t.Elem()
 	}
 	if t == nil {
 		return "null"
 	}
+	ref := "null"
 	if t.PkgPath() != "" && t.Name() != "" {
-		return "gt." + t.Name()
+		ref = "gt." + t.Name()
 	}
-	return "null"
+	if nullable && ref != "null" {
+		return ref + " | null"
+	}
+	return ref
 }
 
 func renderTemplate(source string, data any) (string, error) {

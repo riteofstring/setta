@@ -155,6 +155,18 @@ export async function route_set_section_variant_name(x: gt.SetSectionVariantName
 }
 
 
+export async function route_delete_section_variant_or_ask(x: gt.DeleteSectionVariantOrAskRequest): Promise<ResponseDataAndStatus<gt.DeleteSectionVariantOrAskResponse | null>> {
+
+  return await post(GoHTTPRoutes.deleteSectionVariantOrAsk, x);
+}
+
+
+export async function route_delete_json_source_file_and_variant(x: gt.DeleteJSONSourceFileAndVariantRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteJsonSourceFileAndVariant, x);
+}
+
+
 export async function route_create_child_sections(x: gt.CreateChildSectionsRequestInput): Promise<ResponseDataAndStatus<gt.CreateChildSectionsResponse>> {
 
   return await post(GoHTTPRoutes.createChildSections, x);
@@ -638,6 +650,12 @@ export async function route_set_text_block_meta_control_style(x: gt.SetTextBlock
 export async function route_set_text_block_master_font_size(x: gt.SetTextBlockMasterFontSizeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setTextBlockMasterFontSize, x);
+}
+
+
+export async function route_docstring_to_markdown(x: gt.DocstringToMarkdownRequest): Promise<ResponseDataAndStatus<gt.DocstringToMarkdownResponse>> {
+
+  return await post(GoHTTPRoutes.docstringToMarkdown, x);
 }
 
 
@@ -1259,6 +1277,12 @@ export async function route_get_external_agent_chat(x: gt.GetExternalAgentChatRe
 }
 
 
+export async function route_get_ai_follow_snapshot(x: gt.GetAIFollowSnapshotRequest): Promise<ResponseDataAndStatus<gt.AIFollowSnapshotResponse>> {
+
+  return await post(GoHTTPRoutes.getAIFollowSnapshot, x);
+}
+
+
 export async function route_stop_external_agent_run(x: gt.StopExternalAgentRunRequest): Promise<ResponseDataAndStatus<gt.AgentRunResponse>> {
 
   return await post(GoHTTPRoutes.stopExternalAgentRun, x);
@@ -1292,6 +1316,12 @@ export async function route_set_chat_section_state(x: gt.SetChatSectionStateRequ
 export async function route_set_chat_section_chat_id(x: gt.SetChatSectionChatIDRequest): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setChatSectionChatId, x);
+}
+
+
+export async function route_get_agentic_summary_cache_status(x: gt.GetAgenticSummaryCacheStatusRequest): Promise<ResponseDataAndStatus<gt.AgenticSummaryCacheStatus>> {
+
+  return await post(GoHTTPRoutes.getAgenticSummaryCacheStatus, x);
 }
 
 

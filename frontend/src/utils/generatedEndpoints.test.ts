@@ -28,21 +28,26 @@ import {
   route_delete_artifacts,
   route_delete_child_sections_via_decrementer,
   route_delete_edges,
+  route_delete_json_source_file_and_variant,
   route_delete_kwarg,
   route_delete_notification,
   route_delete_project_configs,
   route_delete_sections,
+  route_delete_section_variant_or_ask,
   route_delete_selected_params,
   route_delete_view_mode,
+  route_docstring_to_markdown,
   route_force_refresh_listener,
   route_format_code,
   route_gen_code_prefix_completion,
   route_gen_code_suffix_completion,
   route_get_agent_profiles,
+  route_get_agentic_summary_cache_status,
   route_get_agent_runs,
   route_get_app_catalog,
   route_get_app_definition,
   route_get_app_deployment_state,
+  route_get_ai_follow_snapshot,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_attachment_download_url,
@@ -4674,6 +4679,179 @@ describe("generatedEndpoints plugin helpers", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: null,
+    });
+  });
+});
+
+describe("generatedEndpoints helper routes", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts the section-variant delete prompt helper and preserves string responses", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify("/workspace/data/source.json"), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await route_delete_section_variant_or_ask({
+      projectConfigId: "project-alpha",
+      sectionId: "section-1",
+      variantId: "variant-1",
+    });
+
+    expect(response.data).toBe("/workspace/data/source.json");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteSectionVariantOrAsk`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-1",
+        variantId: "variant-1",
+      }),
+    });
+  });
+
+  it("posts the JSON-source delete helper with the canonical request shape", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("null", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    await route_delete_json_source_file_and_variant({
+      projectConfigId: "project-alpha",
+      sectionId: "section-1",
+      variantId: "variant-1",
+      filepath: "/workspace/data/source.json",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteJsonSourceFileAndVariant`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-1",
+        variantId: "variant-1",
+        filepath: "/workspace/data/source.json",
+      }),
+    });
+  });
+
+  it("posts docstring markdown conversion requests and returns markdown text", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify("# Converted"), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+
+    const response = await route_docstring_to_markdown({
+      docstring: `"""Converted"""`,
+    });
+
+    expect(response.data).toBe("# Converted");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/docstringToMarkdown`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        docstring: `"""Converted"""`,
+      }),
+    });
+  });
+
+  it("posts agentic summary cache status reads with the canonical body", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          maxSummariesPerRun: 6,
+          summarySectionIds: ["summary-a"],
+          cachedSectionIds: [],
+          missingSectionIds: ["summary-a"],
+          emptySourceSectionIds: [],
+          consideredSectionIds: ["summary-a"],
+          wouldAttemptSectionIds: ["summary-a"],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+
+    const response = await route_get_agentic_summary_cache_status({
+      projectConfigId: "project-alpha",
+      chatSectionId: "chat-section",
+    });
+
+    expect(response.data.maxSummariesPerRun).toBe(6);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAgenticSummaryCacheStatus`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        chatSectionId: "chat-section",
+      }),
+    });
+  });
+
+  it("posts AI-follow snapshot reads and returns typed snapshot entries", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {
+            projectConfigId: "project-alpha",
+            chatId: "chat-1",
+            idsByType: {
+              section: ["section-1"],
+            },
+          },
+        ]),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+
+    const response = await route_get_ai_follow_snapshot({
+      projectConfigId: "project-alpha",
+    });
+
+    expect(response.data).toHaveLength(1);
+    expect(response.data[0]?.chatId).toBe("chat-1");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAIFollowSnapshot`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+      }),
     });
   });
 });

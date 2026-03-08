@@ -168,13 +168,15 @@ Current landed wedge:
     callable/section-presentation toggle, codegen-target, chat-settings, and
     watch-code route constants
   - current child-section helper route constants
+  - current section-variant delete helper route constants
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
   - current clipboard copy/paste route constants
   - current group-orientation and section-data helper route constants
   - current draw-area append helper route constant
   - current chart metadata helper route constants
-  - current text-block helper route constants
+  - current text-block and docstring helper route constants
+  - current AI helper read route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -314,6 +316,8 @@ Current landed wedge:
       - `SetTextBlockHeadingAsSectionNameRequestInput`
       - `SetTextBlockMetaControlStyleRequestInput`
       - `SetTextBlockMasterFontSizeRequestInput`
+      - `DocstringToMarkdownRequest`
+      - `DocstringToMarkdownResponse`
     - current structure/param-selection mutation payloads
       - `CreateChildSectionsRequestInput`
       - `CreateChildSectionsViaIncrementerRequestInput`
@@ -351,6 +355,16 @@ Current landed wedge:
       - `ToggleVariantJSONSourceRequestInput`
       - `SetVariantJSONSourceKeysRequestInput`
       - `SetSectionVariantNameRequestInput`
+      - `DeleteSectionVariantOrAskRequest`
+      - `DeleteSectionVariantOrAskResponse`
+      - `DeleteJSONSourceFileAndVariantRequest`
+    - current AI helper read payloads
+      - `GetAIFollowSnapshotRequest`
+      - `AIFollowToolArgumentsUpdateContent`
+      - `AIFollowToolResultUpdateContent`
+      - `AIFollowSnapshotResponse`
+      - `GetAgenticSummaryCacheStatusRequest`
+      - `AgenticSummaryCacheStatus`
     - current browser section metadata payloads
       - `SetBrowserColumnWidthsRequestInput`
       - `SetBrowserAreaViewModeRequestInput`
@@ -690,8 +704,11 @@ Current landed wedge:
     - `route_set_chat_section_settings`
     - `route_set_watch_code_enabled`
     - `route_set_watch_code_inputs`
+    - `route_docstring_to_markdown`
     - `route_delete_sections`
     - `route_delete_selected_params`
+    - `route_delete_section_variant_or_ask`
+    - `route_delete_json_source_file_and_variant`
     - `route_create_top_level_section`
     - `route_create_view_mode`
     - `route_set_active_view_mode`
@@ -783,6 +800,8 @@ Current landed wedge:
     - `route_get_app_gen_skill_content`
     - `route_upsert_app_gen_custom_skill`
     - `route_get_mcp_server_runtime_status`
+    - `route_get_ai_follow_snapshot`
+    - `route_get_agentic_summary_cache_status`
   - project-level AI skills and MCP viewer contract types
     - `AppGenSkillEntry`
     - `AppGenSkillContent`

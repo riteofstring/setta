@@ -173,6 +173,32 @@ type DeleteNotificationRequestInput struct {
 
 type NotificationsResponse []SettaNotification
 
+type DocstringToMarkdownResponse string
+
+type AgenticSummaryCacheStatus struct {
+	MaxSummariesPerRun     int      `json:"maxSummariesPerRun"`
+	SummarySectionIDs      []string `json:"summarySectionIds"`
+	CachedSectionIDs       []string `json:"cachedSectionIds"`
+	MissingSectionIDs      []string `json:"missingSectionIds"`
+	EmptySourceSectionIDs  []string `json:"emptySourceSectionIds"`
+	ConsideredSectionIDs   []string `json:"consideredSectionIds"`
+	WouldAttemptSectionIDs []string `json:"wouldAttemptSectionIds"`
+}
+
+type AIFollowToolArgumentsUpdateContent struct {
+	ProjectConfigID string              `json:"projectConfigId"`
+	ChatID          string              `json:"chatId"`
+	IDsByType       map[string][]string `json:"idsByType"`
+}
+
+type AIFollowToolResultUpdateContent struct {
+	ProjectConfigID string              `json:"projectConfigId"`
+	ChatID          string              `json:"chatId"`
+	IDsByType       map[string][]string `json:"idsByType"`
+}
+
+type AIFollowSnapshotResponse []AIFollowToolArgumentsUpdateContent
+
 type CodeMirrorCompletion struct {
 	Label string `json:"label"`
 	Type  string `json:"type"`
@@ -238,6 +264,8 @@ type SetSectionVariantNameRequestInput struct {
 	VariantID       string  `json:"variantId"`
 	Name            string  `json:"name"`
 }
+
+type DeleteSectionVariantOrAskResponse string
 
 type CreateChildSectionsRequestInput struct {
 	FrontendOpID    *string     `json:"frontendOpId,omitempty"`

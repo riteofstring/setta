@@ -188,6 +188,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_VARIANT_NAME",
 				},
 				{
+					Name:     "deleteSectionVariantOrAsk",
+					Path:     httpapi.RouteDeleteSectionVariantOrAsk,
+					EnumName: "DELETE_SECTION_VARIANT_OR_ASK",
+				},
+				{
+					Name:     "deleteJsonSourceFileAndVariant",
+					Path:     httpapi.RouteDeleteJSONSourceFileAndVariant,
+					EnumName: "DELETE_JSON_SOURCE_FILE_AND_VARIANT",
+				},
+				{
 					Name:     "createChildSections",
 					Path:     httpapi.RouteCreateChildSections,
 					EnumName: "CREATE_CHILD_SECTIONS",
@@ -581,6 +591,11 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "setTextBlockMasterFontSize",
 					Path:     httpapi.RouteSetTextBlockMasterFontSize,
 					EnumName: "SET_TEXT_BLOCK_MASTER_FONT_SIZE",
+				},
+				{
+					Name:     "docstringToMarkdown",
+					Path:     httpapi.RouteDocstringToMarkdown,
+					EnumName: "DOCSTRING_TO_MARKDOWN",
 				},
 				{
 					Name:     "killSubprocesses",
@@ -1103,6 +1118,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "STOP_EXTERNAL_AGENT_RUN",
 				},
 				{
+					Name:     "getAIFollowSnapshot",
+					Path:     httpapi.RouteGetAIFollowSnapshot,
+					EnumName: "GET_AI_FOLLOW_SNAPSHOT",
+				},
+				{
 					Name:     "respondExternalAgentApproval",
 					Path:     httpapi.RouteRespondExternalAgentApproval,
 					EnumName: "RESPOND_EXTERNAL_AGENT_APPROVAL",
@@ -1126,6 +1146,11 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "setChatSectionChatId",
 					Path:     httpapi.RouteSetChatSectionChatID,
 					EnumName: "SET_CHAT_SECTION_CHAT_ID",
+				},
+				{
+					Name:     "getAgenticSummaryCacheStatus",
+					Path:     httpapi.RouteGetAgenticSummaryCacheStatus,
+					EnumName: "GET_AGENTIC_SUMMARY_CACHE_STATUS",
 				},
 				{
 					Name:     "getAppDefinition",
@@ -1474,6 +1499,21 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSectionVariantName",
 			RequestType:     reflect.TypeOf(SetSectionVariantNameRequestInput{}),
+		},
+		{
+			FunctionName:    "route_delete_section_variant_or_ask",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteSectionVariantOrAsk",
+			RequestType:     reflect.TypeOf(httpapi.DeleteSectionVariantOrAskRequest{}),
+			ResponseType:    reflect.TypeOf((*DeleteSectionVariantOrAskResponse)(nil)),
+		},
+		{
+			FunctionName:    "route_delete_json_source_file_and_variant",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteJsonSourceFileAndVariant",
+			RequestType:     reflect.TypeOf(httpapi.DeleteJSONSourceFileAndVariantRequest{}),
 		},
 		{
 			FunctionName:    "route_create_child_sections",
@@ -2073,6 +2113,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setTextBlockMasterFontSize",
 			RequestType:     reflect.TypeOf(SetTextBlockMasterFontSizeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_docstring_to_markdown",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "docstringToMarkdown",
+			RequestType:     reflect.TypeOf(httpapi.DocstringToMarkdownRequest{}),
+			ResponseType:    reflect.TypeOf(DocstringToMarkdownResponse("")),
 		},
 		{
 			FunctionName:    "route_kill_subprocesses",
@@ -2840,6 +2888,14 @@ func CurrentEndpoints() []EndpointSpec {
 			ResponseType:    reflect.TypeOf(ExternalAgentChatResponse{}),
 		},
 		{
+			FunctionName:    "route_get_ai_follow_snapshot",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAIFollowSnapshot",
+			RequestType:     reflect.TypeOf(httpapi.GetAIFollowSnapshotRequest{}),
+			ResponseType:    reflect.TypeOf(AIFollowSnapshotResponse{}),
+		},
+		{
 			FunctionName:    "route_stop_external_agent_run",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -2881,6 +2937,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setChatSectionChatId",
 			RequestType:     reflect.TypeOf(httpapi.SetChatSectionChatIDRequest{}),
+		},
+		{
+			FunctionName:    "route_get_agentic_summary_cache_status",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAgenticSummaryCacheStatus",
+			RequestType:     reflect.TypeOf(httpapi.GetAgenticSummaryCacheStatusRequest{}),
+			ResponseType:    reflect.TypeOf(AgenticSummaryCacheStatus{}),
 		},
 		{
 			FunctionName:    "route_get_app_catalog",
@@ -3114,6 +3178,8 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(MessageFinalizedEvent{}),
 		reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(),
 		reflect.TypeOf(LLMStreamingResponse{}),
+		reflect.TypeOf(AIFollowToolArgumentsUpdateContent{}),
+		reflect.TypeOf(AIFollowToolResultUpdateContent{}),
 		reflect.TypeOf(PluginScope("")),
 		reflect.TypeOf(PluginRuntimeState("")),
 		reflect.TypeOf(PluginInstallerBackend("")),

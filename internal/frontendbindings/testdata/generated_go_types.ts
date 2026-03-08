@@ -698,6 +698,26 @@ export function createLLMStreamingResponse(options: Partial<LLMStreamingResponse
 }
 
 
+export type AIFollowToolArgumentsUpdateContent = {
+  projectConfigId: string;
+  chatId: string;
+  idsByType: Record<string, Array<string>>;
+};
+export function createAIFollowToolArgumentsUpdateContent(options: Partial<AIFollowToolArgumentsUpdateContent> = {}): AIFollowToolArgumentsUpdateContent {
+  return options as AIFollowToolArgumentsUpdateContent;
+}
+
+
+export type AIFollowToolResultUpdateContent = {
+  projectConfigId: string;
+  chatId: string;
+  idsByType: Record<string, Array<string>>;
+};
+export function createAIFollowToolResultUpdateContent(options: Partial<AIFollowToolResultUpdateContent> = {}): AIFollowToolResultUpdateContent {
+  return options as AIFollowToolResultUpdateContent;
+}
+
+
 export const PluginScopeEnum = {
   Workspace: "workspace",
   SettaFiles: "setta_files",
@@ -5498,6 +5518,30 @@ export function createSetSectionVariantNameRequestInput(options: Partial<SetSect
 }
 
 
+export type DeleteSectionVariantOrAskRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+export function createDeleteSectionVariantOrAskRequest(options: Partial<DeleteSectionVariantOrAskRequest> = {}): DeleteSectionVariantOrAskRequest {
+  return options as DeleteSectionVariantOrAskRequest;
+}
+
+
+export type DeleteSectionVariantOrAskResponse = string;
+
+
+export type DeleteJSONSourceFileAndVariantRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+  filepath: string;
+};
+export function createDeleteJSONSourceFileAndVariantRequest(options: Partial<DeleteJSONSourceFileAndVariantRequest> = {}): DeleteJSONSourceFileAndVariantRequest {
+  return options as DeleteJSONSourceFileAndVariantRequest;
+}
+
+
 export type CreateChildSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -6817,6 +6861,17 @@ export type SetTextBlockMasterFontSizeRequestInput = {
 export function createSetTextBlockMasterFontSizeRequestInput(options: Partial<SetTextBlockMasterFontSizeRequestInput> = {}): SetTextBlockMasterFontSizeRequestInput {
   return options as SetTextBlockMasterFontSizeRequestInput;
 }
+
+
+export type DocstringToMarkdownRequest = {
+  docstring: string;
+};
+export function createDocstringToMarkdownRequest(options: Partial<DocstringToMarkdownRequest> = {}): DocstringToMarkdownRequest {
+  return options as DocstringToMarkdownRequest;
+}
+
+
+export type DocstringToMarkdownResponse = string;
 
 
 export type KillSubprocessesRequestInput = {
@@ -8194,6 +8249,17 @@ export function createExternalAgentChatResponse(options: Partial<ExternalAgentCh
 }
 
 
+export type GetAIFollowSnapshotRequest = {
+  projectConfigId: string;
+};
+export function createGetAIFollowSnapshotRequest(options: Partial<GetAIFollowSnapshotRequest> = {}): GetAIFollowSnapshotRequest {
+  return options as GetAIFollowSnapshotRequest;
+}
+
+
+export type AIFollowSnapshotResponse = Array<AIFollowToolArgumentsUpdateContent>;
+
+
 export type StopExternalAgentRunRequest = {
   runId: string;
 };
@@ -8260,6 +8326,29 @@ export type SetChatSectionChatIDRequest = {
 };
 export function createSetChatSectionChatIDRequest(options: Partial<SetChatSectionChatIDRequest> = {}): SetChatSectionChatIDRequest {
   return options as SetChatSectionChatIDRequest;
+}
+
+
+export type GetAgenticSummaryCacheStatusRequest = {
+  projectConfigId: string;
+  chatSectionId: string;
+};
+export function createGetAgenticSummaryCacheStatusRequest(options: Partial<GetAgenticSummaryCacheStatusRequest> = {}): GetAgenticSummaryCacheStatusRequest {
+  return options as GetAgenticSummaryCacheStatusRequest;
+}
+
+
+export type AgenticSummaryCacheStatus = {
+  maxSummariesPerRun: number;
+  summarySectionIds: Array<string>;
+  cachedSectionIds: Array<string>;
+  missingSectionIds: Array<string>;
+  emptySourceSectionIds: Array<string>;
+  consideredSectionIds: Array<string>;
+  wouldAttemptSectionIds: Array<string>;
+};
+export function createAgenticSummaryCacheStatus(options: Partial<AgenticSummaryCacheStatus> = {}): AgenticSummaryCacheStatus {
+  return options as AgenticSummaryCacheStatus;
 }
 
 
