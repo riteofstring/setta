@@ -63,6 +63,7 @@ async def test_plugin_registered_external_agent_runs_through_runner() -> None:
         dbe.write_project(
             ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
         )
@@ -160,6 +161,7 @@ async def test_plugin_external_agent_approval_roundtrip_through_runner() -> None
         dbe.write_project(
             ProjectStateBackend(
                 projectConfigs={project_config.id: project_config},
+                projectChatWindowingByProjectConfigId={project_config.id: {}},
                 defaultProjectConfigId=project_config.id,
             )
         )

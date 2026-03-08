@@ -32,8 +32,12 @@ from setta.types.project_config import (
     Viewport,
     ViewportBounds,
     WatchCodeFolder,
+    WindowSpaceState,
 )
-from setta.types.project_state import ProjectStateSingleConfig
+from setta.types.project_state import (
+    ProjectChatWindowingState,
+    ProjectStateSingleConfig,
+)
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
@@ -352,6 +356,10 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
         default=None,
         description="Canvas coordinates where the section should be placed.",
     )
+    name: str | None = Field(
+        default=None,
+        description="Optional initial section name to apply atomically at creation.",
+    )
     topLevelSections: dict[ID, TopLevelSectionLayout] | None = Field(
         default=None,
         description="Latest top-level section layout snapshot for smart placement.",
@@ -490,6 +498,45 @@ class DeleteViewModeRequest(ProjectManagerRequestWithProjectConfig):
 
     viewModeId: ID = Field(
         description="Identifier of the view mode to delete.",
+    )
+
+
+class CreateWindowSpaceRequest(ProjectManagerRequestWithProjectConfig):
+    """Create a saved window space from a floating-window snapshot."""
+
+    state: WindowSpaceState = Field(
+        description="Serialized floating-window arrangement to persist.",
+    )
+    name: str | None = Field(
+        default=None,
+        description="Optional initial display name for the saved window space.",
+    )
+
+
+class SetWindowSpaceNameRequest(ProjectManagerRequestWithProjectConfig):
+    """Rename a saved window space."""
+
+    windowSpaceId: ID = Field(
+        description="Identifier of the window space to rename.",
+    )
+    name: str = Field(
+        description="New display name for the window space.",
+    )
+
+
+class SetWindowSpaceSortOrderRequest(ProjectManagerRequestWithProjectConfig):
+    """Persist a full ordered list of window-space IDs."""
+
+    orderedWindowSpaceIds: list[ID] = Field(
+        description="Complete list of window-space IDs in desired order.",
+    )
+
+
+class DeleteWindowSpaceRequest(ProjectManagerRequestWithProjectConfig):
+    """Delete a saved window space."""
+
+    windowSpaceId: ID = Field(
+        description="Identifier of the window space to delete.",
     )
 
 
@@ -1134,6 +1181,10 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
     state: ChatSectionState
+
+
+class SetProjectChatWindowingStateRequest(ProjectManagerRequestWithProjectConfig):
+    state: ProjectChatWindowingState
 
 
 class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):

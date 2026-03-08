@@ -4,6 +4,7 @@ import _ from "lodash";
 import { useMemo } from "react";
 import { RiCheckLine, RiFocus2Line } from "react-icons/ri";
 import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
+import { APP_MENU_Z_INDEX_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type FollowAIToggleButtonProps = {
@@ -149,7 +150,7 @@ export function FollowAIToggleButton({
         </span>
       }
       triggerClassName={resolvedTriggerClassName}
-      contentClassName="z-20 min-w-[220px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850"
+      contentClassName={`${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[220px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`}
     >
       <MenuItem
         className={menuItemClasses}

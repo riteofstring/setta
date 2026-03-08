@@ -43,6 +43,7 @@ type CreateTopLevelSectionArgs = {
   implOverrides: CreateTopLevelSectionRequestInput["implOverrides"];
   controlCodeObjType?: CreateTopLevelSectionRequestInput["controlCodeObjType"];
   position?: Position | null;
+  name?: string | null;
 };
 
 type CreateTopLevelSectionResult = {
@@ -60,6 +61,7 @@ export async function createTopLevelSectionWithResult({
   implOverrides,
   controlCodeObjType = null,
   position = null,
+  name = null,
 }: CreateTopLevelSectionArgs): Promise<CreateTopLevelSectionResult | null> {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -75,6 +77,7 @@ export async function createTopLevelSectionWithResult({
     controlCodeObjType,
     implOverrides: resolvedImplOverrides,
     position,
+    name,
     topLevelSections: placement.topLevelSections,
     viewportBounds: placement.viewportBounds,
   });
@@ -106,12 +109,14 @@ export async function createTopLevelSection({
   implOverrides,
   controlCodeObjType = null,
   position = null,
+  name = null,
 }: CreateTopLevelSectionArgs): Promise<string | null> {
   const created = await createTopLevelSectionWithResult({
     implType,
     implOverrides,
     controlCodeObjType,
     position,
+    name,
   });
   if (!created) {
     return null;
