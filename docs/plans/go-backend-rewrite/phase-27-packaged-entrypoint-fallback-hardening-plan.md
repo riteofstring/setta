@@ -44,6 +44,12 @@ Completed during this slice:
   binary
 - focused Go and Python regression coverage now guards that boundary
 
+Later follow-on now landed:
+
+- `phase-28-dev-startup-shared-helper-owner-plan.md` moved the remaining
+  active shared startup helper surface for `setta.dev_start` out of
+  `setta.start`
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -113,6 +119,6 @@ Out of scope:
 
 Do not broaden this into general CLI help normalization by inertia.
 
-The next honest step is a rerank of whether any caller-backed or
-workflow-backed `backend/setta/start.py` ownership worth touching remains at
-all now that the last active packaged entrypoint fallback has moved to Go.
+The next honest step after this landed slice was the now-landed Phase 28
+shared-helper extraction, followed by another rerank before any broader
+`backend/setta/start.py` cleanup.

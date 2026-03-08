@@ -101,6 +101,16 @@ Completed after the Phase 26 rerank:
 - the active packaged `setta.start` fallback identified in Slice 3 is no
   longer the current ownership gap
 
+Completed during the Phase 28 follow-on:
+
+- `phase-28-dev-startup-shared-helper-owner-plan.md` extracted the active
+  shared Python startup helper surface into `backend/setta/startup_runtime.py`
+- `backend/setta/dev_start.py` no longer imports active startup helpers from
+  `backend/setta/start.py`
+- `backend/setta/start.py` now acts as an orchestration/fallback command owner
+  over shared helper imports instead of being the helper implementation source
+  of truth for active dev startup
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
@@ -142,8 +152,8 @@ It splits into three related but different ownership problems:
 2. source/dev startup ownership
    - local dev scripts still assume Python activation, Python package layout,
      and shell-layer bootstrap rules
-   - the current dev-start contract is not expressed as a small explicit
-     Go-owned boundary
+   - the current dev-start contract is now explicit, but it still relies on a
+     Python-owned dev-only reload/runtime path plus Python env/bootstrap rules
 
 3. distribution/install workflow ownership
    - install/release scripts still orchestrate packaging and bootstrap through

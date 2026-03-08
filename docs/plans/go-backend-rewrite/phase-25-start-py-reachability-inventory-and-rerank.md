@@ -29,6 +29,9 @@ Later follow-on now landed:
 - `phase-27-packaged-entrypoint-fallback-hardening-plan.md` moved the
   inventoried root-help / bare-plugins / invalid-root-argv packaged fallback
   from `setta.start` to the Go-owned packaged CLI boundary
+- `phase-28-dev-startup-shared-helper-owner-plan.md` moved the remaining
+  active shared startup helper surface for `setta.dev_start` out of
+  `setta.start` and into `setta.startup_runtime`
 
 What this doc adds:
 
@@ -74,6 +77,8 @@ Current source/dev boundary after Slice 2:
 - `frontend/backendStart.sh` now uses `python -m setta` for normal startup
 - reload startup now uses `python -m setta.dev_start`
 - the explicit reload owner no longer delegates through `setta.start.cli`
+- the later Phase 28 follow-on also removed the remaining active shared helper
+  imports from `setta.start`
 
 Rerank implication:
 
@@ -177,8 +182,8 @@ Historical note:
 
 ## Next Recommended Step
 
-Use this doc as the historical inventory input for the now-landed Phase 27
-slice, not as the current remaining-state doc.
+Use this doc as the historical inventory input for the now-landed Phase 27 and
+Phase 28 slices, not as the current remaining-state doc.
 
 If rewrite work continues from here, rerank whether any still-reachable
 `backend/setta/start.py` ownership remains worth touching after that landed

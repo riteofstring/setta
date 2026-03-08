@@ -1917,7 +1917,7 @@ Do not weaken this rule during the rewrite.
      `phase-25-legacy-startup-and-distribution-boundary-plan.md`
    - the bounded packaged-entrypoint fallback closeout slice is recorded in
      `phase-27-packaged-entrypoint-fallback-hardening-plan.md`
-   - the next bounded startup follow-on is recorded in
+   - the landed bounded startup follow-on is recorded in
      `phase-28-dev-startup-shared-helper-owner-plan.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
@@ -1940,8 +1940,10 @@ Do not weaken this rule during the rewrite.
      - distribution/install workflow glue
    - the last active packaged `python -m setta` fallback edge recorded during
      Phase 25 is now Go-owned after the landed Phase 27 slice
-   - the remaining active `backend/setta/start.py` dependency is now narrowed
-     to the shared startup helper surface imported by `backend/setta/dev_start.py`
+   - the active shared helper dependency recorded after Phase 27 is now moved
+     into `backend/setta/startup_runtime.py`
+   - there is no new startup/distribution implementation slice selected by the
+     current evidence alone
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise

@@ -46,6 +46,13 @@ Completed in this slice:
   venv `setta` shim again
 - direct tests now cover the reload owner itself
 
+Later follow-on now landed:
+
+- `phase-28-dev-startup-shared-helper-owner-plan.md` extracted the active
+  shared startup helper surface into `backend/setta/startup_runtime.py`
+- `setta.dev_start` no longer imports active startup helpers from
+  `setta.start`
+
 ## Inputs
 
 - `phase-25-legacy-startup-and-distribution-boundary-plan.md`
@@ -130,7 +137,8 @@ The follow-on inventory is now recorded in:
 
 - `phase-25-start-py-reachability-inventory-and-rerank.md`
 
-Use that doc for the next decision:
+Use that doc as the historical handoff for the later fallback/Phase 28
+follow-ons:
 
 - open one narrow fallback-hardening slice only if root help, bare `plugins`,
   or unknown-command ownership should move out of `setta.start`

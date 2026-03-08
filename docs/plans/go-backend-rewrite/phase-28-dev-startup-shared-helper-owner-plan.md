@@ -22,7 +22,7 @@ Completed before this slice:
 - explicit dev reload ownership in
   `phase-25-dev-startup-command-boundary-plan.md`
 
-What remains active at the start of this slice:
+What remained active at the start of this slice:
 
 - `backend/setta/dev_start.py` still imports the following shared helpers from
   `backend/setta/start.py`:
@@ -36,6 +36,21 @@ What remains active at the start of this slice:
 - focused tests for those helpers still anchor to `setta.start` even when the
   helper itself is part of the active startup contract rather than legacy CLI
   fallback
+
+Completed during this slice:
+
+- `backend/setta/startup_runtime.py` now owns the active shared Python startup
+  helper surface used by both `setta.start` and `setta.dev_start`
+- `backend/setta/dev_start.py` no longer imports active startup helpers from
+  `backend/setta/start.py`
+- `backend/setta/start.py` now imports the shared helper surface from
+  `backend/setta/startup_runtime.py` instead of duplicating those
+  implementations
+- focused startup helper tests now point at `setta.startup_runtime` for active
+  path/env/message behavior instead of anchoring that coverage to
+  `setta.start`
+- the remaining active source/dev startup dependency on `setta.start` is
+  removed for the current workflow surface
 
 ## Inputs
 
@@ -92,7 +107,7 @@ Out of scope:
 
 ## Open Questions
 
-- none for this bounded slice
+- none for this landed slice
 
 ## Verification
 
@@ -101,6 +116,8 @@ Out of scope:
 
 ## Next Recommended Step
 
-If this slice lands cleanly, rerank again before doing any broader
-`backend/setta/start.py` cleanup. The next honest step should come from a
-concrete remaining active dependency, not from line-count goals.
+Do not broaden this into general `backend/setta/start.py` cleanup by inertia.
+
+Rerank again before selecting another startup/distribution slice. The next
+honest step should come from a concrete remaining active dependency, not from
+line-count goals.

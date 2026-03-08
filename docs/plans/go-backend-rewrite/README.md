@@ -765,9 +765,8 @@ Use the docs in this order:
     Go-owned root/plugins help and invalid-root-argv handling over the thin
     Python dispatcher boundary
 208. `phase-28-dev-startup-shared-helper-owner-plan.md`
-  - focused implementation plan for extracting the remaining active shared
-    startup helper surface out of `setta.start` for the explicit dev reload
-    owner
+  - focused closeout doc for extracting the remaining active shared startup
+    helper surface out of `setta.start` for the explicit dev reload owner
 209. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 210. `spike-pty.md`
