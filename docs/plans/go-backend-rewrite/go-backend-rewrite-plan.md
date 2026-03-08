@@ -434,10 +434,22 @@ The first Slice 4A sub-slice is now also landed:
 - focused `tests/start/test_distribution_script_wiring.py` coverage now guards
   the root wrapper contract plus the shared helper behavior
 
+The second Slice 4A sub-slice is now also landed:
+
+- `scripts/lib/distribution_artifact_path.sh` now owns single-artifact
+  resolution for built distribution wrappers
+- `verify_install.sh` and `install_built_setta.sh` now share that helper
+  instead of carrying separate `find` / shell-glob artifact selection logic
+- those wrappers now fail fast when zero or multiple matching artifacts exist
+  instead of guessing
+- focused helper and wrapper integration coverage now lives in
+  `tests/start/test_distribution_artifact_path_script.py` plus the expanded
+  `tests/start/test_distribution_script_wiring.py`
+
 The next Phase 25 decision is now narrower again:
 
-- either land one bounded follow-on for deterministic artifact selection in
-  `verify_install.sh` / `install_built_setta.sh`
+- either land one bounded follow-on for any still-justified wrapper cleanup
+  behavior change
 - or rerank instead of broadening distribution/install work by inertia
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed

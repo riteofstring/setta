@@ -65,6 +65,19 @@ Completed during the first Slice 4A sub-slice:
 - developer-facing build/install docs now describe the shared package-builder
   boundary instead of raw `python -m build`
 
+Completed during the second Slice 4A sub-slice:
+
+- `scripts/lib/distribution_artifact_path.sh` now owns single-artifact
+  resolution for built distribution wrappers
+- `verify_install.sh` now resolves the built sdist through that shared helper
+  instead of ad hoc `find` output
+- `install_built_setta.sh` now resolves the built wheel through that shared
+  helper instead of ad hoc shell glob / timestamp logic
+- focused helper coverage now exists in
+  `tests/start/test_distribution_artifact_path_script.py`
+- focused wrapper integration coverage now asserts the shared artifact helper is
+  used by both install/smoke wrappers
+
 ## Inputs
 
 - `phase-25-legacy-startup-and-distribution-boundary-plan.md`
@@ -108,7 +121,7 @@ That split is unnecessary technical debt:
 
 ### Slice 4A: Root wrapper convergence over the packaged distribution helper
 
-Status: first sub-slice completed
+Status: second sub-slice completed
 
 Deliverables:
 
@@ -150,6 +163,8 @@ Non-goals:
 - keep the first slice small and script-focused
 - keep `build.sh` as the asset-preparation owner and the shared helper as the
   package-build owner
+- fail fast when zero or multiple matching built artifacts exist instead of
+  guessing which sdist/wheel to install
 
 ## Verification
 
@@ -160,11 +175,9 @@ For Slice 4A:
 
 ## Next Recommended Step
 
-Continue with the remaining narrow Slice 4A / 4B boundary:
+The remaining Slice 4 question is now narrower again:
 
-1. decide whether `verify_install.sh` and `install_built_setta.sh` should
-   share an explicit artifact-resolution helper instead of ad hoc `find` /
-   glob logic
-2. if that cleanup is still worth landing, keep it bounded to deterministic
-   artifact selection and wrapper cleanup behavior
-3. otherwise rerank instead of inventing broader distribution churn
+1. decide whether wrapper cleanup behavior should be unified any further, or
+   whether the current `cleanup.sh` ownership is already sufficient
+2. if no concrete cleanup/installer issue remains, rerank instead of
+   inventing more distribution churn

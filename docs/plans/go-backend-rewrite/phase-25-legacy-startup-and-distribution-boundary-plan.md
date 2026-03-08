@@ -76,6 +76,14 @@ Completed during the first Slice 4 distribution/install sub-slice:
   that shared helper instead of calling `python -m build` directly
 - focused root-wrapper tests now cover the shared build/install script contract
 
+Completed during the second Slice 4 distribution/install sub-slice:
+
+- built distribution artifact selection is now shared in
+  `scripts/lib/distribution_artifact_path.sh`
+- `verify_install.sh` and `install_built_setta.sh` now fail fast on zero or
+  multiple matching artifacts instead of carrying separate selection logic
+- focused helper and wrapper integration tests now cover that boundary
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
