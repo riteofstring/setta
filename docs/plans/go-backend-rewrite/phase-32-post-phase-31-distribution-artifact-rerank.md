@@ -28,6 +28,13 @@ Update after Slice 2 landing on 2026-03-10:
   `./verify_install.sh` smoke role instead of being presented as a parallel
   normal install option
 
+Update after Slice 3 landing on 2026-03-10:
+
+- `verify_install.sh` remains the dedicated sdist completeness smoke
+- wheel-based packaged-user install coverage remains owned by native installers,
+  `install_built_setta.sh`, and wheel-first built-install docs
+- Phase 32 is now complete for the current clean-break scope
+
 ## Current Status
 
 Completed before this rerank:

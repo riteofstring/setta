@@ -54,9 +54,10 @@ Use these first for day-to-day work.
 - `./cleanup.sh`
   - Removes stale build artifacts before packaging/publishing.
 - `./verify_install.sh`
-  - Release smoke test (runs the full `build.sh` path, then installs the built sdist via `uv pip`).
+  - Dedicated sdist-completeness smoke (runs the full `build.sh` path, then installs the built sdist via `uv pip`).
 - `./install_built_setta.sh`
   - Builds Setta and installs the latest wheel into an isolated uv venv.
+  - This is the wheel-based packaged-user install check, not the sdist smoke path.
   - Default install root: `.venv_for_built_setta` (override with `--install-root`).
 - `source ./activate_built_setta.sh`
   - Activates the isolated built-install venv in the current shell.

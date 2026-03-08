@@ -793,12 +793,16 @@ Use the docs in this order:
   - focused implementation-plan doc for retargeting native installers and
     adjacent built-install docs to a wheel-first packaged-user artifact
     boundary while keeping sdist as a separate explicit source-smoke question
-215. `spike-mcp.md`
+215. `phase-32-verify-install-sdist-smoke-boundary-decision.md`
+  - focused closeout doc recording the explicit decision to keep
+    `verify_install.sh` as the dedicated sdist completeness smoke while the
+    packaged-user install paths remain wheel-first
+216. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-216. `spike-pty.md`
+217. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-217. `spike-lsp.md`
+218. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

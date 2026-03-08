@@ -2024,10 +2024,17 @@ Do not weaken this rule during the rewrite.
      - source-package guidance is now narrowed to the separate
        `./verify_install.sh` smoke role instead of being presented as a normal
        remote install option
-   - the remaining Phase 32 work is now only the explicit `verify_install.sh`
-     sdist-smoke boundary decision
-   - the next selected work is now that narrow Phase 32 Slice 3 decision,
-     not broader packaging cleanup
+   - the third Phase 32 slice is now landed for the explicit
+     `verify_install.sh` boundary decision:
+     - `verify_install.sh` remains the dedicated sdist completeness smoke
+     - `install_built_setta.sh`, native installers, and built-install docs
+       remain the wheel-first packaged-user pathways
+     - no code change was required because the existing script/tests already
+       matched the selected boundary
+   - Phase 32 is now complete for the current clean-break scope
+   - there is no new packaging implementation slice selected from this closeout;
+     reopen packaging only for a concrete release/runtime issue or a broader
+     rerank outside this closed boundary
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise

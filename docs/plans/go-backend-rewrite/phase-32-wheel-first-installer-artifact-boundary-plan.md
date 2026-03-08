@@ -95,8 +95,10 @@ Now landed in Slice 1:
 
 Remaining gap:
 
-- `verify_install.sh` still intentionally smokes sdist completeness and has not
-  yet been explicitly reranked after the installer/doc retarget
+- none inside the current wheel-first installer/doc scope
+- the only remaining follow-on was the explicit `verify_install.sh`
+  sdist-smoke decision, now recorded in
+  `phase-32-verify-install-sdist-smoke-boundary-decision.md`
 
 ## Inputs
 
@@ -180,6 +182,15 @@ Deliverables:
 This slice should only start after Slice 1 makes the installer-managed path
 wheel-first.
 
+Slice 3 status:
+
+- completed on 2026-03-10
+- `verify_install.sh` remains the dedicated sdist completeness smoke
+- `install_built_setta.sh`, native installers, and built-install docs remain
+  the wheel-first packaged-user pathways
+- no code change was required because the existing script/tests already matched
+  the selected boundary
+
 Slice 1 status:
 
 - completed on 2026-03-10
@@ -209,16 +220,14 @@ Slice 1 status:
 
 ## Open Questions
 
-- whether `verify_install.sh` should remain the only sdist smoke or whether a
-  separate dedicated sdist check would be clearer
 - whether any release automation beyond native installer builders still assumes
   `.tar.gz` for installer-managed flows
 
 ## Next Recommended Step
 
-Implement Slice 3:
+Phase 32 is complete for the current clean-break scope.
 
-- decide whether `verify_install.sh` should remain the explicit sdist
-  completeness smoke or whether that role should be split or retargeted
-- stop Phase 32 after that decision unless another concrete packaged-user
-  boundary gap appears
+Do not broaden packaging work from here by inertia. Reopen it only if:
+
+- a concrete release/runtime issue appears, or
+- a broader rewrite rerank selects another packaging boundary explicitly
