@@ -119,11 +119,15 @@ This slice delivered:
 - whether `start/stopAgentRun` should be reopened next at all
   - recommendation: only behind a new bounded runtime doc, since that work is
     qualitatively different from this read-only closeout
+  - that follow-on is now tracked in
+    `phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`
 
 ## Next Recommended Step
 
 - treat agent-run read transport as complete for the current bounded scope
-- if rewrite work continues here, require a new bounded runtime doc for:
+- if rewrite work continues here, use
+  `phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md` as the
+  handoff for:
   - `POST /startAgentRun`
   - `POST /stopAgentRun`
   - `POST /startRunChain`

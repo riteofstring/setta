@@ -364,6 +364,18 @@ The bounded follow-on tracked in
   - `POST /startRunChain`
   - `POST /stopRunChain`
 
+That remaining runtime-only surface is now tracked in
+`phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`:
+
+- the rewrite no longer treats those routes as hidden transport cleanup
+- current Python behavior and the landed Go runtime foundations are now
+  documented in one place before any further code work
+- the clean-break recommendation is to reopen managed
+  `start/stopAgentRun` first, only if a real caller or explicit product
+  decision requires it
+- run-chain remains a separate later runtime decision instead of being bundled
+  into the first follow-on slice
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
@@ -943,15 +955,16 @@ Do not weaken this rule during the rewrite.
    requirement breaks them, and keep the PTY discussion bounded to the planned
    `go-pty` to `creack/pty` Unix follow-up rather than reopening terminal
    architecture more broadly.
-3. Start the next bounded work from the Phase 13 closeout inventory and real
-   caller analysis, not by reopening completed Phase 12 runtime work or early
-   spikes.
+3. Start any future agentic follow-on from the Phase 14 runtime-mutation plan
+   and real caller analysis, not by reopening completed Phase 12 runtime work
+   or early spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
    owners still have thin regression protection, but do not use that as a
    substitute for choosing a concrete next caller-backed or product-backed
    Python-owned agentic follow-on.
-5. Treat Go-owned managed `setta_llm` as de-scoped unless a later product
-   decision explicitly reopens it.
+5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
+   deferred unless a later product decision reopens the Phase 14 managed
+   `start/stopAgentRun` slice.
 6. Limit future Python follow-up outside Phase 12 to explicitly chosen
    packaging, installer, or release-surface work rather than rediscovering
    backend-runtime scope.

@@ -523,12 +523,17 @@ Use the docs in this order:
 155. `phase-13-agent-run-read-transport-closeout.md`
   - focused completed-slice doc for the last thin persisted agent-run read
     route before the remaining Python agentic surface becomes runtime-only
-156. `spike-mcp.md`
+156. `phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`
+  - focused planning doc for the remaining runtime-only Python agentic
+    mutation surface, including the clean-break recommendation to reopen
+    managed `start/stopAgentRun` before any run-chain work and to avoid
+    reintroducing external-agent compatibility through that route
+157. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-157. `spike-pty.md`
+158. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-158. `spike-lsp.md`
+159. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

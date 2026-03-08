@@ -199,6 +199,8 @@ Later outcome:
   `phase-13-agentic-single-item-read-transport.md`
 - continued execution then landed the final thin persisted run read in
   `phase-13-agent-run-read-transport-closeout.md`
+- with only runtime-only mutation routes left, the next handoff is now the
+  planning doc `phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`
 
 ## Verification
 
@@ -210,4 +212,5 @@ Later outcome:
   current bounded scope
 - if a new agentic follow-on is needed, require one of:
   - an explicit product decision to reopen managed `setta_llm` / run-chain
-    runtime work with a new bounded design doc first
+    runtime work using
+    `phase-14-managed-agent-and-run-chain-runtime-mutation-plan.md`
