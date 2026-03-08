@@ -18,6 +18,11 @@ type Service struct {
 	llm      *llmconfig.Runtime
 }
 
+type ResolvedProfile struct {
+	Profile   Profile
+	LLMConfig *llmconfig.Config
+}
+
 var (
 	ErrInvalidProfile                   = errors.New("invalid transcription profile")
 	ErrInvalidTranscriptionLLMConfig    = errors.New("invalid transcription llm config")
@@ -127,6 +132,43 @@ func (s *Service) Delete(profileID string) error {
 		return s.profiles.Write(profiles)
 	}
 	return newServiceError(ErrProfileNotFound, "Transcription profile not found.")
+}
+
+func (s *Service) Resolve(profileID string) (ResolvedProfile, error) {
+	if err := s.requireConfigured(); err != nil {
+		return ResolvedProfile{}, err
+	}
+
+	trimmedProfileID := strings.TrimSpace(profileID)
+	if trimmedProfileID == "" {
+		return ResolvedProfile{}, newServiceError(ErrProfileNotFound, "Transcription profile not found.")
+	}
+
+	profile, err := s.profiles.Get(trimmedProfileID)
+	if err != nil {
+		if errors.Is(err, ErrProfileNotFound) {
+			return ResolvedProfile{}, newServiceError(
+				ErrProfileNotFound,
+				fmt.Sprintf("Transcription profile %s not found.", trimmedProfileID),
+			)
+		}
+		return ResolvedProfile{}, err
+	}
+
+	hydrated := hydrateProfile(s.llm.Configs(), profile)
+	resolved := ResolvedProfile{
+		Profile: hydrated,
+	}
+	configID := strings.TrimSpace(hydrated.TranscriptionLLMConfigID)
+	if configID == "" {
+		return resolved, nil
+	}
+	config, err := s.llm.Configs().ResolveConfig(configID)
+	if err != nil {
+		return resolved, nil
+	}
+	resolved.LLMConfig = &config
+	return resolved, nil
 }
 
 func (s *Service) requireConfigured() error {

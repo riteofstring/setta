@@ -327,6 +327,59 @@ func TestServiceUpdateAndDeleteReturnBoundedNotFoundErrors(t *testing.T) {
 	}
 }
 
+func TestServiceResolveHydratesProfileAndLLMConfig(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newTranscriptionProfileTestService(t, []Profile{
+		{
+			ID:                       "profile-1",
+			Name:                     "File",
+			TranscriptionLLMConfigID: "openai-file",
+			TransportMode:            TransportModeFile,
+			ChunkMs:                  1200,
+		},
+	}, map[string]llmconfig.Config{
+		"openai-file": {
+			ID:       "openai-file",
+			Model:    "whisper-1",
+			Provider: "openai",
+		},
+	})
+
+	resolved, err := service.Resolve(" profile-1 ")
+	if err != nil {
+		t.Fatalf("resolve profile: %v", err)
+	}
+	if resolved.Profile.ID != "profile-1" {
+		t.Fatalf("expected resolved profile-1, got %#v", resolved.Profile)
+	}
+	if resolved.LLMConfig == nil || resolved.LLMConfig.ID != "openai-file" {
+		t.Fatalf("expected resolved llm config openai-file, got %#v", resolved.LLMConfig)
+	}
+}
+
+func TestServiceResolveReturnsNilLLMConfigForMissingConfig(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newTranscriptionProfileTestService(t, []Profile{
+		{
+			ID:                       "profile-1",
+			Name:                     "Broken",
+			TranscriptionLLMConfigID: "missing-transcribe",
+			TransportMode:            TransportModeAuto,
+			ChunkMs:                  1200,
+		},
+	}, map[string]llmconfig.Config{})
+
+	resolved, err := service.Resolve("profile-1")
+	if err != nil {
+		t.Fatalf("resolve profile: %v", err)
+	}
+	if resolved.LLMConfig != nil {
+		t.Fatalf("expected nil llm config, got %#v", resolved.LLMConfig)
+	}
+}
+
 func TestSupportsRealtimeTranscriptionRejectsCustomBaseURLWithoutProvider(t *testing.T) {
 	t.Parallel()
 
