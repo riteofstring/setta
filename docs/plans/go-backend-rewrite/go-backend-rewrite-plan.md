@@ -176,6 +176,24 @@ The adjacent git read cluster remains caller-backed but separate, and dormant
 listener-chat plus detached-run routes remain explicitly out of scope until a
 real caller changes that rerank.
 
+The first Phase 19 slice is now landed for project-shell read ownership:
+
+- Go-owned `POST /loadAllProjectMetadata`
+- Go-owned `POST /loadProjectConfig`
+- explicit `internal/projectshell` read owner over the landed
+  `projectstate` runtime and `projectview` projection
+- deterministic project-config lookup by name with explicit ambiguity
+  rejection instead of heuristic or incidental ordering
+- thin `internal/httpapi` transport plus real IDE app wiring and focused
+  service/route/app coverage
+
+The current highest-leverage next step inside Phase 19 is now the bounded
+rename and notification slice:
+
+- `POST /setProjectConfigName`
+- `POST /getNotifications`
+- `POST /deleteNotification`
+
 The current bounded Go-owned Phase 12 surface now includes:
 
 - `internal/externalagentconfigs`

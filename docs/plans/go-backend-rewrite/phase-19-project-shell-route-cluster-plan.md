@@ -12,6 +12,26 @@ Those are now the highest-leverage remaining caller-backed routes because they
 sit on the main app shell path and already have strong Go project-state
 foundations underneath them.
 
+## Status
+
+Current repo status as of 2026-03-10:
+
+- the rerank in
+  `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md` is
+  complete
+- Slice 1 is now landed:
+  - Go-owned `POST /loadAllProjectMetadata`
+  - Go-owned `POST /loadProjectConfig`
+  - explicit `internal/projectshell` read owner over the landed
+    `projectstate` runtime and `projectview` projection
+  - deterministic document-level project lookup by config name with explicit
+    ambiguity rejection
+  - thin `internal/httpapi` transport and real IDE app wiring
+- the current Phase 19 gap is now narrower:
+  - rename ownership
+  - notification read/delete ownership
+  - later save/create/save-as/delete lifecycle ownership
+
 ## Scope
 
 Caller-backed route surface for this phase:
@@ -148,6 +168,36 @@ Why this goes first:
 - it establishes the service boundary that the later project lifecycle slices
   should reuse
 
+Status:
+
+- complete
+
+Completed:
+
+- added `internal/projectshell` as the explicit read owner over the main
+  `projectstate.Runtime`
+- added deterministic `Document.ProjectIDByName(...)` lookup in
+  `internal/projectstate` with exact-name matching and explicit ambiguity
+  rejection instead of map-iteration fallback
+- added thin `internal/httpapi` transport for:
+  - `POST /loadAllProjectMetadata`
+  - `POST /loadProjectConfig`
+- wired the new route cluster into the real IDE app
+- added focused tests in:
+  - `internal/projectstate`
+  - `internal/projectshell`
+  - `internal/httpapi`
+  - `internal/app`
+
+Decisions made:
+
+- keep project-name lookup as a document/source-of-truth concern, not an HTTP
+  helper
+- reject ambiguous duplicate project names explicitly instead of resolving by
+  incidental map order
+- keep the new project-shell read owner separate from the large existing
+  project mutation transport cluster
+
 ### Slice 2: Rename and notification owner
 
 Routes:
@@ -171,6 +221,10 @@ Why this is next:
 - notification reads are already mounted in the overview shell
 - this slice keeps the project shell usable without yet taking on create/save
   cloning and delete cleanup
+
+Status:
+
+- current next step
 
 ### Slice 3: Save and project lifecycle mutations
 
@@ -235,10 +289,14 @@ Rationale:
 
 ## Current Recommendation
 
-- start Phase 19 with Slice 1 only
-- do not broaden immediately into save/delete/create until the read service
-  boundary exists
+- Slice 1 is landed
+- implement Slice 2 next:
+  - `POST /setProjectConfigName`
+  - `POST /getNotifications`
+  - `POST /deleteNotification`
+- do not broaden immediately into save/delete/create until the rename and
+  notification owner exists
 
 ## Verification
 
-- docs and planning only; no automated tests were run
+- `./scripts/go.sh test ./internal/projectstate ./internal/projectshell ./internal/httpapi ./internal/app -run 'Test(DocumentProjectIDByName|ServiceLoad(AllProjectMetadataReturnsDefaultAndSortedMetadata|ProjectConfig(LoadsByName|ReturnsProjectNotFound|RejectsAmbiguousName))|RegisterProjectShellRoutes(ReturnsAllProjectMetadata|LoadsProjectConfigByName|ReturnsNotFoundForMissingProjectConfig|BlocksLauncherMode)|AppServesProjectShellReadRoutes)' -count=1`
