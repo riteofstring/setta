@@ -6,11 +6,11 @@ This doc records the next executable phase after the landed Phase 18 AI/chat
 closeout and the rerank in
 `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`.
 
-The current direct frontend project shell still crosses back into Python for
-project boot, load, create/save/delete, rename, and notification read/delete.
-Those are now the highest-leverage remaining caller-backed routes because they
-sit on the main app shell path and already have strong Go project-state
-foundations underneath them.
+The direct frontend project shell used to cross back into Python for project
+boot, load, create/save/delete, rename, and notification read/delete. Those
+were the highest-leverage remaining caller-backed routes because they sat on
+the main app shell path and already had strong Go project-state foundations
+underneath them.
 
 ## Status
 
@@ -35,10 +35,18 @@ Current repo status as of 2026-03-10:
   - explicit `internal/notifications` persisted store/service
   - real IDE app websocket metadata/project-state rename broadcast plus focused
     service/route/app coverage
-- the current Phase 19 gap is now narrower:
-  - later save/create/save-as/delete lifecycle ownership
-  - that remaining bounded slice is now tracked in
-    `phase-19-project-lifecycle-mutations-plan.md`
+- Slice 3 is now landed:
+  - Go-owned `POST /saveProject`
+  - Go-owned `POST /createProjectConfig`
+  - Go-owned `POST /saveAsNewProjectConfig`
+  - Go-owned `POST /deleteProjectConfigs`
+  - explicit document/runtime lifecycle helpers in `internal/projectstate`
+  - explicit save notification, metadata refresh, and terminal-cleanup hooks
+    behind `internal/projectshell`
+- the current caller-backed project-shell route cluster is now Go-owned for
+  the clean-break scope
+- the adjacent git read cluster is now the next executable direct-frontend
+  phase and is tracked in `phase-20-git-read-route-cluster-plan.md`
 
 ## Scope
 
@@ -109,8 +117,8 @@ Go needs an explicit owner above `projectstate.Registry` that can:
 
 Status:
 
-- landed for read and rename ownership
-- still missing the later create/save/save-as/delete lifecycle slice
+- landed for read, rename, notification, save, create, save-as, and delete
+  ownership
 
 Recommendation:
 
@@ -131,7 +139,7 @@ Status:
 
 - rename helper is now landed through explicit
   `internal/projectstate.Document.SetProjectName(...)`
-- create/clone/delete helpers are still missing
+- create/clone/delete helpers are now landed
 
 Recommendation:
 
@@ -308,6 +316,41 @@ Why this is last:
 - it depends on the service boundary from Slice 1 and the notification/save UI
   semantics from Slice 2
 
+Status:
+
+- complete
+
+Completed:
+
+- added explicit `internal/projectstate` helpers for:
+  - create
+  - clone
+  - delete
+  - deterministic default-project reconciliation
+- added explicit `internal/projectshell` lifecycle methods for:
+  - `SaveProject`
+  - `CreateProjectConfig`
+  - `SaveAsNewProjectConfig`
+  - `DeleteProjectConfigs`
+- added thin `internal/httpapi` transport for the full lifecycle route set
+- wired the real IDE app for:
+  - metadata websocket refresh after create/save-as/delete
+  - non-temporary `"Saved!"` save notification broadcast
+  - delete-time terminal session reclamation by project id
+- added focused tests in:
+  - `internal/projectstate`
+  - `internal/projectshell`
+  - `internal/httpapi`
+  - `internal/app`
+
+Decisions made:
+
+- `saveAsNewProjectConfig` now always creates an independent clone in Go
+- the current `withRefs` request field is accepted for caller-shape continuity
+  but does not recreate Python shared-ref semantics
+- create remains minimal and only initializes a single view mode plus the
+  bounded document defaults needed by current callers
+
 ## Route Shape And Error Expectations
 
 - keep transport thin and typed
@@ -352,18 +395,13 @@ Status:
 
 ## Current Recommendation
 
-- Slice 1 is landed
-- Slice 2 is landed
-- implement Slice 3 next:
-  - `POST /saveProject`
-  - `POST /createProjectConfig`
-  - `POST /saveAsNewProjectConfig`
-  - `POST /deleteProjectConfigs`
-- use `phase-19-project-lifecycle-mutations-plan.md` as the working doc for
-  that implementation
-- keep delete-time cleanup explicit instead of reaching into terminal internals
-  from routes
+- Phase 19 project-shell route ownership is complete for the current
+  caller-backed clean-break scope
+- keep the non-caller-backed `getDefaultConfigName` and `setAsDefaultProject`
+  routes out of scope unless a real caller appears
+- start the adjacent git read phase with
+  `phase-20-git-read-route-cluster-plan.md`
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/projectstate ./internal/notifications ./internal/projectshell ./internal/httpapi ./internal/app -run 'Test(DocumentSetProjectName|StoreListByProjectAndDelete|Service(Get|SetProjectConfigName|Load)|RegisterProjectShellRoutes|AppServesProjectShell|AppSetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates)' -count=1`
+- `./scripts/go.sh test ./internal/projectstate ./internal/notifications ./internal/projectshell ./internal/httpapi ./internal/app -run 'Test(Document(CreateProject|CloneProject|DeleteProjects|SetProjectName)|StoreListByProjectAndDelete|Service(Get|SetProjectConfigName|Load|SaveProject|CreateProjectConfig|SaveAsNewProjectConfig|DeleteProjectConfigs)|RegisterProjectShellRoutes|App(ServesProjectShell(ReadRoutes|RenameAndNotificationRoutes|LifecycleRoutes)|SetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates|ProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification))' -count=1`

@@ -33,7 +33,7 @@ Question this inventory answers:
 - after the landed Phase 18 closeout, which remaining Python-owned direct
   frontend route cluster should become the next Go rewrite phase?
 
-Update after the initial Phase 19 execution:
+Update after the full Phase 19 execution:
 
 - Slice 1 is now landed for:
   - `POST /loadAllProjectMetadata`
@@ -42,8 +42,14 @@ Update after the initial Phase 19 execution:
   - `POST /setProjectConfigName`
   - `POST /getNotifications`
   - `POST /deleteNotification`
-- the selected project-shell phase remains correct, but its remaining bounded
-  gap is now the save/create/save-as/delete lifecycle slice
+- Slice 3 is now landed for:
+  - `POST /saveProject`
+  - `POST /createProjectConfig`
+  - `POST /saveAsNewProjectConfig`
+  - `POST /deleteProjectConfigs`
+- the selected project-shell phase is now complete for the current
+  caller-backed direct frontend surface
+- the git read cluster is now the next caller-backed direct frontend phase
 
 ## Inputs
 
@@ -85,7 +91,7 @@ Update after the initial Phase 19 execution:
 
 ## Findings
 
-### 1. The next caller-backed direct frontend cluster is the project shell route surface
+### 1. The project shell route surface was the correct next phase and is now complete
 
 These routes still have live direct frontend callers:
 
@@ -129,17 +135,19 @@ Current Go foundations already in place:
 - `internal/httpapi/project_routes.go`
   - established thin project-state transport and `frontendOpId` patterns
 
-What is still missing:
+What landed after this inventory:
 
 - a Go owner for project lifecycle mutations across create/save/save-as/delete
-- a delete-time terminal cleanup hook above the landed terminal runtime
+- delete-time terminal cleanup hooks above the landed terminal runtime
+- save notification and metadata websocket refresh ownership in the real IDE
+  app
 
 Implication:
 
-- the next executable rewrite phase should be an explicit project-shell route
-  cluster, not another AI/runtime slice
+- this rerank was correct, and the project-shell route cluster should now stay
+  closed unless a new direct caller appears
 
-### 2. The git read cluster is active, but it is the next adjacent phase, not the current one
+### 2. The git read cluster is active and is now the next adjacent phase
 
 These routes have live current callers in `frontend/src/state/actions/git.ts`:
 
@@ -161,8 +169,8 @@ Why this is adjacent instead of first:
 
 Rerank:
 
-- keep git as the next adjacent caller-backed direct frontend cluster after
-  project shell
+- git is now the next adjacent caller-backed direct frontend cluster after the
+  completed project-shell phase
 
 ### 3. Listener chat routes remain dormant for the current frontend surface
 
@@ -228,25 +236,21 @@ Rerank:
 
 ## Reranked Outcome
 
-1. The next rewrite phase should target the project-shell direct frontend
-   route cluster.
-2. The first bounded Phase 19 implementation doc should focus on that
-   project-shell cluster instead of broadening immediately into git or dormant
-   listener/run transport.
-3. The git read cluster is the next adjacent caller-backed phase after project
-   shell.
-4. Listener chat, detached runs, and the non-caller-backed default-project
+1. The completed next rewrite phase after Phase 18 was correctly the
+   project-shell direct frontend route cluster.
+2. The next rewrite phase should now target the git read direct frontend
+   cluster.
+3. Listener chat, detached runs, and the non-caller-backed default-project
    routes should remain explicitly out of scope until a real caller changes the
    rerank.
 
 ## Decisions Made
 
-- Phase 19 is selected by the project-shell route cluster, not by the dormant
-  listener/run surface
-- git transport remains important, but it is not the current highest-leverage
-  next step
-- non-caller-backed default-project routes should not broaden the first Phase
-  19 slice
+- Phase 19 was correctly selected by the project-shell route cluster, not by
+  the dormant listener/run surface
+- git transport is now the current highest-leverage next step
+- non-caller-backed default-project routes still should not broaden the next
+  phase
 
 ## Verification
 
@@ -254,18 +258,16 @@ Rerank:
 
 ## Next Recommended Step
 
-- continue executing `phase-19-project-shell-route-cluster-plan.md`
-- the first bounded Slice 1 read-owner work is now landed:
-  - `POST /loadAllProjectMetadata`
-  - `POST /loadProjectConfig`
-- the current next recommended step is Slice 2:
-  - `POST /setProjectConfigName`
-  - `POST /getNotifications`
-  - `POST /deleteNotification`
+- keep `phase-19-project-shell-route-cluster-plan.md` as the closeout record
+  for the completed project-shell phase
+- start `phase-20-git-read-route-cluster-plan.md`
 
 Later outcome:
 
 - the user continued execution after this inventory
-- that landed the bounded Slice 1 project-shell read owner over the existing
-  `projectstate` and `projectview` foundations
-- the next handoff remains inside Phase 19, not a rerank to another cluster
+- that landed the full bounded project-shell route cluster, including:
+  - read ownership
+  - rename and notification ownership
+  - save/create/save-as/delete lifecycle ownership
+- the next handoff is now the git read cluster tracked in
+  `phase-20-git-read-route-cluster-plan.md`

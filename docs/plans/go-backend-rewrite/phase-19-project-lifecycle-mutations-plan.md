@@ -2,18 +2,17 @@
 
 ## Purpose
 
-This doc tracks the remaining bounded Phase 19 work after the landed
+This doc tracks the bounded Phase 19 lifecycle slice that followed the landed
 project-shell read, rename, and notification slices.
 
-The remaining direct frontend gap is now the project lifecycle mutation
-cluster:
+The lifecycle mutation cluster for the current caller-backed project shell was:
 
 - `POST /saveProject`
 - `POST /createProjectConfig`
 - `POST /saveAsNewProjectConfig`
 - `POST /deleteProjectConfigs`
 
-The goal is to land explicit Go ownership for those routes without recreating
+The goal was to land explicit Go ownership for those routes without recreating
 the Python manager graph or pushing orchestration into HTTP handlers.
 
 ## Current Status
@@ -27,8 +26,13 @@ As of 2026-03-10:
   - `POST /setProjectConfigName`
   - `POST /getNotifications`
   - `POST /deleteNotification`
-- the remaining Phase 19 caller-backed gap is now only the lifecycle mutation
-  cluster above
+- this lifecycle slice is now landed:
+  - `POST /saveProject`
+  - `POST /createProjectConfig`
+  - `POST /saveAsNewProjectConfig`
+  - `POST /deleteProjectConfigs`
+- the direct caller-backed project-shell route cluster is now Go-owned for the
+  current clean-break scope
 
 ## Inputs
 
@@ -149,47 +153,66 @@ Deliverables:
 - delete-time cleanup for unrelated runtimes that do not have a current caller
 - heuristic fallback naming or implicit duplicate resolution
 
-## Open Decisions
+## Completed
 
-### How much Python codegen/bootstrap should create perform?
+- added explicit `internal/projectstate` document/runtime helpers for:
+  - create project
+  - clone project
+  - delete projects
+  - deterministic default-project reconciliation after delete
+- added explicit `internal/projectshell` lifecycle ownership for:
+  - manual save
+  - create project config
+  - save as new project config
+  - delete project configs
+- kept save notifications, metadata refresh, and delete-time cleanup behind
+  injected hooks instead of route-local orchestration
+- added thin `internal/httpapi` transport plus typed lifecycle error mapping
+- wired the real IDE app for:
+  - `AllProjectMetadata` broadcasts after create/save-as/delete
+  - non-temporary `"Saved!"` notification broadcast after manual save
+  - delete-time terminal reclamation by `projectConfigId`
+- added focused tests in:
+  - `internal/projectstate`
+  - `internal/projectshell`
+  - `internal/httpapi`
+  - `internal/app`
+
+## Decisions Made
+
+### `saveAsNewProjectConfig` always creates an independent cloned project
 
 Recommended boundary for the current slice:
 
-- create the minimal valid project config in Go with a single view mode and
-  no synthetic compatibility scaffolding
-- only expand create-time bootstrap if a concrete current caller fails without
-  it
+- keep accepting the current `withRefs` transport field for the active caller
+  shape
+- ignore that field inside the Go owner and always create an independent
+  cloned project
+- do not recreate Python shared-ref semantics in the Go document model
 
 Rationale:
 
-- current Phase 19 is the direct frontend shell route cluster, not a broad
-  recreation of Python project bootstrap behavior
-- the only directly caller-backed create semantic confirmed by current tests is
-  single-view-mode initialization
-- adding automatic generated sections or watch/runtime side effects without a
-  current caller would broaden scope
+- the Go project document is already a self-contained per-project graph, not a
+  shared-ref manager graph
+- robust shared-ref parity would require reintroducing cross-project shared
+  state or building schema-aware raw-payload id aliasing/rewrite logic
+- neither dependency is justified by the current caller-backed project-shell
+  surface
 
-## Verification Plan
+### Create keeps minimal bootstrap
 
-Run focused Go tests in:
+- create initializes a minimal valid project with a single view mode
+- it does not recreate broader Python bootstrap side effects without a current
+  caller proving they are needed
 
-- `./internal/projectstate`
-- `./internal/projectshell`
-- `./internal/httpapi`
-- `./internal/app`
+## Verification
 
-The first test target after implementation should cover:
-
-- view-mode initialization on create
-- invalid name mapping for create and save-as
-- delete cleanup hook execution
-- save notification persistence / websocket delivery
-- real app route ownership for the lifecycle cluster
+- `./scripts/go.sh test ./internal/projectstate ./internal/projectshell ./internal/httpapi ./internal/app -run 'Test(Document(CreateProject|CloneProject|DeleteProjects)|Service(Load|SetProjectConfigName|SaveProject|CreateProjectConfig|SaveAsNewProjectConfig|DeleteProjectConfigs)|RegisterProjectShellRoutes|App(ServesProjectShell(ReadRoutes|RenameAndNotificationRoutes|LifecycleRoutes)|SetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates|ProjectShellLifecycleRoutesBroadcastMetadataAndSaveNotification))' -count=1`
 
 ## Next Recommended Step
 
-Implement Stage 1 now:
+Start the adjacent git-read route phase:
 
-- add explicit create / clone / delete document helpers
-- add lifecycle methods to `internal/projectshell`
-- keep notification and terminal cleanup behind injected hooks
+- use `phase-20-git-read-route-cluster-plan.md` as the next working doc
+- keep the current project-shell route cluster closed unless a new caller
+  appears for `getDefaultConfigName` or `setAsDefaultProject`

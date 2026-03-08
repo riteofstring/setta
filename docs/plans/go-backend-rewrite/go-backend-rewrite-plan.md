@@ -172,9 +172,9 @@ project-shell route cluster as the next executable phase:
 - project create/save/delete/rename routes
 - notification read/delete routes
 
-The adjacent git read cluster remains caller-backed but separate, and dormant
-listener-chat plus detached-run routes remain explicitly out of scope until a
-real caller changes that rerank.
+The adjacent git read cluster remained caller-backed but separate, and dormant
+listener-chat plus detached-run routes remained explicitly out of scope until a
+real caller changed that rerank.
 
 The first Phase 19 slice is now landed for project-shell read ownership:
 
@@ -199,13 +199,23 @@ notification ownership:
 - real IDE app websocket `UpdateFrontendProjectState` plus
   `AllProjectMetadata` rename broadcasts for the active shell caller
 
-The current highest-leverage next step inside Phase 19 is now the remaining
-project lifecycle slice:
+The third Phase 19 slice is now landed for project-shell save and lifecycle
+ownership:
 
 - `POST /saveProject`
 - `POST /createProjectConfig`
 - `POST /saveAsNewProjectConfig`
 - `POST /deleteProjectConfigs`
+- explicit `internal/projectstate` create/clone/delete helpers plus
+  deterministic default-project reconciliation
+- explicit `internal/projectshell` lifecycle ownership with injected metadata,
+  save-notification, and delete-cleanup hooks
+- real IDE app metadata refresh, non-temporary `"Saved!"` notification
+  broadcast, and delete-time terminal reclamation
+
+With that third slice landed, the caller-backed Phase 19 project-shell route
+cluster is now Go-owned for the current clean-break scope. The adjacent git
+read cluster is now the highest-leverage next direct-frontend phase.
 
 The current bounded Go-owned Phase 12 surface now includes:
 
@@ -1615,12 +1625,12 @@ Do not weaken this rule during the rewrite.
 6. The post-Phase-18 rerank is now complete.
    - the inventory outcome is recorded in
      `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
-   - the next executable phase is recorded in
+   - the completed project-shell phase is recorded in
      `phase-19-project-shell-route-cluster-plan.md`
-   - the remaining bounded lifecycle mutation slice is now tracked in
+   - the completed lifecycle closeout slice is recorded in
      `phase-19-project-lifecycle-mutations-plan.md`
-   - the adjacent git read cluster remains the next caller-backed direct
-     frontend follow-on after project shell
+   - the next executable direct-frontend phase is recorded in
+     `phase-20-git-read-route-cluster-plan.md`
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise

@@ -699,20 +699,22 @@ Use the docs in this order:
     reranking project-shell routes ahead of git and dormant listener/run
     transport
 191. `phase-19-project-shell-route-cluster-plan.md`
-  - focused current-work plan for the landed project-shell read plus rename /
-    notification slices and the remaining save / lifecycle transport over the
-    landed
+  - focused closeout doc for the landed project-shell read, rename,
+    notification, and lifecycle route cluster over the landed
     `projectstate` and `projectview` foundations
 192. `phase-19-project-lifecycle-mutations-plan.md`
-  - focused current-work plan for the remaining Phase 19 save / create /
-    save-as / delete lifecycle mutation slice over explicit Go project-state,
-    notification, and terminal-cleanup boundaries
-193. `spike-mcp.md`
+  - focused closeout doc for the landed Phase 19 save / create / save-as /
+    delete lifecycle mutation slice plus its clean-break clone decision
+193. `phase-20-git-read-route-cluster-plan.md`
+  - focused next-work plan for the caller-backed git read route cluster over
+    explicit Go repo-root resolution, subprocess execution, and typed
+    transport boundaries
+194. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-194. `spike-pty.md`
+195. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-195. `spike-lsp.md`
+196. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
