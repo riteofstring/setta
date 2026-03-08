@@ -309,6 +309,9 @@ now the last remaining direct frontend settings write cluster and should move
 over the landed config-store boundary without silently bundling Python's
 broader plugin/env-var/cache preflight side effects.
 
+That work is now scoped in
+`phase-13-external-agent-config-crud-transport.md`.
+
 ## Current Reality
 
 The backend seams that matter most for planning are:

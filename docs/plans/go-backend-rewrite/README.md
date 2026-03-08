@@ -504,12 +504,17 @@ Use the docs in this order:
     gap: Go-owned `create/update/delete` transcription-profile transport over
     the landed transcription-profile store/service owner, with websocket
     parity intentionally deferred
-151. `spike-mcp.md`
+151. `phase-13-external-agent-config-crud-transport.md`
+  - focused implementation-plan doc for the last direct settings write gap:
+    Go-owned `create/update/delete` external-agent-config transport over the
+    landed store/checker boundary, with plugin-registry parity and shared
+    Claude settings-file ownership explicitly deferred
+152. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-152. `spike-pty.md`
+153. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-153. `spike-lsp.md`
+154. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
