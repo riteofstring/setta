@@ -37,6 +37,10 @@ export const GoHTTPRoutes = {
   updateLauncher: "/updateLauncher",
   getAttachmentDownloadUrl: "/getAttachmentDownloadUrl",
   getAttachmentDownloadUrls: "/getAttachmentDownloadUrls",
+  getAppCatalog: "/getAppCatalog",
+  getAppDefinition: "/getAppDefinition",
+  validateAppDefinition: "/validateAppDefinition",
+  setAppDefinition: "/setAppDefinition",
   binaryDownload: "/binary/{contentId}",
 } as const;
 

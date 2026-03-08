@@ -273,6 +273,86 @@ export type GetAttachmentDownloadUrlsRequestInput = {
   projectConfigId?: string | null;
 };
 
+export type AppConfigJSONValue = Record<string, unknown> | Array<unknown> | string | number | boolean | null;
+
+export type AppRoute = {
+  path: string;
+  name: string | null;
+  rootKey: string | null;
+};
+
+export type AppDefinition = {
+  appSpecVersion: string;
+  catalogId: string;
+  appSpecPath: string | null;
+  routes: Array<AppRoute>;
+  dataBindings: Record<string, AppConfigJSONValue>;
+  actions: Record<string, AppConfigJSONValue>;
+  theme: Record<string, AppConfigJSONValue> | null;
+  assets: Array<AppConfigJSONValue>;
+};
+
+export type AppDefinitionReadResult = {
+  appSpec: AppConfigJSONValue;
+  appDefinition: AppDefinition | null;
+};
+
+export type AppValidationIssue = {
+  message: string;
+  elementKey: string | null;
+  elementType: string | null;
+};
+
+export type AppCapabilities = {
+  catalogId: string;
+  catalogVersion: string;
+  appSpecVersion: string;
+  themeSchemaVersion: string;
+  features: Record<string, boolean>;
+};
+
+export type AppDefinitionValidationResult = {
+  errors: Array<AppValidationIssue>;
+  warnings: Array<AppValidationIssue>;
+  capabilities: AppCapabilities;
+};
+
+export type AppDefinitionMutationResult = {
+  appSpec: AppConfigJSONValue;
+  appDefinition: AppDefinition | null;
+};
+
+export type GetAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+};
+
+export type ValidateAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+  appSpec: AppConfigJSONValue;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+
+export type SetAppDefinitionRequestInput = {
+  frontendOpId?: string | null;
+  appSpec: AppConfigJSONValue;
+  appSpecPath?: string | null;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+
+export type AppCatalogResponse = Record<string, unknown>;
+
 export async function route_get_backend_init_status(): Promise<ResponseDataAndStatus<BackendInitStatusResponse>> {
   return await get(GoHTTPRoutes.getBackendInitStatus);
 }
@@ -347,6 +427,22 @@ export async function route_get_attachment_download_url(x: GetAttachmentDownload
 
 export async function route_get_attachment_download_urls(x: GetAttachmentDownloadUrlsRequestInput): Promise<ResponseDataAndStatus<Array<AttachmentDownloadUrlEntry>>> {
   return await post(GoHTTPRoutes.getAttachmentDownloadUrls, x);
+}
+
+export async function route_get_app_catalog(): Promise<ResponseDataAndStatus<AppCatalogResponse>> {
+  return await get(GoHTTPRoutes.getAppCatalog);
+}
+
+export async function route_get_app_definition(x: GetAppDefinitionRequestInput): Promise<ResponseDataAndStatus<AppDefinitionReadResult>> {
+  return await post(GoHTTPRoutes.getAppDefinition, x);
+}
+
+export async function route_validate_app_definition(x: ValidateAppDefinitionRequestInput): Promise<ResponseDataAndStatus<AppDefinitionValidationResult>> {
+  return await post(GoHTTPRoutes.validateAppDefinition, x);
+}
+
+export async function route_set_app_definition(x: SetAppDefinitionRequestInput): Promise<ResponseDataAndStatus<AppDefinitionMutationResult>> {
+  return await post(GoHTTPRoutes.setAppDefinition, x);
 }
 `
 

@@ -51,6 +51,9 @@ Start with explicit route ownership wedges, not full schema reflection.
     request/response types for launcher status/setup/repair/remove/update
   - current landed wedge: active attachment download helper endpoint wrappers
     plus request/response types for single and bulk attachment URL reads
+  - current landed wedge: active app-config pane endpoint wrappers plus
+    request/response types for app-definition read/write/validate flows and
+    app-catalog reads
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals
