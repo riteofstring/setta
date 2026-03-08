@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -181,6 +182,84 @@ func (r *Registry) LoadSecret(metadata auth.SessionMetadata) ([]byte, error) {
 		return nil, fmt.Errorf("session secret must not be empty")
 	}
 	return secret, nil
+}
+
+func (r *Registry) LoadSessions() ([]auth.SessionMetadata, error) {
+	if r == nil {
+		return nil, fmt.Errorf("session registry is required")
+	}
+
+	entries, err := os.ReadDir(r.sessionsRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []auth.SessionMetadata{}, nil
+		}
+		return nil, fmt.Errorf("read sessions root: %w", err)
+	}
+
+	sessions := make([]auth.SessionMetadata, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		metadataPath := filepath.Join(r.sessionsRoot, entry.Name(), sessionMetadataFileName)
+		metadataBytes, err := os.ReadFile(metadataPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("read session metadata: %w", err)
+		}
+
+		var metadata auth.SessionMetadata
+		if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+			continue
+		}
+		if strings.TrimSpace(metadata.ID) == "" || strings.TrimSpace(metadata.ServerMode) == "" {
+			continue
+		}
+		sessions = append(sessions, metadata)
+	}
+
+	sort.Slice(sessions, func(i int, j int) bool {
+		return sessions[i].StartedAt.After(sessions[j].StartedAt)
+	})
+	return sessions, nil
+}
+
+func (r *Registry) FindSessionsByWorkspaceAndMode(workspaceRoot string, serverMode string) ([]auth.SessionMetadata, error) {
+	if r == nil {
+		return nil, fmt.Errorf("session registry is required")
+	}
+	resolvedWorkspaceRoot, err := statefs.NormalizePath(workspaceRoot, "")
+	if err != nil {
+		return nil, fmt.Errorf("resolve workspace root: %w", err)
+	}
+	trimmedMode := strings.TrimSpace(serverMode)
+	sessions, err := r.LoadSessions()
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]auth.SessionMetadata, 0, len(sessions))
+	for _, session := range sessions {
+		if trimmedMode != "" && session.ServerMode != trimmedMode {
+			continue
+		}
+		canonicalPath := strings.TrimSpace(session.WorkspacePathCanonical)
+		if canonicalPath == "" {
+			canonicalPath = strings.TrimSpace(session.WorkspacePath)
+		}
+		resolvedSessionWorkspace, err := statefs.NormalizePath(canonicalPath, "")
+		if err != nil {
+			continue
+		}
+		if resolvedSessionWorkspace != resolvedWorkspaceRoot {
+			continue
+		}
+		matches = append(matches, session)
+	}
+	return matches, nil
 }
 
 func (r *Registry) DeleteSession(sessionID string) error {
