@@ -119,16 +119,25 @@ The bounded follow-on tracked in
 - Go now exposes the token-backed attachment download route required by those
   external-agent URLs
 
-That returns the remaining Phase 12 work to final inventory/closeout. If that
-reassessment finds no other concrete product-visible gap, Phase 12 is
-effectively complete for the external-agent surface.
+The attempted final Phase 12 inventory then found one more concrete
+product-visible gap, now tracked in
+`phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`:
+
+- Python still owns external-agent AI-follow snapshot state through
+  `/getAIFollowSnapshot`
+- Python still owns live external-agent `AIFollowToolArgumentsUpdate`
+  websocket behavior over streamed/finalized Setta MCP tool calls
+
+Phase 12 is therefore not yet fully closed. The remaining bounded work is now
+that external-agent AI-follow slice, after which the phase can return to a
+real closeout/inventory pass.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the final
-Phase 12 external-agent reassessment above the completed hydration, runtime,
+follow-up tracked in `spike-pty.md`. New work should start from the bounded
+external-agent AI-follow slice above the completed hydration, runtime,
 executor, parity, prompt-composition, and attachment foundations, not by
 reopening completed foundation choices.
 

@@ -67,7 +67,8 @@ Current repo status as of 2026-03-09:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - only any residual external-agent product-visible gap that may still remain
+  - the bounded external-agent AI-follow snapshot/live-update slice now tracked
+    in `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`
     after the now-landed Codex/OpenCode/Claude parity, Codex raw tool-item,
     prompt/app-generation, and attachment-payload follow-on slices
 - current work is no longer pure planning/inventory:
@@ -90,6 +91,10 @@ Current repo status as of 2026-03-09:
     complete
   - the bounded external-agent attachment follow-on in
     `phase-12-external-agent-attachment-payload-parity.md` is now complete
+  - the attempted final closeout inventory found one more concrete gap:
+    Python still owns external-agent AI-follow snapshot state and
+    `AIFollowToolArgumentsUpdate` websocket behavior, now scoped in
+    `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`
 
 ## Scope
 
@@ -109,6 +114,7 @@ This phase should cover:
   - `route_get_external_agent_chat`
   - `route_stop_external_agent_run`
   - `route_respond_external_agent_approval`
+  - `route_get_ai_follow_snapshot` for the external-agent contribution only
 - external-agent branch/edit and `continueFromChatId` behavior where it applies
 - external-agent `contextUsage` and tool-call hydration from the canonical run
   data path
@@ -217,9 +223,9 @@ It should include:
 
 Missing Go owners:
 
-- only any still-user-facing residual external-agent runtime behavior that
-  proves to be missing after the now-landed Codex/OpenCode/Claude parity,
-  Codex raw tool-item, prompt/app-generation, and attachment-payload slices
+- the bounded external-agent AI-follow snapshot/live-update behavior still
+  owned by `backend/setta/routers/ai.py` and
+  `backend/setta/agentic/external_agent_runner.py`
 - any remaining external-agent websocket/event streaming closeout only if the
   current frontend UX still depends on behavior not covered by the landed
   persisted/live chat path
