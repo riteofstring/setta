@@ -637,6 +637,17 @@ The bounded plugin backend MCP follow-on tracked in
 - plugin static-dir, listener-endpoint, and broader backend-host runtime
   surfaces remain deferred until a concrete caller requires them
 
+The next bounded plugin backend follow-on is now opened in
+`phase-15-plugin-static-dir-runtime.md`:
+
+- the target is Go-owned backend plugin static-directory registration and
+  serving at `/plugin-static/{pluginId}/...` in IDE mode
+- the recommended boundary is to reuse the existing backend runtime startup
+  path for route/tool/static plugins while only keeping worker sessions alive
+  when later live calls are needed
+- listener-endpoint dispatch, `host.read_project_state`, and plugin runtime
+  refresh remain deferred outside that static-dir slice
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:
