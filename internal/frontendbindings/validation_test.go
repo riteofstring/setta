@@ -185,6 +185,121 @@ func TestBuildBindingsRejectsInvalidDeclarationNames(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRejectsInvalidDeclarationShapes(t *testing.T) {
+	tests := []struct {
+		name        string
+		declaration TypeDeclaration
+		want        string
+	}{
+		{
+			name: "object with conflicting create options",
+			declaration: TypeDeclaration{
+				Name:       "Thing",
+				Kind:       "object",
+				CreateExpr: "options",
+				CreateBody: "  return options;",
+			},
+			want: "declaration Thing: object cannot set both create expr and create body",
+		},
+		{
+			name: "alias missing target",
+			declaration: TypeDeclaration{
+				Name: "Thing",
+				Kind: "alias",
+			},
+			want: "declaration Thing: alias requires alias expression",
+		},
+		{
+			name: "set missing element type",
+			declaration: TypeDeclaration{
+				Name: "ThingSet",
+				Kind: "set",
+			},
+			want: "declaration ThingSet: set requires element type",
+		},
+		{
+			name: "type guard missing backing set",
+			declaration: TypeDeclaration{
+				Name:            "isThing",
+				Kind:            "type_guard",
+				GuardInputType:  "Thing",
+				GuardReturnType: "ThingImpl",
+			},
+			want: "declaration isThing: type guard requires backing set name",
+		},
+		{
+			name: "function missing return type",
+			declaration: TypeDeclaration{
+				Name:         "createThing",
+				Kind:         "function",
+				FunctionBody: "  return value;",
+				FunctionParams: []TypeProperty{
+					{Name: "value", TypeExpr: "Thing"},
+				},
+			},
+			want: "declaration createThing: function requires return type",
+		},
+		{
+			name: "function duplicate params",
+			declaration: TypeDeclaration{
+				Name:           "createThing",
+				Kind:           "function",
+				FunctionReturn: "Thing",
+				FunctionBody:   "  return value;",
+				FunctionParams: []TypeProperty{
+					{Name: "value", TypeExpr: "Thing"},
+					{Name: "value", TypeExpr: "Thing"},
+				},
+			},
+			want: `declaration createThing: duplicate function parameter "value"`,
+		},
+		{
+			name: "function param cannot be optional and defaulted",
+			declaration: TypeDeclaration{
+				Name:           "createThing",
+				Kind:           "function",
+				FunctionReturn: "Thing",
+				FunctionBody:   "  return options;",
+				FunctionParams: []TypeProperty{
+					{Name: "options", TypeExpr: "Thing", Optional: true, DefaultValue: "{} as Thing"},
+				},
+			},
+			want: `declaration createThing: function parameter "options" cannot be optional and have a default value`,
+		},
+		{
+			name: "const missing expression",
+			declaration: TypeDeclaration{
+				Name: "ThingConst",
+				Kind: "const",
+			},
+			want: "declaration ThingConst: const requires expression",
+		},
+		{
+			name: "object property missing type",
+			declaration: TypeDeclaration{
+				Name: "Thing",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "value"},
+				},
+			},
+			want: `declaration Thing: property "value" has empty type`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := buildBindings(nil, nil, nil, []TypeDeclaration{tt.declaration})
+			if err == nil {
+				t.Fatalf("buildBindings(...) unexpectedly succeeded")
+			}
+			if err.Error() != tt.want {
+				t.Fatalf("buildBindings(...) error = %q, want %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
 func TestCurrentEndpointsUseUniqueFunctionsAndRoutes(t *testing.T) {
 	functionNames := make(map[string]EndpointSpec, len(CurrentEndpoints()))
 	routeMethods := make(map[string]EndpointSpec, len(CurrentEndpoints()))

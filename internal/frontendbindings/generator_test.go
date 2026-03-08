@@ -274,7 +274,7 @@ func TestCurrentBuildInputsContainNoRawDeclarations(t *testing.T) {
 	}
 }
 
-func TestCurrentBuildInputsUseUniqueDeclarationNames(t *testing.T) {
+func TestCurrentBuildInputsPassDeclarationValidation(t *testing.T) {
 	t.Helper()
 
 	converter := newTypeConverter()

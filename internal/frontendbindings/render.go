@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"reflect"
+	"strings"
 	"text/template"
 )
 
@@ -172,6 +173,9 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 		default:
 			return fmt.Errorf("declaration %s: unsupported kind %q", declaration.Name, declaration.Kind)
 		}
+		if err := validateTypeDeclarationShape(declaration); err != nil {
+			return err
+		}
 		if previousKind, exists := seenNames[declaration.Name]; exists {
 			return fmt.Errorf(
 				"duplicate declaration %q for kinds %q and %q",
@@ -181,6 +185,90 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 			)
 		}
 		seenNames[declaration.Name] = declaration.Kind
+	}
+
+	return nil
+}
+
+func validateTypeDeclarationShape(declaration TypeDeclaration) error {
+	switch declaration.Kind {
+	case "object":
+		if declaration.CreateExpr != "" && declaration.CreateBody != "" {
+			return fmt.Errorf("declaration %s: object cannot set both create expr and create body", declaration.Name)
+		}
+		if err := validateDeclarationProperties(declaration.Name, "property", declaration.Properties); err != nil {
+			return err
+		}
+	case "enum":
+		for index, value := range declaration.EnumValues {
+			if value.Name == "" {
+				return fmt.Errorf("declaration %s: enum value at index %d has empty name", declaration.Name, index)
+			}
+		}
+	case "alias", "local_alias":
+		if strings.TrimSpace(declaration.Alias) == "" {
+			return fmt.Errorf("declaration %s: %s requires alias expression", declaration.Name, declaration.Kind)
+		}
+	case "set":
+		if strings.TrimSpace(declaration.SetElementType) == "" {
+			return fmt.Errorf("declaration %s: set requires element type", declaration.Name)
+		}
+		for index, member := range declaration.SetMembers {
+			if strings.TrimSpace(member) == "" {
+				return fmt.Errorf("declaration %s: set member at index %d is empty", declaration.Name, index)
+			}
+		}
+	case "type_guard":
+		if strings.TrimSpace(declaration.GuardInputType) == "" {
+			return fmt.Errorf("declaration %s: type guard requires input type", declaration.Name)
+		}
+		if strings.TrimSpace(declaration.GuardReturnType) == "" {
+			return fmt.Errorf("declaration %s: type guard requires return type", declaration.Name)
+		}
+		if strings.TrimSpace(declaration.GuardSetName) == "" {
+			return fmt.Errorf("declaration %s: type guard requires backing set name", declaration.Name)
+		}
+	case "function":
+		if strings.TrimSpace(declaration.FunctionReturn) == "" {
+			return fmt.Errorf("declaration %s: function requires return type", declaration.Name)
+		}
+		if strings.TrimSpace(declaration.FunctionBody) == "" {
+			return fmt.Errorf("declaration %s: function requires body", declaration.Name)
+		}
+		if err := validateDeclarationProperties(declaration.Name, "function parameter", declaration.FunctionParams); err != nil {
+			return err
+		}
+		for _, param := range declaration.FunctionParams {
+			if param.Optional && param.DefaultValue != "" {
+				return fmt.Errorf(
+					"declaration %s: function parameter %q cannot be optional and have a default value",
+					declaration.Name,
+					param.Name,
+				)
+			}
+		}
+	case "const":
+		if strings.TrimSpace(declaration.ConstExpr) == "" {
+			return fmt.Errorf("declaration %s: const requires expression", declaration.Name)
+		}
+	}
+
+	return nil
+}
+
+func validateDeclarationProperties(declarationName string, propertyKind string, properties []TypeProperty) error {
+	seenNames := make(map[string]struct{}, len(properties))
+	for index, property := range properties {
+		if property.Name == "" {
+			return fmt.Errorf("declaration %s: %s at index %d has empty name", declarationName, propertyKind, index)
+		}
+		if strings.TrimSpace(property.TypeExpr) == "" {
+			return fmt.Errorf("declaration %s: %s %q has empty type", declarationName, propertyKind, property.Name)
+		}
+		if _, exists := seenNames[property.Name]; exists {
+			return fmt.Errorf("declaration %s: duplicate %s %q", declarationName, propertyKind, property.Name)
+		}
+		seenNames[property.Name] = struct{}{}
 	}
 
 	return nil
