@@ -263,8 +263,21 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
     visibility 0s linear var(--agentic-handle-fade-out-duration);
 }
 
-.react-flow__node:hover .react-flow__handle.agentic-handle,
+.react-flow[data-connecting="true"] .react-flow__handle.agentic-handle,
+.react-flow:has(.react-flow__connectionline) .react-flow__handle.agentic-handle,
+.react-flow__handle.agentic-handle.agentic-handle--always-visible,
+.react-flow__handle.agentic-handle.agentic-handle--selecting,
 .react-flow__handle.agentic-handle.agentic-handle--connected {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  transition: none;
+  animation: none;
+}
+
+.react-flow__node:hover .react-flow__handle.agentic-handle,
+.agentic-handle-safe-zone:hover + .react-flow__handle.agentic-handle,
+.react-flow__handle.agentic-handle:hover {
   opacity: 1;
   visibility: visible;
   pointer-events: all;
@@ -275,6 +288,17 @@ html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
 }
 
 .react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow[data-connecting="true"]
+  .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow:has(.react-flow__connectionline)
+  .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow__handle.agentic-handle.agentic-handle--always-visible:not(
+    .connectable
+  ),
+.agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow__handle.agentic-handle.agentic-handle--selecting:not(.connectable),
+.react-flow__handle.agentic-handle:hover:not(.connectable),
 .react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
   opacity: 0.45;
   pointer-events: none;

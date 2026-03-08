@@ -343,6 +343,13 @@ test.describe.serial("state machine sections", () => {
       ).toHaveCount(1);
       await endNode.hover();
       await expect(endTargetHandle).toBeVisible();
+      await page.mouse.move(1, 1);
+      await expect(
+        page.getByTestId(`workflow-source-handle-${startSectionId}`),
+      ).toBeVisible();
+      await expect(page.getByTestId(`workflow-target-handle-${gateSectionId}`)).toBeVisible();
+      await expect(gateSourceHandle).toBeVisible();
+      await expect(endTargetHandle).toBeVisible();
 
       await createStateMachineEdge(page, projectContext.projectConfigId, {
         machineGroupId: "workflow-main",

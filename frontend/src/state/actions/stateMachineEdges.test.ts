@@ -212,6 +212,45 @@ describe("state machine edge creation", () => {
     expect(route_create_state_machine_edge).toHaveBeenCalledTimes(1);
   });
 
+  it("uses effective machine-group settings instead of stale raw impl values", async () => {
+    const route_create_state_machine_edge = (
+      await import("utils/generatedEndpoints")
+    ).route_create_state_machine_edge as unknown as vi.Mock;
+    route_create_state_machine_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      const startImpl = state.sectionImpls[startImplId];
+      if (!startImpl || startImpl.type !== SectionTypeEnum.StateMachineStart) {
+        throw new Error("Missing start impl in workflow test state.");
+      }
+      startImpl.machineGroupId = "stale-machine-group";
+      state.sections[startSectionId].sharedModifier.machineGroupId =
+        machineGroupId;
+    });
+
+    createStateMachineEdgeFromConnection(
+      createConnection(startSectionId, chatSectionId),
+    );
+
+    const edge = useProjectState.getState().projectConfig.stateMachineEdges[0];
+    expect(edge).toEqual(
+      expect.objectContaining({
+        machineGroupId,
+        sourceSectionId: startSectionId,
+        targetSectionId: chatSectionId,
+      }),
+    );
+    expect(route_create_state_machine_edge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        machineGroupId,
+      }),
+    );
+  });
+
   it("derives a unique machine group from an existing chat workflow edge", async () => {
     const route_create_state_machine_edge = (
       await import("utils/generatedEndpoints")

@@ -16,6 +16,7 @@ import { clearActiveSectionIds } from "./activeSections";
 import { isSharedChatHandleId } from "./chatSharedHandleIds";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
 } from "./sectionInfos";
 import {
@@ -42,18 +43,10 @@ function getWorkflowSectionInfo(
   state: ProjectStateSingleConfig,
   sectionId: string,
 ): WorkflowSectionInfo {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
+  if (!(sectionId in state.projectConfig.sectionVariantMap)) {
     return { type: null, machineGroupId: null };
   }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return { type: null, machineGroupId: null };
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return { type: null, machineGroupId: null };
-  }
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
   if (
     impl.type === SectionTypeEnum.StateMachineStart ||
     impl.type === SectionTypeEnum.StateMachineGate ||
