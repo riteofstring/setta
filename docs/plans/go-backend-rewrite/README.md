@@ -710,15 +710,18 @@ Use the docs in this order:
     explicit Go repo-root resolution, subprocess execution, history reads, and
     typed transport boundaries
 194. `phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`
-  - focused post-git rerank doc confirming the direct frontend caller-backed
-    route cluster is now closed and that dormant listener/run/default-project
-    transport should stay out of scope without a real caller
-195. `spike-mcp.md`
+  - focused corrected post-git rerank doc showing the artifact/file-browser
+    route cluster is still caller-backed and should become the next phase
+195. `phase-22-artifact-and-file-browser-route-cluster-plan.md`
+  - focused current-work plan for Go-owned workspace file-browser, artifact,
+    and binary-download transport over explicit file-browser and artifact
+    owners
+196. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-196. `spike-pty.md`
+197. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-197. `spike-lsp.md`
+198. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

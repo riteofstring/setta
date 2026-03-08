@@ -249,10 +249,24 @@ The second Phase 20 slice is now landed for bounded git history ownership:
 With that second slice landed, the caller-backed Phase 20 git-read route
 cluster is now Go-owned for the current clean-break scope.
 
-The post-git rerank now shows no remaining caller-backed direct frontend route
-cluster. Dormant listener-chat routes, detached-run routes, and
-non-caller-backed default-project routes should remain out of scope until a
-concrete caller changes that rerank.
+The first post-git rerank was later corrected. A deeper caller audit found
+that the artifact and workspace file-browser route cluster is still actively
+caller-backed and still Python-owned for the current frontend surface:
+
+- workspace file-browser reads, writes, transfers, and token-backed downloads
+- binary payload download for file previews and editors
+- artifact import/update/delete for chat attachments and param/dropzone flows
+- cached artifact reads for image/chart/draw-area callers
+
+That corrected rerank is recorded in
+`phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`, and the
+current direct-frontend implementation plan is now Phase 22:
+
+- `phase-22-artifact-and-file-browser-route-cluster-plan.md`
+
+Dormant listener-chat routes, detached-run routes, and non-caller-backed
+default-project routes still remain out of scope until a concrete caller
+changes that rerank.
 
 The current bounded Go-owned Phase 12 surface now includes:
 
@@ -1668,16 +1682,20 @@ Do not weaken this rule during the rewrite.
      `phase-19-project-lifecycle-mutations-plan.md`
    - the completed git direct-frontend phase is recorded in
      `phase-20-git-read-route-cluster-plan.md`
-   - the completed post-git rerank is recorded in
+   - the corrected post-git rerank is recorded in
      `phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`
+   - the current artifact/file-browser direct-frontend phase plan is recorded
+     in `phase-22-artifact-and-file-browser-route-cluster-plan.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
      - `POST /git/log`
      - `POST /git/commitDetails`
      - `POST /git/commitFileDiff`
-   - there is no remaining caller-backed direct frontend route cluster under
-     the current clean-break scope
+   - the next caller-backed direct frontend route cluster is now:
+     - workspace file-browser reads, writes, transfers, and downloads
+     - binary download for preview/editor payloads
+     - artifact import/update/delete and cached-artifact reads
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise
