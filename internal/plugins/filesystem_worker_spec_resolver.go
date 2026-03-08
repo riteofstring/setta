@@ -1,25 +1,20 @@
 package plugins
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"setta/internal/config"
 	"setta/internal/statefs"
 )
 
-const pluginManifestFileName = "setta.plugin.json"
-
 var (
-	ErrFilesystemWorkerSpecResolverWorkspaceRootRequired = errors.New("plugins: workspace root is required")
-	ErrFilesystemWorkerSpecResolverSettaFilesRootNeeded  = errors.New("plugins: setta files root is required")
-	ErrFilesystemWorkerSpecResolverSettaHomeRequired     = errors.New("plugins: setta home is required")
+	ErrFilesystemWorkerSpecResolverWorkspaceRootRequired = ErrWorkspaceRootRequired
+	ErrFilesystemWorkerSpecResolverSettaFilesRootNeeded  = ErrSettaFilesRootRequired
+	ErrFilesystemWorkerSpecResolverSettaHomeRequired     = ErrSettaHomeRequired
 	ErrFilesystemWorkerSpecResolverPythonBinaryRequired  = errors.New("plugins: worker python binary is required")
 	ErrFilesystemWorkerSpecResolverServerModeRequired    = errors.New("plugins: server mode is required")
 	ErrFilesystemWorkerSpecResolverServerModeInvalid     = errors.New("plugins: server mode is unsupported")
@@ -27,10 +22,10 @@ var (
 	ErrFilesystemWorkerSpecResolverTargetIDInvalid       = errors.New("plugins: plugin codegen target id must be <plugin-id>:<local-id>")
 	ErrFilesystemWorkerSpecResolverPluginNotFound        = errors.New("plugins: plugin codegen target plugin was not found")
 	ErrFilesystemWorkerSpecResolverPluginDisabled        = errors.New("plugins: plugin codegen target plugin is disabled")
-	ErrFilesystemWorkerSpecResolverPluginRootInvalid     = errors.New("plugins: plugin root must be a directory")
-	ErrFilesystemWorkerSpecResolverManifestNotFound      = errors.New("plugins: plugin manifest was not found")
-	ErrFilesystemWorkerSpecResolverManifestInvalid       = errors.New("plugins: plugin manifest is invalid")
-	ErrFilesystemWorkerSpecResolverManifestUnsupported   = errors.New("plugins: plugin manifest schema version is unsupported")
+	ErrFilesystemWorkerSpecResolverPluginRootInvalid     = ErrPluginRootInvalid
+	ErrFilesystemWorkerSpecResolverManifestNotFound      = ErrPluginManifestNotFound
+	ErrFilesystemWorkerSpecResolverManifestInvalid       = ErrPluginManifestInvalid
+	ErrFilesystemWorkerSpecResolverManifestUnsupported   = ErrPluginManifestUnsupported
 	ErrFilesystemWorkerSpecResolverBackendRequired       = errors.New("plugins: plugin backend entrypoint is required")
 	ErrFilesystemWorkerSpecResolverCodegenCapability     = errors.New("plugins: registerCodegenTarget capability is required")
 )
@@ -93,73 +88,30 @@ type FilesystemWorkerSpecResolverOptions struct {
 }
 
 type FilesystemWorkerSpecResolver struct {
-	workspacePluginsRoot  string
-	settaFilesPluginsRoot string
-	globalPluginsRoot     string
-	pluginsStatePath      string
-	pluginsGlobalState    string
-	runtimeProvider       WorkerRuntimeProvider
-	serverMode            config.Mode
+	store           *Store
+	runtimeProvider WorkerRuntimeProvider
+	serverMode      config.Mode
 }
 
-type filesystemPluginManifest struct {
-	SchemaVersion     int                               `json:"schemaVersion"`
-	ID                string                            `json:"id"`
-	Name              string                            `json:"name"`
-	Version           string                            `json:"version"`
-	SettaVersionRange string                            `json:"settaVersionRange"`
-	EnabledByDefault  bool                              `json:"enabledByDefault"`
-	Backend           *filesystemPluginBackendManifest  `json:"backend,omitempty"`
-	Frontend          *filesystemPluginFrontendManifest `json:"frontend,omitempty"`
-	Content           *filesystemPluginContentManifest  `json:"content,omitempty"`
-	ConfigSchemaPath  string                            `json:"configSchemaPath,omitempty"`
-	Capabilities      []string                          `json:"capabilities"`
-}
-
-type filesystemPluginBackendManifest struct {
-	Entrypoint string `json:"entrypoint"`
-}
-
-type filesystemPluginFrontendManifest struct {
-	Entrypoint string `json:"entrypoint"`
-	Style      string `json:"style,omitempty"`
-}
-
-type filesystemPluginContentManifest struct {
-	BlueprintsDir       string `json:"blueprintsDir,omitempty"`
-	ProjectTemplatesDir string `json:"projectTemplatesDir,omitempty"`
-	PromptsDir          string `json:"promptsDir,omitempty"`
-}
-
-type filesystemPluginsState struct {
-	EnabledPluginIDs  []string `json:"enabledPluginIds"`
-	DisabledPluginIDs []string `json:"disabledPluginIds"`
-}
-
-type filesystemPluginsGlobalState struct {
-	AutoEnabledPluginIDs []string `json:"autoEnabledPluginIds"`
-}
-
+type filesystemPluginManifest = PluginManifest
+type filesystemPluginsState = PluginsStateFile
+type filesystemPluginsGlobalState = PluginsGlobalStateFile
 type filesystemPluginScope string
 
 const (
-	filesystemPluginScopeWorkspace  filesystemPluginScope = "workspace"
-	filesystemPluginScopeSettaFiles filesystemPluginScope = "setta_files"
-	filesystemPluginScopeGlobal     filesystemPluginScope = "global"
+	filesystemPluginScopeWorkspace  filesystemPluginScope = filesystemPluginScope(PluginScopeWorkspace)
+	filesystemPluginScopeSettaFiles filesystemPluginScope = filesystemPluginScope(PluginScopeSettaFiles)
+	filesystemPluginScopeGlobal     filesystemPluginScope = filesystemPluginScope(PluginScopeGlobal)
 )
 
 func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions) (*FilesystemWorkerSpecResolver, error) {
-	workspaceRoot, err := statefs.NormalizePath(options.WorkspaceRoot, "")
+	store, err := NewStore(StoreOptions{
+		WorkspaceRoot:  options.WorkspaceRoot,
+		SettaFilesRoot: options.SettaFilesRoot,
+		SettaHome:      options.SettaHome,
+	})
 	if err != nil {
-		return nil, ErrFilesystemWorkerSpecResolverWorkspaceRootRequired
-	}
-	settaFilesRoot, err := statefs.NormalizePath(options.SettaFilesRoot, "")
-	if err != nil {
-		return nil, ErrFilesystemWorkerSpecResolverSettaFilesRootNeeded
-	}
-	settaHome, err := statefs.NormalizePath(options.SettaHome, "")
-	if err != nil {
-		return nil, ErrFilesystemWorkerSpecResolverSettaHomeRequired
+		return nil, err
 	}
 
 	serverMode := options.ServerMode
@@ -195,13 +147,9 @@ func NewFilesystemWorkerSpecResolver(options FilesystemWorkerSpecResolverOptions
 	}
 
 	return &FilesystemWorkerSpecResolver{
-		workspacePluginsRoot:  filepath.Join(workspaceRoot, ".setta_plugins"),
-		settaFilesPluginsRoot: filepath.Join(settaFilesRoot, "plugins"),
-		globalPluginsRoot:     filepath.Join(settaHome, "plugins"),
-		pluginsStatePath:      filepath.Join(settaFilesRoot, "plugins_state.json"),
-		pluginsGlobalState:    filepath.Join(settaHome, "plugins_global_state.json"),
-		runtimeProvider:       runtimeProvider,
-		serverMode:            serverMode,
+		store:           store,
+		runtimeProvider: runtimeProvider,
+		serverMode:      serverMode,
 	}, nil
 }
 
@@ -290,20 +238,18 @@ type filesystemPluginScopeCandidate struct {
 }
 
 func (r *FilesystemWorkerSpecResolver) scopeCandidates(pluginID string) []filesystemPluginScopeCandidate {
-	return []filesystemPluginScopeCandidate{
-		{
-			scope: filesystemPluginScopeWorkspace,
-			root:  filepath.Join(r.workspacePluginsRoot, pluginID),
-		},
-		{
-			scope: filesystemPluginScopeSettaFiles,
-			root:  filepath.Join(r.settaFilesPluginsRoot, pluginID),
-		},
-		{
-			scope: filesystemPluginScopeGlobal,
-			root:  filepath.Join(r.globalPluginsRoot, pluginID),
-		},
+	candidates, err := r.store.ScopeCandidates(pluginID)
+	if err != nil {
+		return nil
 	}
+	resolved := make([]filesystemPluginScopeCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		resolved = append(resolved, filesystemPluginScopeCandidate{
+			scope: filesystemPluginScope(candidate.Scope),
+			root:  candidate.Root,
+		})
+	}
+	return resolved
 }
 
 func parsePluginCodegenTargetID(targetID string) (string, string, error) {
@@ -326,35 +272,10 @@ func parsePluginCodegenTargetID(targetID string) (string, string, error) {
 }
 
 func loadFilesystemPluginManifest(pluginRoot string, expectedPluginID string) (filesystemPluginManifest, string, error) {
-	manifestPath := filepath.Join(pluginRoot, pluginManifestFileName)
-	manifest, err := loadJSONFile[filesystemPluginManifest](manifestPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return filesystemPluginManifest{}, "", fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverManifestNotFound, manifestPath)
-		}
-		return filesystemPluginManifest{}, "", err
-	}
-	if manifest.SchemaVersion != 1 {
-		return filesystemPluginManifest{}, "", fmt.Errorf("%w: %d", ErrFilesystemWorkerSpecResolverManifestUnsupported, manifest.SchemaVersion)
-	}
-
-	normalizedPluginID, err := normalizeFilesystemPluginID(manifest.ID)
+	manifest, err := LoadPluginManifest(pluginRoot, expectedPluginID)
 	if err != nil {
 		return filesystemPluginManifest{}, "", err
 	}
-	if normalizedPluginID != expectedPluginID {
-		return filesystemPluginManifest{}, "", fmt.Errorf("%w: manifest id %q does not match plugin root %q", ErrFilesystemWorkerSpecResolverManifestInvalid, normalizedPluginID, expectedPluginID)
-	}
-	manifest.ID = normalizedPluginID
-	manifest.Name = strings.TrimSpace(manifest.Name)
-	if manifest.Name == "" {
-		return filesystemPluginManifest{}, "", fmt.Errorf("%w: plugin name is required for %s", ErrFilesystemWorkerSpecResolverManifestInvalid, expectedPluginID)
-	}
-	manifest.Version = strings.TrimSpace(manifest.Version)
-	if manifest.Version == "" {
-		return filesystemPluginManifest{}, "", fmt.Errorf("%w: plugin version is required for %s", ErrFilesystemWorkerSpecResolverManifestInvalid, expectedPluginID)
-	}
-
 	entrypoint, err := resolveFilesystemBackendEntrypoint(pluginRoot, manifest)
 	if err != nil {
 		return filesystemPluginManifest{}, "", err
@@ -370,40 +291,15 @@ func resolveFilesystemBackendEntrypoint(pluginRoot string, manifest filesystemPl
 	if entrypoint == "" {
 		return "", fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverBackendRequired, manifest.ID)
 	}
-	resolvedEntrypoint, err := statefs.ResolveWithinRoot(pluginRoot, entrypoint, "plugin backend entrypoint")
+	resolvedEntrypoint, err := ResolvePluginBackendEntrypoint(pluginRoot, manifest)
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrFilesystemWorkerSpecResolverBackendRequired, err)
-	}
-	info, err := os.Stat(resolvedEntrypoint)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverBackendRequired, resolvedEntrypoint)
-		}
-		return "", fmt.Errorf("stat plugin backend entrypoint %s: %w", resolvedEntrypoint, err)
-	}
-	if !info.Mode().IsRegular() {
-		return "", fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverBackendRequired, resolvedEntrypoint)
 	}
 	return resolvedEntrypoint, nil
 }
 
 func normalizeFilesystemPluginID(raw string) (string, error) {
-	normalized := strings.ToLower(strings.TrimSpace(raw))
-	if normalized == "" {
-		return "", fmt.Errorf("%w: plugin id must be non-empty", ErrFilesystemWorkerSpecResolverManifestInvalid)
-	}
-	first := normalized[0]
-	if !isASCIIAlphaNumeric(first) {
-		return "", fmt.Errorf("%w: plugin id must start with an alphanumeric character", ErrFilesystemWorkerSpecResolverManifestInvalid)
-	}
-	for index := 0; index < len(normalized); index++ {
-		char := normalized[index]
-		if isASCIIAlphaNumeric(char) || char == '-' || char == '_' || char == '.' {
-			continue
-		}
-		return "", fmt.Errorf("%w: plugin id may contain only alphanumeric characters, '-', '_', and '.'", ErrFilesystemWorkerSpecResolverManifestInvalid)
-	}
-	return normalized, nil
+	return NormalizePluginID(raw)
 }
 
 func resolveFilesystemPluginCapabilities(requested []string, serverMode config.Mode) ([]string, []string, error) {
@@ -461,7 +357,7 @@ func resolveFilesystemPluginEnabled(
 }
 
 func (r *FilesystemWorkerSpecResolver) loadPluginsState() (filesystemPluginsState, error) {
-	state, err := loadOptionalJSONFile[filesystemPluginsState](r.pluginsStatePath)
+	state, err := r.store.LoadPluginsState()
 	if err != nil {
 		return filesystemPluginsState{}, fmt.Errorf("load plugins state: %w", err)
 	}
@@ -469,41 +365,11 @@ func (r *FilesystemWorkerSpecResolver) loadPluginsState() (filesystemPluginsStat
 }
 
 func (r *FilesystemWorkerSpecResolver) loadPluginsGlobalState() (filesystemPluginsGlobalState, error) {
-	state, err := loadOptionalJSONFile[filesystemPluginsGlobalState](r.pluginsGlobalState)
+	state, err := r.store.LoadPluginsGlobalState()
 	if err != nil {
 		return filesystemPluginsGlobalState{}, fmt.Errorf("load plugins global state: %w", err)
 	}
 	return state, nil
-}
-
-func loadOptionalJSONFile[T any](path string) (T, error) {
-	value, err := loadJSONFile[T](path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			var zero T
-			return zero, nil
-		}
-		return *new(T), err
-	}
-	return value, nil
-}
-
-func loadJSONFile[T any](path string) (T, error) {
-	var value T
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return value, err
-	}
-
-	decoder := json.NewDecoder(bytes.NewReader(content))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&value); err != nil {
-		return value, fmt.Errorf("%w: decode %s: %v", ErrFilesystemWorkerSpecResolverManifestInvalid, path, err)
-	}
-	if decoder.More() {
-		return value, fmt.Errorf("%w: decode %s: trailing JSON content", ErrFilesystemWorkerSpecResolverManifestInvalid, path)
-	}
-	return value, nil
 }
 
 func containsCapability(values []string, expected string) bool {
