@@ -231,6 +231,15 @@ func newTypeConverter() *typeConverter {
 				{Name: "browser", Value: "browser"},
 				{Name: "provider", Value: "provider"},
 			},
+			reflect.TypeOf(BrowserAreaViewMode("")): {
+				{Name: "list", Value: "list"},
+				{Name: "thumbnail", Value: "thumbnail"},
+				{Name: "carousel", Value: "carousel"},
+			},
+			reflect.TypeOf(BrowserSearchScope("")): {
+				{Name: "recursive", Value: "recursive"},
+				{Name: "local", Value: "local"},
+			},
 			reflect.TypeOf(EngineType("")): {
 				{Name: "setta_llm", Value: "setta_llm"},
 				{Name: "external_agent", Value: "external_agent"},
@@ -950,6 +959,126 @@ func newTypeConverter() *typeConverter {
       toolCallArguments: resolved.defaults.toolCallArguments,
       activeBranchId: resolved.defaults.activeBranchId,
       branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(BrowserSavedSearchTypeFilters{}): objectDeclarationWithCreateExpr(
+				"BrowserSavedSearchTypeFilters",
+				`mergeGeneratedOptions(
+    {
+      image: true,
+      video: true,
+      audio: true,
+      text: true,
+      data: true,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "image", TypeExpr: "boolean"},
+				TypeProperty{Name: "video", TypeExpr: "boolean"},
+				TypeProperty{Name: "audio", TypeExpr: "boolean"},
+				TypeProperty{Name: "text", TypeExpr: "boolean"},
+				TypeProperty{Name: "data", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(BrowserSavedSearch{}): objectDeclarationWithCreateExpr(
+				"BrowserSavedSearch",
+				`mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      query: "",
+      searchScope: BrowserSearchScopeEnum.recursive,
+      typeFilters: createBrowserSavedSearchTypeFilters(),
+      color: "#3b82f6",
+      quickInfo: "",
+    },
+    options,
+  )`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "query", TypeExpr: "string"},
+				TypeProperty{Name: "searchScope", TypeExpr: "BrowserSearchScope"},
+				TypeProperty{Name: "typeFilters", TypeExpr: "BrowserSavedSearchTypeFilters"},
+				TypeProperty{Name: "color", TypeExpr: "string"},
+				TypeProperty{Name: "quickInfo", TypeExpr: "string"},
+			),
+			reflect.TypeOf(UserDefaultBrowserSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultBrowserSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 720,
+        height: 460,
+      },
+      folder: "",
+      hideColumn: false,
+      columnWidth: null,
+      typesColumnWidth: null,
+      viewMode: BrowserAreaViewModeEnum.list,
+      savedSearches: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "folder", TypeExpr: "string"},
+				TypeProperty{Name: "hideColumn", TypeExpr: "boolean"},
+				TypeProperty{Name: "columnWidth", TypeExpr: "number | null"},
+				TypeProperty{Name: "typesColumnWidth", TypeExpr: "number | null"},
+				TypeProperty{Name: "viewMode", TypeExpr: "BrowserAreaViewMode"},
+				TypeProperty{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>"},
+			),
+			reflect.TypeOf(BrowserSectionImpl{}): aliasDeclarationWithFactory(
+				"BrowserSectionImpl",
+				`Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.Browser;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth?: number | null;
+  typesColumnWidth?: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+}`,
+				`export function createBrowserSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultBrowserSectionImpl>
+    | Partial<BrowserSectionImpl> = {},
+  overrides?: Partial<BrowserSectionImpl>,
+): BrowserSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultBrowserSectionImpl,
+    BrowserSectionImpl
+  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Browser,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      folder: resolved.defaults.folder,
+      hideColumn: resolved.defaults.hideColumn,
+      columnWidth: resolved.defaults.columnWidth,
+      typesColumnWidth: resolved.defaults.typesColumnWidth,
+      viewMode: resolved.defaults.viewMode,
+      savedSearches: resolved.defaults.savedSearches,
     },
     resolved.overrides,
   );

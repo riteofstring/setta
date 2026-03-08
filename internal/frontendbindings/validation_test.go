@@ -1012,6 +1012,49 @@ func TestChatSupportEnumsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestBrowserSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "BrowserAreaViewMode",
+			root: reflect.TypeOf(BrowserAreaViewMode("")),
+			values: []EnumValue{
+				{Name: "list", Value: "list"},
+				{Name: "thumbnail", Value: "thumbnail"},
+				{Name: "carousel", Value: "carousel"},
+			},
+		},
+		{
+			name: "BrowserSearchScope",
+			root: reflect.TypeOf(BrowserSearchScope("")),
+			values: []EnumValue{
+				{Name: "recursive", Value: "recursive"},
+				{Name: "local", Value: "local"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
 func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1247,6 +1290,109 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "activeBranchId", TypeExpr: "string | null", Optional: true},
 				{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>", Optional: false},
 			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
+func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "BrowserSavedSearchTypeFilters",
+			root: reflect.TypeOf(BrowserSavedSearchTypeFilters{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "image", TypeExpr: "boolean", Optional: false},
+				{Name: "video", TypeExpr: "boolean", Optional: false},
+				{Name: "audio", TypeExpr: "boolean", Optional: false},
+				{Name: "text", TypeExpr: "boolean", Optional: false},
+				{Name: "data", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "BrowserSavedSearch",
+			root: reflect.TypeOf(BrowserSavedSearch{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "query", TypeExpr: "string", Optional: false},
+				{Name: "searchScope", TypeExpr: "BrowserSearchScope", Optional: false},
+				{Name: "typeFilters", TypeExpr: "BrowserSavedSearchTypeFilters", Optional: false},
+				{Name: "color", TypeExpr: "string", Optional: false},
+				{Name: "quickInfo", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "UserDefaultBrowserSectionImpl",
+			root: reflect.TypeOf(UserDefaultBrowserSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "folder", TypeExpr: "string", Optional: false},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "typesColumnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "viewMode", TypeExpr: "BrowserAreaViewMode", Optional: false},
+				{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "BrowserSectionImpl",
+			root: reflect.TypeOf(BrowserSectionImpl{}),
+			kind: "alias",
+			alias: `Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.Browser;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth?: number | null;
+  typesColumnWidth?: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+}`,
+			hasFactoryTS: true,
 		},
 	}
 

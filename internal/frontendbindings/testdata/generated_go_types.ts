@@ -1058,6 +1058,21 @@ export const ChatDictationModeEnum = {
 export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 
+export const BrowserAreaViewModeEnum = {
+  list: "list",
+  thumbnail: "thumbnail",
+  carousel: "carousel",
+} as const;
+export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
+
+
+export const BrowserSearchScopeEnum = {
+  recursive: "recursive",
+  local: "local",
+} as const;
+export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
+
+
 export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
 
 
@@ -1391,6 +1406,134 @@ export function createChatSectionImpl(
       toolCallArguments: resolved.defaults.toolCallArguments,
       activeBranchId: resolved.defaults.activeBranchId,
       branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );
+}
+
+
+export type BrowserSavedSearchTypeFilters = {
+  image: boolean;
+  video: boolean;
+  audio: boolean;
+  text: boolean;
+  data: boolean;
+};
+export function createBrowserSavedSearchTypeFilters(options: Partial<BrowserSavedSearchTypeFilters> = {}): BrowserSavedSearchTypeFilters {
+  return mergeGeneratedOptions(
+    {
+      image: true,
+      video: true,
+      audio: true,
+      text: true,
+      data: true,
+    },
+    options,
+  );
+}
+
+
+export type BrowserSavedSearch = {
+  id: string;
+  name: string;
+  query: string;
+  searchScope: BrowserSearchScope;
+  typeFilters: BrowserSavedSearchTypeFilters;
+  color: string;
+  quickInfo: string;
+};
+export function createBrowserSavedSearch(options: Partial<BrowserSavedSearch> = {}): BrowserSavedSearch {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      query: "",
+      searchScope: BrowserSearchScopeEnum.recursive,
+      typeFilters: createBrowserSavedSearchTypeFilters(),
+      color: "#3b82f6",
+      quickInfo: "",
+    },
+    options,
+  );
+}
+
+
+export type UserDefaultBrowserSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth: number | null;
+  typesColumnWidth: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+};
+export function createUserDefaultBrowserSectionImpl(options: Partial<UserDefaultBrowserSectionImpl> = {}): UserDefaultBrowserSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 720,
+        height: 460,
+      },
+      folder: "",
+      hideColumn: false,
+      columnWidth: null,
+      typesColumnWidth: null,
+      viewMode: BrowserAreaViewModeEnum.list,
+      savedSearches: [],
+    },
+    options,
+  );
+}
+
+
+export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.Browser;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth?: number | null;
+  typesColumnWidth?: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+};
+export function createBrowserSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultBrowserSectionImpl>
+    | Partial<BrowserSectionImpl> = {},
+  overrides?: Partial<BrowserSectionImpl>,
+): BrowserSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultBrowserSectionImpl,
+    BrowserSectionImpl
+  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Browser,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      folder: resolved.defaults.folder,
+      hideColumn: resolved.defaults.hideColumn,
+      columnWidth: resolved.defaults.columnWidth,
+      typesColumnWidth: resolved.defaults.typesColumnWidth,
+      viewMode: resolved.defaults.viewMode,
+      savedSearches: resolved.defaults.savedSearches,
     },
     resolved.overrides,
   );
@@ -2036,21 +2179,6 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const BrowserAreaViewModeEnum = {
-  list: "list",
-  thumbnail: "thumbnail",
-  carousel: "carousel",
-} as const;
-export type BrowserAreaViewMode = ObjectValues<
-  typeof BrowserAreaViewModeEnum
->;
-
-export const BrowserSearchScopeEnum = {
-  recursive: "recursive",
-  local: "local",
-} as const;
-export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
 
 export const ChartTypeEnum = {
   line: "line",
@@ -3593,80 +3721,6 @@ export type UserDefaultTerminalSectionImpl = {
   positionAndSizeLocked: boolean;
 };
 
-export type BrowserSavedSearchTypeFilters = {
-  image: boolean;
-  video: boolean;
-  audio: boolean;
-  text: boolean;
-  data: boolean;
-};
-export function createBrowserSavedSearchTypeFilters(
-  options: Partial<BrowserSavedSearchTypeFilters> = {},
-): BrowserSavedSearchTypeFilters {
-  return mergeGeneratedOptions(
-    {
-      image: true,
-      video: true,
-      audio: true,
-      text: true,
-      data: true,
-    },
-    options,
-  );
-}
-
-export type BrowserSavedSearch = {
-  id: string;
-  name: string;
-  query: string;
-  searchScope: BrowserSearchScope;
-  typeFilters: BrowserSavedSearchTypeFilters;
-  color: string;
-  quickInfo: string;
-};
-export function createBrowserSavedSearch(
-  options: Partial<BrowserSavedSearch> = {},
-): BrowserSavedSearch {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      query: "",
-      searchScope: BrowserSearchScopeEnum.recursive,
-      typeFilters: createBrowserSavedSearchTypeFilters(),
-      color: "#3b82f6",
-      quickInfo: "",
-    },
-    options,
-  );
-}
-
-export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
-  type: typeof SectionTypeEnum.Browser;
-  folder: string;
-  hideColumn: boolean;
-  columnWidth?: number | null;
-  typesColumnWidth?: number | null;
-  viewMode: BrowserAreaViewMode;
-  savedSearches: Array<BrowserSavedSearch>;
-};
-
-export type UserDefaultBrowserSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  folder: string;
-  hideColumn: boolean;
-  columnWidth: number | null;
-  typesColumnWidth: number | null;
-  viewMode: BrowserAreaViewMode;
-  savedSearches: Array<BrowserSavedSearch>;
-};
-
 export type TaskBoardColumn = {
   id: string;
   name: string;
@@ -4197,64 +4251,6 @@ export function createTerminalSectionImpl(
       isMinimized: resolved.defaults.isMinimized,
       positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
       isPreset: false,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultBrowserSectionImpl(
-  options: Partial<UserDefaultBrowserSectionImpl> = {},
-): UserDefaultBrowserSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 720,
-        height: 460,
-      },
-      folder: "",
-      hideColumn: false,
-      columnWidth: null,
-      typesColumnWidth: null,
-      viewMode: BrowserAreaViewModeEnum.list,
-      savedSearches: [],
-    },
-    options,
-  );
-}
-
-export function createBrowserSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultBrowserSectionImpl>
-    | Partial<BrowserSectionImpl> = {},
-  overrides?: Partial<BrowserSectionImpl>,
-): BrowserSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultBrowserSectionImpl,
-    BrowserSectionImpl
-  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Browser,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      folder: resolved.defaults.folder,
-      hideColumn: resolved.defaults.hideColumn,
-      columnWidth: resolved.defaults.columnWidth,
-      typesColumnWidth: resolved.defaults.typesColumnWidth,
-      viewMode: resolved.defaults.viewMode,
-      savedSearches: resolved.defaults.savedSearches,
     },
     resolved.overrides,
   );
