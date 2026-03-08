@@ -1,4 +1,5 @@
 import type { Selection as D3Selection } from "d3";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLocalStorage,
   useProjectState,
@@ -73,7 +74,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 };
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
-  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
+  const activeSectionIds = getActiveSectionUIIds();
   return (
     getSectionBounds(activeSectionIds, ignoreGrid) ?? {
       x: 0,

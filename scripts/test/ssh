@@ -252,48 +252,6 @@ def _extract_launcher_origin(command: str) -> str | None:
         return None
 
 
-def _extract_session_id(command: str) -> str | None:
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        tokens = command.split()
-    for index, token in enumerate(tokens):
-        if token == "--session" and index + 1 < len(tokens):
-            candidate = tokens[index + 1].strip()
-            if candidate:
-                return candidate
-        if token == "--delete-session" and index + 1 < len(tokens):
-            candidate = tokens[index + 1].strip()
-            if candidate:
-                return candidate
-        if token.startswith("--session="):
-            candidate = token.split("=", 1)[1].strip()
-            if candidate:
-                return candidate
-        if token.startswith("--delete-session="):
-            candidate = token.split("=", 1)[1].strip()
-            if candidate:
-                return candidate
-    match = re.search(r"delete-session[^A-Za-z0-9_-]*([A-Za-z0-9_-]+)", command)
-    if match:
-        candidate = match.group(1).strip()
-        if candidate:
-            return candidate
-    return None
-
-
-def _start_marker_path() -> Path | None:
-    raw = os.environ.get("SETTA_SSH_STUB_START_MARKER_FILE", "").strip()
-    if not raw:
-        return None
-    return Path(raw)
-
-
-def _no_sessions_before_start() -> bool:
-    raw = os.environ.get("SETTA_SSH_STUB_NO_SESSIONS_BEFORE_START", "").strip().lower()
-    return raw not in {"", "0", "false"}
-
-
 def _handle_remote_command(command: str) -> int:
     command = command.strip()
     debug_commands_raw = os.environ.get("SETTA_SSH_STUB_DEBUG_COMMANDS", "").strip()
@@ -324,10 +282,6 @@ def _handle_remote_command(command: str) -> int:
         return 0
 
     if "status --list-sessions" in command and "--json" in command:
-        marker_path = _start_marker_path()
-        if _no_sessions_before_start() and marker_path is not None and not marker_path.exists():
-            _emit_json({"sessions": []})
-            return 0
         session_id, metadata, _secret = _load_session_metadata()
         payload = {
             "sessions": [
@@ -346,31 +300,6 @@ def _handle_remote_command(command: str) -> int:
             ]
         }
         _emit_json(payload)
-        return 0
-
-    if "status --delete-session" in command:
-        session_id = _extract_session_id(command)
-        if not session_id:
-            sys.stderr.write("ssh stub: missing session id for delete\n")
-            return 2
-        sessions_root_raw = os.environ.get("SETTA_SESSIONS_ROOT", "").strip()
-        if not sessions_root_raw:
-            sys.stderr.write("ssh stub: missing SETTA_SESSIONS_ROOT for delete\n")
-            return 2
-        session_dir = Path(sessions_root_raw) / session_id
-        if session_dir.exists():
-            for child in sorted(session_dir.rglob("*"), reverse=True):
-                try:
-                    if child.is_file() or child.is_symlink():
-                        child.unlink()
-                    elif child.is_dir():
-                        child.rmdir()
-                except OSError:
-                    pass
-            try:
-                session_dir.rmdir()
-            except OSError:
-                pass
         return 0
 
     if "status --connect-info" in command and "--json" in command:
@@ -438,13 +367,6 @@ def _handle_remote_command(command: str) -> int:
             except Exception:
                 pass
         _emit_json(payload)
-        return 0
-
-    if "--no-open" in command:
-        marker_path = _start_marker_path()
-        if marker_path is not None:
-            marker_path.parent.mkdir(parents=True, exist_ok=True)
-            marker_path.write_text("started\n", encoding="utf-8")
         return 0
 
     # Remote Setta command resolver prints a command string to stdout.
