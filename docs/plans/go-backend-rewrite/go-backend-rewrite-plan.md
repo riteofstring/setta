@@ -2032,9 +2032,16 @@ Do not weaken this rule during the rewrite.
      - no code change was required because the existing script/tests already
        matched the selected boundary
    - Phase 32 is now complete for the current clean-break scope
-   - there is no new packaging implementation slice selected from this closeout;
-     reopen packaging only for a concrete release/runtime issue or a broader
-     rerank outside this closed boundary
+   - the broader rerank after Phase 32 is recorded in
+     `phase-33-post-phase-32-packaging-and-distribution-rerank.md`
+   - there is no new packaging/distribution implementation slice selected from
+     that closeout:
+     - wheel is now the packaged-user install boundary
+     - sdist remains the explicit completeness smoke boundary
+     - source/dev bootstrap remains explicit and separate
+   - packaging/distribution is now effectively closed for the current
+     clean-break scope; reopen it only for a concrete release/runtime issue or
+     a broader rerank outside this closed boundary
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise

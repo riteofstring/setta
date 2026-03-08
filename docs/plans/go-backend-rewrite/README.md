@@ -797,12 +797,16 @@ Use the docs in this order:
   - focused closeout doc recording the explicit decision to keep
     `verify_install.sh` as the dedicated sdist completeness smoke while the
     packaged-user install paths remain wheel-first
-216. `spike-mcp.md`
+216. `phase-33-post-phase-32-packaging-and-distribution-rerank.md`
+  - focused rerank doc confirming that the packaging/distribution track is now
+    effectively closed for the current clean-break scope and does not select a
+    new implementation slice
+217. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-217. `spike-pty.md`
+218. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-218. `spike-lsp.md`
+219. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
