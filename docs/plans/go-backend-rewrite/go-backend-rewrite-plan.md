@@ -2042,6 +2042,16 @@ Do not weaken this rule during the rewrite.
    - packaging/distribution is now effectively closed for the current
      clean-break scope; reopen it only for a concrete release/runtime issue or
      a broader rerank outside this closed boundary
+   - the broader rerank after Phase 33 is recorded in
+     `phase-34-post-phase-33-broader-rewrite-rerank.md`
+   - there is still no new implementation slice selected from that broader
+     rerank:
+     - the shipped packaged command boundary remains Go-owned
+     - the remaining Python server/runtime path is explicit and dev-only
+     - the wheel/sdist/source split is now deliberate rather than mixed
+   - the broader rewrite is now effectively closed again for the current
+     clean-break scope; reopen it only for a concrete workflow, release/runtime
+     issue, or product-backed decision
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise

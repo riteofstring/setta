@@ -801,12 +801,16 @@ Use the docs in this order:
   - focused rerank doc confirming that the packaging/distribution track is now
     effectively closed for the current clean-break scope and does not select a
     new implementation slice
-217. `spike-mcp.md`
+217. `phase-34-post-phase-33-broader-rewrite-rerank.md`
+  - focused rerank doc confirming that the broader rewrite is again at a true
+    closeout boundary and does not select a new implementation slice from the
+    current repo state
+218. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-218. `spike-pty.md`
+219. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-219. `spike-lsp.md`
+220. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
