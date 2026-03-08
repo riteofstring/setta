@@ -334,11 +334,14 @@ Use the docs in this order:
   - focused implementation-plan doc for the next Go `cmd/setta-cli` slice:
     remote SSH session selection plus remote `stop` first, with `connect`
     staged above the completed `internal/sshx` runtime
-112. `spike-mcp.md`
+112. `phase-8-cli-connect-runtime-and-output-modes.md`
+  - focused implementation-plan doc for the Go `cmd/setta-cli` `connect` /
+    `c` slice above the completed SSH runtime and remote `stop` foundation
+113. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-113. `spike-pty.md`
+114. `spike-pty.md`
    - PTY uncertainty-reduction plan
-114. `spike-lsp.md`
+115. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
