@@ -4,27 +4,31 @@ import {
   CodeFileAccessModeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
-  ControlCodeObjTypeSet,
   ConfigLanguageEnum,
+  ControlCodeObjTypeSet,
   createBrowserSavedSearch,
   createBrowserSavedSearchTypeFilters,
   createBrowserSectionImpl,
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
-  createSectionSize,
   createCodeSectionImpl,
+  createDictSectionImpl,
+  createSectionSize,
   createTextBlockSectionImpl,
   createUserDefaultBrowserSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultCodeSectionImpl,
+  createUserDefaultDictSectionImpl,
   createViewModeConfig,
+  isBaseDictSectionImpl,
   ParamNameTypeEnum,
   RouteEnum,
   SectionParamCodeObjTypeSet,
   SectionSizeModeEnum,
   SectionTypeEnum,
   TextBlockFormatEnum,
+  type BaseSectionImplUnion,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -119,6 +123,33 @@ describe("generated project state factories", () => {
     expect(SectionParamCodeObjTypeSet.has(CodeObjTypeEnum.ButtonParam)).toBe(
       false,
     );
+  });
+
+  it("exports the canonical base-dict section helper for variant and edge-port callers", () => {
+    const dictImpl = createDictSectionImpl(createUserDefaultDictSectionImpl(), {
+      id: "dict-impl",
+      topLevelParamId: "root-param",
+      isJsonSource: true,
+      jsonSourceKeys: ["payload", "items"],
+    });
+    const globalVariablesImpl = {
+      ...createDictSectionImpl(createUserDefaultDictSectionImpl(), {
+        id: "globals-impl",
+        topLevelParamId: "globals-root",
+      }),
+      type: SectionTypeEnum.GlobalVariables,
+    } satisfies BaseSectionImplUnion;
+    const codeImpl = createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+      id: "code-impl",
+    });
+
+    expect(isBaseDictSectionImpl(dictImpl)).toBe(true);
+    expect(isBaseDictSectionImpl(globalVariablesImpl)).toBe(true);
+    expect(isBaseDictSectionImpl(codeImpl)).toBe(false);
+    if (!isBaseDictSectionImpl(globalVariablesImpl)) {
+      throw new Error("expected global variables section to satisfy base dict");
+    }
+    expect(globalVariablesImpl.topLevelParamId).toBe("globals-root");
   });
 
   it("exports browser-section helpers and saved-search defaults", () => {

@@ -682,6 +682,9 @@ Current landed wedge:
     and the Setta API preset helper now consume canonical Go-generated
     top-level section creation, view-mode lifecycle, and section-rename
     bindings
+  - `VariantList`, `EdgePortsSettings`, and `ParamNameInput` now consume the
+    canonical Go-generated base-dict section helper surface needed for
+    JSON-source and top-level-param-aware dict-section behavior
   - `plugins/runtime`, `plugins/restart`, and the current `PluginsPane`
     plugin runtime/mutation callers now consume canonical Go-generated plugin
     bindings for plugin runtime/status/config/restart/install/update/rollback

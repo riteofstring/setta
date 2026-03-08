@@ -4131,12 +4131,35 @@ export const SectionParamCodeObjTypeSet = new Set([
   CodeObjTypeEnum.NestedParam,
 ]);
 
+export type BaseDictSectionImplUnion = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: string;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  topLevelParamId: string | null;
+  isJsonSource: boolean;
+  jsonSourceKeys: Array<string>;
+  jsonSourceMissing: boolean;
+};
+
 const BaseParentSectionImplTypeSet = new Set([
   SectionTypeEnum.Code,
   SectionTypeEnum.GenPythonCode,
   SectionTypeEnum.GenPythonMetadata,
   SectionTypeEnum.Group,
   SectionTypeEnum.ListRoot,
+]);
+
+const BaseDictSectionImplTypeSet = new Set([
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
 ]);
 
 const BaseSectionWithParamsImplTypeSet = new Set([
@@ -4161,6 +4184,12 @@ export function isBaseParentSectionImpl(
   x: BaseSectionImplUnion,
 ): x is BaseParentSectionImplUnion {
   return BaseParentSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseDictSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseDictSectionImplUnion {
+  return BaseDictSectionImplTypeSet.has(x.type);
 }
 
 export function isBaseSectionWithParamsImpl(
@@ -4215,8 +4244,8 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
   };
   BaseDictSection: {
-    impl: DictSectionImpl;
-    args: ImplArgsBundleWithUpdaters<DictSectionImpl>;
+    impl: BaseDictSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
   };
   BaseChildlessCodeObj: {
     impl: BaseChildlessCodeObjImplUnion;
