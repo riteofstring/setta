@@ -359,6 +359,21 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setChatSectionStateRequestInputRawTS,
 			},
+			reflect.TypeOf(CreateChildSectionsRequestInput{}): {
+				Name: "CreateChildSectionsRequestInput",
+				Kind: "raw",
+				Raw:  createChildSectionsRequestInputRawTS,
+			},
+			reflect.TypeOf(CreateChildSectionsViaIncrementerRequestInput{}): {
+				Name: "CreateChildSectionsViaIncrementerRequestInput",
+				Kind: "raw",
+				Raw:  createChildSectionsViaIncrementerRequestInputRawTS,
+			},
+			reflect.TypeOf(DeleteChildSectionsViaDecrementerRequestInput{}): {
+				Name: "DeleteChildSectionsViaDecrementerRequestInput",
+				Kind: "raw",
+				Raw:  deleteChildSectionsViaDecrementerRequestInputRawTS,
+			},
 			reflect.TypeOf(SetSectionParamFilterRequestInput{}): {
 				Name: "SetSectionParamFilterRequestInput",
 				Kind: "raw",

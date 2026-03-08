@@ -77,6 +77,21 @@ export async function route_set_section_variant_name(x: gt.SetSectionVariantName
   return await post(GoHTTPRoutes.setSectionVariantName, x);
 
 }
+export async function route_create_child_sections(x: gt.CreateChildSectionsRequestInput): Promise<ResponseDataAndStatus<gt.CreateChildSectionsResponse>> {
+
+  return await post(GoHTTPRoutes.createChildSections, x);
+
+}
+export async function route_create_child_sections_via_incrementer(x: gt.CreateChildSectionsViaIncrementerRequestInput): Promise<ResponseDataAndStatus<gt.CreateChildSectionsResponse>> {
+
+  return await post(GoHTTPRoutes.createChildSectionsViaIncrementer, x);
+
+}
+export async function route_delete_child_sections_via_decrementer(x: gt.DeleteChildSectionsViaDecrementerRequestInput): Promise<ResponseDataAndStatus<gt.DeleteChildSectionsViaDecrementerResponse>> {
+
+  return await post(GoHTTPRoutes.deleteChildSectionsViaDecrementer, x);
+
+}
 export async function route_delete_sections(x: gt.DeleteSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.deleteSections, x);

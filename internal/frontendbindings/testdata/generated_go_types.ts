@@ -5365,6 +5365,55 @@ export function createSetSectionVariantNameRequestInput(options: Partial<SetSect
 }
 
 
+
+export type CreateChildSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  parentId: string;
+  implType: SectionType;
+  numChildren: number;
+  startIdx?: number | null;
+};
+
+
+
+export type CreateChildSectionsResponse = {
+  sectionIds: Array<string>;
+};
+export function createCreateChildSectionsResponse(options: Partial<CreateChildSectionsResponse> = {}): CreateChildSectionsResponse {
+  return options as CreateChildSectionsResponse;
+}
+
+
+
+export type CreateChildSectionsViaIncrementerRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  implType: SectionType;
+  numChildren: number;
+};
+
+
+
+
+export type DeleteChildSectionsViaDecrementerRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  numChildren: number;
+};
+
+
+
+export type DeleteChildSectionsViaDecrementerResponse = {
+  sectionIds: Array<string>;
+};
+export function createDeleteChildSectionsViaDecrementerResponse(options: Partial<DeleteChildSectionsViaDecrementerResponse> = {}): DeleteChildSectionsViaDecrementerResponse {
+  return options as DeleteChildSectionsViaDecrementerResponse;
+}
+
+
 export type DeleteSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

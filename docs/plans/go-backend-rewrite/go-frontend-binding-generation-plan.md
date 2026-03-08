@@ -81,6 +81,7 @@ Current landed wedge:
   - current status/meta route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
+  - current child-section helper route constants
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
@@ -150,6 +151,11 @@ Current landed wedge:
       - `SetCodeObjNameRequestInput`
       - `SetCodeObjDisplayNameRequestInput`
     - current structure/param-selection mutation payloads
+      - `CreateChildSectionsRequestInput`
+      - `CreateChildSectionsViaIncrementerRequestInput`
+      - `CreateChildSectionsResponse`
+      - `DeleteChildSectionsViaDecrementerRequestInput`
+      - `DeleteChildSectionsViaDecrementerResponse`
       - `DeleteSectionsRequestInput`
       - `DeleteSelectedParamsRequestInput`
       - `MoveParamGroup`

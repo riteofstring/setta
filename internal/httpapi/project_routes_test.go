@@ -2415,6 +2415,175 @@ func TestRegisterProjectRoutesSectionStructureMutationsPersistLatestState(t *tes
 	}
 }
 
+func TestRegisterProjectRoutesChildSectionMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	createTerminalResponse := post(RouteCreateChildSections, `{"projectConfigId":"project-alpha","parentId":"code-section","implType":"Terminal","numChildren":1,"startIdx":0}`)
+	if createTerminalResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteCreateChildSections, createTerminalResponse.Code, createTerminalResponse.Body.String())
+	}
+	var createTerminalPayload projectstate.CreateChildSectionsResult
+	if err := json.Unmarshal(createTerminalResponse.Body.Bytes(), &createTerminalPayload); err != nil {
+		t.Fatalf("decode create child response: %v", err)
+	}
+	if len(createTerminalPayload.SectionIDs) != 1 {
+		t.Fatalf("expected one created terminal id, got %#v", createTerminalPayload.SectionIDs)
+	}
+	terminalID := createTerminalPayload.SectionIDs[0]
+
+	createSiblingResponse := post(RouteCreateChildSectionsViaIncrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","implType":"TextBlock","numChildren":1}`)
+	if createSiblingResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteCreateChildSectionsViaIncrementer, createSiblingResponse.Code, createSiblingResponse.Body.String())
+	}
+	var createSiblingPayload projectstate.CreateChildSectionsResult
+	if err := json.Unmarshal(createSiblingResponse.Body.Bytes(), &createSiblingPayload); err != nil {
+		t.Fatalf("decode incrementer child response: %v", err)
+	}
+	if len(createSiblingPayload.SectionIDs) != 1 {
+		t.Fatalf("expected one created incrementer child id, got %#v", createSiblingPayload.SectionIDs)
+	}
+	createdSiblingID := createSiblingPayload.SectionIDs[0]
+
+	deleteSiblingResponse := post(RouteDeleteChildSectionsViaDecrementer, `{"projectConfigId":"project-alpha","calledBy":"child-a","numChildren":1}`)
+	if deleteSiblingResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for %s, got %d with body %q", RouteDeleteChildSectionsViaDecrementer, deleteSiblingResponse.Code, deleteSiblingResponse.Body.String())
+	}
+	var deleteSiblingPayload projectstate.DeleteSectionsResult
+	if err := json.Unmarshal(deleteSiblingResponse.Body.Bytes(), &deleteSiblingPayload); err != nil {
+		t.Fatalf("decode decrementer delete response: %v", err)
+	}
+	if !reflect.DeepEqual(deleteSiblingPayload.SectionIDs, []string{createdSiblingID}) {
+		t.Fatalf("expected deleted child ids [%s], got %#v", createdSiblingID, deleteSiblingPayload.SectionIDs)
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	if _, ok := payload.ProjectState.Sections[terminalID]; !ok {
+		t.Fatalf("expected created terminal section %q to exist", terminalID)
+	}
+	if parent := payload.ProjectState.ParentSectionMap[terminalID]; parent == nil || *parent != "code-section" {
+		t.Fatalf("expected terminal parent code-section, got %#v", parent)
+	}
+	codeVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["code-section"]
+	codeImplID := payload.ProjectState.SectionVariants[codeVariantID].Impl
+	codePayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[codeImplID])
+	if got := codePayload["attachedTerminalSectionId"]; got != terminalID {
+		t.Fatalf("expected attachedTerminalSectionId %q, got %#v", terminalID, got)
+	}
+	if got := decodeProjectRouteStringArray(codePayload["children"]); !reflect.DeepEqual(got, []string{terminalID}) {
+		t.Fatalf("expected code children [%s], got %#v", terminalID, got)
+	}
+
+	if _, ok := payload.ProjectState.Sections[createdSiblingID]; ok {
+		t.Fatalf("expected created incrementer child %q to be deleted", createdSiblingID)
+	}
+	groupVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["group-parent"]
+	groupImplID := payload.ProjectState.SectionVariants[groupVariantID].Impl
+	groupPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[groupImplID])
+	if got := decodeProjectRouteStringArray(groupPayload["children"]); !reflect.DeepEqual(got, []string{"child-a", "child-b"}) {
+		t.Fatalf("expected group children [child-a child-b], got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesChildSectionMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteCreateChildSections,
+			body:         `{"projectConfigId":"project-alpha","parentId":"","implType":"Terminal","numChildren":1}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"parent_id_required"`,
+		},
+		{
+			route:        RouteCreateChildSections,
+			body:         `{"projectConfigId":"project-alpha","parentId":"code-section","implType":"TextBlock","numChildren":1}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"child_section_mutation_invalid"`,
+		},
+		{
+			route:        RouteCreateChildSectionsViaIncrementer,
+			body:         `{"projectConfigId":"project-alpha","calledBy":"missing","implType":"TextBlock","numChildren":1}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"section_not_found"`,
+		},
+		{
+			route:        RouteDeleteChildSectionsViaDecrementer,
+			body:         `{"projectConfigId":"project-alpha","calledBy":"group-parent","numChildren":-1}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"child_section_request_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -5062,6 +5231,110 @@ func childDefaultsRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize child defaults route project: %v", err)
+	}
+	return project
+}
+
+func childSectionRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:                 "project-alpha",
+		Name:               "Alpha",
+		TopLevelSectionIDs: []string{"code-section", "group-parent"},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"code-section": {X: 20, Y: 20, ZIndex: 0},
+			"group-parent": {X: 480, Y: 40, ZIndex: 1},
+		},
+		SectionVariantMap: map[string]string{
+			"code-section": "code-variant",
+			"group-parent": "group-variant",
+			"child-a":      "child-a-variant",
+			"child-b":      "child-b-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"group-parent": {
+				ID:               "group-parent",
+				Name:             "Group",
+				VariantIDs:       []string{"group-variant"},
+				DefaultVariantID: "group-variant",
+			},
+			"child-a": {
+				ID:               "child-a",
+				Name:             "Child A",
+				ParentSectionID:  "group-parent",
+				VariantIDs:       []string{"child-a-variant"},
+				DefaultVariantID: "child-a-variant",
+			},
+			"child-b": {
+				ID:               "child-b",
+				Name:             "Child B",
+				ParentSectionID:  "group-parent",
+				VariantIDs:       []string{"child-b-variant"},
+				DefaultVariantID: "child-b-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"code-variant":    {ID: "code-variant", ImplID: "code-impl"},
+			"group-variant":   {ID: "group-variant", ImplID: "group-impl"},
+			"child-a-variant": {ID: "child-a-variant", ImplID: "child-a-impl"},
+			"child-b-variant": {ID: "child-b-variant", ImplID: "child-b-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: projectstate.SectionKindCode,
+				Code: &projectstate.CodeSectionImpl{
+					Language: projectstate.CodeLanguagePython,
+					Children: []string{},
+				},
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":           "code-impl",
+					"type":         "Code",
+					"codeLanguage": "python",
+					"children":     []string{},
+					"size": map[string]any{
+						"width":  420.0,
+						"height": 180.0,
+					},
+				}),
+			},
+			"group-impl": {
+				ID:   "group-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                      "group-impl",
+					"type":                    "Group",
+					"children":                []string{"child-a", "child-b"},
+					"defaultChildSectionType": "Callable",
+					"isHorizontalOrientation": false,
+					"overflowMode":            false,
+					"size": map[string]any{
+						"width":  500.0,
+						"height": 180.0,
+					},
+				}),
+			},
+			"child-a-impl": {
+				ID:      "child-a-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "child-a-impl", "type": "TextBlock"}),
+			},
+			"child-b-impl": {
+				ID:      "child-b-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "child-b-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize child-section route project: %v", err)
 	}
 	return project
 }

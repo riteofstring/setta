@@ -81,6 +81,20 @@ type SetSectionVariantNameRequestInput struct {
 	Name            string  `json:"name"`
 }
 
+type CreateChildSectionsRequestInput struct{}
+
+type CreateChildSectionsViaIncrementerRequestInput struct{}
+
+type CreateChildSectionsResponse struct {
+	SectionIDs []string `json:"sectionIds"`
+}
+
+type DeleteChildSectionsViaDecrementerRequestInput struct{}
+
+type DeleteChildSectionsViaDecrementerResponse struct {
+	SectionIDs []string `json:"sectionIds"`
+}
+
 type DeleteSectionsRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectConfigID string   `json:"projectConfigId"`
@@ -355,6 +369,36 @@ export type SetSectionParamFilterRequestInput = {
   projectConfigId: string;
   sectionId: string;
   value: string;
+};
+`
+
+const createChildSectionsRequestInputRawTS = `
+export type CreateChildSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  parentId: string;
+  implType: SectionType;
+  numChildren: number;
+  startIdx?: number | null;
+};
+`
+
+const createChildSectionsViaIncrementerRequestInputRawTS = `
+export type CreateChildSectionsViaIncrementerRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  implType: SectionType;
+  numChildren: number;
+};
+`
+
+const deleteChildSectionsViaDecrementerRequestInputRawTS = `
+export type DeleteChildSectionsViaDecrementerRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  numChildren: number;
 };
 `
 

@@ -137,6 +137,21 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_VARIANT_NAME",
 				},
 				{
+					Name:     "createChildSections",
+					Path:     httpapi.RouteCreateChildSections,
+					EnumName: "CREATE_CHILD_SECTIONS",
+				},
+				{
+					Name:     "createChildSectionsViaIncrementer",
+					Path:     httpapi.RouteCreateChildSectionsViaIncrementer,
+					EnumName: "CREATE_CHILD_SECTIONS_VIA_INCREMENTER",
+				},
+				{
+					Name:     "deleteChildSectionsViaDecrementer",
+					Path:     httpapi.RouteDeleteChildSectionsViaDecrementer,
+					EnumName: "DELETE_CHILD_SECTIONS_VIA_DECREMENTER",
+				},
+				{
 					Name:     "deleteSections",
 					Path:     httpapi.RouteDeleteSections,
 					EnumName: "DELETE_SECTIONS",
@@ -1025,6 +1040,30 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSectionVariantName",
 			RequestType:     reflect.TypeOf(SetSectionVariantNameRequestInput{}),
+		},
+		{
+			FunctionName:    "route_create_child_sections",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "createChildSections",
+			RequestType:     reflect.TypeOf(CreateChildSectionsRequestInput{}),
+			ResponseType:    reflect.TypeOf(CreateChildSectionsResponse{}),
+		},
+		{
+			FunctionName:    "route_create_child_sections_via_incrementer",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "createChildSectionsViaIncrementer",
+			RequestType:     reflect.TypeOf(CreateChildSectionsViaIncrementerRequestInput{}),
+			ResponseType:    reflect.TypeOf(CreateChildSectionsResponse{}),
+		},
+		{
+			FunctionName:    "route_delete_child_sections_via_decrementer",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "deleteChildSectionsViaDecrementer",
+			RequestType:     reflect.TypeOf(DeleteChildSectionsViaDecrementerRequestInput{}),
+			ResponseType:    reflect.TypeOf(DeleteChildSectionsViaDecrementerResponse{}),
 		},
 		{
 			FunctionName:    "route_delete_sections",

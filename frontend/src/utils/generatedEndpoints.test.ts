@@ -9,12 +9,15 @@ import {
   route_binary_upload,
   route_check_if_file_exists,
   route_check_workspace_initialized,
+  route_create_child_sections,
+  route_create_child_sections_via_incrementer,
   route_create_file,
   route_create_new_section_variant,
   route_create_project_config,
   route_create_top_level_section,
   route_create_view_mode,
   route_delete_artifacts,
+  route_delete_child_sections_via_decrementer,
   route_delete_kwarg,
   route_delete_sections,
   route_delete_selected_params,
@@ -362,6 +365,67 @@ describe("generatedEndpoints project shell and layout", () => {
       body: JSON.stringify({
         projectConfigId: "project-alpha",
         sectionIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts child-section creation writes with the canonical request shapes", async () => {
+    await route_create_child_sections({
+      projectConfigId: "project-alpha",
+      parentId: "code-section",
+      implType: "Terminal",
+      numChildren: 1,
+      startIdx: 0,
+    });
+
+    await route_create_child_sections_via_incrementer({
+      projectConfigId: "project-alpha",
+      calledBy: "child-a",
+      implType: "TextBlock",
+      numChildren: 2,
+    });
+
+    await route_delete_child_sections_via_decrementer({
+      projectConfigId: "project-alpha",
+      calledBy: "child-a",
+      numChildren: 1,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createChildSections`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        parentId: "code-section",
+        implType: "Terminal",
+        numChildren: 1,
+        startIdx: 0,
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createChildSectionsViaIncrementer`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        calledBy: "child-a",
+        implType: "TextBlock",
+        numChildren: 2,
+      }),
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteChildSectionsViaDecrementer`,
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        calledBy: "child-a",
+        numChildren: 1,
       }),
     });
   });
