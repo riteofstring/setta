@@ -341,6 +341,26 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setChatSectionStateRequestInputRawTS,
 			},
+			reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}): {
+				Name: "SetBrowserColumnWidthsRequestInput",
+				Kind: "raw",
+				Raw:  setBrowserColumnWidthsRequestInputRawTS,
+			},
+			reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}): {
+				Name: "SetBrowserAreaViewModeRequestInput",
+				Kind: "raw",
+				Raw:  setBrowserAreaViewModeRequestInputRawTS,
+			},
+			reflect.TypeOf(SetBrowserHideColumnRequestInput{}): {
+				Name: "SetBrowserHideColumnRequestInput",
+				Kind: "raw",
+				Raw:  setBrowserHideColumnRequestInputRawTS,
+			},
+			reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}): {
+				Name: "SetBrowserSavedSearchesRequestInput",
+				Kind: "raw",
+				Raw:  setBrowserSavedSearchesRequestInputRawTS,
+			},
 			reflect.TypeOf(GetLLMChatResponse{}): {
 				Name: "GetLLMChatResponse",
 				Kind: "raw",

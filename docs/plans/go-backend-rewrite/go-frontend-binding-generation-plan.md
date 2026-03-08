@@ -83,6 +83,7 @@ Current landed wedge:
   - current project-state layout/presence/structure-selection route constants
   - current top-level section creation, view-mode lifecycle, and section-rename
     route constants
+  - current browser section metadata route constants
   - current file-browser create/read/write/download/transfer route constants
   - current binary payload and bounded artifact route constants
   - current workspace-launch route constants
@@ -132,6 +133,11 @@ Current landed wedge:
       - `UngroupGroupsRequestInput`
       - `ToggleParamSelectedRequestInput`
       - `UnselectAllParamsRequestInput`
+    - current browser section metadata payloads
+      - `SetBrowserColumnWidthsRequestInput`
+      - `SetBrowserAreaViewModeRequestInput`
+      - `SetBrowserHideColumnRequestInput`
+      - `SetBrowserSavedSearchesRequestInput`
     - current top-level section creation, view-mode lifecycle, and
       section-rename payloads
       - `Position`
@@ -160,8 +166,15 @@ Current landed wedge:
     - current canonical project-state helper support used by current callers
       - `ViewModeConfig` plus `createViewMode` and `createViewModeConfig`
       - section/default factories for `Callable`, `Dict`, `ListRoot`,
-        `TextBlock`, `Code`, `Terminal`, `Chat`, `TaskBoard`, and
+        `TextBlock`, `Code`, `Terminal`, `Chat`, `Browser`, `TaskBoard`, and
         `Spreadsheet`
+      - browser shared enums and helpers
+        - `BrowserAreaViewMode`
+        - `BrowserSearchScope`
+        - `BrowserSavedSearchTypeFilters`
+        - `BrowserSavedSearch`
+        - `createBrowserSavedSearchTypeFilters`
+        - `createBrowserSavedSearch`
       - current code-object helper/type coverage for `CodeParam` plus the
         caller-used param-UI impl shapes for `CodeCallable`, `TextParam`,
         `DateParam`, `TimeParam`, `ButtonParam`, `SliderParam`,
@@ -428,6 +441,11 @@ Current landed wedge:
     - `route_get_file_browser_file_stat`
     - `route_write_file_browser_file_content`
     - `route_transfer_file_browser_entry`
+  - browser section metadata endpoint wrappers
+    - `route_set_browser_column_widths`
+    - `route_set_browser_area_view_mode`
+    - `route_set_browser_hide_column`
+    - `route_set_browser_saved_searches`
   - binary payload and bounded artifact endpoint wrappers
     - `route_binary_upload`
     - `route_binary_download`

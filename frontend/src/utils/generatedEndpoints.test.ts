@@ -54,6 +54,10 @@ import {
   route_set_active_view_mode,
   route_set_active_ids,
   route_set_app_definition,
+  route_set_browser_area_view_mode,
+  route_set_browser_column_widths,
+  route_set_browser_hide_column,
+  route_set_browser_saved_searches,
   route_set_chat_section_state,
   route_set_llm_api_keys,
   route_set_section_name,
@@ -604,6 +608,132 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         frontendOpId: "frontend-op-2a",
         activeIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts browser column-width writes with nullable widths", async () => {
+    await route_set_browser_column_widths({
+      projectConfigId: "project-alpha",
+      sectionId: "browser-section",
+      columnWidth: 240.5,
+      typesColumnWidth: null,
+      frontendOpId: "frontend-op-browser-width",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setBrowserColumnWidths`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "browser-section",
+        columnWidth: 240.5,
+        typesColumnWidth: null,
+        frontendOpId: "frontend-op-browser-width",
+      }),
+    });
+  });
+
+  it("posts browser view-mode writes", async () => {
+    await route_set_browser_area_view_mode({
+      projectConfigId: "project-alpha",
+      sectionId: "browser-section",
+      viewMode: "thumbnail",
+      frontendOpId: "frontend-op-browser-view",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setBrowserAreaViewMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "browser-section",
+        viewMode: "thumbnail",
+        frontendOpId: "frontend-op-browser-view",
+      }),
+    });
+  });
+
+  it("posts browser hide-column writes", async () => {
+    await route_set_browser_hide_column({
+      projectConfigId: "project-alpha",
+      sectionId: "browser-section",
+      hideColumn: true,
+      frontendOpId: "frontend-op-browser-hide",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setBrowserHideColumn`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "browser-section",
+        hideColumn: true,
+        frontendOpId: "frontend-op-browser-hide",
+      }),
+    });
+  });
+
+  it("posts browser saved-search writes", async () => {
+    await route_set_browser_saved_searches({
+      projectConfigId: "project-alpha",
+      sectionId: "browser-section",
+      savedSearches: [
+        {
+          id: "saved-search-1",
+          name: "Images",
+          query: "png",
+          searchScope: "local",
+          typeFilters: {
+            image: true,
+            video: false,
+            audio: false,
+            text: false,
+            data: false,
+          },
+          color: "#ef4444",
+          quickInfo: "Only images",
+        },
+      ],
+      frontendOpId: "frontend-op-browser-saved-searches",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setBrowserSavedSearches`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "browser-section",
+        savedSearches: [
+          {
+            id: "saved-search-1",
+            name: "Images",
+            query: "png",
+            searchScope: "local",
+            typeFilters: {
+              image: true,
+              video: false,
+              audio: false,
+              text: false,
+              data: false,
+            },
+            color: "#ef4444",
+            quickInfo: "Only images",
+          },
+        ],
+        frontendOpId: "frontend-op-browser-saved-searches",
       }),
     });
   });

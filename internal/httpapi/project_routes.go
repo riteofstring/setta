@@ -51,6 +51,10 @@ const (
 	RouteSetCallableHideParams          = "/setCallableHideParams"
 	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
 	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
+	RouteSetBrowserColumnWidths         = "/setBrowserColumnWidths"
+	RouteSetBrowserAreaViewMode         = "/setBrowserAreaViewMode"
+	RouteSetBrowserHideColumn           = "/setBrowserHideColumn"
+	RouteSetBrowserSavedSearches        = "/setBrowserSavedSearches"
 	RouteToggleParamSelected            = "/toggleParamSelected"
 	RouteUnselectAllParams              = "/unselectAllParams"
 	RouteSetChatSectionSettings         = "/setChatSectionSettings"
@@ -353,6 +357,35 @@ type UnselectAllParamsRequest struct {
 	ProjectID    string  `json:"projectConfigId"`
 }
 
+type SetBrowserColumnWidthsRequest struct {
+	FrontendOpID     *string  `json:"frontendOpId"`
+	ProjectID        string   `json:"projectConfigId"`
+	SectionID        string   `json:"sectionId"`
+	ColumnWidth      *float64 `json:"columnWidth"`
+	TypesColumnWidth *float64 `json:"typesColumnWidth"`
+}
+
+type SetBrowserAreaViewModeRequest struct {
+	FrontendOpID *string                          `json:"frontendOpId"`
+	ProjectID    string                           `json:"projectConfigId"`
+	SectionID    string                           `json:"sectionId"`
+	ViewMode     projectstate.BrowserAreaViewMode `json:"viewMode"`
+}
+
+type SetBrowserHideColumnRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	HideColumn   bool    `json:"hideColumn"`
+}
+
+type SetBrowserSavedSearchesRequest struct {
+	FrontendOpID  *string                           `json:"frontendOpId"`
+	ProjectID     string                            `json:"projectConfigId"`
+	SectionID     string                            `json:"sectionId"`
+	SavedSearches []projectstate.BrowserSavedSearch `json:"savedSearches"`
+}
+
 type SetChatSectionSettingsRequest struct {
 	FrontendOpID           *string                         `json:"frontendOpId"`
 	ProjectID              string                          `json:"projectConfigId"`
@@ -481,6 +514,10 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserColumnWidths, setBrowserColumnWidthsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserAreaViewMode, setBrowserAreaViewModeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserHideColumn, setBrowserHideColumnHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetBrowserSavedSearches, setBrowserSavedSearchesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteToggleParamSelected, toggleParamSelectedHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUnselectAllParams, unselectAllParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
@@ -1690,6 +1727,151 @@ func unselectAllParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func setBrowserColumnWidthsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetBrowserColumnWidthsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetBrowserColumnWidths(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ColumnWidth,
+			payload.TypesColumnWidth,
+		); err != nil {
+			writeBrowserSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setBrowserAreaViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetBrowserAreaViewModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetBrowserAreaViewMode(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ViewMode,
+		); err != nil {
+			writeBrowserSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setBrowserHideColumnHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetBrowserHideColumnRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetBrowserHideColumn(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.HideColumn,
+		); err != nil {
+			writeBrowserSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setBrowserSavedSearchesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetBrowserSavedSearchesRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetBrowserSavedSearches(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.SavedSearches,
+		); err != nil {
+			writeBrowserSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetChatSectionSettingsRequest](r)
@@ -2139,6 +2321,19 @@ func writeParamSelectionMutationError(w http.ResponseWriter, r *http.Request, er
 		writeError(w, r, http.StatusUnprocessableEntity, "param_selection_invalid", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeBrowserSectionMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrBrowserSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "browser_section_required", "Section must resolve to a browser section.")
+	case errors.Is(err, projectstate.ErrBrowserAreaViewModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "browser_area_view_mode_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrBrowserSearchScopeInvalid):
+		writeError(w, r, http.StatusBadRequest, "browser_search_scope_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
 	}
 }
 

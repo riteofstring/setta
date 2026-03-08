@@ -1,12 +1,18 @@
 import {
+  BrowserAreaViewModeEnum,
+  BrowserSearchScopeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
+  createBrowserSavedSearch,
+  createBrowserSavedSearchTypeFilters,
+  createBrowserSectionImpl,
   createCallableSectionImpl,
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createTextBlockSectionImpl,
   createViewModeConfig,
+  createUserDefaultBrowserSectionImpl,
   createUserDefaultCallableSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultCodeSectionImpl,
@@ -82,6 +88,41 @@ describe("generated project state factories", () => {
     expect(codeParamImpl.id).toBe("param-impl");
     expect(codeParamImpl.coreNameType).toBe(ParamNameTypeEnum.TEXT);
     expect(codeParamImpl.value).toBe("5");
+  });
+
+  it("exports browser-section helpers and saved-search defaults", () => {
+    const browserImpl = createBrowserSectionImpl(
+      createUserDefaultBrowserSectionImpl({
+        viewMode: BrowserAreaViewModeEnum.thumbnail,
+      }),
+      {
+        id: "browser-impl",
+        hideColumn: true,
+        savedSearches: [
+          createBrowserSavedSearch({
+            id: "saved-search-1",
+            query: "png",
+            searchScope: BrowserSearchScopeEnum.local,
+            typeFilters: createBrowserSavedSearchTypeFilters({
+              image: true,
+              video: false,
+              audio: false,
+              text: false,
+              data: false,
+            }),
+          }),
+        ],
+      },
+    );
+
+    expect(browserImpl.type).toBe(SectionTypeEnum.Browser);
+    expect(browserImpl.id).toBe("browser-impl");
+    expect(browserImpl.viewMode).toBe(BrowserAreaViewModeEnum.thumbnail);
+    expect(browserImpl.hideColumn).toBe(true);
+    expect(browserImpl.savedSearches[0]?.searchScope).toBe(
+      BrowserSearchScopeEnum.local,
+    );
+    expect(browserImpl.savedSearches[0]?.typeFilters.video).toBe(false);
   });
 
   it("exports the canonical view-mode helper and route enum surface", () => {

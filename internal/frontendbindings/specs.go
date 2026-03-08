@@ -387,6 +387,26 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_ACTIVE_IDS",
 				},
 				{
+					Name:     "setBrowserColumnWidths",
+					Path:     httpapi.RouteSetBrowserColumnWidths,
+					EnumName: "SET_BROWSER_COLUMN_WIDTHS",
+				},
+				{
+					Name:     "setBrowserAreaViewMode",
+					Path:     httpapi.RouteSetBrowserAreaViewMode,
+					EnumName: "SET_BROWSER_AREA_VIEW_MODE",
+				},
+				{
+					Name:     "setBrowserHideColumn",
+					Path:     httpapi.RouteSetBrowserHideColumn,
+					EnumName: "SET_BROWSER_HIDE_COLUMN",
+				},
+				{
+					Name:     "setBrowserSavedSearches",
+					Path:     httpapi.RouteSetBrowserSavedSearches,
+					EnumName: "SET_BROWSER_SAVED_SEARCHES",
+				},
+				{
 					Name:     "toggleParamSelected",
 					Path:     httpapi.RouteToggleParamSelected,
 					EnumName: "TOGGLE_PARAM_SELECTED",
@@ -1203,6 +1223,34 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setActiveIds",
 			RequestType:     reflect.TypeOf(SetActiveIDsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_browser_column_widths",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setBrowserColumnWidths",
+			RequestType:     reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_browser_area_view_mode",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setBrowserAreaViewMode",
+			RequestType:     reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_browser_hide_column",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setBrowserHideColumn",
+			RequestType:     reflect.TypeOf(SetBrowserHideColumnRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_browser_saved_searches",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setBrowserSavedSearches",
+			RequestType:     reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}),
 		},
 		{
 			FunctionName:    "route_toggle_param_selected",

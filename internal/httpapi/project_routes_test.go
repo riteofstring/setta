@@ -1789,6 +1789,177 @@ func TestRegisterProjectRoutesParamSelectionMutationsPersistLatestState(t *testi
 	}
 }
 
+func TestRegisterProjectRoutesBrowserMetadataMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": browserSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetBrowserColumnWidths,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","columnWidth":240.5,"typesColumnWidth":160}`,
+		},
+		{
+			route: RouteSetBrowserAreaViewMode,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"thumbnail"}`,
+		},
+		{
+			route: RouteSetBrowserHideColumn,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","hideColumn":true}`,
+		},
+		{
+			route: RouteSetBrowserSavedSearches,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"images","name":"Images","query":"png","searchScope":"local","typeFilters":{"image":true,"video":false,"audio":false,"text":false,"data":false},"color":"#ef4444","quickInfo":"Only images"},{"id":"defaults","name":"Defaults","query":"todo","color":"#3b82f6","quickInfo":""}]}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	browserSection := payload.ProjectState.Sections["browser-section"]
+	browserSharedModifier := decodeProjectRouteRawObject(t, browserSection.SharedModifier)
+	if browserSharedModifier["columnWidth"] != 240.5 {
+		t.Fatalf("expected columnWidth 240.5, got %#v", browserSharedModifier["columnWidth"])
+	}
+	if browserSharedModifier["typesColumnWidth"] != 160.0 {
+		t.Fatalf("expected typesColumnWidth 160.0, got %#v", browserSharedModifier["typesColumnWidth"])
+	}
+	if browserSharedModifier["viewMode"] != "thumbnail" {
+		t.Fatalf("expected viewMode thumbnail, got %#v", browserSharedModifier["viewMode"])
+	}
+	if browserSharedModifier["hideColumn"] != true {
+		t.Fatalf("expected hideColumn=true, got %#v", browserSharedModifier["hideColumn"])
+	}
+
+	savedSearches, ok := browserSharedModifier["savedSearches"].([]any)
+	if !ok || len(savedSearches) != 2 {
+		t.Fatalf("expected two saved searches, got %#v", browserSharedModifier["savedSearches"])
+	}
+	secondSavedSearch, ok := savedSearches[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected second saved search object, got %#v", savedSearches[1])
+	}
+	if secondSavedSearch["searchScope"] != "recursive" {
+		t.Fatalf("expected blank searchScope to normalize to recursive, got %#v", secondSavedSearch["searchScope"])
+	}
+	secondTypeFilters, ok := secondSavedSearch["typeFilters"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected second saved search typeFilters object, got %#v", secondSavedSearch["typeFilters"])
+	}
+	for _, key := range []string{"image", "video", "audio", "text", "data"} {
+		if secondTypeFilters[key] != true {
+			t.Fatalf("expected default type filter %s=true, got %#v", key, secondTypeFilters[key])
+		}
+	}
+}
+
+func TestRegisterProjectRoutesBrowserMetadataMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": browserSectionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetBrowserHideColumn,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","hideColumn":true}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"browser_section_required"`,
+		},
+		{
+			route:        RouteSetBrowserAreaViewMode,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"browser-section","viewMode":"grid"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"browser_area_view_mode_invalid"`,
+		},
+		{
+			route:        RouteSetBrowserSavedSearches,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"browser-section","savedSearches":[{"id":"bad","searchScope":"global"}]}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"browser_search_scope_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesSetViewportReturnsInternalErrorWithoutActiveViewMode(t *testing.T) {
 	t.Parallel()
 
@@ -2860,6 +3031,68 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize layout presentation route project: %v", err)
+	}
+	return project
+}
+
+func browserSectionRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"browser-section": "browser-variant",
+			"plain-section":   "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"browser-section": {
+				ID:               "browser-section",
+				Name:             "Browser Section",
+				VariantIDs:       []string{"browser-variant"},
+				DefaultVariantID: "browser-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"browser-variant": {
+				ID:     "browser-variant",
+				ImplID: "browser-impl",
+			},
+			"plain-variant": {
+				ID:     "plain-variant",
+				ImplID: "plain-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"browser-impl": {
+				ID:   "browser-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":               "browser-impl",
+					"type":             "Browser",
+					"folder":           "",
+					"hideColumn":       false,
+					"columnWidth":      nil,
+					"typesColumnWidth": nil,
+					"viewMode":         "list",
+					"savedSearches":    []any{},
+				}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize browser route project: %v", err)
 	}
 	return project
 }

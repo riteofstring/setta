@@ -327,6 +327,26 @@ export async function route_set_active_ids(x: gt.SetActiveIDsRequestInput): Prom
   return await post(GoHTTPRoutes.setActiveIds, x);
 
 }
+export async function route_set_browser_column_widths(x: gt.SetBrowserColumnWidthsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setBrowserColumnWidths, x);
+
+}
+export async function route_set_browser_area_view_mode(x: gt.SetBrowserAreaViewModeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setBrowserAreaViewMode, x);
+
+}
+export async function route_set_browser_hide_column(x: gt.SetBrowserHideColumnRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setBrowserHideColumn, x);
+
+}
+export async function route_set_browser_saved_searches(x: gt.SetBrowserSavedSearchesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setBrowserSavedSearches, x);
+
+}
 export async function route_toggle_param_selected(x: gt.ToggleParamSelectedRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.toggleParamSelected, x);
