@@ -206,6 +206,7 @@ function _ParamGroupContainer({
       <div
         className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
         ref={setOuterRef}
+        data-settings-benchmark-group-container="true"
       >
         {waitingForResult && (
           <div className="pointer-events-auto absolute inset-0 z-10 flex items-start justify-center bg-transparent pt-3">

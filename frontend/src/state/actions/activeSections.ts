@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { getActiveSectionUIIds, setActiveSectionUIIds } from "state/activeSectionUI";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
@@ -14,6 +15,9 @@ import {
   getTopLevelSectionIdsForDisplay,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
+
+let pendingProjectActiveIdsAnimationFrame: number | null = null;
+let pendingProjectActiveIds: Array<string> | null = null;
 
 function optimisticActiveIdsUpdate(
   apply: (state: ZustandProjectState) => void,
@@ -47,7 +51,7 @@ function optimisticActiveIdsUpdate(
   });
 }
 
-export function setActiveSectionIds(ids: Array<string>) {
+function applyProjectActiveSectionIds(ids: Array<string>) {
   const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
   if (_.isEqual(currentActiveIds, ids)) {
     return;
@@ -55,6 +59,55 @@ export function setActiveSectionIds(ids: Array<string>) {
   optimisticActiveIdsUpdate((state) => {
     state.projectConfig.activeIds = ids;
   });
+}
+
+function shouldDeferProjectActiveSectionIdsSync() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const projectConfigId = getCurrProjectConfigId();
+  return (
+    projectConfigId !== null &&
+    projectConfigId !== undefined &&
+    projectConfigId !== NULL_PROJECT_CONFIG_ID
+  );
+}
+
+function flushPendingProjectActiveIdsSync() {
+  if (pendingProjectActiveIds === null) {
+    return;
+  }
+  const nextActiveIds = pendingProjectActiveIds;
+  pendingProjectActiveIds = null;
+  pendingProjectActiveIdsAnimationFrame = null;
+  applyProjectActiveSectionIds(nextActiveIds);
+}
+
+function scheduleProjectActiveSectionIdsSync(ids: Array<string>) {
+  pendingProjectActiveIds = [...ids];
+  if (typeof window === "undefined") {
+    flushPendingProjectActiveIdsSync();
+    return;
+  }
+  if (pendingProjectActiveIdsAnimationFrame !== null) {
+    window.cancelAnimationFrame(pendingProjectActiveIdsAnimationFrame);
+  }
+  pendingProjectActiveIdsAnimationFrame = window.requestAnimationFrame(() => {
+    flushPendingProjectActiveIdsSync();
+  });
+}
+
+export function setActiveSectionIds(ids: Array<string>) {
+  const currentActiveIds = getActiveSectionUIIds();
+  if (_.isEqual(currentActiveIds, ids)) {
+    return;
+  }
+  setActiveSectionUIIds(ids);
+  if (!shouldDeferProjectActiveSectionIdsSync()) {
+    applyProjectActiveSectionIds(ids);
+    return;
+  }
+  scheduleProjectActiveSectionIdsSync(ids);
 }
 
 export function pruneActiveSectionIdsForViewMode(
@@ -73,7 +126,7 @@ export function pruneActiveSectionIdsForViewMode(
   if (!viewMode) {
     throw new Error(`Active view mode ${resolvedViewModeId} not found`);
   }
-  const nextIds = state.projectConfig.activeIds.filter((sectionId) => {
+  const nextIds = getActiveSectionUIIds().filter((sectionId) => {
     const visibility = viewMode.visibilityBySectionId[sectionId];
     if (visibility === undefined) {
       throw new Error(
@@ -86,16 +139,14 @@ export function pruneActiveSectionIdsForViewMode(
 }
 
 export function clearActiveSectionIds() {
-  if (useProjectState.getState().projectConfig.activeIds.length === 0) {
+  if (getActiveSectionUIIds().length === 0) {
     return;
   }
-  optimisticActiveIdsUpdate((state) => {
-    state.projectConfig.activeIds = [];
-  });
+  setActiveSectionIds([]);
 }
 
 export function selectAll() {
-  const currActiveSections = useProjectState.getState().projectConfig.activeIds;
+  const currActiveSections = getActiveSectionUIIds();
 
   // select all params within single active section
   if (currActiveSections.length === 1) {

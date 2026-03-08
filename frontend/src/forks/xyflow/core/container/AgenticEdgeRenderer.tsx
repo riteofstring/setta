@@ -9,6 +9,7 @@ import {
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
+import { useActiveSectionUI } from "state/activeSectionUI";
 import { useUpdateAgenticScopeHighlights } from "state/hooks/agenticScopeHighlights";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -71,7 +72,6 @@ const AgenticEdgeRenderer = () => {
     sectionVariants,
     sectionImpls,
     projectConfigId,
-    activeIds,
   } = useProjectState(
     (state) => ({
       agenticEdges: state.projectConfig.agenticEdges,
@@ -80,10 +80,10 @@ const AgenticEdgeRenderer = () => {
       sectionVariants: state.sectionVariants,
       sectionImpls: state.sectionImpls,
       projectConfigId: state.projectConfig.id,
-      activeIds: state.projectConfig.activeIds,
     }),
     shallow,
   );
+  const activeIds = useActiveSectionUI((state) => state.activeIds);
   const nodes = useNodeInternals((state) => state.x);
   const { canEditStructure } = useShareCapabilities();
   const {

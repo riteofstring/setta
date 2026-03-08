@@ -279,6 +279,18 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
+type ActiveSectionUIState = {
+  activeIds: Array<string>;
+};
+
+export const useActiveSectionUI = withProjectState(
+  createWithEqualityFn(
+    withResetFn<ActiveSectionUIState>(() => ({
+      activeIds: [],
+    })),
+  ),
+);
+
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
   dependenciesByKey: Record<string, BaseDependencyKeyUnion>;
