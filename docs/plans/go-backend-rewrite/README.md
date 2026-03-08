@@ -517,12 +517,15 @@ Use the docs in this order:
   - focused completed-slice doc for opportunistic Go ownership of dormant
     `create/delete` engine-config transport over the landed engine store,
     with websocket fan-out and single-item reads still deferred
-154. `spike-mcp.md`
+154. `phase-13-agentic-single-item-read-transport.md`
+  - focused bounded follow-on doc for the remaining dormant single-item
+    agentic reads over the landed Go stores and services
+155. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-155. `spike-pty.md`
+156. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-156. `spike-lsp.md`
+157. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
