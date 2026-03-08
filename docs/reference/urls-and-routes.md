@@ -53,6 +53,10 @@ against `projectConfig.windowSpaces` by sanitized name slug:
 Section routes are namespaced under `/section`, so section slugs no longer need
 to reserve `chat` or `windowspace`.
 
+Window-space names also use explicit namespacing under `/windowspace`, so names
+such as `home`, `settings`, `chat`, or `windowspace` are not reserved at the
+window-space level.
+
 If `/:projectConfigName/view/:viewModeName` does not match an existing view mode,
 the app keeps the current active view mode and replaces the URL with that active
 name once state is loaded.
@@ -150,6 +154,34 @@ Transcription profile CRUD is separate from chat engine config:
     - `stoppedRunId` (nullable)
     - `stoppedMessageId` (nullable)
 
+### Project chat windowing + window-space routes
+
+- `/api/setProjectChatWindowingState`
+  - Method: `POST`
+  - Request fields: `projectConfigId`, `state`
+  - Persists layout-only project-chat window state.
+  - Thread-bound `chatId` changes are rejected here; use the dedicated
+    chat-binding route instead.
+- `/api/setProjectChatWindowChatId`
+  - Method: `POST`
+  - Request fields: `projectConfigId`, `instanceId`, `chatId`
+  - Persists the managed-chat thread binding for an existing
+    `project_ai_mode` window.
+- `/api/createWindowSpace`
+  - Method: `POST`
+  - Request fields: `projectConfigId`, `state`, optional `name`
+  - Persists a saved floating-window snapshot under `projectConfig.windowSpaces`.
+- `/api/setWindowSpaceName`
+  - Method: `POST`
+  - Request fields: `projectConfigId`, `windowSpaceId`, `name`
+- `/api/setWindowSpaceSortOrder`
+  - Method: `POST`
+  - Request fields: `projectConfigId`, `orderedWindowSpaceIds`
+  - Requires a full, deduplicated order list.
+- `/api/deleteWindowSpace`
+  - Method: `POST`
+  - Request fields: `projectConfigId`, `windowSpaceId`
+
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
@@ -201,6 +233,8 @@ The app-generation/skills viewer flow adds these backend routes:
     `activeSettaFilesLocation` (`local|global|custom`).
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
+For project-chat/window-space behavior, see
+`docs/reference/project-chat-windowing.md`.
 
 ## View Mode + File Browser Route Notes
 
