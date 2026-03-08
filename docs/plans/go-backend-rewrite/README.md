@@ -17,19 +17,22 @@ historical archive.
    - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 6. `go-backend-rewrite-plan.md`
    - stable rewrite charter and reopening rules
-7. `testing-strategy.md`
+7. `go-frontend-binding-generation-plan.md`
+   - current working slice doc for the Go-owned frontend binding-generation
+     follow-on
+8. `testing-strategy.md`
    - test bar for follow-on work
-8. `go-dependency-inventory-and-rationale.md`
+9. `go-dependency-inventory-and-rationale.md`
    - current `go.mod` explanation
-9. `docs/reference/dependencies/`
+10. `docs/reference/dependencies/`
    - local dependency reference notes and upstream doc snapshots
-10. `go-backend-rewrite-stack-recommendations.md`
+11. `go-backend-rewrite-stack-recommendations.md`
    - earlier design input, not the primary working source of truth
-11. `dependency-docs-local-reference.md`
+12. `dependency-docs-local-reference.md`
    - dependency-doc acquisition rules
-12. `pyproject-dependency-replacement-snapshot.md`
+13. `pyproject-dependency-replacement-snapshot.md`
    - point-in-time Python dependency classification
-13. `archive/README.md`
+14. `archive/README.md`
    - historical `phase-*` and `spike-*` docs
 
 ## Agent Rules

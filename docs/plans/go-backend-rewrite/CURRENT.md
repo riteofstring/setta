@@ -14,6 +14,9 @@ Last verified: `2026-03-10`
   - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 - `go-backend-rewrite-plan.md`
   - stable rewrite rules, selected follow-ons, and reopening criteria
+- `go-frontend-binding-generation-plan.md`
+  - working slice doc for the selected Go-owned frontend binding generation
+    follow-on
 - `testing-strategy.md`
   - test expectations for rewrite work
 - `go-dependency-inventory-and-rationale.md`
@@ -29,9 +32,12 @@ Last verified: `2026-03-10`
 - Go-owned frontend binding generation for Go HTTP/websocket contracts
   - give frontend-facing backend contracts a Go-owned source of truth wherever
     transport/runtime ownership is Go
-  - keep generated contract surfaces deliberate and explicit
-  - schema reflection from arbitrary Go structs should remain a tool, not the
-    default contract owner
+  - use a converter-style pipeline analogous to the existing
+    Python-to-TypeScript generators, driven by explicit Go contract types and
+    endpoint specs rather than handwritten TS emitters
+  - if a runtime type does not convert cleanly, add a dedicated Go contract
+    type or converter rule instead of hand-writing TS for that route
+  - current slice doc: `go-frontend-binding-generation-plan.md`
 - Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
   - apply this at the provider edge for managed chat, transcription, realtime,
     and later Go-owned OpenAI provider surfaces

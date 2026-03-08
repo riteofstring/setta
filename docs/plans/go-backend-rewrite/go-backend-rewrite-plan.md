@@ -57,10 +57,13 @@ Historical phase planning, reranks, closeouts, and spikes live under
 - Go-owned frontend binding generation for Go HTTP/websocket contracts
   - give frontend-facing backend contracts a Go-owned source of truth wherever
     transport/runtime ownership is Go
-  - do not recreate every Python internal helper generator in Go
-  - keep generated contract surfaces deliberate and explicit
-  - schema reflection from arbitrary Go structs should remain a tool, not the
-    default contract owner
+  - build a converter-style pipeline analogous to the existing
+    Python-to-TypeScript generators, driven by explicit Go contract types and
+    endpoint specs
+  - do not land handwritten TS emitters or endpoint-by-endpoint string-builder
+    wedges as the follow-on implementation
+  - if a runtime type does not convert cleanly, add a dedicated Go contract
+    type or converter rule instead of hand-writing TS for that route
 - Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
   - apply this at the provider edge for managed chat, transcription, realtime,
     and later Go-owned OpenAI provider surfaces
