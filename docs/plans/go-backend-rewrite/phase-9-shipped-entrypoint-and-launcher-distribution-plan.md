@@ -245,13 +245,21 @@ the actual Go command tree that installer scripts can target next.
   entrypoints dispatch the Go-owned command set through that packaged binary,
   and the launcher-smoke workflow now builds local package artifacts through the
   Go-binary distribution helper instead of raw `python -m build`.
+- 2026-03-08: fixed the remaining wheel packaging gap for that Stage 1B slice.
+  Wheel builds now require packaged Go binaries to be present before build, and
+  the built wheel is marked platform-specific through a Hatch build hook rather
+  than incorrectly publishing a universal `py3-none-any` artifact.
 
 ## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd ./internal/launcher ./cmd/setta -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py tests/start/test_desktop_launcher_install_scripts.py -q`
+- `source activate.sh && python -m pytest tests/start/test_packaged_distribution.py -q`
 - `source activate.sh && ./scripts/build_python_distribution_with_go_binaries.sh --sdist`
+- `source activate.sh && ./scripts/build_packaged_go_binaries.sh`
+- `source activate.sh && python -m build --wheel --outdir /tmp/setta-wheel-check.<suffix>`
 - `tar -tzf dist/setta-0.0.18.tar.gz | rg 'backend/setta/go_bin/(setta|setta-server)$'`
+- `python - <<'PY' ... inspect setta-0.0.18.dist-info/WHEEL ... PY`
 - `source activate.sh && python -m setta version`
 - `git diff --check`
 

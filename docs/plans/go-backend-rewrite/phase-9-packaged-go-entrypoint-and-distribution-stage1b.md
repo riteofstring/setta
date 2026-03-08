@@ -132,12 +132,22 @@ That means the next coherent unit is:
     packaged Go router for the Go-owned command set
   - still-Python local commands remain on the Python side of that boundary for
     now
+- 2026-03-08: packaging follow-up completed.
+  - wheel builds now fail fast if `backend/setta/go_bin` does not contain the
+    packaged `setta` and `setta-server` binaries
+  - wheel metadata is now marked platform-specific through a dedicated Hatch
+    build hook instead of publishing an incorrect universal `py3-none-any`
+    wheel when Go binaries are present
 
 ## Verification
 
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py tests/start/test_desktop_launcher_install_scripts.py -q`
+- `source activate.sh && python -m pytest tests/start/test_packaged_distribution.py -q`
 - `source activate.sh && ./scripts/build_python_distribution_with_go_binaries.sh --sdist`
+- `source activate.sh && ./scripts/build_packaged_go_binaries.sh`
+- `source activate.sh && python -m build --wheel --outdir /tmp/setta-wheel-check.<suffix>`
 - `tar -tzf dist/setta-0.0.18.tar.gz | rg 'backend/setta/go_bin/(setta|setta-server)$'`
+- `python - <<'PY' ... inspect setta-0.0.18.dist-info/WHEEL ... PY`
 - `source activate.sh && python -m setta version`
 - `git diff --check`
 
