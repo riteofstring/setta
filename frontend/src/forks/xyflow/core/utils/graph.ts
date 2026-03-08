@@ -1,6 +1,8 @@
 import type { Selection as D3Selection } from "d3";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLocalStorage,
+  useNodeInternals,
   useProjectState,
   useSectionRefs,
 } from "state/definitions";
@@ -73,7 +75,7 @@ export const getNodesBounds = (nodes: Node[]): Rect => {
 };
 
 export function getActiveSectionsBounds(ignoreGrid = false) {
-  const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
+  const activeSectionIds = getActiveSectionUIIds();
   return (
     getSectionBounds(activeSectionIds, ignoreGrid) ?? {
       x: 0,
@@ -98,15 +100,15 @@ export function getNodesInside(
 
   const visibleNodes = [];
 
-  for (const section of Object.values(useProjectState.getState().sections)) {
-    const isVisible = isSectionOverlappingWithRect(
-      section.id,
+  for (const node of useNodeInternals.getState().x.values()) {
+    const isVisible = isNodeOverlappingWithRect(
+      node,
       rectToLookInside,
       partially,
     );
 
     if (isVisible) {
-      visibleNodes.push(section.id);
+      visibleNodes.push(node.id);
     }
   }
 
@@ -261,6 +263,30 @@ function isSectionOverlappingWithRect(
     width === null ||
     height === null;
 
+  const partiallyVisible = partially && overlappingArea > 0;
+  const area = (width || 0) * (height || 0);
+  return notInitialized || partiallyVisible || overlappingArea >= area;
+}
+
+function isNodeOverlappingWithRect(
+  node: Node,
+  otherRect: Rect,
+  partially: boolean,
+) {
+  const width = node.width;
+  const height = node.height;
+  const nodeRect = {
+    x: node.position.x,
+    y: node.position.y,
+    width: width || 0,
+    height: height || 0,
+  };
+  const overlappingArea = getOverlappingArea(otherRect, nodeRect);
+  const notInitialized =
+    typeof width === "undefined" ||
+    typeof height === "undefined" ||
+    width === null ||
+    height === null;
   const partiallyVisible = partially && overlappingArea > 0;
   const area = (width || 0) * (height || 0);
   return notInitialized || partiallyVisible || overlappingArea >= area;
