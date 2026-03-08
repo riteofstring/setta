@@ -44,6 +44,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultTimeParamCodeObjImpl,
 )
 from setta.types.settings_state import (
+    ChatWindowingSettings,
     SectionSizingPolicy,
     SettingsBackend,
     SettingsGUI,
@@ -59,6 +60,7 @@ class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
+    chatWindowing: ChatWindowingSettings = Field(default_factory=ChatWindowingSettings)
     sectionSizingPolicy: SectionSizingPolicy = Field(
         default_factory=SectionSizingPolicy
     )

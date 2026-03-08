@@ -1647,6 +1647,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         });
         return;
       }
+      setChatId(newChatId);
       finalizePendingChatDetails(newChatId);
     },
     [onDraftThreadSettled, setChatId],
