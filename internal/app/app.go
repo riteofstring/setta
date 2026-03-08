@@ -112,11 +112,24 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		appPublisher          *deployments.AppPublisher
 		shareSessions         modes.ShareSessionStore
 		launcherHome          *launcher.HomeService
+		launcherManagement    *launcher.ManagementService
 		launcherOpenWorkspace *launcher.OpenWorkspaceService
 	)
 	launcherHome = launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: os.LookupEnv,
 	})
+	if modePolicy.IsIDE() {
+		executablePath, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		launcherManagement, err = launcher.NewManagementService(launcher.ManagementServiceOptions{
+			ExecutablePath: executablePath,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	if modePolicy.IsLauncher() {
 		executablePath, err := os.Executable()
 		if err != nil {
@@ -655,6 +668,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				DefaultSettaHome: cfg.Paths.SettaHome,
 				Home:             launcherHome,
 				OpenWorkspace:    launcherOpenWorkspace,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterLauncherManagementRoutes(r, httpapi.LauncherManagementRouteDependencies{
+				ModePolicy:       modePolicy,
+				DefaultSettaHome: cfg.Paths.SettaHome,
+				Manager:          launcherManagement,
 			}); err != nil {
 				panic(err)
 			}

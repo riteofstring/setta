@@ -31,14 +31,27 @@ func TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState(t *
 	if err != nil {
 		t.Fatalf("resolve default setta home: %v", err)
 	}
-	metadataPath, err := resolveLauncherMetadataPath(defaultSettaHome)
+	targetExecutable := filepath.Join(baseRoot, "setta")
+	if err := os.WriteFile(targetExecutable, []byte("#!/usr/bin/env bash\n"), 0o755); err != nil {
+		t.Fatalf("write launcher target executable: %v", err)
+	}
+	installMetadata, err := BuildLauncherInstallMetadata(LauncherInstallMetadataInput{
+		TargetCommand:          []string{targetExecutable},
+		Channel:                "manual",
+		InstallSource:          LauncherInstallSourceUnsupported,
+		ArtifactOwnershipToken: "open-workspace-test-token",
+		SettaVersion:           "1.2.3",
+		SettaHome:              defaultSettaHome,
+		OpenMode:               LauncherOpenModeBrowser,
+		WorkspaceBehavior:      LauncherWorkspaceBehaviorDefault,
+		ArtifactOptions:        map[string]string{},
+		ManagedArtifacts:       map[string]string{},
+	})
 	if err != nil {
-		t.Fatalf("resolve launcher metadata path: %v", err)
+		t.Fatalf("build launcher metadata: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(metadataPath), 0o755); err != nil {
-		t.Fatalf("mkdir launcher metadata dir: %v", err)
-	}
-	if err := os.WriteFile(metadataPath, []byte("{\"schemaVersion\":1}\n"), 0o644); err != nil {
+	metadataPath, err := WriteLauncherInstallMetadata(defaultSettaHome, installMetadata)
+	if err != nil {
 		t.Fatalf("write launcher metadata: %v", err)
 	}
 
