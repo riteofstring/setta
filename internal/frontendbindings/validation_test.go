@@ -2359,6 +2359,198 @@ func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestProjectCodegenSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "ProjectCodegenLanguage",
+			root: reflect.TypeOf(ProjectCodegenLanguage("")),
+			values: []EnumValue{
+				{Name: "python", Value: "python"},
+			},
+		},
+		{
+			name: "SectionCodegenMode",
+			root: reflect.TypeOf(SectionCodegenMode("")),
+			values: []EnumValue{
+				{Name: "inherit", Value: "inherit"},
+				{Name: "include", Value: "include"},
+				{Name: "exclude", Value: "exclude"},
+			},
+		},
+		{
+			name: "SectionRepresentationMode",
+			root: reflect.TypeOf(SectionRepresentationMode("")),
+			values: []EnumValue{
+				{Name: "expression", Value: "expression"},
+				{Name: "file_path", Value: "file_path"},
+				{Name: "file_read", Value: "file_read"},
+			},
+		},
+		{
+			name: "CodeObjValueRepresentationMode",
+			root: reflect.TypeOf(CodeObjValueRepresentationMode("")),
+			values: []EnumValue{
+				{Name: "expression", Value: "expression"},
+				{Name: "json_parsed", Value: "json_parsed"},
+				{Name: "string", Value: "string"},
+				{Name: "file_path", Value: "file_path"},
+				{Name: "file_read", Value: "file_read"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "SectionTypeCodegenPolicy",
+			root: reflect.TypeOf(SectionTypeCodegenPolicy{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "mode", TypeExpr: "SectionCodegenMode", Optional: false},
+				{Name: "representation", TypeExpr: "SectionRepresentationMode", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SectionCodegenOverride",
+			root: reflect.TypeOf(SectionCodegenOverride{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "mode", TypeExpr: "SectionCodegenMode", Optional: false},
+				{Name: "representation", TypeExpr: "SectionRepresentationMode", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SectionCodegenPolicy",
+			root: reflect.TypeOf(SectionCodegenPolicy{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "allowlist", TypeExpr: "Array<SectionType> | null", Optional: true},
+				{Name: "metaControlAllowlist", TypeExpr: "Array<CodeObjType> | null", Optional: true},
+				{Name: "exclude", TypeExpr: "Array<string>", Optional: false},
+				{Name: "typePolicies", TypeExpr: "Record<SectionType, SectionTypeCodegenPolicy>", Optional: false},
+				{Name: "sectionOverrides", TypeExpr: "Record<string, SectionCodegenOverride>", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+		{
+			name: "CodeObjTypeValuePolicy",
+			root: reflect.TypeOf(CodeObjTypeValuePolicy{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "CodeObjValueOverride",
+			root: reflect.TypeOf(CodeObjValueOverride{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "CodeObjValuePolicy",
+			root: reflect.TypeOf(CodeObjValuePolicy{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "typePolicies", TypeExpr: "Record<CodeObjType, CodeObjTypeValuePolicy>", Optional: false},
+				{Name: "codeObjOverrides", TypeExpr: "Record<string, CodeObjValueOverride>", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+		{
+			name: "ProjectCodegenPythonTarget",
+			root: reflect.TypeOf(ProjectCodegenPythonTarget{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "language", TypeExpr: "typeof ProjectCodegenLanguageEnum.python", Optional: false},
+				{Name: "genCodePrefix", TypeExpr: "string", Optional: false},
+				{Name: "genCodeSuffix", TypeExpr: "string", Optional: false},
+				{Name: "generateMetadata", TypeExpr: "boolean", Optional: false},
+				{Name: "sectionPolicy", TypeExpr: "SectionCodegenPolicy", Optional: false},
+				{Name: "codeObjValuePolicy", TypeExpr: "CodeObjValuePolicy", Optional: false},
+			},
+			hasFactoryTS: true,
+		},
+		{
+			name: "ProjectCodegenPluginTarget",
+			root: reflect.TypeOf(ProjectCodegenPluginTarget{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "language", TypeExpr: "string", Optional: false},
+				{Name: "options", TypeExpr: "Record<string, unknown>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "ProjectCodegenTarget",
+			root:  reflect.TypeOf(ProjectCodegenTarget{}),
+			kind:  "alias",
+			alias: "ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
 func TestProjectStateSectionSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string

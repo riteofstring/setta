@@ -716,6 +716,174 @@ const settingsStateFactoryTS = `export function createSettingsState(
   };
 }`
 
+const sectionCodegenPolicyFactoryTS = `export function createSectionCodegenPolicy(
+  options: Partial<SectionCodegenPolicy> = {},
+): SectionCodegenPolicy {
+  const defaultSectionCodegenAllowlist: Array<SectionType> = [
+    SectionTypeEnum.Callable,
+    SectionTypeEnum.Dict,
+    SectionTypeEnum.ListRoot,
+    SectionTypeEnum.Group,
+    SectionTypeEnum.GlobalVariables,
+    SectionTypeEnum.TextBlock,
+    SectionTypeEnum.Draw,
+    SectionTypeEnum.MetaControl,
+    SectionTypeEnum.TaskBoard,
+    SectionTypeEnum.Spreadsheet,
+  ];
+  const defaultMetaControlCodegenAllowlist: Array<CodeObjType> = [
+    CodeObjTypeEnum.CodeParam,
+    CodeObjTypeEnum.TextParam,
+    CodeObjTypeEnum.DateParam,
+    CodeObjTypeEnum.TimeParam,
+    CodeObjTypeEnum.TextAreaParam,
+    CodeObjTypeEnum.SliderParam,
+    CodeObjTypeEnum.RotaryParam,
+    CodeObjTypeEnum.SwitchParam,
+    CodeObjTypeEnum.ColorPickerParam,
+    CodeObjTypeEnum.DropdownParam,
+    CodeObjTypeEnum.PasswordParam,
+    CodeObjTypeEnum.ButtonParam,
+    CodeObjTypeEnum.DropzoneParam,
+  ];
+  function defaultSectionRepresentation(
+    sectionType: SectionType,
+  ): SectionRepresentationMode {
+    switch (sectionType) {
+      case SectionTypeEnum.Chat:
+      case SectionTypeEnum.Draw:
+      case SectionTypeEnum.Image:
+        return SectionRepresentationModeEnum.file_read;
+      default:
+        return SectionRepresentationModeEnum.expression;
+    }
+  }
+  const typePolicies = Object.fromEntries(
+    (Object.values(SectionTypeEnum) as Array<SectionType>).map(
+      (sectionType) => [
+        sectionType,
+        createSectionTypeCodegenPolicy({
+          representation: defaultSectionRepresentation(sectionType),
+        }),
+      ],
+    ),
+  ) as Record<SectionType, SectionTypeCodegenPolicy>;
+  for (const [sectionType, policy] of Object.entries(
+    options.typePolicies ?? {},
+  ) as Array<[SectionType, SectionTypeCodegenPolicy]>) {
+    typePolicies[sectionType] = createSectionTypeCodegenPolicy(policy);
+  }
+  const sectionOverrides = Object.fromEntries(
+    Object.entries(options.sectionOverrides ?? {}).map(([sectionId, override]) => [
+      sectionId,
+      createSectionCodegenOverride(override),
+    ]),
+  ) as Record<string, SectionCodegenOverride>;
+  return {
+    ...mergeGeneratedOptions(
+      {
+        allowlist: defaultSectionCodegenAllowlist,
+        metaControlAllowlist: defaultMetaControlCodegenAllowlist,
+        exclude: [],
+        typePolicies,
+        sectionOverrides,
+      },
+      options,
+    ),
+    allowlist:
+      options.allowlist === null
+        ? null
+        : [...(options.allowlist ?? defaultSectionCodegenAllowlist)],
+    metaControlAllowlist:
+      options.metaControlAllowlist === null
+        ? null
+        : [
+            ...(options.metaControlAllowlist ??
+              defaultMetaControlCodegenAllowlist),
+          ],
+    exclude: [...(options.exclude ?? [])],
+    typePolicies,
+    sectionOverrides,
+  };
+}`
+
+const codeObjValuePolicyFactoryTS = `export function createCodeObjValuePolicy(
+  options: Partial<CodeObjValuePolicy> = {},
+): CodeObjValuePolicy {
+  function defaultCodeObjValueRepresentation(
+    codeObjType: CodeObjType,
+  ): CodeObjValueRepresentationMode {
+    switch (codeObjType) {
+      case CodeObjTypeEnum.TextParam:
+      case CodeObjTypeEnum.DateParam:
+      case CodeObjTypeEnum.TimeParam:
+      case CodeObjTypeEnum.TextAreaParam:
+      case CodeObjTypeEnum.PasswordParam:
+      case CodeObjTypeEnum.ColorPickerParam:
+        return CodeObjValueRepresentationModeEnum.string;
+      case CodeObjTypeEnum.DropzoneParam:
+        return CodeObjValueRepresentationModeEnum.file_path;
+      default:
+        return CodeObjValueRepresentationModeEnum.expression;
+    }
+  }
+  const typePolicies = Object.fromEntries(
+    (Object.values(CodeObjTypeEnum) as Array<CodeObjType>).map((codeObjType) => [
+      codeObjType,
+      createCodeObjTypeValuePolicy({
+        representation: defaultCodeObjValueRepresentation(codeObjType),
+      }),
+    ]),
+  ) as Record<CodeObjType, CodeObjTypeValuePolicy>;
+  for (const [codeObjType, policy] of Object.entries(
+    options.typePolicies ?? {},
+  ) as Array<[CodeObjType, CodeObjTypeValuePolicy]>) {
+    typePolicies[codeObjType] = createCodeObjTypeValuePolicy(policy);
+  }
+  const codeObjOverrides = Object.fromEntries(
+    Object.entries(options.codeObjOverrides ?? {}).map(([codeObjId, override]) => [
+      codeObjId,
+      createCodeObjValueOverride(override),
+    ]),
+  ) as Record<string, CodeObjValueOverride>;
+  return {
+    ...mergeGeneratedOptions(
+      {
+        typePolicies,
+        codeObjOverrides,
+      },
+      options,
+    ),
+    typePolicies,
+    codeObjOverrides,
+  };
+}`
+
+const projectCodegenPythonTargetFactoryTS = `export function createProjectCodegenPythonTarget(
+  options: Partial<ProjectCodegenPythonTarget> = {},
+): ProjectCodegenPythonTarget {
+  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});
+  const codeObjValuePolicy = createCodeObjValuePolicy(
+    options.codeObjValuePolicy ?? {},
+  );
+  return {
+    ...mergeGeneratedOptions(
+      {
+        language: ProjectCodegenLanguageEnum.python,
+        genCodePrefix: "",
+        genCodeSuffix: "state = SettaState()",
+        generateMetadata: false,
+        sectionPolicy,
+        codeObjValuePolicy,
+      },
+      options,
+    ),
+    language: ProjectCodegenLanguageEnum.python,
+    sectionPolicy,
+    codeObjValuePolicy,
+  };
+}`
+
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
@@ -908,6 +1076,26 @@ func newTypeConverter() *typeConverter {
 				{Name: "free", Value: "free"},
 				{Name: "vertical", Value: "vertical"},
 				{Name: "horizontal", Value: "horizontal"},
+			},
+			reflect.TypeOf(ProjectCodegenLanguage("")): {
+				{Name: "python", Value: "python"},
+			},
+			reflect.TypeOf(SectionCodegenMode("")): {
+				{Name: "inherit", Value: "inherit"},
+				{Name: "include", Value: "include"},
+				{Name: "exclude", Value: "exclude"},
+			},
+			reflect.TypeOf(SectionRepresentationMode("")): {
+				{Name: "expression", Value: "expression"},
+				{Name: "file_path", Value: "file_path"},
+				{Name: "file_read", Value: "file_read"},
+			},
+			reflect.TypeOf(CodeObjValueRepresentationMode("")): {
+				{Name: "expression", Value: "expression"},
+				{Name: "json_parsed", Value: "json_parsed"},
+				{Name: "string", Value: "string"},
+				{Name: "file_path", Value: "file_path"},
+				{Name: "file_read", Value: "file_read"},
 			},
 			reflect.TypeOf(MetaControlSizeMode("")): {
 				{Name: "any", Value: "any"},
@@ -1777,6 +1965,91 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "backend", TypeExpr: "SettingsBackend"},
 				TypeProperty{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy"},
 				TypeProperty{Name: "languageServer", TypeExpr: "Record<string, unknown>"},
+			),
+			reflect.TypeOf(SectionTypeCodegenPolicy{}): objectDeclarationWithCreateExpr(
+				"SectionTypeCodegenPolicy",
+				`mergeGeneratedOptions(
+    {
+      mode: SectionCodegenModeEnum.inherit,
+      representation: SectionRepresentationModeEnum.expression,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "mode", TypeExpr: "SectionCodegenMode"},
+				TypeProperty{Name: "representation", TypeExpr: "SectionRepresentationMode"},
+			),
+			reflect.TypeOf(SectionCodegenOverride{}): objectDeclarationWithCreateExpr(
+				"SectionCodegenOverride",
+				`mergeGeneratedOptions(
+    {
+      mode: SectionCodegenModeEnum.inherit,
+      representation: SectionRepresentationModeEnum.expression,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "mode", TypeExpr: "SectionCodegenMode"},
+				TypeProperty{Name: "representation", TypeExpr: "SectionRepresentationMode"},
+			),
+			reflect.TypeOf(SectionCodegenPolicy{}): objectDeclarationWithFactory(
+				"SectionCodegenPolicy",
+				sectionCodegenPolicyFactoryTS,
+				TypeProperty{Name: "allowlist", TypeExpr: "Array<SectionType> | null", Optional: true},
+				TypeProperty{Name: "metaControlAllowlist", TypeExpr: "Array<CodeObjType> | null", Optional: true},
+				TypeProperty{Name: "exclude", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "typePolicies", TypeExpr: "Record<SectionType, SectionTypeCodegenPolicy>"},
+				TypeProperty{Name: "sectionOverrides", TypeExpr: "Record<string, SectionCodegenOverride>"},
+			),
+			reflect.TypeOf(CodeObjTypeValuePolicy{}): objectDeclarationWithCreateExpr(
+				"CodeObjTypeValuePolicy",
+				`mergeGeneratedOptions(
+    {
+      representation: CodeObjValueRepresentationModeEnum.expression,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode"},
+			),
+			reflect.TypeOf(CodeObjValueOverride{}): objectDeclarationWithCreateExpr(
+				"CodeObjValueOverride",
+				`mergeGeneratedOptions(
+    {
+      representation: CodeObjValueRepresentationModeEnum.expression,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode"},
+			),
+			reflect.TypeOf(CodeObjValuePolicy{}): objectDeclarationWithFactory(
+				"CodeObjValuePolicy",
+				codeObjValuePolicyFactoryTS,
+				TypeProperty{Name: "typePolicies", TypeExpr: "Record<CodeObjType, CodeObjTypeValuePolicy>"},
+				TypeProperty{Name: "codeObjOverrides", TypeExpr: "Record<string, CodeObjValueOverride>"},
+			),
+			reflect.TypeOf(ProjectCodegenPythonTarget{}): objectDeclarationWithFactory(
+				"ProjectCodegenPythonTarget",
+				projectCodegenPythonTargetFactoryTS,
+				TypeProperty{Name: "language", TypeExpr: "typeof ProjectCodegenLanguageEnum.python"},
+				TypeProperty{Name: "genCodePrefix", TypeExpr: "string"},
+				TypeProperty{Name: "genCodeSuffix", TypeExpr: "string"},
+				TypeProperty{Name: "generateMetadata", TypeExpr: "boolean"},
+				TypeProperty{Name: "sectionPolicy", TypeExpr: "SectionCodegenPolicy"},
+				TypeProperty{Name: "codeObjValuePolicy", TypeExpr: "CodeObjValuePolicy"},
+			),
+			reflect.TypeOf(ProjectCodegenPluginTarget{}): objectDeclarationWithCreateExpr(
+				"ProjectCodegenPluginTarget",
+				`mergeGeneratedOptions(
+    {
+      language: "",
+      options: {},
+    },
+    options,
+  )`,
+				TypeProperty{Name: "language", TypeExpr: "string"},
+				TypeProperty{Name: "options", TypeExpr: "Record<string, unknown>"},
+			),
+			reflect.TypeOf(ProjectCodegenTarget{}): aliasDeclaration(
+				"ProjectCodegenTarget",
+				"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
 			),
 			reflect.TypeOf(BaseSectionImpl{}): objectDeclaration(
 				"BaseSectionImpl",
