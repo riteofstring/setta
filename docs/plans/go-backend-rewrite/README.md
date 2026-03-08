@@ -8,29 +8,36 @@ for historical phase material.
 
 1. `CURRENT.md`
    - current state, deliberate boundaries, and agent workflow
-2. `backend-feature-checklist.md`
-   - fastest feature/parity lookup
-3. `backend-feature-checklist-audit-plan.md`
-   - maintenance rules for keeping the checklist current-caller-accurate
-4. `go-backend-rewrite-plan.md`
+2. `caller-backed-backend-surface-checklist.md`
+   - fastest answer to "does the active caller reach Go?"
+3. `backend-capability-coverage-checklist.md`
+   - broader backend runtime/service ownership coverage
+4. `backend-capability-coverage-checklist-audit-plan.md`
+   - maintenance rules for keeping the broader ownership checklist accurate
+5. `caller-backed-backend-surface-checklist-audit-plan.md`
+   - maintenance rules for keeping the caller-backed checklist current-caller-accurate
+6. `go-backend-rewrite-plan.md`
    - stable rewrite charter and reopening rules
-5. `testing-strategy.md`
+7. `testing-strategy.md`
    - test bar for follow-on work
-6. `go-dependency-inventory-and-rationale.md`
+8. `go-dependency-inventory-and-rationale.md`
    - current `go.mod` explanation
-7. `go-backend-rewrite-stack-recommendations.md`
+9. `go-backend-rewrite-stack-recommendations.md`
    - earlier design input, not the current source of truth
-8. `dependency-docs-local-reference.md`
+10. `dependency-docs-local-reference.md`
    - dependency-doc acquisition rules
-9. `pyproject-dependency-replacement-snapshot.md`
+11. `pyproject-dependency-replacement-snapshot.md`
    - point-in-time Python dependency classification
-10. `archive/README.md`
+12. `archive/README.md`
    - historical `phase-*` and `spike-*` docs
 
 ## Agent Rules
 
 - Start with `CURRENT.md`, not the archive.
-- Treat `backend-feature-checklist.md` as the fastest answer to "is this Go-owned?".
+- Treat `caller-backed-backend-surface-checklist.md` as the fastest answer to
+  "does the active caller reach Go?".
+- Use `backend-capability-coverage-checklist.md` when the question is about
+  broader backend ownership rather than caller transport reachability.
 - Use `archive/` only when a current doc points there or when you need
   historical rationale.
 - Do not open a new rewrite phase without a concrete active workflow, caller,

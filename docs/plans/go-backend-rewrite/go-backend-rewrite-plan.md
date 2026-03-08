@@ -17,7 +17,8 @@ clean-break scope.
 Use these docs as the current source of truth:
 
 - `CURRENT.md`
-- `backend-feature-checklist.md`
+- `caller-backed-backend-surface-checklist.md`
+- `backend-capability-coverage-checklist.md`
 - `testing-strategy.md`
 - `go-dependency-inventory-and-rationale.md`
 

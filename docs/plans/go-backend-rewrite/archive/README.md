@@ -27,5 +27,8 @@ Start with `../CURRENT.md` before reading anything here.
 If an archived doc disagrees with the current repo state:
 
 1. `CURRENT.md` wins for active scope.
-2. `backend-feature-checklist.md` wins for current feature/parity status.
-3. The code and tests win over both when they differ from old planning text.
+2. `caller-backed-backend-surface-checklist.md` wins for active caller-backed
+   feature/parity status.
+3. `backend-capability-coverage-checklist.md` wins for broader ownership
+   status.
+4. The code and tests win over both when they differ from old planning text.

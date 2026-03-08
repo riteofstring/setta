@@ -1,14 +1,18 @@
-# Go Backend Feature Checklist
+# Caller-Backed Backend Surface Checklist
 
 Snapshot date: 2026-03-10.
 
 Primary agent entrypoint: `docs/plans/go-backend-rewrite/CURRENT.md`.
 
 Audit/maintenance plan:
-`docs/plans/go-backend-rewrite/backend-feature-checklist-audit-plan.md`.
+`docs/plans/go-backend-rewrite/caller-backed-backend-surface-checklist-audit-plan.md`.
 
-This checklist is a rewrite-status inventory, not a promise of route-for-route
-Python parity.
+Companion broad-coverage inventory:
+`docs/plans/go-backend-rewrite/backend-capability-coverage-checklist.md`.
+
+This checklist is a caller-backed rewrite-status inventory, not a promise of
+route-for-route Python parity.
+It answers: does the active caller reach a Go-owned backend surface today?
 
 How to read the statuses:
 
@@ -40,7 +44,7 @@ Primary sources used for this checklist:
 | Complete | IDE/share/app/launcher mode policy and request context | `internal/modes` owns mode resolution, guards, and share-session requirements. |
 | Complete | Status/meta reads | Go owns `backendInitStatus`, `authRefreshStatus`, `serverMode`, and `settaHomeInfo`. |
 | Complete | Trusted launcher-origin handoff and session bootstrap support | Go ownership lives across `internal/auth`, `internal/frontendorigins`, and `internal/workspacelaunch`. |
-| Complete | Live settings-state load/save and websocket updates | `internal/settingsstate` plus `internal/httpapi/settings_routes.go` own `loadSettings`, `saveSettings`, and `UpdateSettings`. |
+| Partial | Live settings-state load/save and websocket updates | Go owns `loadSettings` and `saveSettings` through `internal/settingsstate` and `internal/httpapi/settings_routes.go`, but cross-frontend settings broadcasts still ride the replacement `/ws/frontend` transport while the core frontend remains on the Python-era `/api/frontend` websocket path. |
 | Partial | Settings-project sync/materialization | Go now overlays settings-project state into live settings, but full reverse settings-project transport/sync is still explicitly deferred. |
 
 ## 2. Launcher, workspace launch, deployments, and packaged command boundary
@@ -63,11 +67,11 @@ Primary sources used for this checklist:
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| Missing | Frontend websocket auth, identity, and connection inventory | Go owns `/ws/frontend`, frontend affinity tokens, and connection broadcasts under `internal/wsapi`/`internal/realtime`, but the current frontend still opens the Python-era `/api/frontend` and `/api/share/frontend` websocket routes. |
+| Missing | Frontend websocket auth, identity, and connection inventory | Go owns `/ws/frontend`, frontend affinity tokens, and connection broadcasts under `internal/wsapi`/`internal/realtime`, but the current frontend still opens the Python-era `/api/frontend` and `/api/share/frontend` websocket routes. That route-shape gap also keeps Go-owned settings/UI-setting/AI live-update paths from being end-to-end current-caller complete. |
 | Missing | Frontend realtime UI-change and dependency-event routing | Go owns the replacement `/ws/frontend` producer/broadcaster path, but current frontend realtime UI-change and dependency-event messages still ride the Python-era websocket route shapes. |
 | Complete | Listener coverage reads | Go owns `getListenerCoverage` through `internal/realtime` and `internal/httpapi/listener_routes.go`. |
 | Complete | Listener force-refresh transport | Go owns `forceRefreshListener`, and the current frontend listener actions call that Go HTTP route today. |
-| Complete | Listener websocket dispatch for plugin listener endpoints | `internal/wsapi` plus Phase 15 listener endpoint work own websocket dispatch for plugin-registered listener endpoints. |
+| Partial | Listener websocket dispatch for plugin listener endpoints | `internal/wsapi` plus Phase 15 listener endpoint work own websocket dispatch for plugin-registered listener endpoints, but the repo does not currently contain a non-test frontend caller that proves `/ws/listeners/{listenerID}` is part of the active caller-backed surface. |
 | Partial | Built-in listener endpoint parity beyond the active plugin caller surface | The plan still calls out built-in endpoint dispatch, listener temp-id negotiation, and related follow-ons as deferred. |
 | Partial | Terminal PTY runtime | `internal/terminals` owns the replacement PTY runtime, but the current frontend terminal attach flow still targets the Python-era websocket path `/{projectConfigId}/{sectionId}/{id}` rather than Go's `/ws/terminals/{projectID}/{sectionID}`. |
 | Missing | Terminal websocket attach/history replay/resize behavior | The Go terminal websocket surface is `/ws/terminals/{projectID}/{sectionID}`, but the current frontend still opens the Python-era `/api/{projectConfigId}/{sectionId}/{id}` websocket path. |
@@ -96,7 +100,8 @@ Primary sources used for this checklist:
 | Complete | LSP diagnostics and completion surface | Go owns text-field, output-accessor, code-area, prefix/suffix completion, diagnostics reads, and diagnostics mute/suppression routes. |
 | Complete | Plugin-defined code-language routing for LSP | Go owns language-aware routing for plugin-defined `Code` sections in the current caller-backed scope. |
 | Missing | LSP/admin helper routes still used by the current frontend | Edit-menu and shortcut flows still call Python-owned `typeCheck` and `restartLanguageServer`; Go does not register those HTTP endpoints today. |
-| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object/file-binding/attached-terminal helpers, section sizing/filter/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, password/subprocess helpers such as `getPasswordParamValue` and `killSubprocesses`, and text-block/browser/spreadsheet/task-board/chart/image/social mutations are still current-frontend callers but do not have direct Go HTTP routes. |
+| Missing | Type-error ignore HTTP route still used by the current frontend | The type-error context menu still POSTs Python-owned `setTypeErrorIgnore`; Go exposes the bounded write only as the MCP tool `set_type_error_ignore`, not as a legacy HTTP route. |
+| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group-orientation/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/indent/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers, section sizing/filter/meta-control-title/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, password/subprocess helpers such as `getPasswordParamValue` and `killSubprocesses`, and text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
 | Missing | Default-project and JSON-source/file helpers still used by the current frontend | Home/global and input-area flows still call `getDefaultConfigName`, `setAsDefaultProject`, `createFile`, and `deleteJsonSourceFileAndVariant`; Go does not expose those HTTP routes today. |
 | Missing | Legacy settings-project HTTP routes | `loadSettingsProject` and `saveSettingsProject` do not have Go route equivalents. |
 
@@ -107,13 +112,13 @@ Primary sources used for this checklist:
 | Complete | Authenticated Go MCP server/client foundation | `internal/mcpx` is the current owner for the internal MCP server/client boundary. |
 | Complete | MCP runtime status and direct tool-call transport | Go owns `mcpServerRuntimeStatus` and `__setta__/tools/call`. |
 | Complete | Tool metadata, search, namespacing, and scoped invocation | Current ownership is split across `internal/tools` and `internal/mcpx`, with broad Go test coverage. |
-| Complete | Frontend-affinity-aware UI-setting tool flows | Go owns UI-setting reveal/result flows across `internal/realtime`, `internal/uisettings`, `internal/mcpx`, and the frontend websocket contract. |
+| Partial | Frontend-affinity-aware UI-setting tool flows | Go owns UI-setting reveal/result flows across `internal/realtime`, `internal/uisettings`, and `internal/mcpx`, but the end-to-end caller path still depends on the replacement `/ws/frontend` transport while the core frontend remains on the Python-era `/api/frontend` websocket route. |
 | Complete | Current Setta MCP write/read tool surface used by the app | The repo now contains large Go-owned tool coverage for UI settings, plugin management, app-definition streaming, agent-profile tools, and related project-state tooling. |
 | Complete | App-spec store, validation, diagnostics, and patch streaming foundations | `internal/appspec` is the current Go owner for bounded app-definition/app-spec state used by the MCP surface. |
 | Complete | LLM config and managed API-key reads/writes | Go owns `GET/POST /llm/config` and `GET/POST /llm/apiKeys` via `internal/llmconfig`. |
 | Partial | External file-watch parity for `.env` and `llm_config.json` | Immediate runtime refresh is Go-owned, but broad external watch parity remains explicitly deferred. |
 | Missing | Legacy app-definition REST routes still used by the current frontend | The app-config pane still calls `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, and `getAppCatalog`; Go owns app-spec state and MCP tools, not these HTTP routes. |
-| Missing | Legacy app-spec streaming helper route still used by the current frontend | The app-config pane still POSTs `streamAppSpec`; Go owns app-spec state and MCP tools, not this HTTP route. |
+| Missing | Legacy app-spec streaming helper route | `AppConfigPane` still POSTs Python-owned `streamAppSpec` directly via raw `fetch`; Go owns app-spec state and MCP tools, not this HTTP route. |
 | Missing | Remaining legacy app-spec helper routes | `updateAppDefinition` and `listAppComponents` were not recreated as Go HTTP routes; the current Go owner is the MCP/app-spec boundary instead. |
 | Missing | Legacy `runMcpTools` route | The Python-era direct route is absent; the Go tool path is the authenticated MCP boundary instead. |
 
@@ -133,8 +138,8 @@ Primary sources used for this checklist:
 | Complete | Engine config CRUD | Go owns list/single-item/create/update/delete through `internal/agentruns.EngineStore` and route transport. |
 | Complete | Agentic summary-cache status | Go owns `getAgenticSummaryCacheStatus`. |
 | Complete | Managed agent-run start/stop and run-chain start/stop | Phase 14 marks the bounded route/runtime mutation surface as Go-owned, including external-agent child steps inside run chains. |
-| Partial | Managed chat runtime | Go owns `getLLMResponse`, `getLLMChat`, `stopLLMChat`, live websocket streaming, MCP-tool execution, and bounded OpenAI execution, but broader provider parity and managed reasoning output are still intentionally incomplete. |
-| Partial | Managed tool-preview parity | The current Go runtime covers the landed `tool_argument_preview_delta` and `AIFollowToolResultUpdate` paths, not every historical preview kind. |
+| Partial | Managed chat runtime | Go owns `getLLMResponse`, `getLLMChat`, `stopLLMChat`, live websocket streaming, MCP-tool execution, and bounded OpenAI execution, but the core frontend still connects to the Python-era `/api/frontend` websocket path instead of Go's `/ws/frontend`, and broader provider parity plus managed reasoning output are still intentionally incomplete. |
+| Partial | Managed tool-preview parity | The current Go runtime covers the landed `tool_argument_preview_delta` and `AIFollowToolResultUpdate` paths, not every historical preview kind, and those live preview updates still depend on the replacement `/ws/frontend` transport that the core frontend has not adopted yet. |
 | Partial | External-agent health/preflight parity | Current config/health reads are Go-owned, but richer Python-only plugin/env-var/cache preflight semantics remain deferred. |
 | Complete | Transcription-profile reads and CRUD | Go owns `getTranscriptionProfiles`, `createTranscriptionProfile`, `updateTranscriptionProfile`, and `deleteTranscriptionProfile`. |
 | Complete | Transcription-session file mode and realtime mode | Go owns `startTranscriptionSession`, `appendTranscriptionAudio`, `stopTranscriptionSession`, and `cancelTranscriptionSession`. |
@@ -153,7 +158,7 @@ Primary sources used for this checklist:
 | Complete | Plugin-defined backend MCP tools | Go owns plugin-defined backend MCP tool registration and invocation. |
 | Complete | Plugin static-directory serving | Go owns `/plugin-static/{pluginId}/...` for registered plugin static dirs. |
 | Complete | Plugin worker `read_project_state` and listener-endpoint registration capture | Current ownership is in `internal/plugins` plus the Go listener producer/runtime. |
-| Complete | Plugin listener-endpoint websocket dispatch | Go owns websocket dispatch for plugin listener endpoints on `/ws/listeners/{listenerID}`. |
+| Partial | Plugin listener-endpoint websocket dispatch | Go owns websocket dispatch for plugin listener endpoints on `/ws/listeners/{listenerID}`, but the repo does not currently contain a non-test frontend caller that proves this replacement websocket route is active in the caller-backed surface. |
 | Complete | Plugin backend runtime refresh after plugin mutations | Route/tool/static/listener ownership refresh after successful mutations is Go-owned. |
 | Complete | Plugin-defined language-server execution and refresh | Go owns plugin code-language routing plus post-mutation language-server refresh. |
 | Complete | Plugin codegen registration visibility | The active plugin/runtime/codegen selection path is Go-owned. |
@@ -168,8 +173,8 @@ Primary sources used for this checklist:
 | Complete | Binary payload upload/download | Go owns `binary/upload` and `binary/{contentId}` for the current preview/snapshot surface. |
 | Complete | Token-backed chat attachment download route | The current Go owner is `internal/chatattachments` plus `internal/httpapi/attachment_routes.go`. |
 | Complete | Git read surface | Phase 20 marks `git/status`, `git/diff`, `git/log`, `git/commitDetails`, and `git/commitFileDiff` as Go-owned. |
-| Partial | IDE artifact import/update/delete and cached artifact reads | Go owns the current artifact cluster, but write support is intentionally bounded to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`; the draw-area canvas still uses Python-owned `appendDrawAreaLayerItem`. |
-| Partial | Share/app artifact overlays | Go owns per-session overlay reads and writes, but the same bounded artifact-write limits still apply. |
+| Partial | IDE artifact import/update/delete and cached artifact reads | Go owns the current artifact cluster, but `updateArtifacts` is intentionally bounded to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, `deleteArtifacts` only supports `File`, and the draw-area canvas still uses Python-owned `appendDrawAreaLayerItem`. |
+| Partial | Share/app artifact overlays | Go owns per-session overlay reads and writes, but the same bounded artifact limits still apply: overlay updates are restricted to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, and overlay deletes only support `File`. |
 | Missing | Legacy artifact helper routes | Older routes like `loadArtifacts`, `loadAvailableArtifacts`, `loadArtifactFromDisk`, `sendArtifact`, and `getArtifactIdsFromNamePathType` are not recreated in Go. |
 | Missing | Legacy attachment URL helper routes still used by the current frontend | Chat/UI callers still use `getAttachmentDownloadUrl` and `getAttachmentDownloadUrls`; the Go-owned surface is the token-backed download endpoint itself. |
 
@@ -193,10 +198,16 @@ callers.
   - `typeCheck`
   - `docstringToMarkdown`
   - `revealPathInOsFileExplorer`
+- Type-error helper route:
+  - `setTypeErrorIgnore`
 - Python-era websocket route shapes still used by the current frontend:
   - `/frontend`
   - `/share/frontend`
   - `/{projectConfigId}/{sectionId}/{id}` terminal websocket path
+  - these sockets currently carry frontend identity plus settings updates,
+    `UISettingReveal`/`UISettingRevealResult`, `LLMStreamingResponse`,
+    `AIFollowToolArgumentsUpdate`, `AIFollowToolResultUpdate`, and related
+    config/profile refresh broadcasts
 - Attachment URL helper routes:
   - `getAttachmentDownloadUrl`
   - `getAttachmentDownloadUrls`
@@ -208,12 +219,12 @@ callers.
 - Large direct project-graph and section-config mutation tails:
   - child-section create/delete
   - edge and agentic-edge mutation
-  - copy/paste/group/ungroup/move plus undo/redo helpers
+  - copy/paste/group-orientation/group/ungroup/move plus undo/redo helpers
   - section-variant create/delete/select/default/name/sort/frozen and JSON-source-key toggles
-  - param entered-value/order/selection/update and kwarg helpers
-  - prompt/codegen-prefix-suffix and code-object/file-binding/attached-terminal helpers
-  - section sizing/filter/edge-input-output/group-overflow/list-root/parent-default-child/column-width helpers
-  - text-block, browser, spreadsheet, task-board, chart, image, and social/link metadata
+  - param entered-value/order/selection/indent/update and kwarg helpers
+  - prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers
+  - section sizing/filter/meta-control-title/edge-input-output/group-overflow/list-root/parent-default-child/column-width helpers
+  - text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link metadata
   - password-param and subprocess helper routes (`getPasswordParamValue`, `killSubprocesses`)
 - Artifact/draw-area helper route:
   - `appendDrawAreaLayerItem`
@@ -267,8 +278,10 @@ main product-facing runtime surface:
 - current agentic, app-gen skills, and transcription surfaces
 
 The remaining gaps are concentrated in older Python-only route tails,
-intentionally bounded AI/plugin behavior, and still-live frontend callers that
-continue to hit Python-owned HTTP routes and websocket path shapes.
+intentionally bounded AI/plugin behavior, still-live frontend callers that
+continue to hit Python-owned HTTP routes and websocket path shapes, and a
+smaller set of Go live-update paths that are not end-to-end until the core
+frontend adopts the replacement `/ws/...` websocket surface.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
 dormant historical debris.

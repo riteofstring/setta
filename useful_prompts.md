@@ -72,7 +72,8 @@ See the latest github actions tests on the main branch. What are the all errors 
 Read the docs in `docs/plans/go-backend-rewrite/` in this order:
 - `README.md`
 - `CURRENT.md`
-- `backend-feature-checklist.md`
+- `caller-backed-backend-surface-checklist.md`
+- `backend-capability-coverage-checklist.md`
 - `go-backend-rewrite-plan.md`
 - any other top-level rewrite doc that is directly relevant to the task
 - `archive/README.md` and specific archived phase/spike docs only if you need historical rationale
@@ -99,7 +100,7 @@ Before doing substantive work:
 Working rules:
 - Before touching a subsystem, read the relevant current Go code, tests, and current rewrite docs for that subsystem. Read the relevant Python code/tests/docs as reference material when needed for capability or edge-case context.
 - Use `archive/` only when the current docs are insufficient and you need historical rationale.
-- If the work changes the current rewrite scope, deliberate boundaries, or feature-ownership status, update `CURRENT.md` and `backend-feature-checklist.md`.
+- If the work changes the current rewrite scope, deliberate boundaries, or feature-ownership status, update `CURRENT.md`, `caller-backed-backend-surface-checklist.md`, and `backend-capability-coverage-checklist.md`.
 - Do not create a new numbered phase/spike doc unless a concrete issue or caller genuinely opens a new rewrite slice.
 - Keep transport layers thin.
 - Avoid band-aids and backward-compatibility shims.
