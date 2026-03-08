@@ -133,5 +133,7 @@ This slice delivered:
   `phase-13-agentic-summary-cache-status-transport-and-owner.md`
 - the agent-profile CRUD follow-up is now landed in
   `phase-13-agent-profile-crud-transport.md`
+- the transcription-profile CRUD follow-up is now landed in
+  `phase-13-transcription-profile-crud-transport.md`
 - the next bounded dependency for the remaining direct settings writes is now
-  transcription-profile CRUD transport
+  external-agent-config CRUD transport

@@ -94,9 +94,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /createTranscriptionProfile`
-  - `POST /updateTranscriptionProfile`
-  - `POST /deleteTranscriptionProfile`
 - generated single-item reads still exist for:
   - `POST /getAgentProfile`
   - `POST /getAgentRun`
@@ -220,5 +217,7 @@ This slice delivered:
   `phase-13-engine-config-update-transport.md`
 - the agent-profile CRUD follow-up is now landed in
   `phase-13-agent-profile-crud-transport.md`
-- the next bounded direct frontend dependency is transcription-profile CRUD
-  transport over the already-landed Go transcription-profile owner
+- the transcription-profile CRUD follow-up is now landed in
+  `phase-13-transcription-profile-crud-transport.md`
+- the next bounded direct frontend dependency is external-agent-config CRUD
+  transport over the landed Go config store/checker boundary

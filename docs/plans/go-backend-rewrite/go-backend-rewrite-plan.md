@@ -205,9 +205,6 @@ The next bounded post-Phase-13 slice tracked in
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /createTranscriptionProfile`
-  - `POST /updateTranscriptionProfile`
-  - `POST /deleteTranscriptionProfile`
 
 The next bounded post-Phase-13 slice tracked in
 `phase-13-engine-config-read-transport.md` is now landed:
@@ -223,9 +220,6 @@ The next bounded post-Phase-13 slice tracked in
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /createTranscriptionProfile`
-  - `POST /updateTranscriptionProfile`
-  - `POST /deleteTranscriptionProfile`
 
 The next bounded post-Phase-13 slice tracked in
 `phase-13-transcription-profile-read-transport-and-capability-owner.md` is now
@@ -244,9 +238,6 @@ landed:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /createTranscriptionProfile`
-  - `POST /updateTranscriptionProfile`
-  - `POST /deleteTranscriptionProfile`
 
 The next bounded post-Phase-13 slice tracked in
 `phase-13-engine-config-update-transport.md` is now landed:
@@ -262,9 +253,6 @@ The next bounded post-Phase-13 slice tracked in
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /createTranscriptionProfile`
-  - `POST /updateTranscriptionProfile`
-  - `POST /deleteTranscriptionProfile`
 
 The next bounded post-Phase-13 slice tracked in
 `phase-13-agent-profile-crud-transport.md` is now landed:
@@ -282,9 +270,26 @@ The next bounded post-Phase-13 slice tracked in
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-transcription-profile-crud-transport.md` is now landed:
+
+- Go now owns:
   - `POST /createTranscriptionProfile`
   - `POST /updateTranscriptionProfile`
   - `POST /deleteTranscriptionProfile`
+- the frontend now mutates transcription-profile state through Go-owned CRUD
+  routes over the landed `internal/transcriptionprofiles.Store` and
+  `internal/transcriptionprofiles.Service`
+- runtime config validation plus realtime-transport eligibility now stay
+  source-of-truth in Go instead of in the route layer
+- websocket `TranscriptionProfilesUpdated` parity remains intentionally
+  deferred because the current direct callers already update local state from
+  the mutation response
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -297,11 +302,12 @@ summary-cache-status transport; both are landed. Prompt-template CRUD is also
 now landed. External-agent config plus health hydration is also landed.
 Engine-config hydration transport is now also landed. Transcription-profile
 hydration transport is now also landed. Engine-config update transport is now
-also landed. Agent-profile CRUD transport is now also landed. The next bounded
-post-Phase-13 priority is transcription-profile CRUD transport, because it is
-the smallest remaining direct frontend write cluster over an already-landed Go
-owner while external-agent-config writes still carry the larger settings-file
-and plugin/preflight side-effect surface.
+also landed. Agent-profile CRUD transport is now also landed.
+Transcription-profile CRUD transport is now also landed. The next bounded
+post-Phase-13 priority is external-agent-config CRUD transport, because it is
+now the last remaining direct frontend settings write cluster and should move
+over the landed config-store boundary without silently bundling Python's
+broader plugin/env-var/cache preflight side effects.
 
 ## Current Reality
 

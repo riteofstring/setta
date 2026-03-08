@@ -160,7 +160,7 @@ This slice delivered:
 
 - the agent-profile CRUD follow-up is now landed in
   `phase-13-agent-profile-crud-transport.md`
-- open the next bounded Phase 13 doc around transcription-profile CRUD
-  transport over the already-landed Go transcription-profile owner
-- keep external-agent-config CRUD separate because it still carries the larger
-  settings-file and plugin/preflight side-effect surface
+- the transcription-profile CRUD follow-up is now landed in
+  `phase-13-transcription-profile-crud-transport.md`
+- the next bounded direct settings-write dependency is now external-agent-config
+  CRUD over the landed Go config store/checker boundary

@@ -89,9 +89,6 @@ Closeout rerun after the landing:
   - `POST /createExternalAgentConfig`
   - `POST /updateExternalAgentConfig`
   - `POST /deleteExternalAgentConfig`
-  - `POST /createTranscriptionProfile`
-  - `POST /updateTranscriptionProfile`
-  - `POST /deleteTranscriptionProfile`
 - generated single-item reads still exist for:
   - `POST /getAgentProfile`
   - `POST /getAgentRun`
@@ -105,9 +102,6 @@ Remaining Python-owned agentic routes outside this slice:
 - `POST /createExternalAgentConfig`
 - `POST /updateExternalAgentConfig`
 - `POST /deleteExternalAgentConfig`
-- `POST /createTranscriptionProfile`
-- `POST /updateTranscriptionProfile`
-- `POST /deleteTranscriptionProfile`
 
 ## Scope
 
@@ -212,7 +206,9 @@ This slice delivered:
   `phase-13-engine-config-update-transport.md`
 - the agent-profile CRUD follow-up is now landed in
   `phase-13-agent-profile-crud-transport.md`
-- open the next bounded Phase 13 doc around transcription-profile CRUD
+- the transcription-profile CRUD follow-up is now landed in
+  `phase-13-transcription-profile-crud-transport.md`
+- open the next bounded Phase 13 doc around external-agent-config CRUD
   transport
 - keep `getAgentProfile`, `getAgentRun`, `getPromptTemplate`,
   `getExternalAgentConfig`, and `getEngineConfig` deferred until a concrete

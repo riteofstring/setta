@@ -499,12 +499,17 @@ Use the docs in this order:
     Go-owned `create/update/delete` agent-profile transport over the landed
     `internal/agentprofiles.Store`, with watcher/realtime work intentionally
     deferred
-150. `spike-mcp.md`
+150. `phase-13-transcription-profile-crud-transport.md`
+  - focused completed-slice doc for the bounded transcription-profile write
+    gap: Go-owned `create/update/delete` transcription-profile transport over
+    the landed transcription-profile store/service owner, with websocket
+    parity intentionally deferred
+151. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-151. `spike-pty.md`
+152. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-152. `spike-lsp.md`
+153. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

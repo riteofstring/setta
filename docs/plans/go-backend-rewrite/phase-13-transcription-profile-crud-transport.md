@@ -2,7 +2,8 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the landed bounded post-Phase-13 slice for
+transcription-profile CRUD transport.
 
 The prior Phase 13 slices cleared the direct frontend hydration-read backlog,
 engine-config update transport, and agent-profile CRUD. The next
@@ -76,7 +77,7 @@ Current Python behavior relevant to this slice:
   - returns `null`
 - Python also broadcasts `TranscriptionProfilesUpdated` after each mutation
 
-Current Go behavior relevant to this slice:
+Current Go behavior after this slice:
 
 - `internal/transcriptionprofiles.Store` already owns:
   - file path resolution for `transcription_profiles.json`
@@ -85,8 +86,14 @@ Current Go behavior relevant to this slice:
 - `internal/transcriptionprofiles.Service` already owns:
   - live `supportsRealtimeTranscription` recomputation from `llmconfig.Runtime`
   - source-of-truth realtime support rules
-- Go already owns `GET /getTranscriptionProfiles`
-- Go does not yet own create/update/delete transport
+- runtime-aware create/update validation for transcription LLM config
+  references and realtime transport eligibility
+- create/update/delete persistence orchestration above the file store
+- Go already owns:
+  - `GET /getTranscriptionProfiles`
+  - `POST /createTranscriptionProfile`
+  - `POST /updateTranscriptionProfile`
+  - `POST /deleteTranscriptionProfile`
 
 Current frontend behavior relevant to scoping:
 
@@ -96,9 +103,34 @@ Current frontend behavior relevant to scoping:
 - no current direct frontend caller in the worktree uses a single-item
   transcription-profile read route
 
+Landed in this slice:
+
+- `internal/transcriptionprofiles.Service`
+  - Go-owned create/update/delete helpers above the file store
+  - source-of-truth transcription LLM config validation and realtime transport
+    eligibility checks
+- `internal/httpapi/transcription_profile_routes.go`
+  - thin IDE-gated `create/update/delete` transport over the existing service
+- `internal/httpapi/route_names.go`
+  - bare-route registration for transcription-profile CRUD routes
+- focused coverage in:
+  - `internal/transcriptionprofiles/service_test.go`
+  - `internal/httpapi/transcription_profile_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the direct frontend dependency on Python-owned transcription-profile write
+  routes is now gone
+- websocket `TranscriptionProfilesUpdated` parity remains deferred and is no
+  longer a hidden blocker for the current direct settings surface
+- the current remaining direct frontend Python-owned agentic routes are:
+  - `POST /createExternalAgentConfig`
+  - `POST /updateExternalAgentConfig`
+  - `POST /deleteExternalAgentConfig`
+
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - thin Go transport for:
   - `POST /createTranscriptionProfile`
@@ -190,13 +222,14 @@ This slice should deliver:
 ## Open Questions
 
 - whether websocket `TranscriptionProfilesUpdated` parity should follow after
-  CRUD lands
+  CRUD landed
   - recommendation: only if a concrete multi-client UI bug appears, since the
     current direct callers already self-heal local state from the mutation
     response
 
 ## Next Recommended Step
 
-- land this bounded transcription-profile CRUD slice first
-- after closeout, re-rank the remaining direct frontend CRUD cluster for
-  external-agent configs instead of assuming more write slices should combine
+- open the next bounded Phase 13 doc around external-agent-config CRUD
+  transport over the already-landed Go config store and checker boundary
+- keep plugin/env-var/cache preflight side effects explicit instead of
+  broadening that write slice into a full Python preflight port

@@ -183,7 +183,7 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded Phase 13 doc around transcription-profile CRUD
-  transport over the already-landed Go transcription-profile owner
-- keep external-agent-config CRUD separate because it still carries the larger
-  settings-file and plugin/preflight side-effect surface
+- the transcription-profile CRUD follow-up is now landed in
+  `phase-13-transcription-profile-crud-transport.md`
+- open the next bounded Phase 13 doc around external-agent-config CRUD
+  transport and keep plugin/env-var/cache side effects explicit
