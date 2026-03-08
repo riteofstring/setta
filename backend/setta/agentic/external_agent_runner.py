@@ -15,10 +15,6 @@ from pydantic import ValidationError
 from setta.agentic.agentic_context_payload_builder import (
     build_agentic_context_payload_with_temporary_ids,
 )
-from setta.agentic.agentic_scope import (
-    normalize_linked_chat_invocation_chain_section_ids,
-    normalize_linked_chat_invocation_depth,
-)
 from setta.agentic.agentic_summary_cache import (
     resolve_cached_agentic_summaries_for_chat_section,
 )
@@ -587,18 +583,6 @@ class ExternalAgentRunner:
             frontend_affinity_token = parse_frontend_affinity_token(
                 inputs["frontendAffinityToken"]
             )
-        linked_chat_invocation_depth = 0
-        linked_chat_invocation_chain_section_ids: tuple[ID, ...] = ()
-        if inputs and "linkedChatInvocationDepth" in inputs:
-            linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
-                inputs["linkedChatInvocationDepth"]
-            )
-        if inputs and "linkedChatInvocationChainSectionIds" in inputs:
-            linked_chat_invocation_chain_section_ids = (
-                normalize_linked_chat_invocation_chain_section_ids(
-                    inputs["linkedChatInvocationChainSectionIds"]
-                )
-            )
         allow_unscoped = False
         if inputs and "allowUnscoped" in inputs:
             raw_allow_unscoped = inputs["allowUnscoped"]
@@ -661,8 +645,6 @@ class ExternalAgentRunner:
             section_id=section_id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
-            linked_chat_invocation_depth=linked_chat_invocation_depth,
-            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         )
         system_prompt = self._build_system_prompt(
             profile,
@@ -717,8 +699,6 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             canonical_to_temporary=canonical_to_temporary,
             temporary_to_canonical=temporary_to_canonical,
-            linked_chat_invocation_depth=linked_chat_invocation_depth,
-            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         )
         if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
@@ -1274,8 +1254,6 @@ class ExternalAgentRunner:
         project_config_id: ID,
         canonical_to_temporary: dict[ID, ID],
         temporary_to_canonical: dict[ID, ID],
-        linked_chat_invocation_depth: int,
-        linked_chat_invocation_chain_section_ids: tuple[ID, ...],
     ) -> str:
         def _ensure_temporary_id(value: ID | None) -> ID | None:
             if value is None:
@@ -1289,10 +1267,6 @@ class ExternalAgentRunner:
         temporary_chat_id = _ensure_temporary_id(chat_id)
         temporary_section_id = _ensure_temporary_id(section_id)
         temporary_project_id = _ensure_temporary_id(project_config_id)
-        temporary_linked_chat_chain = [
-            _ensure_temporary_id(entry)
-            for entry in linked_chat_invocation_chain_section_ids
-        ]
         lines = [
             "## Agentic Scope Setup",
             "MCP tool calls are scoped to this chat automatically.",
@@ -1309,17 +1283,6 @@ class ExternalAgentRunner:
             )
         else:
             lines.append(f"- sectionId: {temporary_section_id or 'null'}")
-        if linked_chat_invocation_depth > 0:
-            lines.append(f"- linkedChatInvocationDepth: {linked_chat_invocation_depth}")
-        if temporary_linked_chat_chain:
-            lines.append(
-                "- linkedChatInvocationChainSectionIds: "
-                + ", ".join(
-                    str(entry)
-                    for entry in temporary_linked_chat_chain
-                    if entry is not None
-                )
-            )
         return f"{base_prompt}\n\n" + "\n".join(lines)
 
     @staticmethod

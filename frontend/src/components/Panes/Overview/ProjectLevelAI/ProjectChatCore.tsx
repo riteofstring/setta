@@ -42,7 +42,6 @@ import {
   getDefaultChatDetails,
   getExternalAgentChatHydrationOutcome,
   getLLMChatHydrationOutcome,
-  getProjectChatHydrationOutcomeWithFallback,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
@@ -50,7 +49,6 @@ import {
   submitMessage,
   transcribeChatAudioWithProfile,
   type ChatHydrationErrorCode,
-  type ChatHydrationOutcome,
   type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
@@ -122,7 +120,7 @@ const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
   "Native slash commands are unavailable until agent metadata reloads.";
 
 type ChatExecutionSettings = ManagedChatExecutionSettings;
-export type ProjectChatBlockedErrorCode =
+type ProjectChatBlockedErrorCode =
   | ChatHydrationErrorCode
   | ProjectChatThreadBlockedErrorCode;
 
@@ -1187,7 +1185,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onDraftThreadSettled,
   onThinkingChange,
   onPermissionModeChange,
-  onBlockedErrorCodeChange,
 }: {
   chatId: string | null | undefined;
   draftMessage: string;
@@ -1220,9 +1217,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   onThinkingChange?: (nextThinking: boolean) => void;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
-  ) => void;
-  onBlockedErrorCodeChange?: (
-    errorCode: ProjectChatBlockedErrorCode | null,
   ) => void;
 }) {
   const { messages, toolCallArguments, waitingForResponse, contextUsage } =
@@ -1363,13 +1357,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     onPermissionModeChange(executionSettings.permissionMode);
   }, [executionSettings.permissionMode, onPermissionModeChange]);
   const blockedErrorCode =
-    hydrationBlockedErrorCode ?? hydrationAuthority.blockedErrorCode;
+    hydrationAuthority.blockedErrorCode ?? hydrationBlockedErrorCode;
   const blockedReason = blockedErrorCode
     ? getProjectChatBlockedReasonMessage(blockedErrorCode)
     : null;
-  useEffect(() => {
-    onBlockedErrorCodeChange?.(blockedErrorCode);
-  }, [blockedErrorCode, onBlockedErrorCodeChange]);
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
@@ -1499,21 +1490,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (hydrationAuthority.status !== "ready") {
       return;
     }
-    const shouldProbeMissingProvenance =
-      hydrationAuthority.blockedErrorCode === "chat_provenance_missing";
-    if (hydrationRunType === null && !shouldProbeMissingProvenance) {
+    if (hydrationRunType === null) {
       return;
     }
     if (waitingForResponse) {
       return;
     }
-    const cacheKey = shouldProbeMissingProvenance
-      ? `${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
-      : buildProjectChatHydrationCacheKey({
-          chatId,
-          hydrationRunType,
-          hydrationMetadataRevision,
-        });
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      chatId,
+      hydrationRunType,
+      hydrationMetadataRevision,
+    });
     if (!cacheKey) {
       return;
     }
@@ -1557,21 +1544,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         });
       touchProjectChatHydrationRetryEntry(state);
       state.status = "in_flight";
-      let hydrationOutcome: ChatHydrationOutcome;
-      if (shouldProbeMissingProvenance) {
-        hydrationOutcome = await getProjectChatHydrationOutcomeWithFallback(
-          chatId,
-          null,
-          hydrationRunType,
-        );
-      } else if (hydrationRunType === "external_agent") {
-        hydrationOutcome = await getExternalAgentChatHydrationOutcome(
-          chatId,
-          null,
-        );
-      } else {
-        hydrationOutcome = await getLLMChatHydrationOutcome(chatId);
-      }
+      const hydrationOutcome =
+        hydrationRunType === "external_agent"
+          ? await getExternalAgentChatHydrationOutcome(chatId, null)
+          : await getLLMChatHydrationOutcome(chatId);
       if (cancelled) {
         return;
       }
@@ -1640,7 +1616,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     chatId,
     clearHydrationRetryTimer,
     hydrationAuthority.status,
-    hydrationAuthority.blockedErrorCode,
     hydrationMetadataRevision,
     hydrationRunType,
     waitingForResponse,
@@ -1672,7 +1647,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         });
         return;
       }
-      setChatId(newChatId);
       finalizePendingChatDetails(newChatId);
     },
     [onDraftThreadSettled, setChatId],

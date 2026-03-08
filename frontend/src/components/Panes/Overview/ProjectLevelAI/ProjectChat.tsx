@@ -83,7 +83,6 @@ import { ProjectAISettings } from "./ProjectAISettings";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
-  type ProjectChatBlockedErrorCode,
 } from "./ProjectChatCore";
 import {
   focusInputWithoutSelectionById,
@@ -204,14 +203,6 @@ type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
   draftMessageByProjectConfigId: Record<string, string>;
   projectConfigId: string;
   nextDraftMessage: string;
-};
-
-type ProjectChatProps = {
-  chatId?: string | null | undefined;
-  setChatId?: (next: SetStateAction<string | null | undefined>) => void;
-  onBlockedErrorCodeChange?: (
-    errorCode: ProjectChatBlockedErrorCode | null,
-  ) => void;
 };
 
 export function resolveProjectChatThreadVisibilityFromResize({
@@ -441,15 +432,11 @@ export function setProjectChatAuxViewForActiveProject(
   });
 }
 
-export function ProjectChat({
-  chatId: controlledChatId,
-  setChatId: controlledSetChatId,
-  onBlockedErrorCodeChange,
-}: ProjectChatProps = {}) {
-  const globalChatId = useAIStore((state) => state.activeChatId);
+export function ProjectChat() {
+  const chatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const setGlobalChatId = useCallback(
+  const setChatId = useCallback(
     (next: SetStateAction<string | null | undefined>) => {
       useAIStore.setState((state) => {
         const resolved =
@@ -459,9 +446,6 @@ export function ProjectChat({
     },
     [],
   );
-  const chatId =
-    controlledSetChatId !== undefined ? controlledChatId : globalChatId;
-  const setChatId = controlledSetChatId ?? setGlobalChatId;
   const [draftThreadState, setDraftThreadState] =
     useState<DraftProjectThreadState>({
       phase: "none",
@@ -475,11 +459,6 @@ export function ProjectChat({
   const [conversationFilterText, setConversationFilterText] = useState("");
   const [conversationSearchMatchIndex, setConversationSearchMatchIndex] =
     useState<number | null>(null);
-  const [chatContainerNode, setChatContainerNode] =
-    useState<HTMLDivElement | null>(null);
-  const [chatContainerWidth, setChatContainerWidth] = useState<number | null>(
-    null,
-  );
   useHydrateLLMState();
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
@@ -565,8 +544,6 @@ export function ProjectChat({
     _.isEqual,
   );
   const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
-  const effectiveInlineThreadsViewportWidth =
-    chatContainerWidth ?? overviewPaneWidth;
   const { threadAssignments, threadGroups } = useLocalStorage(
     (state) => ({
       threadAssignments:
@@ -640,7 +617,7 @@ export function ProjectChat({
   const inlineThreadsResizableColumnRef = useRef<HTMLDivElement | null>(null);
   const hasInitializedInlineThreadsResizeSyncRef = useRef(false);
   const previousLargeEnoughForInlineThreadsRef = useRef(
-    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX,
+    overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX,
   );
 
   const availableConfigGroups = useMemo(
@@ -1246,48 +1223,9 @@ export function ProjectChat({
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
 
-  const handleChatContainerRef = useCallback((node: HTMLDivElement | null) => {
-    setChatContainerNode(node);
-  }, []);
-
-  useEffect(() => {
-    if (!chatContainerNode) {
-      return;
-    }
-
-    const syncChatContainerWidth = (nextWidth: number) => {
-      const roundedWidth = Math.max(0, Math.round(nextWidth));
-      setChatContainerWidth((currentWidth) => {
-        if (currentWidth === roundedWidth) {
-          return currentWidth;
-        }
-        return roundedWidth;
-      });
-    };
-
-    syncChatContainerWidth(chatContainerNode.getBoundingClientRect().width);
-
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const firstEntry = entries[0];
-      if (!firstEntry) {
-        return;
-      }
-      syncChatContainerWidth(firstEntry.contentRect.width);
-    });
-    resizeObserver.observe(chatContainerNode);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [chatContainerNode]);
-
   useEffect(() => {
     const isLargeEnoughForInlineThreads =
-      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
+      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
     const nextVisibility = resolveProjectChatThreadVisibilityFromResize({
       isInitialRun: !hasInitializedInlineThreadsResizeSyncRef.current,
       wasLargeEnoughForInlineThreads:
@@ -1305,22 +1243,21 @@ export function ProjectChat({
     }
     useAIStore.setState({ viewThreads: nextVisibility });
   }, [
-    effectiveInlineThreadsViewportWidth,
+    overviewPaneWidth,
     projectChatThreadsExplicitlyClosedAtLargeWidth,
     viewThreads,
   ]);
 
   const showInlineThreads =
-    viewThreads &&
-    effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
+    viewThreads && overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
   const inlineThreadsMaxWidth = useMemo(() => {
     const boundedMaxWidth = clamp(
-      effectiveInlineThreadsViewportWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
+      overviewPaneWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
       INLINE_THREADS_MIN_WIDTH_PX,
       INLINE_THREADS_MAX_WIDTH_PX,
     );
     return boundedMaxWidth;
-  }, [effectiveInlineThreadsViewportWidth]);
+  }, [overviewPaneWidth]);
   const resolvedInlineThreadsWidth = useMemo(() => {
     return clamp(
       inlineThreadsWidth,
@@ -1504,7 +1441,7 @@ export function ProjectChat({
   const handleToggleThreads = useCallback(() => {
     setProjectChatAuxView("none");
     const isLargeEnoughForInlineThreads =
-      effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
+      overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
     useAIStore.setState((state) => {
       const nextViewThreads = !state.viewThreads;
       if (!isLargeEnoughForInlineThreads) {
@@ -1515,7 +1452,7 @@ export function ProjectChat({
         projectChatThreadsExplicitlyClosedAtLargeWidth: !nextViewThreads,
       };
     });
-  }, [effectiveInlineThreadsViewportWidth, setProjectChatAuxView]);
+  }, [overviewPaneWidth, setProjectChatAuxView]);
   const handleOpenProjectSettingsAuxView = useCallback(() => {
     setProjectChatAuxView("ai_settings");
   }, [setProjectChatAuxView]);
@@ -1767,10 +1704,7 @@ export function ProjectChat({
     apiKeysInitialLoadComplete &&
     llmConfigInitialLoadComplete &&
     engineConfigsInitialLoadComplete && (
-      <div
-        ref={handleChatContainerRef}
-        className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden @container"
-      >
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-x-hidden @container">
         <nav className="flex flex-col border-b border-setta-100 dark:border-setta-800 [&_button]:cursor-pointer">
           <div className="flex w-full min-w-0 items-stretch">
             {showInlineThreads ? (
@@ -1920,7 +1854,7 @@ export function ProjectChat({
                   ) : null}
                   {showConversationFilter ? (
                     <search
-                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16.25rem]:col-span-1 @[16.25rem]:col-start-2 @[16.25rem]:row-start-1 @[44rem]:min-w-[11rem]"
+                      className="nodrag relative col-span-2 row-start-2 flex min-w-0 items-center @[16.25rem]:col-span-1 @[16.25rem]:col-start-2 @[16.25rem]:row-start-1"
                       data-testid="project-chat-conversation-filter"
                     >
                       <span className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 pl-1">
@@ -2104,7 +2038,6 @@ export function ProjectChat({
                   onDraftThreadSettled={handleDraftThreadSettled}
                   onThinkingChange={setThinking}
                   onPermissionModeChange={setRuntimePermissionMode}
-                  onBlockedErrorCodeChange={onBlockedErrorCodeChange}
                   activeConversationSearchMatchMessageId={
                     activeConversationSearchMatchMessageId
                   }
@@ -2169,7 +2102,6 @@ export function ProjectChat({
               onDraftThreadSettled={handleDraftThreadSettled}
               onThinkingChange={setThinking}
               onPermissionModeChange={setRuntimePermissionMode}
-              onBlockedErrorCodeChange={onBlockedErrorCodeChange}
               activeConversationSearchMatchMessageId={
                 activeConversationSearchMatchMessageId
               }
