@@ -169,6 +169,15 @@ function resolveTrackedGitPaneGraphWindowInstanceId(
   return trackedInstanceId;
 }
 
+function shouldSyncActiveProjectChatId(
+  window: ProjectChatWindowInstance | null | undefined,
+): boolean {
+  return (
+    window?.mode === ChatWindowModeEnum.project_ai_mode &&
+    window.sectionIdOrNull === null
+  );
+}
+
 export function resolveDefaultFloatingChatBounds({
   viewportWidthPx,
   viewportHeightPx,
@@ -493,7 +502,7 @@ function isPreferredSectionBindingCandidate(
   return false;
 }
 
-export function getProjectChatWindowInstanceForSectionInState(
+function getProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
 ): ProjectChatWindowInstance | null {
@@ -1085,7 +1094,14 @@ export function setProjectChatWindowModeForSectionInState(
     sectionId,
   );
   if (!boundInstance) {
-    return state;
+    if (mode === ChatWindowModeEnum.section_mode) {
+      return state;
+    }
+    return addProjectChatWindowInstanceInState(state, {
+      placement: ChatWindowPlacementEnum.canvas_section,
+      mode,
+      sectionIdOrNull: sectionId,
+    }).state;
   }
   return setProjectChatWindowModeInState(state, boundInstance.instanceId, mode);
 }
@@ -1431,11 +1447,7 @@ export function focusProjectChatWindow(
   }
   setProjectChatWindowingStateInStore(next);
   const focusedWindow = next.instancesById[instanceId];
-  if (
-    focusedWindow &&
-    focusedWindow.mode === ChatWindowModeEnum.project_ai_mode &&
-    focusedWindow.sectionIdOrNull === null
-  ) {
+  if (shouldSyncActiveProjectChatId(focusedWindow)) {
     useAIStore.setState({
       activeChatId: focusedWindow.chatId ?? undefined,
     });
@@ -1525,6 +1537,10 @@ export function setProjectChatWindowChatId(
     return;
   }
   setProjectChatWindowingStateInStore(next);
+  const updatedWindow = next.instancesById[instanceId];
+  if (!shouldSyncActiveProjectChatId(updatedWindow)) {
+    return;
+  }
   useAIStore.setState({
     activeChatId: chatId?.trim() ? chatId.trim() : undefined,
   });

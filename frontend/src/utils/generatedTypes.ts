@@ -5146,7 +5146,7 @@ export function createProjectChatWindowingState(
   return ProjectChatWindowingStateSchema.parse(options);
 }
 
-export const ProjectStateSingleConfigSchema = z.object({
+const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(IDSchema, CoreSchema).default({}),
   sectionImpls: z
     .record(

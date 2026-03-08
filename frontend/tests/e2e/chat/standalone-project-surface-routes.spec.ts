@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  cleanupGitOverlayFixture,
+  getWorkspaceRootOrThrow,
+  seedGitOverlayFixture,
+} from "../git/helpers/gitOverlayFixture";
+import {
   allowExpectedApiError,
   cleanupIsolatedProject,
   createChatSection,
@@ -1194,6 +1199,94 @@ test.describe.serial("standalone project surface routes", () => {
     } finally {
       await standalonePage.close();
       await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone git graph windows keep git-pane visibility local to the standalone surface", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const gitFixture = await seedGitOverlayFixture(getWorkspaceRootOrThrow(), {
+      historyCommitCount: 4,
+    });
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await setOverviewTabInStore(page, "Git");
+      await expect(page.getByRole("heading", { name: "Git" })).toBeVisible();
+      const graphButton = page
+        .getByTestId("overview-tab-content-shell")
+        .getByRole("button", { name: "Graph" });
+      await expect(graphButton).toBeEnabled();
+      await graphButton.click();
+
+      const trackedWindow = page.getByTestId("project-chat-maximized-window");
+      await expect(trackedWindow).toBeVisible();
+      const graphWindowId = await trackedWindow.getAttribute(
+        "data-chat-window-instance-id",
+      );
+      if (!graphWindowId) {
+        throw new Error("Expected workspace git graph window instance id.");
+      }
+
+      await trackedWindow.getByTestId("project-chat-window-restore").click();
+      const workspaceFloatingWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${graphWindowId}"]`,
+      );
+      await expect(workspaceFloatingWindow).toBeVisible();
+      const workspaceToggle = workspaceFloatingWindow.getByTestId(
+        "git-graph-toggle-embedded-git-pane",
+      );
+      await expect(workspaceToggle).toHaveAttribute("aria-pressed", "false");
+
+      await setOverviewTabInStore(page, "ViewModes");
+      await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected a saved standalone window space.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      const standaloneWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${graphWindowId}"]`,
+      );
+      await expect(standaloneWindow).toBeVisible();
+      const standaloneToggle = standaloneWindow.getByTestId(
+        "git-graph-toggle-embedded-git-pane",
+      );
+      await expect(standaloneToggle).toHaveAttribute("aria-pressed", "false");
+
+      await standaloneToggle.click();
+      await expect(standaloneToggle).toHaveAttribute("aria-pressed", "true");
+      await expect(workspaceToggle).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      await standalonePage.close();
+      await cleanupGitOverlayFixture(gitFixture);
       await cleanupIsolatedProject(page, projectContext);
     }
   });

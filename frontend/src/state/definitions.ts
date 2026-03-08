@@ -1086,7 +1086,7 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
-export type MiniMapSide = "left" | "right";
+type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;

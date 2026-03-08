@@ -2930,6 +2930,19 @@ def set_agentic_edges(p: "ProjectStateSingleConfig", edges: list[AgenticEdge]):
     p.projectConfig.agenticEdges = edges
 
 
+def _prune_invalid_agentic_edges(p: "ProjectStateSingleConfig") -> None:
+    if not p.projectConfig.agenticEdges:
+        return
+    remaining_edges: list[AgenticEdge] = []
+    for edge in p.projectConfig.agenticEdges:
+        try:
+            _ensure_agentic_edge_endpoints_valid(p, edge)
+        except (KeyError, TypeError):
+            continue
+        remaining_edges.append(edge)
+    p.projectConfig.agenticEdges = remaining_edges
+
+
 def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value: str):
     set_curr_effective_section_impl_value(
         p,
@@ -2940,6 +2953,7 @@ def set_section_param_filter(p: "ProjectStateSingleConfig", sectionId: ID, value
 
 def set_section_variant(p: "ProjectStateSingleConfig", sectionId: ID, variantId: ID):
     p.projectConfig.sectionVariantMap[sectionId] = variantId
+    _prune_invalid_agentic_edges(p)
 
 
 def set_default_section_variant(

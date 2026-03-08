@@ -19,7 +19,7 @@ import {
 } from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
 import {
-  getProjectChatWindowInstanceForSectionInState,
+  getProjectChatWindowModeForSectionInState,
   setProjectChatWindowModeForSection,
 } from "state/actions/projectChatWindowing";
 import {
@@ -83,16 +83,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     dictationMode,
     isFrozen,
     sectionChatWindowMode,
-    hasSectionChatWindowBinding,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,
       sectionId,
       SectionTypeEnum.Chat,
-    );
-    const sectionBinding = getProjectChatWindowInstanceForSectionInState(
-      state.projectChatWindowing,
-      sectionId,
     );
     return {
       managed: impl.managed,
@@ -104,9 +99,10 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       searchEnabled: impl.searchEnabled,
       dictationMode: impl.dictationMode,
       isFrozen: impl.isFrozen,
-      sectionChatWindowMode:
-        sectionBinding?.mode ?? ChatWindowModeEnum.section_mode,
-      hasSectionChatWindowBinding: sectionBinding !== null,
+      sectionChatWindowMode: getProjectChatWindowModeForSectionInState(
+        state.projectChatWindowing,
+        sectionId,
+      ),
     };
   }, _.isEqual);
   const agenticEdges = useProjectState(
@@ -201,7 +197,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ],
     [],
   );
-  const isChatModeControlDisabled = isDisabled || !hasSectionChatWindowBinding;
+  const isChatModeControlDisabled = isDisabled;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;
   const selectedEngineConfig = useMemo(() => {
@@ -726,25 +722,23 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
 
   return (
     <div className="flex w-full flex-col gap-2">
-      {hasSectionChatWindowBinding ? (
-        <div
-          className="flex w-full flex-col gap-2"
-          data-testid="chat-area-settings-chat-mode"
-        >
-          <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-            Chat Mode
-          </p>
-          <IdNameCombobox
-            allItems={modeItems}
-            value={sectionChatWindowMode}
-            small={false}
-            onSelectedItemChange={handleChatModeChange}
-            placeholder="Select chat mode"
-            outerDivClasses="justify-center"
-            isDisabled={isChatModeControlDisabled}
-          />
-        </div>
-      ) : null}
+      <div
+        className="flex w-full flex-col gap-2"
+        data-testid="chat-area-settings-chat-mode"
+      >
+        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+          Chat Mode
+        </p>
+        <IdNameCombobox
+          allItems={modeItems}
+          value={sectionChatWindowMode}
+          small={false}
+          onSelectedItemChange={handleChatModeChange}
+          placeholder="Select chat mode"
+          outerDivClasses="justify-center"
+          isDisabled={isChatModeControlDisabled}
+        />
+      </div>
 
       <div className="flex w-full items-center justify-between gap-4">
         <p className="text-xs font-bold text-setta-700 dark:text-setta-300">

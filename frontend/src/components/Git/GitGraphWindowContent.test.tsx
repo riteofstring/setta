@@ -113,4 +113,24 @@ describe("GitGraphWindowContent", () => {
       'data-testid="git-graph-toggle-embedded-git-pane"',
     );
   });
+
+  it("uses controlled embedded git-pane visibility instead of workspace misc state", () => {
+    useMisc.setState({
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        "graph-window-1": true,
+      },
+    });
+
+    const markup = renderGraphWindowContent({
+      instanceId: "graph-window-1",
+      showEmbeddedGitPaneToggle: true,
+      embeddedGitPaneVisible: false,
+      onEmbeddedGitPaneVisibleChange: () => {},
+    });
+
+    expect(markup).toContain('aria-pressed="false"');
+    expect(markup).not.toContain(
+      'data-testid="mock-git-graph-overlay-left-sidebar"',
+    );
+  });
 });

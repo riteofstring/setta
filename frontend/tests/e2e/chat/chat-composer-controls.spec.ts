@@ -471,6 +471,85 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("canvas-created chat sections can switch to project-ai mode from section config before any window binding exists", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      uiEditorTab: { Chat: "SectionConfig" },
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_canvas_chat_mode_direct__",
+      );
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      const surface = section
+        .locator('[data-chat-surface-host="section_layout"]')
+        .first();
+      await expect(surface).toHaveAttribute(
+        "data-chat-surface-mode",
+        "section_mode",
+      );
+
+      await section.click();
+
+      const uiEditorPane = page.locator("#UiEditorPane");
+      await expect(uiEditorPane).toBeVisible();
+      const modeBlock = uiEditorPane.getByTestId(
+        "chat-area-settings-chat-mode",
+      );
+      await expect(modeBlock).toBeVisible();
+      await expect(
+        modeBlock.getByPlaceholder("Select chat mode"),
+      ).toBeVisible();
+
+      await modeBlock.getByRole("button").click();
+      await page
+        .getByText("Project AI mode (full project)", { exact: true })
+        .click();
+
+      await expect(surface).toHaveAttribute(
+        "data-chat-surface-mode",
+        "project_ai_mode",
+      );
+      await expect
+        .poll(
+          async () =>
+            await page.evaluate(async (nextSectionId) => {
+              const { useProjectState } = await import(
+                "/src/state/definitions.ts"
+              );
+              const instance = Object.values(
+                useProjectState.getState().projectChatWindowing.instancesById,
+              ).find(
+                (candidate) => candidate.sectionIdOrNull === nextSectionId,
+              );
+              if (!instance) {
+                return null;
+              }
+              return {
+                placement: instance.placement,
+                mode: instance.mode,
+              };
+            }, sectionId),
+        )
+        .toEqual({
+          placement: "canvas_section",
+          mode: "project_ai_mode",
+        });
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat shows starter controls with visible slash menu and full execution footer", async ({
     page,
   }) => {
@@ -1317,7 +1396,9 @@ test.describe.serial("chat composer controls", () => {
       await input.press("Enter");
 
       await expect(
-        section.getByText("/search is unavailable in the current context. Use /help."),
+        section.getByText(
+          "/search is unavailable in the current context. Use /help.",
+        ),
       ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
     } finally {

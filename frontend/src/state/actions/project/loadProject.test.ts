@@ -5,6 +5,7 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
+  createWindowSpaceConfig,
   type ProjectStateSingleConfigInput,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -92,17 +93,30 @@ describe("loadProjectState", () => {
     resetProjectStores();
   });
 
-  it("normalizes legacy project configs that omit window spaces", async () => {
-    const legacyProjectState: ProjectStateSingleConfigInput = {
+  it("throws when loaded project config is missing window spaces", async () => {
+    const invalidProjectState: ProjectStateSingleConfigInput = {
       projectConfig: {
-        id: "project-legacy",
-        name: "Legacy Project",
+        id: "project-invalid",
+        name: "Invalid Project",
       },
     };
 
-    await loadProjectState(legacyProjectState);
+    await expect(loadProjectState(invalidProjectState)).rejects.toThrow(
+      "projectConfig.windowSpaces",
+    );
+  });
 
-    expect(useProjectState.getState().projectConfig.windowSpaces).toEqual({});
+  it("throws when loaded project state is missing project chat windowing", async () => {
+    const invalidProjectState: ProjectStateSingleConfigInput = {
+      projectConfig: createProjectConfig({
+        id: "project-missing-windowing",
+        name: "Missing Windowing",
+      }),
+    };
+
+    await expect(loadProjectState(invalidProjectState)).rejects.toThrow(
+      "projectChatWindowing",
+    );
   });
 
   it("keeps backend project chat windowing authoritative on load", async () => {
@@ -110,6 +124,14 @@ describe("loadProjectState", () => {
       projectConfig: createProjectConfig({
         id: "project-restore",
         name: "Restore Project",
+        windowSpaces: {
+          "window-space-1": createWindowSpaceConfig({
+            id: "window-space-1",
+            name: "Saved Layout",
+            windowsById: {},
+            order: [],
+          }),
+        },
       }),
       projectChatWindowing: createProjectChatWindowingState({
         instancesById: {
@@ -137,5 +159,8 @@ describe("loadProjectState", () => {
       placement: ChatWindowPlacementEnum.bottom_docked,
       title: "Docked Chat",
     });
+    expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
+      backendProjectState.projectConfig.windowSpaces,
+    );
   });
 });

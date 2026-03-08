@@ -77,3 +77,33 @@ Regression coverage and verification:
 - Added Playwright coverage for the saved section-window/project-ai-thread restore path with no live workspace binding.
 - Verified the touched frontend paths with Vitest, the touched backend paths with pytest, and the standalone section-window restore flow with Playwright.
 - Completed CDP visual verification against the live app by creating a section-backed floating chat window, saving it into a window space, clearing live workspace windowing, reopening the standalone window-space route, and confirming the saved thread marker rendered in a `project_ai_mode` surface without falling back to the global active thread.
+
+## 2026-03-09 18:25 PDT
+
+Implemented the final review-driven cleanup around strict backend authority, stale linked-chat recovery, host-independent chat-mode control, and standalone git-pane isolation.
+
+Backend and state-model changes:
+- Removed the touched frontend-side compatibility behavior that had been fabricating missing `projectConfig.windowSpaces` and `projectChatWindowing` on load. `loadProject.ts` now validates both fields as required and hard-fails immediately when the backend contract is broken.
+- Hardened `invoke_linked_chat` so stale `chat_chat` edges no longer surface as an uncaught `500` when the linked section’s active variant stops being a chat. The tool now returns a structured `unsupported_target_type` result instead.
+- Added stale-edge pruning to `set_section_variant(...)`, so changing a section’s active variant away from chat removes now-invalid `chat_chat` links from authoritative project state instead of leaving broken references behind.
+
+Frontend behavior changes:
+- Chat sections no longer need an existing host window binding before the user can control Chat Mode. The Section Config UI now always exposes the mode selector, and switching an unbound section to `project_ai_mode` creates a canonical `canvas_section` project-chat window binding.
+- Fixed project-chat authority so only unscoped `project_ai_mode` windows update the global `useAIStore.activeChatId`. Section-backed project-chat windows now keep their `chatId` local to the owning window instead of hijacking the main project-chat thread.
+- Standalone git-graph windows now own their embedded git-pane visibility locally. The previous shared `useMisc` pathway caused git-pane toggles to leak between workspace and standalone surfaces when ids collided or a saved layout reused the same window instance id.
+
+UX before/after:
+- Before: missing backend state silently rendered as empty/defaulted window layouts and chat bindings, so users could unknowingly save over valid state after a backend regression. After: the app fails at load time with the real contract violation.
+- Before: a canvas-created chat section looked artificially incomplete until it had first been externalized into a window. After: the Chat Mode control is available immediately from the section config, so the workflow matches user intent regardless of host surface.
+- Before: section-backed project-chat windows could pollute the main project-chat thread, and standalone git-pane toggles could change UI state somewhere else. After: those surfaces behave as isolated owners of their own state.
+
+DX before/after:
+- Before: engineers had to debug local fallback behavior that obscured backend bugs, plus stale agentic edges that failed later and far away from the state mutation that created them. After: state ownership is explicit, backend contract breaks are immediate, and invalid edges are removed at the mutation point.
+- Before: chat mode had two authority paths, one dependent on host/window binding presence. After: chat-mode behavior is consistent for canvas, docked, floating, maximized, and standalone surfaces.
+- Before: the review suggestion to remove `toggleMiniMapSide` looked plausible from a quick scan, but the control still had a live runtime caller. After validation, only the truly unused private setter was removed and the public toggle remains intact.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/routers/test_mcp_linked_chat_tool.py tests/types/test_agentic_edges.py` passed.
+- `pnpm -C frontend exec vitest run src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.test.ts src/components/Git/GitGraphWindowContent.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/chat-composer-controls.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "canvas-created chat sections|standalone git graph windows"` passed.
+- CDP verification confirmed that a newly created canvas chat section shows the `Chat Mode` control before any window binding exists, and that the standalone git-graph surface kept its pane state isolated from the workspace view.

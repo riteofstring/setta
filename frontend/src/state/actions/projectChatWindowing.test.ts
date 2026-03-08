@@ -1,4 +1,9 @@
-import { useMisc, useProjectState } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useAIStore,
+  useMisc,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
@@ -23,6 +28,7 @@ import {
   resolveDefaultFloatingChatBounds,
   setProjectChatWindowBoundsByIdInState,
   setProjectChatWindowBoundsInState,
+  setProjectChatWindowChatId,
   setProjectChatWindowDockFractionsInState,
   setProjectChatWindowModeForSectionInState,
   setProjectChatWindowPlacementInState,
@@ -37,6 +43,7 @@ import {
 describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
     resetProjectStores();
+    useAIStore.setState({ activeChatId: undefined });
   });
 
   it("creates an open bottom-docked chat window instance by default", () => {
@@ -776,17 +783,94 @@ describe("project chat windowing reducer helpers", () => {
     );
   });
 
-  it("returns original state when switching mode for unbound section", () => {
-    // Mode updates should be no-ops when no project chat window is bound to the section.
+  it("creates a canvas binding when switching an unbound section into project-ai mode", () => {
+    const initial = createProjectChatWindowingState();
+
+    const next = setProjectChatWindowModeForSectionInState(
+      initial,
+      "section-1",
+      ChatWindowModeEnum.project_ai_mode,
+    );
+
+    expect(next).not.toBe(initial);
+    expect(next.order).toHaveLength(1);
+    const created = next.instancesById[next.order[0] ?? ""];
+    if (!created) {
+      throw new Error(
+        "Expected created canvas binding for section mode switch.",
+      );
+    }
+    expect(created.sectionIdOrNull).toBe("section-1");
+    expect(created.placement).toBe(ChatWindowPlacementEnum.canvas_section);
+    expect(created.mode).toBe(ChatWindowModeEnum.project_ai_mode);
+  });
+
+  it("keeps section mode implicit when no binding exists yet", () => {
     const initial = createProjectChatWindowingState();
 
     const next = setProjectChatWindowModeForSectionInState(
       initial,
       "missing-section",
-      ChatWindowModeEnum.project_ai_mode,
+      ChatWindowModeEnum.section_mode,
     );
 
     expect(next).toBe(initial);
+  });
+
+  it("keeps section-backed project-ai threads out of the global active project chat", () => {
+    const sectionWindow = createProjectChatWindowInstance({
+      instanceId: "chat-window-section",
+      mode: ChatWindowModeEnum.project_ai_mode,
+      sectionIdOrNull: "section-1",
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.id = NULL_PROJECT_CONFIG_ID;
+      state.projectChatWindowing = createProjectChatWindowingState({
+        instancesById: {
+          [sectionWindow.instanceId]: sectionWindow,
+        },
+        order: [sectionWindow.instanceId],
+        nextInstanceNumber: 2,
+      });
+    });
+    useAIStore.setState({ activeChatId: "global-chat" });
+
+    setProjectChatWindowChatId(sectionWindow.instanceId, "section-chat");
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        sectionWindow.instanceId
+      ]?.chatId,
+    ).toBe("section-chat");
+    expect(useAIStore.getState().activeChatId).toBe("global-chat");
+  });
+
+  it("updates the global active project chat for unscoped project-ai windows", () => {
+    const projectWindow = createProjectChatWindowInstance({
+      instanceId: "chat-window-project",
+      mode: ChatWindowModeEnum.project_ai_mode,
+      sectionIdOrNull: null,
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.id = NULL_PROJECT_CONFIG_ID;
+      state.projectChatWindowing = createProjectChatWindowingState({
+        instancesById: {
+          [projectWindow.instanceId]: projectWindow,
+        },
+        order: [projectWindow.instanceId],
+        nextInstanceNumber: 2,
+      });
+    });
+    useAIStore.setState({ activeChatId: "global-chat" });
+
+    setProjectChatWindowChatId(projectWindow.instanceId, "project-chat");
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        projectWindow.instanceId
+      ]?.chatId,
+    ).toBe("project-chat");
+    expect(useAIStore.getState().activeChatId).toBe("project-chat");
   });
 
   it("undocks a canvas-section window back to floating and focuses it", () => {

@@ -7,17 +7,21 @@ import { GitGraphOverlay } from "./GitGraphOverlay";
 type GitGraphWindowContentProps = {
   instanceId?: string | null;
   showEmbeddedGitPaneToggle?: boolean;
+  embeddedGitPaneVisible?: boolean;
+  onEmbeddedGitPaneVisibleChange?: (visible: boolean) => void;
 };
 
 export function GitGraphWindowContent({
   instanceId = null,
   showEmbeddedGitPaneToggle = false,
+  embeddedGitPaneVisible,
+  onEmbeddedGitPaneVisibleChange,
 }: GitGraphWindowContentProps) {
   useEffect(() => {
     void ensureGitGraphStateLoaded();
   }, []);
 
-  const isEmbeddedGitPaneVisible = useMisc((state) => {
+  const storedEmbeddedGitPaneVisible = useMisc((state) => {
     if (!instanceId) {
       return false;
     }
@@ -26,9 +30,18 @@ export function GitGraphWindowContent({
       true
     );
   });
+  const isControlledEmbeddedGitPane =
+    embeddedGitPaneVisible !== undefined &&
+    onEmbeddedGitPaneVisibleChange !== undefined;
+  const isEmbeddedGitPaneVisible =
+    embeddedGitPaneVisible ?? storedEmbeddedGitPaneVisible;
 
   function toggleEmbeddedGitPane(): void {
     if (!instanceId) {
+      return;
+    }
+    if (isControlledEmbeddedGitPane) {
+      onEmbeddedGitPaneVisibleChange?.(!isEmbeddedGitPaneVisible);
       return;
     }
     useMisc.setState((state) => {

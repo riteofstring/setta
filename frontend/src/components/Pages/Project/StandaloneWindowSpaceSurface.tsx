@@ -31,6 +31,7 @@ type StandaloneWindowSpaceWindow = {
   mode: ChatWindowMode;
   title: string;
   chatId: string | null;
+  embeddedGitPaneVisible: boolean;
   zIndex: number;
   bounds: ChatWindowBounds;
 };
@@ -108,6 +109,7 @@ function hydrateWindowSpaceWindows(
         sectionNamesById,
       ),
       chatId: window.chatId ?? null,
+      embeddedGitPaneVisible: false,
       zIndex: window.zIndex,
       bounds: denormalizeFloatingBounds(
         window.normalizedBounds,
@@ -134,10 +136,10 @@ function focusStandaloneWindow(
       highestZIndex = candidate.zIndex;
     }
   }
-  const nextZIndex = highestZIndex + 1;
-  if (current.zIndex === nextZIndex) {
+  if (current.zIndex === highestZIndex) {
     return windowsById;
   }
+  const nextZIndex = highestZIndex + 1;
   return {
     ...windowsById,
     [instanceId]: {
@@ -198,6 +200,24 @@ function setStandaloneProjectChatWindowChatId(
   };
 }
 
+function setStandaloneEmbeddedGitPaneVisibility(
+  windowsById: Record<string, StandaloneWindowSpaceWindow>,
+  instanceId: string,
+  visible: boolean,
+): Record<string, StandaloneWindowSpaceWindow> {
+  const current = windowsById[instanceId];
+  if (!current || current.embeddedGitPaneVisible === visible) {
+    return windowsById;
+  }
+  return {
+    ...windowsById,
+    [instanceId]: {
+      ...current,
+      embeddedGitPaneVisible: visible,
+    },
+  };
+}
+
 function areStandaloneWindowsEqual(
   a: StandaloneWindowSpaceWindow,
   b: StandaloneWindowSpaceWindow,
@@ -209,6 +229,7 @@ function areStandaloneWindowsEqual(
     a.mode === b.mode &&
     a.title === b.title &&
     a.chatId === b.chatId &&
+    a.embeddedGitPaneVisible === b.embeddedGitPaneVisible &&
     a.zIndex === b.zIndex &&
     areBoundsEqual(a.bounds, b.bounds)
   );
@@ -628,6 +649,16 @@ export function StandaloneWindowSpaceSurface({
                 <GitGraphWindowContent
                   instanceId={window.instanceId}
                   showEmbeddedGitPaneToggle
+                  embeddedGitPaneVisible={window.embeddedGitPaneVisible}
+                  onEmbeddedGitPaneVisibleChange={(visible) => {
+                    setLocalWindowsById((current) =>
+                      setStandaloneEmbeddedGitPaneVisibility(
+                        current,
+                        window.instanceId,
+                        visible,
+                      ),
+                    );
+                  }}
                 />
               ) : (
                 <UnifiedChatSurface

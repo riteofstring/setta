@@ -1,7 +1,6 @@
 import {
   type ColorModePreference,
   type HomeProjectGalleryViewMode,
-  type MiniMapSide,
   useLocalStorage,
 } from "state/definitions";
 import { dedupeStringIds } from "utils/dedupeStringIds";
@@ -15,10 +14,6 @@ export function setColorModePreference(colorMode: ColorModePreference) {
 
 export function toggleMiniMap() {
   useLocalStorage.setState((state) => ({ showMinimap: !state.showMinimap }));
-}
-
-function setMiniMapSide(minimapSide: MiniMapSide) {
-  useLocalStorage.setState({ minimapSide });
 }
 
 export function toggleMiniMapSide() {

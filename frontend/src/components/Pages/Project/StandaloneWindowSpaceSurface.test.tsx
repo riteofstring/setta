@@ -77,9 +77,11 @@ vi.mock("components/Git/GitGraphWindowContent", () => ({
   GitGraphWindowContent: ({
     instanceId,
     showEmbeddedGitPaneToggle = false,
+    embeddedGitPaneVisible = false,
   }: {
     instanceId?: string | null;
     showEmbeddedGitPaneToggle?: boolean;
+    embeddedGitPaneVisible?: boolean;
   }) => (
     <div
       data-testid="mock-git-graph-window-content"
@@ -87,6 +89,7 @@ vi.mock("components/Git/GitGraphWindowContent", () => ({
       data-show-embedded-git-pane-toggle={
         showEmbeddedGitPaneToggle ? "true" : "false"
       }
+      data-embedded-git-pane-visible={embeddedGitPaneVisible ? "true" : "false"}
     >
       git graph
     </div>
@@ -289,6 +292,53 @@ describe("StandaloneWindowSpaceSurface", () => {
     );
   });
 
+  it("resets standalone git-pane visibility when a different saved space reuses the same window id", () => {
+    const previousHydratedWindowsById = {
+      "graph-window": {
+        instanceId: "graph-window",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.git_graph_mode,
+        title: "Git Graph",
+        chatId: null,
+        embeddedGitPaneVisible: false,
+        zIndex: 1,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 900,
+          height: 520,
+        },
+      },
+    };
+    const currentWindowsById = {
+      "graph-window": {
+        ...previousHydratedWindowsById["graph-window"],
+        embeddedGitPaneVisible: true,
+      },
+    };
+    const nextHydratedWindowsById = {
+      "graph-window": {
+        ...previousHydratedWindowsById["graph-window"],
+      },
+    };
+
+    expect(
+      applyStandaloneWindowSpaceHydration({
+        currentWindowsById,
+        previousHydratedWindowsById,
+        nextHydratedWindowsById,
+        previousWindowSpaceId: "space-a",
+        nextWindowSpaceId: "space-b",
+      }),
+    ).toEqual({
+      nextLocalWindowsById: nextHydratedWindowsById,
+      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
+      nextWindowSpaceId: "space-b",
+      resetLocalState: true,
+    });
+  });
+
   it("preserves local chat ids and resized bounds when hydration only changes presentation", () => {
     const previousHydratedWindowsById = {
       "chat-window": {
@@ -298,6 +348,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         mode: ChatWindowModeEnum.project_ai_mode,
         title: "Research Chat",
         chatId: "chat-window-1",
+        embeddedGitPaneVisible: false,
         zIndex: 1,
         bounds: {
           x: 0,
@@ -347,6 +398,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         mode: ChatWindowModeEnum.project_ai_mode,
         title: "Renamed Chat",
         chatId: "chat-window-2",
+        embeddedGitPaneVisible: false,
         zIndex: 7,
         bounds: {
           x: 12,
@@ -367,6 +419,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         mode: ChatWindowModeEnum.project_ai_mode,
         title: "Research Chat",
         chatId: "chat-window-1",
+        embeddedGitPaneVisible: false,
         zIndex: 1,
         bounds: {
           x: 0,
@@ -413,6 +466,7 @@ describe("StandaloneWindowSpaceSurface", () => {
           mode: ChatWindowModeEnum.project_ai_mode,
           title: "Renamed Chat",
           chatId: "chat-local-override",
+          embeddedGitPaneVisible: false,
           zIndex: 7,
           bounds: {
             x: 0,
@@ -437,6 +491,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         mode: ChatWindowModeEnum.project_ai_mode,
         title: "Research Chat",
         chatId: "chat-window-1",
+        embeddedGitPaneVisible: false,
         zIndex: 1,
         bounds: {
           x: 0,
@@ -460,6 +515,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         mode: ChatWindowModeEnum.project_ai_mode,
         title: "Other Chat",
         chatId: "chat-window-9",
+        embeddedGitPaneVisible: false,
         zIndex: 2,
         bounds: {
           x: 20,

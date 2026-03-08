@@ -106,6 +106,15 @@ async def invoke_linked_chat(
             reason="missing_target",
             message=f"Linked chat target {target_section_id} does not exist.",
         )
+    except ValueError:
+        return _build_error_result(
+            target_section_id=target_section_id,
+            reason="unsupported_target_type",
+            message=(
+                f"Linked chat target '{_get_chat_section_label(project_state, target_section_id)}' "
+                "is no longer an active chat section."
+            ),
+        )
     target_label = _get_chat_section_label(project_state, target_section_id)
     if not target_section_impl.managed:
         return _build_error_result(

@@ -29,7 +29,6 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import {
-  ProjectStateSingleConfigSchema,
   type ProjectStateSingleConfig,
   type ProjectStateSingleConfigInput,
 } from "utils/generatedTypes";
@@ -42,19 +41,17 @@ import { initializeServerMode } from "../serverMode";
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
-    const normalizedProjectState = normalizeLoadedProjectState(res.data);
-    const loaded = await loadProjectState(normalizedProjectState);
+    const loadedProjectState = validateLoadedProjectState(res.data);
+    const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
       const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: normalizedProjectState.projectConfig.id,
+        projectConfigId: loadedProjectState.projectConfig.id,
       });
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
-      await requestAIFollowSnapshot(normalizedProjectState.projectConfig.id);
-      await fetchListenerCoverageSnapshot(
-        normalizedProjectState.projectConfig.id,
-      );
+      await requestAIFollowSnapshot(loadedProjectState.projectConfig.id);
+      await fetchListenerCoverageSnapshot(loadedProjectState.projectConfig.id);
     }
     return loaded;
   } else {
@@ -62,16 +59,24 @@ export async function loadProjectConfig({ projectConfigName }) {
   }
 }
 
-function normalizeLoadedProjectState(
+function validateLoadedProjectState(
   projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
 ): ProjectStateSingleConfig {
-  return ProjectStateSingleConfigSchema.parse(projectState);
+  if (projectState.projectConfig.windowSpaces === undefined) {
+    throw new Error(
+      "Loaded project state is missing projectConfig.windowSpaces.",
+    );
+  }
+  if (projectState.projectChatWindowing === undefined) {
+    throw new Error("Loaded project state is missing projectChatWindowing.");
+  }
+  return projectState as ProjectStateSingleConfig;
 }
 
 export async function loadProjectState(
   projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
 ) {
-  const normalizedProjectState = normalizeLoadedProjectState(projectState);
+  const normalizedProjectState = validateLoadedProjectState(projectState);
   const { viewport, viewportInitialized } =
     normalizedProjectState.projectConfig;
   cancelPendingActiveSectionIdsSync();

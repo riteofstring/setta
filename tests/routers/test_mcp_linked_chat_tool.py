@@ -30,6 +30,7 @@ from setta.types.section_impls import (
     ChatDictationMode,
     ChatPermissionMode,
     SectionType,
+    TextBlockSectionImpl,
 )
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -385,7 +386,10 @@ async def test_tools_call_invoke_linked_chat_rejects_mixed_engine_history(
     payload = response.json()
     assert payload["isError"] is True
     assert payload["structuredContent"]["reason"] == "chat_history_conflict"
-    assert payload["structuredContent"]["message"] == "Chat engine mismatch; start a new chat."
+    assert (
+        payload["structuredContent"]["message"]
+        == "Chat engine mismatch; start a new chat."
+    )
     assert agent_runner.calls == []
     assert manager.set_chat_section_chat_id_calls == []
 
@@ -514,4 +518,52 @@ async def test_tools_call_invoke_linked_chat_rejects_scriptable_targets(
     payload = response.json()
     assert payload["isError"] is True
     assert payload["structuredContent"]["reason"] == "unsupported_scriptable_target"
+    assert agent_runner.calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_rejects_stale_non_chat_targets(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        _manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(tmp_path)
+    backend = app.state.setta.project_manager_switcher.main.project_state_backend
+    target_variant_id = backend.projectConfigs[project_config_id].sectionVariantMap[
+        target_section_id
+    ]
+    target_impl_id = backend.sectionVariants[target_variant_id].impl
+    backend.sectionImpls[target_impl_id] = TextBlockSectionImpl(id=target_impl_id)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Try a stale target.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "unsupported_target_type"
     assert agent_runner.calls == []
