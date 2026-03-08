@@ -330,11 +330,15 @@ Use the docs in this order:
   - focused implementation-plan doc for the next Go `cmd/setta-cli` slice:
     static tool catalog emission plus authenticated tool-call transport over
     the completed session/auth foundation and Go-owned MCP route
-111. `spike-mcp.md`
+111. `phase-8-cli-remote-stop-and-connect-foundation.md`
+  - focused implementation-plan doc for the next Go `cmd/setta-cli` slice:
+    remote SSH session selection plus remote `stop` first, with `connect`
+    staged above the completed `internal/sshx` runtime
+112. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-112. `spike-pty.md`
+113. `spike-pty.md`
    - PTY uncertainty-reduction plan
-113. `spike-lsp.md`
+114. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
