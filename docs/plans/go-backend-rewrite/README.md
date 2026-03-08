@@ -349,11 +349,15 @@ Use the docs in this order:
   - focused implementation-plan doc for the coupled packaged-binary and thin
     Python-entrypoint dispatch slice needed to make launcher distribution
     actually bind to the Go-owned `cmd/setta` contract
-116. `spike-mcp.md`
+116. `phase-9-native-installer-bundled-package-stage2.md`
+  - focused implementation-plan doc for bundling the exact packaged Setta
+    artifact into native macOS/Windows launcher installers so release smoke and
+    installer bootstrap bind to the same release bits
+117. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-117. `spike-pty.md`
+118. `spike-pty.md`
    - PTY uncertainty-reduction plan
-118. `spike-lsp.md`
+119. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

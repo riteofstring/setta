@@ -44,10 +44,17 @@ As of 2026-03-08:
   - `backend/setta/__main__.py` now also enters through `setta.entrypoint`
   - the Python entrypoint is now a thin explicit wrapper, not the owner of the
     Go-owned launcher/helper command semantics
+- Go now also owns the current native-installer package-binding slice:
+  - `scripts/release/build_macos_installer.sh`
+  - `scripts/release/build_windows_installer.ps1`
+  - native installers now bundle the packaged current-platform Setta sdist and
+    bootstrap that exact artifact instead of a bare index package name
 - Python still owns the shipped launcher entrypoint path in `backend/setta/start.py`,
   but only as the temporary owner of still-Python local command groups
   behind the thin wrapper boundary
-- installer/release scripts still bind to that Python command tree:
+- installer/release scripts still exist, but their launcher bootstrap contract
+  now binds to the Go-owned command surface through the thin wrapper or the
+  packaged Go router:
   - `scripts/install_desktop_launcher.sh`
   - `scripts/install_desktop_launcher.ps1`
   - platform launcher install/uninstall scripts
@@ -67,6 +74,7 @@ As of 2026-03-08:
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
 - `docs/plans/go-backend-rewrite/phase-8-cli-closeout-and-launcher-distribution-boundary.md`
 - `docs/plans/go-backend-rewrite/phase-9-packaged-go-entrypoint-and-distribution-stage1b.md`
+- `docs/plans/go-backend-rewrite/phase-9-native-installer-bundled-package-stage2.md`
 - `docs/reference/setta-cli-commands.md`
 - `pyproject.toml`
 - `build.sh`
@@ -164,11 +172,12 @@ Do not include in Stage 1:
 
 After Stage 1 is complete, Stage 2 should:
 
-- retarget build/packaging outputs so the shipped install path prefers the Go
-  `setta` entrypoint contract
-- remove Python ownership from launcher install/update/remove scripts
-- narrow `backend/setta/start.py` and `backend/setta/__main__.py` to only the
-  still-Python local command groups or a temporary explicit dispatch layer
+- bundle the exact packaged current-platform Setta artifact into native macOS
+  and Windows installer payloads
+- make native-installer bootstrap execute that bundled artifact rather than a
+  bare `setta` package name
+- keep the existing bootstrap scripts as the only installer command boundary
+- verify native-installer smoke against the installer version under test
 
 ## Working Decisions
 
@@ -249,6 +258,16 @@ the actual Go command tree that installer scripts can target next.
   Wheel builds now require packaged Go binaries to be present before build, and
   the built wheel is marked platform-specific through a Hatch build hook rather
   than incorrectly publishing a universal `py3-none-any` artifact.
+- 2026-03-08: completed the next bounded Stage 2 distribution slice in
+  `phase-9-native-installer-bundled-package-stage2.md`.
+  Native macOS/Windows installers now bundle the packaged Setta sdist built in
+  the same workflow, bootstrap that exact artifact during install, and native
+  installer smoke verifies that launcher metadata reports the matching Setta
+  version.
+- 2026-03-08: after the bundled-installer slice, the remaining Phase 9
+  question is no longer release-artifact binding; it is whether the
+  still-Python local command groups should remain behind the thin wrapper or
+  move into later Go slices.
 
 ## Verification
 
@@ -265,11 +284,11 @@ the actual Go command tree that installer scripts can target next.
 
 ## Recommended Next Step
 
-Implement the remaining Stage 1 distribution slice from this doc:
+Use the completed distribution boundary from this doc as the handoff point and
+decide the next separate slice explicitly:
 
-1. refresh any remaining launcher bootstrap/native-installer paths that still
-   assume pre-Go package-build conventions
-2. inventory whether the still-Python local commands should remain behind the
-   thin wrapper or move into a later Go CLI slice
-3. keep unrelated local Python command groups out of scope unless distribution
-   work proves they are a direct dependency
+1. keep the remaining Python local command groups behind the thin wrapper for
+   now and close Phase 9 distribution work
+2. or open a later Go CLI slice for selected local commands (`setta`, `share`,
+   `app`, `launch`, `backups`, `plugins`, `export-db`) only if product
+   priorities justify it

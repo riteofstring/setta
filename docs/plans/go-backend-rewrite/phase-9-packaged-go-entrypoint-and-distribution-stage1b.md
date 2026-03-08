@@ -156,7 +156,7 @@ That means the next coherent unit is:
 After this slice lands, the remaining Phase 9 distribution work should be
 smaller and more explicit:
 
-1. refresh launcher bootstrap/native-installer scripts only where they still
-   assume old build/package creation paths
-2. decide whether remaining Python local commands should stay behind the thin
-   wrapper longer or move to later Go slices
+1. take the native-installer bundled-package follow-up in
+   `phase-9-native-installer-bundled-package-stage2.md`
+2. after that, decide whether remaining Python local commands should stay
+   behind the thin wrapper longer or move to later Go slices
