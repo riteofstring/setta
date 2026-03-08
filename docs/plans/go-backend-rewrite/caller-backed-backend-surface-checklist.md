@@ -100,7 +100,8 @@ Primary sources used for this checklist:
 | Complete | Plugin-defined code-language routing for LSP | Go owns language-aware routing for plugin-defined `Code` sections in the current caller-backed scope. |
 | Missing | LSP/admin helper routes still used by the current frontend | Edit-menu and shortcut flows still call Python-owned `typeCheck` and `restartLanguageServer`; Go does not register those HTTP endpoints today. |
 | Missing | Type-error ignore HTTP route still used by the current frontend | The type-error context menu still POSTs Python-owned `setTypeErrorIgnore`; Go exposes the bounded write only as the MCP tool `set_type_error_ignore`, not as a legacy HTTP route. |
-| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group-orientation/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/indent/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers, section sizing/filter/meta-control-title/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, password/subprocess helpers such as `getPasswordParamValue` and `killSubprocesses`, and text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
+| Missing | Password/subprocess helper routes still used by the current frontend | Param inputs and stop-code flows still call Python-owned `getPasswordParamValue` and `killSubprocesses`; Go does not register those HTTP endpoints today. |
+| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group-orientation/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/indent/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers, section sizing/filter/meta-control-title/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, and text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
 | Missing | Input-area and JSON-source file helpers still used by the current frontend | Current callers still use Python-owned `createFile` and `deleteJsonSourceFileAndVariant`. |
 
 ## 5. MCP, app-spec ownership, tool registry, and LLM config
@@ -212,6 +213,9 @@ callers.
 - File and JSON-source helper routes:
   - `createFile`
   - `deleteJsonSourceFileAndVariant`
+- Password and subprocess helper routes:
+  - `getPasswordParamValue`
+  - `killSubprocesses`
 - Artifact helper routes:
   - `loadAvailableArtifacts`
   - `appendDrawAreaLayerItem`
@@ -224,7 +228,6 @@ callers.
   - prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers
   - section sizing/filter/meta-control-title/edge-input-output/group-overflow/list-root/parent-default-child/column-width helpers
   - text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link metadata
-  - password-param and subprocess helper routes (`getPasswordParamValue`, `killSubprocesses`)
 
 ### Dormant or not-proven-current-caller legacy families
 

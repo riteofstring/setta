@@ -3,11 +3,13 @@
 The Go backend rewrite is effectively closed for the current clean-break scope.
 This folder now has a small hot path for active agent work and a cold archive
 for historical phase material.
+That means there is no open-ended parity chase, not that every follow-on is
+forbidden; selected bounded follow-ons still belong in the current docs.
 
 ## Read Order
 
 1. `CURRENT.md`
-   - current state, deliberate boundaries, and agent workflow
+   - current state, deliberate boundaries, selected follow-on work, and agent workflow
 2. `caller-backed-backend-surface-checklist.md`
    - fastest answer to "does the active caller reach Go?"
 3. `backend-capability-coverage-checklist.md`

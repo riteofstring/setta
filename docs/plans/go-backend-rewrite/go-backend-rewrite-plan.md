@@ -13,6 +13,8 @@ obligations that were not justified by a real caller.
 
 As of `2026-03-10`, that rewrite is effectively complete for the current
 clean-break scope.
+That means the repo is no longer running a broad route-by-route migration
+program; follow-on rewrite work must now be concrete and bounded.
 
 Use these docs as the current source of truth:
 
@@ -73,6 +75,29 @@ issue selects new work:
   - generic chat CRUD/metadata routes
   - large tails of old direct mutation/helper routes
 
+## Selected Follow-On Work
+
+The rewrite is still allowed to grow in narrow, source-of-truth-driven ways
+when the current repo shape leaves Go-owned runtime/transport without a
+matching Go-owned contract surface.
+
+The currently selected follow-on is:
+
+- Go-owned frontend binding generation for Go HTTP/websocket contracts
+  - today, `frontend/src/utils/generatedEndpoints.ts` and
+    `frontend/src/utils/generatedTypes.ts` are still generated from Python
+    FastAPI/Pydantic metadata
+  - that is acceptable only as a temporary repo state while Python still owns
+    some caller-backed transport, but it is not the right long-term source of
+    truth for routes/types whose active owner is Go
+  - the goal is not to recreate every Python internal helper generator in Go
+  - the goal is to give frontend-facing backend contracts a Go-owned source of
+    truth wherever the transport/runtime owner is Go, so route/type generation
+    cannot drift behind Go registrations
+  - schema reflection from arbitrary Go structs should remain a tool, not the
+    contract owner by default; keep the generated contract surface deliberate
+    and explicit
+
 ## When To Open New Rewrite Work
 
 Open a new rewrite slice only when at least one of these is true:
@@ -81,6 +106,8 @@ Open a new rewrite slice only when at least one of these is true:
 - a release/runtime issue exposes a real ownership gap
 - tests show the current boundary is broken
 - a product decision explicitly expands scope
+- a selected infrastructure follow-on, such as Go-owned frontend binding
+  generation, is ready to be executed as a bounded slice
 
 Otherwise, treat further rewrite work as speculative cleanup and avoid opening
 new numbered phase docs.

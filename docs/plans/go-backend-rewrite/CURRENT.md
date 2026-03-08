@@ -10,7 +10,15 @@ surface.
 For most of the active product-facing backend runtime, Go is now the source of
 truth.
 
-There is no currently selected next rewrite phase.
+Here, "effectively closed" means there is no open-ended route-for-route parity
+program anymore. New rewrite work should be concrete and bounded: a real
+caller-backed gap, a release/runtime issue, or an explicitly selected
+infrastructure follow-on.
+
+There is no broad next rewrite phase selected.
+One explicit follow-on is selected: move frontend binding generation for
+Go-owned HTTP/websocket contracts onto a Go-owned source of truth, because the
+current generated frontend route/type artifacts still derive from Python.
 
 ## Canonical Docs
 
@@ -59,6 +67,10 @@ There is no currently selected next rewrite phase.
   attachment/file/artifact helpers, helper/admin endpoints, Python-era
   `/api/frontend` and terminal websocket paths, and parts of the
   project-mutation tail
+- frontend binding generation is still Python-led today:
+  `frontend/src/utils/generatedEndpoints.ts` and
+  `frontend/src/utils/generatedTypes.ts` still derive from Python generation
+  even when the active transport/runtime owner has moved to Go
 - some Go live-update paths are not yet end-to-end because the core frontend
   still uses Python-era websocket shapes; this currently affects settings
   broadcasts, UI-setting reveal/result flows, and managed chat/tool-preview

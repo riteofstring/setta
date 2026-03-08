@@ -51,7 +51,7 @@ Primary sources used for this checklist:
 
 | Status | Capability | Notes |
 | --- | --- | --- |
-| Go-owned | Packaged server and CLI runtime | `cmd/setta`, `cmd/setta-server`, `internal/app`, `internal/runtime`, `internal/settacmd`, and `internal/settacli` are the main Go owners. |
+| Go-owned | Packaged server/runtime entrypoints plus Go CLI helpers | `cmd/setta` and `cmd/setta-server` are the packaged Go entrypoints, while `cmd/setta-cli`, `internal/app`, `internal/runtime`, `internal/settacmd`, and `internal/settacli` own the broader Go command/runtime surface. |
 | Shared boundary | Packaged bootstrap wrappers and build/install shell around Go binaries | Go is the packaged runtime target, but root shell/python packaging wrappers still participate in build/install flow orchestration. |
 | Python-owned | Dev reload/startup loop | Dev-only startup and reload remain explicit Python boundaries through `backend/setta/dev_start.py`, `backend/setta/server.py`, and related startup helpers. |
 | Go-owned | Runtime support packages | `internal/buildinfo`, `internal/config`, `internal/backendlogs`, `internal/observability`, `internal/settadocs`, and `internal/devworktree` are Go-owned support areas. |
@@ -89,7 +89,7 @@ Primary sources used for this checklist:
 | Go-owned | Core project state and project shell | `internal/projectstate`, `internal/projectview`, `internal/projectshell`, `internal/settingsstate`, `internal/chatsections`, and `internal/notifications` own the main project/runtime state slice. |
 | Go-owned | Artifact, binary, attachment, file-browser, and git-read services | `internal/artifacts`, `internal/binary`, `internal/chatattachments`, `internal/filebrowser`, `internal/gitread`, and `internal/shareartifacts` are Go-owned. |
 | Go-owned | State filesystem and project backup helpers | `internal/statefs` and `internal/projectbackup` are Go-owned support capabilities. |
-| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including default-project helpers (`getDefaultConfigName`, `setAsDefaultProject`), attachment URL helpers, `loadAvailableArtifacts`, `createFile`, `deleteJsonSourceFileAndVariant`, `appendDrawAreaLayerItem`, `docstringToMarkdown`, and `revealPathInOsFileExplorer`. |
+| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including default-project helpers (`getDefaultConfigName`, `setAsDefaultProject`), attachment URL helpers, `loadAvailableArtifacts`, `createFile`, `deleteJsonSourceFileAndVariant`, `appendDrawAreaLayerItem`, `getPasswordParamValue`, `killSubprocesses`, `docstringToMarkdown`, and `revealPathInOsFileExplorer`. |
 
 ## 6. Code intelligence, formatting, and execution planning
 
