@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
+  route_create_project_config,
   route_force_refresh_listener,
   route_get_app_catalog,
   route_get_app_definition,
@@ -16,13 +17,17 @@ import {
   route_get_listener_coverage,
   route_get_mcp_server_runtime_status,
   route_get_password_param_value,
+  route_load_all_project_metadata,
+  route_load_project_config,
   route_plugins_config,
   route_plugins_install,
   route_plugins_restart,
   route_plugins_runtime,
   route_restart_language_server,
   route_set_app_definition,
+  route_set_top_level_section_layout,
   route_set_type_error_ignore,
+  route_set_viewport,
   route_type_check,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
@@ -147,6 +152,133 @@ describe("generatedEndpoints launcher status", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://backend.example/api/launcherStatus",
     );
+  });
+});
+
+describe("generatedEndpoints project shell and layout", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts project-metadata loads to the backend origin with a null payload", async () => {
+    await route_load_all_project_metadata();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadAllProjectMetadata`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("posts project-config loads with the current request shape", async () => {
+    await route_load_project_config({
+      projectConfigName: "Alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/loadProjectConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigName: "Alpha",
+      }),
+    });
+  });
+
+  it("posts project creation through the backend origin", async () => {
+    await route_create_project_config({
+      previewImgColor: "bg-orange-500/60 dark:bg-orange-600/30",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createProjectConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        previewImgColor: "bg-orange-500/60 dark:bg-orange-600/30",
+      }),
+    });
+  });
+
+  it("posts top-level layout writes with op ids and layout payloads", async () => {
+    await route_set_top_level_section_layout({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-1",
+      topLevelSections: {
+        "section-a": {
+          x: 10,
+          y: 20,
+          zIndex: 3,
+          w: 400,
+          h: 250,
+        },
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setTopLevelSectionLayout`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-1",
+        topLevelSections: {
+          "section-a": {
+            x: 10,
+            y: 20,
+            zIndex: 3,
+            w: 400,
+            h: 250,
+          },
+        },
+      }),
+    });
+  });
+
+  it("posts viewport writes with nullable viewport payloads", async () => {
+    await route_set_viewport({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-2",
+      viewport: null,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setViewport`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-2",
+        viewport: null,
+      }),
+    });
   });
 });
 

@@ -81,6 +81,21 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_SETTA_HOME_INFO",
 				},
 				{
+					Name:     "loadAllProjectMetadata",
+					Path:     httpapi.RouteLoadAllProjectMetadata,
+					EnumName: "LOAD_ALL_PROJECT_METADATA",
+				},
+				{
+					Name:     "loadProjectConfig",
+					Path:     httpapi.RouteLoadProjectConfig,
+					EnumName: "LOAD_PROJECT_CONFIG",
+				},
+				{
+					Name:     "createProjectConfig",
+					Path:     httpapi.RouteCreateProjectConfig,
+					EnumName: "CREATE_PROJECT_CONFIG",
+				},
+				{
 					Name:     "createWorkspaceLaunchIntent",
 					Path:     httpapi.RouteCreateWorkspaceLaunchIntent,
 					EnumName: "CREATE_WORKSPACE_LAUNCH_INTENT",
@@ -194,6 +209,21 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "forceRefreshListener",
 					Path:     httpapi.RouteForceRefreshListener,
 					EnumName: "FORCE_REFRESH_LISTENER",
+				},
+				{
+					Name:     "setTopLevelSectionLayout",
+					Path:     httpapi.RouteSetTopLevelSectionLayout,
+					EnumName: "SET_TOP_LEVEL_SECTION_LAYOUT",
+				},
+				{
+					Name:     "setActiveIds",
+					Path:     httpapi.RouteSetActiveIDs,
+					EnumName: "SET_ACTIVE_IDS",
+				},
+				{
+					Name:     "setViewport",
+					Path:     httpapi.RouteSetViewport,
+					EnumName: "SET_VIEWPORT",
 				},
 				{
 					Name:     "getListenerCoverage",
@@ -344,6 +374,29 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getSettaHomeInfo",
 			ResponseType:    reflect.TypeOf(SettaHomeInfoResponse{}),
+		},
+		{
+			FunctionName:    "route_load_all_project_metadata",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "loadAllProjectMetadata",
+			ResponseType:    reflect.TypeOf(AllProjectMetadata{}),
+		},
+		{
+			FunctionName:    "route_load_project_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "loadProjectConfig",
+			RequestType:     reflect.TypeOf(LoadProjectConfigRequestInput{}),
+			ResponseType:    reflect.TypeOf(ProjectStateSingleConfig{}),
+		},
+		{
+			FunctionName:    "route_create_project_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "createProjectConfig",
+			RequestType:     reflect.TypeOf(CreateProjectConfigRequestInput{}),
+			ResponseType:    reflect.TypeOf(CreateProjectConfigResponse("")),
 		},
 		{
 			FunctionName:    "route_create_workspace_launch_intent",
@@ -524,6 +577,27 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "forceRefreshListener",
 			RequestType:     reflect.TypeOf(ForceRefreshListenerRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_top_level_section_layout",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setTopLevelSectionLayout",
+			RequestType:     reflect.TypeOf(SetTopLevelSectionLayoutRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_active_ids",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setActiveIds",
+			RequestType:     reflect.TypeOf(SetActiveIDsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_viewport",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setViewport",
+			RequestType:     reflect.TypeOf(SetViewportRequestInput{}),
 		},
 		{
 			FunctionName:    "route_get_listener_coverage",

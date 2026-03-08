@@ -79,6 +79,8 @@ Current landed wedge:
 - `frontend/src/utils/generatedRoutes.ts`
   - current websocket route constants
   - current status/meta route constants
+  - current project-shell route constants
+  - current project-state layout/presence route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
@@ -106,6 +108,29 @@ Current landed wedge:
     - setup/update request payloads
     - launcher status-query and request-base payloads
     - launcher state enums used by the frontend
+  - project-shell and current project-state contract types
+    - project metadata and project create/load payloads
+      - `ProjectMetadataEntry`
+      - `AllProjectMetadata`
+      - `LoadProjectConfigRequestInput`
+      - `CreateProjectConfigRequestInput`
+      - `CreateProjectConfigResponse`
+    - current layout/selection/viewport mutation payloads
+      - `TopLevelSectionLayoutInput`
+      - `SetTopLevelSectionLayoutRequestInput`
+      - `SetActiveIDsRequestInput`
+      - `ViewportInput`
+      - `SetViewportRequestInput`
+    - shared project-state/core types used by current callers
+      - `SectionType`
+      - `CodeObjType`
+      - `ListRootViewMode`
+      - `Core`
+      - `Variant`
+      - `ProjectConfig`
+      - `ProjectStateSingleConfig`
+      - `ProjectStateSingleConfigWithCompletedOpIds`
+      - `SettingsState`
   - app-config pane contract types
     - `AppCatalogResponse` and the catalog component/action/prop payloads
     - `AppDefinition`, `AppRoute`, and the app-definition read/mutation
@@ -157,6 +182,13 @@ Current landed wedge:
       - `PluginRegisteredCodegenTarget`
 - `frontend/src/utils/generatedEndpoints.ts`
   - current status/meta endpoint wrappers
+  - project-shell and current project-state endpoint wrappers
+    - `route_load_all_project_metadata`
+    - `route_load_project_config`
+    - `route_create_project_config`
+    - `route_set_top_level_section_layout`
+    - `route_set_active_ids`
+    - `route_set_viewport`
   - workspace-launch endpoint wrappers
     - `route_create_workspace_launch_intent`
     - `route_launch`
@@ -274,10 +306,14 @@ Current landed wedge:
   - `triggerListenerForceRefresh`, `fetchListenerCoverageSnapshot`, and the
     current listener-coverage dependency-key helpers now consume canonical
     Go-generated listener bindings and dependency contracts
+  - the current project create/load flow plus the layout/selection/viewport
+    publishers in `sectionInfos` now consume canonical Go-generated
+    project-shell and current project-state bindings
   - `plugins/runtime`, `plugins/restart`, and the current `PluginsPane`
     plugin runtime/mutation callers now consume canonical Go-generated plugin
     bindings for plugin runtime/status/config/restart/install/update/rollback
-    and enable/disable operations
+    and enable/disable operations, plus the shared project-state/core bindings
+    they load during bootstrap/runtime mutation flows
 
 ## Cutover Rule
 

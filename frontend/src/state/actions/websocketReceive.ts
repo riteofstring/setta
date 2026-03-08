@@ -13,6 +13,7 @@ import {
   addNotificationFromWebsocketMsg,
   addTemporaryNotification,
 } from "state/actions/notifications";
+import { registerRealtimeDependencySenders } from "state/actions/realtimeDependencySend";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -973,6 +974,11 @@ function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
     wss.send(frame);
   }
 }
+
+registerRealtimeDependencySenders({
+  sendBinaryMessage,
+  sendMessage,
+});
 
 function maybeWarnRealtimeOversize(message: string) {
   const now = Date.now();

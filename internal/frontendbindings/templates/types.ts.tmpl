@@ -21,6 +21,8 @@ export const {{ .Name }}Enum = {
 export type {{ .Name }} = ObjectValues<typeof {{ .Name }}Enum>;
 {{ else if eq .Kind "alias" }}
 export type {{ .Name }} = {{ .Alias }};
+{{ else if eq .Kind "raw" }}
+{{ .Raw }}
 {{ end }}
 
 {{- end }}

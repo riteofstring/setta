@@ -22,6 +22,21 @@ export async function route_get_setta_home_info(): Promise<ResponseDataAndStatus
   return await get(GoHTTPRoutes.getSettaHomeInfo);
 
 }
+export async function route_load_all_project_metadata(): Promise<ResponseDataAndStatus<gt.AllProjectMetadata>> {
+
+  return await post(GoHTTPRoutes.loadAllProjectMetadata, null);
+
+}
+export async function route_load_project_config(x: gt.LoadProjectConfigRequestInput): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+
+  return await post(GoHTTPRoutes.loadProjectConfig, x);
+
+}
+export async function route_create_project_config(x: gt.CreateProjectConfigRequestInput): Promise<ResponseDataAndStatus<gt.CreateProjectConfigResponse>> {
+
+  return await post(GoHTTPRoutes.createProjectConfig, x);
+
+}
 export async function route_create_workspace_launch_intent(x: gt.CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
 
   return await post(GoHTTPRoutes.createWorkspaceLaunchIntent, x);
@@ -135,6 +150,21 @@ export async function route_get_attachment_download_urls(x: gt.GetAttachmentDown
 export async function route_force_refresh_listener(x: gt.ForceRefreshListenerRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.forceRefreshListener, x);
+
+}
+export async function route_set_top_level_section_layout(x: gt.SetTopLevelSectionLayoutRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setTopLevelSectionLayout, x);
+
+}
+export async function route_set_active_ids(x: gt.SetActiveIDsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setActiveIds, x);
+
+}
+export async function route_set_viewport(x: gt.SetViewportRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setViewport, x);
 
 }
 export async function route_get_listener_coverage(x: gt.ListenerCoverageRequestInput): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {

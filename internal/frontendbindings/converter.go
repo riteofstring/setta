@@ -15,6 +15,7 @@ type TypeDeclaration struct {
 	Alias      string
 	Properties []TypeProperty
 	EnumValues []EnumValue
+	Raw        string
 }
 
 type EnumValue struct {
@@ -97,11 +98,11 @@ func newTypeConverter() *typeConverter {
 				{Name: "Global", Value: "global"},
 			},
 			reflect.TypeOf(PluginRuntimeState("")): {
-				{Name: "Active", Value: "active"},
-				{Name: "Disabled", Value: "disabled"},
-				{Name: "Invalid", Value: "invalid"},
-				{Name: "Shadowed", Value: "shadowed"},
-				{Name: "PendingRestart", Value: "pending_restart"},
+				{Name: "active", Value: "active"},
+				{Name: "disabled", Value: "disabled"},
+				{Name: "invalid", Value: "invalid"},
+				{Name: "shadowed", Value: "shadowed"},
+				{Name: "pending_restart", Value: "pending_restart"},
 			},
 			reflect.TypeOf(PluginEnablementSource("")): {
 				{Name: "WorkspaceDisabled", Value: "workspace_disabled"},
@@ -182,6 +183,21 @@ func newTypeConverter() *typeConverter {
 				Name:  "BaseDependencyValueUnion",
 				Kind:  "alias",
 				Alias: "LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
+			},
+			reflect.TypeOf(ProjectStateSingleConfig{}): {
+				Name: "ProjectStateSingleConfig",
+				Kind: "raw",
+				Raw:  projectStateFrontendSupportRawTS,
+			},
+			reflect.TypeOf(PluginListEntry{}): {
+				Name: "PluginListEntry",
+				Kind: "raw",
+				Raw:  pluginListEntryRawTS,
+			},
+			reflect.TypeOf(PluginStatusEntry{}): {
+				Name: "PluginStatusEntry",
+				Kind: "raw",
+				Raw:  pluginStatusEntryRawTS,
 			},
 		},
 	}
