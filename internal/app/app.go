@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agenticsummarycache"
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/auth"
@@ -133,6 +134,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
 		agentRunStore         *agentruns.RunStore
+		agenticSummaryStatus  *agenticsummarycache.Service
 		promptTemplateStore   *prompttemplates.Store
 	)
 	if authService.SupportsSessionAuth() {
@@ -477,6 +479,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	promptTemplateStore, err = prompttemplates.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
+	agenticSummaryStatus, err = agenticsummarycache.NewService(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
@@ -903,6 +910,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
 				ModePolicy: modePolicy,
 				Templates:  promptTemplateStore,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterAgenticSummaryCacheRoutes(r, httpapi.AgenticSummaryCacheRouteDependencies{
+				ModePolicy:   modePolicy,
+				ProjectState: projectRuntime,
+				Statuses:     agenticSummaryStatus,
 			}); err != nil {
 				panic(err)
 			}

@@ -165,8 +165,21 @@ The next bounded post-Phase-13 slice tracked in
 - the frontend now hydrates `GET /getPromptTemplates` from Go
 - Go now owns the file-backed prompt-template read owner for
   `setta_files/prompts/*.json`
-- `GET /getAgenticSummaryCacheStatus` remains the next bounded dependency
+- `GET /getAgenticSummaryCacheStatus` remained the next bounded dependency
   because it needs a different runtime owner than the prompt-template file path
+
+The next bounded post-Phase-13 slice tracked in
+`phase-13-agentic-summary-cache-status-transport-and-owner.md` is now landed:
+
+- the chat-area settings UI now reads
+  `POST /getAgenticSummaryCacheStatus` from Go
+- Go now owns the bounded summary-cache-status owner over the live
+  project-state runtime plus `setta_files/agentic_summary_cache.json`
+- the remaining Python-owned agentic routes with direct frontend callers are
+  prompt-template writes:
+  - `POST /createPromptTemplate`
+  - `POST /updatePromptTemplate`
+  - `POST /deletePromptTemplate`
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -174,10 +187,11 @@ already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
 post-Phase-12 priority, not by reopening the completed external-agent runtime
-choices. The current bounded priority is prompt-template read transport over a
-new Go file-backed store owner, not the already-landed agent-profile HTTP read
-route. After that landing, the next bounded priority is summary-cache-status
-transport and ownership.
+choices. The current bounded priority is no longer prompt-template hydration or
+summary-cache-status transport; both are landed. The next bounded post-Phase-13
+priority is prompt-template CRUD transport over the already-landed Go
+prompt-template store because those write routes still have direct frontend
+callers.
 
 ## Current Reality
 

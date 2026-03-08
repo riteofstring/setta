@@ -468,12 +468,16 @@ Use the docs in this order:
   - focused completed-slice doc for the next post-Phase-13 bounded agentic read
     transport: a Go prompt-template file store plus thin
     `GET /getPromptTemplates`
-143. `spike-mcp.md`
+143. `phase-13-agentic-summary-cache-status-transport-and-owner.md`
+  - focused completed-slice doc for the next bounded post-Phase-13 agentic
+    runtime/read owner: Go-owned `POST /getAgenticSummaryCacheStatus` over the
+    live project-state runtime plus `agentic_summary_cache.json`
+144. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-144. `spike-pty.md`
+145. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-142. `spike-lsp.md`
+146. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

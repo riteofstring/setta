@@ -57,14 +57,13 @@ Landed in this slice:
 Closeout rerun after the landing:
 
 - the direct hydration dependency on prompt-template reads is now gone
-- the remaining Python-owned agentic read that still affects live frontend UI
-  is `POST /getAgenticSummaryCacheStatus`
-- prompt-template single-item and CRUD routes remain deferred because they are
-  not the current highest-leverage frontend dependency
-
-Remaining Python-owned agentic reads outside this slice:
-
-- `POST /getAgenticSummaryCacheStatus`
+- the follow-up summary-cache-status slice is now landed in
+  `phase-13-agentic-summary-cache-status-transport-and-owner.md`
+- the remaining Python-owned prompt-template routes with direct frontend
+  callers are now:
+  - `POST /createPromptTemplate`
+  - `POST /updatePromptTemplate`
+  - `POST /deletePromptTemplate`
 
 ## Scope
 
@@ -85,7 +84,6 @@ This slice delivered:
 - create/update/delete prompt-template routes
 - websocket `PromptTemplatesUpdated` parity
 - watcher/runtime ownership for prompt templates
-- `POST /getAgenticSummaryCacheStatus`
 - project-manager prompt mutation work
 
 ## Inputs
@@ -140,7 +138,8 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded post-Phase-13 doc around summary-cache-status
-  transport and ownership
-- keep prompt-template single-item and CRUD work deferred unless a concrete UI
-  dependency makes them higher leverage than summary-cache status
+- the summary-cache-status follow-up is now landed in
+  `phase-13-agentic-summary-cache-status-transport-and-owner.md`
+- the next bounded dependency after that landing is prompt-template CRUD over
+  the already-landed Go prompt-template store, because those write routes still
+  have direct frontend callers

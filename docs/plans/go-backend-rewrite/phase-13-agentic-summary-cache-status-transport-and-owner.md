@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This doc records the next bounded post-Phase-13 slice and its landing plan.
+This doc records the next bounded post-Phase-13 slice and its landing.
 
 The previous slices moved `GET /getAgentProfiles` and `GET /getPromptTemplates`
 to Go over already-bounded file-backed owners. The next highest-leverage
@@ -61,7 +61,48 @@ Key Python behavior that must remain the source of truth for this slice:
 
 ## Scope
 
-This slice should deliver:
+Landed in this slice:
+
+- `internal/agenticsummarycache`
+  - bounded owner for `setta_files/agentic_summary_cache.json`
+  - deterministic summary-edge resolution for direct `section_chat` summary
+    edges targeting the requested chat section
+  - deterministic section-summary-source hashing over effective project-state
+    payloads, including param-backed dict/callable/meta-control sections
+- `internal/httpapi/agentic_summary_cache_routes.go`
+  - thin IDE-gated `POST /getAgenticSummaryCacheStatus` transport
+- `internal/app/app.go`
+  - explicit owner wiring into app assembly
+- `internal/httpapi/route_names.go`
+  - bare-route registration for `getAgenticSummaryCacheStatus`
+- focused coverage in:
+  - `internal/agenticsummarycache/service_test.go`
+  - `internal/httpapi/agentic_summary_cache_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the chat-area settings UI no longer depends on the Python summary-cache-status
+  route
+- the remaining Python-owned agentic routes with direct frontend callers are now
+  prompt-template writes:
+  - `POST /createPromptTemplate`
+  - `POST /updatePromptTemplate`
+  - `POST /deletePromptTemplate`
+- generated single-item reads still exist for:
+  - `POST /getAgentProfile`
+  - `POST /getAgentRun`
+  - `POST /getPromptTemplate`
+  but no direct frontend caller was found for them in the current worktree
+
+Remaining Python-owned agentic routes outside this slice:
+
+- `POST /createPromptTemplate`
+- `POST /updatePromptTemplate`
+- `POST /deletePromptTemplate`
+
+## Scope
+
+This slice delivered:
 
 - a bounded Go owner for `agentic_summary_cache.json`
 - deterministic summary-section-id resolution for a chat section
@@ -127,7 +168,8 @@ This slice should deliver:
 
 ## Verification
 
-- `./scripts/go.sh test ./internal/agenticsummarycache ./internal/httpapi -run 'AgenticSummary|GetAgenticSummaryCacheStatus' -count=1`
+- `./scripts/go.sh test ./internal/agenticsummarycache -run 'Service|BuildSection' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'AgenticSummary|GetAgenticSummaryCacheStatus' -count=1`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Decisions Made
@@ -137,19 +179,20 @@ This slice should deliver:
 - the route should depend on the live project-state runtime snapshot plus the
   on-disk summary cache file, not on MCP summary tooling or a broader summary
   service port
+- deterministic section-summary-source extraction stayed local to the new owner
+  instead of broadening into a general project-summary subsystem
 
 ## Open Questions
 
-- whether the first Go landing should support only the currently exercised
-  section-summary-source shapes or fully port every Python source extractor
-  branch immediately
-  - recommendation: support the explicit Python source branches needed for the
-    current product surface in this owner, but keep that logic local instead of
-    broadening into a generic project-summary subsystem
+- whether later Go-owned summary-cache fill work should reuse this owner
+  directly or pull the summary-source logic one layer lower
+  - recommendation: reuse this owner from later fill work first; only extract a
+    lower boundary if a second caller needs the same primitives
 
 ## Next Recommended Step
 
-- land the bounded `agentic_summary_cache_status` Go owner
-- add the thin `POST /getAgenticSummaryCacheStatus` route
-- wire it into app assembly and update the rewrite docs with the completed
-  decisions and any residual bounded follow-up
+- open the next bounded Phase 13 doc around prompt-template CRUD transport over
+  the already-landed Go prompt-template store
+- keep `getAgentProfile`, `getAgentRun`, and `getPromptTemplate` deferred until
+  a concrete caller makes one of them higher leverage than prompt-template
+  writes
