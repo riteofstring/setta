@@ -12,11 +12,6 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import {
-  getActiveSectionUIIds,
-  reconcileActiveSectionUIIdsFromBackend,
-  sanitizeProjectStateActiveIds,
-} from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -1002,20 +997,15 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  reconcileActiveSectionUIIdsFromBackend(
-    x.projectState.projectConfig.activeIds,
-    x.completedOpIds,
-  );
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
   );
-  const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
   unstable_batchedUpdates(() => {
     usePendingOperations.setState({ pending: nextPending });
     useNodeInternals.setState({ x: nextNodesMap });
-    useProjectState.setState(() => sanitizedProjectState);
+    useProjectState.setState(() => x.projectState);
   });
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
@@ -1444,7 +1434,7 @@ export function deleteAllActiveSections() {
   }
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
-    sectionIds: getActiveSectionUIIds(),
+    sectionIds: useProjectState.getState().projectConfig.activeIds,
   });
 }
 
@@ -1658,7 +1648,7 @@ export async function groupActiveSections() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const sectionIds = getActiveSectionUIIds();
+  const sectionIds = useProjectState.getState().projectConfig.activeIds;
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
@@ -1671,7 +1661,7 @@ export async function ungroupActiveGroups() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const groupIds = getActiveSectionUIIds();
+  const groupIds = useProjectState.getState().projectConfig.activeIds;
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 

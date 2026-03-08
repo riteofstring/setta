@@ -5,14 +5,14 @@ import {
 } from "state/agenticScopeUtils";
 import type { ZustandProjectState } from "state/definitions";
 import { useAgenticScopeHighlights } from "state/definitions";
-import type { AgenticEdge } from "utils/generatedTypes";
+import type { AgenticEdge, TopLevelSectionLayout } from "utils/generatedTypes";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type AgenticScopeHighlightInputs = {
   projectConfigId: string;
   agenticEdges: Array<AgenticEdge>;
   activeIds: Array<string>;
-  topLevelSectionIds: Array<string>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
   sectionVariantMap: Record<string, string>;
   sectionVariants: ZustandProjectState["sectionVariants"];
   sectionImpls: ZustandProjectState["sectionImpls"];
@@ -25,7 +25,7 @@ export function useUpdateAgenticScopeHighlights(
     projectConfigId,
     agenticEdges,
     activeIds,
-    topLevelSectionIds,
+    topLevelSections,
     sectionVariantMap,
     sectionVariants,
     sectionImpls,
@@ -50,7 +50,7 @@ export function useUpdateAgenticScopeHighlights(
         chatSectionIds.add(sectionId);
       }
     }
-    for (const sectionId of topLevelSectionIds) {
+    for (const sectionId of Object.keys(topLevelSections)) {
       const variantId = sectionVariantMap[sectionId];
       if (!variantId) {
         continue;
@@ -73,7 +73,7 @@ export function useUpdateAgenticScopeHighlights(
     sectionImpls,
     sectionVariantMap,
     sectionVariants,
-    topLevelSectionIds,
+    topLevelSections,
   ]);
 
   const highlightMaps = useMemo(() => {

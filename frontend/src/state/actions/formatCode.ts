@@ -3,7 +3,6 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_format_code } from "utils/generatedEndpoints";
 import {
@@ -123,7 +122,7 @@ export async function formatActiveCodeSection(): Promise<void> {
   }
 
   const state = useProjectState.getState();
-  const sectionId = getActiveSectionUIIds()[0];
+  const sectionId = state.projectConfig.activeIds[0];
   if (!sectionId) {
     addTemporaryNotification("Select a code section to format.");
     return;
