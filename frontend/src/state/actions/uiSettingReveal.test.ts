@@ -1,6 +1,7 @@
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import * as endpoints from "utils/generatedEndpoints";
 import type {
   SectionType,
   UISettingRevealContent,
@@ -13,6 +14,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setActiveSectionIds } from "./activeSections";
 
 const invokePluginSettingRevealHandlerMock = vi.hoisted(() =>
   vi.fn(async (args: { pluginId: string }) => ({
@@ -374,6 +376,80 @@ describe("receiveUISettingReveal", () => {
       },
     ]);
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-target"]);
+  });
+
+  it("cancels a queued durable active-id sync before applying a transient reveal selection", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target"],
+      activeIds: [],
+    });
+    const rightAnchorId = "core.code.section_variants";
+    const rightAnchor = createFakeAnchor(rightAnchorId);
+    const rightPaneRoot = createFakePaneRoot(rightAnchor, rightAnchorId);
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
+          return rightPaneRoot;
+        }
+        return null;
+      }),
+    };
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+    let scheduledFrame: FrameRequestCallback | null = null;
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      writable: true,
+      value: vi.fn((callback: FrameRequestCallback) => {
+        scheduledFrame = callback;
+        return 17;
+      }),
+    });
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    });
+
+    setActiveSectionIds(["section-initial"]);
+    expect(useActiveSectionUI.getState().scheduledBackendSync).toEqual({
+      projectConfigId: "project-1",
+      activeIds: ["section-initial"],
+    });
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            settingId: rightAnchorId,
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: rightAnchorId,
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses[0]?.status).toBe("revealed");
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-target"]);
+    expect(useActiveSectionUI.getState().scheduledBackendSync).toBeNull();
+
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).not.toHaveBeenCalled();
   });
 
   it("rolls back request-scoped activeSectionId and pane state when right-pane anchor lookup fails", async () => {

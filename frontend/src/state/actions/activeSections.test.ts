@@ -206,6 +206,37 @@ describe("activeSections", () => {
     expect(endpointSpy).not.toHaveBeenCalled();
   });
 
+  it("cancels a queued durable sync when a different-id ui-only update replaces it", () => {
+    useProjectState.setState(buildProjectState("project-a", []).projectState);
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 77;
+    });
+    const cancelSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+
+    setActiveSectionIds(["section-a"]);
+    setActiveSectionIds(["section-b"], { syncMode: "ui-only" });
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
+    expect(useActiveSectionUI.getState().scheduledBackendSync).toBeNull();
+    expect(cancelSpy).toHaveBeenCalledWith(77);
+
+    scheduledFrame?.(16);
+
+    expect(endpointSpy).not.toHaveBeenCalled();
+  });
+
   it("drops a deferred sync if the project config changes before the frame flushes", () => {
     useProjectState.setState(buildProjectState("project-a", []).projectState);
     const endpointSpy = vi

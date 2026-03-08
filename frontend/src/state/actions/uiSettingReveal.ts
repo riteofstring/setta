@@ -4,10 +4,7 @@ import {
   invokePluginSettingRevealHandler,
   usePluginRuntimeStore,
 } from "plugins/runtime";
-import {
-  getActiveSectionUIIds,
-  setActiveSectionUIIds,
-} from "state/activeSectionUI";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import {
   REQUIRED_UI_EDITOR_TABS,
@@ -21,6 +18,7 @@ import type {
   UISettingRevealContent,
   UISettingRevealTarget,
 } from "utils/generatedTypes";
+import { setActiveSectionIds } from "./activeSections";
 
 const DEFAULT_DURATION_MS = 3000;
 const MAX_DURATION_MS = 10000;
@@ -891,7 +889,7 @@ function restoreRevealProjectStateSnapshotIfOwned({
   ) {
     return;
   }
-  setActiveSectionUIIds(snapshot.activeIds);
+  setActiveSectionIds(snapshot.activeIds, { syncMode: "ui-only" });
 }
 
 function isRevealMutationOwnerMatch(
@@ -1031,7 +1029,7 @@ function applyRequestedActiveSectionForReveal({
   ) {
     return { ok: true };
   }
-  setActiveSectionUIIds([requestedActiveSectionId]);
+  setActiveSectionIds([requestedActiveSectionId], { syncMode: "ui-only" });
   mutationDiff.touchedProjectStateActiveIdsProjectConfigIds.add(
     projectConfigId,
   );

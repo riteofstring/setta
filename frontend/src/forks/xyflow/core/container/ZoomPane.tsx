@@ -40,6 +40,18 @@ type ZoomPaneInitParams = {
   initialViewport: Viewport;
 };
 
+type ViewportInteractionFlags = {
+  isPanScrolling: boolean;
+  isWheelZooming: boolean;
+  isZoomingOrPanning: boolean;
+};
+
+type ViewportInteractionRefs = {
+  isPanScrolling: { current: boolean };
+  isWheelZooming: { current: boolean };
+  isZoomingOrPanning: { current: boolean };
+};
+
 const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
@@ -53,6 +65,28 @@ const isWrappedWithClass = (event: Event, className?: string): boolean => {
 
 const getEventButton = (event: ZoomFilterEvent): number =>
   "button" in event ? event.button : 0;
+
+export function getViewportInteractionActiveValue({
+  isPanScrolling,
+  isWheelZooming,
+  isZoomingOrPanning,
+}: ViewportInteractionFlags): boolean {
+  return isPanScrolling || isWheelZooming || isZoomingOrPanning;
+}
+
+function syncViewportInteractionActive({
+  isPanScrolling,
+  isWheelZooming,
+  isZoomingOrPanning,
+}: ViewportInteractionRefs) {
+  useReactFlow.setState({
+    viewportInteractionActive: getViewportInteractionActiveValue({
+      isPanScrolling: isPanScrolling.current,
+      isWheelZooming: isWheelZooming.current,
+      isZoomingOrPanning: isZoomingOrPanning.current,
+    }),
+  });
+}
 
 const wheelDelta = (event: WheelEvent) => {
   const factor = event.ctrlKey && isMacOs() ? 10 : 1;
@@ -117,16 +151,21 @@ const ZoomPane = ({
         clearTimeout(wheelZoomTimeout.current);
         if (!isWheelZooming.current) {
           isWheelZooming.current = true;
-          useReactFlow.setState({ viewportInteractionActive: true });
+          syncViewportInteractionActive({
+            isPanScrolling,
+            isWheelZooming,
+            isZoomingOrPanning,
+          });
         }
       };
       const scheduleWheelZoomBurstEnd = () => {
         wheelZoomTimeout.current = setTimeout(() => {
           isWheelZooming.current = false;
-          if (isPanScrolling.current || isZoomingOrPanning.current) {
-            return;
-          }
-          useReactFlow.setState({ viewportInteractionActive: false });
+          syncViewportInteractionActive({
+            isPanScrolling,
+            isWheelZooming,
+            isZoomingOrPanning,
+          });
         }, 180);
       };
 
@@ -194,16 +233,24 @@ const ZoomPane = ({
             // we can't use the start, zoom and end events from d3-zoom
             // because start and move gets called on every scroll event and not once at the beginning
             if (!isPanScrolling.current) {
-              useReactFlow.setState({ viewportInteractionActive: true });
               useMisc.setState({ isPanScrolling: true });
               isPanScrolling.current = true;
+              syncViewportInteractionActive({
+                isPanScrolling,
+                isWheelZooming,
+                isZoomingOrPanning,
+              });
             }
 
             if (isPanScrolling.current) {
               panScrollTimeout.current = setTimeout(() => {
                 isPanScrolling.current = false;
-                useReactFlow.setState({ viewportInteractionActive: false });
                 useMisc.setState({ isPanScrolling: false });
+                syncViewportInteractionActive({
+                  isPanScrolling,
+                  isWheelZooming,
+                  isZoomingOrPanning,
+                });
               }, 150);
             }
           },
@@ -252,7 +299,11 @@ const ZoomPane = ({
           return;
         }
         isZoomingOrPanning.current = true;
-        useReactFlow.setState({ viewportInteractionActive: true });
+        syncViewportInteractionActive({
+          isPanScrolling,
+          isWheelZooming,
+          isZoomingOrPanning,
+        });
 
         if (sourceEvent.type === "mousedown") {
           useReactFlow.setState({ paneDragging: true });
@@ -295,15 +346,22 @@ const ZoomPane = ({
           return;
         }
         isZoomingOrPanning.current = false;
+        syncViewportInteractionActive({
+          isPanScrolling,
+          isWheelZooming,
+          isZoomingOrPanning,
+        });
         if (sourceEvent.type === "wheel") {
           useReactFlow.setState({ paneDragging: false });
           return;
         }
         isWheelZooming.current = false;
         clearTimeout(wheelZoomTimeout.current);
-        useReactFlow.setState({
-          paneDragging: false,
-          viewportInteractionActive: false,
+        useReactFlow.setState({ paneDragging: false });
+        syncViewportInteractionActive({
+          isPanScrolling,
+          isWheelZooming,
+          isZoomingOrPanning,
         });
       });
     }
