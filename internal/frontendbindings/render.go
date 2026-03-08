@@ -92,6 +92,11 @@ func buildBindings(
 		})
 	}
 
+	declarations := append(converter.Declarations(), extraDeclarations...)
+	if err := validateTypeDeclarations(declarations); err != nil {
+		return GeneratedBindings{}, err
+	}
+
 	routesTS, err := renderTemplate(routesTemplateText, map[string]any{
 		"RouteGroups":      routeGroups,
 		"RouteEnumEntries": flattenRouteEnumEntries(routeGroups),
@@ -101,7 +106,7 @@ func buildBindings(
 	}
 
 	typesTS, err := renderTemplate(typesTemplateText, map[string]any{
-		"Declarations": append(converter.Declarations(), extraDeclarations...),
+		"Declarations": declarations,
 	})
 	if err != nil {
 		return GeneratedBindings{}, err
@@ -150,6 +155,18 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		}
 		if spec.ResponseType != nil && frontendTypeName(spec.ResponseType) == "" {
 			return fmt.Errorf("endpoint %s: response type must be a named Go type, got %s", spec.FunctionName, spec.ResponseType.String())
+		}
+	}
+
+	return nil
+}
+
+func validateTypeDeclarations(declarations []TypeDeclaration) error {
+	for _, declaration := range declarations {
+		switch declaration.Kind {
+		case "object", "enum", "alias", "local_alias", "set", "type_guard", "function", "const":
+		default:
+			return fmt.Errorf("declaration %s: unsupported kind %q", declaration.Name, declaration.Kind)
 		}
 	}
 

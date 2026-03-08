@@ -104,6 +104,37 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRejectsUnsupportedDeclarationKinds(t *testing.T) {
+	tests := []struct {
+		name        string
+		declaration TypeDeclaration
+		want        string
+	}{
+		{
+			name:        "raw declaration",
+			declaration: TypeDeclaration{Name: "LegacyThing", Kind: "raw"},
+			want:        `declaration LegacyThing: unsupported kind "raw"`,
+		},
+		{
+			name:        "unknown declaration kind",
+			declaration: TypeDeclaration{Name: "MysteryThing", Kind: "mystery"},
+			want:        `declaration MysteryThing: unsupported kind "mystery"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := buildBindings(nil, nil, nil, []TypeDeclaration{tt.declaration})
+			if err == nil {
+				t.Fatalf("buildBindings(...) unexpectedly succeeded")
+			}
+			if err.Error() != tt.want {
+				t.Fatalf("buildBindings(...) error = %q, want %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
 func TestCurrentEndpointsUseUniqueFunctionsAndRoutes(t *testing.T) {
 	functionNames := make(map[string]EndpointSpec, len(CurrentEndpoints()))
 	routeMethods := make(map[string]EndpointSpec, len(CurrentEndpoints()))
