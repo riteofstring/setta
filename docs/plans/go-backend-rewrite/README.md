@@ -206,13 +206,17 @@ Use the docs in this order:
     foundations
 78. `phase-6-section-filter-and-meta-control-title-tools-parity.md`
   - focused implementation-plan doc for Go-owned `set_section_param_filter`
-    and `set_meta_control_show_section_title` MCP parity over the active
+    and `set_meta_control_show_section_title` MCP parity over the completed
     effective section-impl payload-write boundary
-79. `spike-mcp.md`
+79. `phase-6-app-definition-mutation-tool-parity.md`
+  - focused implementation-plan doc for Go-owned `set_app_definition` and
+    `update_app_definition` MCP parity over the document-level app-definition
+    metadata and stored app-spec file boundary
+80. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-80. `spike-pty.md`
+81. `spike-pty.md`
    - PTY uncertainty-reduction plan
-81. `spike-lsp.md`
+82. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

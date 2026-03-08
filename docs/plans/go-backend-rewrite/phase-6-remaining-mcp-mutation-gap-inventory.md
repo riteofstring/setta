@@ -2,43 +2,37 @@
 
 ## Purpose
 
-This doc closes the post-`delete_kwarg` planning step for Phase 6.
+This doc tracks the remaining Phase 6 MCP mutation surface after the completed
+section-filter and MetaControl-title slice.
 
-The param-structure cluster is now complete on the Go-owned MCP boundary, so
-the next slice should be chosen from the actual remaining Python-owned MCP
-mutation surface instead of continuing by local intuition.
+The non-app-definition mutation backlog is now complete on the Go-owned MCP
+boundary, so the next slice should be chosen from the remaining document-level
+app-definition work instead of from section-local payload writes.
 
 ## Status
 
 Current repo status as of 2026-03-07:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 50 tools total
-- 47 current Go tool names overlap with Python
+- Go MCP now exposes 52 tools total
+- 49 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 45 of those overlaps are mutation or structural tools
-- Python still has 4 mutation or structural project-state MCP tools that do
+- 47 of those overlaps are mutation or structural tools
+- Python still has 2 mutation or structural project-state MCP tools that do
   not yet have Go MCP parity
 
 ## Inputs
 
-- `docs/plans/go-backend-rewrite/phase-6-delete-kwarg-tool-parity.md`
-- `docs/plans/go-backend-rewrite/phase-5-watch-code-inline-edit-and-bound-code-file-reuse.md`
-- `docs/reference/mcp-system-overview.md`
-- `docs/reference/watch-code.md`
-- `backend/setta/mcp/system_prompt.md`
+- `docs/plans/go-backend-rewrite/phase-6-section-filter-and-meta-control-title-tools-parity.md`
+- `docs/plans/go-backend-rewrite/phase-6-app-definition-mutation-tool-parity.md`
 - `backend/setta/project_state/base_project_manager.py`
-- `tests/project_state/test_set_code_access_mode.py`
-- `tests/project_state/test_format_code.py`
-- `frontend/src/utils/generatedEndpoints.ts`
+- `tests/project_state/test_app_definition.py`
+- `tests/app/test_spec_store.py`
 - `internal/mcpx/server.go`
-- `internal/projectstate/code_updates.go`
-- `internal/projectstate/view_modes.go`
-- `internal/projectstate/auto_layout.go`
-- `internal/projectstate/layout_presentation.go`
-- `internal/projectstate/watch_code.go`
-- `internal/httpapi/project_routes.go`
-- `internal/app/code_updates.go`
+- `internal/projectstate/frontend_source.go`
+- `internal/projectstate/document.go`
+- `internal/deployments/runtime.go`
+- `internal/httpapi/deployment_routes.go`
 
 ## What Is Complete
 
@@ -74,6 +68,8 @@ MCP server:
   - `set_section_name`
   - `set_section_tag_color`
   - `set_section_style_color`
+  - `set_section_param_filter`
+  - `set_meta_control_show_section_title`
   - `set_gen_code_prefix`
   - `set_gen_code_suffix`
   - `format_code`
@@ -100,37 +96,40 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- section filter and MetaControl title parity:
-  - `set_section_param_filter`
-  - `set_meta_control_show_section_title`
+- app-definition mutation parity:
+  - `set_app_definition`
+  - `update_app_definition`
 
 Why this is next:
 
-1. after the completed section-variant slice, the remaining non-app-definition
-   MCP gaps are just two narrow section-payload writes plus the deferred
-   app-definition pair.
-2. both tools mutate active effective section-impl payload fields through the
-   same thin scoped-write transport shape.
-3. landing these two tools next clears the non-app-definition mutation backlog
-   before the final app-definition slice.
+1. the completed section-filter slice cleared the non-app-definition mutation
+   backlog, so the only mutation gap left is the deferred app-definition pair.
+2. these two tools share the same document-level storage and app-spec file
+   persistence boundary, so they should land together instead of as separate
+   transport-only patches.
+3. Go already preserves document app-definition metadata and can read stored
+   app specs in deployment mode, but it still lacks a write owner for that
+   subsystem.
 4. the next slice is scoped in:
-   `phase-6-section-filter-and-meta-control-title-tools-parity.md`
+   `phase-6-app-definition-mutation-tool-parity.md`
 
-### 2. After The Section-Filter Slice
+### 2. After The App-Definition Mutation Slice
 
-- start the deferred app-definition MCP slice against the now-small remaining
-  mutation surface
-- keep app-definition work deferred until frontend-source ownership is ready
+- close the remaining app-definition read gap:
+  - `get_app_definition`
+  - `validate_app_definition`
+- keep those reads separate unless the mutation owner makes it trivial to land
+  them together
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
 These should not be turned into MCP work until their authoritative Go mutation
 owner is clearer:
 
-- `set_section_param_filter`
-- `set_meta_control_show_section_title`
 - `set_app_definition`
 - `update_app_definition`
+- `get_app_definition`
+- `validate_app_definition`
 
 ### 4. Non-Mutation Read Gaps
 
@@ -142,10 +141,10 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-section-filter-and-meta-control-title-tools-parity.md` as the next bounded
+- use `phase-6-app-definition-mutation-tool-parity.md` as the next bounded
   Phase 6 slice
-- defer app-definition MCP work until the frontend-source subsystem is ready
-  for its own bounded Phase 6 slice
+- implement the document-level app-definition runtime owner before MCP
+  transport work
 
 ## Open Questions
 
@@ -153,10 +152,10 @@ priority:
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(ResolveAutoLayoutSectionSizingPolicy|ProjectCreateChildSections|RuntimeSetCodeSectionAttachedTerminal|RuntimeSetSectionSizes|NormalizeSectionSizeValueRejectsNonFiniteValues)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetSectionSizes)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetSectionSizes|SetSectionSizesAcceptsTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetSectionSizesOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedSSE|ToolCallRouteSupportsSetSectionSizes|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(SetSectionParamFilter|SetMetaControlShowSectionTitle)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetSectionParamFilter|SetMetaControlShowSectionTitle)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetSectionParamFilter|SetSectionParamFilterAcceptsTemporaryIDs|SupportsSetMetaControlShowSectionTitle|SetMetaControlShowSectionTitleAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetSectionParamFilterOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetSectionParamFilterOverAuthenticatedSSE|ServerSupportsSetMetaControlShowSectionTitleOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetMetaControlShowSectionTitleOverAuthenticatedSSE|ToolCallRouteSupportsSetSectionParamFilter|ToolCallRouteSupportsSetMetaControlShowSectionTitle|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -249,3 +248,9 @@ priority:
 - 2026-03-07: reranking after the section-variant slice moved the next bounded
   Phase 6 step to the section filter and MetaControl title cluster in
   `phase-6-section-filter-and-meta-control-title-tools-parity.md`.
+- 2026-03-07: the section filter and MetaControl title slice is now complete
+  across the Go runtime owner, MCP server, HTTP tool route, and authenticated
+  SSE transport.
+- 2026-03-07: completion of the section filter and MetaControl title slice
+  moved the next bounded Phase 6 step to the app-definition mutation cluster in
+  `phase-6-app-definition-mutation-tool-parity.md`.
