@@ -64,6 +64,16 @@ Landed during Slice 1:
   - `POST /cancelTranscriptionSession`
 - the real IDE app now wires those routes through the auth session scope, the
   landed LLM runtime, and the new transcription-session cleanup loop
+- realtime transport is still Go-owned only as an explicit `503
+  transcription_runtime_unavailable`
+
+Still remaining for this phase doc:
+
+- true Go-owned realtime transcription session execution
+- `transportMode=auto` resolution from explicit provider/model capability
+  instead of the temporary `auto -> file` rule
+- removal of the temporary realtime-unavailable branch now that a realtime
+  owner exists
 
 ## Scope
 
@@ -80,6 +90,15 @@ This slice should land the first bounded Go-owned transcription surface:
   - audio payload too large
   - provider failure
 
+Slice 2 extends that runtime with:
+
+- bounded OpenAI realtime transcription session execution over websocket
+- incremental append-time transcript deltas for the existing frontend dictation
+  caller
+- `transportMode=auto` resolution to realtime only when the resolved
+  provider/model capability says realtime is supported
+- explicit provider/setup/runtime failure surfaces instead of silent fallback
+
 ## Deliberate Slice Boundary
 
 This is a clean-break bounded landing, not a Python parity dump.
@@ -94,6 +113,16 @@ That keeps the direct provider-dictation surface usable for the default and
 currently exercised file-mode flows without pretending the Go runtime already
 has realtime session ownership.
 
+Slice 2 should:
+
+- add only the bounded OpenAI realtime provider path already implied by
+  `internal/transcriptionprofiles.supportsRealtimeTranscription`
+- keep file-mode ownership exactly where it already lives
+- resolve `transportMode=auto` from explicit capability, not from message
+  matching
+- surface realtime setup/runtime failures directly instead of silently falling
+  back to file after a provider error
+
 ## Non-Goals
 
 - implementing realtime transcription session transport in the same landing
@@ -102,6 +131,8 @@ has realtime session ownership.
 - introducing LiteLLM-shaped provider abstractions
 - broadening beyond the direct frontend transcription routes
 - heuristic parsing of provider errors beyond structured response fields
+- heuristic runtime fallback from realtime to file based on provider error
+  message fragments once realtime exists
 
 ## Design
 
@@ -153,6 +184,22 @@ The runtime should own:
 This state belongs in an explicit Go runtime service, not in route globals or
 websocket transport.
 
+### 5. Keep realtime transport provider-bounded
+
+The realtime slice should not invent a general streaming-provider framework.
+
+Use one explicit OpenAI realtime adapter that owns:
+
+- websocket URL construction from the resolved LLM config base URL
+- the required realtime headers
+- `transcription_session.update`
+- `input_audio_buffer.append`
+- `input_audio_buffer.commit`
+- structured event decode for completed/failed transcription events
+
+Everything above that boundary should stay provider-agnostic inside
+`internal/transcriptionsessions`.
+
 ## Implementation Plan
 
 1. Add a focused `internal/transcriptionsessions` runtime package with:
@@ -172,12 +219,36 @@ websocket transport.
 5. Update the Phase 18 docs with completed scope, decisions, open questions,
    and the next recommended step.
 
+### Slice 2 Implementation Plan
+
+1. Add a bounded realtime engine under `internal/transcriptionsessions` with:
+   - websocket dial and close ownership
+   - OpenAI realtime session setup
+   - append-time audio buffer send and event drain
+   - stop-time final event drain
+   - item-id dedupe and transcript accumulation
+2. Extend `StartSession(...)` transport resolution:
+   - `file` stays file
+   - `realtime` requires explicit realtime capability
+   - `auto` resolves to realtime only from the existing capability source of
+     truth, otherwise file
+3. Keep route transport unchanged except for the removal of the old realtime
+   runtime-unavailable branch where the new runtime now owns it.
+4. Add focused tests using a real websocket test server for:
+   - realtime start / append / stop flow
+   - append-time incremental transcript deltas plus final full text
+   - auto resolving to realtime for supported configs
+   - explicit failure behavior instead of runtime fallback
+   - realtime sample-rate/channel invariants and TTL close behavior
+5. Update the Phase 18 docs with landed decisions, open questions, and the
+   next direct step after realtime session ownership.
+
 ## Open Questions
 
-- whether the next slice after file-mode ownership should be true realtime
-  session runtime or broader `auto` semantics once realtime exists
 - whether any active caller still depends on typed provider-failure message
   extraction beyond structured provider JSON error payloads
+- whether the current direct dictation caller needs any realtime-session event
+  shape beyond incremental `appendText` and final `fullText`
 
 ## Decisions Made
 
@@ -189,6 +260,10 @@ websocket transport.
   is an unsupported model when the config may in fact support it
 - keep config and API-key resolution on `internal/llmconfig` and
   `internal/transcriptionprofiles` instead of inventing a parallel runtime
+- once realtime lands, resolve `auto` from explicit capability only and do not
+  reintroduce Python's heuristic realtime-to-file fallback logic
+- keep the realtime owner provider-bounded to OpenAI websocket semantics until
+  a second concrete provider justifies a broader abstraction
 
 ## Verification
 
@@ -213,10 +288,14 @@ websocket transport.
 - 2026-03-09: kept realtime transport explicit by returning
   `503 transcription_runtime_unavailable` for realtime profiles rather than
   smuggling in a partial or misleading fallback.
+- 2026-03-10: reranked the next direct step to the bounded realtime session
+  owner because the active frontend dictation caller still consumes append-time
+  transcript deltas and a final stop result.
+- 2026-03-10: scoped Slice 2 to one OpenAI realtime websocket adapter and
+  explicit capability-driven `auto` resolution, not heuristic fallback.
 
 ## Next Recommended Step
 
-Implement the bounded realtime transcription session owner if the active
-caller still needs incremental provider dictation; otherwise keep the landed
-file-mode surface and temporary `auto -> file` rule as the bounded Go-owned
-provider-dictation path.
+Implement the bounded realtime transcription session owner, then remove the
+temporary `auto -> file` rule in favor of explicit capability-driven transport
+resolution.
