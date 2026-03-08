@@ -157,10 +157,13 @@ def test_macos_installer_script_runs_postinstall_bootstrap() -> None:
     script_path = _repo_root() / "scripts" / "release" / "build_macos_installer.sh"
     script_content = script_path.read_text(encoding="utf-8")
 
+    assert "SETTA_DESKTOP_INSTALLER_PACKAGE_PATH" in script_content
+    assert "dist/setta-${version}.tar.gz" in script_content
+    assert "setta-package.tar.gz" in script_content
     assert 'cat > "${installer_scripts_root}/postinstall"' in script_content
     assert '--scripts "${installer_scripts_root}"' in script_content
     assert (
-        "--channel native-installer --install-source installer-managed --open-mode chrome-app"
+        "--package '/usr/local/share/setta-installer/setta-package.tar.gz' --channel native-installer --install-source installer-managed --open-mode chrome-app"
         in script_content
     )
 
@@ -169,11 +172,14 @@ def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
     script_path = _repo_root() / "scripts" / "release" / "build_windows_installer.ps1"
     script_content = script_path.read_text(encoding="utf-8")
 
+    assert "SETTA_DESKTOP_INSTALLER_PACKAGE_PATH" in script_content
+    assert 'Join-Path "dist" "setta-$Version.tar.gz"' in script_content
+    assert "PackageArtifactFile" in script_content
     assert 'Id="RunDesktopBootstrap"' in script_content
     assert 'After="InstallFiles">NOT Installed</Custom>' in script_content
     assert "setta-install-desktop.ps1" in script_content
     assert (
-        "-Channel native-installer -InstallSource installer-managed -OpenMode chrome-app"
+        '-Package "[#PackageArtifactFile]" -Channel native-installer -InstallSource installer-managed -OpenMode chrome-app'
         in script_content
     )
 
@@ -220,6 +226,54 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
     )
     assert "name: Publish release assets" in workflow_content
     assert 'raw_version="${REF_NAME}"' not in workflow_content
+
+
+def test_release_workflow_builds_launcher_smoke_package_with_go_binaries() -> None:
+    workflow_path = (
+        _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
+    )
+    workflow_content = workflow_path.read_text(encoding="utf-8")
+    launcher_smoke_section = workflow_content.split("launcher-smoke:", 1)[1].split(
+        "publish-release-assets:", 1
+    )[0]
+
+    assert "actions/setup-go@v5" in launcher_smoke_section
+    assert "./scripts/build_python_distribution_with_go_binaries.sh" in launcher_smoke_section
+    assert "python -m build" not in launcher_smoke_section
+
+
+def test_release_workflow_builds_native_installer_package_with_go_binaries() -> None:
+    workflow_path = (
+        _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
+    )
+    workflow_content = workflow_path.read_text(encoding="utf-8")
+
+    macos_section = workflow_content.split("macos-installer:", 1)[1].split(
+        "windows-installer:", 1
+    )[0]
+    windows_section = workflow_content.split("windows-installer:", 1)[1].split(
+        "macos-installer-smoke:", 1
+    )[0]
+
+    for installer_section in (macos_section, windows_section):
+        assert "actions/setup-python@v5" in installer_section
+        assert "actions/setup-go@v5" in installer_section
+        assert "python -m pip install build" in installer_section
+        assert "./scripts/build_python_distribution_with_go_binaries.sh --sdist" in installer_section
+
+
+def test_native_installer_smoke_scripts_verify_expected_setta_version() -> None:
+    macos_script = (
+        _repo_root() / "scripts" / "release" / "smoke_test_native_installer_macos.sh"
+    ).read_text(encoding="utf-8")
+    windows_script = (
+        _repo_root() / "scripts" / "release" / "smoke_test_native_installer_windows.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "expected_setta_version" in macos_script
+    assert "payload.get(\"settaVersion\") != expected_version" in macos_script
+    assert "expectedSettaVersion" in windows_script
+    assert "$payload.settaVersion -ne $expectedSettaVersion" in windows_script
 
 
 def _load_release_workflow_definition() -> dict[str, object]:

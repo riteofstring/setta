@@ -126,7 +126,6 @@ class TestShareDeploymentPublish:
 
                 project_state_backend = ProjectStateBackend(
                     projectConfigs={project_config_id: project_config},
-                    projectChatWindowingByProjectConfigId={project_config_id: {}},
                     defaultProjectConfigId=project_config_id,
                     sections={dict_section_id: dict_core},
                     sectionImpls={dict_impl.id: dict_impl},
@@ -384,7 +383,6 @@ class TestShareDeploymentPublish:
 
                 project_state_backend = ProjectStateBackend(
                     projectConfigs={project_config_id: project_config},
-                    projectChatWindowingByProjectConfigId={project_config_id: {}},
                     defaultProjectConfigId=project_config_id,
                     sections={dict_section_id: dict_core},
                     sectionImpls={dict_impl.id: dict_impl},
@@ -591,7 +589,6 @@ class TestShareDeploymentPublish:
 
                 project_state_backend = ProjectStateBackend(
                     projectConfigs={project_config_id: project_config},
-                    projectChatWindowingByProjectConfigId={project_config_id: {}},
                     defaultProjectConfigId=project_config_id,
                     sections=sections,
                     sectionImpls=section_impls,

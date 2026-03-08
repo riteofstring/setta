@@ -16,8 +16,6 @@ let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetai
 let memoryStorage: Storage;
 
 const chatId = "chat-1";
-const OTHER_SURFACE_ID = "surface-other";
-const TARGET_SURFACE_ID = "surface-target";
 
 describe("submitEditedMessage", () => {
   beforeAll(async () => {
@@ -67,15 +65,10 @@ describe("submitEditedMessage", () => {
     delete (globalThis as { localStorage?: Storage }).localStorage;
   });
 
-  it("returns null without mutating surface-scoped pending state when message id is missing", async () => {
+  it("returns null without mutating pending state when message id is missing", async () => {
     useAIStore.setState({
       activeChatId: chatId,
-      pendingChatDetailsBySurfaceId: {
-        [OTHER_SURFACE_ID]: {
-          ...getDefaultChatDetails(),
-          messages: [],
-        },
-      },
+      pendingChatDetails: null,
       chatDetails: {
         [chatId]: {
           ...getDefaultChatDetails(),
@@ -102,19 +95,11 @@ describe("submitEditedMessage", () => {
       isExternalEngine: false,
       agentProfileId: null,
       sectionId: null,
-      pendingSurfaceId: TARGET_SURFACE_ID,
     });
 
     expect(result).toBeNull();
     const state = useAIStore.getState();
     expect(state.activeChatId).toBe(chatId);
-    expect(
-      state.pendingChatDetailsBySurfaceId[TARGET_SURFACE_ID],
-    ).toBeUndefined();
-    expect(state.pendingChatDetailsBySurfaceId[OTHER_SURFACE_ID]).toMatchObject(
-      {
-        messages: [],
-      },
-    );
+    expect(state.pendingChatDetails).toBeNull();
   });
 });
