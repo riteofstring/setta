@@ -126,9 +126,12 @@ Verification run completed:
 Slice 2 no longer has a direct implementation gap for the active source/dev
 startup surface.
 
-If rewrite work continues, move to Phase 25 Slice 3:
+The follow-on inventory is now recorded in:
 
-- inventory which remaining `backend/setta/start.py` branches are still
-  reachable through active workflows after the dev startup boundary change
-- treat direct `setta.start` test coverage as legacy by default unless that
-  inventory proves a current consumer still needs it
+- `phase-25-start-py-reachability-inventory-and-rerank.md`
+
+Use that doc for the next decision:
+
+- open one narrow fallback-hardening slice only if root help, bare `plugins`,
+  or unknown-command ownership should move out of `setta.start`
+- otherwise move to the distribution/install workflow track

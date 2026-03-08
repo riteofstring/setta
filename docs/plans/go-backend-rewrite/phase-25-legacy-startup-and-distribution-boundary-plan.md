@@ -56,6 +56,17 @@ Completed during Slice 2 sub-slice:
 - focused source/dev tests now guard that boundary explicitly, including direct
   tests for the reload owner
 
+Completed during Slice 3 inventory step:
+
+- `phase-25-start-py-reachability-inventory-and-rerank.md` now records the
+  still-reachable `setta.start` surface after the dev-start boundary change
+- active source/dev startup no longer reaches `setta.start`
+- the remaining active packaged fallback is now narrowed to root help, bare
+  `plugins`, and unknown-command / unknown-flag handling through
+  `backend/setta/entrypoint.py`
+- direct `tests/start/*` imports of `setta.start` remain legacy anchors rather
+  than automatic proof of active workflow reachability
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
@@ -242,15 +253,22 @@ For later slices:
 
 ## Next Recommended Step
 
-Execute Slice 3 next if rewrite work continues:
+Slice 3 inventory is now complete.
+
+If rewrite work continues, do not open broad `start.py` cleanup by default.
+
+Choose explicitly between:
+
+- one narrow fallback-hardening slice for root help, bare `plugins`, and
+  unknown-command handling at the entrypoint boundary
+- or Slice 4 distribution/install workflow retargeting
+
+Use these docs as the current source of truth:
 
 - use
   `phase-25-startup-test-surface-classification-and-source-of-truth.md` as the
   contract boundary
 - use `phase-25-dev-startup-command-boundary-plan.md` as the record of the now
   landed source/dev startup hardening slice
-- inventory which remaining `backend/setta/start.py` branches are still
-  reachable through active workflows now that dev startup no longer depends on
-  the Click root path
-- avoid reopening the now-explicit source/dev startup boundary unless that
-  inventory proves a real remaining dependency
+- use `phase-25-start-py-reachability-inventory-and-rerank.md` as the record
+  of the now-narrowed remaining `setta.start` reachability

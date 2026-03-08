@@ -194,13 +194,14 @@ For the current rewrite boundary:
 
 ## Next Recommended Step
 
-Proceed to Phase 25 Slice 2 only:
+Slice 2 is now complete, and the remaining post-Slice-2 reachability is now
+recorded in:
 
-- harden `frontend/backendStart.sh` and adjacent dev wiring around the explicit
-  Go-owned command boundary
-- preserve the active shipped/distribution and source/dev buckets above
-- do not preserve legacy fallback behavior unless Slice 2 discovers a concrete
-  current dependency
+- `phase-25-dev-startup-command-boundary-plan.md`
+- `phase-25-start-py-reachability-inventory-and-rerank.md`
 
-Slice 3 should only begin after Slice 2 makes the remaining active workflow
-dependencies on `backend/setta/start.py` smaller and more explicit.
+Use this classification doc as the contract boundary for any later cleanup:
+
+- preserve the active shipped/distribution and active source/dev buckets above
+- do not promote the legacy fallback bucket back into active contract scope
+  unless a concrete workflow proves it still needs to be active

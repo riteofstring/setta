@@ -34,6 +34,13 @@ Current repo status as of 2026-03-10:
   - source/dev wiring
   - distribution/install/release workflows
 
+Later Phase 25 progress has now narrowed that picture further:
+
+- the active source/dev startup contract is now explicit and no longer routes
+  through `setta.start` for normal or reload startup
+- the remaining reachable `setta.start` surface is now recorded separately in
+  `phase-25-start-py-reachability-inventory-and-rerank.md`
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -192,10 +199,19 @@ After the post-Phase-24 broader inventory:
 
 ## Next Recommended Step
 
-The focused follow-on planning and Slice 1 classification are now recorded in:
+The broader rerank in this doc is now narrowed further by:
 
 - `phase-25-legacy-startup-and-distribution-boundary-plan.md`
 - `phase-25-startup-test-surface-classification-and-source-of-truth.md`
+- `phase-25-dev-startup-command-boundary-plan.md`
+- `phase-25-start-py-reachability-inventory-and-rerank.md`
 
-The next executable step is Phase 25 Slice 2 source/dev startup contract
-hardening.
+The current next-step decision is no longer Slice 2. It is whether to:
+
+- open one narrow entrypoint fallback-hardening slice for root help, bare
+  `plugins`, and unknown-command handling
+- or move directly to Phase 25 Slice 4 distribution/install workflow
+  retargeting
+
+The current evidence favors the second option unless CLI root-help ownership
+becomes a concrete priority.

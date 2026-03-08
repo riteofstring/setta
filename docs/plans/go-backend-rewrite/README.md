@@ -748,12 +748,16 @@ Use the docs in this order:
   - focused Slice 2 implementation doc for the first source/dev hardening
     step: make `backendStart.sh` choose an explicit routed command path for
     normal startup and an explicit dev-only legacy path for reload
-204. `spike-mcp.md`
+204. `phase-25-start-py-reachability-inventory-and-rerank.md`
+  - focused Slice 3 inventory doc showing that the remaining reachable
+    `setta.start` surface is now a small entrypoint fallback edge set rather
+    than a broad active startup dependency
+205. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-205. `spike-pty.md`
+206. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-206. `spike-lsp.md`
+207. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

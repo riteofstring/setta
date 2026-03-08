@@ -392,6 +392,25 @@ The first bounded Slice 2 step is now also landed:
   of which remaining `backend/setta/start.py` branches are still reachable at
   all
 
+That Slice 3 inventory is now also recorded in
+`phase-25-start-py-reachability-inventory-and-rerank.md`.
+The current reachability evidence is now narrower than the file size of
+`backend/setta/start.py` suggests:
+
+- active source/dev startup no longer routes through `setta.start`
+- command-specific shipped paths continue to dispatch through the Go-owned
+  packaged command surface
+- the remaining active packaged fallback into `setta.start` is concentrated at
+  root help, bare `plugins`, and unknown-command / unknown-flag handling in
+  `backend/setta/entrypoint.py`
+- direct `tests/start/*` imports of `setta.start` remain legacy anchor
+  coverage rather than proof of active workflow reachability
+
+The next honest Phase 25 decision is therefore no longer "clean up
+`start.py` broadly". It is whether to open one narrow fallback-hardening slice
+for that small root-level edge set or to move directly to the distribution /
+install workflow track.
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.
