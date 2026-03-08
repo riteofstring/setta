@@ -22,6 +22,7 @@ import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
   getExternalEngineStatus,
+  resolveEffectiveThinking,
 } from "components/Chat/engineUtils";
 import {
   buildLLMConfigGroups,
@@ -1268,6 +1269,10 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const effectiveThinking = resolveEffectiveThinking({
+    engineType,
+    requestedThinking: thinking,
+  });
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveManagedChatRunType(engineType);
     if (!runType) {
@@ -1569,7 +1574,7 @@ function ManagedChatArea({
           chatId,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           effectiveEngineConfigId,
           isExternalEngine,
           {
@@ -1605,7 +1610,7 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      thinking,
+      effectiveThinking,
     ],
   );
 
@@ -1643,7 +1648,7 @@ function ManagedChatArea({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId: effectiveEngineConfigId,
         isExternalEngine,
         agentProfileId,
@@ -1665,7 +1670,7 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      thinking,
+      effectiveThinking,
     ],
   );
 
