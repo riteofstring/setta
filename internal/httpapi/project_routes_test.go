@@ -3551,6 +3551,169 @@ func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesChartMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": chartRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetChartAreaDataPath,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","dataPath":"  artifacts/chart.csv  "}`,
+		},
+		{
+			route: RouteSetChartSettings,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"line","xAxisColumn":"time"},"changedSettings":["xAxisColumn"]}`,
+		},
+		{
+			route: RouteSetChartSettings,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"line","secondYAxisColumns":["humidity","humidity"," pressure "],"y1AxisLog":true,"y2AxisLog":true},"changedSettings":["secondYAxisColumns","y1AxisLog","y2AxisLog"]}`,
+		},
+		{
+			route: RouteSetChartType,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartType":"scatter"}`,
+		},
+		{
+			route: RouteSetChartSettings,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"scatter","categoryColumn":"series","yAxisLog":true},"changedSettings":["categoryColumn","yAxisLog"]}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	chartModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["chart-section"].SharedModifier)
+	if chartModifier["dataPath"] != "artifacts/chart.csv" {
+		t.Fatalf("expected trimmed chart dataPath, got %#v", chartModifier["dataPath"])
+	}
+	rawChartSettings, ok := chartModifier["chartSettings"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chartSettings object, got %#v", chartModifier["chartSettings"])
+	}
+	if rawChartSettings["type"] != "scatter" {
+		t.Fatalf("expected chartSettings.type scatter, got %#v", rawChartSettings["type"])
+	}
+	if rawChartSettings["xAxisColumn"] != "time" {
+		t.Fatalf("expected preserved xAxisColumn time, got %#v", rawChartSettings["xAxisColumn"])
+	}
+	if rawChartSettings["categoryColumn"] != "series" {
+		t.Fatalf("expected categoryColumn series, got %#v", rawChartSettings["categoryColumn"])
+	}
+	if rawChartSettings["xAxisLog"] != true {
+		t.Fatalf("expected xAxisLog true, got %#v", rawChartSettings["xAxisLog"])
+	}
+	if rawChartSettings["yAxisLog"] != true {
+		t.Fatalf("expected yAxisLog true, got %#v", rawChartSettings["yAxisLog"])
+	}
+	if rawChartSettings["secondYAxisColumns"] != nil {
+		t.Fatalf("expected secondYAxisColumns to clear after scatter conversion, got %#v", rawChartSettings["secondYAxisColumns"])
+	}
+}
+
+func TestRegisterProjectRoutesChartMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": chartRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetChartAreaDataPath,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","dataPath":"chart.csv"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"chart_section_required"`,
+		},
+		{
+			route:        RouteSetChartType,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartType":"bar"}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"chart_type_invalid"`,
+		},
+		{
+			route:        RouteSetChartSettings,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"bar"},"changedSettings":[]}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"chart_type_invalid"`,
+		},
+		{
+			route:        RouteSetChartSettings,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"chart-section","chartSettings":{"type":"line","categoryColumn":"series"},"changedSettings":["categoryColumn"]}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"chart_settings_field_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesTextBlockMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -6312,6 +6475,65 @@ func sectionDataRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize section data route project: %v", err)
+	}
+	return project
+}
+
+func chartRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"chart-section": "chart-variant",
+			"plain-section": "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"chart-section": {
+				ID:               "chart-section",
+				Name:             "Chart Section",
+				VariantIDs:       []string{"chart-variant"},
+				DefaultVariantID: "chart-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"chart-variant": {ID: "chart-variant", ImplID: "chart-impl"},
+			"plain-variant": {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"chart-impl": {
+				ID:   "chart-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":       "chart-impl",
+					"type":     "Chart",
+					"dataPath": "seed-chart.csv",
+					"chartSettings": map[string]any{
+						"type":               "line",
+						"xAxisColumn":        nil,
+						"secondYAxisColumns": []string{"humidity"},
+						"xAxisLog":           true,
+						"y1AxisLog":          false,
+						"y2AxisLog":          false,
+					},
+				}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize chart route project: %v", err)
 	}
 	return project
 }

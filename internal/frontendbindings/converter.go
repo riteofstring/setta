@@ -469,6 +469,21 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setSocialURLRequestInputRawTS,
 			},
+			reflect.TypeOf(SetChartAreaDataPathRequestInput{}): {
+				Name: "SetChartAreaDataPathRequestInput",
+				Kind: "raw",
+				Raw:  setChartAreaDataPathRequestInputRawTS,
+			},
+			reflect.TypeOf(SetChartTypeRequestInput{}): {
+				Name: "SetChartTypeRequestInput",
+				Kind: "raw",
+				Raw:  setChartTypeRequestInputRawTS,
+			},
+			reflect.TypeOf(SetChartSettingsRequestInput{}): {
+				Name: "SetChartSettingsRequestInput",
+				Kind: "raw",
+				Raw:  setChartSettingsRequestInputRawTS,
+			},
 			reflect.TypeOf(SetTextBlockTextRequestInput{}): {
 				Name: "SetTextBlockTextRequestInput",
 				Kind: "raw",

@@ -90,6 +90,9 @@ const (
 	RouteSetTaskBoardSectionState          = "/setTaskBoardSectionState"
 	RouteSetImageAreaImagePath             = "/setImageAreaImagePath"
 	RouteSetSocialURL                      = "/setSocialUrl"
+	RouteSetChartAreaDataPath              = "/setChartAreaDataPath"
+	RouteSetChartType                      = "/setChartType"
+	RouteSetChartSettings                  = "/setChartSettings"
 	RouteSetTextBlockText                  = "/setTextBlockText"
 	RouteSetTextBlockDisplayMode           = "/setTextBlockDisplayMode"
 	RouteSetTextBlockFormat                = "/setTextBlockFormat"
@@ -747,6 +750,28 @@ type SetSocialURLRequest struct {
 	URL          string  `json:"url"`
 }
 
+type SetChartAreaDataPathRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	DataPath     string  `json:"dataPath"`
+}
+
+type SetChartTypeRequest struct {
+	FrontendOpID *string                `json:"frontendOpId"`
+	ProjectID    string                 `json:"projectConfigId"`
+	SectionID    string                 `json:"sectionId"`
+	ChartType    projectstate.ChartType `json:"chartType"`
+}
+
+type SetChartSettingsRequest struct {
+	FrontendOpID    *string                          `json:"frontendOpId"`
+	ProjectID       string                           `json:"projectConfigId"`
+	SectionID       string                           `json:"sectionId"`
+	ChartSettings   projectstate.ChartSettingsUpdate `json:"chartSettings"`
+	ChangedSettings []string                         `json:"changedSettings"`
+}
+
 type SetTextBlockTextRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -992,6 +1017,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTaskBoardSectionState, setTaskBoardSectionStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetImageAreaImagePath, setImageAreaImagePathHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSocialURL, setSocialURLHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChartAreaDataPath, setChartAreaDataPathHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChartType, setChartTypeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChartSettings, setChartSettingsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockText, setTextBlockTextHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockDisplayMode, setTextBlockDisplayModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTextBlockFormat, setTextBlockFormatHandler(deps))
@@ -3716,6 +3744,115 @@ func setSocialURLHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func setChartAreaDataPathHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetChartAreaDataPathRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetChartAreaDataPath(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.DataPath,
+		); err != nil {
+			writeChartMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setChartTypeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetChartTypeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetChartType(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ChartType,
+		); err != nil {
+			writeChartMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setChartSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetChartSettingsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetChartSettings(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ChartSettings,
+			payload.ChangedSettings,
+		); err != nil {
+			writeChartMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setTextBlockTextHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetTextBlockTextRequest](r)
@@ -4747,6 +4884,19 @@ func writeSectionDataMutationError(w http.ResponseWriter, r *http.Request, err e
 		writeError(w, r, http.StatusUnprocessableEntity, "image_section_required", "Section must resolve to an image section.")
 	case errors.Is(err, projectstate.ErrSocialSectionRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "social_section_required", "Section must resolve to a social section.")
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeChartMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrChartSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "chart_section_required", "Section must resolve to a chart section.")
+	case errors.Is(err, projectstate.ErrChartTypeInvalid):
+		writeError(w, r, http.StatusBadRequest, "chart_type_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrChartSettingsFieldInvalid):
+		writeError(w, r, http.StatusBadRequest, "chart_settings_field_invalid", err.Error())
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}

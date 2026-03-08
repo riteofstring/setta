@@ -75,6 +75,9 @@ import {
   route_set_browser_column_widths,
   route_set_browser_hide_column,
   route_set_browser_saved_searches,
+  route_set_chart_area_data_path,
+  route_set_chart_settings,
+  route_set_chart_type,
   route_set_image_area_image_path,
   route_set_chat_section_state,
   route_set_code_file_binding,
@@ -1399,6 +1402,91 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "social-section",
         url: "https://example.com/watch?v=123",
         frontendOpId: "frontend-op-social-url",
+      }),
+    });
+  });
+
+  it("posts chart data-path writes", async () => {
+    await route_set_chart_area_data_path({
+      projectConfigId: "project-alpha",
+      sectionId: "chart-section",
+      dataPath: "artifacts/chart.csv",
+      frontendOpId: "frontend-op-chart-path",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setChartAreaDataPath`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "chart-section",
+        dataPath: "artifacts/chart.csv",
+        frontendOpId: "frontend-op-chart-path",
+      }),
+    });
+  });
+
+  it("posts chart-type writes", async () => {
+    await route_set_chart_type({
+      projectConfigId: "project-alpha",
+      sectionId: "chart-section",
+      chartType: "scatter",
+      frontendOpId: "frontend-op-chart-type",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setChartType`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "chart-section",
+        chartType: "scatter",
+        frontendOpId: "frontend-op-chart-type",
+      }),
+    });
+  });
+
+  it("posts chart-settings writes", async () => {
+    await route_set_chart_settings({
+      projectConfigId: "project-alpha",
+      sectionId: "chart-section",
+      chartSettings: {
+        type: "line",
+        xAxisColumn: "time",
+        secondYAxisColumns: ["humidity"],
+        xAxisLog: false,
+        y1AxisLog: true,
+        y2AxisLog: false,
+      },
+      changedSettings: ["xAxisColumn", "y1AxisLog"],
+      frontendOpId: "frontend-op-chart-settings",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setChartSettings`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "chart-section",
+        chartSettings: {
+          type: "line",
+          xAxisColumn: "time",
+          secondYAxisColumns: ["humidity"],
+          xAxisLog: false,
+          y1AxisLog: true,
+          y2AxisLog: false,
+        },
+        changedSettings: ["xAxisColumn", "y1AxisLog"],
+        frontendOpId: "frontend-op-chart-settings",
       }),
     });
   });

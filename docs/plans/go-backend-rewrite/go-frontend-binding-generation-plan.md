@@ -85,6 +85,7 @@ Current landed wedge:
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
   - current group-orientation and section-data helper route constants
+  - current chart metadata helper route constants
   - current text-block helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
@@ -149,6 +150,9 @@ Current landed wedge:
       - `SetTaskBoardSectionStateRequestInput`
       - `SetImageAreaImagePathRequestInput`
       - `SetSocialURLRequestInput`
+      - `SetChartAreaDataPathRequestInput`
+      - `SetChartTypeRequestInput`
+      - `SetChartSettingsRequestInput`
     - current param value/config, code-object naming/display,
       python-codegen prefix/suffix, and attached-terminal helper payloads
       - `SetParamEnteredValueRequestInput`
@@ -287,8 +291,19 @@ Current landed wedge:
           `Array<ProjectCodegenTarget>` surface instead of
           `Array<Record<string, unknown>>`
       - section/default factories for `Callable`, `Dict`, `ListRoot`,
-        `TextBlock`, `Code`, `Terminal`, `Chat`, `Browser`, `TaskBoard`, and
-        `Spreadsheet`
+        `TextBlock`, `Code`, `Terminal`, `Chat`, `Browser`, `Chart`,
+        `TaskBoard`, and `Spreadsheet`
+      - current chart helper/types used by the chart layout and settings
+        callers
+        - `ChartType`
+        - `LineChartSettings`
+        - `ScatterChartSettings`
+        - `BaseChartSettingsUnion`
+        - `ChartData`
+        - `ChartDataType`
+        - `createLineChartSettings`
+        - `createScatterChartSettings`
+        - `createBaseChartSettingsUnionWithDiscriminator`
       - browser shared enums and helpers
         - `BrowserAreaViewMode`
         - `BrowserSearchScope`
@@ -314,7 +329,7 @@ Current landed wedge:
         - `createAgenticEdge`
       - runtime enums used by the current helper callers, including
         `CodeLanguage`, `CodeFileAccessMode`, `ConfigLanguage`,
-        `TextBlockFormat`,
+        `ChartType`, `TextBlockFormat`,
         `TextBlockDisplayMode`, `ChatRole`, `ChatPermissionMode`,
         `ChatDictationMode`, `TaskBoardViewMode`,
         `TaskBoardTaskRecurrence`, `TaskBoardRecurringWeekday`,

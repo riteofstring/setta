@@ -607,6 +607,21 @@ export async function route_set_social_url(x: gt.SetSocialURLRequestInput): Prom
   return await post(GoHTTPRoutes.setSocialURL, x);
 
 }
+export async function route_set_chart_area_data_path(x: gt.SetChartAreaDataPathRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setChartAreaDataPath, x);
+
+}
+export async function route_set_chart_type(x: gt.SetChartTypeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setChartType, x);
+
+}
+export async function route_set_chart_settings(x: gt.SetChartSettingsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setChartSettings, x);
+
+}
 export async function route_set_code_file_binding(x: gt.SetCodeFileBindingRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setCodeFileBinding, x);

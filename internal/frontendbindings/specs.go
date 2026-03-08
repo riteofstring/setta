@@ -667,6 +667,21 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SOCIAL_URL",
 				},
 				{
+					Name:     "setChartAreaDataPath",
+					Path:     httpapi.RouteSetChartAreaDataPath,
+					EnumName: "SET_CHART_AREA_DATA_PATH",
+				},
+				{
+					Name:     "setChartType",
+					Path:     httpapi.RouteSetChartType,
+					EnumName: "SET_CHART_TYPE",
+				},
+				{
+					Name:     "setChartSettings",
+					Path:     httpapi.RouteSetChartSettings,
+					EnumName: "SET_CHART_SETTINGS",
+				},
+				{
 					Name:     "setCodeFileBinding",
 					Path:     httpapi.RouteSetCodeFileBinding,
 					EnumName: "SET_CODE_FILE_BINDING",
@@ -1888,6 +1903,27 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSocialURL",
 			RequestType:     reflect.TypeOf(SetSocialURLRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_chart_area_data_path",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setChartAreaDataPath",
+			RequestType:     reflect.TypeOf(SetChartAreaDataPathRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_chart_type",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setChartType",
+			RequestType:     reflect.TypeOf(SetChartTypeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_chart_settings",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setChartSettings",
+			RequestType:     reflect.TypeOf(SetChartSettingsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_code_file_binding",
