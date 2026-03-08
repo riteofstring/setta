@@ -348,6 +348,17 @@ func (s *Service) Attach(sessionID string) (*Attachment, error) {
 	}, nil
 }
 
+func (s *Service) History(sessionID string) (string, error) {
+	session, err := s.requireSession(sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	session.mu.RLock()
+	defer session.mu.RUnlock()
+	return string(session.history.Bytes()), nil
+}
+
 func (s *Service) Write(sessionID string, data []byte) error {
 	session, err := s.requireSession(sessionID)
 	if err != nil {

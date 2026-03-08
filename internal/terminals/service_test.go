@@ -128,6 +128,44 @@ func TestServiceAttachWriteHistoryAndReattach(t *testing.T) {
 	}
 }
 
+func TestServiceHistoryReturnsBufferedOutput(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-history", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Command:    readyQuietCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected terminal to be created")
+	}
+
+	attachment, err := service.Attach(sessionID)
+	if err != nil {
+		t.Fatalf("attach terminal: %v", err)
+	}
+	t.Cleanup(attachment.Close)
+
+	waitForOutputContains(t, attachment, "ready")
+	if err := service.Write(sessionID, []byte("history line\n")); err != nil {
+		t.Fatalf("write history line: %v", err)
+	}
+	waitForOutputContains(t, attachment, "history line")
+
+	history, err := service.History(sessionID)
+	if err != nil {
+		t.Fatalf("terminal history: %v", err)
+	}
+	if !strings.Contains(history, "ready") || !strings.Contains(history, "history line") {
+		t.Fatalf("expected terminal history to include buffered output, got %q", history)
+	}
+}
+
 func TestServiceResizeUpdatesSessionAndPTY(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
