@@ -269,8 +269,10 @@ Use the docs in this order:
     selection, package-inspection owner, and `getInstalledPythonPackages`
     transport parity slice
 95. `phase-7-runtime-surface-inventory.md`
-  - entry inventory doc for the remaining Python-owned non-MCP backend runtime
-    surface after the completed Phase 6 MCP closeout
+  - closeout inventory doc for the remaining Python-owned non-MCP backend
+    runtime surface after the completed Phase 6 MCP closeout; current status is
+    that no backend runtime gap remains and only CLI/distribution follow-up is
+    separate scope
 96. `phase-7-deployment-publish-and-list-runtime.md`
   - implementation-plan doc for the first bounded Phase 7 slice:
     Go-owned deployment publication/listing above the completed deployment
@@ -291,8 +293,7 @@ Use the docs in this order:
     transport over the completed deployment owners
 100. `phase-7-launcher-management-and-bootstrap-plan.md`
   - broader Phase 7 launcher/bootstrap plan after the completed deployment
-    slice; launcher management is now complete and the remaining gap is
-    launch/bootstrap handoff
+    slice; that launcher/bootstrap cluster is now complete in Go
 101. `phase-7-launcher-open-workspace-and-bootstrap-contract.md`
   - focused implementation-plan doc for the launcher executable/bootstrap
     prerequisite and Go-owned `openLauncherWorkspace` runtime path; this slice
@@ -305,7 +306,7 @@ Use the docs in this order:
     planning/install/remove/update and desktop-launch contract ownership; this
     slice is now complete
 104. `phase-7-launch-intent-local-launch-and-bootstrap-handoff.md`
-  - focused implementation-plan doc for the remaining local launch/bootstrap
+  - focused implementation-plan doc for the completed local launch/bootstrap
     handoff slice after launcher management completion
 105. `phase-7-ssh-remote-launch-and-rollback.md`
   - focused implementation-plan doc for the completed SSH/remote launch slice
@@ -318,11 +319,14 @@ Use the docs in this order:
   - focused historical implementation-plan doc for the completed remote
     `/launch` integration and trust-persistence rollback slice on top of the
     completed SSH runtime
-108. `spike-mcp.md`
+108. `phase-7-closeout-and-cli-follow-up-boundary.md`
+  - focused Phase 7 closeout doc that separates the remaining Python CLI and
+    distribution surface from the completed backend rewrite
+109. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-109. `spike-pty.md`
+110. `spike-pty.md`
    - PTY uncertainty-reduction plan
-110. `spike-lsp.md`
+111. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -2,11 +2,12 @@
 
 ## Purpose
 
-This doc starts the post-MCP handoff after the completed Phase 6 parity work.
+This doc started the post-MCP handoff after the completed Phase 6 parity work.
 
 The goal is to inventory the remaining Python-owned backend runtime surface
 outside MCP so the rewrite can pick the first bounded Phase 7 owner without
-guesswork.
+guesswork. That inventory is now complete enough to close the backend-runtime
+portion of Phase 7.
 
 ## Status
 
@@ -59,22 +60,34 @@ Current repo status as of 2026-03-08:
   - SSH/remote `/launch` transport/runtime integration and rollback ownership
     in `internal/workspacelaunch/remote_launch.go`
 - Python still appears to own major non-MCP backend surface in:
-  - none confirmed in the current launcher/bootstrap inventory
-- nothing is currently in progress in the worktree
+  - none confirmed after re-reading the current route/runtime inventory
+- Python still owns adjacent but out-of-scope CLI/distribution surface in:
+  - `backend/setta/start.py`
+  - the CLI-focused tests under `tests/start/`
+  - installer/release scripts under `scripts/`
+- current work is the closeout/scope-boundary pass, not another runtime port
 
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
 - `docs/plans/go-backend-rewrite/phase-6-post-project-state-mcp-surface-inventory.md`
+- `docs/plans/go-backend-rewrite/phase-7-closeout-and-cli-follow-up-boundary.md`
 - `docs/reference/sharing-mode-vs-ide-mode.md`
+- `docs/reference/setta-cli-commands.md`
 - `backend/setta/routers/launch.py`
 - `backend/setta/routers/launcher_home.py`
 - `backend/setta/routers/status.py`
 - `backend/setta/routers/share_deployments.py`
 - `backend/setta/routers/app_deployments.py`
 - `backend/setta/routers/bootstrap.py`
+- `backend/setta/start.py`
+- `tests/start/test_ssh_connect.py`
+- `cmd/setta-server/main.go`
 - `internal/httpapi/deployment_routes.go`
+- `internal/httpapi/workspace_launch_routes.go`
 - `internal/deployments/runtime.go`
+- `internal/workspacelaunch/remote_launch.go`
+- `internal/sshx/runtime.go`
 - `internal/app/app.go`
 
 ## Initial Observations
@@ -112,32 +125,39 @@ Current repo status as of 2026-03-08:
    - any follow-up around remote CLI behavior should be selected deliberately as
      a new bounded slice, not assumed to be leftover `/launch` work
 
+4. The remaining Python surface is CLI/distribution work, not backend runtime
+   - `backend/setta/start.py` still owns the Click-based command surface for
+     session helpers, remote `connect`, remote `stop`, and launcher subcommands
+   - the Go work landed in `cmd/setta-server`, `internal/httpapi`,
+     `internal/workspacelaunch`, and `internal/sshx` already covers the backend
+     runtime side of those product flows
+   - the rewrite should not keep Phase 7 open just because `cmd/setta-cli` has
+     not been planned yet
+
 ## Working Decisions
 
 - treat Phase 6 MCP parity as complete and closed
-- do not start Phase 7 by scattering one-off route ports across unrelated
-  launcher, deployment, and bootstrap code paths
-- inventory the remaining Python runtime surface first, then choose one bounded
-  owner cluster with clear persistence/process boundaries
-- prefer a cluster that already has partial Go runtime support underneath it
-  when that yields a smaller and more coherent first Phase 7 slice
 - treat deployment publication/listing and launcher/bootstrap ownership as
   complete for the current bounded Phase 7 slices
-- choose any further Phase 7 follow-up only after a fresh inventory pass shows
-  a remaining backend runtime gap worth a dedicated plan doc
+- close Phase 7 for the backend rewrite once the inventory shows no remaining
+  backend runtime gap
+- do not treat Python CLI/distribution ownership as a hidden backend blocker
+- scope any future Go CLI work separately instead of reopening Phase 7
 
 ## Recommended Next Step
 
-Re-read the current repo state against `go-backend-rewrite-plan.md` and decide
-whether Phase 7 is effectively closed or whether a separate remote CLI/runtime
-follow-up slice is still product-critical.
+Treat Phase 7 as complete for the backend rewrite and keep any remaining
+Python CLI/distribution work on a separate track, documented in
+`phase-7-closeout-and-cli-follow-up-boundary.md`.
 
 That is now the highest-leverage next step because:
 
-- the previously remaining `/launch` and rollback gap is now complete in Go
-- the current inventory no longer shows an obvious bounded backend route/runtime
-  owner inside the launcher/bootstrap cluster
-- planning is now higher leverage than starting a new slice by assumption
+- the previously remaining `/launch` and rollback gap is complete in Go
+- the current inventory no longer shows a bounded non-MCP backend runtime owner
+  left in Python
+- the only clear Python ownership that remains is `backend/setta/start.py` and
+  related scripts/tests, which is CLI/distribution scope rather than backend
+  server runtime scope
 
 ## Progress Notes
 
@@ -238,6 +258,12 @@ That is now the highest-leverage next step because:
   `remoteCmdResolved` through the thin HTTP/app layer, and adding focused Go
   plus Python-reference verification. The next recommended step is to revisit
   the broader inventory instead of assuming more launcher work remains.
+- 2026-03-08: re-read the current repo state against the Phase 7 inventory and
+  confirmed that no Python-owned non-MCP backend runtime surface remains. The
+  remaining Python surface is CLI/distribution work in `backend/setta/start.py`
+  and related scripts/tests, so Phase 7 is now closed for the backend rewrite.
+  The separate follow-up boundary is documented in
+  `phase-7-closeout-and-cli-follow-up-boundary.md`.
 
 ## Verification
 
