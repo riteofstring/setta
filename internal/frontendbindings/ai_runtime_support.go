@@ -2,66 +2,71 @@ package frontendbindings
 
 type AIRuntimeSupport struct{}
 
+type EngineConfigDefaults struct {
+	Thinking *bool `json:"thinking,omitempty"`
+}
+
+type EngineConfig struct {
+	ID                    string               `json:"id"`
+	Name                  string               `json:"name"`
+	EngineType            string               `json:"engineType"`
+	SettaLlmConfigID      *string              `json:"settaLlmConfigId,omitempty"`
+	ExternalAgentConfigID *string              `json:"externalAgentConfigId,omitempty"`
+	Defaults              EngineConfigDefaults `json:"defaults"`
+}
+
+type AgentProfile struct {
+	ID                          string   `json:"id"`
+	Name                        string   `json:"name"`
+	Description                 string   `json:"description"`
+	SystemPrompt                string   `json:"systemPrompt"`
+	EnableBackgroundSummaryFill bool     `json:"enableBackgroundSummaryFill"`
+	EnableLlmChatTitles         bool     `json:"enableLlmChatTitles"`
+	EngineConfigID              *string  `json:"engineConfigId,omitempty"`
+	ToolAllowlist               []string `json:"toolAllowlist"`
+	MemoryScope                 *string  `json:"memoryScope,omitempty"`
+}
+
+type TranscriptionTransportMode string
+
+type TranscriptionProfile struct {
+	ID                            string                     `json:"id"`
+	Name                          string                     `json:"name"`
+	TranscriptionLlmConfigID      string                     `json:"transcriptionLlmConfigId"`
+	TransportMode                 TranscriptionTransportMode `json:"transportMode"`
+	ChunkMS                       int                        `json:"chunkMs"`
+	SupportsRealtimeTranscription bool                       `json:"supportsRealtimeTranscription"`
+	Language                      *string                    `json:"language,omitempty"`
+}
+
+type AgentRunStatus string
+
+type RunEvent struct {
+	ID        string         `json:"id"`
+	Timestamp string         `json:"timestamp"`
+	Type      string         `json:"type"`
+	Payload   map[string]any `json:"payload,omitempty"`
+}
+
+type AgentRun struct {
+	ID         string           `json:"id"`
+	ProfileID  *string          `json:"profileId,omitempty"`
+	Status     AgentRunStatus   `json:"status"`
+	StartedAt  *string          `json:"startedAt,omitempty"`
+	FinishedAt *string          `json:"finishedAt,omitempty"`
+	Inputs     map[string]any   `json:"inputs,omitempty"`
+	Outputs    map[string]any   `json:"outputs,omitempty"`
+	ToolCalls  []map[string]any `json:"toolCalls"`
+	Cost       *float64         `json:"cost,omitempty"`
+	Events     []RunEvent       `json:"events"`
+}
+
 const aiRuntimeFrontendSupportRawTS = `
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
   external_agent: "external_agent",
 } as const;
 export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
-export type EngineConfigDefaults = {
-  thinking?: boolean | null;
-};
-export function createEngineConfigDefaults(
-  options: Partial<EngineConfigDefaults> = {},
-): EngineConfigDefaults {
-  return mergeGeneratedOptions(
-    {
-      thinking: null,
-    },
-    options,
-  );
-}
-
-export type EngineConfig = {
-  id: string;
-  name: string;
-  engineType: EngineType;
-  settaLlmConfigId?: string | null;
-  externalAgentConfigId?: string | null;
-  defaults: EngineConfigDefaults;
-};
-export function createEngineConfig(
-  options: Partial<EngineConfig> = {},
-): EngineConfig {
-  const defaults = createEngineConfigDefaults();
-  return {
-    ...mergeGeneratedOptions(
-      {
-        id: "",
-        name: "",
-        engineType: EngineTypeEnum.setta_llm,
-        settaLlmConfigId: null,
-        externalAgentConfigId: null,
-        defaults,
-      },
-      options,
-    ),
-    defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
-  };
-}
-
-export type AgentProfile = {
-  id: string;
-  name: string;
-  description: string;
-  systemPrompt: string;
-  enableBackgroundSummaryFill: boolean;
-  enableLlmChatTitles: boolean;
-  engineConfigId?: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope?: string | null;
-};
 
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
@@ -72,16 +77,6 @@ export type TranscriptionTransportMode = ObjectValues<
   typeof TranscriptionTransportModeEnum
 >;
 
-export type TranscriptionProfile = {
-  id: string;
-  name: string;
-  transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
-  chunkMs: number;
-  supportsRealtimeTranscription: boolean;
-  language?: string | null;
-};
-
 export const AgentRunStatusEnum = {
   queued: "queued",
   running: "running",
@@ -90,54 +85,6 @@ export const AgentRunStatusEnum = {
   cancelled: "cancelled",
 } as const;
 export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
-
-export type RunEvent = {
-  id: string;
-  timestamp: string;
-  type: string;
-  payload?: Record<string, unknown>;
-};
-export function createRunEvent(options: Partial<RunEvent> = {}): RunEvent {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      timestamp: "",
-      type: "",
-      payload: {},
-    },
-    options,
-  );
-}
-
-export type AgentRun = {
-  id: string;
-  profileId?: string | null;
-  status: AgentRunStatus;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  inputs?: Record<string, unknown> | null;
-  outputs?: Record<string, unknown> | null;
-  toolCalls: Array<Record<string, unknown>>;
-  cost?: number | null;
-  events: Array<RunEvent>;
-};
-export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      profileId: null,
-      status: AgentRunStatusEnum.queued,
-      startedAt: null,
-      finishedAt: null,
-      inputs: null,
-      outputs: null,
-      toolCalls: [],
-      cost: null,
-      events: [],
-    },
-    options,
-  );
-}
 
 export type AgentRunList = Array<AgentRun>;
 

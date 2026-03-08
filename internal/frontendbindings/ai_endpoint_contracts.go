@@ -143,14 +143,6 @@ type TranscriptionProfileResponse struct{}
 
 type TranscriptionProfileListResponse struct{}
 
-type AgentProfile struct{}
-
-type EngineConfig struct{}
-
-type TranscriptionTransportMode string
-
-type TranscriptionProfile struct{}
-
 type UpdateAgentProfileRequestInput struct {
 	Profile AgentProfile `json:"profile"`
 }

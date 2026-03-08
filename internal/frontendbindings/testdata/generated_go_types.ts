@@ -269,19 +269,10 @@ export function createExternalAgentPreflightStatus(options: Partial<ExternalAgen
 }
 
 
-
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
 export type EngineConfigDefaults = {
   thinking?: boolean | null;
 };
-export function createEngineConfigDefaults(
-  options: Partial<EngineConfigDefaults> = {},
-): EngineConfigDefaults {
+export function createEngineConfigDefaults(options: Partial<EngineConfigDefaults> = {}): EngineConfigDefaults {
   return mergeGeneratedOptions(
     {
       thinking: null,
@@ -289,6 +280,7 @@ export function createEngineConfigDefaults(
     options,
   );
 }
+
 
 export type EngineConfig = {
   id: string;
@@ -298,25 +290,26 @@ export type EngineConfig = {
   externalAgentConfigId?: string | null;
   defaults: EngineConfigDefaults;
 };
-export function createEngineConfig(
-  options: Partial<EngineConfig> = {},
-): EngineConfig {
-  const defaults = createEngineConfigDefaults();
-  return {
-    ...mergeGeneratedOptions(
-      {
-        id: "",
-        name: "",
-        engineType: EngineTypeEnum.setta_llm,
-        settaLlmConfigId: null,
-        externalAgentConfigId: null,
-        defaults,
-      },
-      options,
-    ),
-    defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
-  };
+export function createEngineConfig(options: Partial<EngineConfig> = {}): EngineConfig {
+  return (() => {
+    const defaults = createEngineConfigDefaults();
+    return {
+      ...mergeGeneratedOptions(
+        {
+          id: "",
+          name: "",
+          engineType: EngineTypeEnum.setta_llm,
+          settaLlmConfigId: null,
+          externalAgentConfigId: null,
+          defaults,
+        },
+        options,
+      ),
+      defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
+    };
+  })();
 }
+
 
 export type AgentProfile = {
   id: string;
@@ -329,15 +322,10 @@ export type AgentProfile = {
   toolAllowlist: Array<string>;
   memoryScope?: string | null;
 };
+export function createAgentProfile(options: Partial<AgentProfile> = {}): AgentProfile {
+  return options as AgentProfile;
+}
 
-export const TranscriptionTransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-export type TranscriptionTransportMode = ObjectValues<
-  typeof TranscriptionTransportModeEnum
->;
 
 export type TranscriptionProfile = {
   id: string;
@@ -348,15 +336,10 @@ export type TranscriptionProfile = {
   supportsRealtimeTranscription: boolean;
   language?: string | null;
 };
+export function createTranscriptionProfile(options: Partial<TranscriptionProfile> = {}): TranscriptionProfile {
+  return options as TranscriptionProfile;
+}
 
-export const AgentRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
-export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
 
 export type RunEvent = {
   id: string;
@@ -375,6 +358,7 @@ export function createRunEvent(options: Partial<RunEvent> = {}): RunEvent {
     options,
   );
 }
+
 
 export type AgentRun = {
   id: string;
@@ -405,6 +389,32 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
     options,
   );
 }
+
+
+
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+export type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
+export const TranscriptionTransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+export type TranscriptionTransportMode = ObjectValues<
+  typeof TranscriptionTransportModeEnum
+>;
+
+export const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
 
 export type AgentRunList = Array<AgentRun>;
 
