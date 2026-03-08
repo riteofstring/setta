@@ -6002,6 +6002,26 @@ export function createSetCodeSectionAttachedTerminalRequestInput(options: Partia
 }
 
 
+export type SetGenCodePrefixRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  genCodePrefix: string;
+};
+export function createSetGenCodePrefixRequestInput(options: Partial<SetGenCodePrefixRequestInput> = {}): SetGenCodePrefixRequestInput {
+  return options as SetGenCodePrefixRequestInput;
+}
+
+
+export type SetGenCodeSuffixRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  genCodeSuffix: string;
+};
+export function createSetGenCodeSuffixRequestInput(options: Partial<SetGenCodeSuffixRequestInput> = {}): SetGenCodeSuffixRequestInput {
+  return options as SetGenCodeSuffixRequestInput;
+}
+
+
 export type KillSubprocessesRequestInput = {
   projectConfigId: string;
 };

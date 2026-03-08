@@ -68,6 +68,18 @@ type SetCodeSectionAttachedTerminalRequestInput struct {
 	TerminalSectionID *string `json:"terminalSectionId,omitempty"`
 }
 
+type SetGenCodePrefixRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	GenCodePrefix   string  `json:"genCodePrefix"`
+}
+
+type SetGenCodeSuffixRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	GenCodeSuffix   string  `json:"genCodeSuffix"`
+}
+
 type SetCodeObjNameRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`

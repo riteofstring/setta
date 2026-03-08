@@ -237,6 +237,16 @@ export async function route_set_code_section_attached_terminal(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRoutes.setCodeSectionAttachedTerminal, x);
 }
+export async function route_set_gen_code_prefix(
+  x: gt.SetGenCodePrefixRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setGenCodePrefix, x);
+}
+export async function route_set_gen_code_suffix(
+  x: gt.SetGenCodeSuffixRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setGenCodeSuffix, x);
+}
 export async function route_kill_subprocesses(
   x: gt.KillSubprocessesRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -81,8 +81,8 @@ Current landed wedge:
   - current status/meta route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
-  - current param value/config, code-object naming/display, and
-    attached-terminal helper route constants
+  - current param value/config, code-object naming/display,
+    python-codegen prefix/suffix, and attached-terminal helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
     constants
   - current section param column-width route constants
@@ -140,11 +140,13 @@ Current landed wedge:
       - `SetParentDefaultChildSectionTypeRequestInput`
       - `SetListRootViewModeRequestInput`
       - `SetGroupOverflowModeRequestInput`
-    - current param value/config, code-object naming/display, and
-      attached-terminal helper payloads
+    - current param value/config, code-object naming/display,
+      python-codegen prefix/suffix, and attached-terminal helper payloads
       - `SetParamEnteredValueRequestInput`
       - `UpdateParamImplConfigRequestInput`
       - `SetCodeSectionAttachedTerminalRequestInput`
+      - `SetGenCodePrefixRequestInput`
+      - `SetGenCodeSuffixRequestInput`
       - `SetCodeObjNameRequestInput`
       - `SetCodeObjDisplayNameRequestInput`
     - current structure/param-selection mutation payloads
@@ -701,6 +703,10 @@ Current landed wedge:
   - `ParamNameInput` and `QuickInfoConfig` now consume canonical
     Go-generated code-object naming/display route bindings for
     `setCodeObjName` and `setCodeObjDisplayName`
+  - `state/actions/codeUpdates` now consumes canonical Go-generated
+    `setGenCodePrefix` and `setGenCodeSuffix` bindings for the current
+    python-codegen helper writes instead of the legacy Python-generated route
+    surface
   - the attached-terminal move branch in `moveSectionsWithBackend` now
     consumes the canonical Go-generated `setCodeSectionAttachedTerminal`
     binding while the broader `moveSections` route remains in the separate

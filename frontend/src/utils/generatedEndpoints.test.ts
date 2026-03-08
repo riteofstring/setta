@@ -73,6 +73,8 @@ import {
   route_set_code_obj_display_name,
   route_set_code_obj_name,
   route_set_code_section_attached_terminal,
+  route_set_gen_code_prefix,
+  route_set_gen_code_suffix,
   route_set_group_overflow_mode,
   route_set_list_root_view_mode,
   route_set_llm_api_keys,
@@ -636,6 +638,43 @@ describe("generatedEndpoints project shell and layout", () => {
           access_mode: "read_only",
         },
         frontendOpId: "frontend-op-code-binding",
+      }),
+    });
+  });
+
+  it("posts python codegen prefix and suffix writes", async () => {
+    await route_set_gen_code_prefix({
+      projectConfigId: "project-alpha",
+      genCodePrefix: "import math\\n",
+      frontendOpId: "frontend-op-gen-prefix",
+    });
+    await route_set_gen_code_suffix({
+      projectConfigId: "project-alpha",
+      genCodeSuffix: "state = CustomState()\\n",
+      frontendOpId: "frontend-op-gen-suffix",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setGenCodePrefix`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        genCodePrefix: "import math\\n",
+        frontendOpId: "frontend-op-gen-prefix",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setGenCodeSuffix`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        genCodeSuffix: "state = CustomState()\\n",
+        frontendOpId: "frontend-op-gen-suffix",
       }),
     });
   });

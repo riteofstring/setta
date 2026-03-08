@@ -1848,6 +1848,119 @@ func TestRegisterProjectRoutesEnablesPythonCodegenAndReturnsGeneratedSingletonSe
 	}
 }
 
+func TestRegisterProjectRoutesSetGenCodePrefixAndSuffixPersistRuntimeState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": genCodePrefixSuffixRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetGenCodePrefix,
+			body:  `{"projectConfigId":"project-alpha","genCodePrefix":"import math\n","frontendOpId":"frontend-op-prefix"}`,
+		},
+		{
+			route: RouteSetGenCodeSuffix,
+			body:  `{"projectConfigId":"project-alpha","genCodeSuffix":"state = CustomState()\n","frontendOpId":"frontend-op-suffix"}`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	config, ok, err := project.PythonCodegenTarget()
+	if err != nil {
+		t.Fatalf("read python target after prefix/suffix mutation: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python target after prefix/suffix mutation")
+	}
+	if config.GenCodePrefix != "import math\n" {
+		t.Fatalf("expected gen code prefix import math, got %q", config.GenCodePrefix)
+	}
+	if config.GenCodeSuffix != "state = CustomState()\n" {
+		t.Fatalf("expected gen code suffix state = CustomState(), got %q", config.GenCodeSuffix)
+	}
+	if project.GeneratedCodeBinding == nil {
+		t.Fatal("expected generated code binding to remain reconciled")
+	}
+	if project.GeneratedCodeBinding.Path != projectstate.GeneratedPythonCodeRelativePath(project.Name) {
+		t.Fatalf("unexpected generated code binding path %q", project.GeneratedCodeBinding.Path)
+	}
+}
+
+func TestRegisterProjectRoutesSetGenCodePrefixAndSuffixRejectMissingPythonTarget(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": mustNormalizedProjectRouteProject(t, projectstate.Project{
+				ID:   "project-alpha",
+				Name: "Alpha",
+			}),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetGenCodePrefix,
+			body:  `{"projectConfigId":"project-alpha","genCodePrefix":"import math\n"}`,
+		},
+		{
+			route: RouteSetGenCodeSuffix,
+			body:  `{"projectConfigId":"project-alpha","genCodeSuffix":"state = CustomState()\n"}`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("expected 422 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), `"code":"project_codegen_python_target_missing"`) {
+			t.Fatalf("expected project_codegen_python_target_missing for %s, got %q", requestSpec.route, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesLayoutPresentationMutationsProjectLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -5403,6 +5516,21 @@ func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
 		t.Fatalf("normalize password route test project: %v", err)
 	}
 	return project
+}
+
+func genCodePrefixSuffixRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	return mustNormalizedProjectRouteProject(t, projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload:  projectstate.RawJSON(`{"language":"python","generateMetadata":true}`),
+			},
+		},
+	})
 }
 
 func sectionVariantDeletionRouteTestProject(t *testing.T) projectstate.Project {

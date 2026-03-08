@@ -77,6 +77,8 @@ const (
 	RouteSetChatSectionChatID             = "/setChatSectionChatId"
 	RouteSetCallable                      = "/setCallable"
 	RouteSetProjectConfigCodegenTargets   = "/setProjectConfigCodegenTargets"
+	RouteSetGenCodePrefix                 = "/setGenCodePrefix"
+	RouteSetGenCodeSuffix                 = "/setGenCodeSuffix"
 	RouteSetWatchCodeEnabled              = "/setWatchCodeEnabled"
 	RouteSetWatchCodeInputs               = "/setWatchCodeInputs"
 	RouteSetParamEnteredValue             = "/setParamEnteredValue"
@@ -131,6 +133,18 @@ type SetProjectConfigCodegenTargetsRequest struct {
 	FrontendOpID   *string           `json:"frontendOpId"`
 	ProjectID      string            `json:"projectConfigId"`
 	CodegenTargets []json.RawMessage `json:"codegenTargets"`
+}
+
+type SetGenCodePrefixRequest struct {
+	FrontendOpID  *string `json:"frontendOpId"`
+	ProjectID     string  `json:"projectConfigId"`
+	GenCodePrefix string  `json:"genCodePrefix"`
+}
+
+type SetGenCodeSuffixRequest struct {
+	FrontendOpID  *string `json:"frontendOpId"`
+	ProjectID     string  `json:"projectConfigId"`
+	GenCodeSuffix string  `json:"genCodeSuffix"`
 }
 
 type CodeFileBindingUpdate struct {
@@ -732,6 +746,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGenCodePrefix, setGenCodePrefixHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGenCodeSuffix, setGenCodeSuffixHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeInputs, setWatchCodeInputsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParamEnteredValue, setParamEnteredValueHandler(deps))
@@ -2890,6 +2906,66 @@ func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.H
 	}
 }
 
+func setGenCodePrefixHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetGenCodePrefixRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetGenCodePrefix(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.GenCodePrefix,
+		); err != nil {
+			writeSetGenCodePrefixSuffixError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setGenCodeSuffixHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetGenCodeSuffixRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetGenCodeSuffix(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			payload.GenCodeSuffix,
+		); err != nil {
+			writeSetGenCodePrefixSuffixError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setWatchCodeEnabledHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetWatchCodeEnabledRequest](r)
@@ -3445,6 +3521,20 @@ func writeSetProjectConfigCodegenTargetsError(w http.ResponseWriter, r *http.Req
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
 		errors.Is(err, projectstate.ErrProjectCodegenPythonReconcilerRequired):
 		writeError(w, r, http.StatusBadRequest, "invalid_project_codegen_targets", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSetGenCodePrefixSuffixError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectview.ErrProjectConfigIDRequired),
+		errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrProjectCodegenPythonTargetMissing):
+		writeError(w, r, http.StatusUnprocessableEntity, "project_codegen_python_target_missing", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

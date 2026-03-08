@@ -292,6 +292,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_CODE_SECTION_ATTACHED_TERMINAL",
 				},
 				{
+					Name:     "setGenCodePrefix",
+					Path:     httpapi.RouteSetGenCodePrefix,
+					EnumName: "SET_GEN_CODE_PREFIX",
+				},
+				{
+					Name:     "setGenCodeSuffix",
+					Path:     httpapi.RouteSetGenCodeSuffix,
+					EnumName: "SET_GEN_CODE_SUFFIX",
+				},
+				{
 					Name:     "killSubprocesses",
 					Path:     httpapi.RouteKillSubprocesses,
 					EnumName: "KILL_SUBPROCESSES",
@@ -1190,6 +1200,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setCodeSectionAttachedTerminal",
 			RequestType:     reflect.TypeOf(SetCodeSectionAttachedTerminalRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_gen_code_prefix",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setGenCodePrefix",
+			RequestType:     reflect.TypeOf(SetGenCodePrefixRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_gen_code_suffix",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setGenCodeSuffix",
+			RequestType:     reflect.TypeOf(SetGenCodeSuffixRequestInput{}),
 		},
 		{
 			FunctionName:    "route_kill_subprocesses",
