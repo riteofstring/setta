@@ -269,6 +269,13 @@ export function createExternalAgentPreflightStatus(options: Partial<ExternalAgen
 }
 
 
+export const EngineTypeEnum = {
+  setta_llm: "setta_llm",
+  external_agent: "external_agent",
+} as const;
+export type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
+
 export type EngineConfigDefaults = {
   thinking?: boolean | null;
 };
@@ -327,6 +334,14 @@ export function createAgentProfile(options: Partial<AgentProfile> = {}): AgentPr
 }
 
 
+export const TranscriptionTransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+export type TranscriptionTransportMode = ObjectValues<typeof TranscriptionTransportModeEnum>;
+
+
 export type TranscriptionProfile = {
   id: string;
   name: string;
@@ -339,6 +354,16 @@ export type TranscriptionProfile = {
 export function createTranscriptionProfile(options: Partial<TranscriptionProfile> = {}): TranscriptionProfile {
   return options as TranscriptionProfile;
 }
+
+
+export const AgentRunStatusEnum = {
+  queued: "queued",
+  running: "running",
+  completed: "completed",
+  failed: "failed",
+  cancelled: "cancelled",
+} as const;
+export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
 
 
 export type RunEvent = {
@@ -391,32 +416,8 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
 }
 
 
-
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
-export const TranscriptionTransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-export type TranscriptionTransportMode = ObjectValues<
-  typeof TranscriptionTransportModeEnum
->;
-
-export const AgentRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
-export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
-
 export type AgentRunList = Array<AgentRun>;
+
 
 export const StreamingEventTypeEnum = {
   MESSAGE_START: "message_start",
@@ -429,11 +430,16 @@ export const StreamingEventTypeEnum = {
 } as const;
 export type StreamingEventType = ObjectValues<typeof StreamingEventTypeEnum>;
 
+
 export type MessageTextDelta = {
   type: "text_delta";
   index: number;
   text: string;
 };
+export function createMessageTextDelta(options: Partial<MessageTextDelta> = {}): MessageTextDelta {
+  return options as MessageTextDelta;
+}
+
 
 export type MessageThinkingDelta = {
   type: "thinking_delta";
@@ -442,19 +448,32 @@ export type MessageThinkingDelta = {
   summary?: string | null;
   signature?: string | null;
 };
+export function createMessageThinkingDelta(options: Partial<MessageThinkingDelta> = {}): MessageThinkingDelta {
+  return options as MessageThinkingDelta;
+}
+
 
 export type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
+
 
 export type MessageStartEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_START;
   message: BaseChatMessageUnion;
 };
+export function createMessageStartEvent(options: Partial<MessageStartEvent> = {}): MessageStartEvent {
+  return options as MessageStartEvent;
+}
+
 
 export type MessageDeltaEvent = {
   type: typeof StreamingEventTypeEnum.DELTA;
   message_id: string;
   content?: Array<MessageContentDelta> | null;
 };
+export function createMessageDeltaEvent(options: Partial<MessageDeltaEvent> = {}): MessageDeltaEvent {
+  return options as MessageDeltaEvent;
+}
+
 
 export type ToolCallDeltaEvent = {
   type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
@@ -463,11 +482,19 @@ export type ToolCallDeltaEvent = {
   arguments_delta: string;
   tool_name?: string | null;
 };
+export function createToolCallDeltaEvent(options: Partial<ToolCallDeltaEvent> = {}): ToolCallDeltaEvent {
+  return options as ToolCallDeltaEvent;
+}
+
 
 export type ToolResultEvent = {
   type: typeof StreamingEventTypeEnum.TOOL_RESULT;
   result: ToolChatMessage;
 };
+export function createToolResultEvent(options: Partial<ToolResultEvent> = {}): ToolResultEvent {
+  return options as ToolResultEvent;
+}
+
 
 export type ToolArgumentPreviewDeltaEvent = {
   type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
@@ -479,25 +506,31 @@ export type ToolArgumentPreviewDeltaEvent = {
   target_ids_by_type: Record<string, Array<string>>;
   preview_value_delta: string;
 };
+export function createToolArgumentPreviewDeltaEvent(options: Partial<ToolArgumentPreviewDeltaEvent> = {}): ToolArgumentPreviewDeltaEvent {
+  return options as ToolArgumentPreviewDeltaEvent;
+}
+
 
 export type MessageStopEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
   message_id: string;
 };
+export function createMessageStopEvent(options: Partial<MessageStopEvent> = {}): MessageStopEvent {
+  return options as MessageStopEvent;
+}
+
 
 export type MessageFinalizedEvent = {
   type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
   message: BaseChatMessageUnion;
 };
+export function createMessageFinalizedEvent(options: Partial<MessageFinalizedEvent> = {}): MessageFinalizedEvent {
+  return options as MessageFinalizedEvent;
+}
 
-export type LLMStreamingResponseChunk =
-  | MessageStartEvent
-  | MessageDeltaEvent
-  | ToolCallDeltaEvent
-  | ToolResultEvent
-  | ToolArgumentPreviewDeltaEvent
-  | MessageStopEvent
-  | MessageFinalizedEvent;
+
+export type LLMStreamingResponseChunk = MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent;
+
 
 export type LLMStreamingResponse = {
   chatId: string;
@@ -505,7 +538,9 @@ export type LLMStreamingResponse = {
   sectionId?: string | null;
   projectConfigId?: string | null;
 };
-
+export function createLLMStreamingResponse(options: Partial<LLMStreamingResponse> = {}): LLMStreamingResponse {
+  return options as LLMStreamingResponse;
+}
 
 
 export const PluginScopeEnum = {

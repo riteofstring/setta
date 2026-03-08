@@ -518,6 +518,8 @@ type Edge struct{}
 
 type AgenticEdge struct{}
 
+type ToolChatMessage struct{}
+
 type BaseChatMessageUnion struct{}
 
 type ChatSectionState struct{}

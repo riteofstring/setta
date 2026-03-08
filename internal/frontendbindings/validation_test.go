@@ -1360,6 +1360,228 @@ func TestAIRuntimeSupportUsesConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestAIRuntimeStreamingEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "EngineType",
+			root: reflect.TypeOf(EngineType("")),
+			values: []EnumValue{
+				{Name: "setta_llm", Value: "setta_llm"},
+				{Name: "external_agent", Value: "external_agent"},
+			},
+		},
+		{
+			name: "TranscriptionTransportMode",
+			root: reflect.TypeOf(TranscriptionTransportMode("")),
+			values: []EnumValue{
+				{Name: "auto", Value: "auto"},
+				{Name: "file", Value: "file"},
+				{Name: "realtime", Value: "realtime"},
+			},
+		},
+		{
+			name: "AgentRunStatus",
+			root: reflect.TypeOf(AgentRunStatus("")),
+			values: []EnumValue{
+				{Name: "queued", Value: "queued"},
+				{Name: "running", Value: "running"},
+				{Name: "completed", Value: "completed"},
+				{Name: "failed", Value: "failed"},
+				{Name: "cancelled", Value: "cancelled"},
+			},
+		},
+		{
+			name: "StreamingEventType",
+			root: reflect.TypeOf(StreamingEventType("")),
+			values: []EnumValue{
+				{Name: "MESSAGE_START", Value: "message_start"},
+				{Name: "DELTA", Value: "delta"},
+				{Name: "TOOL_CALL_DELTA", Value: "tool_call_delta"},
+				{Name: "TOOL_ARGUMENT_PREVIEW_DELTA", Value: "tool_argument_preview_delta"},
+				{Name: "TOOL_RESULT", Value: "tool_result"},
+				{Name: "MESSAGE_STOP", Value: "message_stop"},
+				{Name: "MESSAGE_FINALIZED", Value: "message_finalized"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestAIRuntimeStreamingContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		kind       string
+		alias      string
+		properties []TypeProperty
+	}{
+		{
+			name:  "AgentRunList",
+			root:  reflect.TypeOf(AgentRunList{}),
+			kind:  "alias",
+			alias: "Array<AgentRun>",
+		},
+		{
+			name: "MessageTextDelta",
+			root: reflect.TypeOf(MessageTextDelta{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"text_delta"`, Optional: false},
+				{Name: "index", TypeExpr: "number", Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "MessageThinkingDelta",
+			root: reflect.TypeOf(MessageThinkingDelta{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"thinking_delta"`, Optional: false},
+				{Name: "index", TypeExpr: "number", Optional: false},
+				{Name: "thinking", TypeExpr: "string", Optional: false},
+				{Name: "summary", TypeExpr: "string | null", Optional: true},
+				{Name: "signature", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name:  "MessageContentDelta",
+			root:  reflect.TypeOf((*MessageContentDelta)(nil)).Elem(),
+			kind:  "alias",
+			alias: "MessageTextDelta | MessageThinkingDelta",
+		},
+		{
+			name: "MessageStartEvent",
+			root: reflect.TypeOf(MessageStartEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_START", Optional: false},
+				{Name: "message", TypeExpr: "BaseChatMessageUnion", Optional: false},
+			},
+		},
+		{
+			name: "MessageDeltaEvent",
+			root: reflect.TypeOf(MessageDeltaEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.DELTA", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContentDelta> | null", Optional: true},
+			},
+		},
+		{
+			name: "ToolCallDeltaEvent",
+			root: reflect.TypeOf(ToolCallDeltaEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_CALL_DELTA", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_call_id", TypeExpr: "string", Optional: false},
+				{Name: "arguments_delta", TypeExpr: "string", Optional: false},
+				{Name: "tool_name", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ToolResultEvent",
+			root: reflect.TypeOf(ToolResultEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_RESULT", Optional: false},
+				{Name: "result", TypeExpr: "ToolChatMessage", Optional: false},
+			},
+		},
+		{
+			name: "ToolArgumentPreviewDeltaEvent",
+			root: reflect.TypeOf(ToolArgumentPreviewDeltaEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_call_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_name", TypeExpr: "string", Optional: false},
+				{Name: "arguments_delta", TypeExpr: "string", Optional: false},
+				{Name: "preview_kind", TypeExpr: "string", Optional: false},
+				{Name: "target_ids_by_type", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "preview_value_delta", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "MessageStopEvent",
+			root: reflect.TypeOf(MessageStopEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_STOP", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "MessageFinalizedEvent",
+			root: reflect.TypeOf(MessageFinalizedEvent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_FINALIZED", Optional: false},
+				{Name: "message", TypeExpr: "BaseChatMessageUnion", Optional: false},
+			},
+		},
+		{
+			name:  "LLMStreamingResponseChunk",
+			root:  reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(),
+			kind:  "alias",
+			alias: "MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
+		},
+		{
+			name: "LLMStreamingResponse",
+			root: reflect.TypeOf(LLMStreamingResponse{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "chatId", TypeExpr: "string", Optional: false},
+				{Name: "chunk", TypeExpr: "LLMStreamingResponseChunk", Optional: false},
+				{Name: "sectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string | null", Optional: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestProjectStateValueObjectContractsUseConverterObjects(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(CodeFileBindingUpdate{})); err != nil {

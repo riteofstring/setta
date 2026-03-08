@@ -1,6 +1,11 @@
 package frontendbindings
 
-type AIRuntimeSupport struct{}
+type EngineType string
+
+const (
+	EngineTypeSettaLLM      EngineType = "setta_llm"
+	EngineTypeExternalAgent EngineType = "external_agent"
+)
 
 type EngineConfigDefaults struct {
 	Thinking *bool `json:"thinking,omitempty"`
@@ -9,7 +14,7 @@ type EngineConfigDefaults struct {
 type EngineConfig struct {
 	ID                    string               `json:"id"`
 	Name                  string               `json:"name"`
-	EngineType            string               `json:"engineType"`
+	EngineType            EngineType           `json:"engineType"`
 	SettaLlmConfigID      *string              `json:"settaLlmConfigId,omitempty"`
 	ExternalAgentConfigID *string              `json:"externalAgentConfigId,omitempty"`
 	Defaults              EngineConfigDefaults `json:"defaults"`
@@ -29,6 +34,12 @@ type AgentProfile struct {
 
 type TranscriptionTransportMode string
 
+const (
+	TranscriptionTransportModeAuto     TranscriptionTransportMode = "auto"
+	TranscriptionTransportModeFile     TranscriptionTransportMode = "file"
+	TranscriptionTransportModeRealtime TranscriptionTransportMode = "realtime"
+)
+
 type TranscriptionProfile struct {
 	ID                            string                     `json:"id"`
 	Name                          string                     `json:"name"`
@@ -40,6 +51,14 @@ type TranscriptionProfile struct {
 }
 
 type AgentRunStatus string
+
+const (
+	AgentRunStatusQueued    AgentRunStatus = "queued"
+	AgentRunStatusRunning   AgentRunStatus = "running"
+	AgentRunStatusCompleted AgentRunStatus = "completed"
+	AgentRunStatusFailed    AgentRunStatus = "failed"
+	AgentRunStatusCancelled AgentRunStatus = "cancelled"
+)
 
 type RunEvent struct {
 	ID        string         `json:"id"`
@@ -61,118 +80,108 @@ type AgentRun struct {
 	Events     []RunEvent       `json:"events"`
 }
 
-const aiRuntimeFrontendSupportRawTS = `
-export const EngineTypeEnum = {
-  setta_llm: "setta_llm",
-  external_agent: "external_agent",
-} as const;
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
+type AgentRunList []AgentRun
 
-export const TranscriptionTransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-export type TranscriptionTransportMode = ObjectValues<
-  typeof TranscriptionTransportModeEnum
->;
+type StreamingEventType string
 
-export const AgentRunStatusEnum = {
-  queued: "queued",
-  running: "running",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
-} as const;
-export type AgentRunStatus = ObjectValues<typeof AgentRunStatusEnum>;
+const (
+	StreamingEventTypeMessageStart        StreamingEventType = "message_start"
+	StreamingEventTypeDelta               StreamingEventType = "delta"
+	StreamingEventTypeToolCallDelta       StreamingEventType = "tool_call_delta"
+	StreamingEventTypeToolArgumentPreview StreamingEventType = "tool_argument_preview_delta"
+	StreamingEventTypeToolResult          StreamingEventType = "tool_result"
+	StreamingEventTypeMessageStop         StreamingEventType = "message_stop"
+	StreamingEventTypeMessageFinalized    StreamingEventType = "message_finalized"
+)
 
-export type AgentRunList = Array<AgentRun>;
+type MessageTextDelta struct {
+	Type  string `json:"type"`
+	Index int    `json:"index"`
+	Text  string `json:"text"`
+}
 
-export const StreamingEventTypeEnum = {
-  MESSAGE_START: "message_start",
-  DELTA: "delta",
-  TOOL_CALL_DELTA: "tool_call_delta",
-  TOOL_ARGUMENT_PREVIEW_DELTA: "tool_argument_preview_delta",
-  TOOL_RESULT: "tool_result",
-  MESSAGE_STOP: "message_stop",
-  MESSAGE_FINALIZED: "message_finalized",
-} as const;
-export type StreamingEventType = ObjectValues<typeof StreamingEventTypeEnum>;
+func (MessageTextDelta) isMessageContentDelta() {}
 
-export type MessageTextDelta = {
-  type: "text_delta";
-  index: number;
-  text: string;
-};
+type MessageThinkingDelta struct {
+	Type      string  `json:"type"`
+	Index     int     `json:"index"`
+	Thinking  string  `json:"thinking"`
+	Summary   *string `json:"summary,omitempty"`
+	Signature *string `json:"signature,omitempty"`
+}
 
-export type MessageThinkingDelta = {
-  type: "thinking_delta";
-  index: number;
-  thinking: string;
-  summary?: string | null;
-  signature?: string | null;
-};
+func (MessageThinkingDelta) isMessageContentDelta() {}
 
-export type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
+type MessageContentDelta interface {
+	isMessageContentDelta()
+}
 
-export type MessageStartEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_START;
-  message: BaseChatMessageUnion;
-};
+type MessageStartEvent struct {
+	Type    StreamingEventType   `json:"type"`
+	Message BaseChatMessageUnion `json:"message"`
+}
 
-export type MessageDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.DELTA;
-  message_id: string;
-  content?: Array<MessageContentDelta> | null;
-};
+func (MessageStartEvent) isLLMStreamingResponseChunk() {}
 
-export type ToolCallDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_CALL_DELTA;
-  message_id: string;
-  tool_call_id: string;
-  arguments_delta: string;
-  tool_name?: string | null;
-};
+type MessageDeltaEvent struct {
+	Type      StreamingEventType    `json:"type"`
+	MessageID string                `json:"message_id"`
+	Content   []MessageContentDelta `json:"content,omitempty"`
+}
 
-export type ToolResultEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_RESULT;
-  result: ToolChatMessage;
-};
+func (MessageDeltaEvent) isLLMStreamingResponseChunk() {}
 
-export type ToolArgumentPreviewDeltaEvent = {
-  type: typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA;
-  message_id: string;
-  tool_call_id: string;
-  tool_name: string;
-  arguments_delta: string;
-  preview_kind: string;
-  target_ids_by_type: Record<string, Array<string>>;
-  preview_value_delta: string;
-};
+type ToolCallDeltaEvent struct {
+	Type           StreamingEventType `json:"type"`
+	MessageID      string             `json:"message_id"`
+	ToolCallID     string             `json:"tool_call_id"`
+	ArgumentsDelta string             `json:"arguments_delta"`
+	ToolName       *string            `json:"tool_name,omitempty"`
+}
 
-export type MessageStopEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_STOP;
-  message_id: string;
-};
+func (ToolCallDeltaEvent) isLLMStreamingResponseChunk() {}
 
-export type MessageFinalizedEvent = {
-  type: typeof StreamingEventTypeEnum.MESSAGE_FINALIZED;
-  message: BaseChatMessageUnion;
-};
+type ToolResultEvent struct {
+	Type   StreamingEventType `json:"type"`
+	Result ToolChatMessage    `json:"result"`
+}
 
-export type LLMStreamingResponseChunk =
-  | MessageStartEvent
-  | MessageDeltaEvent
-  | ToolCallDeltaEvent
-  | ToolResultEvent
-  | ToolArgumentPreviewDeltaEvent
-  | MessageStopEvent
-  | MessageFinalizedEvent;
+func (ToolResultEvent) isLLMStreamingResponseChunk() {}
 
-export type LLMStreamingResponse = {
-  chatId: string;
-  chunk: LLMStreamingResponseChunk;
-  sectionId?: string | null;
-  projectConfigId?: string | null;
-};
-`
+type ToolArgumentPreviewDeltaEvent struct {
+	Type              StreamingEventType  `json:"type"`
+	MessageID         string              `json:"message_id"`
+	ToolCallID        string              `json:"tool_call_id"`
+	ToolName          string              `json:"tool_name"`
+	ArgumentsDelta    string              `json:"arguments_delta"`
+	PreviewKind       string              `json:"preview_kind"`
+	TargetIDsByType   map[string][]string `json:"target_ids_by_type"`
+	PreviewValueDelta string              `json:"preview_value_delta"`
+}
+
+func (ToolArgumentPreviewDeltaEvent) isLLMStreamingResponseChunk() {}
+
+type MessageStopEvent struct {
+	Type      StreamingEventType `json:"type"`
+	MessageID string             `json:"message_id"`
+}
+
+func (MessageStopEvent) isLLMStreamingResponseChunk() {}
+
+type MessageFinalizedEvent struct {
+	Type    StreamingEventType   `json:"type"`
+	Message BaseChatMessageUnion `json:"message"`
+}
+
+func (MessageFinalizedEvent) isLLMStreamingResponseChunk() {}
+
+type LLMStreamingResponseChunk interface {
+	isLLMStreamingResponseChunk()
+}
+
+type LLMStreamingResponse struct {
+	ChatID          string                    `json:"chatId"`
+	Chunk           LLMStreamingResponseChunk `json:"chunk"`
+	SectionID       *string                   `json:"sectionId,omitempty"`
+	ProjectConfigID *string                   `json:"projectConfigId,omitempty"`
+}

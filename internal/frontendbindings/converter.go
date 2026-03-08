@@ -202,6 +202,31 @@ func newTypeConverter() *typeConverter {
 				{Name: "info", Value: "info"},
 				{Name: "save", Value: "save"},
 			},
+			reflect.TypeOf(EngineType("")): {
+				{Name: "setta_llm", Value: "setta_llm"},
+				{Name: "external_agent", Value: "external_agent"},
+			},
+			reflect.TypeOf(TranscriptionTransportMode("")): {
+				{Name: "auto", Value: "auto"},
+				{Name: "file", Value: "file"},
+				{Name: "realtime", Value: "realtime"},
+			},
+			reflect.TypeOf(AgentRunStatus("")): {
+				{Name: "queued", Value: "queued"},
+				{Name: "running", Value: "running"},
+				{Name: "completed", Value: "completed"},
+				{Name: "failed", Value: "failed"},
+				{Name: "cancelled", Value: "cancelled"},
+			},
+			reflect.TypeOf(StreamingEventType("")): {
+				{Name: "MESSAGE_START", Value: "message_start"},
+				{Name: "DELTA", Value: "delta"},
+				{Name: "TOOL_CALL_DELTA", Value: "tool_call_delta"},
+				{Name: "TOOL_ARGUMENT_PREVIEW_DELTA", Value: "tool_argument_preview_delta"},
+				{Name: "TOOL_RESULT", Value: "tool_result"},
+				{Name: "MESSAGE_STOP", Value: "message_stop"},
+				{Name: "MESSAGE_FINALIZED", Value: "message_finalized"},
+			},
 			reflect.TypeOf(ArtifactType("")): {
 				{Name: "Image", Value: "Image"},
 				{Name: "BrushStroke", Value: "BrushStroke"},
@@ -323,11 +348,6 @@ func newTypeConverter() *typeConverter {
 				Kind:  "alias",
 				Alias: "SectionsClipboardData",
 			},
-			reflect.TypeOf(AIRuntimeSupport{}): {
-				Name: "AIRuntimeSupport",
-				Kind: "raw",
-				Raw:  aiRuntimeFrontendSupportRawTS,
-			},
 			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithCreateExpr(
 				"EngineConfigDefaults",
 				`mergeGeneratedOptions(
@@ -429,6 +449,84 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "toolCalls", TypeExpr: "Array<Record<string, unknown>>"},
 				TypeProperty{Name: "cost", TypeExpr: "number | null", Optional: true},
 				TypeProperty{Name: "events", TypeExpr: "Array<RunEvent>"},
+			),
+			reflect.TypeOf(AgentRunList{}): aliasDeclaration(
+				"AgentRunList",
+				"Array<AgentRun>",
+			),
+			reflect.TypeOf(MessageTextDelta{}): objectDeclaration(
+				"MessageTextDelta",
+				TypeProperty{Name: "type", TypeExpr: `"text_delta"`},
+				TypeProperty{Name: "index", TypeExpr: "number"},
+				TypeProperty{Name: "text", TypeExpr: "string"},
+			),
+			reflect.TypeOf(MessageThinkingDelta{}): objectDeclaration(
+				"MessageThinkingDelta",
+				TypeProperty{Name: "type", TypeExpr: `"thinking_delta"`},
+				TypeProperty{Name: "index", TypeExpr: "number"},
+				TypeProperty{Name: "thinking", TypeExpr: "string"},
+				TypeProperty{Name: "summary", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "signature", TypeExpr: "string | null", Optional: true},
+			),
+			reflect.TypeOf((*MessageContentDelta)(nil)).Elem(): aliasDeclaration(
+				"MessageContentDelta",
+				"MessageTextDelta | MessageThinkingDelta",
+			),
+			reflect.TypeOf(MessageStartEvent{}): objectDeclaration(
+				"MessageStartEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_START"},
+				TypeProperty{Name: "message", TypeExpr: "BaseChatMessageUnion"},
+			),
+			reflect.TypeOf(MessageDeltaEvent{}): objectDeclaration(
+				"MessageDeltaEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.DELTA"},
+				TypeProperty{Name: "message_id", TypeExpr: "string"},
+				TypeProperty{Name: "content", TypeExpr: "Array<MessageContentDelta> | null", Optional: true},
+			),
+			reflect.TypeOf(ToolCallDeltaEvent{}): objectDeclaration(
+				"ToolCallDeltaEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_CALL_DELTA"},
+				TypeProperty{Name: "message_id", TypeExpr: "string"},
+				TypeProperty{Name: "tool_call_id", TypeExpr: "string"},
+				TypeProperty{Name: "arguments_delta", TypeExpr: "string"},
+				TypeProperty{Name: "tool_name", TypeExpr: "string | null", Optional: true},
+			),
+			reflect.TypeOf(ToolResultEvent{}): objectDeclaration(
+				"ToolResultEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_RESULT"},
+				TypeProperty{Name: "result", TypeExpr: "ToolChatMessage"},
+			),
+			reflect.TypeOf(ToolArgumentPreviewDeltaEvent{}): objectDeclaration(
+				"ToolArgumentPreviewDeltaEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA"},
+				TypeProperty{Name: "message_id", TypeExpr: "string"},
+				TypeProperty{Name: "tool_call_id", TypeExpr: "string"},
+				TypeProperty{Name: "tool_name", TypeExpr: "string"},
+				TypeProperty{Name: "arguments_delta", TypeExpr: "string"},
+				TypeProperty{Name: "preview_kind", TypeExpr: "string"},
+				TypeProperty{Name: "target_ids_by_type", TypeExpr: "Record<string, Array<string>>"},
+				TypeProperty{Name: "preview_value_delta", TypeExpr: "string"},
+			),
+			reflect.TypeOf(MessageStopEvent{}): objectDeclaration(
+				"MessageStopEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_STOP"},
+				TypeProperty{Name: "message_id", TypeExpr: "string"},
+			),
+			reflect.TypeOf(MessageFinalizedEvent{}): objectDeclaration(
+				"MessageFinalizedEvent",
+				TypeProperty{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_FINALIZED"},
+				TypeProperty{Name: "message", TypeExpr: "BaseChatMessageUnion"},
+			),
+			reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(): aliasDeclaration(
+				"LLMStreamingResponseChunk",
+				"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
+			),
+			reflect.TypeOf(LLMStreamingResponse{}): objectDeclaration(
+				"LLMStreamingResponse",
+				TypeProperty{Name: "chatId", TypeExpr: "string"},
+				TypeProperty{Name: "chunk", TypeExpr: "LLMStreamingResponseChunk"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string | null", Optional: true},
 			),
 			reflect.TypeOf(AgentProfileResponse{}): {
 				Name:  "AgentProfileResponse",

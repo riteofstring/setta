@@ -3,10 +3,6 @@ import {
   AgenticEdgeKindEnum,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
-  createAgentRun,
-  createAgenticEdge,
-  createEngineConfig,
-  createRunEvent,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateDisplayFormatEnum,
@@ -15,10 +11,18 @@ import {
   DropzoneModeEnum,
   EngineTypeEnum,
   HttpRequestMethodEnum,
+  type LLMStreamingResponse,
+  type MessageContentDelta,
+  type MessageDeltaEvent,
+  StreamingEventTypeEnum,
   TimeControlModeEnum,
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
   TimeParamCodeObjImpl,
+  createAgentRun,
+  createAgenticEdge,
+  createEngineConfig,
+  createRunEvent,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -98,5 +102,29 @@ describe("generated AI/runtime support", () => {
     expect(ButtonActionModeEnum.HTTP_REQUEST).toBe("HTTP_REQUEST");
     expect(HttpRequestMethodEnum.POST).toBe("POST");
     expect(DropzoneModeEnum.STATEFUL).toBe("STATEFUL");
+  });
+
+  it("exports the managed-chat streaming chunk unions and discriminators", () => {
+    const thinkingDelta: MessageContentDelta = {
+      type: "thinking_delta",
+      index: 0,
+      thinking: "step",
+      summary: null,
+      signature: null,
+    };
+    const deltaChunk: MessageDeltaEvent = {
+      type: StreamingEventTypeEnum.DELTA,
+      message_id: "message-1",
+      content: [thinkingDelta],
+    };
+    const response: LLMStreamingResponse = {
+      chatId: "chat-1",
+      chunk: deltaChunk,
+      sectionId: null,
+      projectConfigId: null,
+    };
+
+    expect(response.chunk.type).toBe(StreamingEventTypeEnum.DELTA);
+    expect(deltaChunk.content?.[0]?.type).toBe("thinking_delta");
   });
 });
