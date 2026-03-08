@@ -10,7 +10,11 @@ import {
   type RefObject,
 } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useLocalStorage, useNodeInternals } from "state/definitions";
+import {
+  useActiveSectionUI,
+  useLocalStorage,
+  useNodeInternals,
+} from "state/definitions";
 import { shallow } from "zustand/shallow";
 import Panel from "../core/components/Panel";
 import type {
@@ -21,7 +25,11 @@ import type {
 } from "../core/types";
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
-import { MiniMapNodes, MiniMapNodesReactive } from "./MiniMapNodes";
+import {
+  areMiniMapNodesRenderableInputsEqual,
+  MiniMapNodes,
+  MiniMapNodesReactive,
+} from "./MiniMapNodes";
 import type { MiniMapNodesType, MiniMapProps } from "./types";
 
 const defaultWidth = 200;
@@ -55,7 +63,7 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   y: number;
   width: number;
   height: number;
-  svgRef: RefObject<SVGSVGElement>;
+  svgRef?: RefObject<SVGSVGElement>;
   onSvgClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onSvgNodeClick?: MiniMapNodesType["onClick"];
   offset: number;
@@ -64,7 +72,39 @@ type MinimapSvgProps = Omit<MiniMapNodesType, "onClick"> & {
   maskStrokeColor: string;
   maskStrokeWidth: number;
   nodes: Node[] | null;
+  enableSelectionSync?: boolean;
 };
+
+function areStringArraysEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function syncSelectedMiniMapNodes(
+  svg: SVGSVGElement | null | undefined,
+  activeIds: string[],
+) {
+  if (!svg) {
+    return;
+  }
+
+  const activeIdSet = new Set(activeIds);
+  const nodes = svg.querySelectorAll<SVGElement>("[data-minimap-node-id]");
+  for (const node of nodes) {
+    const sectionId = node.dataset.minimapNodeId;
+    if (!sectionId) {
+      continue;
+    }
+    node.classList.toggle("selected", activeIdSet.has(sectionId));
+  }
+}
 
 function getSelector(
   nodes: Node[],
@@ -127,7 +167,10 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useNodeInternals(getNodes, shallow);
+  const nodes = useNodeInternals(
+    getNodes,
+    areMiniMapNodesRenderableInputsEqual,
+  );
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
   const { boundingRect, viewBB } = useReactFlow(
@@ -271,6 +314,7 @@ function MiniMap({
         maskStrokeColor={maskStrokeColor}
         maskStrokeWidth={maskStrokeWidth}
         nodes={null}
+        enableSelectionSync
       />
     </Panel>
   );
@@ -279,6 +323,50 @@ function MiniMap({
 MiniMap.displayName = "MiniMap";
 
 export default memo(MiniMap);
+
+function MiniMapSelectionSync({
+  svgRef,
+}: {
+  svgRef?: RefObject<SVGSVGElement>;
+}) {
+  useEffect(() => {
+    const applySelection = (activeIds: string[]) => {
+      syncSelectedMiniMapNodes(svgRef?.current, activeIds);
+    };
+
+    applySelection(useActiveSectionUI.getState().activeIds);
+
+    const unsubscribe = useActiveSectionUI.subscribe(
+      (state) => state.activeIds,
+      (activeIds) => {
+        applySelection(activeIds);
+      },
+      {
+        equalityFn: areStringArraysEqual,
+      },
+    );
+
+    let observer: MutationObserver | null = null;
+    if (svgRef?.current && typeof MutationObserver !== "undefined") {
+      observer = new MutationObserver(() => {
+        applySelection(useActiveSectionUI.getState().activeIds);
+      });
+      observer.observe(svgRef.current, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class", "data-minimap-node-id"],
+      });
+    }
+
+    return () => {
+      unsubscribe();
+      observer?.disconnect();
+    };
+  }, [svgRef]);
+
+  return null;
+}
 
 export function MinimapSvg({
   elementWidth,
@@ -302,6 +390,7 @@ export function MinimapSvg({
   maskStrokeColor,
   maskStrokeWidth,
   nodes,
+  enableSelectionSync = false,
 }: MinimapSvgProps) {
   const minimapNodesProps: MiniMapNodesType = {
     onClick: onSvgNodeClick,
@@ -327,6 +416,7 @@ export function MinimapSvg({
       ) : (
         <MiniMapNodesReactive {...minimapNodesProps} />
       )}
+      {enableSelectionSync ? <MiniMapSelectionSync svgRef={svgRef} /> : null}
       {viewBB && (
         <path
           className="react-flow__minimap-mask"

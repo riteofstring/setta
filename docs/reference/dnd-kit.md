@@ -52,9 +52,15 @@ reparent both sections and params in the project UI.
 ## Selection-aware drags
 
 - Dragging in share mode always targets the active section only.
-- In non-share mode, drag selection is resolved from `projectConfig.activeIds`:
-  the drag uses root selections (selected sections that do not have a selected
-  ancestor).
+- In non-share mode, drag selection is resolved from the lightweight
+  `useActiveSectionUI` / `getActiveSectionUIIds()` store, not directly from
+  `projectConfig.activeIds`.
+- The UI-owned selection updates immediately during section clicks, marquee
+  selection, and pane deselects. Durable `projectConfig.activeIds` sync is
+  deferred until the gesture completes or the next sync point, so drag targeting
+  follows the live UI state instead of waiting for the full project-store write.
+- Dragging still uses root selections (selected sections that do not have a
+  selected ancestor).
 - Selection across multiple parents is rejected with a notification and falls
   back to dragging the active section only.
 - Moving-free drags derive a bounding rect for the selection. This keeps drag
@@ -62,6 +68,9 @@ reparent both sections and params in the project UI.
 - The selection rectangle exposes a drag handle (`NodesSelectionDragHandle`)
   during moving-free mode so users can drag the entire selection from the
   selection box.
+- Marquee hit testing uses node internals when they are measured and falls back
+  to live DOM bounds for unmeasured or nested sections, so nested children can
+  still be captured by box selection.
 
 ## Drag lifecycle
 
