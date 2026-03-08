@@ -528,12 +528,17 @@ Use the docs in this order:
     mutation surface, including the clean-break recommendation to reopen
     managed `start/stopAgentRun` before any run-chain work and to avoid
     reintroducing external-agent compatibility through that route
-157. `spike-mcp.md`
+157. `phase-14-managed-agent-start-stop-runtime-and-transport.md`
+  - focused executable slice doc for the first bounded Phase 14 follow-on:
+    Go-owned managed `start/stopAgentRun` runtime and transport over the
+    landed managed-run service foundations, with external-agent dispatch and
+    run-chain kept out of scope
+158. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-158. `spike-pty.md`
+159. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-159. `spike-lsp.md`
+160. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

@@ -263,6 +263,6 @@ Open design questions for that future slice:
   mutation surface
 - do not open implementation work here automatically without a caller or
   explicit product/runtime decision
-- if runtime work is reopened, start with a focused managed-agent
-  `start/stopAgentRun` slice and keep run-chain out of scope until that first
-  runtime owner exists
+- runtime work is now explicitly reopened through
+  `phase-14-managed-agent-start-stop-runtime-and-transport.md`
+- keep run-chain out of scope until that first managed runtime owner exists
