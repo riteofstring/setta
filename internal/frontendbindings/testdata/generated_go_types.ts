@@ -2594,6 +2594,679 @@ export function createCodeFileBinding(options: Partial<CodeFileBinding> = {}): C
 }
 
 
+export const ClipboardDataTypeEnum = {
+  Sections: "Sections",
+} as const;
+export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
+
+
+export type ClipboardProjectStateCore = {
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+};
+export function createClipboardProjectStateCore(options: Partial<ClipboardProjectStateCore> = {}): ClipboardProjectStateCore {
+  return mergeGeneratedOptions(
+    {
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+    },
+    options,
+  );
+}
+
+
+export type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+export function createClipboardProjectStateCoreWithSectionVariantMap(options: Partial<ClipboardProjectStateCoreWithSectionVariantMap> = {}): ClipboardProjectStateCoreWithSectionVariantMap {
+  return mergeGeneratedOptions(
+    {
+      core: createClipboardProjectStateCore(),
+      sectionVariantMap: {},
+    },
+    options,
+  );
+}
+
+
+export type SectionsClipboardData = {
+  type: typeof ClipboardDataTypeEnum.Sections;
+  data: ClipboardProjectStateCoreWithSectionVariantMap;
+};
+export function createSectionsClipboardData(options: Partial<SectionsClipboardData> = {}): SectionsClipboardData {
+  return mergeGeneratedOptions(
+    {
+      type: ClipboardDataTypeEnum.Sections,
+      data: createClipboardProjectStateCoreWithSectionVariantMap(),
+    },
+    options,
+  );
+}
+
+
+export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
+
+
+export type Core = {
+  id: string;
+  name: string;
+  displayName: string;
+  variants: Array<string>;
+  defaultVariant: string | null;
+  sharedModifier: Record<string, unknown>;
+  unsharedKeys: Array<string>;
+};
+export function createCore(options: Partial<Core> = {}): Core {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      displayName: "",
+      variants: [],
+      defaultVariant: null,
+      sharedModifier: {},
+      unsharedKeys: [],
+    },
+    options,
+  );
+}
+
+
+export type Variant = {
+  id: string;
+  name: string;
+  impl: string;
+  nonPresetImpls: Array<string>;
+  modifier: Record<string, unknown>;
+  isFrozen: boolean;
+};
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      impl: "",
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    },
+    options,
+  );
+}
+
+
+export type SingletonSections = {
+  GlobalVariables: string | null;
+  GenPythonCode: string | null;
+  GenPythonMetadata: string | null;
+};
+export function createSingletonSections(options: Partial<SingletonSections> = {}): SingletonSections {
+  return mergeGeneratedOptions(
+    {
+      GlobalVariables: null,
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+    },
+    options,
+  );
+}
+
+
+export type ShownParamIdDetails = {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+};
+export function createShownParamIdDetails(options: Partial<ShownParamIdDetails> = {}): ShownParamIdDetails {
+  return mergeGeneratedOptions(
+    {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+    options,
+  );
+}
+
+
+export type ShownParamIds = {
+  pinned: ShownParamIdDetails;
+  unpinned: ShownParamIdDetails;
+};
+export function createShownParamIds(options: Partial<ShownParamIds> = {}): ShownParamIds {
+  return mergeGeneratedOptions(
+    {
+      pinned: createShownParamIdDetails(),
+      unpinned: createShownParamIdDetails(),
+    },
+    options,
+  );
+}
+
+
+
+export const SectionTypeEnum = {
+  Callable: "Callable",
+  Dict: "Dict",
+  ListRoot: "ListRoot",
+  Group: "Group",
+  Image: "Image",
+  Chart: "Chart",
+  Draw: "Draw",
+  TextBlock: "TextBlock",
+  Prompt: "Prompt",
+  MetaControl: "MetaControl",
+  Social: "Social",
+  GlobalVariables: "GlobalVariables",
+  Code: "Code",
+  GenPythonCode: "GenPythonCode",
+  GenPythonMetadata: "GenPythonMetadata",
+  Terminal: "Terminal",
+  IFrame: "IFrame",
+  Chat: "Chat",
+  Browser: "Browser",
+  Plugin: "Plugin",
+  TaskBoard: "TaskBoard",
+  Spreadsheet: "Spreadsheet",
+} as const;
+export type SectionType = ObjectValues<typeof SectionTypeEnum>;
+
+export const CodeObjTypeEnum = {
+  CodeCallable: "CodeCallable",
+  CodeParam: "CodeParam",
+  TextParam: "TextParam",
+  DateParam: "DateParam",
+  TimeParam: "TimeParam",
+  ButtonParam: "ButtonParam",
+  SliderParam: "SliderParam",
+  RotaryParam: "RotaryParam",
+  SwitchParam: "SwitchParam",
+  ColorPickerParam: "ColorPickerParam",
+  DropdownParam: "DropdownParam",
+  PasswordParam: "PasswordParam",
+  TextAreaParam: "TextAreaParam",
+  DropzoneParam: "DropzoneParam",
+  NestedParam: "NestedParam",
+} as const;
+export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
+export const CodeLanguageEnum = {
+  python: "python",
+  bash: "bash",
+  javascript: "javascript",
+  typescript: "typescript",
+  json: "json",
+  yaml: "yaml",
+  toml: "toml",
+  markdown: "markdown",
+  plaintext: "plaintext",
+} as const;
+export type BuiltinCodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
+
+export const ConfigLanguageEnum = {
+  python: "python",
+  json: "json",
+} as const;
+export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
+
+export const ParameterPassingStyleEnum = {
+  DEFAULT: "DEFAULT",
+  ARGS: "ARGS",
+  KWARGS: "KWARGS",
+  POSITIONAL_ONLY: "POSITIONAL_ONLY",
+  KEYWORD_ONLY: "KEYWORD_ONLY",
+} as const;
+export type ParameterPassingStyle = ObjectValues<
+  typeof ParameterPassingStyleEnum
+>;
+
+export const ParamNameTypeEnum = {
+  CODE: "CODE",
+  TEXT: "TEXT",
+} as const;
+export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
+
+export const ButtonActionModeEnum = {
+  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
+  HTTP_REQUEST: "HTTP_REQUEST",
+  SETTA_API: "SETTA_API",
+} as const;
+export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
+
+export const HttpRequestMethodEnum = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  PATCH: "PATCH",
+  DELETE: "DELETE",
+  HEAD: "HEAD",
+  OPTIONS: "OPTIONS",
+} as const;
+export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
+export type DropzoneMode = ObjectValues<typeof DropzoneModeEnum>;
+
+export const TextParamInputUITypeEnum = {
+  plain: "plain",
+  time: "time",
+  date: "date",
+} as const;
+export type TextParamInputUIType = ObjectValues<
+  typeof TextParamInputUITypeEnum
+>;
+
+export const TimeDisplayFormatEnum = {
+  twenty_four_hour: "twenty_four_hour",
+  twelve_hour: "twelve_hour",
+} as const;
+export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
+
+export const TimeControlModeEnum = {
+  input: "input",
+  display: "display",
+} as const;
+export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
+
+export const TimeDisplayFontEnum = {
+  clock: "clock",
+  monospace: "monospace",
+  system: "system",
+} as const;
+export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
+
+export const DateDisplayFormatEnum = {
+  iso: "iso",
+  us: "us",
+  eu: "eu",
+  long: "long",
+} as const;
+export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
+
+export const DateControlModeEnum = {
+  input: "input",
+  calendar: "calendar",
+} as const;
+export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
+
+export const DateSelectionModeEnum = {
+  single: "single",
+  multiple: "multiple",
+} as const;
+export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
+
+export const DateCalendarWeekStartEnum = {
+  sunday: "sunday",
+  monday: "monday",
+} as const;
+export type DateCalendarWeekStart = ObjectValues<
+  typeof DateCalendarWeekStartEnum
+>;
+
+type GeneratedMutableValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<GeneratedMutableValue>
+  | { [key: string]: GeneratedMutableValue | undefined };
+
+function cloneGeneratedValue<T>(value: T): T {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneGeneratedValue(entry)) as T;
+  }
+  const cloned: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(
+    value as Record<string, GeneratedMutableValue | undefined>,
+  )) {
+    cloned[key] = cloneGeneratedValue(entry);
+  }
+  return cloned as T;
+}
+
+function mergeGeneratedOptions<T extends object>(
+  defaults: T,
+  options: Partial<T> = {},
+): T {
+  return {
+    ...cloneGeneratedValue(defaults),
+    ...cloneGeneratedValue(options),
+  } as T;
+}
+
+export type EdgePort = {
+  id: string;
+  accessor: string;
+};
+
+export type TypeErrorIgnoreState = {
+  callable: boolean;
+  params: Record<string, boolean>;
+};
+
+type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
+  {
+    defaults: TDefaults;
+    overrides: Partial<TImpl>;
+  };
+
+function isGeneratedImplOverrideCandidate(
+  value: unknown,
+): value is { id?: unknown; type?: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("id" in value || "type" in value)
+  );
+}
+
+function resolveGeneratedFactoryInputs<
+  TDefaults extends object,
+  TImpl extends object,
+>(
+  baseDefaults: TDefaults,
+  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
+  overrides?: Partial<TImpl>,
+): GeneratedFactoryResolution<TDefaults, TImpl> {
+  if (overrides !== undefined) {
+    return {
+      defaults: mergeGeneratedOptions(
+        baseDefaults,
+        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+      ),
+      overrides,
+    };
+  }
+  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
+    return {
+      defaults: cloneGeneratedValue(baseDefaults),
+      overrides: defaultsOrOverrides as Partial<TImpl>,
+    };
+  }
+  return {
+    defaults: mergeGeneratedOptions(
+      baseDefaults,
+      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+    ),
+    overrides: {},
+  };
+}
+
+export type ChartData = ChartDataValue;
+
+export type ChartDataType = ChartDataValue;
+
+function createGeneratedBaseSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+} {
+  return {
+    isFrozen: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      width: 250,
+      height: 150,
+    },
+    aspectRatio: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+  };
+}
+
+function createGeneratedBaseSectionWithParamsDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: ConfigLanguageEnum.python,
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+  };
+}
+
+function createGeneratedBaseCodeSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  code: string;
+  codeFileBinding: CodeFileBinding | null;
+  attachedTerminalSectionId: string | null;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    code: "",
+    size: {
+      width: 500,
+      height: 150,
+    },
+    codeFileBinding: null,
+    attachedTerminalSectionId: null,
+  };
+}
+
+export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.TimeParam,
+]);
+
+export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.TimeParam,
+]);
+
+const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeCallable,
+  CodeObjTypeEnum.NestedParam,
+]);
+
+export const ControlCodeObjTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.DropzoneParam,
+]);
+
+export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
+]);
+
+const BaseParentSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Code,
+  SectionTypeEnum.GenPythonCode,
+  SectionTypeEnum.GenPythonMetadata,
+  SectionTypeEnum.Group,
+  SectionTypeEnum.ListRoot,
+]);
+
+const BaseDictSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
+]);
+
+const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Callable,
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
+]);
+
+export function isBaseChildlessCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseChildlessCodeObjImplUnion {
+  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParamCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParamCodeObjImplUnion {
+  return BaseParamCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParentCodeObjImplUnion {
+  return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseParentSectionImplUnion {
+  return BaseParentSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseDictSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseDictSectionImplUnion {
+  return BaseDictSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionWithParamsImpl(
+  x: BaseSectionImplUnion,
+): x is BaseSectionWithParamsImplUnion {
+  return BaseSectionWithParamsImplTypeSet.has(x.type);
+}
+
+type ImplArgsBundleWithUpdaters<T> = {
+  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
+};
+
+export type ImplArgsBundleMap = {
+  BaseSection: {
+    impl: BaseSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+  };
+  BaseSectionWithParams: {
+    impl: BaseSectionWithParamsImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplUnion>;
+  };
+  BaseParentSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  BaseCodeSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  ChatSection: {
+    impl: BaseSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+  };
+  CodeSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  GroupSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  ListRootSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  BrowserSection: {
+    impl: BrowserSectionImpl;
+    args: ImplArgsBundleWithUpdaters<BrowserSectionImpl>;
+  };
+  TextBlockSection: {
+    impl: BaseSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+  };
+  BaseDictSection: {
+    impl: BaseDictSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
+  };
+  BaseChildlessCodeObj: {
+    impl: BaseChildlessCodeObjImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplUnion>;
+  };
+  BaseCodeObj: {
+    impl: BaseCodeObjImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplUnion>;
+  };
+};
+
+
+
 export type ProjectConfig = {
   id: string;
   name: string;
@@ -2643,6 +3316,60 @@ export function createProjectConfig(options: Partial<ProjectConfig> = {}): Proje
       activeIds: [],
       edges: [],
       agenticEdges: [],
+    },
+    options,
+  );
+}
+
+
+export type ProjectStateSingleConfig = {
+  projectConfig: ProjectConfig;
+  sections: Record<string, Core>;
+  sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionVariants: Record<string, Variant>;
+  codeObjs: Record<string, Core>;
+  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
+  codeObjVariants: Record<string, Variant>;
+  artifactGroups?: Record<string, unknown>;
+  singletonSections: SingletonSections;
+  parentSectionMap: Record<string, string | null>;
+  shownParamIds: Record<string, ShownParamIds>;
+  requiredDecodedImages: Array<string>;
+  genCodeBinding?: CodeFileBinding | null;
+};
+export function createProjectStateSingleConfig(options: Partial<ProjectStateSingleConfig> = {}): ProjectStateSingleConfig {
+  return mergeGeneratedOptions(
+    {
+      projectConfig: createProjectConfig(),
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+    },
+    options,
+  );
+}
+
+
+export type ProjectStateSingleConfigWithCompletedOpIds = {
+  projectState: ProjectStateSingleConfig;
+  completedOpIds: Array<string>;
+  pendingOpIds: Array<string>;
+};
+export function createProjectStateSingleConfigWithCompletedOpIds(options: Partial<ProjectStateSingleConfigWithCompletedOpIds> = {}): ProjectStateSingleConfigWithCompletedOpIds {
+  return mergeGeneratedOptions(
+    {
+      projectState: createProjectStateSingleConfig(),
+      completedOpIds: [],
+      pendingOpIds: [],
     },
     options,
   );
@@ -5025,644 +5752,6 @@ export type LoadProjectConfigRequestInput = {
 export function createLoadProjectConfigRequestInput(options: Partial<LoadProjectConfigRequestInput> = {}): LoadProjectConfigRequestInput {
   return options as LoadProjectConfigRequestInput;
 }
-
-
-
-export const SectionTypeEnum = {
-  Callable: "Callable",
-  Dict: "Dict",
-  ListRoot: "ListRoot",
-  Group: "Group",
-  Image: "Image",
-  Chart: "Chart",
-  Draw: "Draw",
-  TextBlock: "TextBlock",
-  Prompt: "Prompt",
-  MetaControl: "MetaControl",
-  Social: "Social",
-  GlobalVariables: "GlobalVariables",
-  Code: "Code",
-  GenPythonCode: "GenPythonCode",
-  GenPythonMetadata: "GenPythonMetadata",
-  Terminal: "Terminal",
-  IFrame: "IFrame",
-  Chat: "Chat",
-  Browser: "Browser",
-  Plugin: "Plugin",
-  TaskBoard: "TaskBoard",
-  Spreadsheet: "Spreadsheet",
-} as const;
-export type SectionType = ObjectValues<typeof SectionTypeEnum>;
-
-export const CodeObjTypeEnum = {
-  CodeCallable: "CodeCallable",
-  CodeParam: "CodeParam",
-  TextParam: "TextParam",
-  DateParam: "DateParam",
-  TimeParam: "TimeParam",
-  ButtonParam: "ButtonParam",
-  SliderParam: "SliderParam",
-  RotaryParam: "RotaryParam",
-  SwitchParam: "SwitchParam",
-  ColorPickerParam: "ColorPickerParam",
-  DropdownParam: "DropdownParam",
-  PasswordParam: "PasswordParam",
-  TextAreaParam: "TextAreaParam",
-  DropzoneParam: "DropzoneParam",
-  NestedParam: "NestedParam",
-} as const;
-export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
-
-export const CodeLanguageEnum = {
-  python: "python",
-  bash: "bash",
-  javascript: "javascript",
-  typescript: "typescript",
-  json: "json",
-  yaml: "yaml",
-  toml: "toml",
-  markdown: "markdown",
-  plaintext: "plaintext",
-} as const;
-export type BuiltinCodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
-
-export const ConfigLanguageEnum = {
-  python: "python",
-  json: "json",
-} as const;
-export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
-
-export const ParameterPassingStyleEnum = {
-  DEFAULT: "DEFAULT",
-  ARGS: "ARGS",
-  KWARGS: "KWARGS",
-  POSITIONAL_ONLY: "POSITIONAL_ONLY",
-  KEYWORD_ONLY: "KEYWORD_ONLY",
-} as const;
-export type ParameterPassingStyle = ObjectValues<
-  typeof ParameterPassingStyleEnum
->;
-
-export const ParamNameTypeEnum = {
-  CODE: "CODE",
-  TEXT: "TEXT",
-} as const;
-export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
-
-export const ButtonActionModeEnum = {
-  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
-  HTTP_REQUEST: "HTTP_REQUEST",
-  SETTA_API: "SETTA_API",
-} as const;
-export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
-
-export const HttpRequestMethodEnum = {
-  GET: "GET",
-  POST: "POST",
-  PUT: "PUT",
-  PATCH: "PATCH",
-  DELETE: "DELETE",
-  HEAD: "HEAD",
-  OPTIONS: "OPTIONS",
-} as const;
-export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
-
-export const DropzoneModeEnum = {
-  STATEFUL: "STATEFUL",
-  STATELESS: "STATELESS",
-} as const;
-export type DropzoneMode = ObjectValues<typeof DropzoneModeEnum>;
-
-export const TextParamInputUITypeEnum = {
-  plain: "plain",
-  time: "time",
-  date: "date",
-} as const;
-export type TextParamInputUIType = ObjectValues<
-  typeof TextParamInputUITypeEnum
->;
-
-export const TimeDisplayFormatEnum = {
-  twenty_four_hour: "twenty_four_hour",
-  twelve_hour: "twelve_hour",
-} as const;
-export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
-
-export const TimeControlModeEnum = {
-  input: "input",
-  display: "display",
-} as const;
-export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
-
-export const TimeDisplayFontEnum = {
-  clock: "clock",
-  monospace: "monospace",
-  system: "system",
-} as const;
-export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
-
-export const DateDisplayFormatEnum = {
-  iso: "iso",
-  us: "us",
-  eu: "eu",
-  long: "long",
-} as const;
-export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
-
-export const DateControlModeEnum = {
-  input: "input",
-  calendar: "calendar",
-} as const;
-export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
-
-export const DateSelectionModeEnum = {
-  single: "single",
-  multiple: "multiple",
-} as const;
-export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
-
-export const DateCalendarWeekStartEnum = {
-  sunday: "sunday",
-  monday: "monday",
-} as const;
-export type DateCalendarWeekStart = ObjectValues<
-  typeof DateCalendarWeekStartEnum
->;
-
-type GeneratedMutableValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<GeneratedMutableValue>
-  | { [key: string]: GeneratedMutableValue | undefined };
-
-function cloneGeneratedValue<T>(value: T): T {
-  if (value === null || value === undefined || typeof value !== "object") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => cloneGeneratedValue(entry)) as T;
-  }
-  const cloned: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(
-    value as Record<string, GeneratedMutableValue | undefined>,
-  )) {
-    cloned[key] = cloneGeneratedValue(entry);
-  }
-  return cloned as T;
-}
-
-function mergeGeneratedOptions<T extends object>(
-  defaults: T,
-  options: Partial<T> = {},
-): T {
-  return {
-    ...cloneGeneratedValue(defaults),
-    ...cloneGeneratedValue(options),
-  } as T;
-}
-
-export type EdgePort = {
-  id: string;
-  accessor: string;
-};
-
-export type TypeErrorIgnoreState = {
-  callable: boolean;
-  params: Record<string, boolean>;
-};
-
-export const ClipboardDataTypeEnum = {
-  Sections: "Sections",
-} as const;
-export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
-
-export type ClipboardProjectStateCore = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-};
-
-export type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
-};
-
-export type SectionsClipboardData = {
-  type: typeof ClipboardDataTypeEnum.Sections;
-  data: ClipboardProjectStateCoreWithSectionVariantMap;
-};
-
-export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
-
-export type Core = {
-  id: string;
-  name: string;
-  displayName: string;
-  variants: Array<string>;
-  defaultVariant: string | null;
-  sharedModifier: Record<string, unknown>;
-  unsharedKeys: Array<string>;
-};
-export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
-}
-
-export type Variant = {
-  id: string;
-  name: string;
-  impl: string;
-  nonPresetImpls: Array<string>;
-  modifier: Record<string, unknown>;
-  isFrozen: boolean;
-};
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
-}
-
-export type SingletonSections = {
-  GlobalVariables: string | null;
-  GenPythonCode: string | null;
-  GenPythonMetadata: string | null;
-};
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  return mergeGeneratedOptions(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
-}
-
-export type ShownParamIdDetails = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-
-export type ShownParamIds = {
-  pinned: ShownParamIdDetails;
-  unpinned: ShownParamIdDetails;
-};
-
-export type ProjectStateSingleConfig = {
-  projectConfig: ProjectConfig;
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-  artifactGroups?: Record<string, unknown>;
-  singletonSections: SingletonSections;
-  parentSectionMap: Record<string, string | null>;
-  shownParamIds: Record<string, ShownParamIds>;
-  requiredDecodedImages: Array<string>;
-  genCodeBinding?: CodeFileBinding | null;
-};
-
-export type ProjectStateSingleConfigWithCompletedOpIds = {
-  projectState: ProjectStateSingleConfig;
-  completedOpIds: Array<string>;
-  pendingOpIds: Array<string>;
-};
-
-type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
-  {
-    defaults: TDefaults;
-    overrides: Partial<TImpl>;
-  };
-
-function isGeneratedImplOverrideCandidate(
-  value: unknown,
-): value is { id?: unknown; type?: unknown } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    ("id" in value || "type" in value)
-  );
-}
-
-function resolveGeneratedFactoryInputs<
-  TDefaults extends object,
-  TImpl extends object,
->(
-  baseDefaults: TDefaults,
-  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
-  overrides?: Partial<TImpl>,
-): GeneratedFactoryResolution<TDefaults, TImpl> {
-  if (overrides !== undefined) {
-    return {
-      defaults: mergeGeneratedOptions(
-        baseDefaults,
-        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-      ),
-      overrides,
-    };
-  }
-  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
-    return {
-      defaults: cloneGeneratedValue(baseDefaults),
-      overrides: defaultsOrOverrides as Partial<TImpl>,
-    };
-  }
-  return {
-    defaults: mergeGeneratedOptions(
-      baseDefaults,
-      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-    ),
-    overrides: {},
-  };
-}
-
-export type ChartData = ChartDataValue;
-
-export type ChartDataType = ChartDataValue;
-
-function createGeneratedBaseSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-} {
-  return {
-    isFrozen: false,
-    tagColor: null,
-    styleColor: null,
-    size: {
-      width: 250,
-      height: 150,
-    },
-    aspectRatio: false,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-  };
-}
-
-function createGeneratedBaseSectionWithParamsDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    hideUnpinnedParams: false,
-    paramFilter: "",
-    columnWidth: null,
-    configLanguage: ConfigLanguageEnum.python,
-    edgeInputParams: [],
-    edgeOutputPorts: [],
-  };
-}
-
-function createGeneratedBaseCodeSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    code: "",
-    size: {
-      width: 500,
-      height: 150,
-    },
-    codeFileBinding: null,
-    attachedTerminalSectionId: null,
-  };
-}
-
-export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
-]);
-
-export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
-]);
-
-const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeCallable,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-export const ControlCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-]);
-
-export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-const BaseParentSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Code,
-  SectionTypeEnum.GenPythonCode,
-  SectionTypeEnum.GenPythonMetadata,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.ListRoot,
-]);
-
-const BaseDictSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-export function isBaseChildlessCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseChildlessCodeObjImplUnion {
-  return BaseChildlessCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParamCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParamCodeObjImplUnion {
-  return BaseParamCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParentCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParentCodeObjImplUnion {
-  return BaseParentCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParentSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseParentSectionImplUnion {
-  return BaseParentSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseDictSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseDictSectionImplUnion {
-  return BaseDictSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseSectionWithParamsImpl(
-  x: BaseSectionImplUnion,
-): x is BaseSectionWithParamsImplUnion {
-  return BaseSectionWithParamsImplTypeSet.has(x.type);
-}
-
-type ImplArgsBundleWithUpdaters<T> = {
-  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
-};
-
-export type ImplArgsBundleMap = {
-  BaseSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  BaseSectionWithParams: {
-    impl: BaseSectionWithParamsImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplUnion>;
-  };
-  BaseParentSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  BaseCodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  ChatSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  CodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  GroupSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  ListRootSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  BrowserSection: {
-    impl: BrowserSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BrowserSectionImpl>;
-  };
-  TextBlockSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  BaseDictSection: {
-    impl: BaseDictSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
-  };
-  BaseChildlessCodeObj: {
-    impl: BaseChildlessCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplUnion>;
-  };
-  BaseCodeObj: {
-    impl: BaseCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplUnion>;
-  };
-};
-
 
 
 export type CreateProjectConfigRequestInput = {

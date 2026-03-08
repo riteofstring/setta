@@ -3,11 +3,13 @@ import {
   AgenticEdgeKindEnum,
   BrowserAreaViewModeEnum,
   BrowserSearchScopeEnum,
+  ClipboardDataTypeEnum,
   CodeFileAccessModeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
   ControlCodeObjTypeSet,
+  createClipboardProjectStateCore,
   createBrowserSavedSearch,
   createBrowserSavedSearchTypeFilters,
   createBrowserSectionImpl,
@@ -15,11 +17,16 @@ import {
   createAgenticEdge,
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
+  createCore,
   createListRootSectionImpl,
+  createProjectConfig,
   createTopLevelSectionLayout,
   createTerminalSectionImpl,
   createDictSectionImpl,
   createSectionSize,
+  createProjectStateSingleConfig,
+  createSectionsClipboardData,
+  createSingletonSections,
   createTextBlockSectionImpl,
   createUserDefaultBrowserSectionImpl,
   createUserDefaultCallableSectionImpl,
@@ -344,5 +351,31 @@ describe("generated project state factories", () => {
     expect(edge.hidden).toBe(false);
     expect(edge.zIndex).toBe(0);
     expect(edge.selected).toBe(false);
+  });
+
+  it("exports canonical project-state core and clipboard defaults", () => {
+    const clipboardCore = createClipboardProjectStateCore({
+      sections: {
+        "section-1": createCore({ id: "section-1" }),
+      },
+    });
+    const projectState = createProjectStateSingleConfig({
+      projectConfig: createProjectConfig({ id: "project-1" }),
+    });
+    const clipboardData = createSectionsClipboardData({
+      data: {
+        core: clipboardCore,
+        sectionVariantMap: {},
+      },
+    });
+
+    expect(clipboardCore.sectionVariants).toEqual({});
+    expect(clipboardCore.codeObjs).toEqual({});
+    expect(projectState.projectConfig.id).toBe("project-1");
+    expect(projectState.singletonSections).toEqual(createSingletonSections());
+    expect(projectState.parentSectionMap).toEqual({});
+    expect(projectState.requiredDecodedImages).toEqual([]);
+    expect(clipboardData.type).toBe(ClipboardDataTypeEnum.Sections);
+    expect(clipboardData.data.core.sections["section-1"]?.id).toBe("section-1");
   });
 });

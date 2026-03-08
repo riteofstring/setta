@@ -2,6 +2,28 @@ package frontendbindings
 
 type ProjectStateSingleConfig struct{}
 
+type ProjectStateFrontendSupport struct{}
+
+type ProjectStateSingleConfigWithCompletedOpIds struct{}
+
+type ClipboardDataType string
+
+type ClipboardProjectStateCore struct{}
+
+type Core struct{}
+
+type Variant struct{}
+
+type SingletonSections struct{}
+
+type ShownParamIdDetails struct{}
+
+type ShownParamIds struct{}
+
+type SectionsClipboardData struct{}
+
+type BaseClipboardDataUnionWithDiscriminator struct{}
+
 type ProjectMetadataEntry struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -1198,128 +1220,6 @@ export type EdgePort = {
 export type TypeErrorIgnoreState = {
   callable: boolean;
   params: Record<string, boolean>;
-};
-
-export const ClipboardDataTypeEnum = {
-  Sections: "Sections",
-} as const;
-export type ClipboardDataType = ObjectValues<typeof ClipboardDataTypeEnum>;
-
-export type ClipboardProjectStateCore = {
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-};
-
-export type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
-};
-
-export type SectionsClipboardData = {
-  type: typeof ClipboardDataTypeEnum.Sections;
-  data: ClipboardProjectStateCoreWithSectionVariantMap;
-};
-
-export type BaseClipboardDataUnionWithDiscriminator = SectionsClipboardData;
-
-export type Core = {
-  id: string;
-  name: string;
-  displayName: string;
-  variants: Array<string>;
-  defaultVariant: string | null;
-  sharedModifier: Record<string, unknown>;
-  unsharedKeys: Array<string>;
-};
-export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
-}
-
-export type Variant = {
-  id: string;
-  name: string;
-  impl: string;
-  nonPresetImpls: Array<string>;
-  modifier: Record<string, unknown>;
-  isFrozen: boolean;
-};
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
-}
-
-export type SingletonSections = {
-  GlobalVariables: string | null;
-  GenPythonCode: string | null;
-  GenPythonMetadata: string | null;
-};
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  return mergeGeneratedOptions(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
-}
-
-export type ShownParamIdDetails = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
-};
-
-export type ShownParamIds = {
-  pinned: ShownParamIdDetails;
-  unpinned: ShownParamIdDetails;
-};
-
-export type ProjectStateSingleConfig = {
-  projectConfig: ProjectConfig;
-  sections: Record<string, Core>;
-  sectionImpls: Record<string, BaseSectionImplUnion>;
-  sectionVariants: Record<string, Variant>;
-  codeObjs: Record<string, Core>;
-  codeObjImpls: Record<string, BaseCodeObjImplUnion>;
-  codeObjVariants: Record<string, Variant>;
-  artifactGroups?: Record<string, unknown>;
-  singletonSections: SingletonSections;
-  parentSectionMap: Record<string, string | null>;
-  shownParamIds: Record<string, ShownParamIds>;
-  requiredDecodedImages: Array<string>;
-  genCodeBinding?: CodeFileBinding | null;
-};
-
-export type ProjectStateSingleConfigWithCompletedOpIds = {
-  projectState: ProjectStateSingleConfig;
-  completedOpIds: Array<string>;
-  pendingOpIds: Array<string>;
 };
 
 type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =

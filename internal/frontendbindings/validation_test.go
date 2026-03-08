@@ -2761,6 +2761,215 @@ func TestProjectShellSupportContractsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestProjectStateCoreSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "ClipboardDataType",
+			root: reflect.TypeOf(ClipboardDataType("")),
+			values: []EnumValue{
+				{Name: "Sections", Value: "Sections"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestProjectStateCoreSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name: "ClipboardProjectStateCore",
+			root: reflect.TypeOf(ClipboardProjectStateCore{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "sections", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>", Optional: false},
+				{Name: "sectionVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+				{Name: "codeObjs", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>", Optional: false},
+				{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ClipboardProjectStateCoreWithSectionVariantMap",
+			root: reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "core", TypeExpr: "ClipboardProjectStateCore", Optional: false},
+				{Name: "sectionVariantMap", TypeExpr: "Record<string, string>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SectionsClipboardData",
+			root: reflect.TypeOf(SectionsClipboardData{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ClipboardDataTypeEnum.Sections", Optional: false},
+				{Name: "data", TypeExpr: "ClipboardProjectStateCoreWithSectionVariantMap", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "BaseClipboardDataUnionWithDiscriminator",
+			root:  reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}),
+			kind:  "alias",
+			alias: "SectionsClipboardData",
+		},
+		{
+			name: "Core",
+			root: reflect.TypeOf(Core{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "displayName", TypeExpr: "string", Optional: false},
+				{Name: "variants", TypeExpr: "Array<string>", Optional: false},
+				{Name: "defaultVariant", TypeExpr: "string | null", Optional: false},
+				{Name: "sharedModifier", TypeExpr: "Record<string, unknown>", Optional: false},
+				{Name: "unsharedKeys", TypeExpr: "Array<string>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "Variant",
+			root: reflect.TypeOf(Variant{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "impl", TypeExpr: "string", Optional: false},
+				{Name: "nonPresetImpls", TypeExpr: "Array<string>", Optional: false},
+				{Name: "modifier", TypeExpr: "Record<string, unknown>", Optional: false},
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SingletonSections",
+			root: reflect.TypeOf(SingletonSections{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "GlobalVariables", TypeExpr: "string | null", Optional: false},
+				{Name: "GenPythonCode", TypeExpr: "string | null", Optional: false},
+				{Name: "GenPythonMetadata", TypeExpr: "string | null", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ShownParamIdDetails",
+			root: reflect.TypeOf(ShownParamIdDetails{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "requiredParamIdsToPaths", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "topLevelParamIds", TypeExpr: "Array<string>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ShownParamIds",
+			root: reflect.TypeOf(ShownParamIds{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "pinned", TypeExpr: "ShownParamIdDetails", Optional: false},
+				{Name: "unpinned", TypeExpr: "ShownParamIdDetails", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ProjectStateSingleConfig",
+			root: reflect.TypeOf(ProjectStateSingleConfig{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "projectConfig", TypeExpr: "ProjectConfig", Optional: false},
+				{Name: "sections", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>", Optional: false},
+				{Name: "sectionVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+				{Name: "codeObjs", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>", Optional: false},
+				{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+				{Name: "artifactGroups", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "singletonSections", TypeExpr: "SingletonSections", Optional: false},
+				{Name: "parentSectionMap", TypeExpr: "Record<string, string | null>", Optional: false},
+				{Name: "shownParamIds", TypeExpr: "Record<string, ShownParamIds>", Optional: false},
+				{Name: "requiredDecodedImages", TypeExpr: "Array<string>", Optional: false},
+				{Name: "genCodeBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ProjectStateSingleConfigWithCompletedOpIds",
+			root: reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "projectState", TypeExpr: "ProjectStateSingleConfig", Optional: false},
+				{Name: "completedOpIds", TypeExpr: "Array<string>", Optional: false},
+				{Name: "pendingOpIds", TypeExpr: "Array<string>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "SectionsClipboardDataResponse",
+			root:  reflect.TypeOf(SectionsClipboardDataResponse{}),
+			kind:  "alias",
+			alias: "SectionsClipboardData",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if declaration.FactoryTS != "" {
+				t.Fatalf("%s FactoryTS should be empty, got %q", tt.name, declaration.FactoryTS)
+			}
+		})
+	}
+}
+
 func TestProjectConfigSupportContractsUseConverterDeclarations(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(ProjectConfig{})); err != nil {

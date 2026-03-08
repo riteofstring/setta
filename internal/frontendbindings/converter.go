@@ -1168,6 +1168,9 @@ func newTypeConverter() *typeConverter {
 				{Name: "read_only", Value: "read_only"},
 				{Name: "write_only", Value: "write_only"},
 			},
+			reflect.TypeOf(ClipboardDataType("")): {
+				{Name: "Sections", Value: "Sections"},
+			},
 			reflect.TypeOf(ChartType("")): {
 				{Name: "line", Value: "line"},
 				{Name: "scatter", Value: "scatter"},
@@ -1351,15 +1354,10 @@ func newTypeConverter() *typeConverter {
 					{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
 				},
 			},
-			reflect.TypeOf(ProjectStateSingleConfig{}): {
-				Name: "ProjectStateSingleConfig",
+			reflect.TypeOf(ProjectStateFrontendSupport{}): {
+				Name: "ProjectStateFrontendSupport",
 				Kind: "raw",
 				Raw:  projectStateFrontendSupportRawTS,
-			},
-			reflect.TypeOf(SectionsClipboardDataResponse{}): {
-				Name:  "SectionsClipboardDataResponse",
-				Kind:  "alias",
-				Alias: "SectionsClipboardData",
 			},
 			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithCreateExpr(
 				"EngineConfigDefaults",
@@ -2186,6 +2184,152 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "access_mode", TypeExpr: "CodeFileAccessMode"},
 				TypeProperty{Name: "autoBinding", TypeExpr: "boolean"},
 			),
+			reflect.TypeOf(ClipboardProjectStateCore{}): objectDeclarationWithCreateExpr(
+				"ClipboardProjectStateCore",
+				`mergeGeneratedOptions(
+    {
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+    },
+    options,
+  )`,
+				TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
+				TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},
+				TypeProperty{Name: "sectionVariants", TypeExpr: "Record<string, Variant>"},
+				TypeProperty{Name: "codeObjs", TypeExpr: "Record<string, Core>"},
+				TypeProperty{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>"},
+				TypeProperty{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>"},
+			),
+			reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}): objectDeclarationWithCreateExpr(
+				"ClipboardProjectStateCoreWithSectionVariantMap",
+				`mergeGeneratedOptions(
+    {
+      core: createClipboardProjectStateCore(),
+      sectionVariantMap: {},
+    },
+    options,
+  )`,
+				TypeProperty{Name: "core", TypeExpr: "ClipboardProjectStateCore"},
+				TypeProperty{Name: "sectionVariantMap", TypeExpr: "Record<string, string>"},
+			),
+			reflect.TypeOf(SectionsClipboardData{}): objectDeclarationWithCreateExpr(
+				"SectionsClipboardData",
+				`mergeGeneratedOptions(
+    {
+      type: ClipboardDataTypeEnum.Sections,
+      data: createClipboardProjectStateCoreWithSectionVariantMap(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ClipboardDataTypeEnum.Sections"},
+				TypeProperty{Name: "data", TypeExpr: "ClipboardProjectStateCoreWithSectionVariantMap"},
+			),
+			reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}): aliasDeclaration(
+				"BaseClipboardDataUnionWithDiscriminator",
+				"SectionsClipboardData",
+			),
+			reflect.TypeOf(Core{}): objectDeclarationWithCreateExpr(
+				"Core",
+				`mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      displayName: "",
+      variants: [],
+      defaultVariant: null,
+      sharedModifier: {},
+      unsharedKeys: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "displayName", TypeExpr: "string"},
+				TypeProperty{Name: "variants", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "defaultVariant", TypeExpr: "string | null"},
+				TypeProperty{Name: "sharedModifier", TypeExpr: "Record<string, unknown>"},
+				TypeProperty{Name: "unsharedKeys", TypeExpr: "Array<string>"},
+			),
+			reflect.TypeOf(Variant{}): objectDeclarationWithCreateExpr(
+				"Variant",
+				`mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      impl: "",
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "impl", TypeExpr: "string"},
+				TypeProperty{Name: "nonPresetImpls", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "modifier", TypeExpr: "Record<string, unknown>"},
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(SingletonSections{}): objectDeclarationWithCreateExpr(
+				"SingletonSections",
+				`mergeGeneratedOptions(
+    {
+      GlobalVariables: null,
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "GlobalVariables", TypeExpr: "string | null"},
+				TypeProperty{Name: "GenPythonCode", TypeExpr: "string | null"},
+				TypeProperty{Name: "GenPythonMetadata", TypeExpr: "string | null"},
+			),
+			reflect.TypeOf(ShownParamIdDetails{}): objectDeclarationWithCreateExpr(
+				"ShownParamIdDetails",
+				`mergeGeneratedOptions(
+    {
+      requiredParamIdsToPaths: {},
+      topLevelParamIds: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "requiredParamIdsToPaths", TypeExpr: "Record<string, Array<string>>"},
+				TypeProperty{Name: "topLevelParamIds", TypeExpr: "Array<string>"},
+			),
+			reflect.TypeOf(ShownParamIds{}): objectDeclarationWithCreateExpr(
+				"ShownParamIds",
+				`mergeGeneratedOptions(
+    {
+      pinned: createShownParamIdDetails(),
+      unpinned: createShownParamIdDetails(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "pinned", TypeExpr: "ShownParamIdDetails"},
+				TypeProperty{Name: "unpinned", TypeExpr: "ShownParamIdDetails"},
+			),
+			reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}): objectDeclarationWithCreateExpr(
+				"ProjectStateSingleConfigWithCompletedOpIds",
+				`mergeGeneratedOptions(
+    {
+      projectState: createProjectStateSingleConfig(),
+      completedOpIds: [],
+      pendingOpIds: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "projectState", TypeExpr: "ProjectStateSingleConfig"},
+				TypeProperty{Name: "completedOpIds", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "pendingOpIds", TypeExpr: "Array<string>"},
+			),
+			reflect.TypeOf(SectionsClipboardDataResponse{}): aliasDeclaration(
+				"SectionsClipboardDataResponse",
+				"SectionsClipboardData",
+			),
 			reflect.TypeOf(ProjectConfig{}): objectDeclarationWithCreateExpr(
 				"ProjectConfig",
 				`mergeGeneratedOptions(
@@ -2237,6 +2381,40 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "activeIds", TypeExpr: "Array<string>"},
 				TypeProperty{Name: "edges", TypeExpr: "Array<Edge>"},
 				TypeProperty{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>"},
+			),
+			reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithCreateExpr(
+				"ProjectStateSingleConfig",
+				`mergeGeneratedOptions(
+    {
+      projectConfig: createProjectConfig(),
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      requiredDecodedImages: [],
+      genCodeBinding: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "projectConfig", TypeExpr: "ProjectConfig"},
+				TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
+				TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},
+				TypeProperty{Name: "sectionVariants", TypeExpr: "Record<string, Variant>"},
+				TypeProperty{Name: "codeObjs", TypeExpr: "Record<string, Core>"},
+				TypeProperty{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>"},
+				TypeProperty{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>"},
+				TypeProperty{Name: "artifactGroups", TypeExpr: "Record<string, unknown>", Optional: true},
+				TypeProperty{Name: "singletonSections", TypeExpr: "SingletonSections"},
+				TypeProperty{Name: "parentSectionMap", TypeExpr: "Record<string, string | null>"},
+				TypeProperty{Name: "shownParamIds", TypeExpr: "Record<string, ShownParamIds>"},
+				TypeProperty{Name: "requiredDecodedImages", TypeExpr: "Array<string>"},
+				TypeProperty{Name: "genCodeBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
 			),
 			reflect.TypeOf(BaseSectionImpl{}): objectDeclaration(
 				"BaseSectionImpl",
