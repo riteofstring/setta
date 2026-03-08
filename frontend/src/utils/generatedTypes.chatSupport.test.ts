@@ -1,9 +1,13 @@
 import {
+  ChatDictationModeEnum,
+  ChatPermissionModeEnum,
   ChatRoleEnum,
   type ChatSectionState,
   createAssistantChatMessage,
+  createChatSectionImpl,
   createToolCall,
   createToolChatMessage,
+  createUserDefaultChatSectionImpl,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
@@ -47,5 +51,25 @@ describe("generated chat support", () => {
       ChatRoleEnum.assistant,
     );
     expect(state.waitingForResponse).toBe(true);
+  });
+
+  it("creates chat section impl defaults with the generated overload helper", () => {
+    const impl = createChatSectionImpl(
+      createUserDefaultChatSectionImpl({
+        chatId: "chat-1",
+        waitingForResponse: true,
+      }),
+      {
+        id: "section-1",
+        name: "Chat",
+      },
+    );
+
+    expect(impl.type).toBe("Chat");
+    expect(impl.chatId).toBe("chat-1");
+    expect(impl.waitingForResponse).toBe(true);
+    expect(impl.permissionMode).toBe(ChatPermissionModeEnum.minimal);
+    expect(impl.dictationMode).toBe(ChatDictationModeEnum.auto);
+    expect(impl.id).toBe("section-1");
   });
 });

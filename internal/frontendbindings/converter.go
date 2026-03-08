@@ -221,6 +221,16 @@ func newTypeConverter() *typeConverter {
 				{Name: "assistant", Value: "assistant"},
 				{Name: "tool", Value: "tool"},
 			},
+			reflect.TypeOf(ChatPermissionMode("")): {
+				{Name: "minimal", Value: "minimal"},
+				{Name: "yolo", Value: "yolo"},
+				{Name: "config_toml_custom", Value: "config_toml_custom"},
+			},
+			reflect.TypeOf(ChatDictationMode("")): {
+				{Name: "auto", Value: "auto"},
+				{Name: "browser", Value: "browser"},
+				{Name: "provider", Value: "provider"},
+			},
 			reflect.TypeOf(EngineType("")): {
 				{Name: "setta_llm", Value: "setta_llm"},
 				{Name: "external_agent", Value: "external_agent"},
@@ -834,6 +844,116 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "toolCallArguments", TypeExpr: "Record<string, string>"},
 				TypeProperty{Name: "activeBranchId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>"},
+			),
+			reflect.TypeOf(UserDefaultChatSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultChatSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 400,
+        height: 200,
+      },
+      managed: false,
+      engineConfigId: null,
+      transcriptionProfileId: null,
+      agentProfileId: null,
+      chatId: null,
+      thinking: true,
+      permissionMode: ChatPermissionModeEnum.minimal,
+      searchEnabled: true,
+      dictationMode: ChatDictationModeEnum.auto,
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "managed", TypeExpr: "boolean"},
+				TypeProperty{Name: "engineConfigId", TypeExpr: "string | null"},
+				TypeProperty{Name: "transcriptionProfileId", TypeExpr: "string | null"},
+				TypeProperty{Name: "agentProfileId", TypeExpr: "string | null"},
+				TypeProperty{Name: "chatId", TypeExpr: "string | null"},
+				TypeProperty{Name: "thinking", TypeExpr: "boolean"},
+				TypeProperty{Name: "permissionMode", TypeExpr: "ChatPermissionMode"},
+				TypeProperty{Name: "searchEnabled", TypeExpr: "boolean"},
+				TypeProperty{Name: "dictationMode", TypeExpr: "ChatDictationMode"},
+				TypeProperty{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>"},
+				TypeProperty{Name: "inputText", TypeExpr: "string"},
+				TypeProperty{Name: "waitingForResponse", TypeExpr: "boolean"},
+				TypeProperty{Name: "toolCallArguments", TypeExpr: "Record<string, string>"},
+				TypeProperty{Name: "activeBranchId", TypeExpr: "string | null"},
+				TypeProperty{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>"},
+			),
+			reflect.TypeOf(ChatSectionImpl{}): aliasDeclarationWithFactory(
+				"ChatSectionImpl",
+				`BaseSectionImpl & ChatSectionState & {
+  type: typeof SectionTypeEnum.Chat;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  chatId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+}`,
+				`export function createChatSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultChatSectionImpl>
+    | Partial<ChatSectionImpl> = {},
+  overrides?: Partial<ChatSectionImpl>,
+): ChatSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChatSectionImpl,
+    ChatSectionImpl
+  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chat,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      managed: resolved.defaults.managed,
+      engineConfigId: resolved.defaults.engineConfigId,
+      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
+      agentProfileId: resolved.defaults.agentProfileId,
+      chatId: resolved.defaults.chatId,
+      thinking: resolved.defaults.thinking,
+      permissionMode: resolved.defaults.permissionMode,
+      searchEnabled: resolved.defaults.searchEnabled,
+      dictationMode: resolved.defaults.dictationMode,
+      messages: resolved.defaults.messages,
+      inputText: resolved.defaults.inputText,
+      waitingForResponse: resolved.defaults.waitingForResponse,
+      toolCallArguments: resolved.defaults.toolCallArguments,
+      activeBranchId: resolved.defaults.activeBranchId,
+      branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );
+}`,
 			),
 			reflect.TypeOf(PrepareSectionsForCopyRequestInput{}): objectDeclaration(
 				"PrepareSectionsForCopyRequestInput",

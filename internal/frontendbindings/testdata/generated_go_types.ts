@@ -1042,6 +1042,22 @@ export const ChatRoleEnum = {
 export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
 
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
+
+
+export const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
+
+
 export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
 
 
@@ -1266,6 +1282,118 @@ export type ChatSectionState = {
 };
 export function createChatSectionState(options: Partial<ChatSectionState> = {}): ChatSectionState {
   return options as ChatSectionState;
+}
+
+
+export type UserDefaultChatSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  managed: boolean;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  chatId: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+export function createUserDefaultChatSectionImpl(options: Partial<UserDefaultChatSectionImpl> = {}): UserDefaultChatSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 400,
+        height: 200,
+      },
+      managed: false,
+      engineConfigId: null,
+      transcriptionProfileId: null,
+      agentProfileId: null,
+      chatId: null,
+      thinking: true,
+      permissionMode: ChatPermissionModeEnum.minimal,
+      searchEnabled: true,
+      dictationMode: ChatDictationModeEnum.auto,
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
+    },
+    options,
+  );
+}
+
+
+export type ChatSectionImpl = BaseSectionImpl & ChatSectionState & {
+  type: typeof SectionTypeEnum.Chat;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  chatId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+};
+export function createChatSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultChatSectionImpl>
+    | Partial<ChatSectionImpl> = {},
+  overrides?: Partial<ChatSectionImpl>,
+): ChatSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChatSectionImpl,
+    ChatSectionImpl
+  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chat,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      managed: resolved.defaults.managed,
+      engineConfigId: resolved.defaults.engineConfigId,
+      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
+      agentProfileId: resolved.defaults.agentProfileId,
+      chatId: resolved.defaults.chatId,
+      thinking: resolved.defaults.thinking,
+      permissionMode: resolved.defaults.permissionMode,
+      searchEnabled: resolved.defaults.searchEnabled,
+      dictationMode: resolved.defaults.dictationMode,
+      messages: resolved.defaults.messages,
+      inputText: resolved.defaults.inputText,
+      waitingForResponse: resolved.defaults.waitingForResponse,
+      toolCallArguments: resolved.defaults.toolCallArguments,
+      activeBranchId: resolved.defaults.activeBranchId,
+      branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );
 }
 
 
@@ -1908,20 +2036,6 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
-
-export const ChatDictationModeEnum = {
-  auto: "auto",
-  browser: "browser",
-  provider: "provider",
-} as const;
-export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export const BrowserAreaViewModeEnum = {
   list: "list",
@@ -3479,45 +3593,6 @@ export type UserDefaultTerminalSectionImpl = {
   positionAndSizeLocked: boolean;
 };
 
-export type ChatSectionImpl = BaseSectionImpl &
-  ChatSectionState & {
-    type: typeof SectionTypeEnum.Chat;
-    managed: boolean;
-    engineConfigId?: string | null;
-    transcriptionProfileId?: string | null;
-    agentProfileId?: string | null;
-    chatId?: string | null;
-    thinking: boolean;
-    permissionMode: ChatPermissionMode;
-    searchEnabled: boolean;
-    dictationMode: ChatDictationMode;
-  };
-
-export type UserDefaultChatSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  chatId: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-
 export type BrowserSavedSearchTypeFilters = {
   image: boolean;
   video: boolean;
@@ -4122,82 +4197,6 @@ export function createTerminalSectionImpl(
       isMinimized: resolved.defaults.isMinimized,
       positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
       isPreset: false,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultChatSectionImpl(
-  options: Partial<UserDefaultChatSectionImpl> = {},
-): UserDefaultChatSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 400,
-        height: 200,
-      },
-      managed: false,
-      engineConfigId: null,
-      transcriptionProfileId: null,
-      agentProfileId: null,
-      chatId: null,
-      thinking: true,
-      permissionMode: ChatPermissionModeEnum.minimal,
-      searchEnabled: true,
-      dictationMode: ChatDictationModeEnum.auto,
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
-    },
-    options,
-  );
-}
-
-export function createChatSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChatSectionImpl>
-    | Partial<ChatSectionImpl> = {},
-  overrides?: Partial<ChatSectionImpl>,
-): ChatSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChatSectionImpl,
-    ChatSectionImpl
-  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chat,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      managed: resolved.defaults.managed,
-      engineConfigId: resolved.defaults.engineConfigId,
-      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
-      agentProfileId: resolved.defaults.agentProfileId,
-      chatId: resolved.defaults.chatId,
-      thinking: resolved.defaults.thinking,
-      permissionMode: resolved.defaults.permissionMode,
-      searchEnabled: resolved.defaults.searchEnabled,
-      dictationMode: resolved.defaults.dictationMode,
-      messages: resolved.defaults.messages,
-      inputText: resolved.defaults.inputText,
-      waitingForResponse: resolved.defaults.waitingForResponse,
-      toolCallArguments: resolved.defaults.toolCallArguments,
-      activeBranchId: resolved.defaults.activeBranchId,
-      branches: resolved.defaults.branches,
     },
     resolved.overrides,
   );

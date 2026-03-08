@@ -965,6 +965,24 @@ func TestChatSupportEnumsUseConverterDeclarations(t *testing.T) {
 		values []EnumValue
 	}{
 		{
+			name: "ChatPermissionMode",
+			root: reflect.TypeOf(ChatPermissionMode("")),
+			values: []EnumValue{
+				{Name: "minimal", Value: "minimal"},
+				{Name: "yolo", Value: "yolo"},
+				{Name: "config_toml_custom", Value: "config_toml_custom"},
+			},
+		},
+		{
+			name: "ChatDictationMode",
+			root: reflect.TypeOf(ChatDictationMode("")),
+			values: []EnumValue{
+				{Name: "auto", Value: "auto"},
+				{Name: "browser", Value: "browser"},
+				{Name: "provider", Value: "provider"},
+			},
+		},
+		{
 			name: "ChatRole",
 			root: reflect.TypeOf(ChatRole("")),
 			values: []EnumValue{
@@ -1002,6 +1020,7 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasFactoryTS  bool
 	}{
 		{
 			name:  "JSONValue",
@@ -1169,6 +1188,54 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 			},
 		},
 		{
+			name: "UserDefaultChatSectionImpl",
+			root: reflect.TypeOf(UserDefaultChatSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "managed", TypeExpr: "boolean", Optional: false},
+				{Name: "engineConfigId", TypeExpr: "string | null", Optional: false},
+				{Name: "transcriptionProfileId", TypeExpr: "string | null", Optional: false},
+				{Name: "agentProfileId", TypeExpr: "string | null", Optional: false},
+				{Name: "chatId", TypeExpr: "string | null", Optional: false},
+				{Name: "thinking", TypeExpr: "boolean", Optional: false},
+				{Name: "permissionMode", TypeExpr: "ChatPermissionMode", Optional: false},
+				{Name: "searchEnabled", TypeExpr: "boolean", Optional: false},
+				{Name: "dictationMode", TypeExpr: "ChatDictationMode", Optional: false},
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "inputText", TypeExpr: "string", Optional: false},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: false},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "activeBranchId", TypeExpr: "string | null", Optional: false},
+				{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ChatSectionImpl",
+			root: reflect.TypeOf(ChatSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & ChatSectionState & {
+  type: typeof SectionTypeEnum.Chat;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  chatId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+}`,
+			hasFactoryTS: true,
+		},
+		{
 			name: "ChatSectionState",
 			root: reflect.TypeOf(ChatSectionState{}),
 			kind: "object",
@@ -1202,6 +1269,9 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
 		})
 	}
