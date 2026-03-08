@@ -21,18 +21,18 @@ The active frontend caller is:
 
 As of 2026-03-09:
 
-- Go worker-host dispatch now normalizes `register_router` payloads during
-  backend-registration snapshots so mixed route + language-server plugins do
-  not lose their language-server registration visibility
-- Go still does not start a live backend plugin worker runtime for route
-  serving
-- Go still does not serve `/api/plugins/{pluginId}/...` backend plugin routes
-- the Python reference implementation already:
-  - loads active backend plugins into the live app runtime
-  - mounts plugin route prefixes under `/api/plugins/{pluginId}`
-  - proxies request/response payloads through `plugin.invoke_route`
-  - preserves FastAPI-style scalar/list query coercion semantics through the
-    worker request contract
+- Go now starts an IDE-only live backend route runtime for discovered
+  route-owning plugins at app startup
+- Go now serves `/api/plugins/{pluginId}/...` backend plugin routes through
+  long-lived worker sessions and `plugin.invoke_route`
+- Go now preserves the active caller’s request/response contract for:
+  - repeated query params
+  - JSON and text request bodies
+  - raw-body passthrough when the worker marks `needsRawBody`
+  - status code, headers, media type, and JSON/text/base64 response bodies
+- mixed route + language-server backend fixtures now stay loadable because the
+  live route runtime absorbs route registration alongside the existing worker
+  host registration surfaces
 
 ## Scope
 
@@ -87,128 +87,79 @@ This slice should cover only:
 - `internal/httpapi/plugin_routes.go`
 - `internal/app/app.go`
 
-## Dependency Findings
+## Landed Implementation
 
-The active gap is not just one more thin route.
+The landed implementation keeps the transport thin and the worker lifetime
+explicit:
 
-To serve plugin backend routes in Go, one source-of-truth runtime boundary is
-still missing:
+- `internal/plugins` now owns a live `BackendRouteRuntime` that:
+  - rescans discovery at startup
+  - starts long-lived worker sessions for route-owning backend plugins
+  - captures normalized route registrations
+  - proxies HTTP request/response payloads over `plugin.invoke_route`
+- `internal/httpapi` now owns the thin chi binding layer under
+  `/api/plugins/{pluginId}/...`
+- `internal/app` now wires that runtime only in IDE mode and closes it during
+  app shutdown
 
-1. a live worker runtime that owns active backend plugin sessions for the app
-2. route registration persistence across app lifetime
-3. request/response proxy translation over the existing worker RPC contract
+The runtime also absorbs worker `register_language_server`,
+`register_external_agent_adapter`, and `register_codegen_target` calls during
+route-worker startup so mixed backend plugins do not fail registration just
+because they expose more than one backend surface.
 
-Important contract findings from the Python reference:
-
-- route prefixes live under `/api/plugins/{pluginId}` plus a normalized plugin
-  sub-prefix
-- repeated query params preserve arrival order and map to scalar-or-list worker
-  payloads
-- non-GET requests may need both parsed JSON/text and raw body bytes
-- worker route responses can return:
-  - JSON objects/arrays/scalars
-  - text or binary bodies
-  - explicit media types
-  - explicit headers
-  - non-200 status codes
-
-## Working Decisions
+## Decisions Made
 
 - keep backend route transport thin
-  - HTTP decoding/encoding belongs at the edge
-  - plugin route/runtime semantics belong under `internal/plugins`
+  - HTTP binding and response writing stay in `internal/httpapi`
+  - worker contract normalization stays in `internal/plugins`
 - keep live backend worker lifetime explicit
-  - no framework magic or hidden singleton startup
-- keep this slice IDE-only unless a real share/app caller appears
+  - startup owns worker creation
+  - app shutdown owns worker close
+- keep this slice IDE-only
+  - no share/app widening without a concrete caller
 - reuse the existing worker RPC contract
-  - do not invent a second backend route protocol
-- do not bundle static-dir or other backend host surfaces into this first route
-  runtime slice
+  - no second backend route protocol
+- register concrete plugin-id route patterns
+  - this avoids broad dynamic route shapes that could collide with existing
+    `/api/plugins/runtime`-style API routes
+- keep hot reload deferred
+  - `link`, `rescan`, install, update, rollback, and uninstall do not
+    re-register backend routes in-process yet
 
-## Recommended Option
+## Verification
 
-Implement this in two bounded slices.
+The landed slice is covered by:
 
-### Slice A
+- `./scripts/go.sh test ./internal/plugins -run 'Test(BackendRouteRuntimeProxiesFixtureRoutePayloads|Service(Runtime|Status)|WorkerHost)' -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'Plugin' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'TestApp(ServesPluginRuntimeAndFrontendAssets|PluginLanguageServerRoutesDiagnosticsAndCompletion|ServesPluginBackendRoutes|ServesPluginRuntimeWithBackendRegistrations|LinksPluginRoutesAndServesRuntime|WritesPluginConfigAndUpdatesRuntime|HandlesPluginRescanEnableAndDisableRoutes|InstallsAndUninstallsPluginRoutes|UpdatesAndRollsBackPluginRoutes|ServesManualPluginRestartRoute)' -count=1`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/plugins/plugin-backend-route-payload.spec.ts`
 
-- add a live backend route runtime in `internal/plugins`
-- start active route-owning backend plugins at app startup
-- register route descriptors into a Go route registry
-- expose thin proxy handlers for `/api/plugins/{pluginId}/...`
-- cover the active Playwright payload caller end to end
+## Open Questions
 
-This is the highest-leverage executable slice because it closes the active
-frontend caller without broadening into unrelated plugin backend host methods.
+- whether a later backend-runtime owner should clear persisted
+  `pending_restart` backend state on real process restart the way the Python
+  runtime does, instead of leaving that to a later dedicated runtime-state
+  slice
+- whether plugin static-dir or broader backend host surfaces need live runtime
+  ownership once a concrete caller appears
 
-### Slice B
+## Next Recommended Step
 
-- consider static-dir runtime ownership only if a real caller depends on it
-- consider broader backend host methods only when those product surfaces move
-  into active work
-
-## Proposed Go Boundaries
-
-### `internal/plugins`
-
-Own:
-
-- live backend worker process/session ownership for route-serving plugins
-- registered plugin route metadata and lookup
-- worker `plugin.invoke_route` request/response normalization helpers
-
-Do not own:
-
-- auth middleware
-- generic HTTP request decoding outside the worker route contract
-
-### `internal/httpapi`
-
-Own:
-
-- route binding under `/api/plugins/{pluginId}/...`
-- auth/mode-policy integration
-- HTTP error/status/header writing
-
-Do not own:
-
-- backend worker lifecycle
-- plugin discovery semantics
-
-### `internal/app`
-
-Own:
-
-- wiring the live backend route runtime into the real app
-- keeping startup-time ownership explicit
-- reusing existing plugin discovery/runtime foundations instead of introducing
-  a second source of truth
-
-## Test Strategy
-
-- add focused `internal/plugins` tests for:
-  - route registration normalization
-  - worker route proxy request payload shaping
-  - worker route response decoding
-- add focused `internal/httpapi` tests for:
-  - `/api/plugins/{pluginId}/...` route proxying
-  - repeated query params
-  - JSON body passthrough
-  - status/header/media-type preservation
-- add app-level tests for:
-  - active backend plugin route serving on real app startup
-  - mixed route + language-server plugins staying active
-- run:
-  - `frontend/tests/e2e/overview/plugins/plugin-backend-route-payload.spec.ts`
+Keep plugin static-dir, listener-endpoint, MCP-tool, and broader backend host
+runtime ownership deferred until a real caller requires one of those surfaces.
+The next plugin follow-on should be caller-driven, not a speculative
+broadening of this runtime boundary.
 
 ## Exit Criteria
 
-This doc is complete when all of the following are true:
+This slice is now complete for its bounded scope:
 
-- active backend plugins that register routes are started by the Go app at
-  runtime startup
-- `/api/plugins/{pluginId}/...` proxies to `plugin.invoke_route`
-- query, body, status, header, and media-type behavior matches the current
-  worker contract for the active frontend caller
+- active route-owning backend plugins are started by the Go app at runtime
+  startup
+- `/api/plugins/{pluginId}/...` now proxies to `plugin.invoke_route`
+- query, body, status, header, and media-type behavior matches the active
+  backend-route caller
 - focused Go tests plus
   `frontend/tests/e2e/overview/plugins/plugin-backend-route-payload.spec.ts`
   pass

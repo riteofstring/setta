@@ -593,20 +593,21 @@ The bounded Phase 5 follow-on tracked in
 - focused app/runtime/route coverage and the real
   `plugin-language-server.spec.ts` Playwright caller now pass against the Go
   app
-- full plugin backend route serving remains a separate higher-level
-  plugin-runtime slice
+- full plugin backend route serving was kept separate from this Phase 5 slice
+  and is now landed in the bounded Phase 15 follow-on below
 
-That next higher-level plugin runtime follow-on is now opened in
+That next higher-level plugin runtime follow-on tracked in
 `phase-15-plugin-backend-route-runtime-and-transport.md`:
 
-- the active remaining frontend caller is
-  `plugin-backend-route-payload.spec.ts`
-- the bounded next step is not more registration visibility or thin transport;
-  it is a live backend worker runtime for plugins that call
-  `register_router(...)`
-- the recommended first slice stays narrow to IDE-mode
-  `/api/plugins/{pluginId}/...` proxy serving and explicitly defers static-dir
-  plus other backend host surfaces
+- Go now owns the first live IDE-only backend route runtime for plugins that
+  call `register_router(...)`
+- the real app now starts long-lived worker sessions for route-owning backend
+  plugins at startup and serves `/api/plugins/{pluginId}/...` through
+  `plugin.invoke_route`
+- the active `plugin-backend-route-payload.spec.ts` caller now passes against
+  the Go app
+- plugin static-dir plus broader backend host surfaces remain explicitly
+  deferred until a concrete caller requires them
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

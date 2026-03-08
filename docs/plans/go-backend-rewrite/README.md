@@ -623,8 +623,8 @@ Use the docs in this order:
     registration loader that now surfaces plugin language-server and external-
     agent adapter registrations in runtime/status payloads
 - `phase-15-plugin-backend-route-runtime-and-transport.md`
-  - focused current-work plan for the first Go-owned live plugin backend route
-    runtime and `/api/plugins/{pluginId}/...` proxy transport
+  - focused completed-slice doc for the first Go-owned live plugin backend
+    route runtime and `/api/plugins/{pluginId}/...` proxy transport
 170. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 171. `spike-pty.md`

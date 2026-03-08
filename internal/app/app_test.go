@@ -522,6 +522,90 @@ func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
 	}
 }
 
+func TestAppServesPluginBackendRoutes(t *testing.T) {
+	// The real app should start route-owning backend plugins at startup and proxy authenticated backend route traffic.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "backend-language-server-e2e")
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	queryRequest, err := http.NewRequest(
+		http.MethodGet,
+		server.URL+"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query?alpha=one&repeated=a&repeated=b",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new backend route query request: %v", err)
+	}
+	queryRequest.AddCookie(authCookie)
+	queryResponse, err := http.DefaultClient.Do(queryRequest)
+	if err != nil {
+		t.Fatalf("get backend route query response: %v", err)
+	}
+	defer queryResponse.Body.Close()
+	if queryResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(queryResponse.Body)
+		t.Fatalf("expected backend route query 200, got %d with body %q", queryResponse.StatusCode, string(body))
+	}
+
+	var queryPayload struct {
+		Alpha          string   `json:"alpha"`
+		Repeated       []string `json:"repeated"`
+		RepeatedIsList bool     `json:"repeatedIsList"`
+	}
+	if err := json.NewDecoder(queryResponse.Body).Decode(&queryPayload); err != nil {
+		t.Fatalf("decode backend route query payload: %v", err)
+	}
+	if queryPayload.Alpha != "one" || len(queryPayload.Repeated) != 2 || queryPayload.Repeated[0] != "a" || queryPayload.Repeated[1] != "b" || !queryPayload.RepeatedIsList {
+		t.Fatalf("unexpected backend route query payload %#v", queryPayload)
+	}
+
+	contentTypeRequest, err := http.NewRequest(
+		http.MethodGet,
+		server.URL+"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-header-only-content-type",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("new backend route custom content-type request: %v", err)
+	}
+	contentTypeRequest.AddCookie(authCookie)
+	contentTypeResponse, err := http.DefaultClient.Do(contentTypeRequest)
+	if err != nil {
+		t.Fatalf("get backend route custom content-type response: %v", err)
+	}
+	defer contentTypeResponse.Body.Close()
+	if contentTypeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(contentTypeResponse.Body)
+		t.Fatalf("expected backend route custom content-type 200, got %d with body %q", contentTypeResponse.StatusCode, string(body))
+	}
+	if contentTypeResponse.Header.Get("Content-Type") != "application/x-custom" {
+		t.Fatalf("expected application/x-custom content type, got %q", contentTypeResponse.Header.Get("Content-Type"))
+	}
+	contentTypeBody, err := io.ReadAll(contentTypeResponse.Body)
+	if err != nil {
+		t.Fatalf("read backend route custom content-type body: %v", err)
+	}
+	if strings.TrimSpace(string(contentTypeBody)) != "ok" {
+		t.Fatalf("expected backend route custom content-type body ok, got %q", string(contentTypeBody))
+	}
+}
+
 func TestAppServesPluginRuntimeWithBackendRegistrations(t *testing.T) {
 	// The real app should surface worker-backed backend language-server, external-agent, and codegen registrations through plugin runtime.
 	cfg := testConfig(t)

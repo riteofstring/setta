@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -230,6 +231,105 @@ func TestRegisterPluginRoutesMapsLinkSourceValidationErrors(t *testing.T) {
 	}
 	if payload.Error.Code != string(plugins.ServiceErrorCodeSourceNotFound) {
 		t.Fatalf("expected source not found code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginBackendRoutesProxiesWorkerPayloads(t *testing.T) {
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "backend-language-server-e2e")
+	runtime := newPluginRouteBackendRuntime(t, roots, config.ModeIDE)
+	defer func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close plugin backend runtime: %v", err)
+		}
+	}()
+
+	handler := newPluginRouteTestHandlerWithBackendRuntime(t, config.ModeIDE, service, runtime)
+
+	queryResponse := httptest.NewRecorder()
+	queryRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query?alpha=one&repeated=a&repeated=b",
+		nil,
+	)
+	handler.ServeHTTP(queryResponse, queryRequest)
+	if queryResponse.Code != http.StatusOK {
+		t.Fatalf("expected backend query route 200, got %d with body %q", queryResponse.Code, queryResponse.Body.String())
+	}
+
+	var queryPayload struct {
+		Alpha          string   `json:"alpha"`
+		Repeated       []string `json:"repeated"`
+		RepeatedIsList bool     `json:"repeatedIsList"`
+	}
+	if err := json.Unmarshal(queryResponse.Body.Bytes(), &queryPayload); err != nil {
+		t.Fatalf("decode backend query payload: %v", err)
+	}
+	if queryPayload.Alpha != "one" || len(queryPayload.Repeated) != 2 || queryPayload.Repeated[0] != "a" || queryPayload.Repeated[1] != "b" || !queryPayload.RepeatedIsList {
+		t.Fatalf("unexpected backend query payload %#v", queryPayload)
+	}
+
+	bodyResponse := httptest.NewRecorder()
+	bodyRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-body?token=from-query",
+		strings.NewReader(`{"value":"hello","count":3,"nested":{"ok":true}}`),
+	)
+	bodyRequest.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(bodyResponse, bodyRequest)
+	if bodyResponse.Code != http.StatusOK {
+		t.Fatalf("expected backend body route 200, got %d with body %q", bodyResponse.Code, bodyResponse.Body.String())
+	}
+
+	var bodyPayload struct {
+		Value string         `json:"value"`
+		Count int            `json:"count"`
+		Token string         `json:"token"`
+		Body  map[string]any `json:"body"`
+	}
+	if err := json.Unmarshal(bodyResponse.Body.Bytes(), &bodyPayload); err != nil {
+		t.Fatalf("decode backend body payload: %v", err)
+	}
+	if bodyPayload.Value != "hello" || bodyPayload.Count != 3 || bodyPayload.Token != "from-query" {
+		t.Fatalf("unexpected backend body payload %#v", bodyPayload)
+	}
+
+	contentTypeResponse := httptest.NewRecorder()
+	contentTypeRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-header-only-content-type",
+		nil,
+	)
+	handler.ServeHTTP(contentTypeResponse, contentTypeRequest)
+	if contentTypeResponse.Code != http.StatusOK {
+		t.Fatalf("expected backend custom content-type route 200, got %d with body %q", contentTypeResponse.Code, contentTypeResponse.Body.String())
+	}
+	if strings.TrimSpace(contentTypeResponse.Body.String()) != "ok" {
+		t.Fatalf("expected backend custom content-type body ok, got %q", contentTypeResponse.Body.String())
+	}
+	if contentTypeResponse.Header().Get("Content-Type") != "application/x-custom" {
+		t.Fatalf("expected backend custom content-type header, got %q", contentTypeResponse.Header().Get("Content-Type"))
+	}
+
+	notFoundResponse := httptest.NewRecorder()
+	notFoundRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-not-found",
+		nil,
+	)
+	handler.ServeHTTP(notFoundResponse, notFoundRequest)
+	if notFoundResponse.Code != http.StatusNotFound {
+		t.Fatalf("expected backend route 404, got %d with body %q", notFoundResponse.Code, notFoundResponse.Body.String())
+	}
+
+	var notFoundPayload struct {
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(notFoundResponse.Body.Bytes(), &notFoundPayload); err != nil {
+		t.Fatalf("decode backend not-found payload: %v", err)
+	}
+	if notFoundPayload.Detail != "fixture-not-found" {
+		t.Fatalf("unexpected backend not-found payload %#v", notFoundPayload)
 	}
 }
 
@@ -1034,6 +1134,17 @@ func newPluginRouteTestServiceWithRestartCallback(t *testing.T, mode config.Mode
 func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service *plugins.Service) http.Handler {
 	t.Helper()
 
+	return newPluginRouteTestHandlerWithBackendRuntime(t, mode, service, nil)
+}
+
+func newPluginRouteTestHandlerWithBackendRuntime(
+	t *testing.T,
+	mode config.Mode,
+	service *plugins.Service,
+	runtime *plugins.BackendRouteRuntime,
+) http.Handler {
+	t.Helper()
+
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Info:       stubInfoService{mode: string(mode), info: RuntimeInfo{Mode: string(mode)}},
@@ -1052,12 +1163,105 @@ func newPluginRouteTestHandler(t *testing.T, mode config.Mode, service *plugins.
 			}); err != nil {
 				t.Fatalf("register plugin routes: %v", err)
 			}
+			if err := RegisterPluginBackendRoutes(r, PluginBackendRouteDependencies{
+				ModePolicy: modes.NewPolicy(mode),
+				Runtime:    runtime,
+			}); err != nil {
+				t.Fatalf("register plugin backend routes: %v", err)
+			}
 		},
 	})
 	if err != nil {
 		t.Fatalf("new plugin route handler: %v", err)
 	}
 	return handler
+}
+
+func newPluginRouteBackendRuntime(t *testing.T, roots pluginRouteTestRoots, mode config.Mode) *plugins.BackendRouteRuntime {
+	t.Helper()
+
+	store, err := plugins.NewStore(plugins.StoreOptions{
+		WorkspaceRoot:  roots.workspaceRoot,
+		SettaFilesRoot: roots.settaFilesRoot,
+		SettaHome:      roots.settaHome,
+	})
+	if err != nil {
+		t.Fatalf("new plugin backend route store: %v", err)
+	}
+	discovery, err := plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
+		Store:      store,
+		ServerMode: mode,
+	})
+	if err != nil {
+		t.Fatalf("new plugin backend route discovery service: %v", err)
+	}
+
+	repoRoot := routePluginFixtureRepoRoot(t)
+	runtime, err := plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
+		DiscoveryService: discovery,
+		RuntimeProvider: plugins.WorkerRuntimeProviderFunc(func(context.Context) (plugins.WorkerRuntime, error) {
+			return plugins.WorkerRuntime{
+				PythonBinary:     pluginRoutePythonBinary(t, repoRoot),
+				Environment:      pluginRouteWorkerEnv(repoRoot),
+				WorkingDirectory: repoRoot,
+			}, nil
+		}),
+		ServerMode: mode,
+	})
+	if err != nil {
+		t.Fatalf("new plugin backend route runtime: %v", err)
+	}
+	return runtime
+}
+
+func pluginRoutePythonBinary(t *testing.T, repoRoot string) string {
+	t.Helper()
+
+	candidates := []string{
+		filepath.Join(repoRoot, ".venv", "bin", "python"),
+		filepath.Join(repoRoot, ".venv", "bin", "python3"),
+		"python3",
+		"python",
+	}
+	for _, candidate := range candidates {
+		if strings.Contains(candidate, string(filepath.Separator)) {
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate
+			}
+			continue
+		}
+		resolved, err := exec.LookPath(candidate)
+		if err == nil {
+			return resolved
+		}
+	}
+
+	t.Fatalf("python interpreter not found under %s", repoRoot)
+	return ""
+}
+
+func pluginRouteWorkerEnv(repoRoot string) []string {
+	backendPath := filepath.Join(repoRoot, "backend")
+	env := os.Environ()
+	pythonPathSet := false
+
+	for index, entry := range env {
+		if !strings.HasPrefix(entry, "PYTHONPATH=") {
+			continue
+		}
+		current := strings.TrimPrefix(entry, "PYTHONPATH=")
+		if current == "" {
+			env[index] = "PYTHONPATH=" + backendPath
+		} else {
+			env[index] = "PYTHONPATH=" + backendPath + string(os.PathListSeparator) + current
+		}
+		pythonPathSet = true
+		break
+	}
+	if !pythonPathSet {
+		env = append(env, "PYTHONPATH="+backendPath)
+	}
+	return append(env, "PYTHONUNBUFFERED=1")
 }
 
 func copyPluginRouteFixtureToWorkspace(t *testing.T, workspaceRoot string, fixtureName string) {

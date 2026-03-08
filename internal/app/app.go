@@ -75,6 +75,7 @@ type App struct {
 	boundCode     *boundcode.Service
 	mcpServer     *mcpx.Server
 	mcpClient     *mcpx.Client
+	pluginRoutes  *plugins.BackendRouteRuntime
 	handler       http.Handler
 }
 
@@ -157,6 +158,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginStore           *plugins.Store
 		pluginDiscovery       *plugins.DiscoveryService
 		pluginBackendRegs     plugins.BackendRegistrationSource
+		pluginBackendRoutes   *plugins.BackendRouteRuntime
 		pythonPackages        *pythonenv.Runtime
 	)
 	if authService.SupportsSessionAuth() {
@@ -936,6 +938,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 	}
+	if modePolicy.IsIDE() && pluginDiscovery != nil && pluginWorkerRuntime != nil {
+		pluginBackendRoutes, err = plugins.NewBackendRouteRuntime(context.Background(), plugins.BackendRouteRuntimeOptions{
+			DiscoveryService: pluginDiscovery,
+			RuntimeProvider:  pluginWorkerRuntime,
+			ServerMode:       cfg.Server.Mode,
+			Logger:           logger,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
 	worktreeName := devworktree.ActiveName()
 	statusReadyAt := time.Now().UTC()
@@ -1012,6 +1026,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
 				ModePolicy: modePolicy,
 				Service:    pluginMutationService,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterPluginBackendRoutes(r, httpapi.PluginBackendRouteDependencies{
+				ModePolicy: modePolicy,
+				Runtime:    pluginBackendRoutes,
 			}); err != nil {
 				panic(err)
 			}
@@ -1165,7 +1185,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		},
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		_ = errors.Join(
+			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
+			closePluginBackendRoutes(pluginBackendRoutes),
+			terminalService.Close(context.Background()),
+		)
 		return nil, err
 	}
 	if mcpClient != nil {
@@ -1194,6 +1218,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		boundCode:     boundCodeService,
 		mcpServer:     mcpServer,
 		mcpClient:     mcpClient,
+		pluginRoutes:  pluginBackendRoutes,
 		handler:       handler,
 	}, nil
 }
@@ -1275,6 +1300,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
 		closeSettingsState(a.settingsState),
+		closePluginBackendRoutes(a.pluginRoutes),
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
@@ -1314,6 +1340,13 @@ func (s infoService) RuntimeInfo(context.Context) httpapi.RuntimeInfo {
 
 func closeProjectResources(projectStates *projectstate.Registry, deploymentRuntime *deployments.Runtime) error {
 	return errors.Join(closeProjectStates(projectStates), closeDeploymentRuntime(deploymentRuntime))
+}
+
+func closePluginBackendRoutes(runtime *plugins.BackendRouteRuntime) error {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.Close()
 }
 
 func closeProjectStateServices(
