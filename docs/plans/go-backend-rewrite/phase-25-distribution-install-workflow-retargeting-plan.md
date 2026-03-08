@@ -78,6 +78,14 @@ Completed during the second Slice 4A sub-slice:
 - focused wrapper integration coverage now asserts the shared artifact helper is
   used by both install/smoke wrappers
 
+Completed during the third Slice 4A sub-slice:
+
+- `build_and_upload.sh` now has an explicit repo-root boundary, strict shell
+  mode, and cleanup-on-exit behavior that does not mask a failed upload
+- `verify_install.sh` now also cleans on failure instead of only on success
+- focused wrapper integration coverage now asserts cleanup-on-failure and exit
+  status preservation for upload/install failure paths
+
 ## Inputs
 
 - `phase-25-legacy-startup-and-distribution-boundary-plan.md`
@@ -121,7 +129,7 @@ That split is unnecessary technical debt:
 
 ### Slice 4A: Root wrapper convergence over the packaged distribution helper
 
-Status: second sub-slice completed
+Status: third sub-slice completed
 
 Deliverables:
 
@@ -165,6 +173,8 @@ Non-goals:
   package-build owner
 - fail fast when zero or multiple matching built artifacts exist instead of
   guessing which sdist/wheel to install
+- preserve real failure exit codes while still cleaning temporary build
+  artifacts in repo-root smoke/publish wrappers
 
 ## Verification
 
@@ -175,9 +185,13 @@ For Slice 4A:
 
 ## Next Recommended Step
 
-The remaining Slice 4 question is now narrower again:
+Slice 4A is now functionally closed for the repo-root wrapper surface.
 
-1. decide whether wrapper cleanup behavior should be unified any further, or
-   whether the current `cleanup.sh` ownership is already sufficient
-2. if no concrete cleanup/installer issue remains, rerank instead of
-   inventing more distribution churn
+If rewrite work continues, do not invent more wrapper churn by inertia.
+
+Choose explicitly between:
+
+1. a fresh rerank of whether any release/native-installer workflow still has a
+   concrete non-dormant ownership gap
+2. stopping this track here unless a real distribution/install failure mode
+   appears

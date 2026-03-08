@@ -84,6 +84,13 @@ Completed during the second Slice 4 distribution/install sub-slice:
   multiple matching artifacts instead of carrying separate selection logic
 - focused helper and wrapper integration tests now cover that boundary
 
+Completed during the third Slice 4 distribution/install sub-slice:
+
+- `build_and_upload.sh` now has explicit repo-root ownership plus cleanup on
+  failure without masking upload exit status
+- `verify_install.sh` now also cleans on failure
+- focused wrapper tests now cover failure propagation and cleanup ordering
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior

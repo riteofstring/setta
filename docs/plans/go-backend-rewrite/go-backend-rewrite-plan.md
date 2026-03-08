@@ -446,11 +446,19 @@ The second Slice 4A sub-slice is now also landed:
   `tests/start/test_distribution_artifact_path_script.py` plus the expanded
   `tests/start/test_distribution_script_wiring.py`
 
-The next Phase 25 decision is now narrower again:
+The third Slice 4A sub-slice is now also landed:
 
-- either land one bounded follow-on for any still-justified wrapper cleanup
-  behavior change
-- or rerank instead of broadening distribution/install work by inertia
+- `build_and_upload.sh` now has an explicit repo-root boundary plus
+  cleanup-on-exit behavior that preserves real upload failure status
+- `verify_install.sh` now also cleans on failure instead of only on success
+- focused wrapper integration coverage now guards those failure paths
+
+The next Phase 25 decision is no longer another obvious wrapper fix:
+
+- either rerank whether any broader release/native-installer workflow still has
+  a concrete ownership gap
+- or stop broadening Phase 25 distribution/install work until a real failure
+  mode appears
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
