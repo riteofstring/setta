@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmarkRenderCounter } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import cc from "classcat";
 import { useDndMode } from "forks/dnd-kit/dndState";
 import {
@@ -28,6 +29,10 @@ function _NodesSelection({ x, y, width, height }: Rect) {
   );
   const { isSorting, isMovingFree } = useDndMode();
   const activeIds = useActiveSectionUI((state) => state.activeIds, _.isEqual);
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "nodes-selection",
+    activeIds.join(",") || "none",
+  );
   const nodeRef = useRef<HTMLDivElement>(null);
   const primarySelectionId =
     activeIds.length > 0 ? activeIds[activeIds.length - 1] : null;

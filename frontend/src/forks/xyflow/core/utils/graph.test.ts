@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { setActiveSectionUIIds } from "state/activeSectionUI";
 import { resetProjectStores } from "state/utils";
 import { useNodeInternals } from "state/definitions";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import type { ReactFlowState } from "../types";
-import { getNodesInside, getPaneRect } from "./graph";
+import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
 
 vi.mock("../hooks/useViewportHelper", () => ({
   screenToFlowPosition: vi.fn((point) => point),
@@ -148,5 +149,50 @@ describe("getNodesInside", () => {
     expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual([
       "section-a",
     ]);
+  });
+});
+
+describe("getActiveSectionsBounds", () => {
+  beforeEach(() => {
+    mockedScreenToFlowPosition.mockClear();
+    resetProjectStores();
+  });
+
+  it("uses node internals geometry for active section bounds without DOM refs", () => {
+    setActiveSectionUIIds(["section-a", "section-b"]);
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: 100,
+            height: 80,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+        [
+          "section-b",
+          {
+            id: "section-b",
+            position: { x: 180, y: 40 },
+            width: 120,
+            height: 90,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+
+    expect(getActiveSectionsBounds()).toEqual({
+      x: 10,
+      y: 20,
+      width: 290,
+      height: 110,
+    });
+    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
   });
 });

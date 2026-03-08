@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmarkRenderCounter } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect } from "react";
@@ -34,9 +35,15 @@ const EdgeRenderer = () => {
   );
   const positions = useEdgeHandleRegistry((state) => state.positions);
   const { width, height } = useReactFlow((state) => ({
-    width: state.width,
-    height: state.height,
-  }));
+      width: state.width,
+      height: state.height,
+    }),
+    _.isEqual,
+  );
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "edge-renderer",
+    `${edges.length}:${width}x${height}`,
+  );
 
   useEffect(() => {
     recomputeEdgeHandlePositions();

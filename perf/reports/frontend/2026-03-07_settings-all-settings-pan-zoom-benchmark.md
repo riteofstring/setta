@@ -3665,3 +3665,111 @@ New benchmark stages:
 - The remaining selection hitch is now much smaller and has moved to a different bucket:
   - selection-overlay/layout work in `NodesSelection.tsx`
 - So the next marquee-specific target, if we keep pushing this path, should be the selection overlay / forced-reflow work rather than geometry lookup.
+
+## Addendum: remaining activation latency is mostly post-click frame delay; two more concrete fixes landed
+
+- Date: `2026-03-08`
+- Goal: keep pushing section activation latency after the earlier active-store, outline-transition, dropdown, `ParamFilter`, z-index, and marquee fixes.
+- Scope for this pass:
+  - ordinary section click activation in `full`
+  - selection-rectangle mouseup path where `setNodesSelection(...)` runs
+  - remaining global overlay subscribers that still react to activation
+
+### Changes
+
+- `frontend/src/forks/xyflow/core/container/AgenticEdgeRenderer.tsx`
+  - changed the node-internals subscription so the agentic edge layer only tracks node geometry (`position`, `width`, `height`)
+  - z-index-only node-internals updates from ordinary section activation no longer rerender the agentic edge renderer
+- `frontend/src/forks/xyflow/core/utils/graph.ts`
+  - changed `getSectionBounds(...)` to prefer live node internals for section geometry and only fall back to DOM rects when necessary
+  - this directly affects the selection-rectangle mouseup path via `setNodesSelection(...)`
+- `frontend/src/components/Pages/Project/ResponsiveMiniMap.tsx`
+  - removed the minimap panel `shadow-md` class after same-session A/B showed the shadow was a real activation tax
+- `frontend/src/forks/xyflow/minimap/MiniMap.tsx`
+- `frontend/src/forks/xyflow/minimap/MiniMapNode.tsx`
+- `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx`
+  - kept the minimap node layer static and moved active-section syncing to an imperative selected-class updater on the existing minimap rects
+  - this preserves the active highlight visually while removing the old React active-id subscription from the minimap node layer
+
+### Method
+
+- Live headed browser on:
+  - `http://127.0.0.1:3009/settings?settingsBenchmarkStage=full`
+- Used browser-side measurement harnesses through CDP to capture:
+  - click handler dispatch time
+  - click to active
+  - click to visual settle
+  - first `requestAnimationFrame` delay after click
+  - same-session warmed A/B variants for minimap visual effects
+  - DOM `getBoundingClientRect()` counts during `setNodesSelection(...)`
+- Also used benchmark render counters to verify which activation subscribers still rerender on ordinary clicks.
+
+### Visual validation
+
+- Current `full` view with the production shadowless minimap:
+  - `perf/artifacts/frontend/settings-all-settings/activation-latency-2026-03-08/full-shadowless-minimap-visible.png`
+- Live DOM sanity check on that view:
+  - active sections: `1`
+  - selected minimap nodes: `1`
+  - minimap box shadow: `none`
+  - minimap backdrop filter: `blur(4px)`
+
+### Results
+
+#### 1. The agentic edge layer no longer rerenders on ordinary section activation
+
+- After the geometry-only node subscription change, benchmark render counters on repeated direct section-to-section clicks showed:
+  - `agentic-edge-renderer`: `0` commits
+  - `edge-renderer`: `0` commits
+- The remaining tracked click fan-out was limited to:
+  - `section-shell`
+  - `section-title-active`
+  - `param-filter`
+  - minimap work
+
+#### 2. The selection-rectangle mouseup bounds path is now effectively free
+
+- Direct browser-side measurement of the real `setNodesSelection(...)` path:
+  - section DOM rect reads during the call: `0`
+  - measured duration: `0.20ms`
+- So the old DOM-bounds cost is no longer a meaningful contributor on the selection-rectangle mouseup path.
+
+#### 3. The remaining click lag is not the click handler itself
+
+- Direct live click measurement on `full`:
+  - `dispatchEvent()` time: `3.40ms`
+  - first `requestAnimationFrame` after click: `113.00ms`
+  - click to active in that cold sample: `120.10ms`
+  - click to visual settle in that cold sample: `149.80ms`
+- Conclusion:
+  - the remaining sluggishness is mostly not synchronous click-handler logic
+  - the bigger cost is the delayed next frame after the handler returns
+
+#### 4. The minimap panel shadow is a real warmed activation tax
+
+- Same-session warmed alternating A/B with only the minimap panel shadow toggled:
+  - `noShadow1`: `64.32ms` active, `85.25ms` settle
+  - `shadow1`: `83.00ms` active, `102.18ms` settle
+  - `noShadow2`: `55.25ms` active, `74.65ms` settle
+  - `shadow2`: `65.98ms` active, `87.53ms` settle
+- Removing blur alone was not the key win in earlier controls; the shadow was the consistent warmed cost signal.
+
+#### 5. Current warmed ordinary click activation band after the proven fixes
+
+- Same live `full` page, measured twice in sequence:
+  - first pass (`coldish`): `85.98ms` active, `109.48ms` settle
+  - second pass (`warmed`): `40.22ms` active, `60.32ms` settle
+
+### Rejected directions during this pass
+
+- Minimap `translateZ(0)` / `contain` / `will-change` isolation experiments were not kept.
+- Those early results were confounded by transform overrides and warmup effects.
+- The only minimap visual change kept from this pass is the shadow removal.
+
+### Conclusion
+
+- Two concrete improvements from this pass are worth keeping:
+  - agentic edges now ignore z-index-only node-internals updates during click activation
+  - selection-rectangle mouseup no longer rebuilds selection bounds from DOM rect reads
+- The remaining ordinary click lag is now mostly post-handler frame delay, not handler JS time.
+- The strongest remaining visual/compositing lever identified in this pass was the minimap panel shadow, so removing that shadow is also worth keeping.

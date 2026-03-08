@@ -1,4 +1,7 @@
-import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
+import {
+  getRequestedSettingsAllSettingsBenchmarkStageFromWindow,
+  useSettingsAllSettingsBenchmarkRenderCounter,
+} from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import { useRef } from "react";
@@ -41,6 +44,11 @@ export function UiEditor() {
   });
   const hasViewModeTabs = useHasViewModeTabs();
   const activeSectionId = useSolelyActiveSectionUIId();
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "ui-editor",
+    activeSectionId ?? "none",
+  );
+
   const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
     activeSectionId,
   );

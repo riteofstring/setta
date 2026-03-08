@@ -72,6 +72,11 @@ export const SETTINGS_ALL_SETTINGS_BENCHMARK_RENDER_COUNTER_SCOPES = [
   "get-param-switch",
   "param-switch",
   "param-container",
+  "ui-editor",
+  "minimap-nodes",
+  "agentic-edge-renderer",
+  "edge-renderer",
+  "nodes-selection",
 ] as const;
 
 export type SettingsAllSettingsBenchmarkRenderCounterScope =

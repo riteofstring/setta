@@ -182,7 +182,23 @@ export function getSectionBounds(
   sectionIds: Array<string>,
   ignoreGrid = false,
 ): Rect | null {
+  const nodeInternals = useNodeInternals.getState().x;
   const sections = sectionIds.flatMap((sectionId) => {
+    const node = nodeInternals.get(sectionId);
+    if (
+      node &&
+      typeof node.width === "number" &&
+      typeof node.height === "number"
+    ) {
+      return [
+        {
+          position: { x: node.position.x, y: node.position.y },
+          width: node.width,
+          height: node.height,
+        },
+      ];
+    }
+
     const rect = getSectionRect(sectionId, ignoreGrid);
     if (!rect) {
       return [];
