@@ -24,7 +24,7 @@ attachments, deployment publish modals, and artifact-backed param UIs.
 
 ## Status
 
-Current repo status as of 2026-03-10:
+Current repo status as of 2026-03-10 after the landed Slice 1:
 
 - Phase 19 project-shell route ownership is complete for the current
   caller-backed surface
@@ -32,8 +32,8 @@ Current repo status as of 2026-03-10:
   surface
 - the earlier Phase 21 rerank doc initially concluded that no remaining
   caller-backed direct frontend cluster existed, but a rerun against the live
-  frontend corrected that result
-- the following route cluster is still Python-owned and caller-backed:
+  frontend corrected that result and drove this phase
+- the workspace file-browser and download subset is now Go-owned:
   - `POST /checkIfFileExists`
   - `POST /checkWorkspaceInitialized`
   - `POST /getFileBrowserRoot`
@@ -43,7 +43,9 @@ Current repo status as of 2026-03-10:
   - `POST /getFileBrowserFileStat`
   - `POST /writeFileBrowserFileContent`
   - `POST /transferFileBrowserEntry`
-  - `GET /fileBrowserDownload`
+  - `GET /fileBrowser/{token}`
+  - `GET /binary/{contentId}`
+- the remaining caller-backed Phase 22 gap is now the artifact owner surface:
   - `POST /importFilesToArtifacts`
   - `POST /loadCachedImageArtifacts`
   - `POST /loadCachedChartData`
@@ -51,9 +53,6 @@ Current repo status as of 2026-03-10:
   - `POST /loadCachedDrawAreaLayerItemTransform`
   - `POST /updateArtifacts`
   - `POST /deleteArtifacts`
-  - `GET /binary/{contentId}`
-- Go already owns binary upload through `internal/binary` and
-  `internal/httpapi/binary_routes.go`, but not binary download
 
 ## Scope
 
@@ -68,7 +67,7 @@ Caller-backed route surface for this phase:
 - `POST /getFileBrowserFileStat`
 - `POST /writeFileBrowserFileContent`
 - `POST /transferFileBrowserEntry`
-- `GET /fileBrowserDownload`
+- `GET /fileBrowser/{token}`
 - `POST /importFilesToArtifacts`
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
@@ -130,10 +129,6 @@ Explicit non-goals for the first artifact/file-browser phase:
 
 What is still missing:
 
-- a Go owner for workspace file browsing, path normalization, ignore-pattern
-  handling, file-content read/write, and transfer semantics
-- a Go owner for token-backed workspace file download URLs and validation
-- Go registration of `GET /binary/{contentId}`
 - a Go owner for artifact import/update/delete and cached-artifact reads
 - explicit share/deployment-session artifact overlay behavior over the current
   Go runtime boundaries
@@ -233,7 +228,7 @@ Routes:
 - `POST /getFileBrowserFileStat`
 - `POST /writeFileBrowserFileContent`
 - `POST /transferFileBrowserEntry`
-- `GET /fileBrowserDownload`
+- `GET /fileBrowser/{token}`
 - `GET /binary/{contentId}`
 
 Deliverables:
@@ -254,7 +249,30 @@ Why this goes first:
 
 Status:
 
-- planned
+- landed on 2026-03-10
+
+Completed in this slice:
+
+- new explicit `internal/filebrowser` owner for workspace path handling,
+  internal-root suppression, initialization checks, file-content read/write,
+  transfer semantics, and token-backed workspace downloads
+- Go `GET /binary/{contentId}` download transport over the existing
+  `internal/binary.Store`
+- thin `internal/httpapi` transport plus real IDE app wiring
+- focused service, route, binary-route, and app coverage
+
+Decisions recorded in this slice:
+
+- the live frontend download route is `GET /fileBrowser/{token}`; the earlier
+  `/fileBrowserDownload` wording in planning text was stale and is corrected
+  here
+- Go file-browser routes explicitly return `403 "File browsing is disabled in
+  deployment mode."` in share/app modes instead of relying on generic
+  deployment route gating
+- Go `GET /binary/{contentId}` is currently bounded to the active IDE caller
+  surface because the live callers are file-browser preview/editor paths; any
+  broader share/app download-policy parity remains out of scope until a
+  concrete caller requires it
 
 ### Slice 2: IDE artifact import, cached reads, and mutation ownership
 
@@ -321,15 +339,14 @@ Status:
 
 ## Verification
 
-- planning and inventory only; no automated tests run yet
+- `./scripts/go.sh test ./internal/filebrowser ./internal/httpapi ./internal/app -run 'Test(Service|RegisterFileBrowserRoutes|RegisterBinaryRoutes|AppServesFileBrowserRoutes)' -count=1`
 - caller and route inventory verified through `rg`, Python router/test reads,
-  and current Go route-owner inspection
+  and current Go route-owner inspection before implementation
 
 ## Next Recommended Step
 
-- implement Slice 1 from this plan:
-  - add `internal/filebrowser`
-  - move the workspace file-browser routes to thin Go transport
-  - add Go `GET /binary/{contentId}` ownership over the existing binary store
-- keep Slice 2 artifact ownership separate instead of mixing artifact
-  persistence into the first file-browser owner
+- implement Slice 2 from this plan:
+  - add an explicit Go artifact owner for IDE artifact import/update/delete
+    and cached reads
+  - keep share/deployment artifact-session overlay behavior separate for Slice
+    3 instead of mixing it into the IDE artifact owner

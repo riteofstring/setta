@@ -264,6 +264,41 @@ current direct-frontend implementation plan is now Phase 22:
 
 - `phase-22-artifact-and-file-browser-route-cluster-plan.md`
 
+The first Phase 22 slice is now landed for the workspace file-browser and
+download surface:
+
+- Go-owned `POST /checkIfFileExists`
+- Go-owned `POST /checkWorkspaceInitialized`
+- Go-owned `POST /getFileBrowserRoot`
+- Go-owned `POST /getFolderContents`
+- Go-owned `POST /getFileBrowserDownloadUrls`
+- Go-owned `POST /getFileBrowserFileContent`
+- Go-owned `POST /getFileBrowserFileStat`
+- Go-owned `POST /writeFileBrowserFileContent`
+- Go-owned `POST /transferFileBrowserEntry`
+- Go-owned `GET /fileBrowser/{token}`
+- Go-owned bounded IDE `GET /binary/{contentId}`
+- explicit `internal/filebrowser` runtime ownership for workspace path
+  normalization, Setta-root suppression, initialization checks, file-content
+  read/write, transfer semantics, and token-backed downloads
+- thin `internal/httpapi` transport plus real IDE app wiring and focused
+  service/route/app coverage
+
+With that first Phase 22 slice landed, the remaining caller-backed gap in
+this cluster is now narrower:
+
+- `POST /importFilesToArtifacts`
+- `POST /loadCachedImageArtifacts`
+- `POST /loadCachedChartData`
+- `POST /loadCachedBrushStrokes`
+- `POST /loadCachedDrawAreaLayerItemTransform`
+- `POST /updateArtifacts`
+- `POST /deleteArtifacts`
+
+The next recommended step is therefore Phase 22 Slice 2: explicit IDE
+artifact import, cached-read, and mutation ownership, while keeping
+share/deployment artifact-session overlays as the separate Slice 3 follow-on.
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.

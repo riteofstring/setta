@@ -21,6 +21,14 @@ Correction:
 - this doc now records that corrected outcome, and Phase 22 is the follow-on
   plan created from it
 
+Postscript after the landed Phase 22 Slice 1:
+
+- the rerank in this doc was correct, but the status of the selected cluster
+  has since changed
+- Go now owns the workspace file-browser routes plus `GET /binary/{contentId}`
+- the remaining Phase 22 gap is now the artifact import/cached-read/mutation
+  surface, not the workspace file-browser subset
+
 ## Current Status
 
 Completed before this inventory:
@@ -39,10 +47,10 @@ Current repo status as of 2026-03-10:
   caller-backed surface
 - the direct git-read route cluster is Go-owned for the current caller-backed
   surface
-- the artifact and workspace file-browser route cluster is still Python-owned
-  despite active current frontend callers
-- `POST /binary/upload` is Go-owned, but `GET /binary/{contentId}` remains
-  Python-owned
+- the Phase 22 Slice 1 workspace file-browser and binary-download subset is
+  now Go-owned
+- the remaining direct caller-backed gap is the artifact import/cached-read/
+  mutation subset selected by this rerank
 - listener-chat, detached-run, and default-project routes still exist in
   Python-generated bindings, but they still do not have a caller-backed reason
   to drive the next phase
@@ -100,7 +108,7 @@ Implication:
 
 ### 2. The artifact and workspace file-browser cluster is still caller-backed and should become the next phase
 
-These routes still have live direct frontend callers:
+These routes drove Phase 22 because they had live direct frontend callers:
 
 - `POST /checkIfFileExists`
 - `POST /checkWorkspaceInitialized`
@@ -111,7 +119,7 @@ These routes still have live direct frontend callers:
 - `POST /getFileBrowserFileStat`
 - `POST /writeFileBrowserFileContent`
 - `POST /transferFileBrowserEntry`
-- `GET /fileBrowserDownload`
+- `GET /fileBrowser/{token}`
 - `POST /importFilesToArtifacts`
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
@@ -135,20 +143,20 @@ Current callers include:
 - `frontend/src/utils/nativeFileImport.ts`
 - deployment publish modals and the Home workspace browser
 
-Current Go ownership status:
+Current Go ownership status after the landed Phase 22 Slice 1:
 
-- there is no Go `internal/httpapi` owner for the file-browser route cluster
-- there is no explicit Go file-browser service boundary for path resolution,
-  folder listing, file content reads/writes, download tokens, or transfers
-- `internal/binary` already exists and owns upload storage, but binary
-  download transport is still missing from Go
-- the artifact import/update/delete and cached-read surface also remains
-  Python-owned
+- `internal/filebrowser` plus thin `internal/httpapi` transport now own the
+  workspace file-browser subset
+- `internal/binary` now owns both upload storage and bounded IDE binary
+  download transport for the active file-browser preview/editor callers
+- the remaining artifact import/update/delete and cached-read surface still
+  remains Python-owned
 
-Rerank:
+Rerank result that remains valid:
 
-- this is the actual next caller-backed direct frontend route cluster
-- it should become the next Go rewrite phase
+- this was the actual next caller-backed direct frontend route cluster
+- its remaining work is now the Phase 22 artifact-owner follow-on, not a new
+  rerank away from the cluster
 
 ### 3. Listener-chat routes still have no live direct frontend callers
 
@@ -237,7 +245,7 @@ Rerank:
 
 ## Next Recommended Step
 
-- execute Phase 22 planning and then start Slice 1 for the workspace
-  file-browser and binary-download transport boundary
+- continue Phase 22 with Slice 2 for IDE artifact import, cached reads, and
+  mutation ownership
 - keep listener-chat, detached runs, and default-project transport closed
   unless a new concrete caller appears
