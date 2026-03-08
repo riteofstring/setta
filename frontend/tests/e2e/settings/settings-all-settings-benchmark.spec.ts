@@ -932,6 +932,29 @@ test("activation render counters expose shared shell rerenders", async ({
   }
 });
 
+test("section shells do not transition outline on activation", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await openBenchmarkStage(page, "full");
+
+  const transition = await page.evaluate(() => {
+    const section = document.querySelector<HTMLElement>("section[data-section-id]");
+    if (!section) {
+      throw new Error("Missing section shell.");
+    }
+    const style = window.getComputedStyle(section);
+    return {
+      transitionProperty: style.transitionProperty,
+      transitionDuration: style.transitionDuration,
+    };
+  });
+
+  // Keep the active ring instant so perceived activation latency is not dominated
+  // by outline-color animation on the section shell.
+  expect(transition.transitionProperty).not.toContain("outline");
+});
+
 async function openBenchmarkStage(
   page: Page,
   stage: (typeof STAGES)[number],

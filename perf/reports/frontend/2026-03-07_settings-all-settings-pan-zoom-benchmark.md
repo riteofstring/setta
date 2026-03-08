@@ -3092,3 +3092,162 @@ New benchmark stages:
 
 - For plain section activation, the remaining lag is local frontend work plus the shell transition, not backend acknowledgement latency.
 - This does not rule out unrelated later backend sync noise elsewhere in the app, but it does rule it out as the cause of the activation delay measured here.
+
+## Addendum: runtime suppression of websocket/project-sync traffic still does not change activation lag
+
+- Date: `2026-03-08`
+- Goal: test whether broader backend-driven sync traffic during the activation window, beyond the `/setActiveIds` request itself, is contributing to the remaining lag.
+- Method:
+  - started from a normally loaded live `full` benchmark page
+  - measured 5 baseline section activations
+  - then installed a browser-only runtime suppression layer that:
+    - swallowed incoming `message` events from project frontend websockets
+    - blocked fetches to `/getLatestProjectState` and `/getLatestLspDiagnostics`
+  - re-ran the same 5-section activation loop
+  - also left the suppression layer active for an extra `5s` idle window to see whether any project-sync traffic actually appeared
+
+### Visual validation
+
+- baseline `full` page:
+  - `perf/artifacts/frontend/settings-all-settings/backend-sync-suppression-2026-03-08/full-baseline-visible.png`
+- runtime-suppressed `full` page:
+  - `perf/artifacts/frontend/settings-all-settings/backend-sync-suppression-2026-03-08/full-runtime-suppressed-visible.png`
+
+### Results
+
+- baseline `full`
+  - average click to active: `96.44ms`
+  - average click to visual settle: `284.66ms`
+
+- runtime-suppressed `full`
+  - average click to active: `107.80ms`
+  - average click to visual settle: `301.22ms`
+
+### What the suppression layer actually saw
+
+- during the 5 activation runs:
+  - swallowed websocket messages: `0`
+  - blocked `/getLatestProjectState` fetches: `0`
+  - blocked `/getLatestLspDiagnostics` fetches: `0`
+
+- during an additional `5s` idle sample:
+  - new swallowed websocket messages: `0`
+  - new blocked project-sync fetches: `0`
+
+### Conclusion
+
+- There was no websocket/project-sync traffic to suppress during the measured activation window on this page.
+- So, in this benchmark, broader backend-driven project sync is not explaining the remaining activation lag either.
+- The remaining delay is still best explained by local frontend work plus the visible section-shell transition.
+
+## Addendum: with backend sync suppressed, the visual settle is specifically the shell outline transition
+
+- Date: `2026-03-08`
+- Goal: isolate which visual shell property is actually responsible for the post-activation settle time while keeping the runtime backend-sync suppression layer active.
+- Method:
+  - kept the browser-side websocket/project-sync suppression layer installed
+  - measured the same `full`-stage section activation loop under 6 transition variants:
+    - `baseline`
+    - `none`
+    - `outlineOnly`
+    - `boxShadowOnly`
+    - `borderRadiusOnly`
+    - `outlineAndBoxShadow`
+  - on every animation frame after click, sampled computed:
+    - `outlineColor`
+    - `boxShadow`
+    - `borderRadius`
+    - `filter`
+  - recorded:
+    - click to `data-section-active="true"`
+    - click to overall visual settle
+    - per-property settle time
+    - per-property change counts
+
+### Results
+
+- `baseline`
+  - average click to active: `96.30ms`
+  - average overall visual settle: `285.67ms`
+  - average extra time after active: `189.37ms`
+  - average `outlineColor` changes after active: `16.5`
+
+- `outlineOnly`
+  - average click to active: `92.72ms`
+  - average overall visual settle: `281.75ms`
+  - average extra time after active: `189.03ms`
+  - average `outlineColor` changes after active: `16.5`
+
+- `outlineAndBoxShadow`
+  - average click to active: `91.83ms`
+  - average overall visual settle: `287.45ms`
+  - average extra time after active: `195.63ms`
+  - average `outlineColor` changes after active: `17.25`
+
+- `none`
+  - average click to active: `96.73ms`
+  - average overall visual settle: `151.57ms`
+  - average extra time after active: `54.85ms`
+  - average `outlineColor` changes after active: `0`
+
+- `boxShadowOnly`
+  - average click to active: `96.72ms`
+  - average overall visual settle: `149.00ms`
+  - average extra time after active: `52.28ms`
+  - average `outlineColor` changes after active: `0`
+
+- `borderRadiusOnly`
+  - average click to active: `95.75ms`
+  - average overall visual settle: `149.10ms`
+  - average extra time after active: `53.35ms`
+  - average `outlineColor` changes after active: `0`
+
+### Property-level observation
+
+- On the actual section shell element used for activation:
+  - `outlineColor` changed repeatedly after active state flipped
+  - `boxShadow` change count stayed `0`
+  - `borderRadius` change count stayed `0`
+  - `filter` change count stayed `0`
+
+### Conclusion
+
+- The visual settle is not a generic “some animation” effect. It is specifically the shell outline transition.
+- `outlineOnly` reproduces the full baseline settle almost exactly.
+- `boxShadowOnly` and `borderRadiusOnly` behave like `none`, which means those properties are not driving the visible post-click delay on this page.
+- The remaining ~`50-55ms` after active in the non-outline variants is mostly the measurement guard waiting for several stable `requestAnimationFrame` samples, not a visible shell animation.
+
+## Addendum: removing the production outline transition drops section activation settle time to the no-outline band
+
+- Date: `2026-03-08`
+- Goal: land the production CSS change and rerun the same activation latency measurement.
+- Change:
+  - removed `outline` from `.transition-radius` in `frontend/index.css`
+  - resulting live shell `transitionProperty`: `border-radius, box-shadow, drop-shadow`
+- Method:
+  - kept the same browser-side backend-sync suppression control active
+  - reran 5 section activations on the live `full` stage
+
+### Visual validation
+
+- post-change `full` page:
+  - `perf/artifacts/frontend/settings-all-settings/backend-sync-suppression-2026-03-08/full-outline-transition-removed-visible.png`
+
+### Results
+
+- previous suppressed baseline with production outline transition:
+  - average click to active: `96.30ms`
+  - average overall visual settle: `285.67ms`
+  - average extra time after active: `189.37ms`
+
+- current suppressed rerun after removing the production outline transition:
+  - average click to active: `94.76ms`
+  - average overall visual settle: `150.68ms`
+  - average extra time after active: `55.92ms`
+
+### Conclusion
+
+- Removing the production outline transition does exactly what the earlier isolation predicted.
+- The real active-state latency is basically unchanged.
+- The visible settle drops by about `134.99ms` (`285.67ms -> 150.68ms`).
+- The remaining post-active gap is now in the same `~50-56ms` band as the earlier no-outline controls, which is consistent with the measurement guard rather than a visible shell animation.
