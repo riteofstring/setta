@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/tools"
 )
@@ -137,8 +138,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 52 {
-		t.Fatalf("expected 52 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 54 {
+		t.Fatalf("expected 54 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -159,6 +160,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var setWatchCodeInputsTool *sdkmcp.Tool
+	var setAppDefinitionTool *sdkmcp.Tool
+	var updateAppDefinitionTool *sdkmcp.Tool
 	var compareAndSetShowParamDisplayNamesTool *sdkmcp.Tool
 	var compareAndSetWatchCodeEnabledTool *sdkmcp.Tool
 	var compareAndSetWatchCodeFoldersTool *sdkmcp.Tool
@@ -243,6 +246,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_watch_code_inputs" {
 			setWatchCodeInputsTool = tool
+		}
+		if tool.Name == "set_app_definition" {
+			setAppDefinitionTool = tool
+		}
+		if tool.Name == "update_app_definition" {
+			updateAppDefinitionTool = tool
 		}
 		if tool.Name == "compare_and_set_show_param_display_names" {
 			compareAndSetShowParamDisplayNamesTool = tool
@@ -364,6 +373,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"list_mcp_tools",
 		"read_file_range",
 		"set_agentic_context",
+		"set_app_definition",
 		"set_callable",
 		"set_code",
 		"set_code_obj_display_name",
@@ -394,6 +404,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"toggle_group_orientation",
 		"toggle_minimized",
 		"toggle_position_locks",
+		"update_app_definition",
 		"update_param_impl_config",
 	}
 	for index, name := range expectedNames {
@@ -452,6 +463,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setWatchCodeInputsTool == nil {
 		t.Fatal("expected set_watch_code_inputs tool")
+	}
+	if setAppDefinitionTool == nil {
+		t.Fatal("expected set_app_definition tool")
+	}
+	if updateAppDefinitionTool == nil {
+		t.Fatal("expected update_app_definition tool")
 	}
 	if compareAndSetShowParamDisplayNamesTool == nil {
 		t.Fatal("expected compare_and_set_show_param_display_names tool")
@@ -715,6 +732,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setWatchCodeInputsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_watch_code_inputs, got %#v", setWatchCodeInputsMeta["accessType"])
 	}
+	setAppDefinitionMeta := mustStructuredMap(t, setAppDefinitionTool.Meta[toolMetaNamespace])
+	if setAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for set_app_definition, got %#v", setAppDefinitionMeta["accessType"])
+	}
+	updateAppDefinitionMeta := mustStructuredMap(t, updateAppDefinitionTool.Meta[toolMetaNamespace])
+	if updateAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
+		t.Fatalf("expected structural access type for update_app_definition, got %#v", updateAppDefinitionMeta["accessType"])
+	}
 	compareAndSetShowParamDisplayNamesMeta := mustStructuredMap(t, compareAndSetShowParamDisplayNamesTool.Meta[toolMetaNamespace])
 	if compareAndSetShowParamDisplayNamesMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for compare_and_set_show_param_display_names, got %#v", compareAndSetShowParamDisplayNamesMeta["accessType"])
@@ -941,8 +966,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 52 {
-		t.Fatalf("expected 52 registered tool names, got %#v", listNames)
+	if len(listNames) != 54 {
+		t.Fatalf("expected 54 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -3275,6 +3300,226 @@ func TestServerSetWatchCodeEnabledRejectsInvalidWatchInputPath(t *testing.T) {
 	}
 	if message, ok := payload["message"].(string); !ok || !strings.Contains(message, "watch code input path is invalid") {
 		t.Fatalf("expected invalid watch code path message, got %#v", payload["message"])
+	}
+}
+
+func TestServerSetAppDefinitionRequiresStructuralScope(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	setScopedAgenticContext(t, clientSession, "project-alpha", "chat-1", "chat-section")
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_app_definition",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"appSpec": map[string]any{
+				"root":     map[string]any{"key": "root", "type": "Stack"},
+				"elements": map[string]any{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_app_definition blocked: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected blocked set_app_definition call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["reason"] != "structural_denied" {
+		t.Fatalf("expected structural_denied reason, got %#v", payload["reason"])
+	}
+}
+
+func TestServerSetAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"appSpec": map[string]any{
+				"root":     map[string]any{"key": "root", "type": "Stack"},
+				"elements": map[string]any{},
+			},
+			"appSpecPath":    "app_specs/custom.json",
+			"appSpecVersion": "v2",
+			"catalogId":      appspec.DefaultCatalogID,
+			"routes": []any{
+				map[string]any{"path": "/", "name": "Home", "rootKey": "root"},
+			},
+			"theme": map[string]any{"mode": "dark"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id set_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id set_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	appDefinition := mustStructuredMap(t, payload["appDefinition"])
+	if appDefinition["appSpecPath"] != "app_specs/custom.json" {
+		t.Fatalf("expected normalized app spec path, got %#v", appDefinition["appSpecPath"])
+	}
+	if appDefinition["appSpecVersion"] != "v2" {
+		t.Fatalf("expected app spec version v2, got %#v", appDefinition["appSpecVersion"])
+	}
+
+	storedSpec, err := appspec.Read(root, "app_specs/custom.json")
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
+		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
+	}
+	if projectRuntime.Snapshot().Document.AppDefinition == nil || projectRuntime.Snapshot().Document.AppDefinition.AppSpecPath != "app_specs/custom.json" {
+		t.Fatalf("expected runtime app definition after mutation, got %#v", projectRuntime.Snapshot().Document.AppDefinition)
+	}
+}
+
+func TestServerUpdateAppDefinitionAllowsUnscopedStructuralCallsAndTranslatesTemporaryProjectID(t *testing.T) {
+	t.Parallel()
+
+	root, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
+	if _, _, err := projectRuntime.SetAppDefinition(context.Background(), projectstate.SetAppDefinitionInput{
+		AppSpec: map[string]any{
+			"root": map[string]any{
+				"key":  "root",
+				"type": "Stack",
+				"props": map[string]any{
+					"gap":       float64(8),
+					"direction": "column",
+				},
+			},
+			"elements": map[string]any{},
+		},
+	}); err != nil {
+		t.Fatalf("seed app definition: %v", err)
+	}
+
+	temporaryIDMapPath := filepath.Join(t.TempDir(), temporaryIDMapFileName)
+	writeTemporaryIDMapForTest(t, temporaryIDMapPath, map[string]string{
+		"project-alpha": "11",
+	})
+
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:      t.TempDir(),
+		ProjectState:       projectRuntime,
+		LSPDiagnostics:     openScopedTestLSPDiagnosticsRegistry(),
+		TemporaryIDMapPath: temporaryIDMapPath,
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "11",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "11",
+			"patch": map[string]any{
+				"root": map[string]any{
+					"props": map[string]any{
+						"gap": float64(12),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call temp-id update_app_definition: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected temp-id update_app_definition success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	appSpec := mustStructuredMap(t, payload["appSpec"])
+	rootSpec := mustStructuredMap(t, appSpec["root"])
+	props := mustStructuredMap(t, rootSpec["props"])
+	if props["gap"] != float64(12) {
+		t.Fatalf("expected merged gap 12, got %#v", props["gap"])
+	}
+	if props["direction"] != "column" {
+		t.Fatalf("expected preserved direction column, got %#v", props["direction"])
+	}
+
+	storedSpec, err := appspec.Read(root, appspec.DefaultPath())
+	if err != nil {
+		t.Fatalf("read stored app spec: %v", err)
+	}
+	if !reflect.DeepEqual(storedSpec, payload["appSpec"]) {
+		t.Fatalf("expected stored app spec %#v, got %#v", payload["appSpec"], storedSpec)
+	}
+}
+
+func TestServerUpdateAppDefinitionReturnsFileNotFoundWhenStoredSpecIsMissing(t *testing.T) {
+	t.Parallel()
+
+	_, projectRuntime := openPersistedAppDefinitionTestProjectRuntime(t)
+	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.AppDefinition = &projectstate.AppDefinition{
+			AppSpecPath:    appspec.DefaultPath(),
+			AppSpecVersion: "v1",
+			CatalogID:      appspec.DefaultCatalogID,
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed missing app definition metadata: %v", err)
+	}
+	if _, err := projectRuntime.Save(context.Background()); err != nil {
+		t.Fatalf("save missing app definition metadata: %v", err)
+	}
+
+	_, clientSession := newScopedTestServerSession(t, t.TempDir(), projectRuntime)
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "update_app_definition",
+		Meta: sdkmcp.Meta{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"patch": map[string]any{
+				"root": map[string]any{"type": "Stack"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call missing-spec update_app_definition: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected missing-spec update_app_definition call to fail")
+	}
+	payload := mustStructuredMap(t, result.StructuredContent)
+	if payload["code"] != "file_not_found" {
+		t.Fatalf("expected file_not_found code, got %#v", payload["code"])
 	}
 }
 
@@ -7604,6 +7849,39 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 		}
 	})
 	return runtime
+}
+
+func openPersistedAppDefinitionTestProjectRuntime(t *testing.T) (string, *projectstate.Runtime) {
+	t.Helper()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new persisted app-definition store: %v", err)
+	}
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save persisted app-definition document: %v", err)
+	}
+	runtime, err := projectstate.OpenRuntime(context.Background(), store)
+	if err != nil {
+		t.Fatalf("open persisted app-definition runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close persisted app-definition runtime: %v", err)
+		}
+	})
+	return root, runtime
 }
 
 func enableScopedTestPythonCodegenTarget(t *testing.T, runtime *projectstate.Runtime) {

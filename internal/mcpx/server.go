@@ -65,6 +65,8 @@ type toolDefinition struct {
 
 type projectStateProvider interface {
 	Snapshot() projectstate.Snapshot
+	SetAppDefinition(ctx context.Context, input projectstate.SetAppDefinitionInput) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
+	UpdateAppDefinition(ctx context.Context, patch any) (projectstate.Snapshot, projectstate.AppDefinitionMutationResult, error)
 	AddKwarg(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, projectstate.AddKwargResult, error)
 	AutoLayoutTopLevelSections(ctx context.Context, projectID string, settingsDocument projectstate.Document, margin int) (projectstate.Snapshot, error)
 	ChangeParamImpl(ctx context.Context, projectID string, sectionID string, paramInfoID string, selectedID string) (projectstate.Snapshot, error)
@@ -1356,6 +1358,118 @@ func newSetWatchCodeInputsHandler(projectState projectStateProvider, workspaceRo
 			return nil, normalizeProjectStateMutationError(err)
 		}
 		return statusResult{Status: "ok"}, nil
+	}
+}
+
+func newSetAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		appSpec, err := readRequiredObjectArgument(arguments, "appSpec")
+		if err != nil {
+			return nil, err
+		}
+		appSpecPath, err := readOptionalNullableStringPointerArgument(arguments, "appSpecPath")
+		if err != nil {
+			return nil, err
+		}
+		appSpecVersion, err := readOptionalNullableStringPointerArgument(arguments, "appSpecVersion")
+		if err != nil {
+			return nil, err
+		}
+		catalogID, err := readOptionalNullableStringPointerArgument(arguments, "catalogId")
+		if err != nil {
+			return nil, err
+		}
+		routes, err := readOptionalAppRoutesArgument(arguments, "routes")
+		if err != nil {
+			return nil, err
+		}
+		dataBindings, err := readOptionalObjectPointerArgument(arguments, "dataBindings")
+		if err != nil {
+			return nil, err
+		}
+		actions, err := readOptionalObjectPointerArgument(arguments, "actions")
+		if err != nil {
+			return nil, err
+		}
+		theme, err := readOptionalObjectPointerArgument(arguments, "theme")
+		if err != nil {
+			return nil, err
+		}
+		assets, err := readOptionalArrayPointerArgument(arguments, "assets")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.SetAppDefinition(ctx, projectstate.SetAppDefinitionInput{
+			AppSpec:        appSpec,
+			AppSpecPath:    appSpecPath,
+			AppSpecVersion: appSpecVersion,
+			CatalogID:      catalogID,
+			Routes:         routes,
+			DataBindings:   dataBindings,
+			Actions:        actions,
+			Theme:          theme,
+			Assets:         assets,
+		})
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
+	}
+}
+
+func newUpdateAppDefinitionHandler(projectState projectStateProvider) tools.Handler {
+	return func(ctx context.Context, arguments map[string]any) (any, error) {
+		projectConfigID, err := readRequiredStringArgument(arguments, "projectConfigId")
+		if err != nil {
+			return nil, err
+		}
+		patch, err := readRequiredPresentArgument(arguments, "patch")
+		if err != nil {
+			return nil, err
+		}
+		if projectState == nil {
+			return nil, newToolError("internal_error", "Project-state mutation runtime is unavailable.")
+		}
+
+		invocation, ok := ToolInvocationFromContext(ctx)
+		if !ok || invocation.AgenticContext == nil || invocation.Scope == nil || invocation.ProjectView == nil {
+			return nil, newToolError("internal_error", "Structural app-definition invocation context is unavailable.")
+		}
+		if projectConfigID != invocation.AgenticContext.ProjectConfigID {
+			return nil, newToolError(
+				"invalid_arguments",
+				"projectConfigId argument %q does not match agentic context projectConfigId %q.",
+				projectConfigID,
+				invocation.AgenticContext.ProjectConfigID,
+			)
+		}
+
+		_, result, err := projectState.UpdateAppDefinition(ctx, patch)
+		if err != nil {
+			return nil, normalizeProjectStateMutationError(err)
+		}
+		return result, nil
 	}
 }
 
@@ -3329,6 +3443,114 @@ func defaultToolDefinitions(
 
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
+				Name:        "set_app_definition",
+				Description: "Replace the stored app UI spec and optionally update persisted app-definition metadata.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "ui", "structural"},
+				},
+				Handler: newSetAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose document-level app definition should be replaced.",
+					},
+					"appSpec": map[string]any{
+						"type":        "object",
+						"description": "Full JSON Render app spec to persist.",
+					},
+					"appSpecPath": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec file path. Defaults to the existing configured path or app_specs/app.json.",
+					},
+					"appSpecVersion": map[string]any{
+						"type":        "string",
+						"description": "Optional app-spec version metadata to persist alongside the spec.",
+					},
+					"catalogId": map[string]any{
+						"type":        "string",
+						"description": "Optional app catalog id to persist alongside the spec.",
+					},
+					"routes": map[string]any{
+						"type":        "array",
+						"description": "Optional app routes metadata to persist with the definition.",
+						"items": map[string]any{
+							"type": "object",
+							"properties": map[string]any{
+								"path": map[string]any{
+									"type": "string",
+								},
+								"name": map[string]any{
+									"type": "string",
+								},
+								"rootKey": map[string]any{
+									"type": "string",
+								},
+							},
+							"required": []string{"path"},
+						},
+					},
+					"dataBindings": map[string]any{
+						"type":        "object",
+						"description": "Optional app data-binding metadata to persist.",
+					},
+					"actions": map[string]any{
+						"type":        "object",
+						"description": "Optional app action-definition metadata to persist.",
+					},
+					"theme": map[string]any{
+						"type":        "object",
+						"description": "Optional app theme metadata to persist.",
+					},
+					"assets": map[string]any{
+						"type":        "array",
+						"description": "Optional app asset metadata to persist.",
+					},
+				},
+				"required": []string{"projectConfigId", "appSpec"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "update_app_definition",
+				Description: "Apply a JSON merge patch to the stored app UI spec for the active project.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeStructural,
+					SearchCategory: "app",
+					SearchTags:     []string{"app", "definition", "spec", "patch", "structural"},
+				},
+				Handler: newUpdateAppDefinitionHandler(projectState),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Project config id whose stored app spec should be patched.",
+					},
+					"patch": map[string]any{
+						"description": "JSON merge patch to apply to the stored app spec. May be any JSON value.",
+					},
+				},
+				"required": []string{"projectConfigId", "patch"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
 				Name:        "compare_and_set_show_param_display_names",
 				Description: "Update parameter display-name visibility only if the caller's optional expectedOldValue still matches the current project setting.",
 				Metadata: tools.Metadata{
@@ -5028,6 +5250,14 @@ func readRequiredArgument(arguments map[string]any, key string) (any, error) {
 	return value, nil
 }
 
+func readRequiredPresentArgument(arguments map[string]any, key string) (any, error) {
+	value, ok := arguments[key]
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s is required", key)
+	}
+	return value, nil
+}
+
 func readRequiredObjectArgument(arguments map[string]any, key string) (map[string]any, error) {
 	rawValue, ok := arguments[key]
 	if !ok || rawValue == nil {
@@ -5038,6 +5268,51 @@ func readRequiredObjectArgument(arguments map[string]any, key string) (map[strin
 		return nil, newToolError("invalid_arguments", "%s must be an object", key)
 	}
 	return value, nil
+}
+
+func readOptionalObjectPointerArgument(arguments map[string]any, key string) (*map[string]any, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	value, ok := rawValue.(map[string]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an object", key)
+	}
+	return &value, nil
+}
+
+func readOptionalArrayPointerArgument(arguments map[string]any, key string) (*[]any, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	value, ok := rawValue.([]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an array", key)
+	}
+	copied := append([]any(nil), value...)
+	return &copied, nil
+}
+
+func readOptionalAppRoutesArgument(arguments map[string]any, key string) (*[]projectstate.AppRoute, error) {
+	rawValue, ok := arguments[key]
+	if !ok || rawValue == nil {
+		return nil, nil
+	}
+	rawRoutes, ok := rawValue.([]any)
+	if !ok {
+		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
+	}
+	encoded, err := json.Marshal(rawRoutes)
+	if err != nil {
+		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
+	}
+	var routes []projectstate.AppRoute
+	if err := json.Unmarshal(encoded, &routes); err != nil {
+		return nil, newToolError("invalid_arguments", "%s must be an array of route objects", key)
+	}
+	return &routes, nil
 }
 
 func readOptionalPositionArgument(arguments map[string]any, key string) (*projectstate.Position, error) {
@@ -5695,6 +5970,10 @@ func normalizeProjectStateMutationError(err error) error {
 	case errors.Is(err, projectstate.ErrWatchCodeWorkspaceRootRequired),
 		errors.Is(err, projectstate.ErrWatchCodeInputPathInvalid):
 		return newToolError("invalid_arguments", "%s", err.Error())
+	case errors.Is(err, projectstate.ErrAppSpecPathUnconfigured):
+		return newToolError("invalid_arguments", "%s", err.Error())
+	case errors.Is(err, projectstate.ErrAppSpecNotFound):
+		return newToolError("file_not_found", "%s", err.Error())
 	case errors.Is(err, projectstate.ErrProjectCodegenTargetLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetDuplicateLanguage),
 		errors.Is(err, projectstate.ErrProjectCodegenTargetValidatorRequired),
