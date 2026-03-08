@@ -19,7 +19,7 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 14 of those now have Go parity:
+- 17 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
@@ -34,8 +34,11 @@ Current repo status as of 2026-03-08:
   - `list_agent_profiles`
   - `get_agent_profile`
   - `run_agent_profile`
-- the remaining 11 tools now fall into one UI-setting registry/reveal cluster
-  plus several larger missing runtime foundations
+  - `search_ui_settings`
+  - `get_ui_setting_value`
+  - `set_ui_setting_value`
+- the remaining 8 tools now fall into one UI-setting reveal gap plus several
+  larger missing runtime foundations
 
 ## Inputs
 
@@ -86,20 +89,21 @@ Go already owns the following Python MCP tools that do not come from
 - `list_agent_profiles`
 - `get_agent_profile`
 - `run_agent_profile`
-
-## Remaining Python-Owned MCP Surface
-
-### 1. Generic UI-Setting Registry And Reveal Gaps
-
 - `search_ui_settings`
 - `get_ui_setting_value`
 - `set_ui_setting_value`
+
+## Remaining Python-Owned MCP Surface
+
+### 1. Generic UI-Setting Reveal Gap
+
 - `reveal_ui_setting`
 
-Go only owns the bounded compare-and-set project-state subset in
-`internal/projectstate/ui_settings_compare_and_set.go`. It does not yet own the
-broader UI-setting registry, schema validation, plugin-setting integration, or
-frontend reveal coordinator that Python keeps under `setta/ui_settings/`.
+Go now owns the bounded core registry, schema validation, and scoped MCP
+transport for the search/get/set portion of the UI-setting subsystem. It does
+not yet own the frontend reveal coordinator that Python keeps under
+`setta/ui_settings/`, nor the later `revealAfterSet` behavior that should sit
+on top of that same explicit reveal boundary.
 
 ### 2. Plugin Management Gaps
 
@@ -144,29 +148,29 @@ heuristics.
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
 - treat the UI-setting Stage 1 registry foundation as complete and closed
+- treat the UI-setting Stage 2 search/get/set transport slice as complete and
+  closed
 
 ## Recommended Next Step
 
-Execute Stage 2 of the dedicated UI-setting plan in
+Execute Stage 3 of the dedicated UI-setting plan in
 `phase-6-ui-setting-registry-and-reveal-tools-parity.md`.
 
 This is now the highest-leverage next slice because:
 
-- four remaining Python MCP tools still sit behind the same missing Go-owned
-  search/get/set/reveal subsystem
-- the bounded compare-and-set and registry/value-schema UI-setting foundations
-  now exist in Go, so the highest-leverage gap is the thin MCP transport over
-  that runtime rather than more foundation work
-- it reduces the largest remaining non-plugin MCP gap before broader plugin
+- the remaining UI-setting gap has narrowed to one bounded reveal tool over the
+  same registry/runtime surface that Go now already owns
+- it closes the last non-plugin UI-setting MCP gap before broader plugin
   management or patch-stream work
+- it keeps the next step on explicit realtime/frontend coordination instead of
+  broadening back into plugin metadata or registry redesign
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentprofiles -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentruns -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|RunAgentProfile|ListAgentProfilesAndGetAgentProfile)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsRunAgentProfile|SupportsAgentProfileReadTools|SupportsReportCompletionStatus|SupportsUtilityReadInitTools)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsAgentProfileReadToolsOverAuthenticatedSSE|ServerSupportsRunAgentProfileOverAuthenticatedSSE|ToolCallRouteSupportsAgentProfileReadTools|ToolCallRouteSupportsRunAgentProfile)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/uisettings -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|UISettingToolsExposeScopedSingletonMetadata|SearchUISettingsReturnsRankedCoreResults|GetUISettingValueReturnsStructuredPayload|SetUISettingValueWritesAndValidates|SetUISettingValueRejectsWriterOldValueDrift|UISettingToolsTranslateTemporaryProjectIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUISettingSearchReadWrite|UISettingReadWriteAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite|ToolCallRouteUISettingReadWriteAcceptsTemporaryIDs)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -198,3 +202,7 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed Stage 1 of the UI-setting slice by adding
   app-definition compare-and-set owners plus the bounded core UI-setting
   registry, schema validator, search layer, and read/write delegates in Go.
+- 2026-03-08: completed Stage 2 of the UI-setting slice by adding Go MCP
+  parity for `search_ui_settings`, `get_ui_setting_value`, and
+  `set_ui_setting_value`, reducing the remaining non-project-state Python MCP
+  gap count from 11 to 8.

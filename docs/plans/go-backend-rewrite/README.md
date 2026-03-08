@@ -244,8 +244,8 @@ Use the docs in this order:
     managed agent-run runtime foundation
 88. `phase-6-ui-setting-registry-and-reveal-tools-parity.md`
   - focused implementation-plan doc for the Go-owned UI-setting
-    registry/search/value/reveal slice; Stage 1 registry foundation is now
-    complete and the next step is Stage 2 MCP transport parity
+    registry/search/value/reveal slice; Stage 2 search/get/set transport
+    parity is now complete and the next step is Stage 3 reveal runtime parity
 89. `spike-mcp.md`
    - MCP uncertainty-reduction plan
 90. `spike-pty.md`

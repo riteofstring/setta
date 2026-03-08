@@ -16,8 +16,9 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - `run_agent_profile` is now complete in Go
-- the remaining non-project-state Python MCP gap count is 11
-- four of those remaining tools sit behind the Python UI-setting subsystem
+- the remaining non-project-state Python MCP gap count is 8
+- one of those remaining tools still sits behind the Python UI-setting
+  subsystem
 - Stage 1 core registry foundation is now complete in Go:
   - `internal/projectstate/app_definition_compare_and_set.go` now owns the
     missing compare-and-set app-definition metadata writes for
@@ -28,10 +29,19 @@ Current repo status as of 2026-03-08:
   - `internal/uisettings/*` now owns the bounded core metadata models,
     deterministic registry/search layer, value-schema validator, and
     read/write delegates for the eight Go-owned core settings
-- Go still does not own the MCP transport for `search_ui_settings`,
-  `get_ui_setting_value`, or `set_ui_setting_value`, the frontend reveal
-  coordinator/runtime for `reveal_ui_setting`, plugin setting integration, or
-  plugin-contributed registry metadata
+- Stage 2 core search/read/write MCP parity is now complete in Go:
+  - `internal/mcpx/ui_setting_tools.go` now owns the thin MCP search/get/set
+    handlers over the completed `internal/uisettings` registry
+  - `internal/mcpx/server.go` now exposes `search_ui_settings`,
+    `get_ui_setting_value`, and `set_ui_setting_value` as scoped tools with
+    `GlobalVariables` singleton targeting metadata
+  - focused MCP, HTTP route, and authenticated SSE coverage now exists in
+    `internal/mcpx/ui_setting_tools_test.go`,
+    `internal/httpapi/mcp_tool_ui_settings_test.go`, and
+    `internal/app/mcp_ui_settings_test.go`
+- Go still does not own the frontend reveal coordinator/runtime for
+  `reveal_ui_setting`, `revealAfterSet` behavior, plugin setting integration,
+  or plugin-contributed registry metadata
 
 ## Scope
 
@@ -148,18 +158,16 @@ Already complete:
 
 Still missing:
 
-- MCP transport for `search_ui_settings`, `get_ui_setting_value`, and
-  `set_ui_setting_value` over the completed registry
 - reveal result hub/coordinator over Go realtime ownership
+- MCP parity for `reveal_ui_setting` and `revealAfterSet`
 - deterministic plugin UI-setting metadata source
 
 ## Open Questions
 
-- whether the Stage 2 transport slice should include reveal in the same PR or
-  stop after `search_ui_settings`, `get_ui_setting_value`, and
-  `set_ui_setting_value`; current recommendation remains to land the core
-  search/get/set transport first, then add reveal on top once the setting
-  metadata surface is stable
+- whether Stage 3 should land only `reveal_ui_setting` or also fold in
+  `revealAfterSet`; current recommendation remains to land the reveal
+  coordinator plus `reveal_ui_setting` first, then decide whether
+  `revealAfterSet` can reuse that boundary without broadening transport work
 - whether app-definition-backed core settings should write through the existing
   document-level owners or a UI-setting-specific facade; current recommendation
   has been resolved in favor of the existing owners plus a thin registry
@@ -167,10 +175,16 @@ Still missing:
 
 ## Next Recommended Step
 
-- execute Stage 2: land `search_ui_settings`, `get_ui_setting_value`, and
-  `set_ui_setting_value` over the completed `internal/uisettings` foundation,
-  including scoped MCP metadata, typed transport errors, and stale-write
-  mapping to `mutation_failed`
+- execute Stage 3: add the Go-owned reveal coordinator over the completed
+  realtime/frontend transport and land `reveal_ui_setting`, keeping
+  `revealAfterSet` follow-on work bounded to that same explicit coordinator
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/uisettings -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|UISettingToolsExposeScopedSingletonMetadata|SearchUISettingsReturnsRankedCoreResults|GetUISettingValueReturnsStructuredPayload|SetUISettingValueWritesAndValidates|SetUISettingValueRejectsWriterOldValueDrift|UISettingToolsTranslateTemporaryProjectIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUISettingSearchReadWrite|UISettingReadWriteAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUISettingReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite|ToolCallRouteUISettingReadWriteAcceptsTemporaryIDs)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -178,3 +192,7 @@ Still missing:
   metadata owners in `internal/projectstate` plus the bounded core registry,
   schema validator, search layer, and core read/write delegates in
   `internal/uisettings`.
+- 2026-03-08: completed Stage 2 by exposing `search_ui_settings`,
+  `get_ui_setting_value`, and `set_ui_setting_value` through the Go MCP server
+  with typed structured results, compare-and-set stale-write protection, and
+  focused MCP/HTTP/SSE coverage.
