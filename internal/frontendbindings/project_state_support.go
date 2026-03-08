@@ -36,11 +36,45 @@ type LoadProjectConfigRequestInput struct {
 	ProjectConfigName string `json:"projectConfigName"`
 }
 
+type SaveProjectRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type SaveAsNewProjectConfigRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	NewConfigName   string  `json:"newConfigName"`
+	WithRefs        bool    `json:"withRefs"`
+}
+
 type CreateProjectConfigRequestInput struct {
 	PreviewImgColor string `json:"previewImgColor"`
 }
 
 type CreateProjectConfigResponse string
+
+type DeleteProjectConfigsRequestInput struct {
+	IDs []string `json:"ids"`
+}
+
+type SetProjectConfigNameRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	NewName         string `json:"newName"`
+}
+
+type SetAsDefaultProjectRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type GetNotificationsRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type DeleteNotificationRequestInput struct {
+	NotificationID string `json:"notificationId"`
+}
+
+type NotificationsResponse []SettaNotification
 
 type CreateNewSectionVariantRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -397,6 +431,10 @@ type SettingsGUI struct{}
 type SettingsBackend struct{}
 
 type SettingsState struct{}
+
+type SaveSettingsRequestInput struct {
+	Settings SettingsState `json:"settings"`
+}
 
 type SectionTypeCodegenPolicy struct{}
 

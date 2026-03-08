@@ -5286,6 +5286,14 @@ export function createSettaHomeInfoResponse(options: Partial<SettaHomeInfoRespon
 }
 
 
+export type SaveSettingsRequestInput = {
+  settings: SettingsState;
+};
+export function createSaveSettingsRequestInput(options: Partial<SaveSettingsRequestInput> = {}): SaveSettingsRequestInput {
+  return options as SaveSettingsRequestInput;
+}
+
+
 export type ProjectMetadataEntry = {
   id: string;
   name: string;
@@ -5312,6 +5320,25 @@ export function createLoadProjectConfigRequestInput(options: Partial<LoadProject
 }
 
 
+export type SaveProjectRequestInput = {
+  projectConfigId: string;
+};
+export function createSaveProjectRequestInput(options: Partial<SaveProjectRequestInput> = {}): SaveProjectRequestInput {
+  return options as SaveProjectRequestInput;
+}
+
+
+export type SaveAsNewProjectConfigRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  newConfigName: string;
+  withRefs: boolean;
+};
+export function createSaveAsNewProjectConfigRequestInput(options: Partial<SaveAsNewProjectConfigRequestInput> = {}): SaveAsNewProjectConfigRequestInput {
+  return options as SaveAsNewProjectConfigRequestInput;
+}
+
+
 export type CreateProjectConfigRequestInput = {
   previewImgColor: string;
 };
@@ -5321,6 +5348,50 @@ export function createCreateProjectConfigRequestInput(options: Partial<CreatePro
 
 
 export type CreateProjectConfigResponse = string;
+
+
+export type DeleteProjectConfigsRequestInput = {
+  ids: Array<string>;
+};
+export function createDeleteProjectConfigsRequestInput(options: Partial<DeleteProjectConfigsRequestInput> = {}): DeleteProjectConfigsRequestInput {
+  return options as DeleteProjectConfigsRequestInput;
+}
+
+
+export type SetAsDefaultProjectRequestInput = {
+  projectConfigId: string;
+};
+export function createSetAsDefaultProjectRequestInput(options: Partial<SetAsDefaultProjectRequestInput> = {}): SetAsDefaultProjectRequestInput {
+  return options as SetAsDefaultProjectRequestInput;
+}
+
+
+export type SetProjectConfigNameRequestInput = {
+  projectConfigId: string;
+  newName: string;
+};
+export function createSetProjectConfigNameRequestInput(options: Partial<SetProjectConfigNameRequestInput> = {}): SetProjectConfigNameRequestInput {
+  return options as SetProjectConfigNameRequestInput;
+}
+
+
+export type GetNotificationsRequestInput = {
+  projectConfigId: string;
+};
+export function createGetNotificationsRequestInput(options: Partial<GetNotificationsRequestInput> = {}): GetNotificationsRequestInput {
+  return options as GetNotificationsRequestInput;
+}
+
+
+export type NotificationsResponse = Array<SettaNotification>;
+
+
+export type DeleteNotificationRequestInput = {
+  notificationId: string;
+};
+export function createDeleteNotificationRequestInput(options: Partial<DeleteNotificationRequestInput> = {}): DeleteNotificationRequestInput {
+  return options as DeleteNotificationRequestInput;
+}
 
 
 export type CreateNewSectionVariantRequestInput = {

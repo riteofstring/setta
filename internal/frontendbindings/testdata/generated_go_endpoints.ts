@@ -22,6 +22,16 @@ export async function route_get_setta_home_info(): Promise<ResponseDataAndStatus
   return await get(GoHTTPRoutes.getSettaHomeInfo);
 
 }
+export async function route_load_settings(): Promise<ResponseDataAndStatus<gt.SettingsState>> {
+
+  return await post(GoHTTPRoutes.loadSettings, null);
+
+}
+export async function route_save_settings(x: gt.SaveSettingsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.saveSettings, x);
+
+}
 export async function route_load_all_project_metadata(): Promise<ResponseDataAndStatus<gt.AllProjectMetadata>> {
 
   return await post(GoHTTPRoutes.loadAllProjectMetadata, null);
@@ -32,9 +42,44 @@ export async function route_load_project_config(x: gt.LoadProjectConfigRequestIn
   return await post(GoHTTPRoutes.loadProjectConfig, x);
 
 }
+export async function route_save_project(x: gt.SaveProjectRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.saveProject, x);
+
+}
+export async function route_save_as_new_project_config(x: gt.SaveAsNewProjectConfigRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.saveAsNewProjectConfig, x);
+
+}
 export async function route_create_project_config(x: gt.CreateProjectConfigRequestInput): Promise<ResponseDataAndStatus<gt.CreateProjectConfigResponse>> {
 
   return await post(GoHTTPRoutes.createProjectConfig, x);
+
+}
+export async function route_delete_project_configs(x: gt.DeleteProjectConfigsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteProjectConfigs, x);
+
+}
+export async function route_set_as_default_project(x: gt.SetAsDefaultProjectRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setAsDefaultProject, x);
+
+}
+export async function route_set_project_config_name(x: gt.SetProjectConfigNameRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setProjectConfigName, x);
+
+}
+export async function route_get_notifications(x: gt.GetNotificationsRequestInput): Promise<ResponseDataAndStatus<gt.NotificationsResponse>> {
+
+  return await post(GoHTTPRoutes.getNotifications, x);
+
+}
+export async function route_delete_notification(x: gt.DeleteNotificationRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.deleteNotification, x);
 
 }
 export async function route_create_new_section_variant(x: gt.CreateNewSectionVariantRequestInput): Promise<ResponseDataAndStatus<gt.CreateNewSectionVariantResponse>> {

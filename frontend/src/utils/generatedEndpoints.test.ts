@@ -24,6 +24,8 @@ import {
   route_delete_child_sections_via_decrementer,
   route_delete_edges,
   route_delete_kwarg,
+  route_delete_notification,
+  route_delete_project_configs,
   route_delete_sections,
   route_delete_selected_params,
   route_delete_view_mode,
@@ -54,6 +56,7 @@ import {
   route_get_llm_config,
   route_get_llm_response,
   route_get_mcp_server_runtime_status,
+  route_get_notifications,
   route_get_password_param_value,
   route_group_sections,
   route_import_files_to_artifacts,
@@ -64,6 +67,7 @@ import {
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
+  route_load_settings,
   route_load_project_config,
   route_move_param_groups,
   route_move_params,
@@ -77,7 +81,11 @@ import {
   route_reconnect_edge,
   route_restart_language_server,
   route_run_code,
+  route_save_as_new_project_config,
+  route_save_project,
+  route_save_settings,
   route_set_active_ids,
+  route_set_as_default_project,
   route_set_active_view_mode,
   route_set_agentic_edges,
   route_set_app_definition,
@@ -104,6 +112,7 @@ import {
   route_set_meta_control_show_section_title,
   route_set_param_entered_value,
   route_set_parent_default_child_section_type,
+  route_set_project_config_name,
   route_set_section_column_width,
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
@@ -150,6 +159,7 @@ import {
   route_validate_app_definition,
   route_write_file_browser_file_content,
 } from "./generatedEndpoints";
+import { createSettingsState } from "./generatedTypes";
 
 vi.mock("state/definitions", () => ({
   useServerMode: {
@@ -273,6 +283,57 @@ describe("generatedEndpoints launcher status", () => {
   });
 });
 
+describe("generatedEndpoints settings", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts settings loads to the backend origin with a null payload", async () => {
+    await route_load_settings();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/loadSettings`);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("posts settings saves with the canonical generated settings contract", async () => {
+    const settings = createSettingsState({
+      gui: {
+        ...createSettingsState().gui,
+        gridColor: "#123456",
+      },
+    });
+
+    await route_save_settings({ settings });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/saveSettings`);
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ settings }),
+    });
+  });
+});
+
 describe("generatedEndpoints project shell and layout", () => {
   const fetchMock = vi.fn();
 
@@ -337,6 +398,131 @@ describe("generatedEndpoints project shell and layout", () => {
       method: "POST",
       body: JSON.stringify({
         previewImgColor: "bg-orange-500/60 dark:bg-orange-600/30",
+      }),
+    });
+  });
+
+  it("posts project saves through the backend origin", async () => {
+    await route_save_project({
+      projectConfigId: "project-alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/saveProject`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+      }),
+    });
+  });
+
+  it("posts save-as-new writes through the backend origin", async () => {
+    await route_save_as_new_project_config({
+      projectConfigId: "project-alpha",
+      newConfigName: "Cloned Project",
+      withRefs: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/saveAsNewProjectConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        newConfigName: "Cloned Project",
+        withRefs: true,
+      }),
+    });
+  });
+
+  it("posts project deletion through the backend origin", async () => {
+    await route_delete_project_configs({
+      ids: ["project-alpha", "project-beta"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteProjectConfigs`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        ids: ["project-alpha", "project-beta"],
+      }),
+    });
+  });
+
+  it("posts default-project writes through the backend origin", async () => {
+    await route_set_as_default_project({
+      projectConfigId: "project-alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setAsDefaultProject`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+      }),
+    });
+  });
+
+  it("posts project rename writes through the backend origin", async () => {
+    await route_set_project_config_name({
+      projectConfigId: "project-alpha",
+      newName: "Renamed Project",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setProjectConfigName`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        newName: "Renamed Project",
+      }),
+    });
+  });
+
+  it("posts notification reads through the backend origin", async () => {
+    await route_get_notifications({
+      projectConfigId: "project-alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getNotifications`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+      }),
+    });
+  });
+
+  it("posts notification deletes through the backend origin", async () => {
+    await route_delete_notification({
+      notificationId: "notification-alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteNotification`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        notificationId: "notification-alpha",
       }),
     });
   });

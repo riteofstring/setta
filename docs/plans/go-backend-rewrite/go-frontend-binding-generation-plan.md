@@ -161,6 +161,7 @@ Current landed wedge:
 - `frontend/src/utils/generatedRoutes.ts`
   - current websocket route constants
   - current status/meta route constants
+  - current settings route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
   - current child-section helper route constants
@@ -209,12 +210,22 @@ Current landed wedge:
     - launcher status-query and request-base payloads
     - launcher state enums used by the frontend
   - project-shell and current project-state contract types
-    - project metadata and project create/load payloads
+    - settings load/save payloads
+      - `SaveSettingsRequestInput`
+    - project metadata and project-shell payloads
       - `ProjectMetadataEntry`
       - `AllProjectMetadata`
       - `LoadProjectConfigRequestInput`
+      - `SaveProjectRequestInput`
+      - `SaveAsNewProjectConfigRequestInput`
       - `CreateProjectConfigRequestInput`
       - `CreateProjectConfigResponse`
+      - `DeleteProjectConfigsRequestInput`
+      - `SetProjectConfigNameRequestInput`
+      - `SetAsDefaultProjectRequestInput`
+      - `GetNotificationsRequestInput`
+      - `DeleteNotificationRequestInput`
+      - `NotificationsResponse`
     - current layout/selection/viewport mutation payloads
       - `TopLevelSectionLayoutInput`
       - `SetTopLevelSectionLayoutRequestInput`
@@ -615,9 +626,18 @@ Current landed wedge:
 - `frontend/src/utils/generatedEndpoints.ts`
   - current status/meta endpoint wrappers
   - project-shell and current project-state endpoint wrappers
+    - `route_load_settings`
+    - `route_save_settings`
     - `route_load_all_project_metadata`
     - `route_load_project_config`
+    - `route_save_project`
+    - `route_save_as_new_project_config`
     - `route_create_project_config`
+    - `route_delete_project_configs`
+    - `route_set_as_default_project`
+    - `route_set_project_config_name`
+    - `route_get_notifications`
+    - `route_delete_notification`
     - `route_delete_sections`
     - `route_delete_selected_params`
     - `route_create_top_level_section`
@@ -885,6 +905,10 @@ Current landed wedge:
   - the current project create/load flow plus the layout/selection/viewport
     publishers in `sectionInfos` now consume canonical Go-generated
     project-shell and current project-state bindings
+  - `state/actions/project/saveProject`, `DeleteProjectWarningModal`,
+    `ProjectName`, `HomePage`, and `NotificationsArea` now consume canonical
+    Go-generated project-shell bindings for save/save-as-new, delete, rename,
+    default-project, and notification reads/deletes
   - the current section delete/group/ungroup and param-selection callers in
     `sectionInfos`, `SelectionContextMenu`, `DeleteOrHideButton`,
     `UngroupButton`, `KwargsControls`, and `PluginArea` now consume canonical
@@ -912,6 +936,9 @@ Current landed wedge:
     `PluginsPane`, and `RenameReferencesModal` now consumes canonical
     Go-generated settings helpers and enums instead of the legacy
     Python-generated surface
+  - `useLoadSettings`, `ProjectAISettings`, `PluginsPane`,
+    `RenameReferencesModal`, and `SectionTagColorSettings` now consume
+    canonical Go-generated settings route wrappers for load/save
   - `VariantList`, `EdgePortsSettings`, and `ParamNameInput` now consume the
     canonical Go-generated base-dict section helper surface needed for
     JSON-source and top-level-param-aware dict-section behavior
