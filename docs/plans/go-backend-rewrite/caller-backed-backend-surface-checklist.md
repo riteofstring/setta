@@ -117,7 +117,7 @@ Primary sources used for this checklist:
 | Complete | App-spec store, validation, diagnostics, and patch streaming foundations | `internal/appspec` is the current Go owner for bounded app-definition/app-spec state used by the MCP surface. |
 | Complete | LLM config and managed API-key reads/writes | Go owns `GET/POST /llm/config` and `GET/POST /llm/apiKeys` via `internal/llmconfig`. |
 | Partial | External file-watch parity for `.env` and `llm_config.json` | Immediate runtime refresh is Go-owned, but broad external watch parity remains explicitly deferred. |
-| Missing | Legacy app-definition REST and app-spec streaming routes still used by the current frontend | The app-config pane still calls `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, `getAppCatalog`, and raw `streamAppSpec`; Go owns app-spec state and MCP tools, not these HTTP routes. |
+| Partial | Legacy app-definition REST and app-spec streaming routes still used by the current frontend | The app-config pane now reaches Go-owned `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, and `getAppCatalog` routes backed by `internal/projectstate` and `internal/appspec`. The live LLM-backed `streamAppSpec` transport still remains on the Python boundary. |
 
 ## 6. AI, agentic runtime, chat state, and transcription
 
@@ -183,10 +183,6 @@ callers.
 ### Active current-frontend callers that still hit Python-owned routes
 
 - App-definition REST and app-spec streaming routes:
-  - `getAppDefinition`
-  - `setAppDefinition`
-  - `validateAppDefinition`
-  - `getAppCatalog`
   - `streamAppSpec`
 - Python-era websocket route shapes still used by the current frontend:
   - deployment/share/app terminal websocket path `/{projectConfigId}/{sectionId}/{id}`

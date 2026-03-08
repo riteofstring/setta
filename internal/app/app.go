@@ -1436,6 +1436,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}); err != nil {
 				panic(err)
 			}
+			if err := httpapi.RegisterAppDefinitionRoutes(r, httpapi.AppDefinitionRouteDependencies{
+				ModePolicy:   modePolicy,
+				ProjectState: projectRuntime,
+			}); err != nil {
+				panic(err)
+			}
 			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
 				ModePolicy:            modePolicy,
 				ManagedChats:          managedChatService,

@@ -196,6 +196,104 @@ func TestAppServesDocstringToMarkdownRoute(t *testing.T) {
 	}
 }
 
+func TestAppServesAppDefinitionRoutes(t *testing.T) {
+	// The app-config pane should load catalog/read/write/validate through the
+	// real IDE app route stack without falling back to Python.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	catalogRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RouteGetAppCatalog, nil)
+	if err != nil {
+		t.Fatalf("new app catalog request: %v", err)
+	}
+	catalogRequest.AddCookie(authCookie)
+	catalogResponse, err := http.DefaultClient.Do(catalogRequest)
+	if err != nil {
+		t.Fatalf("get app catalog: %v", err)
+	}
+	defer catalogResponse.Body.Close()
+	if catalogResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(catalogResponse.Body)
+		t.Fatalf("expected app catalog 200, got %d with body %q", catalogResponse.StatusCode, string(body))
+	}
+
+	setRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetAppDefinition,
+		strings.NewReader(`{"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}},"theme":{"mode":"dark"}}`),
+	)
+	if err != nil {
+		t.Fatalf("new set app definition request: %v", err)
+	}
+	setRequest.Header.Set("Content-Type", "application/json")
+	setRequest.AddCookie(authCookie)
+	setResponse, err := http.DefaultClient.Do(setRequest)
+	if err != nil {
+		t.Fatalf("set app definition: %v", err)
+	}
+	defer setResponse.Body.Close()
+	if setResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(setResponse.Body)
+		t.Fatalf("expected set app definition 200, got %d with body %q", setResponse.StatusCode, string(body))
+	}
+
+	getRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteGetAppDefinition,
+		strings.NewReader(`{}`),
+	)
+	if err != nil {
+		t.Fatalf("new get app definition request: %v", err)
+	}
+	getRequest.Header.Set("Content-Type", "application/json")
+	getRequest.AddCookie(authCookie)
+	getResponse, err := http.DefaultClient.Do(getRequest)
+	if err != nil {
+		t.Fatalf("get app definition: %v", err)
+	}
+	defer getResponse.Body.Close()
+	if getResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(getResponse.Body)
+		t.Fatalf("expected get app definition 200, got %d with body %q", getResponse.StatusCode, string(body))
+	}
+
+	validateRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteValidateAppDefinition,
+		strings.NewReader(`{"appSpec":{"root":"root","elements":{"root":{"key":"root","type":"Stack"}}}}`),
+	)
+	if err != nil {
+		t.Fatalf("new validate app definition request: %v", err)
+	}
+	validateRequest.Header.Set("Content-Type", "application/json")
+	validateRequest.AddCookie(authCookie)
+	validateResponse, err := http.DefaultClient.Do(validateRequest)
+	if err != nil {
+		t.Fatalf("validate app definition: %v", err)
+	}
+	defer validateResponse.Body.Close()
+	if validateResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(validateResponse.Body)
+		t.Fatalf("expected validate app definition 200, got %d with body %q", validateResponse.StatusCode, string(body))
+	}
+}
+
 func TestAppServesManagedChatHydrateAndStopRoutes(t *testing.T) {
 	// The real IDE app should hydrate persisted managed chats and stop the latest
 	// running managed run through the Go-owned route stack.
