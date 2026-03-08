@@ -1,10 +1,7 @@
-import { setActiveSectionUIIds } from "state/activeSectionUI";
-import { useNodeInternals } from "state/definitions";
-import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import type { ReactFlowState } from "../types";
-import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
+import { getPaneRect } from "./graph";
 
 vi.mock("../hooks/useViewportHelper", () => ({
   screenToFlowPosition: vi.fn((point) => point),
@@ -15,7 +12,6 @@ const mockedScreenToFlowPosition = vi.mocked(screenToFlowPosition);
 describe("getPaneRect", () => {
   beforeEach(() => {
     mockedScreenToFlowPosition.mockClear();
-    resetProjectStores();
   });
 
   it("uses transform math when the dom node is missing", () => {
@@ -60,140 +56,5 @@ describe("getPaneRect", () => {
       { x: 500, y: 600 },
       true,
     );
-  });
-});
-
-describe("getNodesInside", () => {
-  beforeEach(() => {
-    resetProjectStores();
-  });
-
-  it("uses node internals geometry to resolve overlapping nodes", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-a",
-          {
-            id: "section-a",
-            position: { x: 10, y: 20 },
-            width: 100,
-            height: 80,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-        [
-          "section-b",
-          {
-            id: "section-b",
-            position: { x: 180, y: 40 },
-            width: 120,
-            height: 90,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      ]),
-    });
-
-    expect(getNodesInside({ x: 0, y: 0, width: 150, height: 140 })).toEqual([
-      "section-a",
-    ]);
-    expect(getNodesInside({ x: 0, y: 0, width: 400, height: 200 })).toEqual([
-      "section-a",
-      "section-b",
-    ]);
-  });
-
-  it("respects partial-overlap mode without needing DOM section refs", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-a",
-          {
-            id: "section-a",
-            position: { x: 10, y: 20 },
-            width: 100,
-            height: 80,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      ]),
-    });
-
-    expect(
-      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], false),
-    ).toEqual([]);
-    expect(
-      getNodesInside({ x: 90, y: 70, width: 40, height: 40 }, [0, 0, 1], true),
-    ).toEqual(["section-a"]);
-  });
-
-  it("treats nodes with unknown dimensions as selectable to preserve existing behavior", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-a",
-          {
-            id: "section-a",
-            position: { x: 10, y: 20 },
-            width: null,
-            height: null,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      ]),
-    });
-
-    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual([
-      "section-a",
-    ]);
-  });
-});
-
-describe("getActiveSectionsBounds", () => {
-  beforeEach(() => {
-    mockedScreenToFlowPosition.mockClear();
-    resetProjectStores();
-  });
-
-  it("uses node internals geometry for active section bounds without DOM refs", () => {
-    setActiveSectionUIIds(["section-a", "section-b"]);
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-a",
-          {
-            id: "section-a",
-            position: { x: 10, y: 20 },
-            width: 100,
-            height: 80,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-        [
-          "section-b",
-          {
-            id: "section-b",
-            position: { x: 180, y: 40 },
-            width: 120,
-            height: 90,
-            zIndex: 0,
-            tempZIndex: 0,
-          },
-        ],
-      ]),
-    });
-
-    expect(getActiveSectionsBounds()).toEqual({
-      x: 10,
-      y: 20,
-      width: 290,
-      height: 110,
-    });
-    expect(mockedScreenToFlowPosition).not.toHaveBeenCalled();
   });
 });

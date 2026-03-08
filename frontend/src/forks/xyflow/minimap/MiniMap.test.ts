@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getXYWidthHeight, syncSelectedMiniMapNodes } from "./MiniMap";
+import { getXYWidthHeight } from "./MiniMap";
 
 describe("getXYWidthHeight", () => {
   it("centers bounds and applies offset when bounds are smaller", () => {
@@ -34,85 +34,3 @@ describe("getXYWidthHeight", () => {
     expect(result.height).toBeCloseTo(156);
   });
 });
-
-describe("syncSelectedMiniMapNodes", () => {
-  it("does nothing when the minimap svg is not available yet", () => {
-    expect(() => {
-      syncSelectedMiniMapNodes(undefined, ["alpha"]);
-    }).not.toThrow();
-  });
-
-  it("reconciles against the currently rendered minimap DOM", () => {
-    const lateMount = createMiniMapSvg(["section-a"]);
-
-    syncSelectedMiniMapNodes(lateMount.svg, ["section-a"]);
-
-    expect(lateMount.nodes["section-a"]?.classList.contains("selected")).toBe(
-      true,
-    );
-  });
-
-  it("restores selected styling after a rerender resets node classes", () => {
-    const svg = createMiniMapSvg(["section-a", "section-b"], {
-      "section-b": ["selected"],
-    });
-
-    syncSelectedMiniMapNodes(svg.svg, ["section-a"]);
-
-    expect(svg.nodes["section-a"]?.classList.contains("selected")).toBe(true);
-    expect(svg.nodes["section-b"]?.classList.contains("selected")).toBe(false);
-  });
-});
-
-function createMiniMapSvg(
-  sectionIds: string[],
-  initialClassesById: Record<string, string[]> = {},
-) {
-  const nodes: Record<string, StubSvgRect> = {};
-  for (const sectionId of sectionIds) {
-    nodes[sectionId] = createStubSvgRect(
-      sectionId,
-      initialClassesById[sectionId] ?? [],
-    );
-  }
-
-  return {
-    svg: {
-      querySelectorAll: () => Object.values(nodes),
-    } as unknown as SVGSVGElement,
-    nodes,
-  };
-}
-
-function createStubSvgRect(
-  sectionId: string,
-  initialClasses: string[],
-): StubSvgRect {
-  const classes = new Set(initialClasses);
-  return {
-    dataset: {
-      minimapNodeId: sectionId,
-    },
-    classList: {
-      toggle: (className: string, enabled?: boolean) => {
-        if (enabled) {
-          classes.add(className);
-          return true;
-        }
-        classes.delete(className);
-        return false;
-      },
-      contains: (className: string) => classes.has(className),
-    },
-  };
-}
-
-type StubSvgRect = {
-  dataset: {
-    minimapNodeId?: string;
-  };
-  classList: {
-    toggle: (className: string, enabled?: boolean) => boolean;
-    contains: (className: string) => boolean;
-  };
-};
