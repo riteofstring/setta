@@ -1335,6 +1335,92 @@ async def test_tools_call_invoke_linked_chat_rolls_back_reserved_deployment_run_
 
 
 @pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_releases_reserved_deployment_run_when_mark_started_fails(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(
+            allowRun=True,
+            allowLLM=True,
+            allowMultipleRuns=False,
+        ),
+        seed_target_chat_id=False,
+    )
+    manager.mark_run_started_exception = ValueError(
+        "synthetic run-start bookkeeping failure"
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(tmp_caller_chat_id),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json=request_payload,
+        )
+
+        assert first_response.status_code == 200
+        first_payload = first_response.json()
+        assert first_payload["isError"] is True
+        assert first_payload["structuredContent"]["reason"] == "run_start_failed"
+        assert (
+            first_payload["structuredContent"]["message"]
+            == "synthetic run-start bookkeeping failure"
+        )
+        assert share_runtime_state.get_session_run_count(request_session_id) == 0
+        assert share_runtime_state.increment_calls == []
+        assert share_runtime_state.rollback_calls == [request_session_id]
+
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json=request_payload,
+        )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["isError"] is False
+
+    assert len(agent_runner.calls) == 2
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.get_session_run_count(request_session_id) == 1
+    assert share_runtime_state.increment_calls == []
+    assert share_runtime_state.rollback_calls == [request_session_id]
+    assert manager._linked_chat_section_reservations == {}
+
+
+@pytest.mark.asyncio
 async def test_tools_call_invoke_linked_chat_denies_managed_runs_when_llm_is_disallowed(
     tmp_path,
 ) -> None:

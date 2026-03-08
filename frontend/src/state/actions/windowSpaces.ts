@@ -14,7 +14,6 @@ import {
 import { reconcileProjectChatWindowingEphemeralState } from "state/actions/projectChatWindowingEphemeral";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import {
@@ -34,7 +33,6 @@ import {
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
-  SectionTypeEnum,
   SettaNotificationTypeEnum,
   WindowSpaceSurfaceKindEnum,
   createProjectChatWindowInstance,
@@ -322,7 +320,7 @@ export function snapshotFloatingWindowsForWindowSpace(
       sectionIdOrNull: instance.sectionIdOrNull,
       mode: instance.mode,
       title: instance.sectionIdOrNull ? null : instance.title,
-      chatId: resolveWindowSpaceSnapshotChatId(state, instance),
+      chatId: resolveWindowSpaceSnapshotChatId(instance),
       embeddedGitPaneVisible:
         instance.mode === ChatWindowModeEnum.git_graph_mode &&
         instance.sectionIdOrNull === null
@@ -449,23 +447,12 @@ function normalizeWindowSpaceForPersistence(
 }
 
 function resolveWindowSpaceSnapshotChatId(
-  state: WindowSpaceSnapshotState,
   instance: ProjectChatWindowInstance,
 ): string | null {
-  if (instance.mode === ChatWindowModeEnum.project_ai_mode) {
-    return instance.chatId;
-  }
-  if (
-    instance.mode !== ChatWindowModeEnum.section_mode ||
-    instance.sectionIdOrNull === null
-  ) {
+  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
     return null;
   }
-  return getCurrEffectiveSectionImplOfType(
-    state,
-    instance.sectionIdOrNull,
-    SectionTypeEnum.Chat,
-  ).chatId;
+  return instance.chatId ?? null;
 }
 
 function resolveRestoredWorkspaceWindowChatId(
@@ -705,6 +692,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
   supersededFloatingInstanceIds: Set<string>,
+  preferredInstanceIdByOriginalId: Record<string, string>,
 ): {
   windowing: ProjectChatWindowingState;
   remappedInstanceIdByOriginalId: Record<string, string>;
@@ -729,8 +717,9 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
       continue;
     }
     processedRestoredInstanceIds.add(instanceId);
-    let nextInstanceId = instanceId;
-    if (usedInstanceIds.has(instanceId)) {
+    let nextInstanceId =
+      preferredInstanceIdByOriginalId[instanceId] ?? instanceId;
+    if (usedInstanceIds.has(nextInstanceId)) {
       const allocated = allocateFreshProjectChatWindowInstanceId(
         usedInstanceIds,
         nextInstanceNumber,
@@ -738,7 +727,7 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
       nextInstanceId = allocated.instanceId;
       nextInstanceNumber = allocated.nextInstanceNumber;
     } else {
-      usedInstanceIds.add(instanceId);
+      usedInstanceIds.add(nextInstanceId);
     }
     remappedInstanceIdByOriginalId[instanceId] = nextInstanceId;
     remappedInstancesById[nextInstanceId] =
@@ -861,6 +850,83 @@ function resolveFloatingWindowRestoreOwnerKey(
     return `project-chat-window:${instance.instanceId}`;
   }
   return null;
+}
+
+function resolveBoundWorkspaceRestoreOwnerKey(
+  instance: ProjectChatWindowInstance,
+): string | null {
+  if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+    return null;
+  }
+  if (instance.sectionIdOrNull !== null) {
+    return `section:${instance.sectionIdOrNull}`;
+  }
+  if (instance.chatId !== null) {
+    return `project-chat:${instance.chatId}`;
+  }
+  return null;
+}
+
+function resolveReusableWorkspaceRestoreOwnerKey(
+  instance: ProjectChatWindowInstance,
+): string | null {
+  if (
+    instance.placement !== ChatWindowPlacementEnum.floating ||
+    instance.chatId === null
+  ) {
+    return null;
+  }
+  return resolveBoundWorkspaceRestoreOwnerKey(instance);
+}
+
+function buildPreferredRestoredInstanceIdByOriginalId(
+  restoredFloatingWindowing: ProjectChatWindowingState,
+  currentWindowing: ProjectChatWindowingState,
+): Record<string, string> {
+  const reusableInstanceIdByOwnerKey = new Map<string, string>();
+  for (const instanceId of buildOrderedProjectChatWindowInstanceIds(
+    currentWindowing,
+  )) {
+    const instance = currentWindowing.instancesById[instanceId];
+    if (!instance) {
+      continue;
+    }
+    const ownerKey = resolveReusableWorkspaceRestoreOwnerKey(instance);
+    if (ownerKey === null || reusableInstanceIdByOwnerKey.has(ownerKey)) {
+      continue;
+    }
+    reusableInstanceIdByOwnerKey.set(ownerKey, instanceId);
+  }
+
+  if (reusableInstanceIdByOwnerKey.size === 0) {
+    return {};
+  }
+
+  const preferredInstanceIdByOriginalId: Record<string, string> = {};
+  const claimedLiveInstanceIds = new Set<string>();
+  for (const instanceId of buildOrderedProjectChatWindowInstanceIds(
+    restoredFloatingWindowing,
+  )) {
+    const instance = restoredFloatingWindowing.instancesById[instanceId];
+    if (!instance) {
+      continue;
+    }
+    const ownerKey = resolveBoundWorkspaceRestoreOwnerKey(instance);
+    if (ownerKey === null) {
+      continue;
+    }
+    const preferredInstanceId = reusableInstanceIdByOwnerKey.get(ownerKey);
+    if (
+      preferredInstanceId === undefined ||
+      claimedLiveInstanceIds.has(preferredInstanceId)
+    ) {
+      continue;
+    }
+    preferredInstanceIdByOriginalId[instanceId] = preferredInstanceId;
+    claimedLiveInstanceIds.add(preferredInstanceId);
+  }
+
+  return preferredInstanceIdByOriginalId;
 }
 
 function resolveWorkspaceFloatingWindowsSupersededByRestore(
@@ -993,12 +1059,50 @@ function buildWorkspaceRestoreLayoutState(
   };
 }
 
+async function settleWorkspaceRestoreLayoutWrites(): Promise<void> {
+  await flushPendingProjectChatWindowingWrites();
+  // Let optimistic rollback handlers update the store before phase 2 inspects it.
+  await Promise.resolve();
+}
+
+function isRestoredProjectChatThreadBindingTarget(
+  instance: ProjectChatWindowInstance | undefined,
+  threadBinding: RestoredProjectChatThreadBinding,
+): boolean {
+  return (
+    instance?.mode === ChatWindowModeEnum.project_ai_mode &&
+    (instance.sectionIdOrNull ?? null) === threadBinding.sectionIdOrNull
+  );
+}
+
 async function restoreWorkspaceProjectChatThreadBindings(
   projectConfigId: string,
   threadBindings: Array<RestoredProjectChatThreadBinding>,
 ): Promise<void> {
-  await flushPendingProjectChatWindowingWrites();
+  await settleWorkspaceRestoreLayoutWrites();
   if (threadBindings.length === 0) {
+    return;
+  }
+  if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+    return;
+  }
+
+  const layoutWindowing =
+    getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+    useProjectState.getState().projectChatWindowing;
+  if (
+    threadBindings.some(
+      (threadBinding) =>
+        !isRestoredProjectChatThreadBindingTarget(
+          layoutWindowing.instancesById[threadBinding.instanceId],
+          threadBinding,
+        ),
+    )
+  ) {
+    addTemporaryNotification(
+      "Failed to restore saved chat threads.",
+      SettaNotificationTypeEnum.error,
+    );
     return;
   }
 
@@ -1074,6 +1178,11 @@ export async function restoreWindowSpaceInWorkspace(
       restoredFloatingWindowing,
       currentWindowing,
     );
+  const preferredRestoredInstanceIdByOriginalId =
+    buildPreferredRestoredInstanceIdByOriginalId(
+      restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
+      currentWindowing,
+    );
   const supersededFloatingInstanceIds =
     resolveWorkspaceFloatingWindowsSupersededByRestore(
       restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
@@ -1084,6 +1193,7 @@ export async function restoreWindowSpaceInWorkspace(
       restoredFloatingWindowingWithoutNonFloatingSectionCollisions,
       currentWindowing,
       supersededFloatingInstanceIds,
+      preferredRestoredInstanceIdByOriginalId,
     );
   const remappedRestoredFloatingWindowing = dedupeRestoredSectionBindings(
     remappedRestoredFloatingWindowingResult.windowing,

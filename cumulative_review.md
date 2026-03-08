@@ -1,3 +1,38 @@
+## 2026-03-11 13:31 PDT
+
+Implemented the remaining consolidated fixes from the current top-level reviews for linked-chat run-start atomicity, workspace window-space restore identity reuse, and standalone `section_mode` chat authority, then verified the affected paths with backend pytest, frontend Vitest, focused Playwright, and a live CDP browser check.
+
+Linked-chat run-start atomicity:
+- Moved pending MCP run-start commitment in linked-chat invocation so the reserved deployment/share run slot is only finalized after `mark_linked_chat_section_run_started(...)` succeeds.
+- Startup failures now release the linked-chat section reservation and roll back the pending run-start authorization before the request returns, which keeps single-run deployment sessions retryable after transient bookkeeping errors.
+- Added explicit deployment-mode regression coverage for the `mark_run_started(...)` failure path and asserted that the first failed request rolls the slot back before a second identical request is admitted.
+
+Workspace restore identity reuse:
+- Simplified saved-window restore so bound `project_ai_mode` owners are matched against the currently authoritative live floating instance by logical owner (`project-chat:${chatId}` or `section:${sectionId}`) before the layout write is built.
+- Restore now reuses the surviving live `instanceId` for those bound owners instead of deleting the live window and inserting the saved one under a different id, which keeps the backend layout invariant and the frontend restore plan aligned.
+- The post-layout thread-rebind phase now waits for restore layout writes to settle and explicitly aborts with an error notification when the expected surviving instance was not accepted into authoritative state, instead of silently skipping the intended thread restore.
+
+Standalone `section_mode` chat authority:
+- Window-space snapshots now persist direct `chatId` only for `project_ai_mode` windows. `section_mode` windows no longer serialize a saved per-window thread binding.
+- Standalone `/windowspace/:slug` hydration now treats `section_mode` windows as section-owned chat surfaces: they render the live section thread and only expose per-window chat-id control when the window itself is `project_ai_mode`.
+- This removes the second thread-authority path where a stale saved layout could override the section's real chat binding in standalone views.
+
+UX before vs after:
+- Before: one linked-chat start bookkeeping failure could consume the only allowed deployment run for the rest of the session. After: failed starts leave the session reusable and the next retry can proceed normally.
+- Before: restoring a saved window space could appear to do nothing or restore the wrong project-chat window when the same logical chat was already open under a different live `instanceId`. After: restore updates the existing live window in place and preserves the intended thread binding contract.
+- Before: standalone `section_mode` windows could reopen a stale saved thread that no longer matched the live section. After: standalone section windows always reflect the section's current chat thread, while only true project-chat windows carry independent saved thread ids.
+
+DX before vs after:
+- Before: linked-chat run-start logic had two commit boundaries, and the reservation could become non-rollbackable too early. After: there is one clear point where a linked chat has truly started.
+- Before: restore correctness depended on mixing logical-owner replacement with instance-id-based backend validation. After: restore planning is explicit about which live instance survives and which saved ids are only aliases for that owner.
+- Before: standalone section chat ownership was split across section state and saved layout state. After: the code has one simple rule: section windows read section chat state, project-chat windows own local `chatId`.
+
+Verification:
+- `source activate.sh && pytest tests/mcp/test_run_start_authorization.py tests/routers/test_mcp_linked_chat_tool.py -q` passed: 38 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed: 61 tests.
+- `./scripts/run-playwright-e2e.sh tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep 'reuses the live window when the same chat owner already exists under a different id|follow the live section-mode thread when the workspace thread changes'` passed: 2 tests.
+- CDP verification on the running dev app created a saved floating chat window, cleared workspace windowing, reopened the same chat under a different live window id, restored the saved window space, and confirmed the live window survived with the restored title and shared thread content.
+
 ## 2026-03-11 11:24:44 PDT
 
 Implemented the remaining consolidated fixes from the current top-level review documents for workspace restore authority, non-chat `chatId` invariants, read-only window placeholder affordances, and dead project-chat helper cleanup, then verified the affected paths with backend pytest, frontend Vitest, focused Playwright, and a live CDP browser check.

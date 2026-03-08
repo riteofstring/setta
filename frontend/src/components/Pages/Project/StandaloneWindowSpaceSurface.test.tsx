@@ -25,7 +25,7 @@ type MockProjectState = {
   projectConfig: {
     id: string;
   };
-  sections: Record<string, { name: string }>;
+  sections: Record<string, { name: string; chatId?: string | null }>;
 };
 
 let mockProjectState: MockProjectState = {
@@ -214,18 +214,22 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
     projectChatSurfaceId?: string;
     projectChatId?: string | null;
     setProjectChatId?: (next: string | null) => void;
-  }) => (
-    <div
-      data-testid="mock-section-window-surface"
-      data-section-id={sectionId}
-      data-chat-mode-override={chatModeOverride ?? ""}
-      data-project-chat-surface-id={projectChatSurfaceId ?? ""}
-      data-project-chat-id={projectChatId ?? ""}
-      data-project-chat-controlled={setProjectChatId ? "true" : "false"}
-    >
-      {sectionId}
-    </div>
-  ),
+  }) => {
+    const liveSectionChatId =
+      mockProjectState.sections[sectionId]?.chatId ?? "";
+    return (
+      <div
+        data-testid="mock-section-window-surface"
+        data-section-id={sectionId}
+        data-chat-mode-override={chatModeOverride ?? ""}
+        data-project-chat-surface-id={projectChatSurfaceId ?? ""}
+        data-project-chat-id={projectChatId ?? liveSectionChatId}
+        data-project-chat-controlled={setProjectChatId ? "true" : "false"}
+      >
+        {sectionId}
+      </div>
+    );
+  },
 }));
 
 describe("StandaloneWindowSpaceSurface", () => {
@@ -236,7 +240,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         id: "project-1",
       },
       sections: {
-        "section-1": { name: "Research Notes" },
+        "section-1": { name: "Research Notes", chatId: "workspace-thread" },
       },
     };
   });
@@ -351,7 +355,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain('data-project-chat-controlled="true"');
   });
 
-  it("keeps saved chat ownership for standalone section windows in section mode", () => {
+  it("uses the live section chat for standalone section windows in section mode", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
         canUseManagedChat={true}
@@ -382,8 +386,93 @@ describe("StandaloneWindowSpaceSurface", () => {
 
     expect(markup).toContain('data-testid="mock-section-window-surface"');
     expect(markup).toContain('data-chat-mode-override="section_mode"');
-    expect(markup).toContain('data-project-chat-id="saved-thread"');
-    expect(markup).toContain('data-project-chat-controlled="true"');
+    expect(markup).toContain('data-project-chat-id="workspace-thread"');
+    expect(markup).toContain('data-project-chat-controlled="false"');
+  });
+
+  it("ignores same-layout saved section-mode chat updates", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    try {
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+            windowSpace={createWindowSpaceConfig({
+              id: "space-id",
+              name: "Research Board",
+              windowsById: {
+                "section-window": {
+                  surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                  sectionIdOrNull: "section-1",
+                  mode: ChatWindowModeEnum.section_mode,
+                  title: null,
+                  chatId: "saved-thread-a",
+                  zIndex: 3,
+                  normalizedBounds: {
+                    x: 0,
+                    y: 0,
+                    width: 0.5,
+                    height: 0.75,
+                  },
+                },
+              },
+              order: ["section-window"],
+            })}
+          />,
+        );
+      });
+
+      expect(
+        host
+          .querySelector('[data-testid="mock-section-window-surface"]')
+          ?.getAttribute("data-project-chat-id"),
+      ).toBe("workspace-thread");
+
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+            windowSpace={createWindowSpaceConfig({
+              id: "space-id",
+              name: "Research Board",
+              windowsById: {
+                "section-window": {
+                  surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                  sectionIdOrNull: "section-1",
+                  mode: ChatWindowModeEnum.section_mode,
+                  title: null,
+                  chatId: "saved-thread-b",
+                  zIndex: 3,
+                  normalizedBounds: {
+                    x: 0,
+                    y: 0,
+                    width: 0.5,
+                    height: 0.75,
+                  },
+                },
+              },
+              order: ["section-window"],
+            })}
+          />,
+        );
+      });
+
+      expect(
+        host
+          .querySelector('[data-testid="mock-section-window-surface"]')
+          ?.getAttribute("data-project-chat-id"),
+      ).toBe("workspace-thread");
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 
   it("renders only one standalone section host when saved data duplicates a section binding", () => {
@@ -1024,7 +1113,7 @@ describe("StandaloneWindowSpaceSurface", () => {
         sectionIdOrNull: "section-1",
         mode: ChatWindowModeEnum.section_mode,
         title: "Research Notes",
-        chatId: "saved-section-chat",
+        chatId: null,
         embeddedGitPaneVisible: false,
         zIndex: 2,
         bounds: {

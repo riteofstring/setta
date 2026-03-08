@@ -74,6 +74,22 @@ const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_HIT_SIZE_PX = 8;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LINE_THICKNESS_PX = 2;
 const STANDALONE_WINDOW_SPACE_RESIZE_HANDLE_LAYER_Z_INDEX = 24;
 
+function resolveStandaloneWindowSpaceChatId(
+  mode: ChatWindowMode,
+  chatId: string | null | undefined,
+): string | null {
+  if (mode !== ChatWindowModeEnum.project_ai_mode) {
+    return null;
+  }
+  return chatId ?? null;
+}
+
+function canControlStandaloneWindowChatId(
+  window: StandaloneWindowSpaceWindow,
+): boolean {
+  return window.mode === ChatWindowModeEnum.project_ai_mode;
+}
+
 function hydrateWindowSpaceWindows(
   windowSpace: WindowSpaceConfig,
   viewportWidthPx: number,
@@ -114,10 +130,7 @@ function hydrateWindowSpaceWindows(
         window.title,
         sectionNamesById,
       ),
-      chatId:
-        window.mode === ChatWindowModeEnum.git_graph_mode
-          ? null
-          : window.chatId ?? null,
+      chatId: resolveStandaloneWindowSpaceChatId(window.mode, window.chatId),
       embeddedGitPaneVisible: window.embeddedGitPaneVisible,
       zIndex: window.zIndex,
       bounds: denormalizeFloatingBounds(
@@ -215,7 +228,7 @@ function setStandaloneProjectChatWindowChatId(
   chatId: string | null | undefined,
 ): Record<string, StandaloneWindowSpaceWindow> {
   const current = windowsById[instanceId];
-  if (!current || current.mode === ChatWindowModeEnum.git_graph_mode) {
+  if (!current || current.mode !== ChatWindowModeEnum.project_ai_mode) {
     return windowsById;
   }
   const normalizedChatId = chatId?.trim() ? chatId.trim() : null;
@@ -785,20 +798,28 @@ export function StandaloneWindowSpaceSurface({
                 windowSpace.id,
                 window.instanceId,
               )}
-              projectChatId={window.chatId}
-              setProjectChatId={(next) => {
-                const resolvedChatId =
-                  typeof next === "function"
-                    ? next(window.chatId ?? undefined)
-                    : next;
-                setLocalWindowsById((current) =>
-                  setStandaloneProjectChatWindowChatId(
-                    current,
-                    window.instanceId,
-                    resolvedChatId,
-                  ),
-                );
-              }}
+              projectChatId={
+                canControlStandaloneWindowChatId(window)
+                  ? window.chatId
+                  : undefined
+              }
+              setProjectChatId={
+                canControlStandaloneWindowChatId(window)
+                  ? (next) => {
+                      const resolvedChatId =
+                        typeof next === "function"
+                          ? next(window.chatId ?? undefined)
+                          : next;
+                      setLocalWindowsById((current) =>
+                        setStandaloneProjectChatWindowChatId(
+                          current,
+                          window.instanceId,
+                          resolvedChatId,
+                        ),
+                      );
+                    }
+                  : undefined
+              }
               headerProps={{
                 onPointerDown: () => {
                   setLocalWindowsById((current) =>

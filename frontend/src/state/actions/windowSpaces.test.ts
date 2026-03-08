@@ -310,7 +310,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["floating-section"]).toMatchObject({
       surfaceKind: "section",
       sectionIdOrNull: "section-1",
-      chatId: "section-thread",
+      chatId: null,
       title: null,
       zIndex: 5,
       normalizedBounds: {
@@ -2050,6 +2050,218 @@ describe("restoreWindowSpaceInWorkspace", () => {
         "section-window"
       ]?.chatId,
     ).toBe("saved-section-thread");
+  });
+
+  it("reuses the live floating project-chat instance when the saved chat already exists under a different window id", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "saved-window": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Saved Chat",
+                chatId: "chat-shared",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["saved-window"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["live-window"],
+        instancesById: {
+          "live-window": {
+            instanceId: "live-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Live Chat",
+            chatId: "chat-shared",
+            zIndex: 1,
+            bounds: {
+              x: 500,
+              y: 400,
+              width: 240,
+              height: 180,
+            },
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    await restoreWindowSpaceInWorkspace("space-1");
+
+    expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          instancesById: expect.objectContaining({
+            "live-window": expect.objectContaining({
+              title: "Saved Chat",
+              chatId: "chat-shared",
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(
+      routeSetProjectChatWindowingStateMock.mock.calls[0]?.[0]?.state
+        .instancesById["saved-window"],
+    ).toBeUndefined();
+    expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.order).toEqual(["live-window"]);
+    expect(nextState.instancesById["live-window"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Saved Chat",
+      chatId: "chat-shared",
+    });
+    expect(nextState.instancesById["saved-window"]).toBeUndefined();
+  });
+
+  it("reuses the live section-backed project-chat instance when the saved section chat has a different window id", async () => {
+    const sectionState = buildChatSectionState("section-1", "workspace-thread");
+    useProjectState.setState({
+      ...sectionState,
+      projectConfig: createProjectConfig({
+        ...sectionState.projectConfig,
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "saved-section-window": {
+                surfaceKind: "section",
+                sectionIdOrNull: "section-1",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                chatId: "saved-section-thread",
+                zIndex: 5,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["saved-section-window"],
+          },
+        },
+      }),
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["live-section-window"],
+        instancesById: {
+          "live-section-window": {
+            instanceId: "live-section-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            sectionIdOrNull: "section-1",
+            chatId: "workspace-thread",
+            zIndex: 2,
+            bounds: {
+              x: 520,
+              y: 160,
+              width: 280,
+              height: 220,
+            },
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    await restoreWindowSpaceInWorkspace("space-1");
+
+    expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          instancesById: expect.objectContaining({
+            "live-section-window": expect.objectContaining({
+              sectionIdOrNull: "section-1",
+              chatId: "workspace-thread",
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(
+      routeSetProjectChatWindowingStateMock.mock.calls[0]?.[0]?.state
+        .instancesById["saved-section-window"],
+    ).toBeUndefined();
+    expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instanceId: "live-section-window",
+        chatId: "saved-section-thread",
+      }),
+    );
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "live-section-window"
+      ]?.chatId,
+    ).toBe("saved-section-thread");
+  });
+
+  it("does not start thread rebinding when the restore layout write is rejected", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "saved-window": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Saved Chat",
+                chatId: "chat-restored",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["saved-window"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: { detail: "synthetic restore failure" },
+      status: 500,
+      hasResponse: true,
+    });
+
+    await restoreWindowSpaceInWorkspace("space-1");
+
+    expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
+    expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
+      "Failed to restore saved chat threads.",
+      SettaNotificationTypeEnum.error,
+    );
   });
 
   it("restores saved project-chat threads even if the user focuses the restored window before layout sync settles", async () => {

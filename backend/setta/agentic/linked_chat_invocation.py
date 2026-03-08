@@ -106,7 +106,6 @@ async def _start_linked_chat_run(
         raise
 
     try:
-        commit_pending_mcp_run_start(ctx)
         await _mark_linked_chat_section_run_started(
             manager,
             project_config_id,
@@ -120,7 +119,9 @@ async def _start_linked_chat_run(
             target_section_id,
             chat_id,
         )
+        await rollback_pending_mcp_run_start(ctx)
         raise
+    commit_pending_mcp_run_start(ctx)
 
     try:
         return await wait_for_run(run.id)

@@ -1461,6 +1461,76 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("restoring a saved window space reuses the live window when the same chat owner already exists under a different id", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    try {
+      const savedWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Saved Window",
+      );
+      await seedProjectChatWindowThreads(page, [
+        {
+          instanceId: savedWindowId,
+          chatId: "chat-shared",
+          assistantText: "Shared thread marker",
+        },
+      ]);
+
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      await clearProjectChatWindowingState(
+        page,
+        projectContext.projectConfigId,
+      );
+
+      const liveWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Live Window",
+      );
+      await seedProjectChatWindowThreads(page, [
+        {
+          instanceId: liveWindowId,
+          chatId: "chat-shared",
+          assistantText: "Shared thread marker",
+        },
+      ]);
+
+      await page.getByTestId("window-space-open").click();
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return {
+            liveWindowChatId: state.instancesById[liveWindowId]?.chatId ?? null,
+            savedWindowExists: savedWindowId in state.instancesById,
+            order: state.order,
+          };
+        })
+        .toEqual({
+          liveWindowChatId: "chat-shared",
+          savedWindowExists: false,
+          order: [liveWindowId],
+        });
+
+      const liveWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${liveWindowId}"]`,
+      );
+      await expect(liveWindow).toBeVisible();
+      await expect(liveWindow).toContainText("Shared thread marker");
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("failed workspace restore rolls back git-pane visibility with the layout", async ({
     page,
   }) => {
@@ -3337,7 +3407,7 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
-  test("standalone section windows keep their saved section-mode thread when the workspace thread changes", async ({
+  test("standalone section windows follow the live section-mode thread when the workspace thread changes", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -3471,7 +3541,7 @@ test.describe.serial("standalone project surface routes", () => {
         `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
       );
 
-      // The saved standalone window should reopen its saved thread instead of falling back to the live section thread.
+      // Standalone section-mode windows should always follow the live section thread.
       await expect(standaloneSectionWindow).toBeVisible();
       await expect(
         standaloneSectionWindow.locator(
@@ -3479,10 +3549,10 @@ test.describe.serial("standalone project surface routes", () => {
         ),
       ).toBeVisible();
       await expect(standaloneSectionWindow).toContainText(
-        "Saved section thread marker",
+        "Workspace section thread marker",
       );
       await expect(standaloneSectionWindow).not.toContainText(
-        "Workspace section thread marker",
+        "Saved section thread marker",
       );
     } finally {
       await standalonePage.close();
