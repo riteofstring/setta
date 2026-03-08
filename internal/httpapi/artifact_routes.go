@@ -16,14 +16,16 @@ const (
 	RouteLoadCachedImageArtifacts             = "/loadCachedImageArtifacts"
 	RouteLoadCachedChartData                  = "/loadCachedChartData"
 	RouteLoadCachedBrushStrokes               = "/loadCachedBrushStrokes"
-	RouteLoadCachedDrawAreaLayerItemTransform = "/loadCachedDrawAreaLayerItemTransform"
+	RouteLoadCachedDrawAreaLayerItemTransform = "/loadDrawAreaLayerItemTransform"
 	RouteUpdateArtifacts                      = "/updateArtifacts"
 	RouteDeleteArtifacts                      = "/deleteArtifacts"
 )
 
 type ArtifactRouteDependencies struct {
-	ModePolicy modes.Policy
-	Artifacts  ArtifactService
+	ModePolicy     modes.Policy
+	ShareSessions  modes.ShareSessionStore
+	Artifacts      ArtifactService
+	ShareArtifacts ShareArtifactService
 }
 
 type ArtifactService interface {
@@ -36,6 +38,15 @@ type ArtifactService interface {
 	Delete(ctx context.Context, request artifacts.DeleteRequest) ([]string, error)
 }
 
+type ShareArtifactService interface {
+	LoadCachedImages(ctx context.Context, sessionID string, request artifacts.LoadCachedPathsRequest) ([]*artifacts.ImageArtifact, error)
+	LoadCachedChartData(ctx context.Context, sessionID string, request artifacts.LoadCachedPathsRequest) ([]*artifacts.ChartDataArtifact, error)
+	LoadCachedBrushStrokes(ctx context.Context, sessionID string, request artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error)
+	LoadCachedDrawAreaLayerItemTransforms(ctx context.Context, sessionID string, request artifacts.LoadCachedPathsRequest) ([]*artifacts.JSONArtifact, error)
+	Update(ctx context.Context, sessionID string, request artifacts.UpdateRequest) ([]artifacts.ArtifactSaveResult, error)
+	Delete(ctx context.Context, sessionID string, request artifacts.DeleteRequest) ([]string, error)
+}
+
 func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) error {
 	if router == nil {
 		return fmt.Errorf("router is required")
@@ -43,14 +54,35 @@ func RegisterArtifactRoutes(router chi.Router, deps ArtifactRouteDependencies) e
 	if deps.ModePolicy.IsIDE() && deps.Artifacts == nil {
 		return fmt.Errorf("artifact service is required in ide mode")
 	}
-	guard := RequireFullIDERuntime(deps.ModePolicy)
-	router.With(guard).Post(RouteImportFilesToArtifacts, importFilesToArtifactsHandler(deps))
-	router.With(guard).Post(RouteLoadCachedImageArtifacts, loadCachedImageArtifactsHandler(deps))
-	router.With(guard).Post(RouteLoadCachedChartData, loadCachedChartDataHandler(deps))
-	router.With(guard).Post(RouteLoadCachedBrushStrokes, loadCachedBrushStrokesHandler(deps))
-	router.With(guard).Post(RouteLoadCachedDrawAreaLayerItemTransform, loadCachedDrawAreaLayerItemTransformHandler(deps))
-	router.With(guard).Post(RouteUpdateArtifacts, updateArtifactsHandler(deps))
-	router.With(guard).Post(RouteDeleteArtifacts, deleteArtifactsHandler(deps))
+	ideGuard := RequireFullIDERuntime(deps.ModePolicy)
+	router.With(ideGuard).Post(RouteImportFilesToArtifacts, importFilesToArtifactsHandler(deps))
+
+	if deps.ModePolicy.IsDeployment() {
+		if deps.ShareSessions == nil {
+			return fmt.Errorf("share session store is required in deployment mode")
+		}
+		if deps.ShareArtifacts == nil {
+			return fmt.Errorf("share artifact service is required in deployment mode")
+		}
+		shareGuard := RequireShareSession(modes.Resolver{
+			Policy: deps.ModePolicy,
+			Store:  deps.ShareSessions,
+		})
+		router.With(shareGuard).Post(RouteLoadCachedImageArtifacts, loadCachedImageArtifactsShareHandler(deps))
+		router.With(shareGuard).Post(RouteLoadCachedChartData, loadCachedChartDataShareHandler(deps))
+		router.With(shareGuard).Post(RouteLoadCachedBrushStrokes, loadCachedBrushStrokesShareHandler(deps))
+		router.With(shareGuard).Post(RouteLoadCachedDrawAreaLayerItemTransform, loadCachedDrawAreaLayerItemTransformShareHandler(deps))
+		router.With(shareGuard).Post(RouteUpdateArtifacts, updateArtifactsShareHandler(deps))
+		router.With(shareGuard).Post(RouteDeleteArtifacts, deleteArtifactsShareHandler(deps))
+		return nil
+	}
+
+	router.With(ideGuard).Post(RouteLoadCachedImageArtifacts, loadCachedImageArtifactsHandler(deps))
+	router.With(ideGuard).Post(RouteLoadCachedChartData, loadCachedChartDataHandler(deps))
+	router.With(ideGuard).Post(RouteLoadCachedBrushStrokes, loadCachedBrushStrokesHandler(deps))
+	router.With(ideGuard).Post(RouteLoadCachedDrawAreaLayerItemTransform, loadCachedDrawAreaLayerItemTransformHandler(deps))
+	router.With(ideGuard).Post(RouteUpdateArtifacts, updateArtifactsHandler(deps))
+	router.With(ideGuard).Post(RouteDeleteArtifacts, deleteArtifactsHandler(deps))
 	return nil
 }
 
@@ -94,6 +126,31 @@ func loadCachedImageArtifactsHandler(deps ArtifactRouteDependencies) http.Handle
 	}
 }
 
+func loadCachedImageArtifactsShareHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ShareArtifacts == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		sessionID, ok := artifactShareSessionID(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[artifacts.LoadCachedPathsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		results, err := deps.ShareArtifacts.LoadCachedImages(r.Context(), sessionID, payload)
+		if err != nil {
+			writeArtifactRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
+	}
+}
+
 func loadCachedChartDataHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Artifacts == nil {
@@ -106,6 +163,31 @@ func loadCachedChartDataHandler(deps ArtifactRouteDependencies) http.HandlerFunc
 			return
 		}
 		results, err := deps.Artifacts.LoadCachedChartData(r.Context(), payload)
+		if err != nil {
+			writeArtifactRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
+	}
+}
+
+func loadCachedChartDataShareHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ShareArtifacts == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		sessionID, ok := artifactShareSessionID(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[artifacts.LoadCachedPathsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		results, err := deps.ShareArtifacts.LoadCachedChartData(r.Context(), sessionID, payload)
 		if err != nil {
 			writeArtifactRouteError(w, r, err)
 			return
@@ -134,6 +216,31 @@ func loadCachedBrushStrokesHandler(deps ArtifactRouteDependencies) http.HandlerF
 	}
 }
 
+func loadCachedBrushStrokesShareHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ShareArtifacts == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		sessionID, ok := artifactShareSessionID(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[artifacts.LoadCachedPathsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		results, err := deps.ShareArtifacts.LoadCachedBrushStrokes(r.Context(), sessionID, payload)
+		if err != nil {
+			writeArtifactRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
+	}
+}
+
 func loadCachedDrawAreaLayerItemTransformHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Artifacts == nil {
@@ -146,6 +253,31 @@ func loadCachedDrawAreaLayerItemTransformHandler(deps ArtifactRouteDependencies)
 			return
 		}
 		results, err := deps.Artifacts.LoadCachedDrawAreaLayerItemTransforms(r.Context(), payload)
+		if err != nil {
+			writeArtifactRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
+	}
+}
+
+func loadCachedDrawAreaLayerItemTransformShareHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ShareArtifacts == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		sessionID, ok := artifactShareSessionID(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[artifacts.LoadCachedPathsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		results, err := deps.ShareArtifacts.LoadCachedDrawAreaLayerItemTransforms(r.Context(), sessionID, payload)
 		if err != nil {
 			writeArtifactRouteError(w, r, err)
 			return
@@ -174,6 +306,31 @@ func updateArtifactsHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func updateArtifactsShareHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ShareArtifacts == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		sessionID, ok := artifactShareSessionID(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[artifacts.UpdateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		results, err := deps.ShareArtifacts.Update(r.Context(), sessionID, payload)
+		if err != nil {
+			writeArtifactRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
+	}
+}
+
 func deleteArtifactsHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if deps.Artifacts == nil {
@@ -194,12 +351,47 @@ func deleteArtifactsHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func deleteArtifactsShareHandler(deps ArtifactRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.ShareArtifacts == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		sessionID, ok := artifactShareSessionID(r)
+		if !ok {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[artifacts.DeleteRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		results, err := deps.ShareArtifacts.Delete(r.Context(), sessionID, payload)
+		if err != nil {
+			writeArtifactRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, results)
+	}
+}
+
+func artifactShareSessionID(r *http.Request) (string, bool) {
+	requestInfo, ok := modes.RequestInfoFromRequest(r)
+	if !ok {
+		return "", false
+	}
+	return requestInfo.ShareSessionID, true
+}
+
 func writeArtifactRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	var artifactErr *artifacts.Error
 	if errors.As(err, &artifactErr) {
 		switch artifactErr.Kind {
 		case artifacts.ErrorInvalidRequest:
 			writeError(w, r, http.StatusBadRequest, "invalid_request", artifactErr.Message)
+		case artifacts.ErrorPolicyDenied:
+			writeError(w, r, http.StatusForbidden, "artifact_policy_denied", artifactErr.Message)
 		case artifacts.ErrorPathForbidden:
 			writeError(w, r, http.StatusForbidden, "artifact_path_forbidden", artifactErr.Message)
 		case artifacts.ErrorPathNotFound:

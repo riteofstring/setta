@@ -14,6 +14,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
+	"setta/internal/artifacts"
+	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
@@ -21,6 +23,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
+	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
 )
@@ -282,6 +285,35 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 		WebsocketHub: realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
 		Sequencer:    sequencer,
 	})
+	binaryStore, err := binarypayload.NewStore(filepath.Join(t.TempDir(), "binary"))
+	if err != nil {
+		t.Fatalf("new binary store: %v", err)
+	}
+	shareArtifactService, err := shareartifacts.NewService(shareartifacts.ServiceOptions{
+		Deployment:  deploymentRuntime,
+		BinaryStore: binaryStore,
+	})
+	if err != nil {
+		t.Fatalf("new share artifact service: %v", err)
+	}
+	overlayPath := filepath.Join(deploymentRoot, "artifacts", "cleanup-stroke.json")
+	if err := os.MkdirAll(filepath.Dir(overlayPath), 0o755); err != nil {
+		t.Fatalf("mkdir overlay artifact parent: %v", err)
+	}
+	if err := os.WriteFile(overlayPath, []byte("{\n  \"strokeStyle\": \"#111111\"\n}\n"), 0o644); err != nil {
+		t.Fatalf("write overlay disk artifact: %v", err)
+	}
+	overlayValue := json.RawMessage(`{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}`)
+	if _, err := shareArtifactService.Update(context.Background(), "share-a", artifacts.UpdateRequest{
+		Artifacts: []artifacts.RawArtifact{{
+			Type:  artifacts.ArtifactTypeBrushStroke,
+			ID:    overlayPath,
+			Value: &overlayValue,
+		}},
+		UploadScope: artifacts.UploadScopeGeneric,
+	}); err != nil {
+		t.Fatalf("seed share overlay: %v", err)
+	}
 	if _, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); err != nil {
 		t.Fatalf("seed expired-session sequence: %v", err)
 	}
@@ -298,7 +330,7 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	expiredIDs, err := cleanupExpiredDeploymentSessions(cleanupCtx, deploymentRuntime, terminalService, listenerBroadcaster)
+	expiredIDs, err := cleanupExpiredDeploymentSessions(cleanupCtx, deploymentRuntime, terminalService, listenerBroadcaster, shareArtifactService)
 	if err != nil {
 		t.Fatalf("cleanup expired deployment sessions: %v", err)
 	}
@@ -322,6 +354,19 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 	}
 	if current, ok := sequencer.Current(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); !ok || current != 1 {
 		t.Fatalf("expected active share-session sequence to remain, got %d ok=%t", current, ok)
+	}
+
+	loaded, err := shareArtifactService.LoadCachedBrushStrokes(context.Background(), "share-a", artifacts.LoadCachedPathsRequest{
+		Paths: []string{overlayPath},
+	})
+	if err != nil {
+		t.Fatalf("load overlay after cleanup: %v", err)
+	}
+	if len(loaded) != 1 || loaded[0] == nil {
+		t.Fatalf("expected disk artifact after cleanup, got %#v", loaded)
+	}
+	if strings.Contains(string(loaded[0].Value), "#000000") || !strings.Contains(string(loaded[0].Value), "#111111") {
+		t.Fatalf("expected share overlay to be dropped after cleanup, got %#v", loaded[0])
 	}
 }
 

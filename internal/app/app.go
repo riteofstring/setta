@@ -57,6 +57,7 @@ import (
 	"setta/internal/runs"
 	"setta/internal/runtime"
 	"setta/internal/settingsstate"
+	"setta/internal/shareartifacts"
 	"setta/internal/sshx"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
@@ -168,6 +169,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		gitReadService        *gitread.Service
 		fileBrowserService    *filebrowser.Service
 		artifactService       *artifacts.Service
+		shareArtifactService  *shareartifacts.Service
 		projectShellService   *projectshell.Service
 		notificationStore     *notifications.Store
 		notificationService   *notifications.Service
@@ -632,6 +634,17 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 	}
+	if deploymentRuntime != nil {
+		shareArtifactService, err = shareartifacts.NewService(shareartifacts.ServiceOptions{
+			Deployment:   deploymentRuntime,
+			BinaryStore:  binaryStore,
+			WebsocketHub: websocketHub,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	agentProfileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1085,7 +1098,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
-			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, 0)
+			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, shareArtifactService, 0)
 		})
 	}
 	if modePolicy.IsIDE() && transcriptionSessions != nil {
@@ -1352,8 +1365,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterArtifactRoutes(r, httpapi.ArtifactRouteDependencies{
-				ModePolicy: modePolicy,
-				Artifacts:  artifactService,
+				ModePolicy:     modePolicy,
+				ShareSessions:  shareSessions,
+				Artifacts:      artifactService,
+				ShareArtifacts: shareArtifactService,
 			}); err != nil {
 				panic(err)
 			}

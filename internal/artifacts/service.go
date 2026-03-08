@@ -34,6 +34,7 @@ const (
 	ErrorBinaryPayloadInvalid    ErrorKind = "binary_payload_invalid"
 	ErrorBinaryPayloadNotFound   ErrorKind = "binary_payload_not_found"
 	ErrorArtifactTypeUnsupported ErrorKind = "artifact_type_unsupported"
+	ErrorPolicyDenied            ErrorKind = "policy_denied"
 	ErrorTooLarge                ErrorKind = "too_large"
 	ErrorMimeNotAllowed          ErrorKind = "mime_not_allowed"
 )

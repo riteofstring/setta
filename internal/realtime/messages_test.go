@@ -2,6 +2,29 @@ package realtime
 
 import "testing"
 
+func TestNewUpdateArtifactsMessage(t *testing.T) {
+	t.Parallel()
+
+	message := NewUpdateArtifactsMessage(UpdateArtifactsContent{
+		Artifacts: []any{
+			map[string]any{
+				"type": "BrushStroke",
+				"id":   "artifacts/stroke.json",
+			},
+		},
+		UpdateType: "update",
+	})
+	if message.MessageType != MessageTypeUpdateArtifacts {
+		t.Fatalf("expected update artifacts message type, got %q", message.MessageType)
+	}
+	if message.Content.UpdateType != "update" {
+		t.Fatalf("expected update type, got %q", message.Content.UpdateType)
+	}
+	if len(message.Content.Artifacts) != 1 {
+		t.Fatalf("expected one artifact, got %#v", message.Content.Artifacts)
+	}
+}
+
 func TestNewLLMStreamingResponseMessage(t *testing.T) {
 	t.Parallel()
 

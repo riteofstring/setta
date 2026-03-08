@@ -7,6 +7,7 @@ import (
 
 	"setta/internal/deployments"
 	"setta/internal/realtime"
+	"setta/internal/shareartifacts"
 	"setta/internal/terminals"
 )
 
@@ -17,6 +18,7 @@ func runDeploymentSessionCleanupLoop(
 	deploymentRuntime *deployments.Runtime,
 	terminalService *terminals.Service,
 	listenerBroadcaster *realtime.ListenerBroadcaster,
+	shareArtifacts *shareartifacts.Service,
 	interval time.Duration,
 ) error {
 	if deploymentRuntime == nil {
@@ -27,7 +29,7 @@ func runDeploymentSessionCleanupLoop(
 	}
 
 	for {
-		if _, err := cleanupExpiredDeploymentSessions(ctx, deploymentRuntime, terminalService, listenerBroadcaster); err != nil {
+		if _, err := cleanupExpiredDeploymentSessions(ctx, deploymentRuntime, terminalService, listenerBroadcaster, shareArtifacts); err != nil {
 			return err
 		}
 
@@ -46,6 +48,7 @@ func cleanupExpiredDeploymentSessions(
 	deploymentRuntime *deployments.Runtime,
 	terminalService *terminals.Service,
 	listenerBroadcaster *realtime.ListenerBroadcaster,
+	shareArtifacts *shareartifacts.Service,
 ) ([]string, error) {
 	if deploymentRuntime == nil {
 		return nil, nil
@@ -62,6 +65,9 @@ func cleanupExpiredDeploymentSessions(
 		}
 		if listenerBroadcaster != nil {
 			listenerBroadcaster.DropShareSession(sessionID)
+		}
+		if shareArtifacts != nil {
+			shareArtifacts.DeleteShareSession(sessionID)
 		}
 	}
 	return expiredSessionIDs, err

@@ -14,6 +14,7 @@ const (
 	MessageTypeAllProjectMetadata          = "AllProjectMetadata"
 	MessageTypeAllConnections              = "AllConnections"
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
+	MessageTypeUpdateArtifacts             = "UpdateArtifacts"
 	MessageTypeLLMStreamingResponse        = "LLMStreamingResponse"
 	MessageTypeAIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
 	MessageTypeAIFollowToolResultUpdate    = "AIFollowToolResultUpdate"
@@ -255,6 +256,17 @@ type LLMAPIKeysUpdatedMessage struct {
 	Content     llmconfig.ManagedAPIKeysSnapshot `json:"content"`
 }
 
+type UpdateArtifactsContent struct {
+	Artifacts  []any  `json:"artifacts"`
+	UpdateType string `json:"updateType"`
+}
+
+type UpdateArtifactsMessage struct {
+	ID          *string                `json:"id"`
+	MessageType string                 `json:"messageType"`
+	Content     UpdateArtifactsContent `json:"content"`
+}
+
 type ProjectStateUpdateContent struct {
 	ProjectState   projectview.SingleConfig `json:"projectState"`
 	CompletedOpIDs []string                 `json:"completedOpIds"`
@@ -302,6 +314,13 @@ func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMe
 		Content: FrontendIdentityContent{
 			FrontendAffinityToken: frontendAffinityToken,
 		},
+	}
+}
+
+func NewUpdateArtifactsMessage(content UpdateArtifactsContent) UpdateArtifactsMessage {
+	return UpdateArtifactsMessage{
+		MessageType: MessageTypeUpdateArtifacts,
+		Content:     content,
 	}
 }
 
