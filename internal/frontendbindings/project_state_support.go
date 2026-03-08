@@ -331,6 +331,37 @@ type UnselectAllParamsRequestInput struct {
 	ProjectConfigID string  `json:"projectConfigId"`
 }
 
+type SectionType string
+
+type ListRootViewMode string
+
+type BrowserAreaViewMode string
+
+type BrowserSearchScope string
+
+type EdgePort struct {
+	ID       string `json:"id"`
+	Accessor string `json:"accessor"`
+}
+
+type BrowserSavedSearchTypeFilters struct {
+	Image bool `json:"image"`
+	Video bool `json:"video"`
+	Audio bool `json:"audio"`
+	Text  bool `json:"text"`
+	Data  bool `json:"data"`
+}
+
+type BrowserSavedSearch struct {
+	ID          string                        `json:"id"`
+	Name        string                        `json:"name"`
+	Query       string                        `json:"query"`
+	SearchScope BrowserSearchScope            `json:"searchScope"`
+	TypeFilters BrowserSavedSearchTypeFilters `json:"typeFilters"`
+	Color       string                        `json:"color"`
+	QuickInfo   string                        `json:"quickInfo"`
+}
+
 type SetSectionParamFilterRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`
@@ -359,11 +390,26 @@ type SetSectionEdgeInputsRequestInput struct {
 	EdgeInputParams []string `json:"edgeInputParams"`
 }
 
-type SetSectionEdgeOutputsRequestInput struct{}
+type SetSectionEdgeOutputsRequestInput struct {
+	FrontendOpID    *string    `json:"frontendOpId,omitempty"`
+	ProjectConfigID string     `json:"projectConfigId"`
+	SectionID       string     `json:"sectionId"`
+	EdgeOutputPorts []EdgePort `json:"edgeOutputPorts"`
+}
 
-type SetParentDefaultChildSectionTypeRequestInput struct{}
+type SetParentDefaultChildSectionTypeRequestInput struct {
+	FrontendOpID            *string     `json:"frontendOpId,omitempty"`
+	ProjectConfigID         string      `json:"projectConfigId"`
+	SectionID               string      `json:"sectionId"`
+	DefaultChildSectionType SectionType `json:"defaultChildSectionType"`
+}
 
-type SetListRootViewModeRequestInput struct{}
+type SetListRootViewModeRequestInput struct {
+	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
+	ProjectConfigID string           `json:"projectConfigId"`
+	SectionID       string           `json:"sectionId"`
+	ViewMode        ListRootViewMode `json:"viewMode"`
+}
 
 type ToggleGroupOrientationRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -386,7 +432,12 @@ type SetBrowserColumnWidthsRequestInput struct {
 	TypesColumnWidth *float64 `json:"typesColumnWidth"`
 }
 
-type SetBrowserAreaViewModeRequestInput struct{}
+type SetBrowserAreaViewModeRequestInput struct {
+	FrontendOpID    *string             `json:"frontendOpId,omitempty"`
+	ProjectConfigID string              `json:"projectConfigId"`
+	SectionID       string              `json:"sectionId"`
+	ViewMode        BrowserAreaViewMode `json:"viewMode"`
+}
 
 type SetBrowserHideColumnRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -395,7 +446,12 @@ type SetBrowserHideColumnRequestInput struct {
 	HideColumn      bool    `json:"hideColumn"`
 }
 
-type SetBrowserSavedSearchesRequestInput struct{}
+type SetBrowserSavedSearchesRequestInput struct {
+	FrontendOpID    *string              `json:"frontendOpId,omitempty"`
+	ProjectConfigID string               `json:"projectConfigId"`
+	SectionID       string               `json:"sectionId"`
+	SavedSearches   []BrowserSavedSearch `json:"savedSearches"`
+}
 
 type SetSpreadsheetFilePathRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
@@ -661,51 +717,6 @@ export type SetSectionSizesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionSizes: Record<string, SectionSize>;
-};
-`
-
-const setSectionEdgeOutputsRequestInputRawTS = `
-export type SetSectionEdgeOutputsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  edgeOutputPorts: Array<EdgePort>;
-};
-`
-
-const setParentDefaultChildSectionTypeRequestInputRawTS = `
-export type SetParentDefaultChildSectionTypeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  defaultChildSectionType: SectionType;
-};
-`
-
-const setListRootViewModeRequestInputRawTS = `
-export type SetListRootViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: ListRootViewMode;
-};
-`
-
-const setBrowserAreaViewModeRequestInputRawTS = `
-export type SetBrowserAreaViewModeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  viewMode: BrowserAreaViewMode;
-};
-`
-
-const setBrowserSavedSearchesRequestInputRawTS = `
-export type SetBrowserSavedSearchesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  savedSearches: Array<BrowserSavedSearch>;
 };
 `
 

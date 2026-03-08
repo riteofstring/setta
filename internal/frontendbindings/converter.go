@@ -29,6 +29,14 @@ type TypeProperty struct {
 	Optional bool
 }
 
+func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration {
+	return TypeDeclaration{
+		Name:       name,
+		Kind:       "object",
+		Properties: properties,
+	}
+}
+
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
@@ -444,31 +452,41 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setSectionSizesRequestInputRawTS,
 			},
-			reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}): {
-				Name: "SetSectionEdgeOutputsRequestInput",
-				Kind: "raw",
-				Raw:  setSectionEdgeOutputsRequestInputRawTS,
-			},
-			reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{}): {
-				Name: "SetParentDefaultChildSectionTypeRequestInput",
-				Kind: "raw",
-				Raw:  setParentDefaultChildSectionTypeRequestInputRawTS,
-			},
-			reflect.TypeOf(SetListRootViewModeRequestInput{}): {
-				Name: "SetListRootViewModeRequestInput",
-				Kind: "raw",
-				Raw:  setListRootViewModeRequestInputRawTS,
-			},
-			reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}): {
-				Name: "SetBrowserAreaViewModeRequestInput",
-				Kind: "raw",
-				Raw:  setBrowserAreaViewModeRequestInputRawTS,
-			},
-			reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}): {
-				Name: "SetBrowserSavedSearchesRequestInput",
-				Kind: "raw",
-				Raw:  setBrowserSavedSearchesRequestInputRawTS,
-			},
+			reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}): objectDeclaration(
+				"SetSectionEdgeOutputsRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>"},
+			),
+			reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{}): objectDeclaration(
+				"SetParentDefaultChildSectionTypeRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
+			),
+			reflect.TypeOf(SetListRootViewModeRequestInput{}): objectDeclaration(
+				"SetListRootViewModeRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "viewMode", TypeExpr: "ListRootViewMode"},
+			),
+			reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}): objectDeclaration(
+				"SetBrowserAreaViewModeRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "viewMode", TypeExpr: "BrowserAreaViewMode"},
+			),
+			reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}): objectDeclaration(
+				"SetBrowserSavedSearchesRequestInput",
+				TypeProperty{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "projectConfigId", TypeExpr: "string"},
+				TypeProperty{Name: "sectionId", TypeExpr: "string"},
+				TypeProperty{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>"},
+			),
 			reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{}): {
 				Name: "SetSpreadsheetSectionSettingsRequestInput",
 				Kind: "raw",

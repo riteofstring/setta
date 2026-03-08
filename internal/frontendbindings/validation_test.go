@@ -342,7 +342,7 @@ func TestTypeConverterRendersOptionalFieldsMapsAndTime(t *testing.T) {
 	}
 }
 
-func TestPrimitiveProjectStateRequestContractsUseConverterObjects(t *testing.T) {
+func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 	tests := []struct {
 		name       string
 		root       reflect.Type
@@ -426,6 +426,56 @@ func TestPrimitiveProjectStateRequestContractsUseConverterObjects(t *testing.T) 
 				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
 				{Name: "sectionId", TypeExpr: "string", Optional: false},
 				{Name: "hideColumn", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "SetSectionEdgeOutputsRequestInput",
+			root: reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: false},
+			},
+		},
+		{
+			name: "SetParentDefaultChildSectionTypeRequestInput",
+			root: reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: false},
+			},
+		},
+		{
+			name: "SetListRootViewModeRequestInput",
+			root: reflect.TypeOf(SetListRootViewModeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: false},
+			},
+		},
+		{
+			name: "SetBrowserAreaViewModeRequestInput",
+			root: reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "viewMode", TypeExpr: "BrowserAreaViewMode", Optional: false},
+			},
+		},
+		{
+			name: "SetBrowserSavedSearchesRequestInput",
+			root: reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>", Optional: false},
 			},
 		},
 		{

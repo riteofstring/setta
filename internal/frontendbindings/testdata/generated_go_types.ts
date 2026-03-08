@@ -7423,15 +7423,15 @@ export function createSetSectionEdgeInputsRequestInput(options: Partial<SetSecti
 }
 
 
-
 export type SetSectionEdgeOutputsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   edgeOutputPorts: Array<EdgePort>;
 };
-
-
+export function createSetSectionEdgeOutputsRequestInput(options: Partial<SetSectionEdgeOutputsRequestInput> = {}): SetSectionEdgeOutputsRequestInput {
+  return options as SetSectionEdgeOutputsRequestInput;
+}
 
 
 export type SetParentDefaultChildSectionTypeRequestInput = {
@@ -7440,8 +7440,9 @@ export type SetParentDefaultChildSectionTypeRequestInput = {
   sectionId: string;
   defaultChildSectionType: SectionType;
 };
-
-
+export function createSetParentDefaultChildSectionTypeRequestInput(options: Partial<SetParentDefaultChildSectionTypeRequestInput> = {}): SetParentDefaultChildSectionTypeRequestInput {
+  return options as SetParentDefaultChildSectionTypeRequestInput;
+}
 
 
 export type SetListRootViewModeRequestInput = {
@@ -7450,7 +7451,9 @@ export type SetListRootViewModeRequestInput = {
   sectionId: string;
   viewMode: ListRootViewMode;
 };
-
+export function createSetListRootViewModeRequestInput(options: Partial<SetListRootViewModeRequestInput> = {}): SetListRootViewModeRequestInput {
+  return options as SetListRootViewModeRequestInput;
+}
 
 
 export type ToggleGroupOrientationRequestInput = {
@@ -7486,14 +7489,15 @@ export function createSetBrowserColumnWidthsRequestInput(options: Partial<SetBro
 }
 
 
-
 export type SetBrowserAreaViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   viewMode: BrowserAreaViewMode;
 };
-
+export function createSetBrowserAreaViewModeRequestInput(options: Partial<SetBrowserAreaViewModeRequestInput> = {}): SetBrowserAreaViewModeRequestInput {
+  return options as SetBrowserAreaViewModeRequestInput;
+}
 
 
 export type SetBrowserHideColumnRequestInput = {
@@ -7507,14 +7511,15 @@ export function createSetBrowserHideColumnRequestInput(options: Partial<SetBrows
 }
 
 
-
 export type SetBrowserSavedSearchesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
 };
-
+export function createSetBrowserSavedSearchesRequestInput(options: Partial<SetBrowserSavedSearchesRequestInput> = {}): SetBrowserSavedSearchesRequestInput {
+  return options as SetBrowserSavedSearchesRequestInput;
+}
 
 
 export type SetSpreadsheetFilePathRequestInput = {

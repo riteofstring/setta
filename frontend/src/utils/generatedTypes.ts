@@ -7491,6 +7491,11 @@ export type SetSectionEdgeOutputsRequestInput = {
   sectionId: string;
   edgeOutputPorts: Array<EdgePort>;
 };
+export function createSetSectionEdgeOutputsRequestInput(
+  options: Partial<SetSectionEdgeOutputsRequestInput> = {},
+): SetSectionEdgeOutputsRequestInput {
+  return options as SetSectionEdgeOutputsRequestInput;
+}
 
 export type SetParentDefaultChildSectionTypeRequestInput = {
   frontendOpId?: string | null;
@@ -7498,6 +7503,11 @@ export type SetParentDefaultChildSectionTypeRequestInput = {
   sectionId: string;
   defaultChildSectionType: SectionType;
 };
+export function createSetParentDefaultChildSectionTypeRequestInput(
+  options: Partial<SetParentDefaultChildSectionTypeRequestInput> = {},
+): SetParentDefaultChildSectionTypeRequestInput {
+  return options as SetParentDefaultChildSectionTypeRequestInput;
+}
 
 export type SetListRootViewModeRequestInput = {
   frontendOpId?: string | null;
@@ -7505,6 +7515,11 @@ export type SetListRootViewModeRequestInput = {
   sectionId: string;
   viewMode: ListRootViewMode;
 };
+export function createSetListRootViewModeRequestInput(
+  options: Partial<SetListRootViewModeRequestInput> = {},
+): SetListRootViewModeRequestInput {
+  return options as SetListRootViewModeRequestInput;
+}
 
 export type ToggleGroupOrientationRequestInput = {
   frontendOpId?: string | null;
@@ -7548,6 +7563,11 @@ export type SetBrowserAreaViewModeRequestInput = {
   sectionId: string;
   viewMode: BrowserAreaViewMode;
 };
+export function createSetBrowserAreaViewModeRequestInput(
+  options: Partial<SetBrowserAreaViewModeRequestInput> = {},
+): SetBrowserAreaViewModeRequestInput {
+  return options as SetBrowserAreaViewModeRequestInput;
+}
 
 export type SetBrowserHideColumnRequestInput = {
   frontendOpId?: string | null;
@@ -7567,6 +7587,11 @@ export type SetBrowserSavedSearchesRequestInput = {
   sectionId: string;
   savedSearches: Array<BrowserSavedSearch>;
 };
+export function createSetBrowserSavedSearchesRequestInput(
+  options: Partial<SetBrowserSavedSearchesRequestInput> = {},
+): SetBrowserSavedSearchesRequestInput {
+  return options as SetBrowserSavedSearchesRequestInput;
+}
 
 export type SetSpreadsheetFilePathRequestInput = {
   frontendOpId?: string | null;
