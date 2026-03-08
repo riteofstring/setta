@@ -445,11 +445,6 @@ export const TextBlockFormatEnum = {
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
 
-export const WindowSpaceSurfaceKindEnum = {
-  project_chat: "project_chat",
-  section: "section",
-} as const;
-
 const MCPServerRuntimeStateEnum = {
   connected: "connected",
   connecting: "connecting",
@@ -508,29 +503,6 @@ const WatchCodeCallableKindEnum = {
   async_function: "async_function",
   class_init: "class_init",
 } as const;
-
-const WindowSpaceWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-
-export const ChatWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-
-export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
-
-export const ChatWindowPlacementEnum = {
-  bottom_docked: "bottom_docked",
-  floating: "floating",
-  maximized: "maximized",
-  canvas_section: "canvas_section",
-} as const;
-
-export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
 
 export const CodeFileAccessModeEnum = {
   read_only: "read_only",
@@ -712,10 +684,6 @@ export const RouteEnum = {
   SET_VIEW_MODE_NAME: "/setViewModeName",
   SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
   DELETE_VIEW_MODE: "/deleteViewMode",
-  CREATE_WINDOW_SPACE: "/createWindowSpace",
-  SET_WINDOW_SPACE_NAME: "/setWindowSpaceName",
-  SET_WINDOW_SPACE_SORT_ORDER: "/setWindowSpaceSortOrder",
-  DELETE_WINDOW_SPACE: "/deleteWindowSpace",
   UNDO: "/undo",
   REDO: "/redo",
   GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
@@ -808,7 +776,6 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
   SET_CHAT_SECTION_STATE: "/setChatSectionState",
-  SET_PROJECT_CHAT_WINDOWING_STATE: "/setProjectChatWindowingState",
   GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
   SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
   SET_SOCIAL_URL: "/setSocialUrl",
@@ -2291,13 +2258,6 @@ const GroupSectionImplSchema = z.object({
 });
 
 type GroupSectionImpl = z.infer<typeof GroupSectionImplSchema>;
-
-export function createGroupSectionImpl(
-  defaults: UserDefaultGroupSectionImpl,
-  overrides: Partial<GroupSectionImpl> = {},
-): GroupSectionImpl {
-  return GroupSectionImplSchema.parse({ ...defaults, ...overrides });
-}
 
 const ImageSectionImplSchema = z.object({
   type: z.literal("Image").default(SectionTypeEnum.Image),
@@ -4662,63 +4622,6 @@ export function createViewModeConfig(
   return ViewModeConfigSchema.parse(options);
 }
 
-const NormalizedFloatingWindowBoundsSchema = z.object({
-  x: z.number().default(0.0),
-  y: z.number().default(0.0),
-  width: z.number().default(1.0),
-  height: z.number().default(1.0),
-});
-
-export type NormalizedFloatingWindowBounds = z.infer<
-  typeof NormalizedFloatingWindowBoundsSchema
->;
-
-function createNormalizedFloatingWindowBounds(
-  options: Partial<NormalizedFloatingWindowBounds> = {},
-): NormalizedFloatingWindowBounds {
-  return NormalizedFloatingWindowBoundsSchema.parse(options);
-}
-
-const WindowSpaceWindowSchema = z.object({
-  surfaceKind: z
-    .enum(WindowSpaceSurfaceKindEnum)
-    .default(WindowSpaceSurfaceKindEnum.project_chat),
-  sectionIdOrNull: z.union([IDSchema, z.null()]).default(null),
-  mode: z
-    .enum(WindowSpaceWindowModeEnum)
-    .default(WindowSpaceWindowModeEnum.project_ai_mode),
-  title: z.union([z.string(), z.null()]).default(null),
-  chatId: z.union([IDSchema, z.null()]).default(null),
-  zIndex: z.int().default(0),
-  normalizedBounds: NormalizedFloatingWindowBoundsSchema.default(
-    createNormalizedFloatingWindowBounds,
-  ),
-});
-
-type WindowSpaceWindow = z.infer<typeof WindowSpaceWindowSchema>;
-
-export function createWindowSpaceWindow(
-  options: Partial<WindowSpaceWindow> = {},
-): WindowSpaceWindow {
-  return WindowSpaceWindowSchema.parse(options);
-}
-
-const WindowSpaceConfigSchema = z.object({
-  windowsById: z.record(IDSchema, WindowSpaceWindowSchema).default({}),
-  order: z.array(IDSchema).default(() => []),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  sortIndex: z.int().default(0),
-});
-
-export type WindowSpaceConfig = z.infer<typeof WindowSpaceConfigSchema>;
-
-export function createWindowSpaceConfig(
-  options: Partial<WindowSpaceConfig> = {},
-): WindowSpaceConfig {
-  return WindowSpaceConfigSchema.parse(options);
-}
-
 const SectionTypeCodegenPolicySchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
@@ -4998,7 +4901,6 @@ const ProjectConfigSchema = z.object({
   viewport: z.union([ViewportSchema, z.null()]).default(createViewport),
   viewportInitialized: z.boolean().default(false),
   viewModes: z.record(IDSchema, ViewModeConfigSchema).default({}),
-  windowSpaces: z.record(IDSchema, WindowSpaceConfigSchema).default({}),
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
   codegenTargets: z
@@ -5068,83 +4970,6 @@ const ShownParamIdsSchema = z.object({
 
 export type ShownParamIds = z.infer<typeof ShownParamIdsSchema>;
 
-const ChatWindowBoundsSchema = z.object({
-  x: z.number().default(120.0),
-  y: z.number().default(120.0),
-  width: z.number().default(820.0),
-  height: z.number().default(520.0),
-});
-
-export type ChatWindowBounds = z.infer<typeof ChatWindowBoundsSchema>;
-
-function createChatWindowBounds(
-  options: Partial<ChatWindowBounds> = {},
-): ChatWindowBounds {
-  return ChatWindowBoundsSchema.parse(options);
-}
-
-const ChatWindowDockMetricsSchema = z.object({
-  widthFraction: z.union([z.number(), z.null()]).default(null),
-  preferredWidthPx: z.union([z.number(), z.null()]).default(null),
-});
-
-type ChatWindowDockMetrics = z.infer<typeof ChatWindowDockMetricsSchema>;
-
-function createChatWindowDockMetrics(
-  options: Partial<ChatWindowDockMetrics> = {},
-): ChatWindowDockMetrics {
-  return ChatWindowDockMetricsSchema.parse(options);
-}
-
-const ProjectChatWindowInstanceSchema = z.object({
-  instanceId: IDSchema,
-  placement: z
-    .enum(ChatWindowPlacementEnum)
-    .default(ChatWindowPlacementEnum.bottom_docked),
-  isMinimized: z.boolean().default(false),
-  isClosed: z.boolean().default(false),
-  isMaximized: z.boolean().default(false),
-  bounds: ChatWindowBoundsSchema.default(createChatWindowBounds),
-  dockMetrics: ChatWindowDockMetricsSchema.default(createChatWindowDockMetrics),
-  zIndex: z.int().default(0),
-  lastPlacementBeforeMaximize: z
-    .union([z.enum(ChatWindowPlacementEnum), z.null()])
-    .default(null),
-  mode: z.enum(ChatWindowModeEnum).default(ChatWindowModeEnum.project_ai_mode),
-  sectionIdOrNull: z.union([IDSchema, z.null()]).default(null),
-  title: z.union([z.string(), z.null()]).default(null),
-  lastFocusedAt: z.int().default(0),
-  chatId: z.union([IDSchema, z.null()]).default(null),
-});
-
-export type ProjectChatWindowInstance = z.infer<
-  typeof ProjectChatWindowInstanceSchema
->;
-
-export function createProjectChatWindowInstance(
-  options: Partial<ProjectChatWindowInstance> = {},
-): ProjectChatWindowInstance {
-  return ProjectChatWindowInstanceSchema.parse(options);
-}
-
-const ProjectChatWindowingStateSchema = z.object({
-  instancesById: z
-    .record(IDSchema, ProjectChatWindowInstanceSchema)
-    .default({}),
-  order: z.array(IDSchema).default(() => []),
-  nextInstanceNumber: z.int().default(1),
-});
-
-export type ProjectChatWindowingState = z.infer<
-  typeof ProjectChatWindowingStateSchema
->;
-
-export function createProjectChatWindowingState(
-  options: Partial<ProjectChatWindowingState> = {},
-): ProjectChatWindowingState {
-  return ProjectChatWindowingStateSchema.parse(options);
-}
-
 const ProjectStateSingleConfigSchema = z.object({
   sections: z.record(IDSchema, CoreSchema).default({}),
   sectionImpls: z
@@ -5209,24 +5034,11 @@ const ProjectStateSingleConfigSchema = z.object({
   shownParamIds: z.record(IDSchema, ShownParamIdsSchema).default({}),
   requiredDecodedImages: z.array(z.string()).default(() => []),
   genCodeBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
-  projectChatWindowing: ProjectChatWindowingStateSchema.default(
-    createProjectChatWindowingState,
-  ),
 });
 
 export type ProjectStateSingleConfig = z.infer<
   typeof ProjectStateSingleConfigSchema
 >;
-
-export type ProjectStateSingleConfigInput = z.input<
-  typeof ProjectStateSingleConfigSchema
->;
-
-export function createProjectStateSingleConfig(
-  options: Partial<ProjectStateSingleConfig> = {},
-): ProjectStateSingleConfig {
-  return ProjectStateSingleConfigSchema.parse(options);
-}
 
 const ProjectStateSingleConfigWithCompletedOpIdsSchema = z.object({
   projectState: ProjectStateSingleConfigSchema,
@@ -5424,38 +5236,6 @@ function createSettingsBackend(
   options: Partial<SettingsBackend> = {},
 ): SettingsBackend {
   return SettingsBackendSchema.parse(options);
-}
-
-const ChatWindowingShortcutsSchema = z.object({
-  canvasToggle: z.string().default("Shift + Esc" as const),
-  maximizeFocused: z.string().default("Mod + Shift + Enter" as const),
-  minimizeFocused: z.string().default("Mod + Shift + M" as const),
-  snapLeft: z.string().default("Mod + Alt + ArrowLeft" as const),
-  snapRight: z.string().default("Mod + Alt + ArrowRight" as const),
-  snapTop: z.string().default("Mod + Alt + ArrowUp" as const),
-  snapBottom: z.string().default("Mod + Alt + ArrowDown" as const),
-});
-
-type ChatWindowingShortcuts = z.infer<typeof ChatWindowingShortcutsSchema>;
-
-function createChatWindowingShortcuts(
-  options: Partial<ChatWindowingShortcuts> = {},
-): ChatWindowingShortcuts {
-  return ChatWindowingShortcutsSchema.parse(options);
-}
-
-const ChatWindowingSettingsSchema = z.object({
-  autoCreateInitialChat: z.boolean().default(true),
-  restorePriorStateOnUnmaximize: z.boolean().default(true),
-  shortcuts: ChatWindowingShortcutsSchema.default(createChatWindowingShortcuts),
-});
-
-type ChatWindowingSettings = z.infer<typeof ChatWindowingSettingsSchema>;
-
-function createChatWindowingSettings(
-  options: Partial<ChatWindowingSettings> = {},
-): ChatWindowingSettings {
-  return ChatWindowingSettingsSchema.parse(options);
 }
 
 const SectionSizingPolicyCallableTypeEntrySchema = z.object({
@@ -6166,7 +5946,7 @@ type UserDefaultGroupSectionImpl = z.infer<
   typeof UserDefaultGroupSectionImplSchema
 >;
 
-export function createUserDefaultGroupSectionImpl(
+function createUserDefaultGroupSectionImpl(
   options: Partial<UserDefaultGroupSectionImpl> = {},
 ): UserDefaultGroupSectionImpl {
   return UserDefaultGroupSectionImplSchema.parse(options);
@@ -6750,9 +6530,6 @@ const SettingsStateSchema = z.object({
   shortcuts: SettingsShortcutsSchema.default(createSettingsShortcuts),
   gui: SettingsGUISchema.default(createSettingsGUI),
   backend: SettingsBackendSchema.default(createSettingsBackend),
-  chatWindowing: ChatWindowingSettingsSchema.default(
-    createChatWindowingSettings,
-  ),
   sectionSizingPolicy: SectionSizingPolicySchema.default(
     createSectionSizingPolicy,
   ),
@@ -8430,19 +8207,6 @@ const MCPServerRuntimeStatusResponseSchema = z.object({
 export type MCPServerRuntimeStatusResponse = z.infer<
   typeof MCPServerRuntimeStatusResponseSchema
 >;
-
-const WindowSpaceStateSchema = z.object({
-  windowsById: z.record(IDSchema, WindowSpaceWindowSchema).default({}),
-  order: z.array(IDSchema).default(() => []),
-});
-
-export type WindowSpaceState = z.infer<typeof WindowSpaceStateSchema>;
-
-export function createWindowSpaceState(
-  options: Partial<WindowSpaceState> = {},
-): WindowSpaceState {
-  return WindowSpaceStateSchema.parse(options);
-}
 
 const ServerModeResponseSchema = z.object({
   mode: z.literal(["ide", "share", "app", "launcher"]),
@@ -10176,7 +9940,6 @@ const CreateTopLevelSectionRequestSchema = z.object({
     ])
     .default(null),
   position: z.union([PositionSchema, z.null()]).default(null),
-  name: z.union([z.string(), z.null()]).default(null),
   topLevelSections: z
     .union([z.record(IDSchema, TopLevelSectionLayoutSchema), z.null()])
     .default(null),
@@ -10204,17 +9967,6 @@ const CreateViewModeRequestSchema = z.object({
 
 export type CreateViewModeRequestInput = z.input<
   typeof CreateViewModeRequestSchema
->;
-
-const CreateWindowSpaceRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  state: WindowSpaceStateSchema,
-  name: z.union([z.string(), z.null()]).default(null),
-});
-
-export type CreateWindowSpaceRequestInput = z.input<
-  typeof CreateWindowSpaceRequestSchema
 >;
 
 const DeclineRenameRefactorRequestSchema = z.object({
@@ -10315,16 +10067,6 @@ const DeleteViewModeRequestSchema = z.object({
 
 export type DeleteViewModeRequestInput = z.input<
   typeof DeleteViewModeRequestSchema
->;
-
-const DeleteWindowSpaceRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  windowSpaceId: IDSchema,
-});
-
-export type DeleteWindowSpaceRequestInput = z.input<
-  typeof DeleteWindowSpaceRequestSchema
 >;
 
 const ForceRefreshProjectRequestSchema = z.object({
@@ -11005,16 +10747,6 @@ export type SetParentDefaultChildSectionTypeRequestInput = z.input<
   typeof SetParentDefaultChildSectionTypeRequestSchema
 >;
 
-const SetProjectChatWindowingStateRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  state: ProjectChatWindowingStateSchema,
-});
-
-export type SetProjectChatWindowingStateRequestInput = z.input<
-  typeof SetProjectChatWindowingStateRequestSchema
->;
-
 const SetProjectConfigCodegenTargetsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -11413,27 +11145,6 @@ const SetWatchCodeInputsRequestSchema = z.object({
 
 export type SetWatchCodeInputsRequestInput = z.input<
   typeof SetWatchCodeInputsRequestSchema
->;
-
-const SetWindowSpaceNameRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  windowSpaceId: IDSchema,
-  name: z.string(),
-});
-
-export type SetWindowSpaceNameRequestInput = z.input<
-  typeof SetWindowSpaceNameRequestSchema
->;
-
-const SetWindowSpaceSortOrderRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  orderedWindowSpaceIds: z.array(IDSchema),
-});
-
-export type SetWindowSpaceSortOrderRequestInput = z.input<
-  typeof SetWindowSpaceSortOrderRequestSchema
 >;
 
 const TextFieldCompletionRequestSchema = z.object({

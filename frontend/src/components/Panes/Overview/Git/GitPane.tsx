@@ -12,11 +12,7 @@ import {
 import { useGitStore } from "state/git";
 import type { GitStatusEntry } from "utils/generatedTypes";
 
-export function GitPane({
-  showGraphButton = true,
-}: {
-  showGraphButton?: boolean;
-}) {
+export function GitPane() {
   const { response, isLoading, error } = useGitStore((x) => x.status);
 
   useEffect(() => {
@@ -82,16 +78,14 @@ export function GitPane({
           >
             Refresh
           </button>
-          {showGraphButton ? (
-            <button
-              type="button"
-              className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
-              onClick={() => void openGitGraphOverlay()}
-              disabled={!isGitRepo}
-            >
-              Graph
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="rounded-md px-2 py-1 text-xs font-semibold text-setta-600 hover:bg-setta-100 hover:text-setta-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800/60 dark:hover:text-setta-50"
+            onClick={() => void openGitGraphOverlay()}
+            disabled={!isGitRepo}
+          >
+            Graph
+          </button>
         </div>
       </div>
 

@@ -28,31 +28,26 @@ import {
   route_load_all_project_metadata,
   route_load_project_config,
 } from "utils/generatedEndpoints";
-import {
-  type ProjectStateSingleConfig,
-  type ProjectStateSingleConfigInput,
-} from "utils/generatedTypes";
+import { ProjectStateSingleConfig } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
-import { reconcileProjectChatWindowingEphemeralState } from "../projectChatWindowingEphemeral";
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
-    const loadedProjectState = validateLoadedProjectState(res.data);
-    const loaded = await loadProjectState(loadedProjectState);
+    const loaded = await loadProjectState(res.data);
     if (loaded) {
       const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: loadedProjectState.projectConfig.id,
+        projectConfigId: res.data.projectConfig.id,
       });
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
-      await requestAIFollowSnapshot(loadedProjectState.projectConfig.id);
-      await fetchListenerCoverageSnapshot(loadedProjectState.projectConfig.id);
+      await requestAIFollowSnapshot(res.data.projectConfig.id);
+      await fetchListenerCoverageSnapshot(res.data.projectConfig.id);
     }
     return loaded;
   } else {
@@ -60,26 +55,8 @@ export async function loadProjectConfig({ projectConfigName }) {
   }
 }
 
-function validateLoadedProjectState(
-  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
-): ProjectStateSingleConfig {
-  if (projectState.projectConfig.windowSpaces === undefined) {
-    throw new Error(
-      "Loaded project state is missing projectConfig.windowSpaces.",
-    );
-  }
-  if (projectState.projectChatWindowing === undefined) {
-    throw new Error("Loaded project state is missing projectChatWindowing.");
-  }
-  return projectState as ProjectStateSingleConfig;
-}
-
-export async function loadProjectState(
-  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
-) {
-  const normalizedProjectState = validateLoadedProjectState(projectState);
-  const { viewport, viewportInitialized } =
-    normalizedProjectState.projectConfig;
+export async function loadProjectState(p: ProjectStateSingleConfig) {
+  const { viewport, viewportInitialized } = p.projectConfig;
   cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
@@ -92,15 +69,11 @@ export async function loadProjectState(
     });
   }
   const nextProjectState = {
-    ...sanitizeProjectStateActiveIds(normalizedProjectState),
+    ...sanitizeProjectStateActiveIds(p),
     previewSectionVariantMap: {},
   };
-  reconcileProjectChatWindowingEphemeralState(
-    nextProjectState.projectChatWindowing,
-    nextProjectState.projectConfig.id,
-  );
   const nextActiveSectionUIState = getHydratedActiveSectionUIState(
-    normalizedProjectState.projectConfig.activeIds,
+    p.projectConfig.activeIds,
   );
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     nextProjectState,
@@ -122,7 +95,7 @@ export async function loadProjectState(
       });
     },
   );
-  applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
+  applyPendingNameValidationErrors(p.projectConfig.id);
   return true;
 }
 
