@@ -172,6 +172,28 @@ Current landed wedge:
       - shared code binding enums/types
         - `CodeFileAccessMode`
         - `CodeFileBinding`
+      - current project-codegen target enums/types/helpers used by current
+        callers
+        - `ProjectCodegenLanguage`
+        - `SectionCodegenMode`
+        - `SectionRepresentationMode`
+        - `CodeObjValueRepresentationMode`
+        - `SectionTypeCodegenPolicy`
+        - `SectionCodegenOverride`
+        - `SectionCodegenPolicy`
+        - `CodeObjTypeValuePolicy`
+        - `CodeObjValueOverride`
+        - `CodeObjValuePolicy`
+        - `ProjectCodegenPythonTarget`
+        - `ProjectCodegenPluginTarget`
+        - `ProjectCodegenTarget`
+        - `createSectionCodegenPolicy`
+        - `createCodeObjValuePolicy`
+        - `createProjectCodegenPythonTarget`
+        - `createProjectCodegenPluginTarget`
+        - `ProjectConfig.codegenTargets` now uses the canonical
+          `Array<ProjectCodegenTarget>` surface instead of
+          `Array<Record<string, unknown>>`
       - section/default factories for `Callable`, `Dict`, `ListRoot`,
         `TextBlock`, `Code`, `Terminal`, `Chat`, `Browser`, `TaskBoard`, and
         `Spreadsheet`

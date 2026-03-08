@@ -97,7 +97,7 @@ Primary sources used for this checklist:
 | Complete | Callable and section presentation toggles used by the current frontend | Go owns `setCallable`, `setCallableHideParams`, `setSectionHideUnpinnedParams`, and `setSectionPinnedParams`. |
 | Complete | Browser section metadata mutations used by the current frontend | Go owns `setBrowserColumnWidths`, `setBrowserAreaViewMode`, `setBrowserHideColumn`, and `setBrowserSavedSearches`, and the current `BrowserArea`, `BrowserAreaSettings`, `HideColumn`, and `useBrowserColumnWidth` callers now reach those Go routes through canonical generated frontend bindings. |
 | Complete | Chat-section persistence and stale-chat cleanup | Go owns `setChatSectionSettings`, `setChatSectionState`, `getChatSectionChatId`, and `setChatSectionChatId` over `internal/chatsections`. |
-| Complete | Codegen target configuration | Go owns `setProjectConfigCodegenTargets`. |
+| Complete | Codegen target configuration | Go owns `setProjectConfigCodegenTargets`, and the current `RunInstructions`, `codegenTargets`, `codeUpdates`, `ParamNameInput`, `SectionHeader`, and `CodeArea` callers now load against canonical generated Go codegen-target enums/types/helpers instead of the legacy Python-generated binding surface. |
 | Complete | Watch-code runtime and transport | `internal/watchcode` owns the current watch-code runtime plus `setWatchCodeEnabled` and `setWatchCodeInputs`. |
 | Complete | LSP diagnostics and completion surface | Go owns text-field, output-accessor, code-area, prefix/suffix completion, diagnostics reads, and diagnostics mute/suppression routes. |
 | Complete | Plugin-defined code-language routing for LSP | Go owns language-aware routing for plugin-defined `Code` sections in the current caller-backed scope. |
