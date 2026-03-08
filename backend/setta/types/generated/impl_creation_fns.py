@@ -52,6 +52,9 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     SliderParamCodeObjImplArgs,
     SocialSectionImplArgs,
     SpreadsheetSectionImplArgs,
+    StateMachineEndSectionImplArgs,
+    StateMachineGateSectionImplArgs,
+    StateMachineStartSectionImplArgs,
     SwitchParamCodeObjImplArgs,
     TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
@@ -93,6 +96,9 @@ from setta.types.generated.user_defaults import (
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
     UserDefaultSpreadsheetSectionImpl,
+    UserDefaultStateMachineEndSectionImpl,
+    UserDefaultStateMachineGateSectionImpl,
+    UserDefaultStateMachineStartSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
     UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
@@ -124,6 +130,9 @@ from setta.types.section_impls import (
     SectionType,
     SocialSectionImpl,
     SpreadsheetSectionImpl,
+    StateMachineEndSectionImpl,
+    StateMachineGateSectionImpl,
+    StateMachineStartSectionImpl,
     TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
@@ -160,6 +169,30 @@ def create_section_impl(
     defaults: UserDefaultGroupSectionImpl,
     overrides: GroupSectionImplArgs | None = None,
 ) -> GroupSectionImpl: ...
+
+
+@overload
+def create_section_impl(
+    type: Literal[SectionType.StateMachineStart],
+    defaults: UserDefaultStateMachineStartSectionImpl,
+    overrides: StateMachineStartSectionImplArgs | None = None,
+) -> StateMachineStartSectionImpl: ...
+
+
+@overload
+def create_section_impl(
+    type: Literal[SectionType.StateMachineGate],
+    defaults: UserDefaultStateMachineGateSectionImpl,
+    overrides: StateMachineGateSectionImplArgs | None = None,
+) -> StateMachineGateSectionImpl: ...
+
+
+@overload
+def create_section_impl(
+    type: Literal[SectionType.StateMachineEnd],
+    defaults: UserDefaultStateMachineEndSectionImpl,
+    overrides: StateMachineEndSectionImplArgs | None = None,
+) -> StateMachineEndSectionImpl: ...
 
 
 @overload
@@ -447,6 +480,23 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
             if overrides is None:
                 overrides = {}
             return GroupSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.StateMachineStart:
+            if overrides is None:
+                overrides = {}
+            return StateMachineStartSectionImpl(
+                **{**defaults.model_dump(), **overrides}
+            )
+
+        case SectionType.StateMachineGate:
+            if overrides is None:
+                overrides = {}
+            return StateMachineGateSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.StateMachineEnd:
+            if overrides is None:
+                overrides = {}
+            return StateMachineEndSectionImpl(**{**defaults.model_dump(), **overrides})
 
         case SectionType.Image:
             if overrides is None:

@@ -88,8 +88,14 @@
   display: none;
 }
 
-.react-flow[data-show-agentic-edges="false"] .react-flow__handle.agentic-handle,
-.react-flow[data-show-agentic-edges="false"] .agentic-handle-safe-zone {
+.react-flow[data-show-agentic-edges="false"]
+  .react-flow__handle.agentic-handle:not(.workflow-handle):not(
+    .chat-shared-handle
+  ),
+.react-flow[data-show-agentic-edges="false"]
+  .agentic-handle-safe-zone:not(.workflow-handle-safe-zone):not(
+    .chat-shared-handle-safe-zone
+  ) {
   display: none !important;
 }
 
@@ -180,6 +186,38 @@ html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
   --agentic-handle-accent: var(--setta-section-style-agentic-handle);
 }
 
+.workflow-handle-metrics {
+  --agentic-handle-accent: #d97706;
+}
+
+html.dark .workflow-handle-metrics {
+  --agentic-handle-accent: #f59e0b;
+}
+
+.chat-shared-handle-metrics {
+  --agentic-handle-accent: #0f766e;
+}
+
+html.dark .chat-shared-handle-metrics {
+  --agentic-handle-accent: #14b8a6;
+}
+
+.agentic-handle-scope--themed .chat-shared-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+html.dark .agentic-handle-scope--themed .chat-shared-handle-metrics {
+  --agentic-handle-accent: var(--setta-section-style-agentic-handle);
+}
+
+.workflow-handle-scope {
+  --agentic-handle-top: 50%;
+}
+
+.workflow-handle-scope--chat {
+  --agentic-handle-top: 32%;
+}
+
 .react-flow__handle.arg-edge-handle:hover {
   /* blue-500 */
   background-color: #3b82f6;
@@ -225,8 +263,21 @@ html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
     visibility 0s linear var(--agentic-handle-fade-out-duration);
 }
 
-.react-flow__node:hover .react-flow__handle.agentic-handle,
+.react-flow[data-connecting="true"] .react-flow__handle.agentic-handle,
+.react-flow:has(.react-flow__connectionline) .react-flow__handle.agentic-handle,
+.react-flow__handle.agentic-handle.agentic-handle--always-visible,
+.react-flow__handle.agentic-handle.agentic-handle--selecting,
 .react-flow__handle.agentic-handle.agentic-handle--connected {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  transition: none;
+  animation: none;
+}
+
+.react-flow__node:hover .react-flow__handle.agentic-handle,
+.agentic-handle-safe-zone:hover + .react-flow__handle.agentic-handle,
+.react-flow__handle.agentic-handle:hover {
   opacity: 1;
   visibility: visible;
   pointer-events: all;
@@ -237,6 +288,17 @@ html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
 }
 
 .react-flow__node:hover .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow[data-connecting="true"]
+  .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow:has(.react-flow__connectionline)
+  .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow__handle.agentic-handle.agentic-handle--always-visible:not(
+    .connectable
+  ),
+.agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle:not(.connectable),
+.react-flow__handle.agentic-handle.agentic-handle--selecting:not(.connectable),
+.react-flow__handle.agentic-handle:hover:not(.connectable),
 .react-flow__handle.agentic-handle.agentic-handle--connected:not(.connectable) {
   opacity: 0.45;
   pointer-events: none;
@@ -254,6 +316,32 @@ html.dark .agentic-handle-scope--themed .agentic-handle-metrics {
 
   background: var(--agentic-handle-accent);
   border-width: 0;
+}
+
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+  z-index: 161;
+  background: transparent;
+  border-width: 0;
+}
+
+.react-flow__node:hover
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.agentic-handle-safe-zone:hover
+  + .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start:hover,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--always-visible,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--connected,
+.react-flow__handle.agentic-handle.agentic-handle--reverse-start.agentic-handle--selecting {
+  opacity: 0;
+}
+
+.react-flow[data-connecting="true"]
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start,
+.react-flow:has(.react-flow__connectionline)
+  .react-flow__handle.agentic-handle.agentic-handle--reverse-start {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .react-flow__handle.agentic-handle.react-flow__handle-left {
@@ -377,4 +465,44 @@ html.dark .react-flow__agentic-edge-path.agentic-edge--tool-result {
 html.dark .react-flow__agentic-edge-path.agentic-edge--missing {
   stroke: #f87171;
   filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.4));
+}
+
+.react-flow__state-machine-edge-path {
+  stroke: #b45309;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
+.react-flow__state-machine-edge-interaction {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.react-flow__state-machine-edge-path.workflow-edge--selected {
+  stroke-width: 2.8;
+  stroke: #ea580c;
+  filter: drop-shadow(0 0 4px rgba(234, 88, 12, 0.24));
+}
+
+.react-flow__state-machine-edge-path.workflow-edge--signal {
+  stroke-dasharray: 8 5;
+}
+
+.react-flow__state-machine-edge-path.workflow-edge--reset-thread {
+  stroke-dasharray: 3 4;
+}
+
+.react-flow__state-machine-edge-path.workflow-edge--send-prompt {
+  stroke-dasharray: none;
+}
+
+html.dark .react-flow__state-machine-edge-path {
+  stroke: #f59e0b;
+}
+
+html.dark .react-flow__state-machine-edge-path.workflow-edge--selected {
+  stroke: #fb923c;
+  filter: drop-shadow(0 0 5px rgba(251, 146, 60, 0.28));
 }

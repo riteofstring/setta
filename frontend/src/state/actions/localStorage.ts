@@ -4,6 +4,7 @@ import {
   useLocalStorage,
 } from "state/definitions";
 import { dedupeStringIds } from "utils/dedupeStringIds";
+import type { ChatSharedEdgeMode } from "./chatSharedHandleIds";
 
 export function setColorModePreference(colorMode: ColorModePreference) {
   useLocalStorage.setState((state) => ({
@@ -29,6 +30,17 @@ export function toggleSnapToGrid() {
 export function toggleAgenticEdges() {
   useLocalStorage.setState((state) => ({
     showAgenticEdges: !state.showAgenticEdges,
+  }));
+}
+
+export function setChatSharedEdgeMode(mode: ChatSharedEdgeMode) {
+  useLocalStorage.setState({ chatSharedEdgeMode: mode });
+}
+
+export function toggleChatSharedEdgeMode() {
+  useLocalStorage.setState((state) => ({
+    chatSharedEdgeMode:
+      state.chatSharedEdgeMode === "agentic" ? "workflow" : "agentic",
   }));
 }
 
