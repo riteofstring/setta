@@ -17,9 +17,15 @@ export type {{ .Name }} = {
   {{ .Name }}{{ if .Optional }}?{{ end }}: {{ .TypeExpr }};
 {{- end }}
 };
+{{- if .CreateExpr }}
+export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
+  return {{ .CreateExpr }};
+}
+{{- else }}
 export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
   return options as {{ .Name }};
 }
+{{- end }}
 {{ else if eq .Kind "enum" }}
 export const {{ .Name }}Enum = {
 {{- range .EnumValues }}
@@ -29,6 +35,11 @@ export const {{ .Name }}Enum = {
 export type {{ .Name }} = ObjectValues<typeof {{ .Name }}Enum>;
 {{ else if eq .Kind "alias" }}
 export type {{ .Name }} = {{ .Alias }};
+{{- if .CreateExpr }}
+export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name }} {
+  return {{ .CreateExpr }};
+}
+{{- end }}
 {{ else if eq .Kind "raw" }}
 {{ .Raw }}
 {{ end }}

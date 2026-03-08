@@ -53,31 +53,80 @@ const (
 	DrawAreaModeEdit  DrawAreaMode = "edit"
 )
 
-type CanvasPoint struct{}
+type CanvasPoint [2]float64
 
-type DrawAreaTransform struct{}
+type DrawAreaTransform [6]float64
 
-type BrushStroke struct{}
+type BrushStrokePoint struct{}
 
-type BrushStrokeWithTransform struct{}
+type BrushStroke struct {
+	StrokeStyle              string             `json:"strokeStyle"`
+	LineWidth                float64            `json:"lineWidth"`
+	LineCap                  DrawAreaBrushShape `json:"lineCap"`
+	Points                   []BrushStrokePoint `json:"points"`
+	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
+}
 
-type DrawAreaLayerItemTransform struct{}
+type BrushStrokeWithTransform struct {
+	StrokeStyle              string             `json:"strokeStyle"`
+	LineWidth                float64            `json:"lineWidth"`
+	LineCap                  DrawAreaBrushShape `json:"lineCap"`
+	Points                   []BrushStrokePoint `json:"points"`
+	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
+	Transform                DrawAreaTransform  `json:"transform"`
+}
 
-type DrawAreaLayerItem struct{}
+type DrawAreaLayerItemTransform struct {
+	Transform     DrawAreaTransform          `json:"transform"`
+	EraserStrokes []BrushStrokeWithTransform `json:"eraserStrokes"`
+}
 
-type DrawAreaLayer struct{}
+type DrawAreaLayerItem struct {
+	Type        ArtifactType `json:"type"`
+	DataPath    string       `json:"dataPath"`
+	TransformID string       `json:"transformId"`
+}
 
-type ImageArtifact struct{}
+type DrawAreaLayer struct {
+	Name         string              `json:"name"`
+	Elements     []DrawAreaLayerItem `json:"elements"`
+	Visible      bool                `json:"visible"`
+	LayerOpacity float64             `json:"layerOpacity"`
+}
 
-type BrushStrokeArtifact struct{}
+type ImageArtifact struct {
+	Type  ArtifactType     `json:"type"`
+	ID    string           `json:"id"`
+	Value BinaryContentRef `json:"value"`
+}
 
-type DrawAreaLayerItemTransformArtifact struct{}
+type BrushStrokeArtifact struct {
+	Type  ArtifactType `json:"type"`
+	ID    string       `json:"id"`
+	Value BrushStroke  `json:"value"`
+}
 
-type ChartDataValue struct{}
+type DrawAreaLayerItemTransformArtifact struct {
+	Type  ArtifactType               `json:"type"`
+	ID    string                     `json:"id"`
+	Value DrawAreaLayerItemTransform `json:"value"`
+}
 
-type ChartDataArtifact struct{}
+type ChartDataScalar struct{}
 
-type FileArtifact struct{}
+type ChartDataValue map[string][]ChartDataScalar
+
+type ChartDataArtifact struct {
+	Type  ArtifactType   `json:"type"`
+	ID    string         `json:"id"`
+	Value ChartDataValue `json:"value"`
+}
+
+type FileArtifact struct {
+	Type  ArtifactType     `json:"type"`
+	ID    string           `json:"id"`
+	Value BinaryContentRef `json:"value"`
+}
 
 type ArtifactUnion struct{}
 
@@ -143,222 +192,7 @@ type LoadCachedBrushStrokesResponse []*BrushStrokeArtifact
 
 type LoadCachedDrawAreaLayerItemTransformResponse []*DrawAreaLayerItemTransformArtifact
 
-type UpdateArtifactMsgContent struct{}
-
-const canvasPointRawTS = `
-export type CanvasPoint = [number, number];
-`
-
-const drawAreaTransformRawTS = `
-export type DrawAreaTransform = [number, number, number, number, number, number];
-`
-
-const brushStrokeRawTS = `
-export type BrushStroke = {
-  strokeStyle: string;
-  lineWidth: number;
-  lineCap: DrawAreaBrushShape;
-  points: Array<CanvasPoint | "BREAK">;
-  globalCompositeOperation: string;
-};
-export function createBrushStroke(
-  options: Partial<BrushStroke> = {},
-): BrushStroke {
-  return mergeGeneratedOptions(
-    {
-      strokeStyle: "",
-      lineWidth: 1,
-      lineCap: DrawAreaBrushShapeEnum.round,
-      points: [],
-      globalCompositeOperation: "source-over",
-    },
-    options,
-  );
+type UpdateArtifactMsgContent struct {
+	Artifacts  []ArtifactUnion `json:"artifacts"`
+	UpdateType string          `json:"updateType"`
 }
-`
-
-const brushStrokeWithTransformRawTS = `
-export type BrushStrokeWithTransform = BrushStroke & {
-  transform: DrawAreaTransform;
-};
-`
-
-const drawAreaLayerItemTransformRawTS = `
-export type DrawAreaLayerItemTransform = {
-  transform: DrawAreaTransform;
-  eraserStrokes: Array<BrushStrokeWithTransform>;
-};
-export function createDrawAreaLayerItemTransform(
-  options: Partial<DrawAreaLayerItemTransform> = {},
-): DrawAreaLayerItemTransform {
-  return mergeGeneratedOptions(
-    {
-      transform: [1, 0, 0, 1, 0, 0],
-      eraserStrokes: [],
-    },
-    options,
-  );
-}
-`
-
-const drawAreaLayerItemRawTS = `
-export type DrawAreaLayerItem = {
-  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
-  dataPath: string;
-  transformId: string;
-};
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
-  return mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.BrushStroke,
-      dataPath: "",
-      transformId: "",
-    },
-    options,
-  );
-}
-`
-
-const drawAreaLayerRawTS = `
-export type DrawAreaLayer = {
-  name: string;
-  elements: Array<DrawAreaLayerItem>;
-  visible: boolean;
-  layerOpacity: number;
-};
-export function createDrawAreaLayer(
-  options: Partial<DrawAreaLayer> = {},
-): DrawAreaLayer {
-  return mergeGeneratedOptions(
-    {
-      name: createRandomName(),
-      elements: [],
-      visible: true,
-      layerOpacity: 1,
-    },
-    options,
-  );
-}
-`
-
-const imageArtifactRawTS = `
-export type ImageArtifact = {
-  type: typeof ArtifactTypeEnum.Image;
-  id: string;
-  value: BinaryContentRef;
-};
-export function createImageArtifact(
-  options: Partial<ImageArtifact> = {},
-): ImageArtifact {
-  return mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.Image,
-      id: createPngArtifactId(),
-      value: createBinaryContentRef(),
-    },
-    options,
-  );
-}
-`
-
-const brushStrokeArtifactRawTS = `
-export type BrushStrokeArtifact = {
-  type: typeof ArtifactTypeEnum.BrushStroke;
-  id: string;
-  value: BrushStroke;
-};
-export function createBrushStrokeArtifact(
-  options: Partial<BrushStrokeArtifact> = {},
-): BrushStrokeArtifact {
-  return mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.BrushStroke,
-      id: createJsonArtifactId(),
-      value: createBrushStroke(),
-    },
-    options,
-  );
-}
-`
-
-const drawAreaLayerItemTransformArtifactRawTS = `
-export type DrawAreaLayerItemTransformArtifact = {
-  type: typeof ArtifactTypeEnum.DrawAreaLayerItemTransform;
-  id: string;
-  value: DrawAreaLayerItemTransform;
-};
-export function createDrawAreaLayerItemTransformArtifact(
-  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
-): DrawAreaLayerItemTransformArtifact {
-  return mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
-      id: createJsonArtifactId(),
-      value: createDrawAreaLayerItemTransform(),
-    },
-    options,
-  );
-}
-`
-
-const chartDataValueRawTS = `
-export type ChartDataValue = Record<string, Array<string | number>>;
-`
-
-const chartDataArtifactRawTS = `
-export type ChartDataArtifact = {
-  type: typeof ArtifactTypeEnum.ChartData;
-  id: string;
-  value: ChartDataValue;
-};
-export function createChartDataArtifact(
-  options: Partial<ChartDataArtifact> = {},
-): ChartDataArtifact {
-  return mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.ChartData,
-      id: createCsvArtifactId(),
-      value: {},
-    },
-    options,
-  );
-}
-`
-
-const fileArtifactRawTS = `
-export type FileArtifact = {
-  type: typeof ArtifactTypeEnum.File;
-  id: string;
-  value: BinaryContentRef;
-};
-export function createFileArtifact(
-  options: Partial<FileArtifact> = {},
-): FileArtifact {
-  return mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.File,
-      id: createFileArtifactId(),
-      value: createBinaryContentRef(),
-    },
-    options,
-  );
-}
-`
-
-const artifactUnionRawTS = `
-export type ArtifactUnion =
-  | ImageArtifact
-  | BrushStrokeArtifact
-  | DrawAreaLayerItemTransformArtifact
-  | ChartDataArtifact
-  | FileArtifact;
-`
-
-const updateArtifactMsgContentRawTS = `
-export type UpdateArtifactMsgContent = {
-  artifacts: Array<ArtifactUnion>;
-  updateType: "update" | "delete";
-};
-`

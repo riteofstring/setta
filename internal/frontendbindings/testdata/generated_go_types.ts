@@ -773,15 +773,10 @@ export const DrawAreaModeEnum = {
 export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
 
 
-
 export type CanvasPoint = [number, number];
 
 
-
-
 export type DrawAreaTransform = [number, number, number, number, number, number];
-
-
 
 
 export type BrushStroke = {
@@ -791,9 +786,7 @@ export type BrushStroke = {
   points: Array<CanvasPoint | "BREAK">;
   globalCompositeOperation: string;
 };
-export function createBrushStroke(
-  options: Partial<BrushStroke> = {},
-): BrushStroke {
+export function createBrushStroke(options: Partial<BrushStroke> = {}): BrushStroke {
   return mergeGeneratedOptions(
     {
       strokeStyle: "",
@@ -807,22 +800,24 @@ export function createBrushStroke(
 }
 
 
-
-
-export type BrushStrokeWithTransform = BrushStroke & {
+export type BrushStrokeWithTransform = {
+  strokeStyle: string;
+  lineWidth: number;
+  lineCap: DrawAreaBrushShape;
+  points: Array<CanvasPoint | "BREAK">;
+  globalCompositeOperation: string;
   transform: DrawAreaTransform;
 };
-
-
+export function createBrushStrokeWithTransform(options: Partial<BrushStrokeWithTransform> = {}): BrushStrokeWithTransform {
+  return options as BrushStrokeWithTransform;
+}
 
 
 export type DrawAreaLayerItemTransform = {
   transform: DrawAreaTransform;
   eraserStrokes: Array<BrushStrokeWithTransform>;
 };
-export function createDrawAreaLayerItemTransform(
-  options: Partial<DrawAreaLayerItemTransform> = {},
-): DrawAreaLayerItemTransform {
+export function createDrawAreaLayerItemTransform(options: Partial<DrawAreaLayerItemTransform> = {}): DrawAreaLayerItemTransform {
   return mergeGeneratedOptions(
     {
       transform: [1, 0, 0, 1, 0, 0],
@@ -833,16 +828,12 @@ export function createDrawAreaLayerItemTransform(
 }
 
 
-
-
 export type DrawAreaLayerItem = {
   type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
   dataPath: string;
   transformId: string;
 };
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
+export function createDrawAreaLayerItem(options: Partial<DrawAreaLayerItem> = {}): DrawAreaLayerItem {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.BrushStroke,
@@ -854,17 +845,13 @@ export function createDrawAreaLayerItem(
 }
 
 
-
-
 export type DrawAreaLayer = {
   name: string;
   elements: Array<DrawAreaLayerItem>;
   visible: boolean;
   layerOpacity: number;
 };
-export function createDrawAreaLayer(
-  options: Partial<DrawAreaLayer> = {},
-): DrawAreaLayer {
+export function createDrawAreaLayer(options: Partial<DrawAreaLayer> = {}): DrawAreaLayer {
   return mergeGeneratedOptions(
     {
       name: createRandomName(),
@@ -877,16 +864,12 @@ export function createDrawAreaLayer(
 }
 
 
-
-
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
   id: string;
   value: BinaryContentRef;
 };
-export function createImageArtifact(
-  options: Partial<ImageArtifact> = {},
-): ImageArtifact {
+export function createImageArtifact(options: Partial<ImageArtifact> = {}): ImageArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.Image,
@@ -898,16 +881,12 @@ export function createImageArtifact(
 }
 
 
-
-
 export type BrushStrokeArtifact = {
   type: typeof ArtifactTypeEnum.BrushStroke;
   id: string;
   value: BrushStroke;
 };
-export function createBrushStrokeArtifact(
-  options: Partial<BrushStrokeArtifact> = {},
-): BrushStrokeArtifact {
+export function createBrushStrokeArtifact(options: Partial<BrushStrokeArtifact> = {}): BrushStrokeArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.BrushStroke,
@@ -919,16 +898,12 @@ export function createBrushStrokeArtifact(
 }
 
 
-
-
 export type DrawAreaLayerItemTransformArtifact = {
   type: typeof ArtifactTypeEnum.DrawAreaLayerItemTransform;
   id: string;
   value: DrawAreaLayerItemTransform;
 };
-export function createDrawAreaLayerItemTransformArtifact(
-  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
-): DrawAreaLayerItemTransformArtifact {
+export function createDrawAreaLayerItemTransformArtifact(options: Partial<DrawAreaLayerItemTransformArtifact> = {}): DrawAreaLayerItemTransformArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
@@ -940,11 +915,7 @@ export function createDrawAreaLayerItemTransformArtifact(
 }
 
 
-
-
 export type ChartDataValue = Record<string, Array<string | number>>;
-
-
 
 
 export type ChartDataArtifact = {
@@ -952,9 +923,7 @@ export type ChartDataArtifact = {
   id: string;
   value: ChartDataValue;
 };
-export function createChartDataArtifact(
-  options: Partial<ChartDataArtifact> = {},
-): ChartDataArtifact {
+export function createChartDataArtifact(options: Partial<ChartDataArtifact> = {}): ChartDataArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.ChartData,
@@ -966,16 +935,12 @@ export function createChartDataArtifact(
 }
 
 
-
-
 export type FileArtifact = {
   type: typeof ArtifactTypeEnum.File;
   id: string;
   value: BinaryContentRef;
 };
-export function createFileArtifact(
-  options: Partial<FileArtifact> = {},
-): FileArtifact {
+export function createFileArtifact(options: Partial<FileArtifact> = {}): FileArtifact {
   return mergeGeneratedOptions(
     {
       type: ArtifactTypeEnum.File,
@@ -987,15 +952,7 @@ export function createFileArtifact(
 }
 
 
-
-
-export type ArtifactUnion =
-  | ImageArtifact
-  | BrushStrokeArtifact
-  | DrawAreaLayerItemTransformArtifact
-  | ChartDataArtifact
-  | FileArtifact;
-
+export type ArtifactUnion = ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact;
 
 
 export type ImageMapping = Record<string, ImageArtifact>;
@@ -1013,12 +970,13 @@ export type ChartDataMapping = Record<string, ChartDataArtifact>;
 export type FileMapping = Record<string, FileArtifact>;
 
 
-
 export type UpdateArtifactMsgContent = {
   artifacts: Array<ArtifactUnion>;
   updateType: "update" | "delete";
 };
-
+export function createUpdateArtifactMsgContent(options: Partial<UpdateArtifactMsgContent> = {}): UpdateArtifactMsgContent {
+  return options as UpdateArtifactMsgContent;
+}
 
 
 export type CodeFileBindingUpdate = {

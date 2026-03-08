@@ -1033,6 +1033,175 @@ func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestArtifactSupportUsesConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name:  "CanvasPoint",
+			root:  reflect.TypeOf(CanvasPoint{}),
+			kind:  "alias",
+			alias: "[number, number]",
+		},
+		{
+			name:  "DrawAreaTransform",
+			root:  reflect.TypeOf(DrawAreaTransform{}),
+			kind:  "alias",
+			alias: "[number, number, number, number, number, number]",
+		},
+		{
+			name: "BrushStroke",
+			root: reflect.TypeOf(BrushStroke{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "strokeStyle", TypeExpr: "string", Optional: false},
+				{Name: "lineWidth", TypeExpr: "number", Optional: false},
+				{Name: "lineCap", TypeExpr: "DrawAreaBrushShape", Optional: false},
+				{Name: "points", TypeExpr: `Array<CanvasPoint | "BREAK">`, Optional: false},
+				{Name: "globalCompositeOperation", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "DrawAreaLayerItemTransform",
+			root: reflect.TypeOf(DrawAreaLayerItemTransform{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "transform", TypeExpr: "DrawAreaTransform", Optional: false},
+				{Name: "eraserStrokes", TypeExpr: "Array<BrushStrokeWithTransform>", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "DrawAreaLayerItem",
+			root: reflect.TypeOf(DrawAreaLayerItem{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke", Optional: false},
+				{Name: "dataPath", TypeExpr: "string", Optional: false},
+				{Name: "transformId", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "DrawAreaLayer",
+			root: reflect.TypeOf(DrawAreaLayer{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "elements", TypeExpr: "Array<DrawAreaLayerItem>", Optional: false},
+				{Name: "visible", TypeExpr: "boolean", Optional: false},
+				{Name: "layerOpacity", TypeExpr: "number", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ImageArtifact",
+			root: reflect.TypeOf(ImageArtifact{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.Image", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "BinaryContentRef", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "BrushStrokeArtifact",
+			root: reflect.TypeOf(BrushStrokeArtifact{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.BrushStroke", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "BrushStroke", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "DrawAreaLayerItemTransformArtifact",
+			root: reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.DrawAreaLayerItemTransform", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "DrawAreaLayerItemTransform", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "ChartDataValue",
+			root:  reflect.TypeOf(ChartDataValue{}),
+			kind:  "alias",
+			alias: "Record<string, Array<string | number>>",
+		},
+		{
+			name: "ChartDataArtifact",
+			root: reflect.TypeOf(ChartDataArtifact{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.ChartData", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "ChartDataValue", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "FileArtifact",
+			root: reflect.TypeOf(FileArtifact{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.File", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "BinaryContentRef", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "ArtifactUnion",
+			root:  reflect.TypeOf(ArtifactUnion{}),
+			kind:  "alias",
+			alias: "ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
+		},
+		{
+			name: "UpdateArtifactMsgContent",
+			root: reflect.TypeOf(UpdateArtifactMsgContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "artifacts", TypeExpr: "Array<ArtifactUnion>", Optional: false},
+				{Name: "updateType", TypeExpr: `"update" | "delete"`, Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+		})
+	}
+}
+
 func TestProjectStateValueObjectContractsUseConverterObjects(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(CodeFileBindingUpdate{})); err != nil {

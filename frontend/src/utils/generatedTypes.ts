@@ -834,9 +834,19 @@ export function createBrushStroke(
   );
 }
 
-export type BrushStrokeWithTransform = BrushStroke & {
+export type BrushStrokeWithTransform = {
+  strokeStyle: string;
+  lineWidth: number;
+  lineCap: DrawAreaBrushShape;
+  points: Array<CanvasPoint | "BREAK">;
+  globalCompositeOperation: string;
   transform: DrawAreaTransform;
 };
+export function createBrushStrokeWithTransform(
+  options: Partial<BrushStrokeWithTransform> = {},
+): BrushStrokeWithTransform {
+  return options as BrushStrokeWithTransform;
+}
 
 export type DrawAreaLayerItemTransform = {
   transform: DrawAreaTransform;
@@ -1008,6 +1018,11 @@ export type UpdateArtifactMsgContent = {
   artifacts: Array<ArtifactUnion>;
   updateType: "update" | "delete";
 };
+export function createUpdateArtifactMsgContent(
+  options: Partial<UpdateArtifactMsgContent> = {},
+): UpdateArtifactMsgContent {
+  return options as UpdateArtifactMsgContent;
+}
 
 export type CodeFileBindingUpdate = {
   canonical_path: string;

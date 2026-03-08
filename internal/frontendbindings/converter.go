@@ -16,6 +16,7 @@ type TypeDeclaration struct {
 	Properties []TypeProperty
 	EnumValues []EnumValue
 	Raw        string
+	CreateExpr string
 }
 
 type EnumValue struct {
@@ -35,6 +36,26 @@ func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration 
 		Kind:       "object",
 		Properties: properties,
 	}
+}
+
+func objectDeclarationWithCreateExpr(name string, createExpr string, properties ...TypeProperty) TypeDeclaration {
+	declaration := objectDeclaration(name, properties...)
+	declaration.CreateExpr = createExpr
+	return declaration
+}
+
+func aliasDeclaration(name string, alias string) TypeDeclaration {
+	return TypeDeclaration{
+		Name:  name,
+		Kind:  "alias",
+		Alias: alias,
+	}
+}
+
+func aliasDeclarationWithCreateExpr(name string, alias string, createExpr string) TypeDeclaration {
+	declaration := aliasDeclaration(name, alias)
+	declaration.CreateExpr = createExpr
+	return declaration
 }
 
 type typeConverter struct {
@@ -674,81 +695,166 @@ func newTypeConverter() *typeConverter {
 				Kind:  "alias",
 				Alias: "Uint8Array",
 			},
-			reflect.TypeOf(CanvasPoint{}): {
-				Name: "CanvasPoint",
-				Kind: "raw",
-				Raw:  canvasPointRawTS,
-			},
-			reflect.TypeOf(DrawAreaTransform{}): {
-				Name: "DrawAreaTransform",
-				Kind: "raw",
-				Raw:  drawAreaTransformRawTS,
-			},
-			reflect.TypeOf(BrushStroke{}): {
-				Name: "BrushStroke",
-				Kind: "raw",
-				Raw:  brushStrokeRawTS,
-			},
-			reflect.TypeOf(BrushStrokeWithTransform{}): {
-				Name: "BrushStrokeWithTransform",
-				Kind: "raw",
-				Raw:  brushStrokeWithTransformRawTS,
-			},
-			reflect.TypeOf(DrawAreaLayerItemTransform{}): {
-				Name: "DrawAreaLayerItemTransform",
-				Kind: "raw",
-				Raw:  drawAreaLayerItemTransformRawTS,
-			},
-			reflect.TypeOf(DrawAreaLayerItem{}): {
-				Name: "DrawAreaLayerItem",
-				Kind: "raw",
-				Raw:  drawAreaLayerItemRawTS,
-			},
-			reflect.TypeOf(DrawAreaLayer{}): {
-				Name: "DrawAreaLayer",
-				Kind: "raw",
-				Raw:  drawAreaLayerRawTS,
-			},
-			reflect.TypeOf(ImageArtifact{}): {
-				Name: "ImageArtifact",
-				Kind: "raw",
-				Raw:  imageArtifactRawTS,
-			},
-			reflect.TypeOf(BrushStrokeArtifact{}): {
-				Name: "BrushStrokeArtifact",
-				Kind: "raw",
-				Raw:  brushStrokeArtifactRawTS,
-			},
-			reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}): {
-				Name: "DrawAreaLayerItemTransformArtifact",
-				Kind: "raw",
-				Raw:  drawAreaLayerItemTransformArtifactRawTS,
-			},
-			reflect.TypeOf(ChartDataValue{}): {
-				Name: "ChartDataValue",
-				Kind: "raw",
-				Raw:  chartDataValueRawTS,
-			},
-			reflect.TypeOf(ChartDataArtifact{}): {
-				Name: "ChartDataArtifact",
-				Kind: "raw",
-				Raw:  chartDataArtifactRawTS,
-			},
-			reflect.TypeOf(FileArtifact{}): {
-				Name: "FileArtifact",
-				Kind: "raw",
-				Raw:  fileArtifactRawTS,
-			},
-			reflect.TypeOf(ArtifactUnion{}): {
-				Name: "ArtifactUnion",
-				Kind: "raw",
-				Raw:  artifactUnionRawTS,
-			},
-			reflect.TypeOf(UpdateArtifactMsgContent{}): {
-				Name: "UpdateArtifactMsgContent",
-				Kind: "raw",
-				Raw:  updateArtifactMsgContentRawTS,
-			},
+			reflect.TypeOf(CanvasPoint{}): aliasDeclaration(
+				"CanvasPoint",
+				"[number, number]",
+			),
+			reflect.TypeOf(DrawAreaTransform{}): aliasDeclaration(
+				"DrawAreaTransform",
+				"[number, number, number, number, number, number]",
+			),
+			reflect.TypeOf(BrushStroke{}): objectDeclarationWithCreateExpr(
+				"BrushStroke",
+				`mergeGeneratedOptions(
+    {
+      strokeStyle: "",
+      lineWidth: 1,
+      lineCap: DrawAreaBrushShapeEnum.round,
+      points: [],
+      globalCompositeOperation: "source-over",
+    },
+    options,
+  )`,
+				TypeProperty{Name: "strokeStyle", TypeExpr: "string"},
+				TypeProperty{Name: "lineWidth", TypeExpr: "number"},
+				TypeProperty{Name: "lineCap", TypeExpr: "DrawAreaBrushShape"},
+				TypeProperty{Name: "points", TypeExpr: `Array<CanvasPoint | "BREAK">`},
+				TypeProperty{Name: "globalCompositeOperation", TypeExpr: "string"},
+			),
+			reflect.TypeOf(BrushStrokeWithTransform{}): objectDeclaration(
+				"BrushStrokeWithTransform",
+				TypeProperty{Name: "strokeStyle", TypeExpr: "string"},
+				TypeProperty{Name: "lineWidth", TypeExpr: "number"},
+				TypeProperty{Name: "lineCap", TypeExpr: "DrawAreaBrushShape"},
+				TypeProperty{Name: "points", TypeExpr: `Array<CanvasPoint | "BREAK">`},
+				TypeProperty{Name: "globalCompositeOperation", TypeExpr: "string"},
+				TypeProperty{Name: "transform", TypeExpr: "DrawAreaTransform"},
+			),
+			reflect.TypeOf(DrawAreaLayerItemTransform{}): objectDeclarationWithCreateExpr(
+				"DrawAreaLayerItemTransform",
+				`mergeGeneratedOptions(
+    {
+      transform: [1, 0, 0, 1, 0, 0],
+      eraserStrokes: [],
+    },
+    options,
+  )`,
+				TypeProperty{Name: "transform", TypeExpr: "DrawAreaTransform"},
+				TypeProperty{Name: "eraserStrokes", TypeExpr: "Array<BrushStrokeWithTransform>"},
+			),
+			reflect.TypeOf(DrawAreaLayerItem{}): objectDeclarationWithCreateExpr(
+				"DrawAreaLayerItem",
+				`mergeGeneratedOptions(
+    {
+      type: ArtifactTypeEnum.BrushStroke,
+      dataPath: "",
+      transformId: "",
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke"},
+				TypeProperty{Name: "dataPath", TypeExpr: "string"},
+				TypeProperty{Name: "transformId", TypeExpr: "string"},
+			),
+			reflect.TypeOf(DrawAreaLayer{}): objectDeclarationWithCreateExpr(
+				"DrawAreaLayer",
+				`mergeGeneratedOptions(
+    {
+      name: createRandomName(),
+      elements: [],
+      visible: true,
+      layerOpacity: 1,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "name", TypeExpr: "string"},
+				TypeProperty{Name: "elements", TypeExpr: "Array<DrawAreaLayerItem>"},
+				TypeProperty{Name: "visible", TypeExpr: "boolean"},
+				TypeProperty{Name: "layerOpacity", TypeExpr: "number"},
+			),
+			reflect.TypeOf(ImageArtifact{}): objectDeclarationWithCreateExpr(
+				"ImageArtifact",
+				`mergeGeneratedOptions(
+    {
+      type: ArtifactTypeEnum.Image,
+      id: createPngArtifactId(),
+      value: createBinaryContentRef(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.Image"},
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "value", TypeExpr: "BinaryContentRef"},
+			),
+			reflect.TypeOf(BrushStrokeArtifact{}): objectDeclarationWithCreateExpr(
+				"BrushStrokeArtifact",
+				`mergeGeneratedOptions(
+    {
+      type: ArtifactTypeEnum.BrushStroke,
+      id: createJsonArtifactId(),
+      value: createBrushStroke(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.BrushStroke"},
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "value", TypeExpr: "BrushStroke"},
+			),
+			reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}): objectDeclarationWithCreateExpr(
+				"DrawAreaLayerItemTransformArtifact",
+				`mergeGeneratedOptions(
+    {
+      type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
+      id: createJsonArtifactId(),
+      value: createDrawAreaLayerItemTransform(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.DrawAreaLayerItemTransform"},
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "value", TypeExpr: "DrawAreaLayerItemTransform"},
+			),
+			reflect.TypeOf(ChartDataValue{}): aliasDeclaration(
+				"ChartDataValue",
+				"Record<string, Array<string | number>>",
+			),
+			reflect.TypeOf(ChartDataArtifact{}): objectDeclarationWithCreateExpr(
+				"ChartDataArtifact",
+				`mergeGeneratedOptions(
+    {
+      type: ArtifactTypeEnum.ChartData,
+      id: createCsvArtifactId(),
+      value: {},
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.ChartData"},
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "value", TypeExpr: "ChartDataValue"},
+			),
+			reflect.TypeOf(FileArtifact{}): objectDeclarationWithCreateExpr(
+				"FileArtifact",
+				`mergeGeneratedOptions(
+    {
+      type: ArtifactTypeEnum.File,
+      id: createFileArtifactId(),
+      value: createBinaryContentRef(),
+    },
+    options,
+  )`,
+				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.File"},
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "value", TypeExpr: "BinaryContentRef"},
+			),
+			reflect.TypeOf(ArtifactUnion{}): aliasDeclaration(
+				"ArtifactUnion",
+				"ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
+			),
+			reflect.TypeOf(UpdateArtifactMsgContent{}): objectDeclaration(
+				"UpdateArtifactMsgContent",
+				TypeProperty{Name: "artifacts", TypeExpr: "Array<ArtifactUnion>"},
+				TypeProperty{Name: "updateType", TypeExpr: `"update" | "delete"`},
+			),
 			reflect.TypeOf(WebsocketFrontendSupport{}): {
 				Name: "WebsocketFrontendSupport",
 				Kind: "raw",
