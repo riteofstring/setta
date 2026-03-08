@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -177,6 +178,264 @@ func TestRegisterProjectShellRoutesBlocksLauncherMode(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), "Launcher mode does not allow this endpoint.") {
 		t.Fatalf("unexpected launcher-mode body %q", response.Body.String())
+	}
+}
+
+func TestRegisterProjectShellRoutesCreatesProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.NewDocument())
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateProjectConfig, strings.NewReader(`{"previewImgColor":"bg-orange-500/60 dark:bg-orange-600/30"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var createdName string
+	if err := json.Unmarshal(response.Body.Bytes(), &createdName); err != nil {
+		t.Fatalf("decode created project payload: %v", err)
+	}
+	if createdName != "Project" {
+		t.Fatalf("expected created name Project, got %q", createdName)
+	}
+	if len(projectRuntime.Snapshot().Document.Projects) != 1 {
+		t.Fatalf("expected one created project, got %#v", projectRuntime.Snapshot().Document.Projects)
+	}
+}
+
+func TestRegisterProjectShellRoutesSavesProject(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		if err := document.SetProjectName("project-alpha", "Unsaved Alpha"); err != nil {
+			return projectstate.Document{}, err
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
+	}
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveProject, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload project store: %v", err)
+	}
+	if got := reloaded.Projects["project-alpha"].Name; got != "Unsaved Alpha" {
+		t.Fatalf("expected persisted Unsaved Alpha, got %q", got)
+	}
+}
+
+func TestRegisterProjectShellRoutesSaveAsClonesProject(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:                      "project-alpha",
+				Name:                    "Alpha",
+				AllowJSONSourceKeyEdits: true,
+				ViewModes: map[string]projectstate.ViewMode{
+					"focus": {
+						ID:   "focus",
+						Name: "Focus",
+					},
+				},
+				ActiveViewModeID: "focus",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"Cloned Alpha","withRefs":true,"frontendOpId":"save-as-op-1"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload project store: %v", err)
+	}
+	if len(reloaded.Projects) != 2 {
+		t.Fatalf("expected two persisted projects, got %#v", reloaded.Projects)
+	}
+}
+
+func TestRegisterProjectShellRoutesRejectsInvalidSaveAsNameWithDetail(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSaveAsNewProjectConfig, strings.NewReader(`{"projectConfigId":"project-alpha","newConfigName":"home","withRefs":false}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload map[string]string
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid save-as payload: %v", err)
+	}
+	if payload["detail"] != "Project name 'home' is reserved." {
+		t.Fatalf("unexpected invalid save-as payload %#v", payload)
+	}
+}
+
+func TestRegisterProjectShellRoutesDeletesProjectConfigs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-beta",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Beta",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteDeleteProjectConfigs, strings.NewReader(`{"ids":["project-beta"]}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	snapshot := projectRuntime.Snapshot()
+	if _, ok := snapshot.Document.Projects["project-beta"]; ok {
+		t.Fatalf("expected deleted project-beta, got %#v", snapshot.Document.Projects)
+	}
+	if snapshot.Document.DefaultProjectID != "project-alpha" {
+		t.Fatalf("expected default project-alpha, got %q", snapshot.Document.DefaultProjectID)
 	}
 }
 

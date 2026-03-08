@@ -18,6 +18,10 @@ import (
 const (
 	RouteLoadAllProjectMetadata = "/loadAllProjectMetadata"
 	RouteLoadProjectConfig      = "/loadProjectConfig"
+	RouteSaveProject            = "/saveProject"
+	RouteSaveAsNewProjectConfig = "/saveAsNewProjectConfig"
+	RouteCreateProjectConfig    = "/createProjectConfig"
+	RouteDeleteProjectConfigs   = "/deleteProjectConfigs"
 	RouteSetProjectConfigName   = "/setProjectConfigName"
 	RouteGetNotifications       = "/getNotifications"
 	RouteDeleteNotification     = "/deleteNotification"
@@ -32,6 +36,10 @@ type ProjectShellRouteDependencies struct {
 type ProjectShellService interface {
 	LoadAllProjectMetadata(ctx context.Context) (projectshell.AllProjectMetadata, error)
 	LoadProjectConfig(ctx context.Context, projectConfigName string) (projectview.SingleConfig, error)
+	SaveProject(ctx context.Context, projectConfigID string) error
+	CreateProjectConfig(ctx context.Context, previewImgColor string) (string, error)
+	SaveAsNewProjectConfig(ctx context.Context, projectConfigID string, newConfigName string, withRefs bool) error
+	DeleteProjectConfigs(ctx context.Context, projectConfigIDs []string) error
 	SetProjectConfigName(ctx context.Context, projectConfigID string, newName string) error
 }
 
@@ -42,6 +50,25 @@ type ProjectNotificationService interface {
 
 type ProjectLoadRequest struct {
 	ProjectConfigName string `json:"projectConfigName"`
+}
+
+type ManualSaveRequest struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type SaveAsNewProjectConfigRequest struct {
+	FrontendOpID    *string `json:"frontendOpId"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	NewConfigName   string  `json:"newConfigName"`
+	WithRefs        bool    `json:"withRefs"`
+}
+
+type CreateProjectConfigRequest struct {
+	PreviewImgColor string `json:"previewImgColor"`
+}
+
+type DeleteProjectConfigsRequest struct {
+	IDs []string `json:"ids"`
 }
 
 type SetProjectConfigNameRequest struct {
@@ -72,6 +99,10 @@ func RegisterProjectShellRoutes(router chi.Router, deps ProjectShellRouteDepende
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteLoadAllProjectMetadata, loadAllProjectMetadataHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteLoadProjectConfig, loadProjectConfigHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSaveProject, saveProjectHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSaveAsNewProjectConfig, saveAsNewProjectConfigHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateProjectConfig, createProjectConfigHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteProjectConfigs, deleteProjectConfigsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigName, setProjectConfigNameHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetNotifications, getNotificationsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteNotification, deleteNotificationHandler(deps))
@@ -116,6 +147,88 @@ func loadProjectConfigHandler(deps ProjectShellRouteDependencies) http.HandlerFu
 			return
 		}
 		writeJSON(w, http.StatusOK, projectStateView)
+	}
+}
+
+func saveProjectHandler(deps ProjectShellRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[ManualSaveRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.Shell == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.Shell.SaveProject(r.Context(), payload.ProjectConfigID); err != nil {
+			writeProjectLifecycleMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func saveAsNewProjectConfigHandler(deps ProjectShellRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SaveAsNewProjectConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.Shell == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		ctx := projectMutationContext(r.Context(), payload.FrontendOpID)
+		if err := deps.Shell.SaveAsNewProjectConfig(ctx, payload.ProjectConfigID, payload.NewConfigName, payload.WithRefs); err != nil {
+			writeProjectLifecycleMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func createProjectConfigHandler(deps ProjectShellRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[CreateProjectConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.Shell == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		createdName, err := deps.Shell.CreateProjectConfig(r.Context(), payload.PreviewImgColor)
+		if err != nil {
+			writeProjectLifecycleMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, createdName)
+	}
+}
+
+func deleteProjectConfigsHandler(deps ProjectShellRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[DeleteProjectConfigsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.Shell == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.Shell.DeleteProjectConfigs(r.Context(), payload.IDs); err != nil {
+			writeProjectLifecycleMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
 	}
 }
 
@@ -199,6 +312,19 @@ func writeProjectShellRouteError(w http.ResponseWriter, r *http.Request, err err
 }
 
 func writeProjectNameMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case projectstate.IsInvalidProjectNameError(err):
+		writeJSON(w, http.StatusUnprocessableEntity, map[string]string{"detail": err.Error()})
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeProjectLifecycleMutationError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, projectstate.ErrProjectIDRequired):
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
