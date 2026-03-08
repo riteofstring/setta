@@ -56,10 +56,10 @@ test.describe.serial("agentic edges", () => {
       );
 
       const sourceHandle = page.locator(
-        `[data-testid="chat-shared-source-handle-${firstChat.sectionId}"]`,
+        `.react-flow__handle[data-nodeid="${firstChat.sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
-        `[data-testid="chat-shared-target-handle-${secondChat.sectionId}"]`,
+        `.react-flow__handle[data-nodeid="${secondChat.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
       await ensureHandlesInViewport(page, sourceHandle, targetHandle);
@@ -126,7 +126,7 @@ test.describe.serial("agentic edges", () => {
       );
 
       const sourceHandle = page.locator(
-        `[data-testid="chat-shared-source-handle-${chatSection.sectionId}"]`,
+        `.react-flow__handle[data-nodeid="${chatSection.sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
         `.react-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
@@ -219,10 +219,10 @@ test.describe.serial("agentic edges", () => {
       const [firstSectionId, secondSectionId] = newChatIds;
 
       const sourceHandle = page.locator(
-        `[data-testid="chat-shared-source-handle-${firstSectionId}"]`,
+        `.react-flow__handle[data-nodeid="${firstSectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
-        `[data-testid="chat-shared-target-handle-${secondSectionId}"]`,
+        `.react-flow__handle[data-nodeid="${secondSectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
       await ensureHandlesInViewport(page, sourceHandle, targetHandle);

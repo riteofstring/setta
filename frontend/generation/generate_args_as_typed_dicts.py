@@ -126,8 +126,6 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
     CodeSectionDiagnosticsIgnoreState,
     ChatSectionBranch,
-    StateMachineGateType,
-    StateMachineGateUiState,
     TaskBoardColumn,
     TaskBoardTask,
 )
@@ -150,7 +148,6 @@ from setta.types.code_obj_impls import (
 )
 from setta.types.agentic_edges import AgenticEdge
 from setta.types.edges import Edge, EdgePort
-from setta.types.state_machine_edges import StateMachineEdge
 from setta.types.chat_messages import (
     AssistantChatMessage,
     SystemChatMessage,
