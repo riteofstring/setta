@@ -26,12 +26,13 @@ Completed before this plan:
 - Phase 13 direct hydration, settings mutation, dormant single-item read, and
   persisted agent-run read transport ownership
 
-Current Python-owned route surface after the landed run-chain follow-on:
+Current Python-owned route surface after the landed run-chain follow-ons:
 
 - none for the current bounded clean-break scope
-- the deferred follow-on is no longer route transport
-- the only remaining question is whether product work still needs richer
-  run-chain progress behavior than persisted polling
+- the follow-up closeout inventory is now recorded in
+  `phase-14-run-chain-caller-and-progress-closeout.md`
+- that closeout confirmed there is no live caller-backed or Python-parity
+  reason to reopen run-chain progress work inside this rewrite phase
 
 Current caller status relevant to scope:
 
@@ -56,9 +57,9 @@ Current Go foundations already landed:
 
 What is still deferred in Go after the landed follow-ons:
 
-- any richer run-chain progress realtime surface beyond persisted run polling
-- the former external-agent child-step follow-on is now landed in
-  `phase-14-run-chain-external-agent-child-step-runtime.md`
+- nothing inside the current Phase 14 parity scope
+- any future dedicated run-chain progress UX would be new product work, not a
+  hidden Python-owned gap
 
 ## Inputs
 
@@ -272,11 +273,9 @@ Open design questions for that future slice:
 
 ## Next Recommended Step
 
-- treat this Phase 14 plan as the current handoff for the remaining runtime
-  mutation surface
-- treat managed `start/stopAgentRun` as complete for the current bounded scope
-- do not open run-chain implementation automatically without a caller or
-  explicit product/runtime decision
-- that explicit decision has now been made, so the active follow-on is the
-  managed-only run-chain slice in
-  `phase-14-run-chain-managed-runtime-and-transport.md`
+- treat the landed runtime slices plus
+  `phase-14-run-chain-caller-and-progress-closeout.md` as the current Phase 14
+  handoff
+- do not reopen run-chain work automatically inside the rewrite
+- only open a new follow-on if a concrete caller or product decision requires a
+  dedicated chain-progress UX beyond persisted run polling

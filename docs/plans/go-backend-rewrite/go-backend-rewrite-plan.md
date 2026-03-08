@@ -438,9 +438,17 @@ real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
 is no longer inventory or transport cleanup; those are now complete. The
 bounded agentic runtime route surface is also now complete for the current
-clean-break scope. New work here should now come only from a concrete caller
-or product decision around richer run-chain progress behavior, not from any
-remaining route/runtime ownership gap.
+clean-break scope. The closeout inventory tracked in
+`phase-14-run-chain-caller-and-progress-closeout.md` then confirmed:
+
+- there is still no live direct frontend caller for `startRunChain`,
+  `stopRunChain`, or `getAgentRun`
+- current frontend behavior depends on persisted `GET /getAgentRuns` polling
+- Python itself did not expose a dedicated run-chain realtime channel beyond
+  persisted run events and snapshots
+
+New work here should now come only from a new caller-backed or product-backed
+feature request, not from any remaining route/runtime ownership or parity gap.
 
 ## Current Reality
 
@@ -1009,9 +1017,9 @@ Do not weaken this rule during the rewrite.
    requirement breaks them, and keep the PTY discussion bounded to the planned
    `go-pty` to `creack/pty` Unix follow-up rather than reopening terminal
    architecture more broadly.
-3. Start any future agentic follow-on from the Phase 14 runtime-mutation plan
-   and real caller analysis, not by reopening completed Phase 12 runtime work
-   or early spikes.
+3. Start any future agentic follow-on from the Phase 14 runtime-mutation plan,
+   the Phase 14 run-chain closeout inventory, and real caller analysis, not by
+   reopening completed Phase 12 runtime work or early spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
    owners still have thin regression protection, but do not use that as a
    substitute for choosing a concrete next caller-backed or product-backed

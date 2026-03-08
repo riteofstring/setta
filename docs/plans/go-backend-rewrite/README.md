@@ -542,12 +542,16 @@ Use the docs in this order:
   - focused completed-slice doc for the bounded Phase 14 follow-on:
     Go-owned external-agent child-step orchestration over the landed
     run-chain and external-agent runtime boundaries
-160. `spike-mcp.md`
+160. `phase-14-run-chain-caller-and-progress-closeout.md`
+  - focused closeout inventory doc confirming the landed Phase 14 runtime
+    surface has no remaining caller-backed or realtime-parity gap under the
+    current clean-break scope
+161. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-161. `spike-pty.md`
+162. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-162. `spike-lsp.md`
+163. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

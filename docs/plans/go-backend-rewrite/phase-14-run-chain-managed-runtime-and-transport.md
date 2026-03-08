@@ -148,8 +148,10 @@ This slice delivered:
 
 - that later clean-break run-chain slice was reopened and landed in
   `phase-14-run-chain-external-agent-child-step-runtime.md`
-- whether future run-chain progress events need a dedicated realtime surface or
-  whether persisted run polling remains sufficient
+- the later closeout inventory in
+  `phase-14-run-chain-caller-and-progress-closeout.md` confirmed that
+  persisted run polling is the current frontend source of truth and that no
+  separate Python run-chain realtime surface remained to migrate
 
 ## Progress Notes
 
@@ -159,10 +161,13 @@ This slice delivered:
   `start/stopRunChain` transport over `internal/runchains`.
 - 2026-03-09: the later external-agent child-step follow-on landed in
   `phase-14-run-chain-external-agent-child-step-runtime.md`.
+- 2026-03-09: the later closeout inventory confirmed no remaining caller-backed
+  or realtime-parity gap under the current Phase 14 scope.
 
 ## Next Recommended Step
 
 - follow the landed external-agent child-step slice in
   `phase-14-run-chain-external-agent-child-step-runtime.md`
-- after that, only reopen this area for a concrete caller or product decision
-  around richer chain-progress realtime behavior
+- after that, use
+  `phase-14-run-chain-caller-and-progress-closeout.md` as the closeout handoff
+  and only reopen this area for new caller-backed product work

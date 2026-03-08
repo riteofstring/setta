@@ -138,8 +138,10 @@ This slice delivered:
 
 ## Open Questions
 
-- whether product work still needs richer run-chain progress realtime behavior
-  beyond persisted run polling
+- the later closeout inventory in
+  `phase-14-run-chain-caller-and-progress-closeout.md` confirmed that current
+  frontend behavior already relies on persisted run polling and that Python did
+  not expose a dedicated run-chain realtime channel to preserve
 - whether any later follow-on should broaden external child-step semantics
   beyond the current bounded Go external-run surface
 
@@ -150,9 +152,14 @@ This slice delivered:
 - 2026-03-09: landed the Go-owned external-agent child-step follow-on over a
   bounded `internal/externalagents.RunService`, runtime wait boundary, and the
   existing `internal/runchains` parent owner.
+- 2026-03-09: the later closeout inventory confirmed no remaining caller-backed
+  or realtime-parity gap inside the bounded Phase 14 scope.
 
 ## Next Recommended Step
 
 - treat the current bounded Phase 14 agentic runtime route surface as complete
-- only reopen this area for a concrete caller or product decision around
-  richer run-chain progress behavior
+- use `phase-14-run-chain-caller-and-progress-closeout.md` as the closeout
+  handoff
+- only reopen this area for a concrete new caller or product decision that
+  broadens run-chain UX or external child-step behavior beyond the current
+  bounded surface
