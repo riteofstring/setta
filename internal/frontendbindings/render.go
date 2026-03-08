@@ -54,6 +54,17 @@ type emittedSymbol struct {
 
 var tsIdentifierPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
 
+var tsReservedBindingKeywords = map[string]struct{}{
+	"break": {}, "case": {}, "catch": {}, "class": {}, "const": {}, "continue": {},
+	"debugger": {}, "default": {}, "delete": {}, "do": {}, "else": {}, "enum": {},
+	"export": {}, "extends": {}, "false": {}, "finally": {}, "for": {}, "function": {},
+	"if": {}, "import": {}, "in": {}, "instanceof": {}, "new": {}, "null": {},
+	"return": {}, "super": {}, "switch": {}, "this": {}, "throw": {}, "true": {},
+	"try": {}, "typeof": {}, "var": {}, "void": {}, "while": {}, "with": {},
+	"implements": {}, "interface": {}, "let": {}, "package": {}, "private": {},
+	"protected": {}, "public": {}, "static": {}, "yield": {},
+}
+
 var generatedEndpointsImportContract = endpointImportContract{
 	SupportedRouteCollections: map[string]struct{}{
 		"GoHTTPRoutes": {},
@@ -170,8 +181,8 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		if spec.FunctionName == "" {
 			return fmt.Errorf("endpoint at index %d has empty function name", index)
 		}
-		if !tsIdentifierPattern.MatchString(spec.FunctionName) {
-			return fmt.Errorf("endpoint %s: function name must be a valid TypeScript identifier", spec.FunctionName)
+		if err := validateTSBindingIdentifier("endpoint "+spec.FunctionName+": function name", spec.FunctionName); err != nil {
+			return err
 		}
 		switch spec.Method {
 		case "GET", "POST":
@@ -267,7 +278,7 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 		if declaration.Name == "" {
 			return fmt.Errorf("declaration at index %d has empty name", index)
 		}
-		if err := validateTSIdentifier("declaration "+declaration.Name, declaration.Name); err != nil {
+		if err := validateTSBindingIdentifier("declaration "+declaration.Name, declaration.Name); err != nil {
 			return err
 		}
 		switch declaration.Kind {
@@ -436,11 +447,15 @@ func validateDeclarationProperties(declarationName string, propertyKind string, 
 		if property.Name == "" {
 			return fmt.Errorf("declaration %s: %s at index %d has empty name", declarationName, propertyKind, index)
 		}
-		if err := validateTSIdentifier(
-			fmt.Sprintf("declaration %s: %s %q", declarationName, propertyKind, property.Name),
-			property.Name,
-		); err != nil {
-			return err
+		context := fmt.Sprintf("declaration %s: %s %q", declarationName, propertyKind, property.Name)
+		if propertyKind == "function parameter" {
+			if err := validateTSBindingIdentifier(context, property.Name); err != nil {
+				return err
+			}
+		} else {
+			if err := validateTSIdentifier(context, property.Name); err != nil {
+				return err
+			}
 		}
 		if strings.TrimSpace(property.TypeExpr) == "" {
 			return fmt.Errorf("declaration %s: %s %q has empty type", declarationName, propertyKind, property.Name)
@@ -461,6 +476,16 @@ func validateTSIdentifier(context string, name string) error {
 	return fmt.Errorf("%s must be a valid TypeScript identifier", context)
 }
 
+func validateTSBindingIdentifier(context string, name string) error {
+	if err := validateTSIdentifier(context, name); err != nil {
+		return err
+	}
+	if _, exists := tsReservedBindingKeywords[name]; exists {
+		return fmt.Errorf("%s cannot use reserved TypeScript keyword %q", context, name)
+	}
+	return nil
+}
+
 func validateTSObjectLiteralPropertyName(context string, name string) error {
 	if err := validateTSIdentifier(context, name); err != nil {
 		return err
@@ -478,8 +503,11 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 		if group.ConstName == "" {
 			return nil, fmt.Errorf("route group has empty const name")
 		}
-		if !tsIdentifierPattern.MatchString(group.ConstName) {
-			return nil, fmt.Errorf("route group %q const name must be a valid TypeScript identifier", group.ConstName)
+		if err := validateTSBindingIdentifier(
+			fmt.Sprintf("route group %q const name", group.ConstName),
+			group.ConstName,
+		); err != nil {
+			return nil, err
 		}
 		if previousOrigin, exists := generatedRoutesReservedValueSymbols[group.ConstName]; exists {
 			return nil, fmt.Errorf(

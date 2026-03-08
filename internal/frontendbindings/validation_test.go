@@ -97,6 +97,18 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 			want: "function name must be a valid TypeScript identifier",
 		},
 		{
+			name: "reserved function name",
+			spec: EndpointSpec{
+				FunctionName:    "default",
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "saveThing",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: `endpoint default: function name cannot use reserved TypeScript keyword "default"`,
+		},
+		{
 			name: "function name conflicts with generated import",
 			spec: EndpointSpec{
 				FunctionName:    "get",
@@ -259,6 +271,17 @@ func TestBuildBindingsRejectsInvalidDeclarationNames(t *testing.T) {
 			},
 			want: `declaration Thing-Name must be a valid TypeScript identifier`,
 		},
+		{
+			name: "reserved declaration name",
+			declarations: []TypeDeclaration{
+				{
+					Name:  "default",
+					Kind:  "alias",
+					Alias: "string",
+				},
+			},
+			want: `declaration default cannot use reserved TypeScript keyword "default"`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -341,6 +364,19 @@ func TestBuildBindingsRejectsInvalidDeclarationShapes(t *testing.T) {
 				},
 			},
 			want: `declaration createThing: duplicate function parameter "value"`,
+		},
+		{
+			name: "function param reserved keyword",
+			declaration: TypeDeclaration{
+				Name:           "createThing",
+				Kind:           "function",
+				FunctionReturn: "Thing",
+				FunctionBody:   "  return defaultValue;",
+				FunctionParams: []TypeProperty{
+					{Name: "default", TypeExpr: "Thing"},
+				},
+			},
+			want: `declaration createThing: function parameter "default" cannot use reserved TypeScript keyword "default"`,
 		},
 		{
 			name: "function param cannot be optional and defaulted",
@@ -612,6 +648,16 @@ func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
 				},
 			},
 			want: `route group "RouteEnum" const name conflicts with generated routes export "RouteEnum"`,
+		},
+		{
+			name: "route group const name reserved keyword",
+			routeGroup: RouteGroup{
+				ConstName: "default",
+				Routes: []NamedRoute{
+					{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE_THING"},
+				},
+			},
+			want: `route group "default" const name cannot use reserved TypeScript keyword "default"`,
 		},
 		{
 			name: "invalid route name",
