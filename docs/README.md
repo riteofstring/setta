@@ -42,6 +42,8 @@
 - `examples/listener/app.py` – example deployment listener entrypoint (`listener/app.py`).
 
 ## Other Docs
+- `../perf/README.md` – append-only performance report workflow and artifact policy.
+- `../perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md` – Settings `All Settings` pan/zoom and activation benchmark log, including the split active-section UI store follow-ups.
 - `reference/agent-cli-integration.md` – CLI integration notes for agent workflows.
 - `reference/auth-and-sessions.md` – auth tokens, cookies, share sessions, and refresh behavior.
 - `reference/chat-sections.md` – how Chat sections behave in managed vs scriptable mode, plus action events and state.
@@ -80,5 +82,4 @@
 - `plans/agentic-graph-ui-plan.md` – agentic graph UI planning notes.
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
-- `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
 - `plans/ralph-mode.md` – planning notes for ralph mode.
