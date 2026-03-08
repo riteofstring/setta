@@ -41,11 +41,17 @@ type routeEnumEntry struct {
 }
 
 func Build() (GeneratedBindings, error) {
+	return buildBindings(CurrentRouteGroups(), CurrentEndpoints(), CurrentAdditionalTypeRoots())
+}
+
+func buildBindings(routeGroups []RouteGroup, endpointSpecs []EndpointSpec, extraTypes []reflect.Type) (GeneratedBindings, error) {
+	if err := validateEndpointSpecs(routeGroups, endpointSpecs); err != nil {
+		return GeneratedBindings{}, err
+	}
+
 	converter := newTypeConverter()
-	endpointSpecs := CurrentEndpoints()
-	routeGroups := CurrentRouteGroups()
 	renderEndpoints := make([]endpointRenderData, 0, len(endpointSpecs))
-	for _, extraType := range CurrentAdditionalTypeRoots() {
+	for _, extraType := range extraTypes {
 		if err := converter.AddRootType(extraType); err != nil {
 			return GeneratedBindings{}, err
 		}
@@ -60,7 +66,7 @@ func Build() (GeneratedBindings, error) {
 
 		requestTypeName := ""
 		if spec.RequestType != nil {
-			requestTypeName = namedTypeName(spec.RequestType)
+			requestTypeName = frontendTypeName(spec.RequestType)
 		}
 
 		renderEndpoints = append(renderEndpoints, endpointRenderData{
@@ -105,6 +111,65 @@ func Build() (GeneratedBindings, error) {
 	}, nil
 }
 
+func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpec) error {
+	routeCollections, err := buildRouteCollectionLookup(routeGroups)
+	if err != nil {
+		return err
+	}
+
+	for _, spec := range endpointSpecs {
+		switch spec.Method {
+		case "GET", "POST":
+		default:
+			return fmt.Errorf("endpoint %s: unsupported method %q", spec.FunctionName, spec.Method)
+		}
+		if spec.BinaryResponse && spec.Method != "GET" {
+			return fmt.Errorf("endpoint %s: binary responses require GET", spec.FunctionName)
+		}
+
+		routes, ok := routeCollections[spec.RouteCollection]
+		if !ok {
+			return fmt.Errorf("endpoint %s: unknown route collection %q", spec.FunctionName, spec.RouteCollection)
+		}
+		if _, ok := routes[spec.RouteName]; !ok {
+			return fmt.Errorf("endpoint %s: route %s.%s is not defined", spec.FunctionName, spec.RouteCollection, spec.RouteName)
+		}
+
+		if spec.RequestType != nil && frontendTypeName(spec.RequestType) == "" {
+			return fmt.Errorf("endpoint %s: request type must be a named Go type, got %s", spec.FunctionName, spec.RequestType.String())
+		}
+		if spec.ResponseType != nil && frontendTypeName(spec.ResponseType) == "" {
+			return fmt.Errorf("endpoint %s: response type must be a named Go type, got %s", spec.FunctionName, spec.ResponseType.String())
+		}
+	}
+
+	return nil
+}
+
+func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]struct{}, error) {
+	collections := make(map[string]map[string]struct{}, len(routeGroups))
+	for _, group := range routeGroups {
+		if group.ConstName == "" {
+			return nil, fmt.Errorf("route group has empty const name")
+		}
+		if _, exists := collections[group.ConstName]; exists {
+			return nil, fmt.Errorf("duplicate route group %q", group.ConstName)
+		}
+		routes := make(map[string]struct{}, len(group.Routes))
+		for _, route := range group.Routes {
+			if route.Name == "" {
+				return nil, fmt.Errorf("route group %q contains an empty route name", group.ConstName)
+			}
+			if _, exists := routes[route.Name]; exists {
+				return nil, fmt.Errorf("route group %q contains duplicate route %q", group.ConstName, route.Name)
+			}
+			routes[route.Name] = struct{}{}
+		}
+		collections[group.ConstName] = routes
+	}
+	return collections, nil
+}
+
 func flattenRouteEnumEntries(routeGroups []RouteGroup) []routeEnumEntry {
 	entries := make([]routeEnumEntry, 0)
 	for _, group := range routeGroups {
@@ -121,14 +186,14 @@ func flattenRouteEnumEntries(routeGroups []RouteGroup) []routeEnumEntry {
 	return entries
 }
 
-func namedTypeName(t reflect.Type) string {
+func frontendTypeName(t reflect.Type) string {
 	if t == nil {
 		return ""
 	}
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
-	if t == nil {
+	if t == nil || t.Name() == "" || t.PkgPath() == "" {
 		return ""
 	}
 	return t.Name()

@@ -2721,8 +2721,8 @@ export type UserDefaultCodeSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   code: string;
-  codeFileBinding?: CodeFileBinding | null;
-  attachedTerminalSectionId?: string | null;
+  codeFileBinding: CodeFileBinding | null;
+  attachedTerminalSectionId: string | null;
   codeLanguage: string;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
@@ -2764,10 +2764,10 @@ export type UserDefaultChatSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   managed: boolean;
-  engineConfigId?: string | null;
-  transcriptionProfileId?: string | null;
-  agentProfileId?: string | null;
-  chatId?: string | null;
+  engineConfigId: string | null;
+  transcriptionProfileId: string | null;
+  agentProfileId: string | null;
+  chatId: string | null;
   thinking: boolean;
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
@@ -2776,7 +2776,7 @@ export type UserDefaultChatSectionImpl = {
   inputText: string;
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
+  activeBranchId: string | null;
   branches: Record<string, ChatSectionBranch>;
 };
 
@@ -2828,7 +2828,7 @@ export function createBrowserSavedSearch(
   );
 }
 
-export type BrowserSectionImpl = BaseSectionImpl & {
+export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   type: typeof SectionTypeEnum.Browser;
   folder: string;
   hideColumn: boolean;
@@ -2848,8 +2848,8 @@ export type UserDefaultBrowserSectionImpl = {
   positionAndSizeLocked: boolean;
   folder: string;
   hideColumn: boolean;
-  columnWidth?: number | null;
-  typesColumnWidth?: number | null;
+  columnWidth: number | null;
+  typesColumnWidth: number | null;
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 };
@@ -2908,7 +2908,7 @@ export function createTaskBoardTask(
   );
 }
 
-export type TaskBoardSectionImpl = BaseSectionImpl & {
+export type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   type: typeof SectionTypeEnum.TaskBoard;
   viewMode: TaskBoardViewMode;
   columns: Array<TaskBoardColumn>;
@@ -2965,7 +2965,7 @@ export type UserDefaultSpreadsheetSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   filePath: string;
-  activeSheet?: string | null;
+  activeSheet: string | null;
   readOnly: boolean;
   showRowNumbers: boolean;
   density: SpreadsheetGridDensity;
@@ -3044,8 +3044,8 @@ function createGeneratedBaseCodeSectionDefaults(): {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   code: string;
-  codeFileBinding?: CodeFileBinding | null;
-  attachedTerminalSectionId?: string | null;
+  codeFileBinding: CodeFileBinding | null;
+  attachedTerminalSectionId: string | null;
 } {
   return {
     ...createGeneratedBaseSectionDefaults(),
@@ -4016,7 +4016,7 @@ export function createMetaControlSizingPolicyByType(
   options: Partial<MetaControlSizingPolicyByType> = {},
 ): MetaControlSizingPolicyByType {
   return {
-    ...mergeGeneratedOptions(
+    ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(
       {
         CodeCallable: {
           minHeight: 32,
@@ -4111,7 +4111,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options,
     ),
-    CodeCallable: mergeGeneratedOptions(
+    CodeCallable: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4120,7 +4120,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.CodeCallable ?? {},
     ),
-    CodeParam: mergeGeneratedOptions(
+    CodeParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4129,7 +4129,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.CodeParam ?? {},
     ),
-    TextParam: mergeGeneratedOptions(
+    TextParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4138,7 +4138,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.TextParam ?? {},
     ),
-    DateParam: mergeGeneratedOptions(
+    DateParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4147,7 +4147,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.DateParam ?? {},
     ),
-    TimeParam: mergeGeneratedOptions(
+    TimeParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4156,7 +4156,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.TimeParam ?? {},
     ),
-    ButtonParam: mergeGeneratedOptions(
+    ButtonParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4165,7 +4165,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.ButtonParam ?? {},
     ),
-    SliderParam: mergeGeneratedOptions(
+    SliderParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4174,7 +4174,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.SliderParam ?? {},
     ),
-    RotaryParam: mergeGeneratedOptions(
+    RotaryParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4183,7 +4183,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.RotaryParam ?? {},
     ),
-    SwitchParam: mergeGeneratedOptions(
+    SwitchParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4192,7 +4192,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.SwitchParam ?? {},
     ),
-    ColorPickerParam: mergeGeneratedOptions(
+    ColorPickerParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4201,7 +4201,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.ColorPickerParam ?? {},
     ),
-    DropdownParam: mergeGeneratedOptions(
+    DropdownParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4210,7 +4210,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.DropdownParam ?? {},
     ),
-    PasswordParam: mergeGeneratedOptions(
+    PasswordParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4219,7 +4219,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.PasswordParam ?? {},
     ),
-    TextAreaParam: mergeGeneratedOptions(
+    TextAreaParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 80,
         minWidth: 200,
@@ -4228,7 +4228,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.TextAreaParam ?? {},
     ),
-    DropzoneParam: mergeGeneratedOptions(
+    DropzoneParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 120,
         minWidth: 240,
@@ -4237,7 +4237,7 @@ export function createMetaControlSizingPolicyByType(
       },
       options.DropzoneParam ?? {},
     ),
-    NestedParam: mergeGeneratedOptions(
+    NestedParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
       {
         minHeight: 32,
         minWidth: 200,
@@ -4717,7 +4717,7 @@ export function createSettingsState(
   };
 }
 
-export const BaseChildlessCodeObjImplTypeSet = new Set([
+export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,
   CodeObjTypeEnum.DateParam,
@@ -4732,7 +4732,7 @@ export const BaseChildlessCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.TimeParam,
 ]);
 
-export const BaseParamCodeObjImplTypeSet = new Set([
+export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,
@@ -4749,12 +4749,12 @@ export const BaseParamCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.TimeParam,
 ]);
 
-const BaseParentCodeObjImplTypeSet = new Set([
+const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeCallable,
   CodeObjTypeEnum.NestedParam,
 ]);
 
-export const ControlCodeObjTypeSet = new Set([
+export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.DateParam,
@@ -4770,7 +4770,7 @@ export const ControlCodeObjTypeSet = new Set([
   CodeObjTypeEnum.DropzoneParam,
 ]);
 
-export const SectionParamCodeObjTypeSet = new Set([
+export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.DateParam,
@@ -4804,7 +4804,7 @@ export type BaseDictSectionImplUnion = BaseSectionImpl & {
   jsonSourceMissing: boolean;
 };
 
-const BaseParentSectionImplTypeSet = new Set([
+const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Code,
   SectionTypeEnum.GenPythonCode,
   SectionTypeEnum.GenPythonMetadata,
@@ -4812,12 +4812,12 @@ const BaseParentSectionImplTypeSet = new Set([
   SectionTypeEnum.ListRoot,
 ]);
 
-const BaseDictSectionImplTypeSet = new Set([
+const BaseDictSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Dict,
   SectionTypeEnum.GlobalVariables,
 ]);
 
-const BaseSectionWithParamsImplTypeSet = new Set([
+const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Callable,
   SectionTypeEnum.Dict,
   SectionTypeEnum.GlobalVariables,
