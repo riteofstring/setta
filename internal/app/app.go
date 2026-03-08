@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentprofiles"
+	"setta/internal/agentruns"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
@@ -19,6 +20,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/llmconfig"
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
 	"setta/internal/lspsignature"
@@ -46,6 +48,7 @@ type App struct {
 	terminals     *terminals.Service
 	binaryStore   *binarypayload.Store
 	runCode       *runs.Service
+	agentRuns     *agentruns.Service
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	lspSync       *lsp.ProjectSynchronizer
@@ -370,6 +373,61 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	var agentRunService *agentruns.Service
+	if modePolicy.IsIDE() && projectRuntime != nil {
+		engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		llmConfigs, err := llmconfig.Load(
+			llmconfig.Path(cfg.Paths.SettaFilesRoot),
+			llmconfig.LoadOptions{
+				SettaServerURL: mcpx.BuildSettaServerURL(cfg.Server.Host, cfg.Server.Port),
+			},
+		)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		llmRuntime, err := llmconfig.NewRuntime(llmConfigs)
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		workspaceEnv, err := llmconfig.ReadEnvFile(filepath.Join(cfg.Paths.WorkspaceRoot, ".env"))
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		llmRuntime.UpdateAPIKeys(llmconfig.ResolveRuntimeAPIKeys(
+			llmConfigs,
+			workspaceEnv,
+			llmconfig.CurrentProcessEnv(),
+		))
+		temporaryIDs, err := mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		agentRunService, err = agentruns.NewService(agentruns.ServiceOptions{
+			ProjectState:           projectRuntime,
+			Engines:                engineStore,
+			Runs:                   runStore,
+			LLM:                    llmRuntime,
+			TemporaryIDs:           temporaryIDs,
+			CompletionGuardEnabled: true,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
 		ProjectState:   projectRuntime,
 		SettaFilesRoot: plannerFilesRoot,
@@ -554,6 +612,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		terminals:     terminalService,
 		binaryStore:   binaryStore,
 		runCode:       runCodeService,
+		agentRuns:     agentRunService,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		lspSync:       projectLSPSyncer,
@@ -611,6 +670,10 @@ func (a *App) BinaryStore() *binarypayload.Store {
 
 func (a *App) RunCode() *runs.Service {
 	return a.runCode
+}
+
+func (a *App) AgentRuns() *agentruns.Service {
+	return a.agentRuns
 }
 
 func (a *App) WebsocketHub() *realtime.WebsocketHub {

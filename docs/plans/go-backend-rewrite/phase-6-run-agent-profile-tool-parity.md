@@ -17,9 +17,11 @@ Current repo status as of 2026-03-08:
 - Phase 6 MCP parity remains the active rewrite phase
 - `list_agent_profiles` and `get_agent_profile` are complete in Go
 - `run_agent_profile` is still the next remaining agentic MCP tool
-- direct implementation is blocked until
-  `phase-6-managed-agent-run-runtime-foundation.md` lands
-- Go still does not own the managed agent-run runtime behind this tool
+- `phase-6-managed-agent-run-runtime-foundation.md` is now complete
+- Go now owns the managed agent-run stores, config/runtime boundary, and
+  service boundary behind this tool
+- the managed-run service currently exposes an explicit disabled state until a
+  provider-backed executor is wired
 
 ## Scope
 
@@ -102,9 +104,6 @@ Already complete:
 - file-backed agent-profile store/read owner
 - unscoped MCP read transport for agent profiles
 - Setta-files path ownership patterns and MCP transport harnesses
-
-Prerequisite before this slice:
-
 - `phase-6-managed-agent-run-runtime-foundation.md`
 
 ## Verification Targets
@@ -125,5 +124,4 @@ Prerequisite before this slice:
 
 ## Next Recommended Step
 
-- first implement `phase-6-managed-agent-run-runtime-foundation.md`, then land
-  this transport slice immediately after
+- land this transport slice now

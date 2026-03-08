@@ -112,6 +112,25 @@ func (s *TemporaryIDStore) EnsureTemporaryID(canonicalID string) (string, error)
 	return temporaryID, nil
 }
 
+func (s *TemporaryIDStore) Snapshot() (map[string]string, error) {
+	if s == nil {
+		return map[string]string{}, nil
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.refreshLocked(); err != nil {
+		return nil, err
+	}
+
+	cloned := make(map[string]string, len(s.canonicalToTemporary))
+	for canonicalID, temporaryID := range s.canonicalToTemporary {
+		cloned[canonicalID] = temporaryID
+	}
+	return cloned, nil
+}
+
 func (s *TemporaryIDStore) refreshLocked() error {
 	if s == nil {
 		return nil

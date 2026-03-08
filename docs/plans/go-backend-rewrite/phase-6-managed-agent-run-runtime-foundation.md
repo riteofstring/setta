@@ -15,11 +15,12 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - `list_agent_profiles` and `get_agent_profile` are complete in Go
-- `run_agent_profile` remains the next missing agentic MCP tool, but direct
-  implementation is blocked on missing Go runtime owners
-- Go does not yet own managed `agent_runs/` persistence, engine-config
-  resolution, full `llm_config.json` semantics, or a managed LLM execution
-  service
+- Go now owns the bounded managed agent-run foundation in
+  `internal/llmconfig` and `internal/agentruns`
+- `run_agent_profile` remains the next missing agentic MCP tool, but it is no
+  longer blocked on missing file-backed stores or runtime service boundaries
+- the new managed-run service is currently wired with an explicit executor
+  boundary and no default provider adapter yet
 
 ## Scope
 
@@ -102,14 +103,25 @@ It should include:
      `snapshot`, executes the managed run to completion, and returns the final
      persisted `AgentRun`
 
-## Current Go Gap
+## Decisions Landed
 
-- `internal/mcpx/config.go` only owns the MCP-server subset of
-  `llm_config.json` for internal MCP-client setup
-- there is no Go-owned `internal/llm` or equivalent managed provider runtime
-- there is no Go-owned persisted `agent_runs` or `engine_configs` store
-- there is no Go-owned API-key sync boundary for managed LLM execution
-- there is no Go-owned managed system-prompt or run-event owner
+- `internal/llmconfig` is now the bounded Go owner for managed-run
+  `llm_config.json` semantics, including strict config-id derivation,
+  MCP-server reference validation, request-parameter derivation, and
+  workspace `.env` API-key filtering
+- `internal/agentruns.EngineStore` is now the bounded Go owner for
+  `engine_configs.json`
+- `internal/agentruns.RunStore` is now the bounded Go owner for persisted
+  `agent_runs/` and `agent_run_index.json`
+- `internal/agentruns.Service` is now the explicit managed-run runtime
+  boundary above those stores, including project-context validation,
+  temporary-id-aware system-prompt assembly, run lifecycle persistence, and a
+  pluggable executor interface
+- `internal/app.App` now wires that foundation in IDE mode so later transport
+  slices can depend on a concrete runtime owner instead of rebuilding startup
+  state ad hoc
+- the first foundation slice intentionally stops at an explicit executor
+  boundary; no default provider-backed executor is wired yet
 
 ## Working Decisions
 
@@ -125,13 +137,9 @@ It should include:
 
 ## Dependency Status
 
-Already complete:
+This slice is now complete.
 
-- file-backed agent-profile store/read owner
-- unscoped MCP read transport for agent profiles
-- internal MCP client/runtime-status foundation
-
-New owners needed in this slice:
+Completed owners in this slice:
 
 - persisted managed `agent_runs` owner
 - persisted `engine_configs` owner and resolver
@@ -158,8 +166,32 @@ New owners needed in this slice:
   as the primary source of truth; current recommendation is to keep the first
   slice aligned with the persisted `AgentRun` path already exercised by the
   bounded Python tests and defer transport-specific event fanout
+- whether the first provider-backed executor should land inside the
+  `run_agent_profile` slice or as a separate follow-on adapter slice if the
+  transport can otherwise ship cleanly; current recommendation is to keep the
+  transport slice thin and only broaden further if the disabled executor
+  boundary proves insufficient
+
+## Verification
+
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/llmconfig -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/agentruns -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/llmconfig ./internal/agentruns ./internal/mcpx ./internal/app -run 'Test(LoadDefaultsToSettaServerWhenFileMissing|LoadDerivesConfigIDsAndResolvesServerSets|SaveStripsTemporaryConfigsAndEmbeddedIDs|BuildRequestParamsAndRuntimeAPIKeys|ReadEnvFileAndRuntimeFiltersConfiguredKeysOnly|EngineStoreRoundTripAndResolveManagedEngine|RunStorePersistsRunsAndMetadataIndex|ServiceRunSubAgentPersistsLifecycleAndCompletes|ServiceRunSubAgentMarksRunFailedWhenExecutorFails|ServiceRejectsDisabledExecutorAndMissingProfileEngine|BuildSystemPromptUsesTemporaryProjectID|AppWiresManagedAgentRunFoundationInIDEMode)' -count=1 -timeout 420s`
+
+## Progress Notes
+
+- 2026-03-08: added `internal/llmconfig` as the first explicit Go owner for
+  managed-run `llm_config.json` semantics plus runtime API-key filtering from
+  workspace `.env`.
+- 2026-03-08: added `internal/agentruns.EngineStore` and
+  `internal/agentruns.RunStore` for `engine_configs.json`, `agent_runs/`, and
+  `agent_run_index.json`.
+- 2026-03-08: added `internal/agentruns.Service` as the managed-run runtime
+  boundary, including project-context validation, lifecycle persistence,
+  snapshot events, and an injected executor interface.
+- 2026-03-08: wired the managed-run foundation into `internal/app.App` for IDE
+  mode without adding transport or provider-executor wiring in this slice.
 
 ## Next Recommended Step
 
-- implement this foundation slice before attempting
-  `phase-6-run-agent-profile-tool-parity.md`
+- implement `phase-6-run-agent-profile-tool-parity.md`

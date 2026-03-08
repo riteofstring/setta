@@ -227,6 +227,32 @@ func TestAppWiresSeparateProjectStateRuntimes(t *testing.T) {
 	}
 }
 
+func TestAppWiresManagedAgentRunFoundationInIDEMode(t *testing.T) {
+	t.Parallel()
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 8000
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if app.AgentRuns() == nil {
+		t.Fatal("expected managed agent run service")
+	}
+	if !app.AgentRuns().Disabled() {
+		t.Fatal("expected managed agent run service to be disabled before an executor is wired")
+	}
+}
+
 func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

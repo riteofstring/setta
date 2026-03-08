@@ -9,6 +9,7 @@ require github.com/go-chi/chi/v5 v5.2.5
 require (
 	github.com/aymanbagabas/go-pty v0.2.2
 	github.com/coder/websocket v1.8.14
+	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	github.com/tree-sitter/go-tree-sitter v0.25.0
 	github.com/tree-sitter/tree-sitter-python v0.25.0
@@ -18,7 +19,6 @@ require (
 require (
 	github.com/creack/pty v1.1.21 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.3 // indirect

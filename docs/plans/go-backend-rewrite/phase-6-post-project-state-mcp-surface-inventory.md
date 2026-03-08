@@ -33,7 +33,7 @@ Current repo status as of 2026-03-08:
   - `report_completion_status`
   - `list_agent_profiles`
   - `get_agent_profile`
-- the remaining 12 tools now fall into one blocked agentic-run follow-on plus
+- the remaining 12 tools now fall into one agentic-run transport slice plus
   several larger missing runtime foundations
 
 ## Inputs
@@ -87,13 +87,12 @@ Go already owns the following Python MCP tools that do not come from
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Managed Agentic Run Foundation Gap
+### 1. Agentic Run Transport Gap
 
 - `run_agent_profile`
-  - Go now owns the agent-profile store/read foundation but still does not own
-    the managed `agent_runs/` store, engine-config resolver, full
-    `llm_config.json` semantics, API-key sync, or managed LLM execution path
-    behind this tool.
+  - Go now owns the agent-profile store/read foundation and the bounded
+    managed-run stores/runtime owners behind this tool, but MCP/HTTP/SSE
+    transport parity is still missing.
 
 ### 2. Generic UI-Setting Registry And Reveal Gaps
 
@@ -142,25 +141,25 @@ heuristics.
 - treat the general utility/read cluster as complete and closed
 - treat `report_completion_status` as complete and closed
 - treat the bounded agent-profile store/read slice as complete and closed
-- treat direct `run_agent_profile` transport work as blocked until the
-  managed agent-run runtime foundation lands
-- keep the next step focused on that managed agent-run foundation before
-  broader UI-setting or plugin-management work
+- treat the managed agent-run foundation as complete and closed
+- keep the next step focused on `run_agent_profile` transport before broader
+  UI-setting or plugin-management work
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
 
 ## Recommended Next Step
 
-Execute the dedicated managed agent-run foundation plan in
-`phase-6-managed-agent-run-runtime-foundation.md`.
+Execute the dedicated `run_agent_profile` transport plan in
+`phase-6-run-agent-profile-tool-parity.md`.
 
 This is now the highest-leverage next slice because:
 
 - `run_agent_profile` is still the only remaining agentic MCP tool before the
   broader plugin and UI-setting registry gaps
-- direct `run_agent_profile` transport is blocked on a concrete missing
-  runtime foundation, not on MCP wiring
+- the managed agent-run stores and service boundary now exist in Go, so the
+  next missing work is transport and tool-call behavior rather than another
+  foundational owner
 - it keeps the next runtime addition bounded to managed sub-agent execution
   instead of broadening immediately into plugin management or patch streaming
 
@@ -192,3 +191,6 @@ This is now the highest-leverage next slice because:
   missing Go ownership for managed `agent_runs`, engine-config resolution,
   full `llm_config.json` semantics, and managed LLM execution, so the next
   step is now the dedicated managed-agent-run foundation slice.
+- 2026-03-08: completed the dedicated managed-agent-run foundation slice in
+  `internal/llmconfig`, `internal/agentruns`, and `internal/app`, so the next
+  step is now the bounded `run_agent_profile` transport slice.
