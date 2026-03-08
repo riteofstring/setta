@@ -12,9 +12,14 @@ fi
 # shellcheck source=/dev/null
 . "${artifact_helper}"
 
+cleanup_on_exit() {
+  (cd "${repo_root}" && ./cleanup.sh) || true
+}
+
+trap cleanup_on_exit EXIT
+
 cd "${repo_root}"
 . ./init_env.sh
 ./build.sh
 filepath="$(setta_resolve_single_dist_artifact "${repo_root}/dist" "*.tar.gz" "sdist")"
 uv pip install --force-reinstall "$filepath"
-./cleanup.sh

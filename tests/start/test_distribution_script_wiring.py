@@ -144,6 +144,47 @@ echo "uv $*" >> "{command_log}"
     return sandbox_root, command_log
 
 
+def _build_build_and_upload_sandbox(tmp_path: Path) -> tuple[Path, Path]:
+    sandbox_root = tmp_path / "build_and_upload_sandbox"
+    bin_dir = sandbox_root / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="build_and_upload.sh")
+
+    command_log = sandbox_root / "command-log.txt"
+
+    write_stub_executable(
+        sandbox_root / "init_env.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo init-env >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "build.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo build >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "cleanup.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo cleanup >> "{command_log}"
+""",
+    )
+    write_stub_executable(
+        bin_dir / "python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "python $*" >> "{command_log}"
+""",
+    )
+
+    return sandbox_root, command_log
+
+
 def _build_install_built_setta_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     sandbox_root = tmp_path / "install_built_setta_sandbox"
     bin_dir = sandbox_root / "bin"
@@ -332,6 +373,36 @@ def test_verify_install_uses_shared_artifact_helper_for_sdist_selection(
     ]
 
 
+def test_verify_install_runs_cleanup_even_when_install_fails(tmp_path: Path) -> None:
+    # The install smoke wrapper should not leave build artifacts behind when uv install fails.
+    sandbox_root, command_log = _build_verify_install_sandbox(tmp_path)
+    write_stub_executable(
+        sandbox_root / "bin" / "uv",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "uv $*" >> "{command_log}"
+exit 9
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "verify_install.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 9
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "init-env",
+        "build",
+        f"uv pip install --force-reinstall {(sandbox_root / 'dist' / 'setta-0.0.0.tar.gz').resolve(strict=False)}",
+        "cleanup",
+    ]
+
+
 def test_install_built_setta_uses_shared_artifact_helper_for_wheel_selection(
     tmp_path: Path,
 ) -> None:
@@ -363,5 +434,61 @@ def test_install_built_setta_uses_shared_artifact_helper_for_wheel_selection(
             "--force-reinstall "
             f"{(sandbox_root / 'dist' / 'setta-0.0.0-py3-none-macosx_14_0_arm64.whl').resolve(strict=False)}"
         ),
+        "cleanup",
+    ]
+
+
+def test_build_and_upload_runs_cleanup_after_successful_publish(
+    tmp_path: Path,
+) -> None:
+    # The upload wrapper should clean build artifacts after a successful publish.
+    sandbox_root, command_log = _build_build_and_upload_sandbox(tmp_path)
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "build_and_upload.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "init-env",
+        "build",
+        "python -m twine upload dist/*",
+        "cleanup",
+    ]
+
+
+def test_build_and_upload_preserves_publish_failure_and_still_cleans(
+    tmp_path: Path,
+) -> None:
+    # Cleanup should run after upload failure without overwriting the publish exit status.
+    sandbox_root, command_log = _build_build_and_upload_sandbox(tmp_path)
+    write_stub_executable(
+        sandbox_root / "bin" / "python",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "python $*" >> "{command_log}"
+exit 7
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "build_and_upload.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 7
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "init-env",
+        "build",
+        "python -m twine upload dist/*",
         "cleanup",
     ]
