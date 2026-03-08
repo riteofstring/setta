@@ -418,7 +418,10 @@ export function StandaloneProjectSurfacePageWithLoadState({
     }
     return (
       <StandaloneSurfaceShell>
-        <StandaloneWindowSpaceSurface windowSpace={standaloneWindowSpace} />
+        <StandaloneWindowSpaceSurface
+          key={`${projectConfigId}:${standaloneWindowSpace.id}`}
+          windowSpace={standaloneWindowSpace}
+        />
       </StandaloneSurfaceShell>
     );
   }

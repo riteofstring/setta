@@ -3,21 +3,18 @@ from typing import Any
 from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
 
-from setta.agentic.agentic_scope import resolve_agentic_scope
 from setta.agentic.chat_continuity import get_prior_messages_for_chat_engine
 from setta.agentic.chat_view import (
     LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
 )
 from setta.agentic.engine_resolver import resolve_engine_config
-from setta.agentic.store import require_agent_profile
+from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, EngineType
 from setta.types.chat_messages import MessageTextContent, UserChatMessage
 from setta.types.external_agents import ExternalAgentToolType
-from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
-from setta.types.section_impls import ChatPermissionMode, ChatSectionImpl
+from setta.types.section_impls import ChatPermissionMode
 
 LINKED_CHAT_TOOL_NAME = "invoke_linked_chat"
 MAX_LINKED_CHAT_INVOCATION_DEPTH = 1
@@ -28,17 +25,6 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
     "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
     "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
 )
-
-
-async def _reserve_linked_chat_section_binding(
-    manager: Any,
-    project_config_id: ID,
-    section_id: ID,
-) -> ID:
-    return await manager.reserve_linked_chat_section_chat_id(
-        project_config_id,
-        section_id,
-    )
 
 
 async def _mark_linked_chat_section_binding_started(
@@ -95,20 +81,6 @@ async def invoke_linked_chat(
         agentic_context.project_config_id,
         share_session_id=share_session_id,
     )
-    project_state = convert_backend_to_single_config(
-        manager.project_state_backend,
-        agentic_context.project_config_id,
-    )
-    caller_scope = resolve_agentic_scope(project_state, agentic_context.section_id)
-    if target_section_id not in caller_scope.peer_chat_section_ids:
-        return _build_error_result(
-            target_section_id=target_section_id,
-            reason="not_linked",
-            message=(
-                f"Chat section {target_section_id} is not a direct linked chat target for "
-                f"{agentic_context.section_id}."
-            ),
-        )
     if agentic_context.linked_chat_invocation_depth >= MAX_LINKED_CHAT_INVOCATION_DEPTH:
         return _build_error_result(
             target_section_id=target_section_id,
@@ -131,67 +103,30 @@ async def invoke_linked_chat(
         )
 
     try:
-        target_section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
+        admission = await manager.admit_linked_chat_section_invocation(
+            agentic_context.project_config_id,
+            agentic_context.section_id,
             target_section_id,
-            ChatSectionImpl,
         )
-    except KeyError:
+    except LinkedChatAdmissionError as exc:
         return _build_error_result(
             target_section_id=target_section_id,
-            reason="missing_target",
-            message=f"Linked chat target {target_section_id} does not exist.",
+            reason=exc.reason,
+            message=exc.message,
         )
-    except ValueError:
-        return _build_error_result(
-            target_section_id=target_section_id,
-            reason="unsupported_target_type",
-            message=(
-                f"Linked chat target '{_get_chat_section_label(project_state, target_section_id)}' "
-                "is no longer an active chat section."
-            ),
-        )
-    target_label = _get_chat_section_label(project_state, target_section_id)
-    if not target_section_impl.managed:
-        return _build_error_result(
-            target_section_id=target_section_id,
-            reason="unsupported_scriptable_target",
-            message=(
-                f"Linked chat '{target_label}' is scriptable-only. "
-                "Chat-to-chat invocation requires a managed chat section with a server-side engine."
-            ),
-        )
-
-    selected_profile: AgentProfile | None = None
-    try:
-        if target_section_impl.agentProfileId is not None:
-            selected_profile = require_agent_profile(
-                ctx.fastmcp.state.dbe,
-                target_section_impl.agentProfileId,
-            )
     except KeyError as exc:
         return _build_error_result(
             target_section_id=target_section_id,
             reason="missing_agent_profile",
             message=str(exc),
         )
-    effective_engine_config_id = target_section_impl.engineConfigId or (
-        selected_profile.engineConfigId if selected_profile is not None else None
-    )
-    if effective_engine_config_id is None:
-        return _build_error_result(
-            target_section_id=target_section_id,
-            reason="missing_engine_config",
-            message=(
-                f"Linked chat '{target_label}' does not have a resolved engine config."
-            ),
-        )
+    target_label = admission.target_label
 
     try:
         resolved_engine = resolve_engine_config(
             ctx.fastmcp.state.dbe,
             ctx.fastmcp.state.agent_runner.config,
-            effective_engine_config_id,
+            admission.effective_engine_config_id,
         )
     except (KeyError, ValueError) as exc:
         return _build_error_result(
@@ -236,18 +171,14 @@ async def invoke_linked_chat(
             ),
         )
 
-    chat_id = await _reserve_linked_chat_section_binding(
-        manager,
-        agentic_context.project_config_id,
-        target_section_id,
-    )
+    chat_id = admission.chat_id
     try:
         prior_messages = get_prior_messages_for_chat_engine(
             dbe=ctx.fastmcp.state.dbe,
             engine_type=resolved_engine.engine_config.engineType,
             chat_id=chat_id,
             project_config_id=agentic_context.project_config_id,
-            engine_config_id=effective_engine_config_id,
+            engine_config_id=admission.effective_engine_config_id,
         )
     except ValueError as exc:
         await _release_linked_chat_section_binding_failure(
@@ -266,17 +197,17 @@ async def invoke_linked_chat(
         UserChatMessage(content=[MessageTextContent(text=normalized_prompt)])
     )
     execution_policy_prompt = _build_execution_policy_prompt(
-        target_section_impl.permissionMode,
-        target_section_impl.searchEnabled,
+        admission.permission_mode,
+        admission.search_enabled,
     )
     linked_chat_inputs: dict[str, Any] = {
         "chatId": str(chat_id),
         "projectConfigId": str(agentic_context.project_config_id),
         "sectionId": str(target_section_id),
-        "thinking": target_section_impl.thinking,
-        "engineConfigId": str(effective_engine_config_id),
-        "permissionMode": target_section_impl.permissionMode.value,
-        "searchEnabled": target_section_impl.searchEnabled,
+        "thinking": admission.thinking,
+        "engineConfigId": str(admission.effective_engine_config_id),
+        "permissionMode": admission.permission_mode.value,
+        "searchEnabled": admission.search_enabled,
         "messages": [message.model_dump(mode="json") for message in combined_messages],
         "linkedChatInvocationDepth": agentic_context.linked_chat_invocation_depth + 1,
         "linkedChatInvocationChainSectionIds": [
@@ -286,13 +217,13 @@ async def invoke_linked_chat(
 
     completed_run: AgentRun
     if resolved_engine.engine_config.engineType == EngineType.setta_llm:
-        profile = selected_profile
+        profile = admission.selected_profile
         if profile is None:
             profile = AgentProfile(
                 name=f"Linked chat {target_label}",
                 description="",
                 systemPrompt="",
-                engineConfigId=effective_engine_config_id,
+                engineConfigId=admission.effective_engine_config_id,
             )
         combined_system_prompt = _combine_prompt_sections(
             profile.systemPrompt or "",
@@ -301,7 +232,7 @@ async def invoke_linked_chat(
         )
         linked_profile = profile.model_copy(
             update={
-                "engineConfigId": effective_engine_config_id,
+                "engineConfigId": admission.effective_engine_config_id,
                 "systemPrompt": combined_system_prompt,
             }
         )
@@ -336,16 +267,16 @@ async def invoke_linked_chat(
         _apply_external_reasoning_defaults(
             inputs=linked_chat_inputs,
             tool_type=external_config.toolType,
-            thinking=target_section_impl.thinking,
+            thinking=admission.thinking,
         )
         approval_policy_override = _resolve_external_approval_policy_override(
-            target_section_impl.permissionMode,
+            admission.permission_mode,
             external_config.toolType,
         )
         if approval_policy_override is not None:
             linked_chat_inputs["approvalPolicy"] = approval_policy_override
         sandbox_policy_override = _resolve_external_sandbox_policy_override(
-            target_section_impl.permissionMode,
+            admission.permission_mode,
             external_config.toolType,
         )
         if sandbox_policy_override is not None:
@@ -356,9 +287,9 @@ async def invoke_linked_chat(
         )
         try:
             run = runner.start_run(
-                effective_engine_config_id,
+                admission.effective_engine_config_id,
                 external_config,
-                selected_profile,
+                admission.selected_profile,
                 linked_chat_inputs,
             )
         except (KeyError, ValueError) as exc:
@@ -458,16 +389,6 @@ def _extract_latest_assistant_text(run: AgentRun) -> str:
         if text_parts:
             return "\n\n".join(text_parts).strip()
     return ""
-
-
-def _get_chat_section_label(project_state: Any, section_id: ID) -> str:
-    section = project_state.sections[section_id]
-    display_name = (section.displayName or "").strip()
-    if display_name:
-        return display_name
-    if section.name:
-        return section.name
-    return str(section_id)
 
 
 def _combine_prompt_sections(*sections: str | None) -> str:

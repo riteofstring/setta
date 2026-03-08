@@ -1,10 +1,12 @@
 import asyncio
 from types import SimpleNamespace
+from typing import Callable
 
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
+from setta.agentic.agentic_scope import resolve_agentic_scope
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
@@ -20,6 +22,10 @@ from setta.database.utils import create_new_id
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
 from setta.mcp.utils import convert_canonical_ids_to_temporary
+from setta.project_state.linked_chat_admission import (
+    LinkedChatAdmissionError,
+    LinkedChatSectionAdmission,
+)
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.types.agentic import AgentRun, AgentRunStatus, EngineConfig, EngineType
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
@@ -69,9 +75,13 @@ class _DummyLinkedChatProjectManager:
         )
         self.history = SimpleNamespace(revision=0)
         self.set_chat_section_chat_id_calls: list[tuple[ID, ID, ID | None]] = []
+        self.linked_chat_reservation_calls: list[tuple[ID, ID, ID]] = []
         self._linked_chat_section_reservations: dict[
             tuple[ID, ID], dict[str, object]
         ] = {}
+        self.before_admission_hook: (
+            Callable[["_DummyLinkedChatProjectManager"], None] | None
+        ) = None
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
@@ -93,48 +103,118 @@ class _DummyLinkedChatProjectManager:
         self._backend = merge_single_config_into_backend(self._backend, project_state)
         self.history.revision += 1
 
-    async def reserve_linked_chat_section_chat_id(
+    def _reserve_linked_chat_section_chat_id(
         self,
         project_config_id: ID,
         section_id: ID,
     ) -> ID:
-        project_state = convert_backend_to_single_config(self._backend, project_config_id)
+        project_state = convert_backend_to_single_config(
+            self._backend, project_config_id
+        )
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is not None:
+            reservation["pending_claims"] = int(reservation["pending_claims"]) + 1
+            chat_id = reservation["chat_id"]
+            if not isinstance(chat_id, ID):
+                raise AssertionError("Expected reserved chat id.")
+            self.linked_chat_reservation_calls.append(
+                (project_config_id, section_id, chat_id)
+            )
+            return chat_id
+
         current_chat_id = get_curr_effective_section_impl_with_type_guard(
             project_state,
             section_id,
             ChatSectionImpl,
         ).chatId
-        reservation_key = (project_config_id, section_id)
-        reservation = self._linked_chat_section_reservations.get(reservation_key)
-        if (
-            reservation is not None
-            and current_chat_id is not None
-            and reservation["chat_id"] == current_chat_id
-        ):
-            reservation["pending_claims"] = int(reservation["pending_claims"]) + 1
-            self.set_chat_section_chat_id_calls.append(
-                (project_config_id, section_id, current_chat_id)
-            )
-            return current_chat_id
         if current_chat_id is not None:
-            self.set_chat_section_chat_id_calls.append(
+            self.linked_chat_reservation_calls.append(
                 (project_config_id, section_id, current_chat_id)
             )
             return current_chat_id
 
         next_chat_id = create_new_id()
-        set_chat_section_chat_id(project_state, section_id, next_chat_id)
-        self._backend = merge_single_config_into_backend(self._backend, project_state)
         self._linked_chat_section_reservations[reservation_key] = {
             "chat_id": next_chat_id,
             "pending_claims": 1,
             "has_started_run": False,
         }
-        self.set_chat_section_chat_id_calls.append(
+        self.linked_chat_reservation_calls.append(
             (project_config_id, section_id, next_chat_id)
         )
-        self.history.revision += 1
         return next_chat_id
+
+    async def admit_linked_chat_section_invocation(
+        self,
+        project_config_id: ID,
+        caller_section_id: ID,
+        target_section_id: ID,
+    ) -> LinkedChatSectionAdmission:
+        if self.before_admission_hook is not None:
+            self.before_admission_hook(self)
+        project_state = convert_backend_to_single_config(
+            self._backend, project_config_id
+        )
+        caller_scope = resolve_agentic_scope(project_state, caller_section_id)
+        if target_section_id not in caller_scope.peer_chat_section_ids:
+            raise LinkedChatAdmissionError(
+                "not_linked",
+                (
+                    f"Chat section {target_section_id} is not a direct linked chat target for "
+                    f"{caller_section_id}."
+                ),
+            )
+        if target_section_id not in project_state.sections:
+            raise LinkedChatAdmissionError(
+                "missing_target",
+                f"Linked chat target {target_section_id} does not exist.",
+            )
+        section = project_state.sections[target_section_id]
+        target_label = section.displayName or section.name or str(target_section_id)
+        try:
+            target_section_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                target_section_id,
+                ChatSectionImpl,
+            )
+        except ValueError as exc:
+            raise LinkedChatAdmissionError(
+                "unsupported_target_type",
+                f"Linked chat target '{target_label}' is no longer an active chat section.",
+            ) from exc
+        if not target_section_impl.managed:
+            raise LinkedChatAdmissionError(
+                "unsupported_scriptable_target",
+                (
+                    f"Linked chat '{target_label}' is scriptable-only. "
+                    "Chat-to-chat invocation requires a managed chat section with a server-side engine."
+                ),
+            )
+        if target_section_impl.engineConfigId is None:
+            raise LinkedChatAdmissionError(
+                "missing_engine_config",
+                f"Linked chat '{target_label}' does not have a resolved engine config.",
+            )
+        return LinkedChatSectionAdmission(
+            chat_id=self._reserve_linked_chat_section_chat_id(
+                project_config_id,
+                target_section_id,
+            ),
+            target_label=target_label,
+            thinking=target_section_impl.thinking,
+            permission_mode=target_section_impl.permissionMode,
+            search_enabled=target_section_impl.searchEnabled,
+            selected_profile=None,
+            effective_engine_config_id=target_section_impl.engineConfigId,
+        )
+
+    async def reserve_linked_chat_section_chat_id(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+    ) -> ID:
+        return self._reserve_linked_chat_section_chat_id(project_config_id, section_id)
 
     async def mark_linked_chat_section_chat_start_succeeded(
         self,
@@ -149,6 +229,23 @@ class _DummyLinkedChatProjectManager:
             return
         reservation["pending_claims"] = int(reservation["pending_claims"]) - 1
         reservation["has_started_run"] = True
+        project_state = convert_backend_to_single_config(
+            self._backend, project_config_id
+        )
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        if section_impl.chatId != chat_id:
+            set_chat_section_chat_id(project_state, section_id, chat_id)
+            self._backend = merge_single_config_into_backend(
+                self._backend, project_state
+            )
+            self.set_chat_section_chat_id_calls.append(
+                (project_config_id, section_id, chat_id)
+            )
+            self.history.revision += 1
         if int(reservation["pending_claims"]) == 0:
             del self._linked_chat_section_reservations[(project_config_id, section_id)]
 
@@ -170,10 +267,23 @@ class _DummyLinkedChatProjectManager:
         if bool(reservation["has_started_run"]):
             return
 
-        project_state = convert_backend_to_single_config(self._backend, project_config_id)
-        set_chat_section_chat_id(project_state, section_id, None)
-        self._backend = merge_single_config_into_backend(self._backend, project_state)
-        self.history.revision += 1
+        project_state = convert_backend_to_single_config(
+            self._backend, project_config_id
+        )
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            ChatSectionImpl,
+        )
+        if section_impl.chatId == chat_id:
+            set_chat_section_chat_id(project_state, section_id, None)
+            self._backend = merge_single_config_into_backend(
+                self._backend, project_state
+            )
+            self.set_chat_section_chat_id_calls.append(
+                (project_config_id, section_id, None)
+            )
+            self.history.revision += 1
 
 
 class _StrictProjectManagerSwitcher:
@@ -605,9 +715,7 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
     assert captured_inputs["linkedChatInvocationChainSectionIds"] == [
         str(caller_section_id)
     ]
-    assert manager.set_chat_section_chat_id_calls == [
-        (project_config_id, target_section_id, ID("linked-thread-1"))
-    ]
+    assert manager.set_chat_section_chat_id_calls == []
 
 
 @pytest.mark.asyncio
@@ -676,9 +784,7 @@ async def test_tools_call_invoke_linked_chat_rejects_mixed_engine_history(
         == "Chat engine mismatch; start a new chat."
     )
     assert agent_runner.calls == []
-    assert manager.set_chat_section_chat_id_calls == [
-        (project_config_id, target_section_id, ID("linked-thread-1"))
-    ]
+    assert manager.set_chat_section_chat_id_calls == []
 
 
 @pytest.mark.asyncio
@@ -834,9 +940,7 @@ async def test_tools_call_invoke_linked_chat_rejects_scriptable_history(
         == "Chat engine mismatch; start a new chat."
     )
     assert agent_runner.calls == []
-    assert manager.set_chat_section_chat_id_calls == [
-        (project_config_id, target_section_id, ID("linked-thread-1"))
-    ]
+    assert manager.set_chat_section_chat_id_calls == []
 
 
 @pytest.mark.asyncio
@@ -944,11 +1048,7 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_sta
     assert payload["structuredContent"]["reason"] == "run_start_failed"
     assert payload["structuredContent"]["message"] == "synthetic startup failure"
     assert agent_runner.calls
-    assert len(manager.set_chat_section_chat_id_calls) == 1
-    assert manager.set_chat_section_chat_id_calls[0][:2] == (
-        project_config_id,
-        target_section_id,
-    )
+    assert manager.set_chat_section_chat_id_calls == []
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,
         project_config_id,
@@ -1071,11 +1171,7 @@ async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_st
         payload["structuredContent"]["message"] == "synthetic external startup failure"
     )
     assert external_runner.calls
-    assert len(manager.set_chat_section_chat_id_calls) == 1
-    assert manager.set_chat_section_chat_id_calls[0][:2] == (
-        project_config_id,
-        target_section_id,
-    )
+    assert manager.set_chat_section_chat_id_calls == []
     project_state = convert_backend_to_single_config(
         manager.project_state_backend,
         project_config_id,
@@ -1266,6 +1362,136 @@ async def test_tools_call_invoke_linked_chat_rejects_stale_non_chat_targets(
 
 
 @pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_rejects_targets_that_change_before_admission(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(tmp_path, seed_target_chat_id=False)
+
+    def _mutate_target_before_admission(
+        current_manager: _DummyLinkedChatProjectManager,
+    ) -> None:
+        backend = current_manager.project_state_backend
+        target_variant_id = backend.projectConfigs[project_config_id].sectionVariantMap[
+            target_section_id
+        ]
+        target_impl_id = backend.sectionVariants[target_variant_id].impl
+        backend.sectionImpls[target_impl_id] = TextBlockSectionImpl(id=target_impl_id)
+
+    manager.before_admission_hook = _mutate_target_before_admission
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Try a stale target during admission.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "unsupported_target_type"
+    assert agent_runner.calls == []
+    assert manager.linked_chat_reservation_calls == []
+    assert manager.set_chat_section_chat_id_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_uses_latest_target_settings_during_admission(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(tmp_path, seed_target_chat_id=False)
+    _seed_engine_config(app.state.setta.dbe, ID("engine-new"))
+
+    def _mutate_target_before_admission(
+        current_manager: _DummyLinkedChatProjectManager,
+    ) -> None:
+        project_state = convert_backend_to_single_config(
+            current_manager.project_state_backend,
+            project_config_id,
+        )
+        set_chat_section_settings(
+            project_state,
+            target_section_id,
+            True,
+            ID("engine-new"),
+            None,
+            None,
+            True,
+            ChatPermissionMode.yolo,
+            False,
+            ChatDictationMode.auto,
+        )
+        current_manager._backend = merge_single_config_into_backend(
+            current_manager.project_state_backend,
+            project_state,
+        )
+        current_manager.history.revision += 1
+
+    manager.before_admission_hook = _mutate_target_before_admission
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is False
+    _, captured_inputs = agent_runner.calls[0]
+    assert captured_inputs["engineConfigId"] == "engine-new"
+    assert captured_inputs["permissionMode"] == "yolo"
+    assert captured_inputs["searchEnabled"] is False
+    assert captured_inputs["thinking"] is True
+
+
+@pytest.mark.asyncio
 async def test_tools_call_invoke_linked_chat_reserves_the_target_chat_before_overlapping_runs(
     tmp_path,
 ) -> None:
@@ -1307,11 +1533,22 @@ async def test_tools_call_invoke_linked_chat_reserves_the_target_chat_before_ove
             client.post("/__setta__/tools/call", json=request_payload)
         )
         await asyncio.wait_for(blocking_runner.first_call_started.wait(), timeout=1)
-
-        assert len(manager.set_chat_section_chat_id_calls) == 1
-        first_reserved_chat_id = manager.set_chat_section_chat_id_calls[0][2]
-        if first_reserved_chat_id is None:
-            raise AssertionError("Expected the first call to reserve a target chat id.")
+        first_reserved_chat_id = ID(agent_runner.calls[0][1]["chatId"])
+        assert manager.set_chat_section_chat_id_calls == [
+            (project_config_id, target_section_id, first_reserved_chat_id),
+        ]
+        pending_project_state = convert_backend_to_single_config(
+            manager.project_state_backend,
+            project_config_id,
+        )
+        assert (
+            get_curr_effective_section_impl_with_type_guard(
+                pending_project_state,
+                target_section_id,
+                ChatSectionImpl,
+            ).chatId
+            == first_reserved_chat_id
+        )
 
         second_request = asyncio.create_task(
             client.post("/__setta__/tools/call", json=request_payload)
@@ -1337,9 +1574,12 @@ async def test_tools_call_invoke_linked_chat_reserves_the_target_chat_before_ove
         == second_payload["structuredContent"]["chatId"]
     )
 
-    assert len(manager.set_chat_section_chat_id_calls) == 2
-    assert manager.set_chat_section_chat_id_calls == [
+    assert manager.linked_chat_reservation_calls == [
         (project_config_id, target_section_id, first_reserved_chat_id),
+        (project_config_id, target_section_id, first_reserved_chat_id),
+    ]
+    assert len(manager.set_chat_section_chat_id_calls) == 1
+    assert manager.set_chat_section_chat_id_calls == [
         (project_config_id, target_section_id, first_reserved_chat_id),
     ]
     assert [captured_inputs["chatId"] for _, captured_inputs in agent_runner.calls] == [

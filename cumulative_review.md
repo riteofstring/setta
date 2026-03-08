@@ -420,3 +420,35 @@ Verification:
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_linked_chat_tool.py tests/routers/test_share_policy_routes.py` passed: 44 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts` passed.
 - CDP verification on the live dev instance confirmed that seeding a read-only share state with empty project chat windowing produced no project-chat surface, no bottom-dock create control, no `New chat` action, and no mutating Project AI manager controls.
+
+## 2026-03-10 10:12:41 PDT
+
+Implemented the remaining consolidated fixes from the three review documents, covering atomic linked-chat admission on the backend, consistent optimistic rollback on frontend windowing writes, non-destructive window-space restore semantics, and project-config-scoped standalone window-space identity.
+
+What changed:
+- Added `LinkedChatSectionAdmission` and `LinkedChatAdmissionError` in `backend/setta/project_state/linked_chat_admission.py`, then moved linked-chat target validation, engine/profile resolution, permission/search/thinking capture, and chat-id reservation into the queued manager method `admit_linked_chat_section_invocation(...)`.
+- Updated `BaseProjectManager` so linked-chat reservation is manager-local until a run actually starts. `reserve_linked_chat_section_chat_id(...)` now only reserves, `mark_linked_chat_section_chat_start_succeeded(...)` is the only pathway that persists `section.chatId`, and `release_linked_chat_section_chat_start_failure(...)` only clears the authoritative binding when the failed start had already claimed that exact chat id.
+- Rewired `invoke_linked_chat(...)` to consume the admission snapshot instead of preflighting stale state and then starting with different runtime settings. The linked-chat tool now fails closed when the target changes between request receipt and queued admission, and it uses the latest authoritative engine/profile/permission/search settings when the target still exists.
+- Tightened the generic optimistic mutation helper in `frontend/src/state/actions/sectionInfos.ts` so any non-`200` response, including `{ hasResponse: false }`, or a rejected promise removes the pending op and applies rollback.
+- Updated `projectChatWindowing.ts` so focus/chat-id mutations roll `activeChatId` together with the authoritative windowing snapshot. Rejected focus/chat reassignment writes no longer leave a split-brain UI where the layout reverts but the selected project chat does not.
+- Added a shared optimistic window-space mutation helper in `windowSpaces.ts` and moved rename/delete/sort-order persistence through that path, so all overview window-space mutations snapshot and restore the same store slice on failure.
+- Changed workspace restore semantics so saved floating section windows lose to an existing live non-floating host for the same section. Restoring a saved floating layout now preserves canvas/docked/maximized section ownership instead of ripping a section off its current host.
+- Scoped standalone window-space hydration by `${projectConfigId}:${windowSpace.id}` and keyed the standalone page surface with the same composite identity. Same-tab navigation between copied configs that intentionally reuse the same saved `windowSpace.id` now resets local bounds/chat/draft state to the copied config’s own saved layout instead of inheriting the previously viewed config’s local edits.
+
+UX before/after:
+- Before: linked-chat startup could reserve or persist a thread too early, then race against target edits and start with stale settings or leave a ghost binding behind on failure. After: linked chat admission is atomic from authoritative state and the section only becomes bound once startup succeeds.
+- Before: rejected reorder/delete/focus/chat-id writes could leave the UI showing a layout or active project chat that the backend never accepted. After: failed optimistic writes roll back the full relevant frontend state slice, including `activeChatId` when it depends on the rejected window mutation.
+- Before: opening a saved floating window space could evict a section from a live canvas/docked/maximized host if the saved layout contained the same section as a floating window. After: restore is non-destructive for existing non-floating hosts and only reintroduces compatible floating windows.
+- Before: same-tab standalone navigation across copied project configs could leak resized bounds or local chat selection because the route reused `windowSpace.id` as the only hydration identity. After: copied configs hydrate from their own saved state and ignore local edits from previously viewed configs.
+
+DX before/after:
+- Before: linked-chat invariants were split across preflight, reservation, and run-start code paths, which made race behavior hard to reason about and harder to test. After: there is one queued admission entry point with a clear reservation lifecycle and explicit failure modes.
+- Before: rollback behavior depended on each mutation site remembering what counted as failure and which secondary stores also needed to be restored. After: the shared optimistic helpers enforce a consistent rollback contract for both project chat windowing and window-space overview mutations.
+- Before: standalone window-space hydration implicitly assumed `windowSpace.id` was globally unique across project configs, which copied-config workflows violate by design. After: the identity boundary is explicit in both the hydration helper and the mounted React subtree.
+- Before: restore semantics conflicted with the branch’s backend-authoritative, single-host section model. After: the restore helper encodes that model directly, which makes the intended behavior easier to explain and cover in tests.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_linked_chat_tool.py` passed: 26 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Panes/Overview/WindowSpacesPane.test.tsx` passed.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "same-tab standalone navigation isolates copied project configs even when the window-space id is reused|restoring a saved floating section window does not evict a live canvas section host"` passed: 2 tests.
+- CDP verification on a disposable local dev instance confirmed two browser-level outcomes: resizing the source config’s standalone saved window space to `630px` did not leak into the copied config, which rehydrated the same window at its saved `550px` width, and restoring a saved floating collision layout preserved the live canvas section host without spawning a duplicate floating section window.

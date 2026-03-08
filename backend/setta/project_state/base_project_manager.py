@@ -26,12 +26,13 @@ from typing import (
 
 from fastapi import HTTPException, status
 
+from setta.agentic.agentic_scope import resolve_agentic_scope
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
     LLM_CHAT_RUN_TYPE,
     SCRIPTABLE_CHAT_RUN_TYPE,
 )
-from setta.agentic.store import list_agent_run_ids_by_metadata
+from setta.agentic.store import list_agent_run_ids_by_metadata, require_agent_profile
 from setta.app.definition_diagnostics import (
     build_app_capabilities,
     validate_app_definition_payload,
@@ -89,6 +90,10 @@ from setta.project_state.jsonSource.jsonSource import (
     ProcessedJSONInfo,
 )
 from setta.project_state.jsonSource.load import load_json_sources_into_data_structures
+from setta.project_state.linked_chat_admission import (
+    LinkedChatAdmissionError,
+    LinkedChatSectionAdmission,
+)
 from setta.project_state.listener_artifact_updates import (
     apply_listener_artifact_updates,
 )
@@ -459,6 +464,7 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 
 if TYPE_CHECKING:
     from setta.plugins.manager import PluginManager
+    from setta.types.agentic import AgentProfile
 
 logger = logging.getLogger(__name__)
 
@@ -5004,39 +5010,140 @@ class BaseProjectManager(ABC):
         set_chat_section_chat_id(project_state, x.sectionId, x.chatId)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
-    @enqueue_method
-    async def reserve_linked_chat_section_chat_id(
-        self, project_config_id: ID, section_id: ID
+    def _get_linked_chat_target_label(
+        self,
+        project_state: ProjectStateSingleConfig,
+        section_id: ID,
+    ) -> str:
+        section = project_state.sections.get(section_id)
+        if section is None:
+            return str(section_id)
+        if section.displayName:
+            return section.displayName
+        return section.name or str(section_id)
+
+    def _reserve_linked_chat_section_chat_id_unlocked(
+        self,
+        project_state: ProjectStateSingleConfig,
+        project_config_id: ID,
+        section_id: ID,
     ) -> ID:
         reservation_key = (project_config_id, section_id)
-        project_state = self.get_single_config_state(project_config_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is not None:
+            reservation.pending_claims += 1
+            return reservation.chat_id
+
         section_impl = get_curr_effective_section_impl_with_type_guard(
             project_state,
             section_id,
             ChatSectionImpl,
         )
         current_chat_id = section_impl.chatId
-        reservation = self._linked_chat_section_reservations.get(reservation_key)
-        if (
-            reservation is not None
-            and current_chat_id is not None
-            and reservation.chat_id == current_chat_id
-        ):
-            reservation.pending_claims += 1
-            return reservation.chat_id
         if current_chat_id is not None:
             return current_chat_id
 
         next_chat_id = create_new_id()
-        set_chat_section_chat_id(project_state, section_id, next_chat_id)
         self._linked_chat_section_reservations[reservation_key] = (
             _LinkedChatSectionReservation(
                 chat_id=next_chat_id,
                 pending_claims=1,
             )
         )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return next_chat_id
+
+    @enqueue_method
+    async def admit_linked_chat_section_invocation(
+        self,
+        project_config_id: ID,
+        caller_section_id: ID,
+        target_section_id: ID,
+    ) -> LinkedChatSectionAdmission:
+        project_state = self.get_single_config_state(project_config_id)
+        caller_scope = resolve_agentic_scope(project_state, caller_section_id)
+        if target_section_id not in caller_scope.peer_chat_section_ids:
+            raise LinkedChatAdmissionError(
+                "not_linked",
+                (
+                    f"Chat section {target_section_id} is not a direct linked chat target for "
+                    f"{caller_section_id}."
+                ),
+            )
+        if target_section_id not in project_state.sections:
+            raise LinkedChatAdmissionError(
+                "missing_target",
+                f"Linked chat target {target_section_id} does not exist.",
+            )
+
+        try:
+            target_section_impl = get_curr_effective_section_impl_with_type_guard(
+                project_state,
+                target_section_id,
+                ChatSectionImpl,
+            )
+        except ValueError as exc:
+            raise LinkedChatAdmissionError(
+                "unsupported_target_type",
+                (
+                    f"Linked chat target '{self._get_linked_chat_target_label(project_state, target_section_id)}' "
+                    "is no longer an active chat section."
+                ),
+            ) from exc
+
+        target_label = self._get_linked_chat_target_label(
+            project_state, target_section_id
+        )
+        if not target_section_impl.managed:
+            raise LinkedChatAdmissionError(
+                "unsupported_scriptable_target",
+                (
+                    f"Linked chat '{target_label}' is scriptable-only. "
+                    "Chat-to-chat invocation requires a managed chat section with a server-side engine."
+                ),
+            )
+
+        selected_profile: "AgentProfile | None" = None
+        if target_section_impl.agentProfileId is not None:
+            selected_profile = require_agent_profile(
+                self.dbe,
+                target_section_impl.agentProfileId,
+            )
+        effective_engine_config_id = target_section_impl.engineConfigId or (
+            selected_profile.engineConfigId if selected_profile is not None else None
+        )
+        if effective_engine_config_id is None:
+            raise LinkedChatAdmissionError(
+                "missing_engine_config",
+                (
+                    f"Linked chat '{target_label}' does not have a resolved engine config."
+                ),
+            )
+
+        chat_id = self._reserve_linked_chat_section_chat_id_unlocked(
+            project_state,
+            project_config_id,
+            target_section_id,
+        )
+        return LinkedChatSectionAdmission(
+            chat_id=chat_id,
+            target_label=target_label,
+            thinking=target_section_impl.thinking,
+            permission_mode=target_section_impl.permissionMode,
+            search_enabled=target_section_impl.searchEnabled,
+            selected_profile=selected_profile,
+            effective_engine_config_id=effective_engine_config_id,
+        )
+
+    @enqueue_method
+    async def reserve_linked_chat_section_chat_id(
+        self, project_config_id: ID, section_id: ID
+    ) -> ID:
+        project_state = self.get_single_config_state(project_config_id)
+        return self._reserve_linked_chat_section_chat_id_unlocked(
+            project_state,
+            project_config_id,
+            section_id,
+        )
 
     @enqueue_method
     async def mark_linked_chat_section_chat_start_succeeded(
@@ -5055,6 +5162,17 @@ class BaseProjectManager(ABC):
             )
         reservation.pending_claims -= 1
         reservation.has_started_run = True
+        project_state = self.get_single_config_state(project_config_id)
+        if section_id in project_state.sections:
+            section_impl = get_curr_effective_section_impl(project_state, section_id)
+            if (
+                isinstance(section_impl, ChatSectionImpl)
+                and section_impl.chatId != chat_id
+            ):
+                set_chat_section_chat_id(project_state, section_id, chat_id)
+                await self._update_and_broadcast_project_state_no_name_validation(
+                    project_state
+                )
         if reservation.pending_claims == 0:
             del self._linked_chat_section_reservations[reservation_key]
 
@@ -5082,11 +5200,11 @@ class BaseProjectManager(ABC):
             return
 
         project_state = self.get_single_config_state(project_config_id)
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            ChatSectionImpl,
-        )
+        if section_id not in project_state.sections:
+            return
+        section_impl = get_curr_effective_section_impl(project_state, section_id)
+        if not isinstance(section_impl, ChatSectionImpl):
+            return
         if section_impl.chatId != chat_id:
             return
         set_chat_section_chat_id(project_state, section_id, None)

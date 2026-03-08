@@ -397,13 +397,13 @@ describe("StandaloneWindowSpaceSurface", () => {
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
-        previousWindowSpaceId: "space-a",
-        nextWindowSpaceId: "space-b",
+        previousHydrationKey: "project-a:space-a",
+        nextHydrationKey: "project-a:space-b",
       }),
     ).toEqual({
       nextLocalWindowsById: nextHydratedWindowsById,
       nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextWindowSpaceId: "space-b",
+      nextHydrationKey: "project-a:space-b",
       resetLocalState: true,
     });
   });
@@ -523,8 +523,8 @@ describe("StandaloneWindowSpaceSurface", () => {
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
-        previousWindowSpaceId: "space-id",
-        nextWindowSpaceId: "space-id",
+        previousHydrationKey: "project-a:space-id",
+        nextHydrationKey: "project-a:space-id",
       }),
     ).toEqual({
       nextLocalWindowsById: {
@@ -546,8 +546,69 @@ describe("StandaloneWindowSpaceSurface", () => {
         },
       },
       nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextWindowSpaceId: "space-id",
+      nextHydrationKey: "project-a:space-id",
       resetLocalState: false,
+    });
+  });
+
+  it("resets standalone local state when the owning project config changes", () => {
+    const previousHydratedWindowsById = {
+      "chat-window": {
+        instanceId: "chat-window",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.project_ai_mode,
+        title: "Research Chat",
+        chatId: null,
+        embeddedGitPaneVisible: false,
+        zIndex: 1,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 900,
+          height: 520,
+        },
+      },
+    };
+    const currentWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        chatId: "chat-local-override",
+        embeddedGitPaneVisible: true,
+        bounds: {
+          x: 24,
+          y: 40,
+          width: 780,
+          height: 420,
+        },
+      },
+    };
+    const nextHydratedWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        chatId: "copied-config-chat",
+        bounds: {
+          x: 8,
+          y: 16,
+          width: 640,
+          height: 360,
+        },
+      },
+    };
+
+    expect(
+      applyStandaloneWindowSpaceHydration({
+        currentWindowsById,
+        previousHydratedWindowsById,
+        nextHydratedWindowsById,
+        previousHydrationKey: "project-a:space-id",
+        nextHydrationKey: "project-b:space-id",
+      }),
+    ).toEqual({
+      nextLocalWindowsById: nextHydratedWindowsById,
+      nextPreviousHydratedWindowsById: nextHydratedWindowsById,
+      nextHydrationKey: "project-b:space-id",
+      resetLocalState: true,
     });
   });
 
@@ -600,13 +661,13 @@ describe("StandaloneWindowSpaceSurface", () => {
         currentWindowsById,
         previousHydratedWindowsById,
         nextHydratedWindowsById,
-        previousWindowSpaceId: "space-id",
-        nextWindowSpaceId: "space-id-2",
+        previousHydrationKey: "project-a:space-id",
+        nextHydrationKey: "project-a:space-id-2",
       }),
     ).toEqual({
       nextLocalWindowsById: nextHydratedWindowsById,
       nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextWindowSpaceId: "space-id-2",
+      nextHydrationKey: "project-a:space-id-2",
       resetLocalState: true,
     });
   });

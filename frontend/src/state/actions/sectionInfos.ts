@@ -1802,17 +1802,24 @@ export function dispatchOptimisticProjectStateUpdate({
   const opId = addPendingOp(apply);
   const result = send(opId);
   if (result instanceof Promise) {
-    void result.then((res) => {
-      // A 200 response means the backend accepted the op; don't keep reapplying it.
-      if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
+    void result
+      .then((res) => {
+        // A 200 response means the backend accepted the op; don't keep reapplying it.
+        if (isResponseDataAndStatus(res) && res200(res)) {
+          acknowledgePendingOp(opId);
+        } else if (isResponseDataAndStatus(res)) {
+          removePendingOp(opId);
+          if (rollback) {
+            useProjectState.setState(rollback);
+          }
+        }
+      })
+      .catch(() => {
         removePendingOp(opId);
         if (rollback) {
           useProjectState.setState(rollback);
         }
-      }
-    });
+      });
   }
   return opId;
 }

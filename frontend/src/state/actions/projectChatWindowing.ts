@@ -1316,12 +1316,19 @@ export function getVisibleProjectChatWindowInstances(
   return visible;
 }
 
+type ProjectChatWindowingStoreOptions = {
+  syncActiveChatId?: string | undefined;
+};
+
 function setProjectChatWindowingStateInStore(
   nextProjectChatWindowing: ProjectChatWindowingState,
+  options: ProjectChatWindowingStoreOptions = {},
 ): void {
   const projectConfigId = getCurrProjectConfigId();
   const previousProjectChatWindowing =
     useProjectState.getState().projectChatWindowing;
+  const previousActiveChatId = useAIStore.getState().activeChatId;
+  const shouldSyncActiveChatId = Object.hasOwn(options, "syncActiveChatId");
   if (projectConfigId) {
     reconcileProjectChatWindowingEphemeralState(
       nextProjectChatWindowing,
@@ -1332,12 +1339,22 @@ function setProjectChatWindowingStateInStore(
     useProjectState.setState((state) => {
       state.projectChatWindowing = nextProjectChatWindowing;
     });
+    if (shouldSyncActiveChatId) {
+      useAIStore.setState({
+        activeChatId: options.syncActiveChatId,
+      });
+    }
     return;
   }
 
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectChatWindowing = nextProjectChatWindowing;
+      if (shouldSyncActiveChatId) {
+        useAIStore.setState({
+          activeChatId: options.syncActiveChatId,
+        });
+      }
     },
     rollback: (state) => {
       reconcileProjectChatWindowingEphemeralState(
@@ -1345,6 +1362,11 @@ function setProjectChatWindowingStateInStore(
         projectConfigId,
       );
       state.projectChatWindowing = previousProjectChatWindowing;
+      if (shouldSyncActiveChatId) {
+        useAIStore.setState({
+          activeChatId: previousActiveChatId,
+        });
+      }
     },
     send: (frontendOpId) => {
       const request = route_set_project_chat_windowing_state({
@@ -1499,13 +1521,15 @@ export function focusProjectChatWindow(
   if (next === currentWindowing) {
     return;
   }
-  setProjectChatWindowingStateInStore(next);
   const focusedWindow = next.instancesById[instanceId];
-  if (shouldSyncActiveProjectChatId(focusedWindow)) {
-    useAIStore.setState({
-      activeChatId: focusedWindow.chatId ?? undefined,
-    });
-  }
+  setProjectChatWindowingStateInStore(
+    next,
+    shouldSyncActiveProjectChatId(focusedWindow)
+      ? {
+          syncActiveChatId: focusedWindow.chatId ?? undefined,
+        }
+      : {},
+  );
 }
 
 export function setProjectChatWindowDockFractions(
@@ -1603,13 +1627,13 @@ export function setProjectChatWindowChatId(
   if (next === currentWindowing) {
     return;
   }
-  setProjectChatWindowingStateInStore(next);
   const updatedWindow = next.instancesById[instanceId];
   if (!shouldSyncActiveProjectChatId(updatedWindow)) {
+    setProjectChatWindowingStateInStore(next);
     return;
   }
-  useAIStore.setState({
-    activeChatId: chatId?.trim() ? chatId.trim() : undefined,
+  setProjectChatWindowingStateInStore(next, {
+    syncActiveChatId: chatId?.trim() ? chatId.trim() : undefined,
   });
 }
 

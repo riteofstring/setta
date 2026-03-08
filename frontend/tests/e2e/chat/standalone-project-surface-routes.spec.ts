@@ -30,6 +30,14 @@ type LoadedProjectConfigState = {
   };
 };
 
+type ProjectMetadataResponse = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: Array<{
+    id: string;
+    name: string;
+  }>;
+};
+
 type ProjectChatWindowingSnapshot = {
   order: string[];
   instancesById: Record<
@@ -107,6 +115,37 @@ async function loadProjectConfigState(
     throw new Error("Missing project config response.");
   }
   return response;
+}
+
+async function saveProjectConfigCopyWithRefs(
+  page: Page,
+  projectConfigId: string,
+  newConfigName: string,
+): Promise<{ id: string; name: string }> {
+  await postBackend<null>(page, "/saveAsNewProjectConfig", {
+    projectConfigId,
+    newConfigName,
+    withRefs: true,
+  });
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  const copiedProject = metadata?.projectMetadata.find(
+    (entry) => entry.name === newConfigName,
+  );
+  if (!copiedProject) {
+    throw new Error("Unable to resolve copied project config.");
+  }
+  return copiedProject;
+}
+
+async function navigateSameTabSpa(page: Page, pathname: string): Promise<void> {
+  await page.evaluate((nextPathname) => {
+    window.history.pushState({}, "", nextPathname);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, pathname);
 }
 
 async function setActiveSections(
@@ -1707,6 +1746,258 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("same-tab standalone navigation isolates copied project configs even when the window-space id is reused", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    let copiedProjectContext: {
+      projectConfigId: string;
+      defaultProjectConfigId: string | null;
+    } | null = null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const { sectionId: textSectionId } = await createTextBlockSection(
+        page,
+        projectContext.projectConfigId,
+        "Research Notes",
+      );
+      const projectChatWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Research Chat",
+      );
+      await showSectionInProjectChatWindow(page, textSectionId, "floating");
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return findProjectChatWindowIdForSection(state, textSectionId) ?? "";
+        })
+        .not.toBe("");
+      const sectionState = await readProjectChatWindowingState(page);
+      const sectionWindowId = findProjectChatWindowIdForSection(
+        sectionState,
+        textSectionId,
+      );
+      if (!sectionWindowId) {
+        throw new Error("Expected floating section window before saving.");
+      }
+
+      const leftBounds = await resolveWorkspaceSnapBounds(page, "left");
+      const rightBounds = await resolveWorkspaceSnapBounds(page, "right");
+      await setProjectChatWindowBounds(page, projectChatWindowId, leftBounds);
+      await setProjectChatWindowBounds(page, sectionWindowId, rightBounds);
+      await seedProjectChatWindowThreads(page, [
+        {
+          instanceId: projectChatWindowId,
+          chatId: "source-window-chat",
+          assistantText: "Source copied-config thread marker",
+        },
+      ]);
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify([
+            ...runs.filter(
+              (run) => run.inputs?.chatId !== "source-window-chat",
+            ),
+            {
+              id: "run-source-window-chat",
+              profileId: null,
+              status: "completed",
+              startedAt: "2026-03-07T00:00:00Z",
+              finishedAt: "2026-03-07T00:00:01Z",
+              events: [],
+              inputs: {
+                runType: "llm_chat",
+                projectConfigId: projectContext.projectConfigId,
+                chatId: "source-window-chat",
+                sectionId: null,
+                messages: [],
+              },
+              outputs: {},
+            },
+          ]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId !== "source-window-chat") {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: "assistant-source-window-chat",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Source copied-config thread marker",
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected the saved window space to be persisted.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      const copiedProjectName = `${projectConfigName}-copy-windowspace`;
+      const copiedProject = await saveProjectConfigCopyWithRefs(
+        page,
+        projectContext.projectConfigId,
+        copiedProjectName,
+      );
+      copiedProjectContext = {
+        projectConfigId: copiedProject.id,
+        defaultProjectConfigId: projectContext.defaultProjectConfigId,
+      };
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      const sourceProjectWindow = page.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${projectChatWindowId}"]`,
+      );
+      const sourceSectionWindow = page.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
+      );
+      const verticalHandle = page.locator(
+        '[data-testid="standalone-window-space-resize-handle"][data-resize-axis="vertical"]',
+      );
+      await expect(sourceProjectWindow).toContainText(
+        "Source copied-config thread marker",
+      );
+      const handleBounds = await verticalHandle.boundingBox();
+      if (!handleBounds) {
+        throw new Error(
+          "Expected standalone resize handle for copied-config test.",
+        );
+      }
+
+      await page.mouse.move(
+        handleBounds.x + handleBounds.width / 2,
+        handleBounds.y + handleBounds.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        handleBounds.x + handleBounds.width / 2 + 80,
+        handleBounds.y + handleBounds.height / 2,
+        {
+          steps: 8,
+        },
+      );
+      await page.mouse.up();
+
+      const resizedSourceWidth = (await sourceProjectWindow.boundingBox())
+        ?.width;
+      if (!resizedSourceWidth) {
+        throw new Error("Expected resized standalone window width.");
+      }
+
+      await navigateSameTabSpa(
+        page,
+        `/${encodeURIComponent(copiedProjectName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+      );
+      await page.evaluate(async (nextProjectConfigName) => {
+        const { loadProjectConfig } = await import(
+          "/src/state/actions/project/loadProject.ts"
+        );
+        await loadProjectConfig({ projectConfigName: nextProjectConfigName });
+      }, copiedProjectName);
+      await expect(
+        page.getByTestId("standalone-window-space-surface"),
+      ).toBeVisible();
+      await expect
+        .poll(async () => {
+          return await page.evaluate(async () => {
+            const { useProjectState } = await import(
+              "/src/state/definitions.ts"
+            );
+            return useProjectState.getState().projectConfig.id;
+          });
+        })
+        .toBe(copiedProject.id);
+
+      const copiedProjectWindow = page.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${projectChatWindowId}"]`,
+      );
+      const copiedSectionWindow = page.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
+      );
+      await expect(copiedProjectWindow).toBeVisible();
+      await expect(copiedSectionWindow).toBeVisible();
+      await expect(copiedProjectWindow).not.toContainText(
+        "Source copied-config thread marker",
+      );
+      await expect
+        .poll(async () => (await copiedProjectWindow.boundingBox())?.width ?? 0)
+        .toBeLessThan(resizedSourceWidth - 60);
+    } finally {
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, copiedProjectContext);
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone section windows keep their saved project-ai thread even without a live workspace binding", async ({
     page,
   }) => {
@@ -2228,6 +2519,102 @@ test.describe.serial("standalone project surface routes", () => {
       await expect
         .poll(async () => (await rightWindow.boundingBox())?.width ?? 0)
         .toBeLessThan(rightBeforeResize.width - 60);
+    } finally {
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("restoring a saved floating section window does not evict a live canvas section host", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    try {
+      const { sectionId: textSectionId } = await createTextBlockSection(
+        page,
+        projectContext.projectConfigId,
+        "Research Notes",
+      );
+      const seededStates = await page.evaluate(async (sectionId) => {
+        const {
+          ChatWindowModeEnum,
+          ChatWindowPlacementEnum,
+          WindowSpaceSurfaceKindEnum,
+          createProjectChatWindowingState,
+          createWindowSpaceState,
+        } = await import("/src/utils/generatedTypes.ts");
+        return {
+          currentWindowing: createProjectChatWindowingState({
+            order: ["canvas-section-window"],
+            instancesById: {
+              "canvas-section-window": {
+                instanceId: "canvas-section-window",
+                placement: ChatWindowPlacementEnum.canvas_section,
+                mode: ChatWindowModeEnum.section_mode,
+                sectionIdOrNull: sectionId,
+                title: "Canvas Section Chat",
+              },
+            },
+            nextInstanceNumber: 2,
+          }),
+          windowSpaceState: createWindowSpaceState({
+            windowsById: {
+              "restored-section-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                sectionIdOrNull: sectionId,
+                mode: ChatWindowModeEnum.section_mode,
+                title: null,
+                chatId: null,
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["restored-section-window"],
+          }),
+        };
+      }, textSectionId);
+
+      await postBackend(page, "/setProjectChatWindowingState", {
+        projectConfigId: projectContext.projectConfigId,
+        state: seededStates.currentWindowing,
+      });
+      await postBackend(page, "/createWindowSpace", {
+        projectConfigId: projectContext.projectConfigId,
+        name: "Collision Layout",
+        state: seededStates.windowSpaceState,
+      });
+
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+      await page.getByTestId("window-space-open").click();
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return {
+            order: state.order,
+            placementsById: Object.fromEntries(
+              Object.entries(state.instancesById).map(
+                ([instanceId, instance]) => [instanceId, instance.placement],
+              ),
+            ),
+          };
+        })
+        .toEqual({
+          order: ["canvas-section-window"],
+          placementsById: {
+            "canvas-section-window": "canvas_section",
+          },
+        });
     } finally {
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);

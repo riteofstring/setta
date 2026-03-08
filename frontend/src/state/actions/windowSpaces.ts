@@ -15,7 +15,9 @@ import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_window_space,
+  route_delete_window_space,
   route_set_project_chat_windowing_state,
+  route_set_window_space_name,
   route_set_window_space_sort_order,
 } from "utils/generatedEndpoints";
 import {
@@ -72,6 +74,54 @@ export function getProjectWindowSpaces(
   return projectConfig.windowSpaces;
 }
 
+function cloneWindowSpaces(
+  windowSpaces: Record<string, WindowSpaceConfig>,
+): Record<string, WindowSpaceConfig> {
+  return Object.fromEntries(
+    Object.entries(windowSpaces).map(([windowSpaceId, windowSpace]) => [
+      windowSpaceId,
+      {
+        ...windowSpace,
+        windowsById: Object.fromEntries(
+          Object.entries(windowSpace.windowsById).map(
+            ([instanceId, window]) => [instanceId, { ...window }],
+          ),
+        ),
+        order: [...windowSpace.order],
+      },
+    ]),
+  );
+}
+
+function dispatchOptimisticWindowSpaceMutation({
+  apply,
+  projectConfigId,
+  send,
+}: {
+  apply: (state: ZustandProjectState) => void;
+  projectConfigId: string;
+  send: (args: {
+    frontendOpId: string;
+    projectConfigId: string;
+  }) => void | Promise<unknown>;
+}) {
+  const previousWindowSpaces = cloneWindowSpaces(
+    getProjectWindowSpaces(useProjectState.getState().projectConfig),
+  );
+  dispatchOptimisticProjectStateUpdate({
+    apply,
+    rollback: (state) => {
+      state.projectConfig.windowSpaces =
+        cloneWindowSpaces(previousWindowSpaces);
+    },
+    send: (frontendOpId) =>
+      send({
+        frontendOpId,
+        projectConfigId,
+      }),
+  });
+}
+
 function resolveNextWindowSpaceName(
   windowSpaces: Record<string, WindowSpaceConfig>,
 ): string {
@@ -118,18 +168,79 @@ export function applyWindowSpaceSortOrder(
   });
 }
 
+function compactWindowSpaceSortIndices(
+  windowSpaces: Record<string, WindowSpaceConfig>,
+): void {
+  const sortedWindowSpaces = sortWindowSpaces(Object.values(windowSpaces));
+  for (let index = 0; index < sortedWindowSpaces.length; index += 1) {
+    const sortedWindowSpace = sortedWindowSpaces[index];
+    if (!sortedWindowSpace) {
+      continue;
+    }
+    sortedWindowSpace.sortIndex = index;
+  }
+}
+
 export function persistWindowSpaceSortOrder(
   projectConfigId: string,
   orderedWindowSpaceIds: Array<string>,
 ): void {
-  dispatchOptimisticProjectStateUpdate({
+  dispatchOptimisticWindowSpaceMutation({
     apply: (state) => {
       applyWindowSpaceSortOrder(state, orderedWindowSpaceIds);
     },
-    send: (frontendOpId) =>
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
       route_set_window_space_sort_order({
-        projectConfigId,
+        projectConfigId: nextProjectConfigId,
         orderedWindowSpaceIds,
+        frontendOpId,
+      }),
+  });
+}
+
+export function setWindowSpaceName(
+  projectConfigId: string,
+  windowSpaceId: string,
+  name: string,
+): void {
+  dispatchOptimisticWindowSpaceMutation({
+    apply: (state) => {
+      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
+      if (!(windowSpaceId in windowSpaces)) {
+        throw new Error(`Window space ${windowSpaceId} not found`);
+      }
+      windowSpaces[windowSpaceId].name = name;
+    },
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      route_set_window_space_name({
+        projectConfigId: nextProjectConfigId,
+        windowSpaceId,
+        name,
+        frontendOpId,
+      }),
+  });
+}
+
+export function deleteWindowSpace(
+  projectConfigId: string,
+  windowSpaceId: string,
+): void {
+  dispatchOptimisticWindowSpaceMutation({
+    apply: (state) => {
+      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
+      if (!(windowSpaceId in windowSpaces)) {
+        throw new Error(`Window space ${windowSpaceId} not found`);
+      }
+      delete windowSpaces[windowSpaceId];
+      compactWindowSpaceSortIndices(windowSpaces);
+    },
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      route_delete_window_space({
+        projectConfigId: nextProjectConfigId,
+        windowSpaceId,
         frontendOpId,
       }),
   });
@@ -603,6 +714,60 @@ function remapRestoredWindowSpaceInstanceIdsForWorkspace(
   });
 }
 
+function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
+  restoredFloatingWindowing: ProjectChatWindowingState,
+  currentWindowing: ProjectChatWindowingState,
+): ProjectChatWindowingState {
+  const authoritativeSectionIds = new Set(
+    Object.values(currentWindowing.instancesById)
+      .map((instance) => {
+        if (
+          instance.placement === ChatWindowPlacementEnum.floating ||
+          instance.sectionIdOrNull === null
+        ) {
+          return null;
+        }
+        return instance.sectionIdOrNull;
+      })
+      .filter((sectionId): sectionId is string => sectionId !== null),
+  );
+  if (authoritativeSectionIds.size === 0) {
+    return restoredFloatingWindowing;
+  }
+
+  const nextInstancesById: ProjectChatWindowingState["instancesById"] = {};
+  const nextOrder: string[] = [];
+  for (const instanceId of restoredFloatingWindowing.order) {
+    const instance = restoredFloatingWindowing.instancesById[instanceId];
+    if (
+      !instance ||
+      (instance.sectionIdOrNull !== null &&
+        authoritativeSectionIds.has(instance.sectionIdOrNull))
+    ) {
+      continue;
+    }
+    nextInstancesById[instanceId] = instance;
+    nextOrder.push(instanceId);
+  }
+  for (const [instanceId, instance] of Object.entries(
+    restoredFloatingWindowing.instancesById,
+  )) {
+    if (
+      instanceId in nextInstancesById ||
+      (instance.sectionIdOrNull !== null &&
+        authoritativeSectionIds.has(instance.sectionIdOrNull))
+    ) {
+      continue;
+    }
+    nextInstancesById[instanceId] = instance;
+  }
+  return createProjectChatWindowingState({
+    ...restoredFloatingWindowing,
+    instancesById: nextInstancesById,
+    order: nextOrder,
+  });
+}
+
 export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   const state = useProjectState.getState();
   const windowSpaces = getProjectWindowSpaces(state.projectConfig);
@@ -618,14 +783,12 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   const currentWindowing = state.projectChatWindowing;
   const remappedRestoredFloatingWindowing = dedupeRestoredSectionBindings(
     remapRestoredWindowSpaceInstanceIdsForWorkspace(
-      restoredFloatingWindowing,
+      dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
+        restoredFloatingWindowing,
+        currentWindowing,
+      ),
       currentWindowing,
     ),
-  );
-  const restoredSectionIds = new Set(
-    Object.values(remappedRestoredFloatingWindowing.instancesById)
-      .map((instance) => instance.sectionIdOrNull ?? null)
-      .filter((sectionId): sectionId is string => sectionId !== null),
   );
   const preservedInstancesById: ProjectChatWindowingState["instancesById"] = {};
   const preservedOrder: Array<string> = [];
@@ -635,8 +798,6 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
     if (
       !instance ||
       instance.placement === ChatWindowPlacementEnum.floating ||
-      (instance.sectionIdOrNull !== null &&
-        restoredSectionIds.has(instance.sectionIdOrNull)) ||
       remappedRestoredFloatingWindowing.instancesById[instanceId]
     ) {
       continue;
@@ -650,8 +811,6 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   )) {
     if (
       instance.placement === ChatWindowPlacementEnum.floating ||
-      (instance.sectionIdOrNull !== null &&
-        restoredSectionIds.has(instance.sectionIdOrNull)) ||
       remappedRestoredFloatingWindowing.instancesById[instanceId] ||
       preservedInstancesById[instanceId]
     ) {

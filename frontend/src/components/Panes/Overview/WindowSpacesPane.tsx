@@ -7,20 +7,17 @@ import { useEffect, useRef, useState } from "react";
 import { FiEdit3, FiSave, FiTrash2 } from "react-icons/fi";
 import { MdFlipToFront, MdOpenInNew } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import {
   createWindowSpaceFromCurrentFloatingWindows,
+  deleteWindowSpace,
   getProjectWindowSpaces,
   persistWindowSpaceSortOrder,
   restoreWindowSpaceInWorkspace,
+  setWindowSpaceName,
   sortWindowSpaces,
 } from "state/actions/windowSpaces";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
-import {
-  route_delete_window_space,
-  route_set_window_space_name,
-} from "utils/generatedEndpoints";
 import {
   ChatWindowPlacementEnum,
   type WindowSpaceConfig,
@@ -30,20 +27,6 @@ import {
   validateWindowSpaceNameInput,
 } from "utils/nameValidation";
 import { buildStandaloneWindowSpacePath } from "utils/windowSpacePaths";
-
-function compactWindowSpaceSortIndices(
-  windowSpaces: Record<string, WindowSpaceConfig>,
-): Array<WindowSpaceConfig> {
-  const sortedWindowSpaces = sortWindowSpaces(Object.values(windowSpaces));
-  for (let index = 0; index < sortedWindowSpaces.length; index += 1) {
-    const sortedWindowSpace = sortedWindowSpaces[index];
-    if (!sortedWindowSpace) {
-      continue;
-    }
-    sortedWindowSpace.sortIndex = index;
-  }
-  return sortedWindowSpaces;
-}
 
 type WindowSpaceRowSharedProps = {
   windowSpace: WindowSpaceConfig;
@@ -76,63 +59,6 @@ function canSetWindowSpaceName(windowSpaceId: string, name: string): boolean {
     }
   }
   return true;
-}
-
-function setWindowSpaceName(
-  projectConfigId: string,
-  windowSpaceId: string,
-  fallbackName: string,
-  name: string,
-): void {
-  const previousName =
-    getProjectWindowSpaces(useProjectState.getState().projectConfig)[
-      windowSpaceId
-    ]?.name ?? fallbackName;
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
-      if (!(windowSpaceId in windowSpaces)) {
-        throw new Error(`Window space ${windowSpaceId} not found`);
-      }
-      windowSpaces[windowSpaceId].name = name;
-    },
-    send: (frontendOpId) =>
-      route_set_window_space_name({
-        projectConfigId,
-        windowSpaceId,
-        name,
-        frontendOpId,
-      }),
-    rollback: (state) => {
-      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
-      if (!(windowSpaceId in windowSpaces)) {
-        throw new Error(`Window space ${windowSpaceId} not found`);
-      }
-      windowSpaces[windowSpaceId].name = previousName;
-    },
-  });
-}
-
-function deleteWindowSpace(
-  projectConfigId: string,
-  windowSpaceId: string,
-): void {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
-      if (!(windowSpaceId in windowSpaces)) {
-        throw new Error(`Window space ${windowSpaceId} not found`);
-      }
-      delete windowSpaces[windowSpaceId];
-      compactWindowSpaceSortIndices(windowSpaces);
-    },
-    send: (frontendOpId) =>
-      route_delete_window_space({
-        projectConfigId,
-        windowSpaceId,
-        frontendOpId,
-      }),
-  });
 }
 
 export function WindowSpacesPane({
@@ -279,12 +205,7 @@ function WindowSpaceRow({
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     windowSpace.name,
     (name) => {
-      setWindowSpaceName(
-        projectConfigId,
-        windowSpace.id,
-        windowSpace.name,
-        name,
-      );
+      setWindowSpaceName(projectConfigId, windowSpace.id, name);
     },
     (name) => canSetWindowSpaceName(windowSpace.id, name),
     false,
@@ -396,12 +317,7 @@ function WindowSpaceEditingRow({
       if (!canEditLayout) {
         return;
       }
-      setWindowSpaceName(
-        projectConfigId,
-        windowSpace.id,
-        windowSpace.name,
-        name,
-      );
+      setWindowSpaceName(projectConfigId, windowSpace.id, name);
     },
     (name) => canSetWindowSpaceName(windowSpace.id, name),
     false,

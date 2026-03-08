@@ -3,7 +3,11 @@ import {
   buildFloatingSnapResizeHandles,
   resolveFloatingSnapPresetFromBounds,
 } from "components/ChatWindowing/projectChatSnapLayout";
-import { useMisc, useProjectState } from "state/definitions";
+import {
+  useMisc,
+  usePendingOperations,
+  useProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
@@ -17,6 +21,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeCreateWindowSpaceMock = vi.fn();
+const routeDeleteWindowSpaceMock = vi.fn();
+const routeSetWindowSpaceNameMock = vi.fn();
 const routeSetWindowSpaceSortOrderMock = vi.fn();
 const routeSetProjectChatWindowingStateMock = vi.fn();
 const addTemporaryNotificationMock = vi.fn();
@@ -24,8 +30,12 @@ const addTemporaryNotificationMock = vi.fn();
 vi.mock("utils/generatedEndpoints", () => ({
   route_create_window_space: (...args: unknown[]) =>
     routeCreateWindowSpaceMock(...args),
+  route_delete_window_space: (...args: unknown[]) =>
+    routeDeleteWindowSpaceMock(...args),
   route_set_window_space_sort_order: (...args: unknown[]) =>
     routeSetWindowSpaceSortOrderMock(...args),
+  route_set_window_space_name: (...args: unknown[]) =>
+    routeSetWindowSpaceNameMock(...args),
   route_set_project_chat_windowing_state: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
   route_set_section_name: vi.fn(),
@@ -41,7 +51,10 @@ import {
   applyWindowSpaceSortOrder,
   createProjectChatWindowingStateFromWindowSpace,
   createWindowSpaceFromCurrentFloatingWindows,
+  deleteWindowSpace,
+  persistWindowSpaceSortOrder,
   restoreWindowSpaceInWorkspace,
+  setWindowSpaceName,
   snapshotFloatingWindowsForWindowSpace,
 } from "./windowSpaces";
 
@@ -66,13 +79,21 @@ function buildCreatedWindowSpaceResponse(request: {
   };
 }
 
+async function flushOptimisticMutation(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe("snapshotFloatingWindowsForWindowSpace", () => {
   beforeEach(() => {
     resetProjectStores();
     routeCreateWindowSpaceMock.mockReset();
+    routeDeleteWindowSpaceMock.mockReset();
+    routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    usePendingOperations.setState({ pending: [] });
     routeSetProjectChatWindowingStateMock.mockImplementation(
       async (request) => ({
         data: request.state,
@@ -471,9 +492,12 @@ describe("applyWindowSpaceSortOrder", () => {
   beforeEach(() => {
     resetProjectStores();
     routeCreateWindowSpaceMock.mockReset();
+    routeDeleteWindowSpaceMock.mockReset();
+    routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    usePendingOperations.setState({ pending: [] });
     routeSetProjectChatWindowingStateMock.mockImplementation(
       async (request) => ({
         data: request.state,
@@ -551,13 +575,154 @@ describe("applyWindowSpaceSortOrder", () => {
   });
 });
 
+describe("window-space optimistic rollback", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    routeCreateWindowSpaceMock.mockReset();
+    routeDeleteWindowSpaceMock.mockReset();
+    routeSetWindowSpaceNameMock.mockReset();
+    routeSetWindowSpaceSortOrderMock.mockReset();
+    routeSetProjectChatWindowingStateMock.mockReset();
+    addTemporaryNotificationMock.mockReset();
+    usePendingOperations.setState({ pending: [] });
+  });
+
+  it("rolls back a rejected reorder to the authoritative sort order", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+          "beta-id": createWindowSpaceConfig({
+            id: "beta-id",
+            name: "Beta",
+            sortIndex: 1,
+            windowsById: {},
+            order: [],
+          }),
+          "gamma-id": createWindowSpaceConfig({
+            id: "gamma-id",
+            name: "Gamma",
+            sortIndex: 2,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeSetWindowSpaceSortOrderMock.mockResolvedValue({
+      data: { detail: "Forbidden" },
+      status: 403,
+      hasResponse: true,
+    });
+
+    persistWindowSpaceSortOrder("project-id", [
+      "gamma-id",
+      "alpha-id",
+      "beta-id",
+    ]);
+    await flushOptimisticMutation();
+
+    const windowSpaces = useProjectState.getState().projectConfig.windowSpaces;
+    expect(windowSpaces["alpha-id"]?.sortIndex).toBe(0);
+    expect(windowSpaces["beta-id"]?.sortIndex).toBe(1);
+    expect(windowSpaces["gamma-id"]?.sortIndex).toBe(2);
+    expect(
+      Object.values(windowSpaces)
+        .sort((a, b) => a.sortIndex - b.sortIndex)
+        .map((windowSpace) => windowSpace.id),
+    ).toEqual(["alpha-id", "beta-id", "gamma-id"]);
+    expect(usePendingOperations.getState().pending).toEqual([]);
+  });
+
+  it("rolls back a rejected delete to the authoritative window-space list", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+          "beta-id": createWindowSpaceConfig({
+            id: "beta-id",
+            name: "Beta",
+            sortIndex: 1,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeDeleteWindowSpaceMock.mockResolvedValue({
+      data: { detail: "Forbidden" },
+      status: 403,
+      hasResponse: true,
+    });
+
+    deleteWindowSpace("project-id", "alpha-id");
+    await flushOptimisticMutation();
+
+    const windowSpaces = useProjectState.getState().projectConfig.windowSpaces;
+    expect(Object.keys(windowSpaces)).toEqual(["alpha-id", "beta-id"]);
+    expect(windowSpaces["alpha-id"]?.sortIndex).toBe(0);
+    expect(windowSpaces["beta-id"]?.sortIndex).toBe(1);
+    expect(usePendingOperations.getState().pending).toEqual([]);
+  });
+
+  it("rolls back a transport-failed rename to the authoritative name", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeSetWindowSpaceNameMock.mockResolvedValue({
+      data: null,
+      status: 0,
+      hasResponse: false,
+    });
+
+    setWindowSpaceName("project-id", "alpha-id", "Renamed Alpha");
+    await flushOptimisticMutation();
+
+    expect(
+      useProjectState.getState().projectConfig.windowSpaces["alpha-id"]?.name,
+    ).toBe("Alpha");
+    expect(usePendingOperations.getState().pending).toEqual([]);
+  });
+});
+
 describe("createWindowSpaceFromCurrentFloatingWindows", () => {
   beforeEach(() => {
     resetProjectStores();
     routeCreateWindowSpaceMock.mockReset();
+    routeDeleteWindowSpaceMock.mockReset();
+    routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    usePendingOperations.setState({ pending: [] });
     routeSetProjectChatWindowingStateMock.mockImplementation(
       async (request) => ({
         data: request.state,
@@ -876,9 +1041,12 @@ describe("restoreWindowSpaceInWorkspace", () => {
   beforeEach(() => {
     resetProjectStores();
     routeCreateWindowSpaceMock.mockReset();
+    routeDeleteWindowSpaceMock.mockReset();
+    routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    usePendingOperations.setState({ pending: [] });
   });
 
   it("rehydrates saved window-space windows as floating workspace windows", () => {
@@ -1211,7 +1379,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(3);
   });
 
-  it("restores one authoritative section binding when a saved floating section chat collides with an existing workspace binding", () => {
+  it("preserves an existing non-floating section host when a saved floating section chat collides with it", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1275,12 +1443,12 @@ describe("restoreWindowSpaceInWorkspace", () => {
 
     expect(sectionInstances).toHaveLength(1);
     expect(sectionInstances[0]).toMatchObject({
-      instanceId: "restored-section-window",
-      placement: ChatWindowPlacementEnum.floating,
-      title: null,
+      instanceId: "canvas-section-window",
+      placement: ChatWindowPlacementEnum.canvas_section,
+      title: "Canvas Section Chat",
     });
-    expect(nextState.instancesById["canvas-section-window"]).toBeUndefined();
-    expect(nextState.order).toEqual(["restored-section-window"]);
+    expect(nextState.instancesById["restored-section-window"]).toBeUndefined();
+    expect(nextState.order).toEqual(["canvas-section-window"]);
   });
 
   it("clears stale embedded git-pane visibility when restoring a saved workspace layout", () => {

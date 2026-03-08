@@ -303,25 +303,25 @@ export function applyStandaloneWindowSpaceHydration({
   currentWindowsById,
   previousHydratedWindowsById,
   nextHydratedWindowsById,
-  previousWindowSpaceId,
-  nextWindowSpaceId,
+  previousHydrationKey,
+  nextHydrationKey,
 }: {
   currentWindowsById: Record<string, StandaloneWindowSpaceWindow>;
   previousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
   nextHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  previousWindowSpaceId: string;
-  nextWindowSpaceId: string;
+  previousHydrationKey: string;
+  nextHydrationKey: string;
 }): {
   nextLocalWindowsById: Record<string, StandaloneWindowSpaceWindow>;
   nextPreviousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>;
-  nextWindowSpaceId: string;
+  nextHydrationKey: string;
   resetLocalState: boolean;
 } {
-  if (previousWindowSpaceId !== nextWindowSpaceId) {
+  if (previousHydrationKey !== nextHydrationKey) {
     return {
       nextLocalWindowsById: nextHydratedWindowsById,
       nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-      nextWindowSpaceId,
+      nextHydrationKey,
       resetLocalState: true,
     };
   }
@@ -332,7 +332,7 @@ export function applyStandaloneWindowSpaceHydration({
       nextHydratedWindowsById,
     ),
     nextPreviousHydratedWindowsById: nextHydratedWindowsById,
-    nextWindowSpaceId,
+    nextHydrationKey,
     resetLocalState: false,
   };
 }
@@ -404,7 +404,8 @@ export function StandaloneWindowSpaceSurface({
   const [localWindowsById, setLocalWindowsById] = useState(hydratedWindowsById);
   const activeSnapResizeRef = useRef<ActiveStandaloneSnapResize | null>(null);
   const previousHydratedWindowsByIdRef = useRef(hydratedWindowsById);
-  const previousWindowSpaceIdRef = useRef(windowSpace.id);
+  const hydrationKey = `${projectConfigId}:${windowSpace.id}`;
+  const previousHydrationKeyRef = useRef(hydrationKey);
 
   useEffect(() => {
     setLocalWindowsById((current) => {
@@ -412,18 +413,18 @@ export function StandaloneWindowSpaceSurface({
         currentWindowsById: current,
         previousHydratedWindowsById: previousHydratedWindowsByIdRef.current,
         nextHydratedWindowsById: hydratedWindowsById,
-        previousWindowSpaceId: previousWindowSpaceIdRef.current,
-        nextWindowSpaceId: windowSpace.id,
+        previousHydrationKey: previousHydrationKeyRef.current,
+        nextHydrationKey: hydrationKey,
       });
       previousHydratedWindowsByIdRef.current =
         result.nextPreviousHydratedWindowsById;
-      previousWindowSpaceIdRef.current = result.nextWindowSpaceId;
+      previousHydrationKeyRef.current = result.nextHydrationKey;
       if (result.resetLocalState) {
         activeSnapResizeRef.current = null;
       }
       return result.nextLocalWindowsById;
     });
-  }, [hydratedWindowsById, windowSpace.id]);
+  }, [hydratedWindowsById, hydrationKey]);
 
   const visibleWindows = useMemo(() => {
     return Object.values(localWindowsById).sort((a, b) => {
