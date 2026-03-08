@@ -8,11 +8,11 @@ import {
   updateNodePositions,
 } from "state/actions/nodeInternals";
 import { setZIndices } from "state/actions/sections/sectionPositions";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
   useLocalStorage,
   useMisc,
   useNodeInternals,
+  useProjectState,
   useSettings,
 } from "state/definitions";
 import { NO_DRAG_CLASS_NAME } from "utils/constants";
@@ -129,7 +129,7 @@ function useDrag({ nodeRef, disabled = false, nodeId }: UseDragParams) {
         if (
           !multiSelectionActive &&
           nodeId &&
-          !getActiveSectionUIIds().includes(nodeId)
+          !useProjectState.getState().projectConfig.activeIds.includes(nodeId)
         ) {
           // TODO: determine if we need to do anything here
           // It used to call unselectNodesAndEdges
