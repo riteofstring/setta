@@ -162,6 +162,11 @@ Current landed wedge:
     - `UpsertAppGenCustomSkillResponse`
     - `MCPServerRuntimeStatus`
     - `MCPRuntimeStatusResponse`
+  - password reveal helper endpoint wrapper
+    - `route_get_password_param_value`
+  - password reveal helper contract types
+    - `GetPasswordParamValueRequestInput`
+    - `GetPasswordParamValueResponse`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -181,6 +186,8 @@ Current landed wedge:
     canonical Go-generated LSP diagnostics/admin bindings
   - `ProjectChatSkillsMcpViewer` is now covered by canonical Go-generated
     app-gen-skill and MCP-runtime bindings
+  - `ParamInput` and the app-mode password reveal path in `appRegistry` are
+    now covered by the canonical Go-generated password-value helper binding
 
 ## Cutover Rule
 

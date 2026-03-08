@@ -176,6 +176,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_MCP_SERVER_RUNTIME_STATUS",
 				},
 				{
+					Name:     "getPasswordParamValue",
+					Path:     httpapi.RouteGetPasswordParamValue,
+					EnumName: "GET_PASSWORD_PARAM_VALUE",
+				},
+				{
 					Name:     "getAppDefinition",
 					Path:     httpapi.RouteGetAppDefinition,
 					EnumName: "GET_APP_DEFINITION",
@@ -418,6 +423,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getMCPServerRuntimeStatus",
 			RequestType:     reflect.TypeOf(MCPRuntimeStatusRequestInput{}),
 			ResponseType:    reflect.TypeOf(MCPRuntimeStatusResponse{}),
+		},
+		{
+			FunctionName:    "route_get_password_param_value",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getPasswordParamValue",
+			RequestType:     reflect.TypeOf(GetPasswordParamValueRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetPasswordParamValueResponse{}),
 		},
 		{
 			FunctionName:    "route_get_app_catalog",

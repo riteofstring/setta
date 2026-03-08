@@ -564,3 +564,13 @@ type MCPRuntimeStatusResponse struct {
 	Servers                  []MCPServerRuntimeStatus `json:"servers"`
 	ExternalServers          []MCPServerRuntimeStatus `json:"externalServers"`
 }
+
+type GetPasswordParamValueRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+	SectionID       string `json:"sectionId"`
+	ParamInfoID     string `json:"paramInfoId"`
+}
+
+type GetPasswordParamValueResponse struct {
+	Value string `json:"value"`
+}

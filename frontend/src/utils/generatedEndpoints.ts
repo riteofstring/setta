@@ -117,6 +117,11 @@ export async function route_get_mcp_server_runtime_status(
 ): Promise<ResponseDataAndStatus<gt.MCPRuntimeStatusResponse>> {
   return await post(GoHTTPRoutes.getMCPServerRuntimeStatus, x);
 }
+export async function route_get_password_param_value(
+  x: gt.GetPasswordParamValueRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
+  return await post(GoHTTPRoutes.getPasswordParamValue, x);
+}
 export async function route_get_app_catalog(): Promise<
   ResponseDataAndStatus<gt.AppCatalogResponse>
 > {

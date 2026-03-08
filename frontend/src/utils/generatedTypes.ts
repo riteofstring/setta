@@ -551,6 +551,26 @@ export function createMCPRuntimeStatusResponse(
   return options as MCPRuntimeStatusResponse;
 }
 
+export type GetPasswordParamValueRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+export function createGetPasswordParamValueRequestInput(
+  options: Partial<GetPasswordParamValueRequestInput> = {},
+): GetPasswordParamValueRequestInput {
+  return options as GetPasswordParamValueRequestInput;
+}
+
+export type GetPasswordParamValueResponse = {
+  value: string;
+};
+export function createGetPasswordParamValueResponse(
+  options: Partial<GetPasswordParamValueResponse> = {},
+): GetPasswordParamValueResponse {
+  return options as GetPasswordParamValueResponse;
+}
+
 export type AppCatalogPropType = "string" | "number" | "dimension" | "boolean";
 
 export type AppCatalogProp = {

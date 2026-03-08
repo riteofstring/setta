@@ -11,6 +11,7 @@ import {
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
   route_get_mcp_server_runtime_status,
+  route_get_password_param_value,
   route_restart_language_server,
   route_set_app_definition,
   route_set_type_error_ignore,
@@ -404,6 +405,49 @@ describe("generatedEndpoints project chat skills and mcp helpers", () => {
       body: JSON.stringify({
         chatId: "chat-1",
         engineConfigId: "engine-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints password reveal helper", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts password-value reads with the active param identity", async () => {
+    await route_get_password_param_value({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      paramInfoId: "param-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getPasswordParamValue`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        paramInfoId: "param-1",
       }),
     });
   });
