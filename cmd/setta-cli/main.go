@@ -12,7 +12,9 @@ func main() {
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
 	}); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		if settacli.ShouldPrintError(err) {
+			fmt.Fprintln(os.Stderr, settacli.DisplayError(err))
+		}
+		os.Exit(settacli.ExitCode(err))
 	}
 }

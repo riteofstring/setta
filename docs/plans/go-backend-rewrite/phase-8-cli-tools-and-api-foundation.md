@@ -151,14 +151,52 @@ Do not include in this slice:
 - 2026-03-08: created this doc after confirming that the next bounded CLI gap
   is the tool-facing `tools`/`api` cluster above the completed session/auth
   foundation.
+- 2026-03-08: completed this slice by:
+  - adding a Go-owned tool catalog helper in `internal/mcpx/tool_catalog.go`
+    that emits the same payloads as the live Go MCP server
+  - adding centralized bare-route-name validation in
+    `internal/httpapi/route_names.go` so CLI tool-name validation stays aligned
+    with the Go transport surface
+  - extending `cmd/setta-cli` / `internal/settacli` with:
+    - `tools`
+    - `api`
+    - structured `--json-output` error handling without stderr noise
+  - adding focused Go coverage for:
+    - tool catalog parity with the live Go MCP runtime
+    - auto-auth IDE-session selection
+    - explicit auth + payload file transport shaping
+    - route-name rejection
+    - structured `HTTPError` and `RequestError` payloads
+
+## Completed Decisions
+
+- `setta tools` now builds its payloads from the Go MCP definition catalog via
+  `internal/mcpx`, not from a duplicated CLI-only list
+- `setta api` remains a thin HTTP wrapper over
+  `internal/httpapi.RouteMCPToolCall`
+- the Go CLI now preserves the useful `--json-output` machine contract for
+  input, unknown-tool, HTTP, and request failures
+- bare tool-name validation now rejects known Go HTTP route names through a
+  centralized helper in `internal/httpapi`
+- `api` accepts flags either before or after the single tool name argument so
+  it keeps the existing `setta api TOOL --flag ...` ergonomics
+
+## Open Questions
+
+- none for this slice
 
 ## Verification
 
-- pending implementation
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacli ./internal/mcpx ./cmd/setta-cli -count=1 -run 'Test(BuildToolPayloadsMatchesServerList|Run|SettacliHelperProcess)' -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run '^$' -count=1 -timeout 300s`
 
 ## Recommended Next Step
 
-Implement the Go-owned tool catalog helper plus `setta tools` and `setta api`
-on top of the completed Phase 8 session/auth foundation, then reassess whether
-the next bounded CLI slice should be local mutation helpers or SSH/remote
-helpers.
+Choose the next bounded CLI cluster above the completed local tool/auth
+foundation:
+
+- recommended: `setta connect` plus remote `stop`, because the backend-side SSH
+  launch and rollback runtime is already in Go and the remaining gap is mostly
+  CLI orchestration above completed primitives
+- alternative: local mutation helpers (`stop`, launcher management, `backups`) if
+  desktop/distribution work becomes the immediate priority

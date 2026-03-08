@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -33,9 +34,53 @@ const (
 type RunOptions struct {
 	Stdout    io.Writer
 	Stderr    io.Writer
+	Stdin     io.Reader
 	EnvLookup func(string) (string, bool)
 	Now       func() time.Time
 	CWD       string
+}
+
+type ExitError struct {
+	Code   int
+	Err    error
+	Silent bool
+}
+
+func (e *ExitError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.Err != nil {
+		return e.Err.Error()
+	}
+	return fmt.Sprintf("exit %d", e.Code)
+}
+
+func ExitCode(err error) int {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) && exitErr.Code > 0 {
+		return exitErr.Code
+	}
+	return 1
+}
+
+func ShouldPrintError(err error) bool {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) {
+		return !exitErr.Silent && exitErr.Err != nil
+	}
+	return err != nil
+}
+
+func DisplayError(err error) string {
+	var exitErr *ExitError
+	if errors.As(err, &exitErr) && exitErr.Err != nil {
+		return exitErr.Err.Error()
+	}
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 type globalFlags struct {
@@ -117,6 +162,10 @@ func Run(args []string, options RunOptions) error {
 	if stderr == nil {
 		stderr = io.Discard
 	}
+	stdin := options.Stdin
+	if stdin == nil {
+		stdin = os.Stdin
+	}
 	envLookup := options.EnvLookup
 	if envLookup == nil {
 		envLookup = os.LookupEnv
@@ -139,7 +188,7 @@ func Run(args []string, options RunOptions) error {
 		return err
 	}
 	if len(remaining) == 0 {
-		return fmt.Errorf("missing command (supported: status, auth)")
+		return fmt.Errorf("missing command (supported: status, auth, tools, api)")
 	}
 
 	switch remaining[0] {
@@ -147,6 +196,10 @@ func Run(args []string, options RunOptions) error {
 		return runStatus(remaining[1:], global, stdout, stderr, envLookup, now, cwd)
 	case "auth":
 		return runAuth(remaining[1:], global, stdout, stderr, envLookup, now, cwd)
+	case "tools":
+		return runTools(remaining[1:], stdout, stderr)
+	case "api":
+		return runAPI(remaining[1:], global, stdout, stderr, stdin, envLookup, now, cwd)
 	default:
 		return fmt.Errorf("unknown command %q", remaining[0])
 	}
@@ -431,6 +484,8 @@ func filterSessionsByDefaultMode(sessions []auth.SessionMetadata, command string
 	if mode == "" {
 		switch {
 		case command == "auth":
+			mode = "ide"
+		case command == "api":
 			mode = "ide"
 		case command == "status" && connectInfo:
 			mode = "ide"

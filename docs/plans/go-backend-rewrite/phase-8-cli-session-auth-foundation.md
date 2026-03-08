@@ -30,9 +30,9 @@ As of 2026-03-08:
     - local `status --list-sessions`
     - local `auth`
 - Python still owns the user-facing CLI in `backend/setta/start.py`
-- the next bounded CLI gap is likely the tool-facing cluster:
-  - `setta tools`
-  - `setta api`
+- the next bounded CLI gap after this foundation was the tool-facing cluster,
+  which is now tracked and implemented in
+  `phase-8-cli-tools-and-api-foundation.md`
 
 ## Inputs
 
@@ -158,6 +158,9 @@ Do not include in this slice:
   payloads for local `status --connect-info`, local `status --list-sessions`,
   and local `auth`, including IDE-default session filtering and stale-session
   rejection for unrelated processes.
+- 2026-03-08: the next tool-facing follow-up from this doc is now complete in
+  `phase-8-cli-tools-and-api-foundation.md`, so this foundation doc is no
+  longer the active Phase 8 slice.
 
 ## Verification
 
@@ -166,8 +169,7 @@ Do not include in this slice:
 
 ## Recommended Next Step
 
-Create a dedicated follow-up doc for the tool-facing CLI slice and implement
-the next bounded owner on top of the completed auth/session foundation:
-
-- `setta tools`
-- `setta api`
+Use `phase-8-cli-tools-and-api-foundation.md` as the current Phase 8 follow-up
+record. After that landed slice, the next bounded CLI decision is whether to
+take SSH/remote helpers (`connect` / remote `stop`) or local mutation helpers
+(`stop`, launcher management, backups) next.
