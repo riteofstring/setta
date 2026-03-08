@@ -24,6 +24,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RoutePluginsUninstall):                        {},
 	bareRouteName(RoutePluginsUpdate):                           {},
 	bareRouteName(RouteSaveSettings):                            {},
+	bareRouteName(RouteCreateFile):                              {},
 	bareRouteName(RouteCheckIfFileExists):                       {},
 	bareRouteName(RouteCheckWorkspaceInitialized):               {},
 	bareRouteName(RouteGetFileBrowserRoot):                      {},

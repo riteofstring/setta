@@ -83,6 +83,62 @@ func TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads(t *testing.T) {
 	}
 }
 
+func TestRegisterFileBrowserRoutesCreatesWorkspaceFiles(t *testing.T) {
+	t.Parallel()
+
+	// The legacy createFile caller should now create empty workspace files
+	// through the Go-owned file browser service.
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateFile, strings.NewReader(`{"filepath":"data/input.json"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if strings.TrimSpace(response.Body.String()) != "null" {
+		t.Fatalf("expected null response payload, got %q", response.Body.String())
+	}
+
+	if _, err := os.Stat(filepath.Join(workspaceRoot, "data", "input.json")); err != nil {
+		t.Fatalf("expected created workspace file: %v", err)
+	}
+}
+
+func TestRegisterFileBrowserRoutesRejectsCreateFileOutsideWorkspaceRoot(t *testing.T) {
+	t.Parallel()
+
+	// Path validation should stay on the Go file browser owner so callers cannot
+	// create files outside the workspace root.
+	authService := newTestAuthService(t)
+	service, _, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateFile, strings.NewReader(`{"filepath":"../outside.json"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"path_forbidden"`) {
+		t.Fatalf("expected path_forbidden error, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterFileBrowserRoutesBlocksDeploymentModeWithExplicitMessage(t *testing.T) {
 	t.Parallel()
 
@@ -97,6 +153,25 @@ func TestRegisterFileBrowserRoutesBlocksDeploymentModeWithExplicitMessage(t *tes
 	}
 	if !strings.Contains(response.Body.String(), "File browsing is disabled in deployment mode.") {
 		t.Fatalf("expected deployment-mode file browser message, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterFileBrowserRoutesBlocksCreateFileInDeploymentMode(t *testing.T) {
+	t.Parallel()
+
+	// The current createFile caller remains IDE-only even though the broader
+	// file browser surface has explicit deployment-mode messaging.
+	handler := newFileBrowserRouteTestHandler(t, config.ModeShare, nil, nil)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteCreateFile, strings.NewReader(`{"filepath":"notes.json"}`))
+	request.Header.Set("Content-Type", "application/json")
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("expected 403, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+		t.Fatalf("expected mode_forbidden error, got %q", response.Body.String())
 	}
 }
 

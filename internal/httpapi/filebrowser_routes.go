@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	RouteCreateFile                = "/createFile"
 	RouteCheckIfFileExists         = "/checkIfFileExists"
 	RouteCheckWorkspaceInitialized = "/checkWorkspaceInitialized"
 	RouteGetFileBrowserRoot        = "/getFileBrowserRoot"
@@ -33,6 +34,7 @@ type FileBrowserRouteDependencies struct {
 
 type FileBrowserService interface {
 	Root(ctx context.Context) filebrowser.RootResponse
+	CreateFile(ctx context.Context, rawPath string) error
 	CheckIfFileExists(ctx context.Context, rawPath string) (bool, error)
 	CheckWorkspaceInitialized(ctx context.Context, request filebrowser.CheckWorkspaceInitializedRequest) (bool, error)
 	ListFolder(ctx context.Context, request filebrowser.ListFolderRequest) ([]filebrowser.FolderContentItem, error)
@@ -45,6 +47,10 @@ type FileBrowserService interface {
 }
 
 type CheckIfFileExistsRequest struct {
+	Filepath string `json:"filepath"`
+}
+
+type CreateFileRequest struct {
 	Filepath string `json:"filepath"`
 }
 
@@ -61,6 +67,7 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 	}
 
 	guard := modeRequirementMiddleware(deps.ModePolicy, deps.ModePolicy.RequireNotLauncher)
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateFile, createFileHandler(deps))
 	router.With(guard).Post(RouteCheckIfFileExists, checkIfFileExistsHandler(deps))
 	router.With(guard).Post(RouteCheckWorkspaceInitialized, checkWorkspaceInitializedHandler(deps))
 	router.With(guard).Post(RouteGetFileBrowserRoot, getFileBrowserRootHandler(deps))
@@ -94,6 +101,26 @@ func checkIfFileExistsHandler(deps FileBrowserRouteDependencies) http.HandlerFun
 			return
 		}
 		writeJSON(w, http.StatusOK, exists)
+	}
+}
+
+func createFileHandler(deps FileBrowserRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if deps.Browser == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		payload, err := decodeJSONBody[CreateFileRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		if err := deps.Browser.CreateFile(r.Context(), payload.Filepath); err != nil {
+			writeFileBrowserRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
 	}
 }
 

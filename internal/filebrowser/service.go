@@ -236,6 +236,51 @@ func NewService(options ServiceOptions) (*Service, error) {
 	}, nil
 }
 
+func (s *Service) CreateFile(_ context.Context, rawPath string) error {
+	resolved, err := s.resolvePathWithinWorkspace(rawPath, "File path")
+	if err != nil {
+		return err
+	}
+
+	info, statErr := os.Stat(resolved)
+	if statErr == nil {
+		if info.Mode().IsRegular() {
+			return nil
+		}
+		return &Error{
+			Kind:    ErrorPathNotFile,
+			Message: fmt.Sprintf("Path is not a file: %s", rawPath),
+		}
+	}
+	if !errors.Is(statErr, os.ErrNotExist) {
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to stat file: %s", rawPath),
+		}
+	}
+	if err := os.MkdirAll(filepath.Dir(resolved), 0o755); err != nil {
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to create file: %s", rawPath),
+		}
+	}
+
+	file, err := os.OpenFile(resolved, os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to create file: %s", rawPath),
+		}
+	}
+	if err := file.Close(); err != nil {
+		return &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to close file: %s", rawPath),
+		}
+	}
+	return nil
+}
+
 func (s *Service) Root(_ context.Context) RootResponse {
 	return RootResponse{
 		RootPath:       s.workspaceRoot,

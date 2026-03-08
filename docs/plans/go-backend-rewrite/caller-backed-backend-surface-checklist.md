@@ -102,7 +102,7 @@ Primary sources used for this checklist:
 | Complete | Type-error ignore HTTP route used by the current frontend | The type-error context menu now POSTs Go-owned `setTypeErrorIgnore`, and the existing project-state save hooks rematerialize Go-owned codegen/LSP state after the mutation. |
 | Complete | Password/subprocess helper routes still used by the current frontend | Param inputs now reach Go-owned `getPasswordParamValue`, and stop-code flows now reach the Go-owned `killSubprocesses` adapter over `internal/projectstate` password-secret reads plus the Go terminal interrupt service. |
 | Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group-orientation/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/indent/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers, section sizing/filter/meta-control-title/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, and text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
-| Missing | Input-area and JSON-source file helpers still used by the current frontend | Current callers still use Python-owned `createFile` and `deleteJsonSourceFileAndVariant`. |
+| Partial | Input-area and JSON-source file helpers still used by the current frontend | The input-area `createFile` helper now reaches Go-owned workspace file creation over `internal/filebrowser`, while `deleteJsonSourceFileAndVariant` remains Python-owned because it still crosses the section-variant mutation boundary. |
 
 ## 5. MCP, app-spec ownership, tool registry, and LLM config
 
@@ -196,7 +196,6 @@ callers.
   - `getAttachmentDownloadUrl`
   - `getAttachmentDownloadUrls`
 - File and JSON-source helper routes:
-  - `createFile`
   - `deleteJsonSourceFileAndVariant`
 - Password and subprocess helper routes:
 - Artifact helper routes:
