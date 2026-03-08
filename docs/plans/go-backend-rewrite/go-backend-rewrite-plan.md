@@ -2,12 +2,15 @@
 
 ## Goal
 
-Rewrite the backend from Python to Go as a clean break.
+Rewrite the backend from Python to Go as a clean break in runtime ownership,
+without coupling that work to a simultaneous architecture redesign.
 
-This was never a route-for-route port. The target is a Go-owned runtime for
-the active product-facing backend surface, with explicit permission to drop
-legacy route shapes, Python-shaped internals, and backward-compatibility
-obligations that are not justified by a real caller.
+The primary rewrite objective is to make the active product-facing backend
+surface Go-owned while preserving product behavior. The default implementation
+strategy is behavior-first and architecture-conservative during the port:
+carry forward the backend shape that is needed to preserve behavior, then do
+larger architectural cleanup once the Go runtime is proven by tests and real
+usage.
 
 ## Working Source-of-Truth Docs
 
@@ -26,13 +29,23 @@ Historical phase planning, reranks, closeouts, and spikes live under
 
 ## Rewrite Rules
 
+- Preserve product behavior first. Treat the rewrite as a semantics-preserving
+  port of the active backend surface unless a caller, release path, or
+  documented product decision requires a behavior change.
+- Do not combine the language rewrite with broad architecture redesign by
+  default. Prefer making the Go code work correctly with the current backend
+  shape before opening a larger structural optimization pass.
+- Architecture preservation during the port is a default strategy, not a rule
+  to preserve accidental debt forever. After the Go runtime is proven, we can
+  deliberately reopen architecture cleanup as a separate slice.
 - No backward-compatibility work is required unless a current caller or release
   path actually needs it.
 - The rewrite does not need to keep the app continuously working while Python
   boundaries are being removed; prefer severing frontend/backend ties to Python
   over maintaining temporary mixed-source compatibility.
 - Prefer explicit runtime ownership, typed boundaries, and deterministic source
-  of truth over Python-era incidental behavior.
+  of truth over Python-era incidental behavior where this does not introduce a
+  second source of regressions during the port.
 - Prefer robust implementations over heuristics when provider/runtime metadata
   or explicit protocol/state exists.
 - Prefer the Go stdlib or well-established libraries.
@@ -45,6 +58,31 @@ Historical phase planning, reranks, closeouts, and spikes live under
 - Do not preserve old route shapes just because the Python backend had them.
 - Do not preserve Python-generated frontend contract artifacts just to keep a
   partial mixed Go/Python frontend working during the rewrite.
+
+## Port-First Guardrails
+
+During the rewrite, classify structural work into three buckets:
+
+- Safe to defer until after the Go runtime is proven:
+  - broad package reshaping
+  - new service boundaries introduced mainly for elegance
+  - large route/module splits done only for code organization
+  - non-essential performance optimization
+- Expected during the port even if the surrounding architecture stays similar:
+  - fixes for correctness hazards
+  - explicit source-of-truth boundaries that remove ambiguity
+  - low-risk seam extraction that reduces constructor or lifecycle sprawl
+    without changing behavior
+  - test harness improvements needed to prove parity
+- Not acceptable to defer:
+  - partial-commit or split-brain state behavior
+  - brittle heuristics where deterministic metadata/state already exists
+  - hidden runtime coupling that prevents testing or safe shutdown
+
+If a change can be isolated as behavior-preserving seam creation, take it when
+it materially reduces future rewrite cost. If a change is a true architecture
+redesign, defer it unless it is required for correctness or active-caller
+coverage.
 
 ## How To Use This Doc Set
 

@@ -1,6 +1,6 @@
 # Rewrite Working Set
 
-Last verified: `2026-03-10`
+Last verified: `2026-03-11`
 
 ## Canonical Docs
 
@@ -13,7 +13,8 @@ Last verified: `2026-03-10`
 - `caller-backed-backend-surface-checklist-audit-plan.md`
   - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 - `go-backend-rewrite-plan.md`
-  - stable rewrite rules, selected follow-ons, and reopening criteria
+  - stable rewrite rules, port-first guardrails, selected follow-ons, and
+    reopening criteria
 - `go-frontend-binding-generation-plan.md`
   - working slice doc for the selected Go-owned frontend binding generation
     follow-on
@@ -35,6 +36,10 @@ Last verified: `2026-03-10`
   - use a converter-style pipeline analogous to the existing
     Python-to-TypeScript generators, driven by explicit Go contract types and
     endpoint specs rather than handwritten TS emitters
+  - keep the pipeline boundary-owned and fail-closed:
+    prefer dedicated Go boundary DTOs plus converter rules, treat raw TS as
+    temporary debt only, and require parity/typecheck verification beyond
+    golden snapshots
   - sever frontend ties to Python-generated backend bindings rather than
     preserving a mixed-source transitional state
   - replace the canonical generated frontend contract files instead of keeping
@@ -58,6 +63,10 @@ Last verified: `2026-03-10`
 - Use `backend-capability-coverage-checklist.md` for broader backend ownership
   questions that go beyond current caller transport reachability.
 - Use `go-backend-rewrite-plan.md` for rewrite rules and reopening criteria.
+- Treat `go-backend-rewrite-plan.md` as the source of truth for the
+  port-first policy:
+  preserve behavior and avoid broad redesign during the port by default, but
+  do not defer correctness hazards or cheap behavior-preserving seam creation.
 - Use `testing-strategy.md` for verification expectations.
 - Use `archive/` only for historical rationale or implementation archaeology.
 - Update `CURRENT.md` if the canonical doc list, selected follow-ons, or

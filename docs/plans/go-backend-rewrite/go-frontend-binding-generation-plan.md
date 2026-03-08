@@ -22,6 +22,20 @@ sever frontend ties to Python-generated backend bindings.
 Use explicit Go contract types plus explicit endpoint specs, then convert those
 Go definitions into TypeScript in a reusable generator pipeline.
 
+The generator architecture should be fail-closed and boundary-owned:
+
+- for each frontend-facing Go endpoint, maintain one explicit Go-owned
+  boundary declaration that names the route, method, request type, and
+  response type
+- generate TypeScript from those boundary declarations rather than from
+  handwritten TypeScript fragments
+- if a runtime type does not convert cleanly, add or reshape a dedicated Go
+  boundary DTO instead of teaching the frontend to depend on internal runtime
+  structs
+- if a type still cannot be represented by the current converter, stop and add
+  a converter rule or a dedicated boundary type; do not silently fall back to
+  `null`, empty names, or manual TS drift
+
 The transition goal is not a long-lived mixed Go/Python frontend binding
 state. During the rewrite, prefer cutting over frontend imports and generated
 artifacts to Go ownership even if the overall app is temporarily not in a
@@ -34,6 +48,15 @@ This follow-on does not permit:
 - per-route string-builder emission as the primary generator architecture
 - preserving Python-generated frontend contract outputs as a parallel steady
   state just to keep partial coexistence working
+
+Steady-state disallowed patterns:
+
+- empty Go marker structs paired with large handwritten raw TypeScript blobs as
+  the normal way to express a route contract
+- endpoint specs that omit response typing and therefore default generated
+  wrappers to `null` when the real handler returns JSON
+- converter helpers that silently degrade unsupported shapes instead of failing
+  generation
 
 If a Go runtime type is not suitable for stable frontend generation, introduce
 a dedicated Go contract type for the frontend boundary and convert that type.
@@ -50,6 +73,56 @@ The Go-side generator should mirror the roles of the current Python generators:
     request/response types
 - type generation
   - source of truth: explicit Go contract types converted into TypeScript
+
+Preferred ownership shape:
+
+- route constants remain defined in `internal/httpapi` and `internal/wsapi`
+- frontend boundary DTOs live in a dedicated Go contract package or contract
+  section whose only job is frontend transport shape
+- endpoint specs point at those DTOs and route constants
+- the generator reads those endpoint specs and DTOs to emit routes, endpoint
+  wrappers, and TypeScript type declarations
+
+This means the frontend contract source of truth should be:
+
+- not the handler implementation body
+- not internal runtime structs with extra semantics the frontend does not need
+- not raw TS embedded beside placeholder Go types
+
+If a route needs custom shaping for the frontend boundary, make that shaping
+explicit in Go.
+
+## Architecture Rule
+
+The general rule for Go-to-TypeScript conversion in this repo is:
+
+- one Go-owned boundary contract per frontend-facing endpoint
+- one converter pipeline for those contracts
+- zero long-lived handwritten TS escape hatches in the steady state
+
+Practical implications:
+
+- every endpoint wrapper should be generated from a spec that explicitly names
+  request and response contracts, even for trivial `{ ok: true }` payloads
+- every generated route wrapper should be traceable to a Go route constant and
+  a Go contract type
+- every non-trivial frontend boundary type should exist as a deliberate Go DTO
+  rather than as an accidental reflection of backend runtime internals
+- raw TS should be treated as a temporary bootstrap mechanism only when the
+  converter cannot yet express a bounded slice; any such escape hatch should be
+  documented as debt to remove, not as the desired architecture
+
+## Converter Rule
+
+The converter should stay small, explicit, and predictable.
+
+- prefer a narrow set of supported Go shapes with explicit conversion rules
+- prefer adding named boundary DTOs over widening reflection magic
+- fail generation on unsupported or ambiguous shapes
+- do not silently generate placeholder output for unnamed, unsupported, or
+  partially specified types
+- keep enum handling, map handling, optionality, and discriminated-union
+  handling explicit and reviewable
 
 Expected outputs:
 
@@ -861,10 +934,33 @@ Current landed wedge:
 - Prefer explicit Go contract types over reflection on arbitrary runtime
   structs.
 - Prefer converter rules and reusable rendering over ad hoc output assembly.
+- Prefer Go boundary DTOs plus converter rules over embedded raw TypeScript.
+- Raw TS escape hatches are temporary debt, not a normal generator feature.
+- Endpoint specs must declare the real response contract explicitly; do not use
+  omitted response typing as shorthand for `null`.
+- Make generation fail when a type cannot be converted cleanly.
 - Keep transport wrappers thin.
 - Keep the generated surface deliberate and reviewable.
 - When widening coverage, reuse the converter pipeline instead of adding
   one-off generator branches.
+
+## Verification Rule
+
+The generator needs stronger checks than golden snapshots alone.
+
+Required verification for the steady-state pipeline:
+
+- golden output tests for routes, types, and endpoints
+- parity tests that compare endpoint specs against the intended Go boundary
+  source of truth and fail when request/response contracts drift
+- parity checks for route constant coverage on the converted slice
+- a TypeScript compile check for the generated outputs
+- targeted tests for converter edge cases such as enums, optional fields,
+  maps, discriminated unions, and unsupported shapes
+
+Golden tests remain useful, but they are not sufficient on their own because
+they do not prove that the generated contracts still match the real Go HTTP
+surface.
 
 ## Non-Goals
 

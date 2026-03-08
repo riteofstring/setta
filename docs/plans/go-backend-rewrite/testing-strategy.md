@@ -28,6 +28,22 @@ The clean-break rule still applies:
 - we are not preserving legacy implementation details just because Python does them
 - we are preserving or intentionally replacing tested product behavior
 
+## Port-First Testing Discipline
+
+Use tests to keep the rewrite and architecture work decoupled.
+
+- The default test question during the rewrite is "does the Go runtime preserve
+  the intended behavior?" not "is this the final architecture?"
+- If a structural cleanup is behavior-preserving and reduces rewrite risk, it
+  is acceptable during the port, but tests must continue to assert the same
+  external behavior.
+- If a correctness hazard is discovered during the port, do not defer it just
+  because it looks architectural. Add or update tests that expose the hazard,
+  then fix it in the smallest behavior-preserving way available.
+- If a proposed refactor mostly improves elegance, package boundaries, or file
+  layout without reducing current correctness risk, defer it until after the Go
+  runtime is proven by coverage and real workflows.
+
 ## Sources Of Truth
 
 Use these as the reference inputs when deciding what the Go tests must cover:
@@ -208,6 +224,10 @@ do not consider the subsystem complete until the Go tests cover at least the beh
 - Prefer direct subprocess execution for process-oriented subsystems.
 - Keep transport tests at the real transport layer.
 - Fail loudly when environment assumptions are invalid.
+- Add targeted tests around correctness hazards discovered during the port,
+  especially state persistence ordering, shutdown behavior, queueing, and other
+  lifecycle boundaries that can fail even when the external API shape is
+  unchanged.
 
 ## Things To Avoid
 
