@@ -1735,7 +1735,7 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
   searchEnabled: boolean;
   dictationMode: ChatDictationMode;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createChatSectionImpl",
 		},
 		{
 			name: "ChatSectionState",
@@ -1775,20 +1775,30 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
+			if tt.factoryFunctionName != "" {
+				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
+				if factoryDecl.Kind != "function" {
+					t.Fatalf("%s companion declaration kind = %q, want %q", tt.factoryFunctionName, factoryDecl.Kind, "function")
+				}
+				if factoryDecl.FunctionReturn != tt.name {
+					t.Fatalf("%s return type = %q, want %q", tt.factoryFunctionName, factoryDecl.FunctionReturn, tt.name)
+				}
+			}
 		})
 	}
 }
 
 func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		kind          string
-		alias         string
-		properties    []TypeProperty
-		hasCreateExpr bool
-		hasCreateBody bool
-		hasFactoryTS  bool
+		name                string
+		root                reflect.Type
+		kind                string
+		alias               string
+		properties          []TypeProperty
+		hasCreateExpr       bool
+		hasCreateBody       bool
+		hasFactoryTS        bool
+		factoryFunctionName string
 	}{
 		{
 			name: "BrowserSavedSearchTypeFilters",
@@ -1852,7 +1862,7 @@ func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createBrowserSectionImpl",
 		},
 	}
 
@@ -1879,20 +1889,30 @@ func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
+			if tt.factoryFunctionName != "" {
+				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
+				if factoryDecl.Kind != "function" {
+					t.Fatalf("%s companion declaration kind = %q, want %q", tt.factoryFunctionName, factoryDecl.Kind, "function")
+				}
+				if factoryDecl.FunctionReturn != tt.name {
+					t.Fatalf("%s return type = %q, want %q", tt.factoryFunctionName, factoryDecl.FunctionReturn, tt.name)
+				}
+			}
 		})
 	}
 }
 
 func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		kind          string
-		alias         string
-		properties    []TypeProperty
-		hasCreateExpr bool
-		hasCreateBody bool
-		hasFactoryTS  bool
+		name                string
+		root                reflect.Type
+		kind                string
+		alias               string
+		properties          []TypeProperty
+		hasCreateExpr       bool
+		hasCreateBody       bool
+		hasFactoryTS        bool
+		factoryFunctionName string
 	}{
 		{
 			name: "TaskBoardColumn",
@@ -1953,7 +1973,7 @@ func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createTaskBoardSectionImpl",
 		},
 	}
 
@@ -1980,19 +2000,29 @@ func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
+			if tt.factoryFunctionName != "" {
+				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
+				if factoryDecl.Kind != "function" {
+					t.Fatalf("%s companion declaration kind = %q, want %q", tt.factoryFunctionName, factoryDecl.Kind, "function")
+				}
+				if factoryDecl.FunctionReturn != tt.name {
+					t.Fatalf("%s return type = %q, want %q", tt.factoryFunctionName, factoryDecl.FunctionReturn, tt.name)
+				}
+			}
 		})
 	}
 }
 
 func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		kind          string
-		alias         string
-		properties    []TypeProperty
-		hasCreateExpr bool
-		hasFactoryTS  bool
+		name                string
+		root                reflect.Type
+		kind                string
+		alias               string
+		properties          []TypeProperty
+		hasCreateExpr       bool
+		hasFactoryTS        bool
+		factoryFunctionName string
 	}{
 		{
 			name: "LineChartSettings",
@@ -2022,11 +2052,11 @@ func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
 			hasCreateExpr: true,
 		},
 		{
-			name:         "BaseChartSettingsUnion",
-			root:         reflect.TypeOf(BaseChartSettingsUnion{}),
-			kind:         "alias",
-			alias:        "LineChartSettings | ScatterChartSettings",
-			hasFactoryTS: true,
+			name:                "BaseChartSettingsUnion",
+			root:                reflect.TypeOf(BaseChartSettingsUnion{}),
+			kind:                "alias",
+			alias:               "LineChartSettings | ScatterChartSettings",
+			factoryFunctionName: "createBaseChartSettingsUnionWithDiscriminator",
 		},
 		{
 			name: "UserDefaultChartSectionImpl",
@@ -2054,7 +2084,7 @@ func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createChartSectionImpl",
 		},
 	}
 
@@ -2081,19 +2111,29 @@ func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
 			}
+			if tt.factoryFunctionName != "" {
+				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
+				if factoryDecl.Kind != "function" {
+					t.Fatalf("%s companion declaration kind = %q, want %q", tt.factoryFunctionName, factoryDecl.Kind, "function")
+				}
+				if factoryDecl.FunctionReturn != tt.name {
+					t.Fatalf("%s return type = %q, want %q", tt.factoryFunctionName, factoryDecl.FunctionReturn, tt.name)
+				}
+			}
 		})
 	}
 }
 
 func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
-		name          string
-		root          reflect.Type
-		kind          string
-		alias         string
-		properties    []TypeProperty
-		hasCreateExpr bool
-		hasFactoryTS  bool
+		name                string
+		root                reflect.Type
+		kind                string
+		alias               string
+		properties          []TypeProperty
+		hasCreateExpr       bool
+		hasFactoryTS        bool
+		factoryFunctionName string
 	}{
 		{
 			name: "UserDefaultSpreadsheetSectionImpl",
@@ -2129,7 +2169,7 @@ func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
 }`,
-			hasFactoryTS: true,
+			factoryFunctionName: "createSpreadsheetSectionImpl",
 		},
 	}
 
@@ -2155,6 +2195,15 @@ func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+			if tt.factoryFunctionName != "" {
+				factoryDecl := requireDeclaration(t, converter.Declarations(), tt.factoryFunctionName)
+				if factoryDecl.Kind != "function" {
+					t.Fatalf("%s companion declaration kind = %q, want %q", tt.factoryFunctionName, factoryDecl.Kind, "function")
+				}
+				if factoryDecl.FunctionReturn != tt.name {
+					t.Fatalf("%s return type = %q, want %q", tt.factoryFunctionName, factoryDecl.FunctionReturn, tt.name)
+				}
 			}
 		})
 	}

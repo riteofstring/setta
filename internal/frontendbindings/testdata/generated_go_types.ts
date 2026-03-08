@@ -4507,10 +4507,10 @@ export type ChatSectionImpl = BaseSectionImpl & ChatSectionState & {
   searchEnabled: boolean;
   dictationMode: ChatDictationMode;
 };
+
+
 export function createChatSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChatSectionImpl>
-    | Partial<ChatSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultChatSectionImpl> | Partial<ChatSectionImpl> = {},
   overrides?: Partial<ChatSectionImpl>,
 ): ChatSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4644,10 +4644,10 @@ export type BrowserSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 };
+
+
 export function createBrowserSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultBrowserSectionImpl>
-    | Partial<BrowserSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultBrowserSectionImpl> | Partial<BrowserSectionImpl> = {},
   overrides?: Partial<BrowserSectionImpl>,
 ): BrowserSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4769,10 +4769,10 @@ export type TaskBoardSectionImpl = Omit<BaseSectionImpl, "viewMode"> & {
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
 };
+
+
 export function createTaskBoardSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTaskBoardSectionImpl>
-    | Partial<TaskBoardSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultTaskBoardSectionImpl> | Partial<TaskBoardSectionImpl> = {},
   overrides?: Partial<TaskBoardSectionImpl>,
 ): TaskBoardSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4862,9 +4862,10 @@ export function createScatterChartSettings(options: Partial<ScatterChartSettings
 
 
 export type BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings;
+
+
 export function createBaseChartSettingsUnionWithDiscriminator(
-  options:
-    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+  options: ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
     | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
 ): BaseChartSettingsUnion {
   switch (options.type) {
@@ -4910,10 +4911,10 @@ export type ChartSectionImpl = BaseSectionImpl & {
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
 };
+
+
 export function createChartSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChartSectionImpl>
-    | Partial<ChartSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultChartSectionImpl> | Partial<ChartSectionImpl> = {},
   overrides?: Partial<ChartSectionImpl>,
 ): ChartSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<
@@ -4988,10 +4989,10 @@ export type SpreadsheetSectionImpl = BaseSectionImpl & {
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
 };
+
+
 export function createSpreadsheetSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultSpreadsheetSectionImpl>
-    | Partial<SpreadsheetSectionImpl> = {},
+  defaultsOrOverrides: Partial<UserDefaultSpreadsheetSectionImpl> | Partial<SpreadsheetSectionImpl> = {},
   overrides?: Partial<SpreadsheetSectionImpl>,
 ): SpreadsheetSectionImpl {
   const resolved = resolveGeneratedFactoryInputs<

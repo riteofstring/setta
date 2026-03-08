@@ -1123,6 +1123,245 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 				TypeProperty{Name: "overrides", TypeExpr: "Partial<TerminalSectionImpl>", Optional: true},
 			),
 		},
+		reflect.TypeOf(ChatSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createChatSectionImpl",
+				"ChatSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChatSectionImpl,
+    ChatSectionImpl
+  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chat,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      managed: resolved.defaults.managed,
+      engineConfigId: resolved.defaults.engineConfigId,
+      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
+      agentProfileId: resolved.defaults.agentProfileId,
+      chatId: resolved.defaults.chatId,
+      thinking: resolved.defaults.thinking,
+      permissionMode: resolved.defaults.permissionMode,
+      searchEnabled: resolved.defaults.searchEnabled,
+      dictationMode: resolved.defaults.dictationMode,
+      messages: resolved.defaults.messages,
+      inputText: resolved.defaults.inputText,
+      waitingForResponse: resolved.defaults.waitingForResponse,
+      toolCallArguments: resolved.defaults.toolCallArguments,
+      activeBranchId: resolved.defaults.activeBranchId,
+      branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultChatSectionImpl> | Partial<ChatSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<ChatSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(BrowserSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createBrowserSectionImpl",
+				"BrowserSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultBrowserSectionImpl,
+    BrowserSectionImpl
+  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Browser,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      folder: resolved.defaults.folder,
+      hideColumn: resolved.defaults.hideColumn,
+      columnWidth: resolved.defaults.columnWidth,
+      typesColumnWidth: resolved.defaults.typesColumnWidth,
+      viewMode: resolved.defaults.viewMode,
+      savedSearches: resolved.defaults.savedSearches,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultBrowserSectionImpl> | Partial<BrowserSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<BrowserSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(TaskBoardSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createTaskBoardSectionImpl",
+				"TaskBoardSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTaskBoardSectionImpl,
+    TaskBoardSectionImpl
+  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
+  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
+    ...resolved.overrides,
+  };
+  if (normalizedOverrides.columns === undefined) {
+    delete normalizedOverrides.columns;
+  }
+  if (normalizedOverrides.tasks === undefined) {
+    delete normalizedOverrides.tasks;
+  }
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TaskBoard,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      viewMode: resolved.defaults.viewMode,
+      columns:
+        resolved.defaults.columns === null ||
+        resolved.defaults.columns === undefined
+          ? []
+          : cloneGeneratedValue(resolved.defaults.columns),
+      tasks: resolved.defaults.tasks,
+    },
+    normalizedOverrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultTaskBoardSectionImpl> | Partial<TaskBoardSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<TaskBoardSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(BaseChartSettingsUnion{}): {
+			exportedFunctionDeclaration(
+				"createBaseChartSettingsUnionWithDiscriminator",
+				"BaseChartSettingsUnion",
+				`  switch (options.type) {
+    case ChartTypeEnum.line:
+      return createLineChartSettings(options);
+    case ChartTypeEnum.scatter:
+      return createScatterChartSettings(options);
+    default:
+      throw new Error("Unsupported chart type.");
+  }`,
+				TypeProperty{
+					Name: "options",
+					TypeExpr: `({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
+    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>)`,
+				},
+			),
+		},
+		reflect.TypeOf(ChartSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createChartSectionImpl",
+				"ChartSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChartSectionImpl,
+    ChartSectionImpl
+  >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chart,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      dataPath: resolved.defaults.dataPath,
+      chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultChartSectionImpl> | Partial<ChartSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<ChartSectionImpl>", Optional: true},
+			),
+		},
+		reflect.TypeOf(SpreadsheetSectionImpl{}): {
+			exportedFunctionDeclaration(
+				"createSpreadsheetSectionImpl",
+				"SpreadsheetSectionImpl",
+				`  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultSpreadsheetSectionImpl,
+    SpreadsheetSectionImpl
+  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Spreadsheet,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      filePath: resolved.defaults.filePath,
+      activeSheet: resolved.defaults.activeSheet,
+      readOnly: resolved.defaults.readOnly,
+      showRowNumbers: resolved.defaults.showRowNumbers,
+      density: resolved.defaults.density,
+      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
+    },
+    resolved.overrides,
+  );`,
+				TypeProperty{
+					Name:         "defaultsOrOverrides",
+					TypeExpr:     "Partial<UserDefaultSpreadsheetSectionImpl> | Partial<SpreadsheetSectionImpl>",
+					DefaultValue: "{}",
+				},
+				TypeProperty{Name: "overrides", TypeExpr: "Partial<SpreadsheetSectionImpl>", Optional: true},
+			),
+		},
 	}
 }
 
@@ -3648,7 +3887,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "activeBranchId", TypeExpr: "string | null"},
 				TypeProperty{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>"},
 			),
-			reflect.TypeOf(ChatSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(ChatSectionImpl{}): aliasDeclaration(
 				"ChatSectionImpl",
 				`BaseSectionImpl & ChatSectionState & {
   type: typeof SectionTypeEnum.Chat;
@@ -3661,51 +3900,6 @@ func newTypeConverter() *typeConverter {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
   dictationMode: ChatDictationMode;
-}`,
-				`export function createChatSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChatSectionImpl>
-    | Partial<ChatSectionImpl> = {},
-  overrides?: Partial<ChatSectionImpl>,
-): ChatSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChatSectionImpl,
-    ChatSectionImpl
-  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chat,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      managed: resolved.defaults.managed,
-      engineConfigId: resolved.defaults.engineConfigId,
-      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
-      agentProfileId: resolved.defaults.agentProfileId,
-      chatId: resolved.defaults.chatId,
-      thinking: resolved.defaults.thinking,
-      permissionMode: resolved.defaults.permissionMode,
-      searchEnabled: resolved.defaults.searchEnabled,
-      dictationMode: resolved.defaults.dictationMode,
-      messages: resolved.defaults.messages,
-      inputText: resolved.defaults.inputText,
-      waitingForResponse: resolved.defaults.waitingForResponse,
-      toolCallArguments: resolved.defaults.toolCallArguments,
-      activeBranchId: resolved.defaults.activeBranchId,
-      branches: resolved.defaults.branches,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(BrowserSavedSearchTypeFilters{}): objectDeclarationWithCreateExpr(
@@ -3780,7 +3974,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "viewMode", TypeExpr: "BrowserAreaViewMode"},
 				TypeProperty{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>"},
 			),
-			reflect.TypeOf(BrowserSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(BrowserSectionImpl{}): aliasDeclaration(
 				"BrowserSectionImpl",
 				`Omit<BaseSectionImpl, "viewMode"> & {
   type: typeof SectionTypeEnum.Browser;
@@ -3790,42 +3984,6 @@ func newTypeConverter() *typeConverter {
   typesColumnWidth?: number | null;
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
-}`,
-				`export function createBrowserSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultBrowserSectionImpl>
-    | Partial<BrowserSectionImpl> = {},
-  overrides?: Partial<BrowserSectionImpl>,
-): BrowserSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultBrowserSectionImpl,
-    BrowserSectionImpl
-  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Browser,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      folder: resolved.defaults.folder,
-      hideColumn: resolved.defaults.hideColumn,
-      columnWidth: resolved.defaults.columnWidth,
-      typesColumnWidth: resolved.defaults.typesColumnWidth,
-      viewMode: resolved.defaults.viewMode,
-      savedSearches: resolved.defaults.savedSearches,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(TaskBoardColumn{}): objectDeclarationWithCreateExpr(
@@ -3900,59 +4058,13 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "columns", TypeExpr: "Array<TaskBoardColumn> | null"},
 				TypeProperty{Name: "tasks", TypeExpr: "Array<TaskBoardTask>"},
 			),
-			reflect.TypeOf(TaskBoardSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(TaskBoardSectionImpl{}): aliasDeclaration(
 				"TaskBoardSectionImpl",
 				`Omit<BaseSectionImpl, "viewMode"> & {
   type: typeof SectionTypeEnum.TaskBoard;
   viewMode: TaskBoardViewMode;
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
-}`,
-				`export function createTaskBoardSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTaskBoardSectionImpl>
-    | Partial<TaskBoardSectionImpl> = {},
-  overrides?: Partial<TaskBoardSectionImpl>,
-): TaskBoardSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTaskBoardSectionImpl,
-    TaskBoardSectionImpl
-  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
-  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
-    ...resolved.overrides,
-  };
-  if (normalizedOverrides.columns === undefined) {
-    delete normalizedOverrides.columns;
-  }
-  if (normalizedOverrides.tasks === undefined) {
-    delete normalizedOverrides.tasks;
-  }
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.TaskBoard,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      viewMode: resolved.defaults.viewMode,
-      columns:
-        resolved.defaults.columns === null ||
-        resolved.defaults.columns === undefined
-          ? []
-          : cloneGeneratedValue(resolved.defaults.columns),
-      tasks: resolved.defaults.tasks,
-    },
-    normalizedOverrides,
-  );
 }`,
 			),
 			reflect.TypeOf(LineChartSettings{}): objectDeclarationWithCreateExpr(
@@ -3993,23 +4105,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "xAxisLog", TypeExpr: "boolean"},
 				TypeProperty{Name: "yAxisLog", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(BaseChartSettingsUnion{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(BaseChartSettingsUnion{}): aliasDeclaration(
 				"BaseChartSettingsUnion",
 				"LineChartSettings | ScatterChartSettings",
-				`export function createBaseChartSettingsUnionWithDiscriminator(
-  options:
-    | ({ type: typeof ChartTypeEnum.line } & Partial<LineChartSettings>)
-    | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>),
-): BaseChartSettingsUnion {
-  switch (options.type) {
-    case ChartTypeEnum.line:
-      return createLineChartSettings(options);
-    case ChartTypeEnum.scatter:
-      return createScatterChartSettings(options);
-    default:
-      throw new Error("Unsupported chart type.");
-  }
-}`,
 			),
 			reflect.TypeOf(UserDefaultChartSectionImpl{}): objectDeclarationWithCreateExpr(
 				"UserDefaultChartSectionImpl",
@@ -4035,44 +4133,12 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "dataPath", TypeExpr: "string"},
 				TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion"},
 			),
-			reflect.TypeOf(ChartSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(ChartSectionImpl{}): aliasDeclaration(
 				"ChartSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.Chart;
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
-}`,
-				`export function createChartSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChartSectionImpl>
-    | Partial<ChartSectionImpl> = {},
-  overrides?: Partial<ChartSectionImpl>,
-): ChartSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChartSectionImpl,
-    ChartSectionImpl
-  >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chart,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      dataPath: resolved.defaults.dataPath,
-      chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}): objectDeclarationWithCreateExpr(
@@ -4107,7 +4173,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "density", TypeExpr: "SpreadsheetGridDensity"},
 				TypeProperty{Name: "autoReloadOnExternalChange", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(SpreadsheetSectionImpl{}): aliasDeclarationWithFactory(
+			reflect.TypeOf(SpreadsheetSectionImpl{}): aliasDeclaration(
 				"SpreadsheetSectionImpl",
 				`BaseSectionImpl & {
   type: typeof SectionTypeEnum.Spreadsheet;
@@ -4117,42 +4183,6 @@ func newTypeConverter() *typeConverter {
   showRowNumbers: boolean;
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
-}`,
-				`export function createSpreadsheetSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultSpreadsheetSectionImpl>
-    | Partial<SpreadsheetSectionImpl> = {},
-  overrides?: Partial<SpreadsheetSectionImpl>,
-): SpreadsheetSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultSpreadsheetSectionImpl,
-    SpreadsheetSectionImpl
-  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Spreadsheet,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      filePath: resolved.defaults.filePath,
-      activeSheet: resolved.defaults.activeSheet,
-      readOnly: resolved.defaults.readOnly,
-      showRowNumbers: resolved.defaults.showRowNumbers,
-      density: resolved.defaults.density,
-      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
-    },
-    resolved.overrides,
-  );
 }`,
 			),
 			reflect.TypeOf(PrepareSectionsForCopyRequestInput{}): objectDeclaration(
