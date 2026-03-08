@@ -42,6 +42,9 @@ class _DummyProjectManager:
             projectConfigs={
                 project_state_single.projectConfig.id: project_state_single.projectConfig
             },
+            projectChatWindowingByProjectConfigId={
+                project_state_single.projectConfig.id: project_state_single.projectChatWindowing
+            },
             defaultProjectConfigId=project_state_single.projectConfig.id,
         )
         self.history = History(backend)

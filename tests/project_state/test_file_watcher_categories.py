@@ -100,6 +100,7 @@ class TestFileWatcherCategory:
         project_config = ProjectConfig(id=ID("main-config"), name="main")
         project_state = ProjectStateBackend(
             projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
             defaultProjectConfigId=project_config.id,
         )
         self.dbe.write_project(project_state)

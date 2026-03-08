@@ -27,7 +27,11 @@ from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.project_state.history import History
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
-from setta.mcp.tool_metadata import SettaToolType, ToolAccessMetadata, attach_tool_access
+from setta.mcp.tool_metadata import (
+    SettaToolType,
+    ToolAccessMetadata,
+    attach_tool_access,
+)
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -59,6 +63,7 @@ def _seed_project_state(dbe: DBE, project_config_id: ID) -> None:
     project_config = ProjectConfig(id=project_config_id, name="Project")
     project_state = ProjectStateBackend(
         projectConfigs={project_config_id: project_config},
+        projectChatWindowingByProjectConfigId={project_config_id: {}},
         defaultProjectConfigId=project_config_id,
     )
     dbe.write_project(project_state)
@@ -453,6 +458,95 @@ class TestManagedActionExecutor:
                 }
             ]
 
+    async def test_setta_tool_meta_includes_linked_chat_recursion_metadata(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            project_config_id = ID("project-1")
+            _seed_project_state(dbe, project_config_id)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            mcp_client = MultiMCPClient({})
+            history = ChatHistory(AgentRunChatStore(dbe))
+            executor = ManagedActionExecutor(
+                chat_history=history,
+                websocket_msg_handler=frontend_sender,
+                mcp_client=mcp_client,
+                dbe=dbe,
+                search_tool_name=build_namespaced_tool_name(
+                    SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
+                ),
+                logger=logging.getLogger(__name__),
+            )
+
+            tool_name = build_namespaced_tool_name(
+                SETTA_MCP_SERVER_ID,
+                "search_ui_settings",
+            )
+            mcp_client.routing[tool_name] = (SETTA_MCP_SERVER_ID, "search_ui_settings")
+            captured_meta: list[dict[str, object | None] | None] = []
+
+            async def _fake_call_tool(
+                requested_tool_name: str,
+                arguments: dict[str, object],
+                meta: dict[str, object | None] | None = None,
+            ) -> CallToolResult:
+                assert requested_tool_name == tool_name
+                assert arguments == {}
+                captured_meta.append(meta)
+                return CallToolResult(
+                    content=[TextContent(type="text", text="ok")],
+                    structuredContent={"ok": True},
+                    isError=False,
+                )
+
+            setattr(mcp_client, "call_tool", _fake_call_tool)
+            tool_call = ToolCall(
+                id="tool-call-1",
+                function=ToolCallFunction(
+                    name=tool_name,
+                    arguments={},
+                ),
+            )
+            action = ExecuteToolCallsAction(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-1"),
+                tool_calls=[tool_call],
+                allowed_server_ids={SETTA_MCP_SERVER_ID},
+                share_session_id=None,
+                agentic_context=AgenticContext(
+                    project_config_id=project_config_id,
+                    chat_id=ID("chat-1"),
+                    section_id=ID("section-1"),
+                    linked_chat_invocation_depth=1,
+                    linked_chat_invocation_chain_section_ids=(
+                        ID("section-root"),
+                        ID("section-mid"),
+                    ),
+                ),
+            )
+
+            actions = await executor.apply(action)
+
+            emit_actions = [
+                item for item in actions if isinstance(item, EmitChunkAction)
+            ]
+            assert len(emit_actions) == 1
+            assert captured_meta == [
+                {
+                    "projectConfigId": "project-1",
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "frontendAffinityToken": None,
+                    "linkedChatInvocationDepth": 1,
+                    "linkedChatInvocationChainSectionIds": [
+                        "section-root",
+                        "section-mid",
+                    ],
+                }
+            ]
+
     async def test_scope_blocked_tool_emits_error_result(self) -> None:
         with TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
@@ -490,6 +584,7 @@ class TestManagedActionExecutor:
             )
             backend_state = ProjectStateBackend(
                 projectConfigs={project_config_id: project_state.projectConfig},
+                projectChatWindowingByProjectConfigId={project_config_id: {}},
                 defaultProjectConfigId=project_config_id,
                 sections=project_state.sections,
                 sectionImpls=project_state.sectionImpls,
@@ -564,7 +659,9 @@ class TestManagedActionExecutor:
                     idPathsByType={"section": ["sectionId"]},
                 ),
             )
-            mcp_server._register_setta_tool(scope_probe_tool, SettaToolType.discoverable)
+            mcp_server._register_setta_tool(
+                scope_probe_tool, SettaToolType.discoverable
+            )
             mcp_client = MultiMCPClient(
                 {
                     SETTA_MCP_SERVER_ID: MCPServerConfig(
