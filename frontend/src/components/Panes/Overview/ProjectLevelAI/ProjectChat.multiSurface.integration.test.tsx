@@ -1,0 +1,519 @@
+/* @vitest-environment jsdom */
+
+import { act, useState, type ReactNode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import "testUtils/reactRefreshPreamble";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
+import {
+  AgentRunStatusEnum,
+  EngineTypeEnum,
+  createAgentRun,
+  createAllLLMConfigs,
+  createAssistantChatMessage,
+  createEngineConfig,
+  createMessageTextContent,
+  createProjectConfig,
+  createUserChatMessage,
+} from "utils/generatedTypes";
+import { ProjectChat } from "./ProjectChat";
+
+vi.mock("components/AppHeader/FollowAIToggleButton", () => ({
+  FollowAIToggleButton: () => <button type="button">Follow AI</button>,
+}));
+
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: () => ({}),
+}));
+
+vi.mock("components/Utils/atoms/popover/standardpopover", () => ({
+  StandardPopover: ({
+    trigger,
+    children,
+  }: {
+    trigger: ReactNode;
+    children: ReactNode;
+  }) => (
+    <div>
+      {trigger}
+      <div>{children}</div>
+    </div>
+  ),
+}));
+
+vi.mock("components/Utils/Combobox/IdNameCombobox", () => ({
+  IdNameCombobox: ({
+    allItems,
+    value,
+    onSelectedItemChange,
+    inputDivId,
+    placeholder,
+  }: {
+    allItems: Array<{ items: Array<{ id: string; name: string }> }>;
+    value: string | null;
+    onSelectedItemChange: (next: string | null) => void;
+    inputDivId?: string;
+    placeholder?: string;
+  }) => {
+    const items = allItems.flatMap((group) => group.items);
+    return (
+      <select
+        data-testid={inputDivId ?? placeholder ?? "mock-combobox"}
+        value={value ?? ""}
+        onChange={(event) => {
+          onSelectedItemChange(event.currentTarget.value || null);
+        }}
+      >
+        <option value="">none</option>
+        {items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+    );
+  },
+}));
+
+vi.mock("components/Params/ParamUIs/SwitchInput", () => ({
+  SwitchInput: ({
+    value,
+    onChange,
+  }: {
+    value: boolean;
+    onChange: (next: boolean) => void;
+  }) => (
+    <button
+      type="button"
+      data-testid="mock-switch-input"
+      onClick={() => {
+        onChange(!value);
+      }}
+    >
+      {value ? "on" : "off"}
+    </button>
+  ),
+}));
+
+vi.mock("re-resizable", () => ({
+  Resizable: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock("./ProjectAISettings", () => ({
+  ProjectAISettings: () => (
+    <div data-testid="mock-project-ai-settings">AI settings</div>
+  ),
+}));
+
+vi.mock("./ProjectChatSkillsMcpViewer", () => ({
+  ProjectChatSkillsMcpViewer: ({ viewMode }: { viewMode: string }) => (
+    <div data-testid={`mock-project-chat-aux-${viewMode}`}>{viewMode}</div>
+  ),
+}));
+
+vi.mock("./useHydrateAgenticState", () => ({
+  useHydrateAgenticState: () => undefined,
+}));
+
+vi.mock("./useHydrateLLMState", () => ({
+  useHydrateLLMState: () => undefined,
+}));
+
+vi.mock("./ProjectChatHistory", () => ({
+  ProjectChatHistory: ({
+    chatId,
+    inline,
+  }: {
+    chatId: string | null | undefined;
+    inline?: boolean;
+  }) => (
+    <div
+      data-testid={
+        inline
+          ? "mock-project-chat-history-inline"
+          : "mock-project-chat-history-full"
+      }
+      data-chat-id={chatId ?? ""}
+    >
+      history
+    </div>
+  ),
+}));
+
+vi.mock("./ProjectChatCore", async () => {
+  const actual =
+    await vi.importActual<typeof import("./ProjectChatCore")>(
+      "./ProjectChatCore",
+    );
+  const { useAIStore } = await import("state/definitions");
+  return {
+    ...actual,
+    ProjectChatCore: ({
+      surfaceId,
+      chatId,
+      engineConfigId,
+    }: {
+      surfaceId: string;
+      chatId: string | null | undefined;
+      engineConfigId: string | null;
+    }) => {
+      const details = useAIStore((state) => {
+        if (chatId === null) {
+          return (
+            state.pendingChatDetailsBySurfaceId[surfaceId] ?? {
+              messages: [],
+            }
+          );
+        }
+        if (typeof chatId !== "string") {
+          return { messages: [] };
+        }
+        return state.chatDetails[chatId] ?? { messages: [] };
+      });
+      const renderedText = details.messages
+        .flatMap((message) =>
+          message.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text),
+        )
+        .join(" | ");
+      return (
+        <div
+          data-testid={`mock-project-chat-core-${surfaceId}`}
+          data-chat-id={chatId ?? ""}
+          data-engine-id={engineConfigId ?? ""}
+        >
+          {renderedText}
+        </div>
+      );
+    },
+  };
+});
+
+function buildManagedChatRun({
+  chatId,
+  engineConfigId,
+  projectConfigId,
+}: {
+  chatId: string;
+  engineConfigId: string;
+  projectConfigId: string;
+}) {
+  return createAgentRun({
+    id: `run-${chatId}`,
+    status: AgentRunStatusEnum.completed,
+    startedAt: "2026-03-07T00:00:00Z",
+    finishedAt: "2026-03-07T00:00:01Z",
+    inputs: {
+      runType: "llm_chat",
+      projectConfigId,
+      chatId,
+      engineConfigId,
+      messages: [],
+    },
+    outputs: {},
+  });
+}
+
+function createChatMessage(text: string) {
+  return createAssistantChatMessage({
+    content: [createMessageTextContent({ text })],
+    attachments: [],
+  });
+}
+
+function createUserMessage(text: string) {
+  return createUserChatMessage({
+    content: [createMessageTextContent({ text })],
+    attachments: [],
+  });
+}
+
+function Harness() {
+  const [chatA, setChatA] = useState<string | null | undefined>("chat-a");
+  const [chatB, setChatB] = useState<string | null | undefined>("chat-b");
+
+  return (
+    <div>
+      <section data-testid="surface-a">
+        <ProjectChat
+          surfaceId="surface-a"
+          chatId={chatA}
+          setChatId={setChatA}
+        />
+      </section>
+      <section data-testid="surface-b">
+        <ProjectChat
+          surfaceId="surface-b"
+          chatId={chatB}
+          setChatId={setChatB}
+        />
+      </section>
+    </div>
+  );
+}
+
+describe("ProjectChat multi-surface state ownership", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  let originalGetBoundingClientRect: typeof HTMLElement.prototype.getBoundingClientRect;
+
+  beforeEach(async () => {
+    resetProjectStores();
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
+    useProjectState.setState((state) => {
+      state.projectConfig = createProjectConfig({ id: "project-1" });
+    });
+    useLocalStorage.setState({
+      overviewWidth: 1200,
+      projectChatAuxViewByProjectConfigId: {},
+      projectChatThreadAssignmentsByProjectConfigId: {},
+      projectChatThreadGroupsByProjectConfigId: {},
+    });
+    useAIStore.setState({
+      apiKeys: { openai: "token" },
+      apiKeysAuthoritative: true,
+      apiKeysInitialLoadComplete: true,
+      allLLMConfigs: createAllLLMConfigs({
+        default_config_id: "llm-a",
+        configs: {
+          "llm-a": {
+            id: "llm-a",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            base_url: null,
+            api_key_env: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+          "llm-b": {
+            id: "llm-b",
+            model: "gpt-4.1-mini",
+            provider: "openai",
+            base_url: null,
+            api_key_env: null,
+            other_params: null,
+            mcpServerIds: [],
+            temporary: false,
+          },
+        },
+      }),
+      allLLMConfigsInitialLoadComplete: true,
+      externalAgentHealth: [],
+      externalAgentHealthInitialLoadComplete: true,
+      engineConfigs: [
+        createEngineConfig({
+          id: "engine-a",
+          name: "Engine A",
+          engineType: EngineTypeEnum.setta_llm,
+          settaLlmConfigId: "llm-a",
+        }),
+        createEngineConfig({
+          id: "engine-b",
+          name: "Engine B",
+          engineType: EngineTypeEnum.setta_llm,
+          settaLlmConfigId: "llm-b",
+        }),
+      ],
+      engineConfigsInitialLoadComplete: true,
+      engineConfigsLoadError: null,
+      transcriptionProfiles: [],
+      transcriptionProfilesInitialLoadComplete: true,
+      agentRuns: [
+        buildManagedChatRun({
+          chatId: "chat-a",
+          engineConfigId: "engine-a",
+          projectConfigId: "project-1",
+        }),
+        buildManagedChatRun({
+          chatId: "chat-b",
+          engineConfigId: "engine-b",
+          projectConfigId: "project-1",
+        }),
+      ],
+      agentRunsAuthorityState: "ready",
+      agentRunsInitialLoadComplete: true,
+      chatDetails: {
+        "chat-a": {
+          messages: [
+            createUserMessage("Alpha seed"),
+            createChatMessage("Alpha reply"),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+        "chat-b": {
+          messages: [
+            createUserMessage("Beta seed"),
+            createChatMessage("Beta reply"),
+          ],
+          toolCallArguments: {},
+          waitingForResponse: false,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+      pendingChatDetails: null,
+      pendingChatDetailsBySurfaceId: {},
+    });
+    (globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver =
+      class ResizeObserver {
+        disconnect() {}
+        observe() {}
+        unobserve() {}
+      } as typeof ResizeObserver;
+    originalGetBoundingClientRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect =
+      function getBoundingClientRect() {
+        return {
+          x: 0,
+          y: 0,
+          width: 1200,
+          height: 800,
+          top: 0,
+          right: 1200,
+          bottom: 800,
+          left: 0,
+          toJSON() {
+            return null;
+          },
+        } as DOMRect;
+      };
+
+    await act(async () => {
+      root.render(<Harness />);
+    });
+  });
+
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    HTMLElement.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    host.remove();
+    resetProjectStores();
+  });
+
+  it("keeps engine provenance isolated per controlled surface", () => {
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    const surfaceB = host.querySelector('[data-testid="surface-b"]');
+    if (!surfaceA || !surfaceB) {
+      throw new Error("Expected both project chat surfaces.");
+    }
+
+    const coreA = surfaceA.querySelector(
+      '[data-testid="mock-project-chat-core-surface-a"]',
+    );
+    const coreB = surfaceB.querySelector(
+      '[data-testid="mock-project-chat-core-surface-b"]',
+    );
+    expect(coreA?.getAttribute("data-engine-id")).toBe("engine-a");
+    expect(coreB?.getAttribute("data-engine-id")).toBe("engine-b");
+  });
+
+  it("keeps continue-in-new-thread draft seeds isolated per surface", async () => {
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    const surfaceB = host.querySelector('[data-testid="surface-b"]');
+    if (!surfaceA || !surfaceB) {
+      throw new Error("Expected both project chat surfaces.");
+    }
+
+    const engineSelectA = surfaceA.querySelector(
+      '[data-testid="project-ai-engine-combobox"]',
+    ) as HTMLSelectElement | null;
+    const engineSelectB = surfaceB.querySelector(
+      '[data-testid="project-ai-engine-combobox"]',
+    ) as HTMLSelectElement | null;
+    if (!engineSelectA || !engineSelectB) {
+      throw new Error("Expected engine selectors.");
+    }
+
+    await act(async () => {
+      engineSelectA.value = "engine-b";
+      engineSelectA.dispatchEvent(new Event("change", { bubbles: true }));
+      engineSelectB.value = "engine-a";
+      engineSelectB.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    const continueButtonA = surfaceA.querySelector(
+      '[data-testid="project-chat-engine-switch-continue-button"]',
+    ) as HTMLButtonElement | null;
+    const continueButtonB = surfaceB.querySelector(
+      '[data-testid="project-chat-engine-switch-continue-button"]',
+    ) as HTMLButtonElement | null;
+    if (!continueButtonA || !continueButtonB) {
+      throw new Error("Expected continue-in-new-thread buttons.");
+    }
+
+    await act(async () => {
+      continueButtonA.click();
+      continueButtonB.click();
+    });
+
+    const coreA = surfaceA.querySelector(
+      '[data-testid="mock-project-chat-core-surface-a"]',
+    );
+    const coreB = surfaceB.querySelector(
+      '[data-testid="mock-project-chat-core-surface-b"]',
+    );
+    expect(coreA?.textContent ?? "").toContain("Alpha seed");
+    expect(coreA?.textContent ?? "").not.toContain("Beta seed");
+    expect(coreB?.textContent ?? "").toContain("Beta seed");
+    expect(coreB?.textContent ?? "").not.toContain("Alpha seed");
+  });
+
+  it("keeps threads and aux views local to the surface that toggles them", async () => {
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    const surfaceB = host.querySelector('[data-testid="surface-b"]');
+    if (!surfaceA || !surfaceB) {
+      throw new Error("Expected both project chat surfaces.");
+    }
+
+    const threadsButtonA = surfaceA.querySelector(
+      '[aria-label="View Threads"]',
+    ) as HTMLButtonElement | null;
+    if (!threadsButtonA) {
+      throw new Error("Expected threads toggle for surface A.");
+    }
+
+    await act(async () => {
+      threadsButtonA.click();
+    });
+
+    expect(
+      surfaceA.querySelector('[data-testid^="mock-project-chat-history"]'),
+    ).toBeNull();
+    expect(
+      surfaceB.querySelector('[data-testid^="mock-project-chat-history"]'),
+    ).not.toBeNull();
+
+    const skillsButtonA = surfaceA.querySelector(
+      '[data-testid="project-chat-settings-open-skills"]',
+    ) as HTMLButtonElement | null;
+    if (!skillsButtonA) {
+      throw new Error("Expected skills button for surface A.");
+    }
+
+    await act(async () => {
+      skillsButtonA.click();
+    });
+
+    expect(
+      surfaceA.querySelector('[data-testid="mock-project-chat-aux-skills"]'),
+    ).not.toBeNull();
+    expect(
+      surfaceB.querySelector('[data-testid="mock-project-chat-aux-skills"]'),
+    ).toBeNull();
+  });
+});

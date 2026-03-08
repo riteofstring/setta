@@ -3975,6 +3975,7 @@ export function ProjectChatBottomDock() {
                               <UnifiedChatSurface
                                 mode={pill.mode}
                                 host={ChatWindowPlacementEnum.bottom_docked}
+                                surfaceId={pill.instanceId}
                                 projectChatId={pill.chatId}
                                 setProjectChatId={(next) => {
                                   const resolvedChatId =
@@ -4363,6 +4364,7 @@ export function ProjectChatBottomDock() {
                         <UnifiedChatSurface
                           mode={pill.mode}
                           host={ChatWindowPlacementEnum.floating}
+                          surfaceId={pill.instanceId}
                           projectChatId={pill.chatId}
                           setProjectChatId={(next) => {
                             const resolvedChatId =
@@ -4635,6 +4637,7 @@ export function ProjectChatBottomDock() {
                   <UnifiedChatSurface
                     mode={openMaximizedWindow.mode}
                     host={ChatWindowPlacementEnum.maximized}
+                    surfaceId={openMaximizedWindow.instanceId}
                     projectChatId={openMaximizedWindow.chatId}
                     setProjectChatId={(next) => {
                       const resolvedChatId =

@@ -1673,15 +1673,23 @@ export async function bootProjectChatWindowToCanvasSection(
     }
   }
 
+  const latestWindowing = getProjectChatWindowingStateFromStore(
+    useProjectState.getState(),
+  );
+  const latestInstance = latestWindowing.instancesById[instanceId];
+  if (!latestInstance) {
+    return sectionId;
+  }
+
   const next = moveProjectChatWindowToCanvasSectionInState(
-    currentWindowing,
+    latestWindowing,
     instanceId,
     {
       sectionId,
-      mode: currentInstance.mode,
+      mode: latestInstance.mode,
     },
   );
-  if (next !== currentWindowing) {
+  if (next !== latestWindowing) {
     setProjectChatWindowingStateInStore(next);
   }
   return sectionId;

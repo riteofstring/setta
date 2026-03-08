@@ -664,6 +664,7 @@ export function StandaloneWindowSpaceSurface({
                 <UnifiedChatSurface
                   mode={window.mode}
                   host={ChatWindowPlacementEnum.floating}
+                  surfaceId={window.instanceId}
                   projectChatId={window.chatId}
                   setProjectChatId={(next) => {
                     const resolvedChatId =

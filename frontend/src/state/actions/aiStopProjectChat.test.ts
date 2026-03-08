@@ -1168,4 +1168,80 @@ describe("stopProjectChatResponse", () => {
       errorCode: "chat_not_found",
     });
   });
+
+  it("fails explicitly when both runtimes resolve the same chat id", async () => {
+    const chatId = "chat-fallback-ambiguous";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "local-message",
+              content: [createMessageTextContent({ text: "Local only" })],
+            }),
+          ],
+          toolCallArguments: {
+            "local-tool": '{\n  "source": "local"\n}',
+          },
+        },
+      },
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createAssistantChatMessage({
+            id: "external-message",
+            content: [createMessageTextContent({ text: "External runtime" })],
+          }),
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {
+          "external-tool": '{\n  "runtime": "external"\n}',
+        },
+        contextUsage: null,
+      },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          createAssistantChatMessage({
+            id: "managed-message",
+            content: [createMessageTextContent({ text: "Managed runtime" })],
+          }),
+        ],
+        waitingForResponse: false,
+        llmConfig: null,
+        contextUsage: null,
+      },
+    });
+
+    const outcome = await getProjectChatHydrationOutcomeWithFallback(
+      chatId,
+      "project-a",
+      null,
+    );
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 409,
+      errorCode: "chat_runtime_ambiguous",
+    });
+    expect(useAIStore.getState().chatDetails[chatId]).toEqual({
+      ...getDefaultChatDetails(),
+      messages: [
+        createAssistantChatMessage({
+          id: "local-message",
+          content: [createMessageTextContent({ text: "Local only" })],
+        }),
+      ],
+      toolCallArguments: {
+        "local-tool": '{\n  "source": "local"\n}',
+      },
+    });
+  });
 });

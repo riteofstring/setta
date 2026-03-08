@@ -6,7 +6,13 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
-import { useEffect, useMemo, useState, type SetStateAction } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type SetStateAction,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
@@ -194,6 +200,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
   doneLoading,
   is404,
 }: StandaloneProjectSurfacePageLoadState) {
+  const standaloneProjectChatSurfaceId = useId();
   const { projectConfigName, sectionSlug, chatId, windowSpaceSlug } =
     useParams();
   const navigate = useNavigate();
@@ -318,6 +325,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
         <UnifiedChatSurface
           mode="project_ai_mode"
           host="standalone_page"
+          surfaceId={standaloneProjectChatSurfaceId}
           projectChatId={standaloneProjectChatId}
           setProjectChatId={setStandaloneProjectChatId}
           onProjectChatBlockedErrorCodeChange={

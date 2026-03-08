@@ -1,3 +1,35 @@
+## 2026-03-09 21:36:20 PDT
+
+Implemented the consolidated review fixes for deterministic chat hydration, per-surface project-chat state ownership, and async windowing rebasing.
+
+Hydration authority:
+- Reworked fallback hydration in `frontend/src/state/actions/ai.ts` so both managed and external runtimes are probed without side effects before any store mutation happens.
+- If both runtimes answer for the same `chatId`, hydration now fails closed with the explicit blocked error `chat_runtime_ambiguous` instead of mixing transcripts, tool-call arguments, or waiting-state metadata from both runtimes.
+- `ProjectChatCore` now surfaces a concrete blocked banner for that ambiguity state, and standalone `/:projectConfigName/chat/:chatId` routes rely on the same path instead of rendering whichever runtime happened to win a race.
+
+Per-surface chat ownership:
+- Added `pendingChatDetailsBySurfaceId` to the AI store and threaded surface-scoped draft lifecycle helpers through project-chat submit/stop/finalize flows.
+- `ProjectChat`, `ProjectChatCore`, `ProjectChatHistory`, and `UnifiedChatSurface` now treat each chat surface as the owner of its own draft thread, thread-pane visibility, aux-pane visibility, and selected engine state.
+- Workspace docked/floating/maximized chat windows, standalone window-space surfaces, standalone project-chat routes, and section-backed chat surfaces all pass a stable `surfaceId`, so “continue in new thread” and other draft-local operations no longer overwrite another surface’s state.
+- The global project-chat engine selection remains only as a default seed for new surfaces; changing one live window no longer silently reconfigures another live window.
+
+Async windowing correctness:
+- Fixed `bootProjectChatWindowToCanvasSection(...)` so it re-reads authoritative `projectChatWindowing` state after async section creation completes, verifies the target instance still exists, and applies the canvas move onto fresh state.
+- This prevents slow canvas boot flows from clobbering concurrent window edits such as focus, bounds, minimize/maximize, close, or peer-window changes that occurred while section creation was in flight.
+
+UX before vs after:
+- Before: missing-provenance thread hydration could merge two runtimes into one visible thread, separate project-chat windows could leak engine and draft state into each other, and slow “move to canvas” flows could revert unrelated window changes.
+- After: a thread hydrates from exactly one authoritative runtime or shows an explicit ambiguity banner, each chat surface behaves like an isolated window with its own live state, and async windowing actions preserve concurrent edits instead of overwriting them.
+
+DX before vs after:
+- Before: engineers had to reason about side-effecting hydration probes, global pending-draft state shared by unrelated surfaces, and stale pre-`await` windowing snapshots.
+- After: authority is explicit, surface-local state is keyed and testable, and async windowing updates compose against fresh store state rather than incidental timing.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/aiStopProjectChat.test.ts src/state/actions/projectChatWindowing.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts` passed: 4 files, 118 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone thread routes fail closed when multiple runtimes answer the same chat id"` passed.
+- CDP verification confirmed two independent project-chat windows render as separate surfaces in the live workspace, and a forced standalone ambiguous-runtime route shows the blocked banner without rendering either competing transcript.
+
 ## 2026-03-09 15:45:22 PDT
 
 Implemented the branch-blocking review fixes rather than layering more local-state patches on top.

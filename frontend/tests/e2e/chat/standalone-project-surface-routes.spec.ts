@@ -970,6 +970,140 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone thread routes fail closed when multiple runtimes answer the same chat id", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const standalonePage = await page.context().newPage();
+    const standaloneThreadChatId = "standalone-thread-ambiguous";
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(
+            runs.filter((run) => run.inputs?.chatId !== standaloneThreadChatId),
+          ),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId !== standaloneThreadChatId) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: "managed-ambiguous-message",
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: "Managed runtime transcript",
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+      await page
+        .context()
+        .route("**/api/getExternalAgentChat", async (route) => {
+          const payload = route.request().postDataJSON() as
+            | { chatId?: string }
+            | undefined;
+          if (payload?.chatId !== standaloneThreadChatId) {
+            await route.continue();
+            return;
+          }
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              messages: [
+                {
+                  id: "external-ambiguous-message",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: "External runtime transcript",
+                    },
+                  ],
+                  attachments: [],
+                  tool_calls: null,
+                },
+              ],
+              waitingForResponse: false,
+              toolCallArguments: {
+                "tool-call-1": '{\n  "runtime": "external"\n}',
+              },
+              contextUsage: null,
+            }),
+          });
+        });
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(standaloneThreadChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByTestId("project-chat-thread-blocked-banner"),
+      ).toContainText("multiple chat runtimes");
+      await expect(
+        standalonePage.getByText("Managed runtime transcript"),
+      ).toHaveCount(0);
+      await expect(
+        standalonePage.getByText("External runtime transcript"),
+      ).toHaveCount(0);
+    } finally {
+      await standalonePage.close();
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
+      await page.context().unroute("**/api/getExternalAgentChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("saved window spaces preserve distinct project chat threads per window in both workspace and standalone views", async ({
     page,
   }) => {

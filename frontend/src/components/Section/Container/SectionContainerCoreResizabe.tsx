@@ -350,6 +350,7 @@ function ChatSectionArea({
       mode={mode}
       host={host}
       sectionId={sectionId}
+      surfaceId={sectionId}
       projectChatId={projectChatId}
       setProjectChatId={setProjectChatId}
     />

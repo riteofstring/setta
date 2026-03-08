@@ -11,9 +11,31 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const hoistedProjectChatWindowing = vi.hoisted(() => ({
+  createTopLevelSectionWithResult: vi.fn(),
+}));
+
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: {
+    getState: () => ({
+      transform: [0, 0, 1],
+      d3Zoom: null,
+      d3Selection: null,
+      domNode: null,
+    }),
+  },
+}));
+
+vi.mock("./sections/createSections", () => ({
+  createTopLevelSectionWithResult:
+    hoistedProjectChatWindowing.createTopLevelSectionWithResult,
+}));
+
 import {
   addProjectChatWindowInstanceInState,
+  bootProjectChatWindowToCanvasSection,
   closeProjectChatWindow,
   closeProjectChatWindowInState,
   ensureTrackedGitPaneGraphWindow,
@@ -28,6 +50,7 @@ import {
   reopenProjectChatWindowInState,
   resolveDefaultDockedChatHeightPx,
   resolveDefaultFloatingChatBounds,
+  setProjectChatWindowBounds,
   setProjectChatWindowBoundsByIdInState,
   setProjectChatWindowBoundsInState,
   setProjectChatWindowChatId,
@@ -46,6 +69,7 @@ describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
     resetProjectStores();
     useAIStore.setState({ activeChatId: undefined });
+    hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockReset();
   });
 
   it("creates an open bottom-docked chat window instance by default", () => {
@@ -1047,5 +1071,76 @@ describe("project chat windowing reducer helpers", () => {
     expect(created.sectionIdOrNull).toBe("section-7");
     expect(created.placement).toBe(ChatWindowPlacementEnum.floating);
     expect(created.mode).toBe(ChatWindowModeEnum.section_mode);
+  });
+
+  it("rebases canvas boot on the latest windowing state after async section creation", async () => {
+    let resolveCreated: ((value: { sectionId: string } | null) => void) | null =
+      null;
+    const createdPromise = new Promise<{ sectionId: string } | null>(
+      (resolve) => {
+        resolveCreated = resolve;
+      },
+    );
+    hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockReturnValue(
+      createdPromise,
+    );
+
+    const target = createProjectChatWindowInstance({
+      instanceId: "chat-window-target",
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: null,
+      bounds: {
+        x: 40,
+        y: 80,
+        width: 640,
+        height: 420,
+      },
+    });
+    const peer = createProjectChatWindowInstance({
+      instanceId: "chat-window-peer",
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: null,
+      bounds: {
+        x: 200,
+        y: 220,
+        width: 500,
+        height: 360,
+      },
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        order: [target.instanceId, peer.instanceId],
+        instancesById: {
+          [target.instanceId]: target,
+          [peer.instanceId]: peer,
+        },
+        nextInstanceNumber: 3,
+      });
+    });
+
+    const bootPromise = bootProjectChatWindowToCanvasSection(target.instanceId);
+
+    setProjectChatWindowBounds(peer.instanceId, {
+      x: 920,
+      y: 640,
+    });
+
+    resolveCreated?.({ sectionId: "section-created" });
+
+    await expect(bootPromise).resolves.toBe("section-created");
+
+    const finalState = useProjectState.getState().projectChatWindowing;
+    expect(finalState.instancesById[target.instanceId]?.placement).toBe(
+      ChatWindowPlacementEnum.canvas_section,
+    );
+    expect(finalState.instancesById[target.instanceId]?.sectionIdOrNull).toBe(
+      "section-created",
+    );
+    expect(finalState.instancesById[peer.instanceId]?.bounds).toEqual({
+      x: 920,
+      y: 640,
+      width: 500,
+      height: 360,
+    });
   });
 });

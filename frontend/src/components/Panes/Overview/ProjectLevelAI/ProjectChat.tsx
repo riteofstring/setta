@@ -207,6 +207,7 @@ type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
 };
 
 type ProjectChatProps = {
+  surfaceId?: string;
   chatId?: string | null | undefined;
   setChatId?: (next: SetStateAction<string | null | undefined>) => void;
   onBlockedErrorCodeChange?: (
@@ -442,10 +443,12 @@ export function setProjectChatAuxViewForActiveProject(
 }
 
 export function ProjectChat({
+  surfaceId,
   chatId: controlledChatId,
   setChatId: controlledSetChatId,
   onBlockedErrorCodeChange,
 }: ProjectChatProps = {}) {
+  const resolvedSurfaceId = surfaceId ?? "project-chat-global-surface";
   const globalChatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
@@ -484,7 +487,8 @@ export function ProjectChat({
   useHydrateAgenticState();
   const activeConversationMessages = useAIStore((state) => {
     if (chatId === null) {
-      const pendingMessages = state.pendingChatDetails?.messages;
+      const pendingMessages =
+        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]?.messages;
       if (Array.isArray(pendingMessages)) {
         return pendingMessages as Array<BaseChatMessageUnion>;
       }
@@ -501,7 +505,10 @@ export function ProjectChat({
   });
   const selectedChatWaitingForResponse = useAIStore((state) => {
     if (chatId === null) {
-      return Boolean(state.pendingChatDetails?.waitingForResponse);
+      return Boolean(
+        state.pendingChatDetailsBySurfaceId[resolvedSurfaceId]
+          ?.waitingForResponse,
+      );
     }
     if (typeof chatId !== "string") {
       return false;
@@ -513,8 +520,6 @@ export function ProjectChat({
     apiKeys,
     apiKeysAuthoritative,
     apiKeysInitialLoadComplete,
-    viewThreads,
-    projectChatThreadsExplicitlyClosedAtLargeWidth,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -527,7 +532,6 @@ export function ProjectChat({
     transcriptionProfilesInitialLoadComplete,
     projectChatDictationMode,
     projectChatTranscriptionProfileId,
-    projectChatSelectedEngineId,
     projectChatActivityAccordionOpenByDefault,
     projectChatActivityChildrenOpenByDefault,
     agentRunsLoadError,
@@ -537,9 +541,6 @@ export function ProjectChat({
       apiKeys: x.apiKeys,
       apiKeysAuthoritative: x.apiKeysAuthoritative,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-      viewThreads: x.viewThreads,
-      projectChatThreadsExplicitlyClosedAtLargeWidth:
-        x.projectChatThreadsExplicitlyClosedAtLargeWidth,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -554,7 +555,6 @@ export function ProjectChat({
         x.transcriptionProfilesInitialLoadComplete,
       projectChatDictationMode: x.projectChatDictationMode,
       projectChatTranscriptionProfileId: x.projectChatTranscriptionProfileId,
-      projectChatSelectedEngineId: x.projectChatSelectedEngineId,
       projectChatActivityAccordionOpenByDefault:
         x.projectChatActivityAccordionOpenByDefault,
       projectChatActivityChildrenOpenByDefault:
@@ -577,15 +577,33 @@ export function ProjectChat({
     }),
     _.isEqual,
   );
-  const projectChatAuxView = useLocalStorage((state): ProjectChatAuxView => {
-    return state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
-  });
-  const setProjectChatAuxView = useCallback(
-    (nextAuxView: ProjectChatAuxView) => {
-      setProjectChatAuxViewForActiveProject(nextAuxView);
+  const initialProjectChatAuxView = useLocalStorage(
+    (state): ProjectChatAuxView => {
+      return (
+        state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none"
+      );
     },
-    [],
   );
+  const defaultViewThreads = useAIStore((state) => state.viewThreads);
+  const defaultProjectChatThreadsExplicitlyClosedAtLargeWidth = useAIStore(
+    (state) => state.projectChatThreadsExplicitlyClosedAtLargeWidth,
+  );
+  const defaultSelectedEngineId = useAIStore(
+    (state) => state.projectChatSelectedEngineId,
+  );
+  const [projectChatAuxView, setProjectChatAuxView] =
+    useState<ProjectChatAuxView>(initialProjectChatAuxView);
+  const [viewThreads, setViewThreads] = useState(defaultViewThreads);
+  const [
+    projectChatThreadsExplicitlyClosedAtLargeWidth,
+    setProjectChatThreadsExplicitlyClosedAtLargeWidth,
+  ] = useState(defaultProjectChatThreadsExplicitlyClosedAtLargeWidth);
+  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(
+    defaultSelectedEngineId,
+  );
+  useEffect(() => {
+    setProjectChatAuxView(initialProjectChatAuxView);
+  }, [initialProjectChatAuxView, projectConfigId]);
   const draftMessage = draftMessageByProjectConfigId[projectConfigId] ?? "";
   const setDraftMessage = useCallback(
     (next: SetStateAction<string>) => {
@@ -618,10 +636,6 @@ export function ProjectChat({
     return stored;
   });
 
-  const selectedEngineId = projectChatSelectedEngineId;
-  const setSelectedEngineId = useCallback((value: string | null) => {
-    useAIStore.setState({ projectChatSelectedEngineId: value });
-  }, []);
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
   const [selectedThreadGroupId, setSelectedThreadGroupId] = useState<
@@ -1119,6 +1133,7 @@ export function ProjectChat({
           chatEngineConfigByChatId,
         });
       setSelectedEngineId(nextEngineId);
+      useAIStore.setState({ projectChatSelectedEngineId: nextEngineId });
       setProjectChatAuxView("none");
       setEngineSwitchContinuation(nextContinuation);
       if (nextContinuation) {
@@ -1303,7 +1318,7 @@ export function ProjectChat({
     if (nextVisibility === null || nextVisibility === viewThreads) {
       return;
     }
-    useAIStore.setState({ viewThreads: nextVisibility });
+    setViewThreads(nextVisibility);
   }, [
     effectiveInlineThreadsViewportWidth,
     projectChatThreadsExplicitlyClosedAtLargeWidth,
@@ -1499,23 +1514,20 @@ export function ProjectChat({
       setProjectChatAuxView("none");
       return;
     }
-    useAIStore.setState({ viewThreads: false });
-  }, [projectChatAuxView, setProjectChatAuxView]);
+    setViewThreads(false);
+  }, [projectChatAuxView]);
   const handleToggleThreads = useCallback(() => {
     setProjectChatAuxView("none");
     const isLargeEnoughForInlineThreads =
       effectiveInlineThreadsViewportWidth >= INLINE_THREADS_BREAKPOINT_PX;
-    useAIStore.setState((state) => {
-      const nextViewThreads = !state.viewThreads;
-      if (!isLargeEnoughForInlineThreads) {
-        return { viewThreads: nextViewThreads };
+    setViewThreads((current) => {
+      const nextViewThreads = !current;
+      if (isLargeEnoughForInlineThreads) {
+        setProjectChatThreadsExplicitlyClosedAtLargeWidth(!nextViewThreads);
       }
-      return {
-        viewThreads: nextViewThreads,
-        projectChatThreadsExplicitlyClosedAtLargeWidth: !nextViewThreads,
-      };
+      return nextViewThreads;
     });
-  }, [effectiveInlineThreadsViewportWidth, setProjectChatAuxView]);
+  }, [effectiveInlineThreadsViewportWidth]);
   const handleOpenProjectSettingsAuxView = useCallback(() => {
     setProjectChatAuxView("ai_settings");
   }, [setProjectChatAuxView]);
@@ -1544,13 +1556,11 @@ export function ProjectChat({
       }
       setEngineSwitchContinuation(null);
       if (!showInlineThreads) {
-        useAIStore.setState({
-          viewThreads: false,
-        });
+        setViewThreads(false);
       }
       setProjectChatAuxView("none");
     },
-    [setChatId, setProjectChatAuxView, showInlineThreads],
+    [setChatId, showInlineThreads],
   );
   const handleNewChatClick = useCallback(() => {
     startNewChatDraft({
@@ -1578,7 +1588,7 @@ export function ProjectChat({
     if (!engineSwitchContinuation) {
       return;
     }
-    seedPendingChatDetails(activeConversationMessages);
+    seedPendingChatDetails(activeConversationMessages, resolvedSurfaceId);
     setChatId(null);
     setDraftThreadState({ phase: "idle" });
     setDraftThreadTargetGroupId(selectedThreadGroupId);
@@ -1587,17 +1597,15 @@ export function ProjectChat({
     );
     setEngineSwitchContinuation(null);
     if (!showInlineThreads) {
-      useAIStore.setState({
-        viewThreads: false,
-      });
+      setViewThreads(false);
     }
     setProjectChatAuxView("none");
   }, [
     activeConversationMessages,
     engineSwitchContinuation,
+    resolvedSurfaceId,
     selectedThreadGroupId,
     setChatId,
-    setProjectChatAuxView,
     showInlineThreads,
   ]);
   const returnToChatTooltipHandlers = useMemo(
@@ -2048,10 +2056,14 @@ export function ProjectChat({
                   inline={true}
                   closeOnSelect={false}
                   draftThread={draftThreadHint}
+                  draftWaitingForResponse={selectedChatWaitingForResponse}
                   selectedGroupId={selectedThreadGroupId}
                   onSelectedGroupChange={setSelectedThreadGroupId}
                   onStartNewThread={handleNewChatClick}
                   onStartNewThreadInGroup={handleNewChatInThreadGroup}
+                  onCloseThreadsView={() => {
+                    setViewThreads(false);
+                  }}
                   headerPortalTarget={inlineThreadsHeaderPortalTarget}
                 />
               </div>
@@ -2066,6 +2078,7 @@ export function ProjectChat({
                 </div>
               ) : (
                 <ProjectChatCore
+                  surfaceId={resolvedSurfaceId}
                   chatId={chatId}
                   draftMessage={draftMessage}
                   setDraftMessage={setDraftMessage}
@@ -2127,14 +2140,19 @@ export function ProjectChat({
             engineConfigId={effectiveEngineId}
             closeOnSelect={true}
             draftThread={draftThreadHint}
+            draftWaitingForResponse={selectedChatWaitingForResponse}
             selectedGroupId={selectedThreadGroupId}
             onSelectedGroupChange={setSelectedThreadGroupId}
             onStartNewThread={handleNewChatClick}
             onStartNewThreadInGroup={handleNewChatInThreadGroup}
+            onCloseThreadsView={() => {
+              setViewThreads(false);
+            }}
           />
         ) : (
           <>
             <ProjectChatCore
+              surfaceId={resolvedSurfaceId}
               chatId={chatId}
               draftMessage={draftMessage}
               setDraftMessage={setDraftMessage}

@@ -20,6 +20,7 @@ type UnifiedChatSurfaceProps = {
   sectionId?: string | null;
   className?: string;
   dataTestId?: string;
+  surfaceId?: string;
   projectChatId?: string | null;
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
@@ -48,15 +49,20 @@ export function UnifiedChatSurface({
   sectionId = null,
   className,
   dataTestId,
+  surfaceId,
   projectChatId,
   setProjectChatId,
   onProjectChatBlockedErrorCodeChange,
 }: UnifiedChatSurfaceProps) {
   const projectChatProps: {
+    surfaceId?: string;
     chatId?: string | null;
     setChatId?: (next: SetStateAction<string | null | undefined>) => void;
     onBlockedErrorCodeChange?: (errorCode: string | null) => void;
   } = {};
+  if (surfaceId !== undefined) {
+    projectChatProps.surfaceId = surfaceId;
+  }
   if (projectChatId !== undefined) {
     projectChatProps.chatId = projectChatId;
   }
