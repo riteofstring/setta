@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -791,8 +793,58 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		broadcastAllProjectMetadata := func(ctx context.Context, snapshot projectstate.Snapshot) error {
+			var defaultProjectID *string
+			if trimmedDefaultProjectID := strings.TrimSpace(snapshot.Document.DefaultProjectID); trimmedDefaultProjectID != "" {
+				defaultProjectID = &trimmedDefaultProjectID
+			}
+			_, err = websocketHub.BroadcastJSON(
+				ctx,
+				realtime.NewAllProjectMetadataMessage(realtime.AllProjectMetadataContent{
+					DefaultProjectConfigID: defaultProjectID,
+					ProjectMetadata:        snapshot.Document.ProjectConfigMetadata(),
+				}),
+				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+			)
+			return err
+		}
+		broadcastSavedProjectNotification := func(ctx context.Context, _ projectstate.Snapshot, projectID string) error {
+			notificationID, err := newAppNotificationID()
+			if err != nil {
+				return err
+			}
+			_, err = websocketHub.BroadcastJSON(
+				ctx,
+				realtime.NewNotificationMessage(realtime.NotificationContent{
+					ID:              notificationID,
+					ProjectConfigID: projectID,
+					Type:            realtime.NotificationTypeSave,
+					Message:         "Saved!",
+					Temporary:       false,
+					Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
+					Metadata:        map[string]any{},
+					ReadStatus:      false,
+				}),
+				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+			)
+			return err
+		}
+		deleteProjectTerminals := func(ctx context.Context, _ projectstate.Snapshot, deletedIDs []string) error {
+			var joined error
+			for _, projectID := range deletedIDs {
+				for _, session := range terminalService.List(projectID, "") {
+					joined = errors.Join(joined, terminalService.Delete(ctx, session.ID))
+				}
+			}
+			return joined
+		}
 		projectShellService, err = projectshell.NewService(projectshell.ServiceOptions{
-			ProjectState: projectRuntime,
+			ProjectState:     projectRuntime,
+			AfterProjectSave: broadcastSavedProjectNotification,
+			AfterProjectMetadataMutation: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+				return broadcastAllProjectMetadata(ctx, snapshot)
+			},
+			AfterProjectsDelete: deleteProjectTerminals,
 			AfterProjectRename: func(ctx context.Context, snapshot projectstate.Snapshot, projectID string) error {
 				projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
 				if err != nil {
@@ -810,20 +862,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				); err != nil {
 					return err
 				}
-
-				var defaultProjectID *string
-				if trimmedDefaultProjectID := strings.TrimSpace(snapshot.Document.DefaultProjectID); trimmedDefaultProjectID != "" {
-					defaultProjectID = &trimmedDefaultProjectID
-				}
-				_, err = websocketHub.BroadcastJSON(
-					ctx,
-					realtime.NewAllProjectMetadataMessage(realtime.AllProjectMetadataContent{
-						DefaultProjectConfigID: defaultProjectID,
-						ProjectMetadata:        snapshot.Document.ProjectConfigMetadata(),
-					}),
-					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-				)
-				return err
+				return broadcastAllProjectMetadata(ctx, snapshot)
 			},
 		})
 		if err != nil {
@@ -1481,6 +1520,14 @@ func registerPluginMCPTools(server *mcpx.Server, runtime *plugins.BackendRouteRu
 
 func (a *App) MCPClient() *mcpx.Client {
 	return a.mcpClient
+}
+
+func newAppNotificationID() (string, error) {
+	buffer := make([]byte, 8)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buffer), nil
 }
 
 func (a *App) Terminals() *terminals.Service {
