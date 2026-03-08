@@ -215,6 +215,17 @@ func TestBuildBindingsRejectsInvalidDeclarationNames(t *testing.T) {
 			},
 			want: `duplicate declaration "Thing" for kinds "alias" and "object"`,
 		},
+		{
+			name: "invalid declaration name",
+			declarations: []TypeDeclaration{
+				{
+					Name:  "Thing-Name",
+					Kind:  "alias",
+					Alias: "string",
+				},
+			},
+			want: `declaration Thing-Name must be a valid TypeScript identifier`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -329,6 +340,41 @@ func TestBuildBindingsRejectsInvalidDeclarationShapes(t *testing.T) {
 				},
 			},
 			want: `declaration Thing: property "value" has empty type`,
+		},
+		{
+			name: "enum value invalid identifier",
+			declaration: TypeDeclaration{
+				Name: "ThingEnum",
+				Kind: "enum",
+				EnumValues: []EnumValue{
+					{Name: "bad-value", Value: "bad-value"},
+				},
+			},
+			want: `declaration ThingEnum: enum value "bad-value" must be a valid TypeScript identifier`,
+		},
+		{
+			name: "object property invalid identifier",
+			declaration: TypeDeclaration{
+				Name: "Thing",
+				Kind: "object",
+				Properties: []TypeProperty{
+					{Name: "bad-name", TypeExpr: "string"},
+				},
+			},
+			want: `declaration Thing: property "bad-name" must be a valid TypeScript identifier`,
+		},
+		{
+			name: "function parameter invalid identifier",
+			declaration: TypeDeclaration{
+				Name:           "createThing",
+				Kind:           "function",
+				FunctionReturn: "Thing",
+				FunctionBody:   "  return value;",
+				FunctionParams: []TypeProperty{
+					{Name: "bad-name", TypeExpr: "Thing"},
+				},
+			},
+			want: `declaration createThing: function parameter "bad-name" must be a valid TypeScript identifier`,
 		},
 	}
 

@@ -211,6 +211,9 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 		if declaration.Name == "" {
 			return fmt.Errorf("declaration at index %d has empty name", index)
 		}
+		if err := validateTSIdentifier("declaration "+declaration.Name, declaration.Name); err != nil {
+			return err
+		}
 		switch declaration.Kind {
 		case "object", "enum", "alias", "local_alias", "set", "type_guard", "function", "const":
 		default:
@@ -246,6 +249,12 @@ func validateTypeDeclarationShape(declaration TypeDeclaration) error {
 		for index, value := range declaration.EnumValues {
 			if value.Name == "" {
 				return fmt.Errorf("declaration %s: enum value at index %d has empty name", declaration.Name, index)
+			}
+			if err := validateTSIdentifier(
+				fmt.Sprintf("declaration %s: enum value %q", declaration.Name, value.Name),
+				value.Name,
+			); err != nil {
+				return err
 			}
 		}
 	case "alias", "local_alias":
@@ -305,6 +314,12 @@ func validateDeclarationProperties(declarationName string, propertyKind string, 
 		if property.Name == "" {
 			return fmt.Errorf("declaration %s: %s at index %d has empty name", declarationName, propertyKind, index)
 		}
+		if err := validateTSIdentifier(
+			fmt.Sprintf("declaration %s: %s %q", declarationName, propertyKind, property.Name),
+			property.Name,
+		); err != nil {
+			return err
+		}
 		if strings.TrimSpace(property.TypeExpr) == "" {
 			return fmt.Errorf("declaration %s: %s %q has empty type", declarationName, propertyKind, property.Name)
 		}
@@ -315,6 +330,13 @@ func validateDeclarationProperties(declarationName string, propertyKind string, 
 	}
 
 	return nil
+}
+
+func validateTSIdentifier(context string, name string) error {
+	if tsIdentifierPattern.MatchString(name) {
+		return nil
+	}
+	return fmt.Errorf("%s must be a valid TypeScript identifier", context)
 }
 
 func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]struct{}, error) {
