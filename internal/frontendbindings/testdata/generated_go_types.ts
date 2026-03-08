@@ -1127,6 +1127,13 @@ export const ChartTypeEnum = {
 export type ChartType = ObjectValues<typeof ChartTypeEnum>;
 
 
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<typeof SpreadsheetGridDensityEnum>;
+
+
 export type JSONValue = null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined };
 
 
@@ -1856,6 +1863,88 @@ export function createChartSectionImpl(
 }
 
 
+export type UserDefaultSpreadsheetSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  filePath: string;
+  activeSheet: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+export function createUserDefaultSpreadsheetSectionImpl(options: Partial<UserDefaultSpreadsheetSectionImpl> = {}): UserDefaultSpreadsheetSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 760,
+        height: 500,
+      },
+      filePath: "",
+      activeSheet: null,
+      readOnly: false,
+      showRowNumbers: true,
+      density: SpreadsheetGridDensityEnum.compact,
+      autoReloadOnExternalChange: false,
+    },
+    options,
+  );
+}
+
+
+export type SpreadsheetSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Spreadsheet;
+  filePath: string;
+  activeSheet?: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+export function createSpreadsheetSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultSpreadsheetSectionImpl>
+    | Partial<SpreadsheetSectionImpl> = {},
+  overrides?: Partial<SpreadsheetSectionImpl>,
+): SpreadsheetSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultSpreadsheetSectionImpl,
+    SpreadsheetSectionImpl
+  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Spreadsheet,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      filePath: resolved.defaults.filePath,
+      activeSheet: resolved.defaults.activeSheet,
+      readOnly: resolved.defaults.readOnly,
+      showRowNumbers: resolved.defaults.showRowNumbers,
+      density: resolved.defaults.density,
+      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
+    },
+    resolved.overrides,
+  );
+}
+
+
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
   SERVER: "SERVER",
@@ -2495,14 +2584,6 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const SpreadsheetGridDensityEnum = {
-  compact: "compact",
-  comfortable: "comfortable",
-} as const;
-export type SpreadsheetGridDensity = ObjectValues<
-  typeof SpreadsheetGridDensityEnum
->;
 
 export const ParameterPassingStyleEnum = {
   DEFAULT: "DEFAULT",
@@ -3917,32 +3998,6 @@ export type UserDefaultTerminalSectionImpl = {
   positionAndSizeLocked: boolean;
 };
 
-export type SpreadsheetSectionImpl = BaseSectionImpl & {
-  type: typeof SectionTypeEnum.Spreadsheet;
-  filePath: string;
-  activeSheet?: string | null;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-
-export type UserDefaultSpreadsheetSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  filePath: string;
-  activeSheet: string | null;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-
 export type BaseSectionImplUnion =
   | CallableSectionImpl
   | DictSectionImpl
@@ -4355,64 +4410,6 @@ export function createTerminalSectionImpl(
       isMinimized: resolved.defaults.isMinimized,
       positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
       isPreset: false,
-    },
-    resolved.overrides,
-  );
-}
-
-export function createUserDefaultSpreadsheetSectionImpl(
-  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
-): UserDefaultSpreadsheetSectionImpl {
-  return mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 760,
-        height: 500,
-      },
-      filePath: "",
-      activeSheet: null,
-      readOnly: false,
-      showRowNumbers: true,
-      density: SpreadsheetGridDensityEnum.compact,
-      autoReloadOnExternalChange: false,
-    },
-    options,
-  );
-}
-
-export function createSpreadsheetSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultSpreadsheetSectionImpl>
-    | Partial<SpreadsheetSectionImpl> = {},
-  overrides?: Partial<SpreadsheetSectionImpl>,
-): SpreadsheetSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultSpreadsheetSectionImpl,
-    SpreadsheetSectionImpl
-  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Spreadsheet,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      filePath: resolved.defaults.filePath,
-      activeSheet: resolved.defaults.activeSheet,
-      readOnly: resolved.defaults.readOnly,
-      showRowNumbers: resolved.defaults.showRowNumbers,
-      density: resolved.defaults.density,
-      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
     },
     resolved.overrides,
   );

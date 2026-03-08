@@ -1166,6 +1166,40 @@ func TestChartSupportEnumsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestSpreadsheetSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "SpreadsheetGridDensity",
+			root: reflect.TypeOf(SpreadsheetGridDensity("")),
+			values: []EnumValue{
+				{Name: "compact", Value: "compact"},
+				{Name: "comfortable", Value: "comfortable"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
 func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1703,6 +1737,81 @@ func TestChartSupportContractsUseConverterDeclarations(t *testing.T) {
   type: typeof SectionTypeEnum.Chart;
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
+}`,
+			hasFactoryTS: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
+				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
+			}
+		})
+	}
+}
+
+func TestSpreadsheetSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+		hasFactoryTS  bool
+	}{
+		{
+			name: "UserDefaultSpreadsheetSectionImpl",
+			root: reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "filePath", TypeExpr: "string", Optional: false},
+				{Name: "activeSheet", TypeExpr: "string | null", Optional: false},
+				{Name: "readOnly", TypeExpr: "boolean", Optional: false},
+				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: false},
+				{Name: "density", TypeExpr: "SpreadsheetGridDensity", Optional: false},
+				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SpreadsheetSectionImpl",
+			root: reflect.TypeOf(SpreadsheetSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Spreadsheet;
+  filePath: string;
+  activeSheet?: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
 }`,
 			hasFactoryTS: true,
 		},

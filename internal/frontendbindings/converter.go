@@ -279,6 +279,10 @@ func newTypeConverter() *typeConverter {
 				{Name: "line", Value: "line"},
 				{Name: "scatter", Value: "scatter"},
 			},
+			reflect.TypeOf(SpreadsheetGridDensity("")): {
+				{Name: "compact", Value: "compact"},
+				{Name: "comfortable", Value: "comfortable"},
+			},
 			reflect.TypeOf(EngineType("")): {
 				{Name: "setta_llm", Value: "setta_llm"},
 				{Name: "external_agent", Value: "external_agent"},
@@ -1365,6 +1369,86 @@ func newTypeConverter() *typeConverter {
       isPreset: false,
       dataPath: resolved.defaults.dataPath,
       chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
+    },
+    resolved.overrides,
+  );
+}`,
+			),
+			reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}): objectDeclarationWithCreateExpr(
+				"UserDefaultSpreadsheetSectionImpl",
+				`mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 760,
+        height: 500,
+      },
+      filePath: "",
+      activeSheet: null,
+      readOnly: false,
+      showRowNumbers: true,
+      density: SpreadsheetGridDensityEnum.compact,
+      autoReloadOnExternalChange: false,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
+				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
+				TypeProperty{Name: "size", TypeExpr: "SectionSize"},
+				TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
+				TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
+				TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
+				TypeProperty{Name: "filePath", TypeExpr: "string"},
+				TypeProperty{Name: "activeSheet", TypeExpr: "string | null"},
+				TypeProperty{Name: "readOnly", TypeExpr: "boolean"},
+				TypeProperty{Name: "showRowNumbers", TypeExpr: "boolean"},
+				TypeProperty{Name: "density", TypeExpr: "SpreadsheetGridDensity"},
+				TypeProperty{Name: "autoReloadOnExternalChange", TypeExpr: "boolean"},
+			),
+			reflect.TypeOf(SpreadsheetSectionImpl{}): aliasDeclarationWithFactory(
+				"SpreadsheetSectionImpl",
+				`BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Spreadsheet;
+  filePath: string;
+  activeSheet?: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+}`,
+				`export function createSpreadsheetSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultSpreadsheetSectionImpl>
+    | Partial<SpreadsheetSectionImpl> = {},
+  overrides?: Partial<SpreadsheetSectionImpl>,
+): SpreadsheetSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultSpreadsheetSectionImpl,
+    SpreadsheetSectionImpl
+  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Spreadsheet,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      filePath: resolved.defaults.filePath,
+      activeSheet: resolved.defaults.activeSheet,
+      readOnly: resolved.defaults.readOnly,
+      showRowNumbers: resolved.defaults.showRowNumbers,
+      density: resolved.defaults.density,
+      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
     },
     resolved.overrides,
   );
