@@ -18,8 +18,10 @@ import {
   route_create_child_sections_via_incrementer,
   route_create_edge,
   route_create_file,
+  route_create_app_session_current,
   route_create_new_section_variant,
   route_create_project_config,
+  route_create_share_session_current,
   route_create_top_level_section,
   route_create_view_mode,
   route_delete_agentic_edges,
@@ -40,6 +42,7 @@ import {
   route_get_agent_runs,
   route_get_app_catalog,
   route_get_app_definition,
+  route_get_app_deployment_state,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_attachment_download_url,
@@ -74,8 +77,12 @@ import {
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
+  route_load_app_project_config,
   route_load_project_config,
+  route_load_share_project_config,
   route_load_settings,
+  route_list_app_deployments,
+  route_list_share_deployments,
   route_move_param_groups,
   route_move_params,
   route_move_sections,
@@ -86,6 +93,8 @@ import {
   route_plugins_restart,
   route_plugins_runtime,
   route_prepare_sections_for_copy,
+  route_publish_app_deployment,
+  route_publish_share_deployment,
   route_reconnect_edge,
   route_restart_language_server,
   route_run_code,
@@ -309,6 +318,201 @@ describe("generatedEndpoints launcher status", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       "http://backend.example/api/launcherStatus",
     );
+  });
+});
+
+describe("generatedEndpoints deployment surface", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("creates the current share session without a request body", async () => {
+    await route_create_share_session_current();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments/current/session`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("creates the current app session without a request body", async () => {
+    await route_create_app_session_current();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments/current/session`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("binds app deployment state path params into the GET URL", async () => {
+    await route_get_app_deployment_state("demo-app", "v3");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments/demo-app/v3/state`,
+    );
+  });
+
+  it("binds share deployment path params while POSTing the project-config body", async () => {
+    await route_load_share_project_config("demo-share", "v4", {
+      projectConfigId: "project-beta",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments/demo-share/v4/project_config`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ projectConfigId: "project-beta" }),
+    });
+  });
+
+  it("binds app deployment path params while POSTing the project-config body", async () => {
+    await route_load_app_project_config("demo-app", "v5", {
+      projectConfigId: "project-gamma",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments/demo-app/v5/project_config`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ projectConfigId: "project-gamma" }),
+    });
+  });
+
+  it("lists share deployments over GET", async () => {
+    await route_list_share_deployments();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments`,
+    );
+  });
+
+  it("publishes a share deployment with the Go request body shape", async () => {
+    await route_publish_share_deployment({
+      deploymentName: "share-demo",
+      projectConfigId: "project-alpha",
+      sharePolicyOverrides: {
+        allowParamChanges: true,
+        allowVariantChanges: false,
+        allowLayoutChanges: false,
+        allowRun: false,
+        allowLLM: false,
+        allowExternalLinks: false,
+        allowFileDownloads: false,
+        allowMultipleRuns: true,
+        runSnapshotMode: "ephemeral",
+      },
+      listenerEntrypoint: "",
+      listenerEnabled: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/share/deployments`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        deploymentName: "share-demo",
+        projectConfigId: "project-alpha",
+        sharePolicyOverrides: {
+          allowParamChanges: true,
+          allowVariantChanges: false,
+          allowLayoutChanges: false,
+          allowRun: false,
+          allowLLM: false,
+          allowExternalLinks: false,
+          allowFileDownloads: false,
+          allowMultipleRuns: true,
+          runSnapshotMode: "ephemeral",
+        },
+        listenerEntrypoint: "",
+        listenerEnabled: false,
+      }),
+    });
+  });
+
+  it("lists app deployments over GET", async () => {
+    await route_list_app_deployments();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments`,
+    );
+  });
+
+  it("publishes an app deployment with the Go request body shape", async () => {
+    await route_publish_app_deployment({
+      deploymentName: "app-demo",
+      projectConfigId: "project-alpha",
+      appPolicyOverrides: {
+        allowParamChanges: true,
+        allowVariantChanges: false,
+        allowLayoutChanges: false,
+        allowRun: true,
+        allowLLM: false,
+        allowExternalLinks: false,
+        allowFileDownloads: false,
+        allowMultipleRuns: true,
+        runSnapshotMode: "ephemeral",
+      },
+      listenerEntrypoint: "listener/app.py",
+      listenerEnabled: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/app/deployments`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        deploymentName: "app-demo",
+        projectConfigId: "project-alpha",
+        appPolicyOverrides: {
+          allowParamChanges: true,
+          allowVariantChanges: false,
+          allowLayoutChanges: false,
+          allowRun: true,
+          allowLLM: false,
+          allowExternalLinks: false,
+          allowFileDownloads: false,
+          allowMultipleRuns: true,
+          runSnapshotMode: "ephemeral",
+        },
+        listenerEntrypoint: "listener/app.py",
+        listenerEnabled: true,
+      }),
+    });
   });
 });
 

@@ -1,5 +1,7 @@
 package frontendbindings
 
+import "time"
+
 type ProjectStateSingleConfig struct{}
 
 type ProjectStateSingleConfigWithCompletedOpIds struct{}
@@ -30,6 +32,101 @@ type ProjectMetadataEntry struct {
 type AllProjectMetadata struct {
 	DefaultProjectConfigID *string                `json:"defaultProjectConfigId"`
 	ProjectMetadata        []ProjectMetadataEntry `json:"projectMetadata"`
+}
+
+type DeploymentType string
+
+type DeploymentListenerConfig struct {
+	Entrypoint string `json:"entrypoint"`
+	Enabled    bool   `json:"enabled"`
+}
+
+type DeploymentManifest struct {
+	Version           int                       `json:"version"`
+	DeploymentName    string                    `json:"deploymentName"`
+	DeploymentType    DeploymentType            `json:"deploymentType"`
+	DefaultProjectID  string                    `json:"defaultProjectConfigId"`
+	DeploymentVersion string                    `json:"deploymentVersion"`
+	CreatedAt         time.Time                 `json:"createdAt"`
+	Listener          *DeploymentListenerConfig `json:"listener,omitempty"`
+}
+
+type ShareDeploymentMetadata struct {
+	DeploymentName     string    `json:"deploymentName"`
+	DeploymentVersion  string    `json:"deploymentVersion"`
+	DefaultProjectID   string    `json:"defaultProjectConfigId"`
+	DefaultProjectName string    `json:"defaultProjectConfigName"`
+	CreatedAt          time.Time `json:"createdAt"`
+	DeploymentRoot     string    `json:"deploymentRoot"`
+	PolicyPath         string    `json:"policyPath"`
+}
+
+type ShareDeploymentMetadataList []ShareDeploymentMetadata
+
+type AppDeploymentMetadata struct {
+	DeploymentName     string    `json:"deploymentName"`
+	DeploymentVersion  string    `json:"deploymentVersion"`
+	DefaultProjectID   string    `json:"defaultProjectConfigId"`
+	DefaultProjectName string    `json:"defaultProjectConfigName"`
+	CreatedAt          time.Time `json:"createdAt"`
+	DeploymentRoot     string    `json:"deploymentRoot"`
+	PolicyPath         string    `json:"policyPath"`
+}
+
+type AppDeploymentMetadataList []AppDeploymentMetadata
+
+type ShareDeploymentSessionResponse struct {
+	DeploymentName         string                 `json:"deploymentName"`
+	DeploymentVersion      string                 `json:"deploymentVersion"`
+	ShareSessionID         string                 `json:"shareSessionId"`
+	SessionRunCount        int                    `json:"sessionRunCount"`
+	DefaultProjectConfigID string                 `json:"defaultProjectConfigId"`
+	ProjectMetadata        []ProjectMetadataEntry `json:"projectMetadata"`
+	SharePolicy            SharePolicy            `json:"sharePolicy"`
+	Manifest               *DeploymentManifest    `json:"manifest,omitempty"`
+}
+
+type AppDeploymentSessionResponse struct {
+	DeploymentName         string                 `json:"deploymentName"`
+	DeploymentVersion      string                 `json:"deploymentVersion"`
+	ShareSessionID         string                 `json:"shareSessionId"`
+	SessionRunCount        int                    `json:"sessionRunCount"`
+	DefaultProjectConfigID string                 `json:"defaultProjectConfigId"`
+	ProjectMetadata        []ProjectMetadataEntry `json:"projectMetadata"`
+	AppPolicy              SharePolicy            `json:"appPolicy"`
+	Manifest               *DeploymentManifest    `json:"manifest,omitempty"`
+}
+
+type DeploymentVersionRouteParams struct {
+	DeploymentName string `json:"deploymentName"`
+	Version        string `json:"version"`
+}
+
+type LoadDeploymentProjectConfigRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
+type AppDeploymentStateResponse struct {
+	ProjectState  ProjectStateSingleConfig `json:"projectState"`
+	AppDefinition *AppDefinition           `json:"appDefinition,omitempty"`
+	AppSpec       JSONValue                `json:"appSpec"`
+	AppPolicy     SharePolicy              `json:"appPolicy"`
+}
+
+type PublishShareDeploymentRequestInput struct {
+	DeploymentName       string       `json:"deploymentName"`
+	ProjectConfigID      string       `json:"projectConfigId"`
+	SharePolicyOverrides *SharePolicy `json:"sharePolicyOverrides,omitempty"`
+	ListenerEntrypoint   string       `json:"listenerEntrypoint"`
+	ListenerEnabled      bool         `json:"listenerEnabled"`
+}
+
+type PublishAppDeploymentRequestInput struct {
+	DeploymentName     string       `json:"deploymentName"`
+	ProjectConfigID    string       `json:"projectConfigId"`
+	AppPolicyOverrides *SharePolicy `json:"appPolicyOverrides,omitempty"`
+	ListenerEntrypoint string       `json:"listenerEntrypoint"`
+	ListenerEnabled    bool         `json:"listenerEnabled"`
 }
 
 type LoadProjectConfigRequestInput struct {

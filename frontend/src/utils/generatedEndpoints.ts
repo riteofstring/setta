@@ -365,6 +365,60 @@ export async function route_launch(x: gt.LaunchRequestInput): Promise<ResponseDa
 }
 
 
+export async function route_create_share_session_current(): Promise<ResponseDataAndStatus<gt.ShareDeploymentSessionResponse>> {
+
+  return await post(GoHTTPRoutes.shareDeploymentCurrentSession, null);
+}
+
+
+export async function route_create_app_session_current(): Promise<ResponseDataAndStatus<gt.AppDeploymentSessionResponse>> {
+
+  return await post(GoHTTPRoutes.appDeploymentCurrentSession, null);
+}
+
+
+export async function route_load_share_project_config(deploymentName: string, version: string, x: gt.LoadDeploymentProjectConfigRequestInput): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>> {
+
+  return await post(GoHTTPRoutes.shareDeploymentProjectConfig, x, { deploymentName, version });
+}
+
+
+export async function route_get_app_deployment_state(deploymentName: string, version: string): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
+
+  return await get(GoHTTPRoutes.appDeploymentState, { deploymentName, version });
+}
+
+
+export async function route_load_app_project_config(deploymentName: string, version: string, x: gt.LoadDeploymentProjectConfigRequestInput): Promise<ResponseDataAndStatus<gt.AppDeploymentStateResponse>> {
+
+  return await post(GoHTTPRoutes.appDeploymentProjectConfig, x, { deploymentName, version });
+}
+
+
+export async function route_list_share_deployments(): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadataList>> {
+
+  return await get(GoHTTPRoutes.shareDeployments);
+}
+
+
+export async function route_publish_share_deployment(x: gt.PublishShareDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.ShareDeploymentMetadata>> {
+
+  return await post(GoHTTPRoutes.shareDeployments, x);
+}
+
+
+export async function route_list_app_deployments(): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadataList>> {
+
+  return await get(GoHTTPRoutes.appDeployments);
+}
+
+
+export async function route_publish_app_deployment(x: gt.PublishAppDeploymentRequestInput): Promise<ResponseDataAndStatus<gt.AppDeploymentMetadata>> {
+
+  return await post(GoHTTPRoutes.appDeployments, x);
+}
+
+
 export async function route_get_launcher_recent_workspaces(x: gt.GetLauncherRecentWorkspacesRequestInput): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
 
   return await get(GoHTTPRoutes.getLauncherRecentWorkspaces, x);

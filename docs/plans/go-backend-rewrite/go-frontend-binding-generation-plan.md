@@ -187,6 +187,8 @@ Current landed wedge:
   - current git read route constants
   - current LSP completion and diagnostics-mute route constants
   - current workspace-launch route constants
+  - current deployment/share current-session, state/project-config, and
+    publish/list route constants
   - current launcher-home route constants
   - current launcher-management route constants
   - current plugin-management route constants
@@ -213,6 +215,19 @@ Current landed wedge:
     - setup/update request payloads
     - launcher status-query and request-base payloads
     - launcher state enums used by the frontend
+  - deployment/share contract types
+    - `DeploymentVersionRouteParams`
+    - `LoadDeploymentProjectConfigRequestInput`
+    - `DeploymentManifest`
+    - `ShareDeploymentSessionResponse`
+    - `AppDeploymentSessionResponse`
+    - `ShareDeploymentMetadata`
+    - `ShareDeploymentMetadataList`
+    - `AppDeploymentMetadata`
+    - `AppDeploymentMetadataList`
+    - `AppDeploymentStateResponse`
+    - `PublishShareDeploymentRequestInput`
+    - `PublishAppDeploymentRequestInput`
   - project-shell and current project-state contract types
     - settings load/save payloads
       - `SaveSettingsRequestInput`
@@ -718,6 +733,16 @@ Current landed wedge:
     - `route_repair_launcher`
     - `route_remove_launcher`
     - `route_update_launcher`
+  - deployment/share endpoint wrappers
+    - `route_create_share_session_current`
+    - `route_create_app_session_current`
+    - `route_load_share_project_config`
+    - `route_get_app_deployment_state`
+    - `route_load_app_project_config`
+    - `route_list_share_deployments`
+    - `route_publish_share_deployment`
+    - `route_list_app_deployments`
+    - `route_publish_app_deployment`
   - app-config pane endpoint wrappers
     - `route_get_app_catalog`
     - `route_get_app_definition`

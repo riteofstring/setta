@@ -6018,6 +6018,164 @@ export function createLaunchResponse(options: Partial<LaunchResponse> = {}): Lau
 }
 
 
+export type DeploymentType = string;
+
+
+export type DeploymentListenerConfig = {
+  entrypoint: string;
+  enabled: boolean;
+};
+export function createDeploymentListenerConfig(options: Partial<DeploymentListenerConfig> = {}): DeploymentListenerConfig {
+  return options as DeploymentListenerConfig;
+}
+
+
+export type DeploymentManifest = {
+  version: number;
+  deploymentName: string;
+  deploymentType: DeploymentType;
+  defaultProjectConfigId: string;
+  deploymentVersion: string;
+  createdAt: string;
+  listener?: DeploymentListenerConfig | null;
+};
+export function createDeploymentManifest(options: Partial<DeploymentManifest> = {}): DeploymentManifest {
+  return options as DeploymentManifest;
+}
+
+
+export type ShareDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectMetadataEntry>;
+  sharePolicy: SharePolicy;
+  manifest?: DeploymentManifest | null;
+};
+export function createShareDeploymentSessionResponse(options: Partial<ShareDeploymentSessionResponse> = {}): ShareDeploymentSessionResponse {
+  return options as ShareDeploymentSessionResponse;
+}
+
+
+export type AppDeploymentSessionResponse = {
+  deploymentName: string;
+  deploymentVersion: string;
+  shareSessionId: string;
+  sessionRunCount: number;
+  defaultProjectConfigId: string;
+  projectMetadata: Array<ProjectMetadataEntry>;
+  appPolicy: SharePolicy;
+  manifest?: DeploymentManifest | null;
+};
+export function createAppDeploymentSessionResponse(options: Partial<AppDeploymentSessionResponse> = {}): AppDeploymentSessionResponse {
+  return options as AppDeploymentSessionResponse;
+}
+
+
+export type LoadDeploymentProjectConfigRequestInput = {
+  projectConfigId: string;
+};
+export function createLoadDeploymentProjectConfigRequestInput(options: Partial<LoadDeploymentProjectConfigRequestInput> = {}): LoadDeploymentProjectConfigRequestInput {
+  return options as LoadDeploymentProjectConfigRequestInput;
+}
+
+
+export type AppRoute = {
+  path: string;
+  name?: string | null;
+  rootKey?: string | null;
+};
+export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
+  return options as AppRoute;
+}
+
+
+export type AppDefinition = {
+  appSpecVersion?: string;
+  catalogId?: string;
+  appSpecPath?: string | null;
+  routes?: Array<AppRoute>;
+  dataBindings?: Record<string, unknown>;
+  actions?: Record<string, unknown>;
+  theme?: Record<string, unknown>;
+  assets?: Array<unknown>;
+};
+export function createAppDefinition(options: Partial<AppDefinition> = {}): AppDefinition {
+  return options as AppDefinition;
+}
+
+
+export type AppDeploymentStateResponse = {
+  projectState: ProjectStateSingleConfig;
+  appDefinition?: AppDefinition | null;
+  appSpec: JSONValue;
+  appPolicy: SharePolicy;
+};
+export function createAppDeploymentStateResponse(options: Partial<AppDeploymentStateResponse> = {}): AppDeploymentStateResponse {
+  return options as AppDeploymentStateResponse;
+}
+
+
+export type ShareDeploymentMetadata = {
+  deploymentName: string;
+  deploymentVersion: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  createdAt: string;
+  deploymentRoot: string;
+  policyPath: string;
+};
+export function createShareDeploymentMetadata(options: Partial<ShareDeploymentMetadata> = {}): ShareDeploymentMetadata {
+  return options as ShareDeploymentMetadata;
+}
+
+
+export type ShareDeploymentMetadataList = Array<ShareDeploymentMetadata>;
+
+
+export type PublishShareDeploymentRequestInput = {
+  deploymentName: string;
+  projectConfigId: string;
+  sharePolicyOverrides?: SharePolicy | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean;
+};
+export function createPublishShareDeploymentRequestInput(options: Partial<PublishShareDeploymentRequestInput> = {}): PublishShareDeploymentRequestInput {
+  return options as PublishShareDeploymentRequestInput;
+}
+
+
+export type AppDeploymentMetadata = {
+  deploymentName: string;
+  deploymentVersion: string;
+  defaultProjectConfigId: string;
+  defaultProjectConfigName: string;
+  createdAt: string;
+  deploymentRoot: string;
+  policyPath: string;
+};
+export function createAppDeploymentMetadata(options: Partial<AppDeploymentMetadata> = {}): AppDeploymentMetadata {
+  return options as AppDeploymentMetadata;
+}
+
+
+export type AppDeploymentMetadataList = Array<AppDeploymentMetadata>;
+
+
+export type PublishAppDeploymentRequestInput = {
+  deploymentName: string;
+  projectConfigId: string;
+  appPolicyOverrides?: SharePolicy | null;
+  listenerEntrypoint: string;
+  listenerEnabled: boolean;
+};
+export function createPublishAppDeploymentRequestInput(options: Partial<PublishAppDeploymentRequestInput> = {}): PublishAppDeploymentRequestInput {
+  return options as PublishAppDeploymentRequestInput;
+}
+
+
 export type GetLauncherRecentWorkspacesRequestInput = {
   setta_home?: string | null;
 };
@@ -8162,31 +8320,6 @@ export type GetAppDefinitionRequestInput = {
 };
 export function createGetAppDefinitionRequestInput(options: Partial<GetAppDefinitionRequestInput> = {}): GetAppDefinitionRequestInput {
   return options as GetAppDefinitionRequestInput;
-}
-
-
-export type AppRoute = {
-  path: string;
-  name?: string | null;
-  rootKey?: string | null;
-};
-export function createAppRoute(options: Partial<AppRoute> = {}): AppRoute {
-  return options as AppRoute;
-}
-
-
-export type AppDefinition = {
-  appSpecVersion?: string;
-  catalogId?: string;
-  appSpecPath?: string | null;
-  routes?: Array<AppRoute>;
-  dataBindings?: Record<string, unknown>;
-  actions?: Record<string, unknown>;
-  theme?: Record<string, unknown>;
-  assets?: Array<unknown>;
-};
-export function createAppDefinition(options: Partial<AppDefinition> = {}): AppDefinition {
-  return options as AppDefinition;
 }
 
 
