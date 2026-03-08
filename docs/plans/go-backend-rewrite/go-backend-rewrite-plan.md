@@ -492,8 +492,15 @@ The next bounded plugin follow-on tracked in
   - `POST /plugins/config`
 - `internal/plugins` now owns config validation and scoped persistence over the
   existing plugin discovery/store foundations
-- `POST /plugins/restart` remains the next deferred direct frontend plugin
-  transport gap
+
+The next bounded plugin follow-on is now tracked in
+`phase-15-plugin-restart-transport.md`:
+
+- the next direct frontend plugin ownership gap is `POST /plugins/restart`
+- that slice stays bounded to thin IDE-only transport plus the existing
+  service's optional programmatic-restart callback semantics
+- a real app restart hook remains deferred unless a concrete lifecycle owner is
+  introduced
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
