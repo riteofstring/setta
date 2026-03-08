@@ -18,12 +18,13 @@ Current repo status as of 2026-03-08:
   - deployment manifest and policy loading in `internal/deployments`
   - deployment catalog/list/latest reads plus version allocation in
     `internal/deployments/catalog.go`
+  - share deployment publication from the live runtime snapshot in
+    `internal/deployments/share_publish.go`
   - deployment runtime/session overlays in `internal/deployments/runtime.go`
   - deployment session/state/project-config read routes in
     `internal/httpapi/deployment_routes.go`
   - app-spec store and validation owners in `internal/appspec`
 - Go does not yet own:
-  - share deployment publication
   - app deployment publication
   - thin IDE HTTP routes for those publish/list/latest flows
 
@@ -38,15 +39,8 @@ This slice should cover:
   - `GET /app/deployments`
   - `GET /app/deployments/{deploymentName}/versions`
   - `GET /app/deployments/{deploymentName}/latest`
-- a Go-owned share deployment publish owner for:
-  - snapshot cloning from the latest project runtime state
-  - default project selection
-  - policy normalization and validation
-  - deployment-root creation plus incrementing version selection
-  - copy/rebase of deployment-relative files and structured-data sources
-  - optional listener entrypoint copy into `listener/app.py`
 - a Go-owned app deployment publish owner for:
-  - all share-deployment publish behavior above
+  - composition or reuse of the completed share-deployment publish behavior
   - required app-definition/app-spec validation
   - app-spec copy/rebase into `app_specs/`
 - thin IDE HTTP transport over those owners
@@ -116,8 +110,8 @@ This slice should cover:
      app-definition work
 
 2. Missing owner seams
-   - there is no Go publish owner for deployment snapshot copy/rebase or
-     listener/app-spec materialization
+   - there is still no Go app deployment publish owner for app-definition
+     validation, app-spec copy/rebase, and app-mode policy materialization
    - there are no IDE-mode Go routes for deployment publish/list/latest
 
 ## Working Decisions
@@ -143,11 +137,12 @@ This slice should cover:
    - define an input/output boundary for publishing from a project snapshot
    - implement policy defaults, listener copy, path rebasing, and deployment
      asset/structured-data materialization
-   - next focused slice: move to `phase-7-share-deployment-publish-owner.md`
+   - status: complete in `internal/deployments/share_publish.go`
 
 3. App deployment publish extension
    - layer app-definition/app-spec requirements and app-spec copy/rebase on top
      of the share publish owner
+   - next focused slice: move to `phase-7-app-deployment-publish-owner.md`
 
 4. Thin IDE transport
    - register the list/latest/publish routes in IDE mode only
@@ -181,6 +176,10 @@ This slice should cover:
   version allocator in `internal/deployments/catalog.go`, including newest-first
   list/version selection, latest-version lookup, deployment-name normalization,
   and focused catalog tests.
+- 2026-03-08: completed Stage 2 by adding a Go-owned share deployment publish
+  owner in `internal/deployments/share_publish.go`, including live runtime
+  snapshot publication, asset/code/structured-data rebasing, listener copy, and
+  focused publish tests.
 
 ## Verification Targets
 
@@ -189,6 +188,6 @@ This slice should cover:
 
 ## Next Recommended Step
 
-Implement Stage 2 of this slice: the Go-owned share deployment publish owner in
-`phase-7-share-deployment-publish-owner.md`, then layer app deployment publish
-and thin IDE transport on top of the completed catalog owner.
+Implement Stage 3 of this slice: the Go-owned app deployment publish owner in
+`phase-7-app-deployment-publish-owner.md`, then layer thin IDE publish/list/latest
+transport on top of the completed catalog and publish owners.

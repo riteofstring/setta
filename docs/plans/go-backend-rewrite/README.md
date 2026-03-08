@@ -279,12 +279,16 @@ Use the docs in this order:
 97. `phase-7-share-deployment-publish-owner.md`
   - focused implementation-plan doc for the next bounded Phase 7 slice:
     the Go-owned share deployment publish service above the completed catalog
-    and deployment runtime foundations
-98. `spike-mcp.md`
+    and deployment runtime foundations; this runtime slice is now complete
+98. `phase-7-app-deployment-publish-owner.md`
+  - focused implementation-plan doc for the next bounded Phase 7 slice:
+    the Go-owned app deployment publish service above the completed share
+    publish owner and `internal/appspec` foundation
+99. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-99. `spike-pty.md`
+100. `spike-pty.md`
    - PTY uncertainty-reduction plan
-100. `spike-lsp.md`
+101. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

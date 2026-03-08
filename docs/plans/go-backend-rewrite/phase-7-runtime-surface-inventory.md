@@ -21,10 +21,12 @@ Current repo status as of 2026-03-08:
   - deployment runtime/session storage in `internal/deployments/runtime.go`
   - deployment catalog/list/latest reads and version allocation in
     `internal/deployments/catalog.go`
+  - share deployment publication from the live runtime snapshot in
+    `internal/deployments/share_publish.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
   - launcher installation and status management
-  - share/app deployment publish and listing flows
+  - share/app deployment publish and listing routes
   - bootstrap and launcher-origin handoff behavior around launched workspaces
 - nothing is currently in progress in the worktree
 
@@ -111,15 +113,17 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Move to the dedicated share-deployment publish implementation-plan doc in
-`phase-7-share-deployment-publish-owner.md`.
+Move to the dedicated app-deployment publish implementation-plan doc in
+`phase-7-app-deployment-publish-owner.md`.
 
 That is now the highest-leverage next step because:
 
 - Stage 1 deployment catalog/version allocation is complete
-- Go already owns `internal/deployments` plus deployment read/session routes
-- share deployment publish is now the smallest remaining deployment-runtime
-  owner before app deployment publish and IDE transport
+- Stage 2 share deployment publish ownership is complete
+- Go already owns `internal/deployments`, deployment read/session routes, and
+  `internal/appspec`
+- app deployment publish is now the smallest remaining deployment-runtime owner
+  before IDE publish/list/latest transport
 
 ## Progress Notes
 
@@ -130,6 +134,9 @@ That is now the highest-leverage next step because:
 - 2026-03-08: completed Stage 1 of that deployment slice by adding a Go-owned
   deployment catalog and version allocator in `internal/deployments/catalog.go`;
   next recommended step is the share deployment publish owner.
+- 2026-03-08: completed Stage 2 by adding a Go-owned share deployment publish
+  owner in `internal/deployments/share_publish.go`; next recommended step is
+  the app deployment publish owner.
 
 ## Verification
 
