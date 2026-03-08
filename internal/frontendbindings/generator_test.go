@@ -52,6 +52,20 @@ func TestRenderTypesUsesStructuredCreateBody(t *testing.T) {
 	}
 }
 
+func TestRenderTemplateRejectsMissingKeys(t *testing.T) {
+	t.Helper()
+
+	_, err := renderTemplate(`{{ .Missing }}`, map[string]any{
+		"Present": "ok",
+	})
+	if err == nil {
+		t.Fatalf("renderTemplate(...) unexpectedly succeeded")
+	}
+	if !strings.Contains(err.Error(), `map has no entry for key "Missing"`) {
+		t.Fatalf("renderTemplate(...) error = %q, want missing-key failure", err.Error())
+	}
+}
+
 func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 	t.Helper()
 

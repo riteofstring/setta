@@ -420,7 +420,7 @@ func tsTypeReference(t reflect.Type) string {
 }
 
 func renderTemplate(source string, data any) (string, error) {
-	tmpl, err := template.New("").Parse(source)
+	tmpl, err := template.New("").Option("missingkey=error").Parse(source)
 	if err != nil {
 		return "", fmt.Errorf("parse template: %w", err)
 	}
