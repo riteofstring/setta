@@ -543,9 +543,15 @@ That deferred settings-state boundary is now tracked explicitly in
 - the current Go app already owns a settings project runtime for
   `setta-settings-project.json`, but that is not the same thing as the live
   `SettingsState` owner behind `setta-settings.json`
-- the next bounded work is the explicit settings-project materialization
-  boundary so settings-project edits stop depending on the Python-only flush
-  path back into live `SettingsState`
+- the explicit settings-project materialization slice is now also landed:
+  - saving the Go settings-project runtime now overlays its active json-source
+    sections onto the current live `SettingsState` document
+  - the resulting live settings snapshot is persisted through
+    `internal/settingsstate` and broadcast over websocket `UpdateSettings`
+- future Go-owned settings-project transport still needs an explicit reverse
+  projection/sync slice; that is no longer a hidden live-settings ownership
+  blocker because the current direct frontend settings surface is already
+  Go-owned
 
 ## Current Reality
 

@@ -165,6 +165,74 @@ func TestAppSaveSettingsBroadcastsUpdateSettings(t *testing.T) {
 	}
 }
 
+func TestAppSaveSettingsProjectMaterializesLiveSettings(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	if _, err := app.ProjectStates().Settings().MutateAndSave(context.Background(), func(document projectstate.Document) (projectstate.Document, error) {
+		return appSettingsProjectMaterializerTestDocument(t), nil
+	}); err != nil {
+		t.Fatalf("save settings project runtime: %v", err)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateSettings, 4)
+	var websocketPayload settingsstate.Document
+	if err := json.Unmarshal(envelope.Content, &websocketPayload); err != nil {
+		t.Fatalf("decode websocket settings payload: %v", err)
+	}
+	if got := websocketPayload["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected websocket renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+	if got := websocketPayload["backend"].(map[string]any)["autosave"]; got != false {
+		t.Fatalf("expected websocket autosave false, got %#v", got)
+	}
+
+	runtimeDocument := app.SettingsState().Snapshot().Document
+	if got := runtimeDocument["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"]; got != float64(222) {
+		t.Fatalf("expected runtime terminal height 222, got %#v", got)
+	}
+
+	content, err := os.ReadFile(filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName))
+	if err != nil {
+		t.Fatalf("read persisted settings file: %v", err)
+	}
+	var persisted settingsstate.Document
+	if err := json.Unmarshal(content, &persisted); err != nil {
+		t.Fatalf("decode persisted settings file: %v", err)
+	}
+	if got := persisted["backend"].(map[string]any)["renameRefactorMode"]; got != "ALWAYS_RENAME" {
+		t.Fatalf("expected persisted renameRefactorMode ALWAYS_RENAME, got %#v", got)
+	}
+}
+
 func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -246,6 +314,211 @@ func TestAppBroadcastsAndHydratesLSPDiagnostics(t *testing.T) {
 		t.Fatalf("decode route diagnostics payload: %v", err)
 	}
 	assertAppLSPDiagnosticsPayload(t, routePayload)
+}
+
+func appSettingsProjectMaterializerTestDocument(t *testing.T) projectstate.Document {
+	t.Helper()
+
+	document, err := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "settings-home",
+		Projects: map[string]projectstate.Project{
+			"settings-home": {
+				ID:   "settings-home",
+				Name: "Settings Home",
+				TopLevelSectionIDs: []string{
+					"backend-section",
+					"terminal-section",
+				},
+				SectionVariantMap: map[string]string{
+					"backend-section":  "backend-variant",
+					"terminal-section": "terminal-variant",
+				},
+				Sections: map[string]projectstate.Section{
+					"backend-section": {
+						ID:               "backend-section",
+						Name:             "backend",
+						VariantIDs:       []string{"backend-variant"},
+						DefaultVariantID: "backend-variant",
+					},
+					"terminal-section": {
+						ID:               "terminal-section",
+						Name:             "terminalSectionDefault",
+						VariantIDs:       []string{"terminal-variant"},
+						DefaultVariantID: "terminal-variant",
+					},
+				},
+				SectionVariants: map[string]projectstate.SectionVariant{
+					"backend-variant": {
+						ID:     "backend-variant",
+						ImplID: "backend-impl",
+					},
+					"terminal-variant": {
+						ID:     "terminal-variant",
+						ImplID: "terminal-impl",
+					},
+				},
+				SectionImpls: map[string]projectstate.SectionImpl{
+					"backend-impl": {
+						ID:   "backend-impl",
+						Kind: projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{
+							"id":"backend-impl",
+							"type":"Dict",
+							"isJsonSource":true,
+							"jsonSourceKeys":["backend"],
+							"topLevelParamId":"backend-root",
+							"codeObjVariantMap":{
+								"backend-root":"backend-root-variant",
+								"rename-setting":"rename-setting-variant",
+								"autosave-setting":"autosave-setting-variant"
+							}
+						}`),
+					},
+					"terminal-impl": {
+						ID:   "terminal-impl",
+						Kind: projectstate.SectionKind("dict"),
+						Payload: projectstate.RawJSON(`{
+							"id":"terminal-impl",
+							"type":"Dict",
+							"isJsonSource":true,
+							"jsonSourceKeys":["terminalSectionDefault"],
+							"topLevelParamId":"terminal-root",
+							"codeObjVariantMap":{
+								"terminal-root":"terminal-root-variant",
+								"size-setting":"size-setting-variant",
+								"height-setting":"height-setting-variant"
+							}
+						}`),
+					},
+				},
+				CodeObjs: map[string]projectstate.CodeObject{
+					"backend-root": {
+						ID:               "backend-root",
+						Name:             "backend",
+						VariantIDs:       []string{"backend-root-variant"},
+						DefaultVariantID: "backend-root-variant",
+					},
+					"rename-setting": {
+						ID:               "rename-setting",
+						Name:             "renameRefactorMode",
+						VariantIDs:       []string{"rename-setting-variant"},
+						DefaultVariantID: "rename-setting-variant",
+					},
+					"autosave-setting": {
+						ID:               "autosave-setting",
+						Name:             "autosave",
+						VariantIDs:       []string{"autosave-setting-variant"},
+						DefaultVariantID: "autosave-setting-variant",
+					},
+					"terminal-root": {
+						ID:               "terminal-root",
+						Name:             "terminalSectionDefault",
+						VariantIDs:       []string{"terminal-root-variant"},
+						DefaultVariantID: "terminal-root-variant",
+					},
+					"size-setting": {
+						ID:               "size-setting",
+						Name:             "size",
+						VariantIDs:       []string{"size-setting-variant"},
+						DefaultVariantID: "size-setting-variant",
+					},
+					"height-setting": {
+						ID:               "height-setting",
+						Name:             "height",
+						VariantIDs:       []string{"height-setting-variant"},
+						DefaultVariantID: "height-setting-variant",
+					},
+				},
+				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+					"backend-root-variant": {
+						ID:     "backend-root-variant",
+						ImplID: "backend-root-impl",
+					},
+					"rename-setting-variant": {
+						ID:     "rename-setting-variant",
+						ImplID: "rename-setting-impl",
+					},
+					"autosave-setting-variant": {
+						ID:     "autosave-setting-variant",
+						ImplID: "autosave-setting-impl",
+					},
+					"terminal-root-variant": {
+						ID:     "terminal-root-variant",
+						ImplID: "terminal-root-impl",
+					},
+					"size-setting-variant": {
+						ID:     "size-setting-variant",
+						ImplID: "size-setting-impl",
+					},
+					"height-setting-variant": {
+						ID:     "height-setting-variant",
+						ImplID: "height-setting-impl",
+					},
+				},
+				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+					"backend-root-impl": {
+						ID:   "backend-root-impl",
+						Type: "NestedParam",
+						Payload: projectstate.RawJSON(`{
+							"id":"backend-root-impl",
+							"type":"NestedParam",
+							"children":["rename-setting","autosave-setting"]
+						}`),
+					},
+					"rename-setting-impl": {
+						ID:   "rename-setting-impl",
+						Type: "TextParam",
+						Payload: projectstate.RawJSON(`{
+							"id":"rename-setting-impl",
+							"type":"TextParam",
+							"value":"ALWAYS_RENAME"
+						}`),
+					},
+					"autosave-setting-impl": {
+						ID:   "autosave-setting-impl",
+						Type: "SwitchParam",
+						Payload: projectstate.RawJSON(`{
+							"id":"autosave-setting-impl",
+							"type":"SwitchParam",
+							"value":"false"
+						}`),
+					},
+					"terminal-root-impl": {
+						ID:   "terminal-root-impl",
+						Type: "NestedParam",
+						Payload: projectstate.RawJSON(`{
+							"id":"terminal-root-impl",
+							"type":"NestedParam",
+							"children":["size-setting"]
+						}`),
+					},
+					"size-setting-impl": {
+						ID:   "size-setting-impl",
+						Type: "NestedParam",
+						Payload: projectstate.RawJSON(`{
+							"id":"size-setting-impl",
+							"type":"NestedParam",
+							"children":["height-setting"]
+						}`),
+					},
+					"height-setting-impl": {
+						ID:   "height-setting-impl",
+						Type: "TextParam",
+						Payload: projectstate.RawJSON(`{
+							"id":"height-setting-impl",
+							"type":"TextParam",
+							"value":"222"
+						}`),
+					},
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize settings project document: %v", err)
+	}
+	return document
 }
 
 func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {

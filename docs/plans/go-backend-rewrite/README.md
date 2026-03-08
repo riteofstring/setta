@@ -58,8 +58,8 @@ Use the docs in this order:
    - project-state persistence, runtime ownership, and revision plan
 - `phase-3-settings-state-owner-and-transport.md`
   - focused plan for the separate Go-owned `SettingsState`
-    source-of-truth, the completed owner/query/transport slices, and the
-    remaining settings-project materialization boundary
+    source-of-truth, the completed owner/query/transport/materialization
+    slices, and the deferred future settings-project transport sync boundary
 9. `phase-4-realtime-and-terminal-runtime.md`
    - realtime ownership, websocket fan-out, and terminal runtime plan
 10. `phase-4-terminal-transport-migration.md`

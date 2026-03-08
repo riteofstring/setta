@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -352,6 +353,33 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			},
 			SettingsRuntime: projectstate.RuntimeOptions{
 				PasswordSecrets: passwordSecrets,
+				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+					if settingsStateRuntime == nil {
+						return errors.New("settings state runtime is not configured")
+					}
+
+					currentSettings := settingsStateRuntime.Snapshot().Document
+					nextSettings, err := settingsstate.ApplySettingsProjectDocument(currentSettings, snapshot.Document)
+					if err != nil {
+						return err
+					}
+					if reflect.DeepEqual(currentSettings, nextSettings) {
+						return nil
+					}
+
+					settingsSnapshot, err := settingsStateRuntime.ReplaceAndSave(ctx, nextSettings)
+					if err != nil {
+						return err
+					}
+					if _, err := websocketHub.BroadcastJSON(
+						ctx,
+						realtime.NewSettingsUpdateMessage(settingsSnapshot.Document),
+						realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+					); err != nil {
+						return err
+					}
+					return nil
+				},
 			},
 		})
 		if err != nil {

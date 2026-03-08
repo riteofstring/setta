@@ -53,14 +53,19 @@ Current repo reality:
   - `POST /loadSettings`
   - `POST /saveSettings`
   - websocket `UpdateSettings` broadcast after successful save
+- the explicit settings-project materialization path is now also Go-owned:
+  - saving the settings-project runtime overlays its active json-source
+    sections onto the current live `SettingsState` snapshot
+  - the live settings runtime then persists the resulting
+    `setta-settings.json` document and broadcasts websocket `UpdateSettings`
 - current direct frontend callers include:
   - app-start settings hydration in
     `frontend/src/state/actions/settings.ts`
   - direct settings writes from project AI settings, plugin settings, rename
     refactor modal, and section tag color settings
-- the remaining open settings boundary is no longer live frontend transport:
-  it is the explicit settings-project materialization path back into
-  `setta-settings.json`
+- the remaining settings-project gap is no longer live settings ownership:
+  it is the future reverse-projection/editor-sync work that should only land
+  with a concrete Go-owned settings-project transport caller
 
 ## Scope
 
@@ -114,8 +119,11 @@ This plan should deliver:
 - `internal/projectstate/auto_layout.go`
 - `internal/httpapi/project_routes.go`
 - `internal/app/app.go`
+- `internal/app/websocket_test.go`
 - `internal/app/rename_refactors.go`
 - `internal/mcpx/server.go`
+- `internal/settingsstate/materializer.go`
+- `internal/settingsstate/materializer_test.go`
 
 ## Current Python Boundary
 
@@ -157,6 +165,9 @@ Current Go behavior is different:
   - `POST /loadSettings`
   - `POST /saveSettings`
 - successful settings saves now broadcast websocket `UpdateSettings`
+- successful settings-project saves now materialize live settings through the
+  same settings-state runtime and broadcast websocket `UpdateSettings` only
+  when the live settings snapshot actually changes
 
 Important implication:
 
@@ -177,6 +188,9 @@ Important implication:
   need appears later
 - migrate current Go runtime readers away from parsing settings values out of
   the settings project document
+- when materializing settings-project saves, overlay them onto the current live
+  settings snapshot instead of reconstructing live settings from the settings
+  project alone
 - keep transport thin; route logic should call the settings-state service and
   websocket broadcaster, not reimplement merge/persistence rules
 
@@ -336,18 +350,45 @@ Completed in the thin transport landing:
 
 ### Slice 3: Settings Project Materialization Boundary
 
+Status:
+
+- completed for the current bounded scope
+
 Deliver:
 
 - an explicit follow-on decision and implementation for how settings-project
   edits materialize back into `SettingsState`
-- tests proving that settings-project JSON-source edits and direct settings
-  saves do not create dual truth
+- tests proving that settings-project JSON-source edits now flow through the
+  same live settings owner instead of the old Python-only flush path
 
 Acceptance:
 
 - one owner is clearly canonical for runtime settings
 - settings-project editing no longer relies on Python-only materialization
   paths
+
+Completed:
+
+- added `settingsstate.ApplySettingsProjectDocument(...)` as the explicit
+  materializer from the saved settings-project document into the canonical live
+  settings document
+- chose an overlay strategy instead of rebuilding from defaults or from the
+  settings-project document alone:
+  - the materializer starts from the current live settings snapshot
+  - active settings-project json-source sections then overwrite only the paths
+    they currently own
+  - unchanged/missing sections therefore do not clobber unrelated live
+    settings values
+- wired the settings-project runtime `AfterSave` hook in `internal/app` so a
+  settings-project save now:
+  - materializes through `internal/settingsstate`
+  - persists `setta-settings.json`
+  - broadcasts websocket `UpdateSettings` when the live snapshot changed
+- added focused tests for:
+  - unit-level json-source materialization into `settingsstate.Document`
+  - app-level save-hook integration proving settings-project saves update the
+    live settings runtime, persist `setta-settings.json`, and push
+    `UpdateSettings` to a connected frontend
 
 ## Verification Targets
 
@@ -369,6 +410,10 @@ Acceptance:
 - use an embedded checked-in `defaults.json` generated from the current
   `SettingsState` model as the runtime seed for now, instead of making Go
   depend on Python at runtime or hand-porting the full nested schema up front
+- do not introduce a heuristic or implicit cross-runtime authority rule:
+  settings-project saves call an explicit materializer into the live settings
+  owner, and future reverse sync should be another explicit slice when a real
+  Go caller exists
 
 ## Progress Notes
 
@@ -391,9 +436,15 @@ Acceptance:
 - 2026-03-09: landed Slice 2 so Go now owns `POST /loadSettings`,
   `POST /saveSettings`, and websocket `UpdateSettings` broadcast for the live
   frontend settings hydration/save path.
+- 2026-03-09: landed Slice 3 so settings-project saves now materialize active
+  json-source sections back into the Go-owned live settings runtime and
+  persist/broadcast through the same `setta-settings.json` owner.
 
 ## Next Recommended Step
 
-- execute Slice 3: define and implement the explicit settings-project
-  materialization boundary so settings-project edits no longer depend on the
-  Python-only flush path back into live `SettingsState`
+- no further Phase 3 settings-state ownership work is required for the current
+  direct frontend surface
+- if a future Go-owned settings-project load/save transport is introduced,
+  pair it with an explicit reverse projection from live settings into the
+  settings-project runtime so editor freshness remains explicit instead of
+  heuristic
