@@ -1,5 +1,9 @@
-import type { ReactNode } from "react";
+/* @vitest-environment jsdom */
+
+import { act, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import "testUtils/reactRefreshPreamble";
 import {
   ChatWindowModeEnum,
   WindowSpaceSurfaceKindEnum,
@@ -477,6 +481,152 @@ describe("StandaloneWindowSpaceSurface", () => {
         },
       },
     });
+  });
+
+  it("resets owner-local chat and git state when the same window id is rebound", () => {
+    const previousHydratedWindowsById = {
+      win: {
+        instanceId: "win",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.project_ai_mode,
+        title: "Workspace Chat",
+        chatId: "saved-project-chat",
+        embeddedGitPaneVisible: false,
+        zIndex: 1,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 900,
+          height: 520,
+        },
+      },
+    };
+    const currentWindowsById = {
+      win: {
+        ...previousHydratedWindowsById.win,
+        chatId: "chat-local-override",
+        embeddedGitPaneVisible: true,
+        zIndex: 7,
+      },
+    };
+    const nextHydratedWindowsById = {
+      win: {
+        instanceId: "win",
+        surfaceKind: WindowSpaceSurfaceKindEnum.section,
+        sectionIdOrNull: "section-1",
+        mode: ChatWindowModeEnum.section_mode,
+        title: "Research Notes",
+        chatId: "saved-section-chat",
+        embeddedGitPaneVisible: false,
+        zIndex: 2,
+        bounds: {
+          x: 40,
+          y: 24,
+          width: 640,
+          height: 420,
+        },
+      },
+    };
+
+    expect(
+      mergeHydratedStandaloneWindows(
+        currentWindowsById,
+        previousHydratedWindowsById,
+        nextHydratedWindowsById,
+      ),
+    ).toEqual(nextHydratedWindowsById);
+  });
+
+  it("rebinds standalone windows to the new owner state instead of preserving a stale local chat override", () => {
+    const initialWindowSpace = createWindowSpaceConfig({
+      id: "space-id",
+      name: "Research Board",
+      windowsById: {
+        win: {
+          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+          sectionIdOrNull: null,
+          mode: ChatWindowModeEnum.project_ai_mode,
+          title: "Workspace Chat",
+          chatId: "saved-project-chat",
+          zIndex: 1,
+          normalizedBounds: {
+            x: 0,
+            y: 0,
+            width: 0.5,
+            height: 0.5,
+          },
+        },
+      },
+      order: ["win"],
+    });
+    const reboundWindowSpace = createWindowSpaceConfig({
+      id: "space-id",
+      name: "Research Board",
+      windowsById: {
+        win: {
+          surfaceKind: WindowSpaceSurfaceKindEnum.section,
+          sectionIdOrNull: "section-1",
+          mode: ChatWindowModeEnum.project_ai_mode,
+          title: "Research Notes",
+          chatId: "saved-section-chat",
+          zIndex: 1,
+          normalizedBounds: {
+            x: 0,
+            y: 0,
+            width: 0.5,
+            height: 0.5,
+          },
+        },
+      },
+      order: ["win"],
+    });
+
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    try {
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface windowSpace={initialWindowSpace} />,
+        );
+      });
+
+      const overrideButton = host.querySelector(
+        '[data-testid="mock-set-project-chat-id"]',
+      ) as HTMLButtonElement | null;
+      if (!overrideButton) {
+        throw new Error("Expected mocked standalone project chat control.");
+      }
+
+      act(() => {
+        overrideButton.click();
+      });
+
+      expect(
+        host
+          .querySelector('[data-testid="mock-unified-chat-surface"]')
+          ?.getAttribute("data-project-chat-id"),
+      ).toBe("chat-local-override");
+
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface windowSpace={reboundWindowSpace} />,
+        );
+      });
+
+      expect(
+        host
+          .querySelector('[data-testid="mock-section-window-surface"]')
+          ?.getAttribute("data-project-chat-id"),
+      ).toBe("saved-section-chat");
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 
   it("preserves local chat state when the same saved window space rehydrates", () => {

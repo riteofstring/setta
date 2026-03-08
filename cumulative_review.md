@@ -452,3 +452,34 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Panes/Overview/WindowSpacesPane.test.tsx` passed.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "same-tab standalone navigation isolates copied project configs even when the window-space id is reused|restoring a saved floating section window does not evict a live canvas section host"` passed: 2 tests.
 - CDP verification on a disposable local dev instance confirmed two browser-level outcomes: resizing the source config’s standalone saved window space to `630px` did not leak into the copied config, which rehydrated the same window at its saved `550px` width, and restoring a saved floating collision layout preserved the live canvas section host without spawning a duplicate floating section window.
+
+## 2026-03-10 11:14:16 PDT
+
+Implemented the final set of fixes from the top-level review documents, centered on making linked-chat invocation semantics deterministic for both fresh and already-bound targets, aligning the tool capability model with its actual mutating behavior, and preventing standalone window-space routes from carrying stale owner-local UI state across owner rebinding.
+
+What changed:
+- Introduced an explicit `peer_chat` tool access type in `backend/setta/mcp/tool_metadata.py` and rewired the linked-chat tool metadata in `backend/setta/mcp/tools/agentic_tools.py` to use that capability instead of `read`.
+- Updated scope evaluation and tool filtering in `backend/setta/agentic/agentic_scope.py` and `backend/setta/llm/agent_runner.py` so linked-chat availability is controlled by peer-chat edges rather than by the generic non-mutating read path.
+- Reworked linked-chat admission in `backend/setta/project_state/base_project_manager.py` so every target section, including sections already bound to a `chatId`, gets one exclusive busy claim while a linked invocation is active. Competing invocations now receive a structured `target_busy` admission failure instead of racing on the same chat.
+- Tightened linked-chat failure cleanup in `backend/setta/agentic/linked_chat_invocation.py` so every post-admission pre-start failure path releases the in-memory reservation, newly created bindings are only persisted after a successful start, and the busy claim is only released after `wait_for_run(...)` finishes.
+- Added a distinct `missing_external_config` error path for external-engine linked-chat startup, instead of misclassifying that condition as an invalid engine configuration.
+- Removed the now-dead linked-chat helper seam that only supported the earlier partial reservation model, along with the unused linked-chat tool-name constant.
+- Changed standalone window-space hydration in `frontend/src/components/Pages/Project/StandaloneWindowSpaceSurface.tsx` so reusing the same saved `instanceId` no longer preserves prior owner-local thread/git state when the owner identity tuple changes. Owner rebinding now remounts from the new owner’s saved state.
+
+UX before/after:
+- Before: a linked chat targeting an already-bound section could overlap with another linked invocation on the same thread, making prompt ordering and resulting transcript state ambiguous. After: every linked-chat target follows the same single-run admission contract, regardless of whether the section is being bound for the first time or already has a chat.
+- Before: failed linked-chat startups could leave hidden reservation residue behind, so retries could be blocked or behave inconsistently after runner/config validation failures. After: failed starts are cleanly released and retries begin from a truly idle target state.
+- Before: permission metadata advertised `invoke_linked_chat` as `read`, even though it starts runs and can persist section ownership. After: the tool appears only when peer-chat capability is present, matching what the operation actually does.
+- Before: a standalone saved window reusing the same `instanceId` could visually rebind to a different owner while still showing stale local chat selection or embedded git-pane state from the previous owner. After: owner rebinding resets owner-scoped local state and the route rehydrates from the new owner’s persisted data instead of leaked local residue.
+
+DX before/after:
+- Before: linked-chat concurrency rules differed between first-run and already-bound targets, which made the backend contract difficult to explain and easy to mis-test. After: there is one admission model and one busy-state story for every target section chat.
+- Before: startup cleanup was spread across multiple partial failure branches, which made it easy to miss a release path when engine/profile/config checks evolved. After: admission, start success, start failure, and run completion each have explicit manager methods with clearer lifecycle boundaries.
+- Before: scope reasoning around linked chat was muddy because the tool was surfaced through `read`, weakening the meaning of both tooling metadata and agent-scope graphs. After: capability classification, scope checks, and runtime behavior now agree.
+- Before: standalone hydration implicitly treated `instanceId` as enough identity even when the saved window was rebound to a different owner, so local UI state could outlive its actual owner. After: owner identity is explicit in the merge logic, which makes the remount/reset rule easier to reason about and to cover in tests.
+
+Verification:
+- `source activate.sh && pytest tests/agentic/test_agentic_scope.py tests/llm/test_agent_runner.py tests/mcp/test_tool_access_metadata_completeness.py tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_linked_chat_tool.py` passed: 80 tests.
+- `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed: 12 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "standalone window-space owner rebinding resets stale local section thread state"` passed: 1 test.
+- CDP verification on the live dev instance confirmed that after clearing a standalone window’s local section thread and rebinding the same saved window id to a different section owner, the route rendered the new owner’s saved reply instead of preserving stale local thread state from the prior owner.

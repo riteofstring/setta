@@ -13,7 +13,7 @@ class SettaToolType(str, Enum):
 
 FollowIdType = Literal["section", "codeObj"]
 ToolArgumentPreviewIdType = Literal["section", "codeObj"]
-ToolAccessType = Literal["read", "write", "structural"]
+ToolAccessType = Literal["read", "write", "structural", "peer_chat"]
 ToolResultFilterType = Literal["project_state_summary", "lsp_diagnostics"]
 
 

@@ -45,7 +45,7 @@ def test_discoverable_setta_tools_have_explicit_access_metadata() -> None:
         result_filter = getattr(annotations, "resultFilter", None)
         default_singleton = getattr(annotations, "defaultTargetSingletonSection", None)
         if (
-            access_type in ("read", "write")
+            access_type in ("read", "write", "peer_chat")
             and not id_paths
             and result_filter is None
             and default_singleton is None
@@ -57,9 +57,9 @@ def test_discoverable_setta_tools_have_explicit_access_metadata() -> None:
     assert missing_targets == []
 
 
-def test_invoke_linked_chat_is_not_marked_read_only() -> None:
+def test_invoke_linked_chat_uses_peer_chat_access() -> None:
     access = get_tool_access(invoke_linked_chat)
 
     assert access is not None
-    assert access.accessType == "read"
+    assert access.accessType == "peer_chat"
     assert access.retryOnDisconnect is False

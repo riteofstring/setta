@@ -238,11 +238,12 @@ def check_agentic_scope_for_tool(
             reason="structural" if allowed else "structural_denied",
         )
 
-    allowed_ids = (
-        scope.effective_read_section_ids()
-        if access_type == "read"
-        else set(scope.write_section_ids)
-    )
+    if access_type == "read":
+        allowed_ids = scope.effective_read_section_ids()
+    elif access_type == "peer_chat":
+        allowed_ids = set(scope.peer_chat_section_ids)
+    else:
+        allowed_ids = set(scope.write_section_ids)
     if not allowed_ids:
         return AgenticScopeCheck(
             allowed=False,
@@ -272,6 +273,15 @@ def check_agentic_scope_for_tool(
                 reason="write_without_targets"
                 if not scope.structural_allowed
                 else "write_without_targets_allowed",
+            )
+        if access_type == "peer_chat":
+            return AgenticScopeCheck(
+                allowed=False,
+                access_type=access_type,
+                target_section_ids=target_section_ids,
+                blocked_section_ids=set(),
+                unmapped_code_obj_ids=unmapped_code_objs,
+                reason="peer_chat_without_targets",
             )
         return AgenticScopeCheck(
             allowed=True,
@@ -455,7 +465,10 @@ def _resolve_missing_edge_kind(
 ) -> AgenticEdgeKind | None:
     if access_type == "structural":
         return None
-    if _is_chat_section(project_state, section_id) and access_type == "read":
+    if _is_chat_section(project_state, section_id) and access_type in (
+        "read",
+        "peer_chat",
+    ):
         return AgenticEdgeKind.chat_chat
     return AgenticEdgeKind.chat_section
 

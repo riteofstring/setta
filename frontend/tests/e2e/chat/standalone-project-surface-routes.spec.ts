@@ -2124,6 +2124,168 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone window-space owner rebinding resets stale local section thread state", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const { sectionId: firstSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "First Linked Research Chat",
+      );
+      const { sectionId: secondSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "Second Linked Research Chat",
+      );
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      await showSectionInProjectChatWindow(page, firstSectionId, "floating");
+      await page.evaluate(async (sectionId) => {
+        const { setProjectChatWindowModeForSection } = await import(
+          "/src/state/actions/projectChatWindowing.ts"
+        );
+        const { ChatWindowModeEnum } = await import(
+          "/src/utils/generatedTypes.ts"
+        );
+        setProjectChatWindowModeForSection(
+          sectionId,
+          ChatWindowModeEnum.project_ai_mode,
+        );
+      }, firstSectionId);
+
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return findProjectChatWindowIdForSection(state, firstSectionId) ?? "";
+        })
+        .not.toBe("");
+      const firstSectionWindowId =
+        findProjectChatWindowIdForSection(
+          await readProjectChatWindowingState(page),
+          firstSectionId,
+        ) ?? "";
+      if (!firstSectionWindowId) {
+        throw new Error("Expected a floating section window before saving.");
+      }
+
+      await seedProjectChatWindowThreads(page, [
+        {
+          instanceId: firstSectionWindowId,
+          chatId: "saved-section-thread-a",
+          assistantText: "Saved section A marker",
+        },
+      ]);
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected a saved standalone window space.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await seedProjectChatDetails(
+        standalonePage,
+        [
+          {
+            instanceId: firstSectionWindowId,
+            chatId: "saved-section-thread-a",
+            assistantText: "Saved section A marker",
+          },
+          {
+            instanceId: "rebound-section-window",
+            chatId: "saved-section-thread-b",
+            assistantText: "Saved section B marker",
+          },
+          {
+            instanceId: "fallback-active-window",
+            chatId: "fallback-active-thread",
+            assistantText: "Fallback active thread marker",
+          },
+        ],
+        "fallback-active-thread",
+      );
+
+      const standaloneSectionWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${firstSectionWindowId}"]`,
+      );
+      await expect(standaloneSectionWindow).toContainText(
+        "Saved section A marker",
+      );
+
+      await standaloneSectionWindow
+        .getByRole("button", { name: "New Chat" })
+        .click();
+      await expect(standaloneSectionWindow).not.toContainText(
+        "Saved section A marker",
+      );
+
+      await standalonePage.evaluate(
+        async ({
+          nextWindowSpaceId,
+          nextWindowId,
+          nextSectionId,
+          nextChatId,
+        }) => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          useProjectState.setState((state) => {
+            const nextWindow =
+              state.projectConfig.windowSpaces[nextWindowSpaceId]?.windowsById[
+                nextWindowId
+              ];
+            if (!nextWindow) {
+              throw new Error("Missing saved standalone window.");
+            }
+            nextWindow.sectionIdOrNull = nextSectionId;
+            nextWindow.chatId = nextChatId;
+          });
+        },
+        {
+          nextWindowSpaceId: windowSpace.id,
+          nextWindowId: firstSectionWindowId,
+          nextSectionId: secondSectionId,
+          nextChatId: "saved-section-thread-b",
+        },
+      );
+
+      await expect(standaloneSectionWindow).toContainText(
+        "Saved section B marker",
+      );
+      await expect(standaloneSectionWindow).not.toContainText(
+        "Fallback active thread marker",
+      );
+    } finally {
+      await standalonePage.close();
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone git graph windows keep git-pane visibility local to the standalone surface", async ({
     page,
   }) => {

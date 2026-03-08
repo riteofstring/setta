@@ -622,7 +622,7 @@ def _is_lsp_code_entry(
 @dataclass(slots=True)
 class _LinkedChatSectionReservation:
     chat_id: ID
-    pending_claims: int
+    clear_persisted_binding_on_failure: bool
     has_started_run: bool = False
 
 
@@ -5022,36 +5022,6 @@ class BaseProjectManager(ABC):
             return section.displayName
         return section.name or str(section_id)
 
-    def _reserve_linked_chat_section_chat_id_unlocked(
-        self,
-        project_state: ProjectStateSingleConfig,
-        project_config_id: ID,
-        section_id: ID,
-    ) -> ID:
-        reservation_key = (project_config_id, section_id)
-        reservation = self._linked_chat_section_reservations.get(reservation_key)
-        if reservation is not None:
-            reservation.pending_claims += 1
-            return reservation.chat_id
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            project_state,
-            section_id,
-            ChatSectionImpl,
-        )
-        current_chat_id = section_impl.chatId
-        if current_chat_id is not None:
-            return current_chat_id
-
-        next_chat_id = create_new_id()
-        self._linked_chat_section_reservations[reservation_key] = (
-            _LinkedChatSectionReservation(
-                chat_id=next_chat_id,
-                pending_claims=1,
-            )
-        )
-        return next_chat_id
-
     @enqueue_method
     async def admit_linked_chat_section_invocation(
         self,
@@ -5119,10 +5089,21 @@ class BaseProjectManager(ABC):
                 ),
             )
 
-        chat_id = self._reserve_linked_chat_section_chat_id_unlocked(
-            project_state,
-            project_config_id,
-            target_section_id,
+        reservation_key = (project_config_id, target_section_id)
+        if reservation_key in self._linked_chat_section_reservations:
+            raise LinkedChatAdmissionError(
+                "target_busy",
+                (
+                    f"Linked chat '{target_label}' is already handling another linked invocation."
+                ),
+            )
+        current_chat_id = target_section_impl.chatId
+        chat_id = current_chat_id or create_new_id()
+        self._linked_chat_section_reservations[reservation_key] = (
+            _LinkedChatSectionReservation(
+                chat_id=chat_id,
+                clear_persisted_binding_on_failure=current_chat_id is None,
+            )
         )
         return LinkedChatSectionAdmission(
             chat_id=chat_id,
@@ -5132,17 +5113,6 @@ class BaseProjectManager(ABC):
             search_enabled=target_section_impl.searchEnabled,
             selected_profile=selected_profile,
             effective_engine_config_id=effective_engine_config_id,
-        )
-
-    @enqueue_method
-    async def reserve_linked_chat_section_chat_id(
-        self, project_config_id: ID, section_id: ID
-    ) -> ID:
-        project_state = self.get_single_config_state(project_config_id)
-        return self._reserve_linked_chat_section_chat_id_unlocked(
-            project_state,
-            project_config_id,
-            section_id,
         )
 
     @enqueue_method
@@ -5156,11 +5126,8 @@ class BaseProjectManager(ABC):
         reservation = self._linked_chat_section_reservations.get(reservation_key)
         if reservation is None or reservation.chat_id != chat_id:
             return
-        if reservation.pending_claims < 1:
-            raise ValueError(
-                "Linked chat reservation success reported with no pending claim."
-            )
-        reservation.pending_claims -= 1
+        if reservation.has_started_run:
+            raise ValueError("Linked chat reservation success reported more than once.")
         reservation.has_started_run = True
         project_state = self.get_single_config_state(project_config_id)
         if section_id in project_state.sections:
@@ -5173,8 +5140,6 @@ class BaseProjectManager(ABC):
                 await self._update_and_broadcast_project_state_no_name_validation(
                     project_state
                 )
-        if reservation.pending_claims == 0:
-            del self._linked_chat_section_reservations[reservation_key]
 
     @enqueue_method
     async def release_linked_chat_section_chat_start_failure(
@@ -5187,16 +5152,11 @@ class BaseProjectManager(ABC):
         reservation = self._linked_chat_section_reservations.get(reservation_key)
         if reservation is None or reservation.chat_id != chat_id:
             return
-        if reservation.pending_claims < 1:
-            raise ValueError(
-                "Linked chat reservation failure reported with no pending claim."
-            )
-        reservation.pending_claims -= 1
-        if reservation.pending_claims > 0:
-            return
-
         del self._linked_chat_section_reservations[reservation_key]
-        if reservation.has_started_run:
+        if (
+            reservation.has_started_run
+            or not reservation.clear_persisted_binding_on_failure
+        ):
             return
 
         project_state = self.get_single_config_state(project_config_id)
@@ -5209,6 +5169,23 @@ class BaseProjectManager(ABC):
             return
         set_chat_section_chat_id(project_state, section_id, None)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def complete_linked_chat_section_invocation(
+        self,
+        project_config_id: ID,
+        section_id: ID,
+        chat_id: ID,
+    ) -> None:
+        reservation_key = (project_config_id, section_id)
+        reservation = self._linked_chat_section_reservations.get(reservation_key)
+        if reservation is None or reservation.chat_id != chat_id:
+            return
+        if not reservation.has_started_run:
+            raise ValueError(
+                "Linked chat reservation completion reported before run start."
+            )
+        del self._linked_chat_section_reservations[reservation_key]
 
     async def _apply_listener_emit_updates_to_state(
         self,

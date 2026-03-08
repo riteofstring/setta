@@ -195,7 +195,7 @@ async def invoke_linked_chat(
 attach_tool_access(
     invoke_linked_chat,
     ToolAccessMetadata(
-        accessType="read",
+        accessType="peer_chat",
         retryOnDisconnect=False,
         idPathsByType={"section": ["targetSectionId"]},
     ),

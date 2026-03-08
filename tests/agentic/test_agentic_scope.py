@@ -1,5 +1,3 @@
-import pytest
-
 from setta.agentic.agentic_scope import (
     AgenticScope,
     build_missing_edge_hints,
@@ -169,6 +167,20 @@ class TestAgenticScope:
             }
         ]
 
+        hints_peer_chat = build_missing_edge_hints(
+            chat_section_id=ID(chat_id),
+            blocked_section_ids={ID(peer_chat_id)},
+            access_type="peer_chat",
+            project_state=project_state,
+        )
+        assert hints_peer_chat == [
+            {
+                "sourceSectionId": chat_id,
+                "targetSectionId": peer_chat_id,
+                "kind": "chat_chat",
+            }
+        ]
+
         assert (
             build_missing_edge_hints(
                 chat_section_id=None,
@@ -214,6 +226,35 @@ class TestAgenticScope:
             scope=scope,
         )
         assert not denied.allowed
+
+    def test_check_agentic_scope_for_peer_chat_tool(self) -> None:
+        project_state, chat_id, peer_chat_id, _, writable_section_id = (
+            _build_project_state()
+        )
+        scope = resolve_agentic_scope(project_state, chat_id)
+
+        annotations = SettaToolAnnotations(
+            settaToolType=SettaToolType.discoverable,
+            accessType="peer_chat",
+            idPathsByType={"section": ["targetSectionId"]},
+        )
+        allowed = check_agentic_scope_for_tool(
+            tool_args={"targetSectionId": peer_chat_id},
+            annotations=annotations,
+            project_state=project_state,
+            scope=scope,
+        )
+        assert allowed.allowed
+        assert allowed.target_section_ids == {ID(peer_chat_id)}
+
+        denied = check_agentic_scope_for_tool(
+            tool_args={"targetSectionId": writable_section_id},
+            annotations=annotations,
+            project_state=project_state,
+            scope=scope,
+        )
+        assert not denied.allowed
+        assert denied.blocked_section_ids == {ID(writable_section_id)}
 
     def test_check_agentic_scope_for_tool_infers_singleton_section_targets(self) -> None:
         settings = SettingsState()

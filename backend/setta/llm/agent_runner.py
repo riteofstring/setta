@@ -1762,6 +1762,7 @@ class AgentRunner:
             return tool_names
         has_structural = agentic_scope.structural_allowed
         has_read = bool(agentic_scope.effective_read_section_ids())
+        has_peer_chat = bool(agentic_scope.peer_chat_section_ids)
         has_write = bool(agentic_scope.write_section_ids)
         required_internal_tool_names = _required_internal_tool_names(
             completion_guard_enabled
@@ -1786,6 +1787,8 @@ class AgentRunner:
             if access_type == "structural" and not has_structural:
                 continue
             if access_type == "read" and not has_read:
+                continue
+            if access_type == "peer_chat" and not has_peer_chat:
                 continue
             if access_type == "write" and not has_write:
                 continue

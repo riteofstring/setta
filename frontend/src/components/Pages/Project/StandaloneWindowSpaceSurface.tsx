@@ -258,6 +258,17 @@ function areStandaloneWindowsEqual(
   );
 }
 
+function areStandaloneWindowOwnersEqual(
+  a: StandaloneWindowSpaceWindow,
+  b: StandaloneWindowSpaceWindow,
+): boolean {
+  return (
+    a.surfaceKind === b.surfaceKind &&
+    a.sectionIdOrNull === b.sectionIdOrNull &&
+    a.mode === b.mode
+  );
+}
+
 export function mergeHydratedStandaloneWindows(
   currentWindowsById: Record<string, StandaloneWindowSpaceWindow>,
   previousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>,
@@ -278,18 +289,24 @@ export function mergeHydratedStandaloneWindows(
       continue;
     }
     const previousHydratedWindow = previousHydratedWindowsById[instanceId];
-    const nextWindow: StandaloneWindowSpaceWindow = {
-      ...currentWindow,
-      surfaceKind: nextHydratedWindow.surfaceKind,
-      sectionIdOrNull: nextHydratedWindow.sectionIdOrNull,
-      mode: nextHydratedWindow.mode,
-      title: nextHydratedWindow.title,
-      bounds:
-        previousHydratedWindow &&
-        !areBoundsEqual(currentWindow.bounds, previousHydratedWindow.bounds)
-          ? currentWindow.bounds
-          : nextHydratedWindow.bounds,
-    };
+    const ownerChanged = !areStandaloneWindowOwnersEqual(
+      currentWindow,
+      nextHydratedWindow,
+    );
+    const nextWindow: StandaloneWindowSpaceWindow = ownerChanged
+      ? nextHydratedWindow
+      : {
+          ...currentWindow,
+          surfaceKind: nextHydratedWindow.surfaceKind,
+          sectionIdOrNull: nextHydratedWindow.sectionIdOrNull,
+          mode: nextHydratedWindow.mode,
+          title: nextHydratedWindow.title,
+          bounds:
+            previousHydratedWindow &&
+            !areBoundsEqual(currentWindow.bounds, previousHydratedWindow.bounds)
+              ? currentWindow.bounds
+              : nextHydratedWindow.bounds,
+        };
     if (!changed && !areStandaloneWindowsEqual(currentWindow, nextWindow)) {
       changed = true;
     }

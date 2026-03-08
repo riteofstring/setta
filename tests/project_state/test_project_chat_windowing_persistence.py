@@ -1,9 +1,8 @@
-import asyncio
-
 import pytest
+from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
+from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.project_state.project_manager_types import (
     CreateWindowSpaceRequest,
-    GetChatSectionChatIdRequest,
     SaveAsNewProjectConfigRequest,
     SetProjectChatWindowingStateRequest,
 )
@@ -12,7 +11,12 @@ from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
     merge_single_config_into_backend,
 )
-from setta.types.helpers_lvl2 import create_top_level_section
+from setta.types.helpers_lvl2 import (
+    create_agentic_edge,
+    create_top_level_section,
+    set_chat_section_chat_id,
+    set_chat_section_settings,
+)
 from setta.types.id import ID
 from setta.types.project_config import (
     Position,
@@ -30,7 +34,12 @@ from setta.types.project_state import (
     ProjectStateBackend,
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import ChatSectionImpl, SectionType
+from setta.types.section_impls import (
+    ChatDictationMode,
+    ChatPermissionMode,
+    ChatSectionImpl,
+    SectionType,
+)
 from setta.types.generated.settings_state import SettingsState
 
 from tests.utils.manager_fixture import real_project_manager
@@ -339,177 +348,192 @@ async def test_create_window_space_from_authoritative_windowing_excludes_stale_s
         assert persisted_window_space.order == ["project-chat-window-1"]
 
 
-@pytest.mark.asyncio
-async def test_reserve_linked_chat_section_chat_id_reuses_one_pending_id(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # Concurrent first-run reservations must converge on one chat id and allocate it once.
-    async with real_project_manager() as fixture:
-        manager = fixture.manager
-        project_config_id = manager.project_state_backend.defaultProjectConfigId
-        if project_config_id is None:
-            raise AssertionError("Expected a default project config id.")
-        project_state = manager.get_single_config_state(project_config_id)
-        section_id = create_top_level_section(
-            SettingsState(),
-            project_state,
-            SectionType.Chat,
-            Position(),
-        )
-        await manager.update(project_state)
-
-        allocated_ids: list[ID] = []
-
-        def _fake_create_new_id() -> ID:
-            next_id = ID("reserved-chat-1")
-            allocated_ids.append(next_id)
-            return next_id
-
-        monkeypatch.setattr(
-            "setta.project_state.base_project_manager.create_new_id",
-            _fake_create_new_id,
-        )
-
-        first_chat_id, second_chat_id = await asyncio.gather(
-            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
-            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
-        )
-
-        assert first_chat_id == ID("reserved-chat-1")
-        assert second_chat_id == ID("reserved-chat-1")
-        assert allocated_ids == [ID("reserved-chat-1")]
-        current_project_state = manager.get_single_config_state(project_config_id)
-        assert (
-            get_curr_effective_section_impl_with_type_guard(
-                current_project_state,
-                section_id,
-                ChatSectionImpl,
-            ).chatId
-            is None
-        )
+async def _create_linked_chat_sections(
+    manager,
+) -> tuple[ID, ID, ID]:
+    project_config_id = manager.project_state_backend.defaultProjectConfigId
+    if project_config_id is None:
+        raise AssertionError("Expected a default project config id.")
+    project_state = manager.get_single_config_state(project_config_id)
+    caller_section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    target_section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    set_chat_section_settings(
+        project_state,
+        target_section_id,
+        True,
+        ID("engine-linked"),
+        None,
+        None,
+        False,
+        ChatPermissionMode.minimal,
+        True,
+        ChatDictationMode.auto,
+    )
+    create_agentic_edge(
+        project_state,
+        AgenticEdge(
+            id=ID("edge-linked"),
+            sourceSectionId=caller_section_id,
+            targetSectionId=target_section_id,
+            kind=AgenticEdgeKind.chat_chat,
+        ),
+    )
+    await manager.update(project_state)
+    return project_config_id, caller_section_id, target_section_id
 
 
 @pytest.mark.asyncio
-async def test_release_linked_chat_section_chat_start_failure_clears_only_unstarted_binding() -> (
-    None
-):
-    # Failed admissions should clear fresh reservations, but keep the binding once another caller started a run.
+async def test_linked_chat_admission_persists_fresh_binding_only_after_start_and_releases_busy_state() -> None:
     async with real_project_manager() as fixture:
         manager = fixture.manager
-        project_config_id = manager.project_state_backend.defaultProjectConfigId
-        if project_config_id is None:
-            raise AssertionError("Expected a default project config id.")
-        project_state = manager.get_single_config_state(project_config_id)
-        section_id = create_top_level_section(
-            SettingsState(),
-            project_state,
-            SectionType.Chat,
-            Position(),
+        project_config_id, caller_section_id, target_section_id = (
+            await _create_linked_chat_sections(manager)
         )
-        await manager.update(project_state)
-
-        failed_chat_id = await manager.reserve_linked_chat_section_chat_id(
+        admission = await manager.admit_linked_chat_section_invocation(
             project_config_id,
-            section_id,
-        )
-        await manager.release_linked_chat_section_chat_start_failure(
-            project_config_id,
-            section_id,
-            failed_chat_id,
+            caller_section_id,
+            target_section_id,
         )
         current_project_state = manager.get_single_config_state(project_config_id)
         assert (
             get_curr_effective_section_impl_with_type_guard(
                 current_project_state,
-                section_id,
+                target_section_id,
                 ChatSectionImpl,
             ).chatId
             is None
         )
-
-        first_pending_chat_id, second_pending_chat_id = await asyncio.gather(
-            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
-            manager.reserve_linked_chat_section_chat_id(project_config_id, section_id),
+        assert (project_config_id, target_section_id) in (
+            manager._linked_chat_section_reservations
         )
-        assert first_pending_chat_id == second_pending_chat_id
 
         await manager.mark_linked_chat_section_chat_start_succeeded(
             project_config_id,
-            section_id,
-            first_pending_chat_id,
+            target_section_id,
+            admission.chat_id,
         )
-        await manager.release_linked_chat_section_chat_start_failure(
-            project_config_id,
-            section_id,
-            second_pending_chat_id,
-        )
-
         current_project_state = manager.get_single_config_state(project_config_id)
         assert (
             get_curr_effective_section_impl_with_type_guard(
                 current_project_state,
-                section_id,
+                target_section_id,
                 ChatSectionImpl,
             ).chatId
-            == first_pending_chat_id
+            == admission.chat_id
         )
-
-
-@pytest.mark.asyncio
-async def test_pending_linked_chat_reservation_does_not_leak_into_authoritative_section_chat_id() -> (
-    None
-):
-    async with real_project_manager() as fixture:
-        manager = fixture.manager
-        project_config_id = manager.project_state_backend.defaultProjectConfigId
-        if project_config_id is None:
-            raise AssertionError("Expected a default project config id.")
-        project_state = manager.get_single_config_state(project_config_id)
-        section_id = create_top_level_section(
-            SettingsState(),
-            project_state,
-            SectionType.Chat,
-            Position(),
-        )
-        await manager.update(project_state)
-
-        pending_chat_id = await manager.reserve_linked_chat_section_chat_id(
-            project_config_id,
-            section_id,
-        )
-        assert (
-            get_curr_effective_section_impl_with_type_guard(
-                manager.get_single_config_state(project_config_id),
-                section_id,
-                ChatSectionImpl,
-            ).chatId
-            is None
-        )
-
-        assert (
-            await manager.get_chat_section_chat_id(
-                GetChatSectionChatIdRequest(
-                    projectConfigId=project_config_id,
-                    sectionId=section_id,
-                )
+        with pytest.raises(LinkedChatAdmissionError, match="already handling"):
+            await manager.admit_linked_chat_section_invocation(
+                project_config_id,
+                caller_section_id,
+                target_section_id,
             )
+
+        await manager.complete_linked_chat_section_invocation(
+            project_config_id,
+            target_section_id,
+            admission.chat_id,
+        )
+        assert manager._linked_chat_section_reservations == {}
+
+        second_admission = await manager.admit_linked_chat_section_invocation(
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        )
+        assert second_admission.chat_id == admission.chat_id
+        await manager.release_linked_chat_section_chat_start_failure(
+            project_config_id,
+            target_section_id,
+            second_admission.chat_id,
+        )
+        assert manager._linked_chat_section_reservations == {}
+
+
+@pytest.mark.asyncio
+async def test_linked_chat_start_failure_clears_fresh_reservation_without_persisting_chat_id() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id, caller_section_id, target_section_id = (
+            await _create_linked_chat_sections(manager)
+        )
+        admission = await manager.admit_linked_chat_section_invocation(
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        )
+        await manager.release_linked_chat_section_chat_start_failure(
+            project_config_id,
+            target_section_id,
+            admission.chat_id,
+        )
+        current_project_state = manager.get_single_config_state(project_config_id)
+        assert (
+            get_curr_effective_section_impl_with_type_guard(
+                current_project_state,
+                target_section_id,
+                ChatSectionImpl,
+            ).chatId
             is None
         )
+        assert manager._linked_chat_section_reservations == {}
 
-        await manager.mark_linked_chat_section_chat_start_succeeded(
-            project_config_id,
-            section_id,
-            pending_chat_id,
+
+@pytest.mark.asyncio
+async def test_linked_chat_start_failure_preserves_existing_binding_and_releases_busy_state() -> None:
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id, caller_section_id, target_section_id = (
+            await _create_linked_chat_sections(manager)
         )
+        project_state = manager.get_single_config_state(project_config_id)
+        set_chat_section_chat_id(project_state, target_section_id, ID("linked-thread-1"))
+        await manager.update(project_state)
 
+        admission = await manager.admit_linked_chat_section_invocation(
+            project_config_id,
+            caller_section_id,
+            target_section_id,
+        )
+        assert admission.chat_id == ID("linked-thread-1")
+        with pytest.raises(LinkedChatAdmissionError, match="already handling"):
+            await manager.admit_linked_chat_section_invocation(
+                project_config_id,
+                caller_section_id,
+                target_section_id,
+            )
         assert (
             get_curr_effective_section_impl_with_type_guard(
                 manager.get_single_config_state(project_config_id),
-                section_id,
+                target_section_id,
                 ChatSectionImpl,
             ).chatId
-            == pending_chat_id
+            == ID("linked-thread-1")
         )
+
+        await manager.release_linked_chat_section_chat_start_failure(
+            project_config_id,
+            target_section_id,
+            admission.chat_id,
+        )
+        assert (
+            get_curr_effective_section_impl_with_type_guard(
+                manager.get_single_config_state(project_config_id),
+                target_section_id,
+                ChatSectionImpl,
+            ).chatId
+            == ID("linked-thread-1")
+        )
+        assert manager._linked_chat_section_reservations == {}
 
 
 @pytest.mark.asyncio

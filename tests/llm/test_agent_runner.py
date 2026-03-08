@@ -641,6 +641,61 @@ class TestAgentRunner:
 
             assert filtered == [completion_tool_name]
 
+    def test_scope_filter_requires_peer_chat_access_for_linked_chat_tool(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    )
+                },
+            )
+            runner = _build_runner(dbe, config)
+            linked_chat_tool_name = f"{SETTA_MCP_SERVER_ID}__invoke_linked_chat"
+            runner.mcp_client.tool_annotations_by_name[linked_chat_tool_name] = (
+                SettaToolAnnotations(
+                    settaToolType=SettaToolType.discoverable,
+                    accessType="peer_chat",
+                    idPathsByType={"section": ["targetSectionId"]},
+                )
+            )
+
+            assert (
+                runner._filter_tool_names_by_scope(
+                    [linked_chat_tool_name],
+                    AgenticScope(
+                        read_section_ids={ID("readable-section")},
+                        write_section_ids=set(),
+                        context_section_ids=set(),
+                        peer_chat_section_ids=set(),
+                        structural_allowed=False,
+                    ),
+                )
+                == []
+            )
+            assert runner._filter_tool_names_by_scope(
+                [linked_chat_tool_name],
+                AgenticScope(
+                    read_section_ids={ID("readable-section")},
+                    write_section_ids=set(),
+                    context_section_ids=set(),
+                    peer_chat_section_ids={ID("peer-chat-section")},
+                    structural_allowed=False,
+                ),
+            ) == [linked_chat_tool_name]
+
     def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
