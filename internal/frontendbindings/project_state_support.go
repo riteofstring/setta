@@ -397,35 +397,76 @@ type SetBrowserHideColumnRequestInput struct {
 
 type SetBrowserSavedSearchesRequestInput struct{}
 
-type SetSpreadsheetFilePathRequestInput struct{}
+type SetSpreadsheetFilePathRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	FilePath        string  `json:"filePath"`
+	ActiveSheet     *string `json:"activeSheet"`
+}
 
 type SetSpreadsheetSectionSettingsRequestInput struct{}
 
 type SetTaskBoardSectionStateRequestInput struct{}
 
-type SetImageAreaImagePathRequestInput struct{}
+type SetImageAreaImagePathRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	ImagePath       string  `json:"imagePath"`
+}
 
-type SetSocialURLRequestInput struct{}
+type SetSocialURLRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	URL             string  `json:"url"`
+}
 
 type AppendDrawAreaLayerItemRequestInput struct{}
 
-type SetChartAreaDataPathRequestInput struct{}
+type SetChartAreaDataPathRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	DataPath        string  `json:"dataPath"`
+}
 
 type SetChartTypeRequestInput struct{}
 
 type SetChartSettingsRequestInput struct{}
 
-type SetTextBlockTextRequestInput struct{}
+type SetTextBlockTextRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	Text            string  `json:"text"`
+}
 
 type SetTextBlockDisplayModeRequestInput struct{}
 
 type SetTextBlockFormatRequestInput struct{}
 
-type SetTextBlockHeadingAsSectionNameRequestInput struct{}
+type SetTextBlockHeadingAsSectionNameRequestInput struct {
+	FrontendOpID         *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID      string  `json:"projectConfigId"`
+	SectionID            string  `json:"sectionId"`
+	HeadingAsSectionName bool    `json:"headingAsSectionName"`
+}
 
-type SetTextBlockMetaControlStyleRequestInput struct{}
+type SetTextBlockMetaControlStyleRequestInput struct {
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID  string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	MetaControlStyle bool    `json:"metaControlStyle"`
+}
 
-type SetTextBlockMasterFontSizeRequestInput struct{}
+type SetTextBlockMasterFontSizeRequestInput struct {
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID  string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	MasterFontSizePx float64 `json:"masterFontSizePx"`
+}
 
 type SetCodeFileBindingRequestInput struct{}
 
@@ -668,16 +709,6 @@ export type SetBrowserSavedSearchesRequestInput = {
 };
 `
 
-const setSpreadsheetFilePathRequestInputRawTS = `
-export type SetSpreadsheetFilePathRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  filePath: string;
-  activeSheet: string | null;
-};
-`
-
 const setSpreadsheetSectionSettingsRequestInputRawTS = `
 export type SetSpreadsheetSectionSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -701,24 +732,6 @@ export type SetTaskBoardSectionStateRequestInput = {
 };
 `
 
-const setImageAreaImagePathRequestInputRawTS = `
-export type SetImageAreaImagePathRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  imagePath: string;
-};
-`
-
-const setSocialURLRequestInputRawTS = `
-export type SetSocialURLRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  url: string;
-};
-`
-
 const appendDrawAreaLayerItemRequestInputRawTS = `
 export type AppendDrawAreaLayerItemRequestInput = {
   frontendOpId?: string | null;
@@ -726,15 +739,6 @@ export type AppendDrawAreaLayerItemRequestInput = {
   sectionId: string;
   layerIdx: number;
   element: DrawAreaLayerItem;
-};
-`
-
-const setChartAreaDataPathRequestInputRawTS = `
-export type SetChartAreaDataPathRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  dataPath: string;
 };
 `
 
@@ -757,15 +761,6 @@ export type SetChartSettingsRequestInput = {
 };
 `
 
-const setTextBlockTextRequestInputRawTS = `
-export type SetTextBlockTextRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  text: string;
-};
-`
-
 const setTextBlockDisplayModeRequestInputRawTS = `
 export type SetTextBlockDisplayModeRequestInput = {
   frontendOpId?: string | null;
@@ -781,33 +776,6 @@ export type SetTextBlockFormatRequestInput = {
   projectConfigId: string;
   sectionId: string;
   format: TextBlockFormat;
-};
-`
-
-const setTextBlockHeadingAsSectionNameRequestInputRawTS = `
-export type SetTextBlockHeadingAsSectionNameRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  headingAsSectionName: boolean;
-};
-`
-
-const setTextBlockMetaControlStyleRequestInputRawTS = `
-export type SetTextBlockMetaControlStyleRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  metaControlStyle: boolean;
-};
-`
-
-const setTextBlockMasterFontSizeRequestInputRawTS = `
-export type SetTextBlockMasterFontSizeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  masterFontSizePx: number;
 };
 `
 

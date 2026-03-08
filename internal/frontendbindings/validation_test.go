@@ -428,6 +428,87 @@ func TestPrimitiveProjectStateRequestContractsUseConverterObjects(t *testing.T) 
 				{Name: "hideColumn", TypeExpr: "boolean", Optional: false},
 			},
 		},
+		{
+			name: "SetSpreadsheetFilePathRequestInput",
+			root: reflect.TypeOf(SetSpreadsheetFilePathRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "filePath", TypeExpr: "string", Optional: false},
+				{Name: "activeSheet", TypeExpr: "string | null", Optional: false},
+			},
+		},
+		{
+			name: "SetImageAreaImagePathRequestInput",
+			root: reflect.TypeOf(SetImageAreaImagePathRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "imagePath", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetSocialURLRequestInput",
+			root: reflect.TypeOf(SetSocialURLRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "url", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetChartAreaDataPathRequestInput",
+			root: reflect.TypeOf(SetChartAreaDataPathRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "dataPath", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetTextBlockTextRequestInput",
+			root: reflect.TypeOf(SetTextBlockTextRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "SetTextBlockHeadingAsSectionNameRequestInput",
+			root: reflect.TypeOf(SetTextBlockHeadingAsSectionNameRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "headingAsSectionName", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "SetTextBlockMetaControlStyleRequestInput",
+			root: reflect.TypeOf(SetTextBlockMetaControlStyleRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "metaControlStyle", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "SetTextBlockMasterFontSizeRequestInput",
+			root: reflect.TypeOf(SetTextBlockMasterFontSizeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "frontendOpId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string", Optional: false},
+				{Name: "masterFontSizePx", TypeExpr: "number", Optional: false},
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -469,11 +469,6 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setBrowserSavedSearchesRequestInputRawTS,
 			},
-			reflect.TypeOf(SetSpreadsheetFilePathRequestInput{}): {
-				Name: "SetSpreadsheetFilePathRequestInput",
-				Kind: "raw",
-				Raw:  setSpreadsheetFilePathRequestInputRawTS,
-			},
 			reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{}): {
 				Name: "SetSpreadsheetSectionSettingsRequestInput",
 				Kind: "raw",
@@ -484,25 +479,10 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setTaskBoardSectionStateRequestInputRawTS,
 			},
-			reflect.TypeOf(SetImageAreaImagePathRequestInput{}): {
-				Name: "SetImageAreaImagePathRequestInput",
-				Kind: "raw",
-				Raw:  setImageAreaImagePathRequestInputRawTS,
-			},
-			reflect.TypeOf(SetSocialURLRequestInput{}): {
-				Name: "SetSocialURLRequestInput",
-				Kind: "raw",
-				Raw:  setSocialURLRequestInputRawTS,
-			},
 			reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}): {
 				Name: "AppendDrawAreaLayerItemRequestInput",
 				Kind: "raw",
 				Raw:  appendDrawAreaLayerItemRequestInputRawTS,
-			},
-			reflect.TypeOf(SetChartAreaDataPathRequestInput{}): {
-				Name: "SetChartAreaDataPathRequestInput",
-				Kind: "raw",
-				Raw:  setChartAreaDataPathRequestInputRawTS,
 			},
 			reflect.TypeOf(SetChartTypeRequestInput{}): {
 				Name: "SetChartTypeRequestInput",
@@ -514,11 +494,6 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setChartSettingsRequestInputRawTS,
 			},
-			reflect.TypeOf(SetTextBlockTextRequestInput{}): {
-				Name: "SetTextBlockTextRequestInput",
-				Kind: "raw",
-				Raw:  setTextBlockTextRequestInputRawTS,
-			},
 			reflect.TypeOf(SetTextBlockDisplayModeRequestInput{}): {
 				Name: "SetTextBlockDisplayModeRequestInput",
 				Kind: "raw",
@@ -528,21 +503,6 @@ func newTypeConverter() *typeConverter {
 				Name: "SetTextBlockFormatRequestInput",
 				Kind: "raw",
 				Raw:  setTextBlockFormatRequestInputRawTS,
-			},
-			reflect.TypeOf(SetTextBlockHeadingAsSectionNameRequestInput{}): {
-				Name: "SetTextBlockHeadingAsSectionNameRequestInput",
-				Kind: "raw",
-				Raw:  setTextBlockHeadingAsSectionNameRequestInputRawTS,
-			},
-			reflect.TypeOf(SetTextBlockMetaControlStyleRequestInput{}): {
-				Name: "SetTextBlockMetaControlStyleRequestInput",
-				Kind: "raw",
-				Raw:  setTextBlockMetaControlStyleRequestInputRawTS,
-			},
-			reflect.TypeOf(SetTextBlockMasterFontSizeRequestInput{}): {
-				Name: "SetTextBlockMasterFontSizeRequestInput",
-				Kind: "raw",
-				Raw:  setTextBlockMasterFontSizeRequestInputRawTS,
 			},
 			reflect.TypeOf(SetCodeFileBindingRequestInput{}): {
 				Name: "SetCodeFileBindingRequestInput",

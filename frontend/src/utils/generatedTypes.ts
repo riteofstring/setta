@@ -6728,6 +6728,11 @@ export type SetTextBlockTextRequestInput = {
   sectionId: string;
   text: string;
 };
+export function createSetTextBlockTextRequestInput(
+  options: Partial<SetTextBlockTextRequestInput> = {},
+): SetTextBlockTextRequestInput {
+  return options as SetTextBlockTextRequestInput;
+}
 
 export type SetTextBlockDisplayModeRequestInput = {
   frontendOpId?: string | null;
@@ -6749,6 +6754,11 @@ export type SetTextBlockHeadingAsSectionNameRequestInput = {
   sectionId: string;
   headingAsSectionName: boolean;
 };
+export function createSetTextBlockHeadingAsSectionNameRequestInput(
+  options: Partial<SetTextBlockHeadingAsSectionNameRequestInput> = {},
+): SetTextBlockHeadingAsSectionNameRequestInput {
+  return options as SetTextBlockHeadingAsSectionNameRequestInput;
+}
 
 export type SetTextBlockMetaControlStyleRequestInput = {
   frontendOpId?: string | null;
@@ -6756,6 +6766,11 @@ export type SetTextBlockMetaControlStyleRequestInput = {
   sectionId: string;
   metaControlStyle: boolean;
 };
+export function createSetTextBlockMetaControlStyleRequestInput(
+  options: Partial<SetTextBlockMetaControlStyleRequestInput> = {},
+): SetTextBlockMetaControlStyleRequestInput {
+  return options as SetTextBlockMetaControlStyleRequestInput;
+}
 
 export type SetTextBlockMasterFontSizeRequestInput = {
   frontendOpId?: string | null;
@@ -6763,6 +6778,11 @@ export type SetTextBlockMasterFontSizeRequestInput = {
   sectionId: string;
   masterFontSizePx: number;
 };
+export function createSetTextBlockMasterFontSizeRequestInput(
+  options: Partial<SetTextBlockMasterFontSizeRequestInput> = {},
+): SetTextBlockMasterFontSizeRequestInput {
+  return options as SetTextBlockMasterFontSizeRequestInput;
+}
 
 export type KillSubprocessesRequestInput = {
   projectConfigId: string;
@@ -7555,6 +7575,11 @@ export type SetSpreadsheetFilePathRequestInput = {
   filePath: string;
   activeSheet: string | null;
 };
+export function createSetSpreadsheetFilePathRequestInput(
+  options: Partial<SetSpreadsheetFilePathRequestInput> = {},
+): SetSpreadsheetFilePathRequestInput {
+  return options as SetSpreadsheetFilePathRequestInput;
+}
 
 export type SetSpreadsheetSectionSettingsRequestInput = {
   frontendOpId?: string | null;
@@ -7581,6 +7606,11 @@ export type SetImageAreaImagePathRequestInput = {
   sectionId: string;
   imagePath: string;
 };
+export function createSetImageAreaImagePathRequestInput(
+  options: Partial<SetImageAreaImagePathRequestInput> = {},
+): SetImageAreaImagePathRequestInput {
+  return options as SetImageAreaImagePathRequestInput;
+}
 
 export type SetSocialURLRequestInput = {
   frontendOpId?: string | null;
@@ -7588,6 +7618,11 @@ export type SetSocialURLRequestInput = {
   sectionId: string;
   url: string;
 };
+export function createSetSocialURLRequestInput(
+  options: Partial<SetSocialURLRequestInput> = {},
+): SetSocialURLRequestInput {
+  return options as SetSocialURLRequestInput;
+}
 
 export type SetChartAreaDataPathRequestInput = {
   frontendOpId?: string | null;
@@ -7595,6 +7630,11 @@ export type SetChartAreaDataPathRequestInput = {
   sectionId: string;
   dataPath: string;
 };
+export function createSetChartAreaDataPathRequestInput(
+  options: Partial<SetChartAreaDataPathRequestInput> = {},
+): SetChartAreaDataPathRequestInput {
+  return options as SetChartAreaDataPathRequestInput;
+}
 
 export type SetChartTypeRequestInput = {
   frontendOpId?: string | null;
