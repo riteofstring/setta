@@ -175,9 +175,8 @@ Still missing:
 
 ## Next Recommended Step
 
-- execute Stage 3: add the Go-owned reveal coordinator over the completed
-  realtime/frontend transport and land `reveal_ui_setting`, keeping
-  `revealAfterSet` follow-on work bounded to that same explicit coordinator
+- execute the dedicated Stage 3 reveal slice in
+  `phase-6-ui-setting-reveal-tool-parity.md`
 
 ## Verification
 
@@ -196,3 +195,7 @@ Still missing:
   `get_ui_setting_value`, and `set_ui_setting_value` through the Go MCP server
   with typed structured results, compare-and-set stale-write protection, and
   focused MCP/HTTP/SSE coverage.
+- 2026-03-08: split Stage 3 reveal work into
+  `phase-6-ui-setting-reveal-tool-parity.md` because the remaining
+  `reveal_ui_setting` slice spans realtime message ownership, websocket ACK
+  ingress, and MCP transport rather than a single thin handler.

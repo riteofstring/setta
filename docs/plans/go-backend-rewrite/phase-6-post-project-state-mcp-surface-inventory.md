@@ -153,8 +153,8 @@ heuristics.
 
 ## Recommended Next Step
 
-Execute Stage 3 of the dedicated UI-setting plan in
-`phase-6-ui-setting-registry-and-reveal-tools-parity.md`.
+Execute the dedicated reveal slice in
+`phase-6-ui-setting-reveal-tool-parity.md`.
 
 This is now the highest-leverage next slice because:
 

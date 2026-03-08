@@ -246,11 +246,14 @@ Use the docs in this order:
   - focused implementation-plan doc for the Go-owned UI-setting
     registry/search/value/reveal slice; Stage 2 search/get/set transport
     parity is now complete and the next step is Stage 3 reveal runtime parity
-89. `spike-mcp.md`
+89. `phase-6-ui-setting-reveal-tool-parity.md`
+  - focused Stage 3 implementation-plan doc for Go-owned `reveal_ui_setting`
+    parity over explicit realtime message, ACK, and frontend-selection owners
+90. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-90. `spike-pty.md`
+91. `spike-pty.md`
    - PTY uncertainty-reduction plan
-90. `spike-lsp.md`
+92. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
