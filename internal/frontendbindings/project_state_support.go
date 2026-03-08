@@ -528,6 +528,44 @@ export const RunSnapshotModeEnum = {
 } as const;
 export type RunSnapshotMode = ObjectValues<typeof RunSnapshotModeEnum>;
 
+export const RenameRefactorModeEnum = {
+  ALWAYS_ASK: "ALWAYS_ASK",
+  ALWAYS_RENAME: "ALWAYS_RENAME",
+  NEVER_RENAME: "NEVER_RENAME",
+} as const;
+export type RenameRefactorMode = ObjectValues<
+  typeof RenameRefactorModeEnum
+>;
+
+export const BackgroundVariantEnum = {
+  lines: "lines",
+  dots: "dots",
+  cross: "cross",
+} as const;
+export type BackgroundVariant = ObjectValues<typeof BackgroundVariantEnum>;
+
+export const SelectionModeEnum = {
+  partial: "partial",
+  full: "full",
+} as const;
+export type SelectionMode = ObjectValues<typeof SelectionModeEnum>;
+
+export const PanOnScrollModeEnum = {
+  free: "free",
+  vertical: "vertical",
+  horizontal: "horizontal",
+} as const;
+export type PanOnScrollMode = ObjectValues<typeof PanOnScrollModeEnum>;
+
+export const MetaControlSizeModeEnum = {
+  any: "any",
+  auto_only: "auto_only",
+  manual_only: "manual_only",
+} as const;
+export type MetaControlSizeMode = ObjectValues<
+  typeof MetaControlSizeModeEnum
+>;
+
 type GeneratedMutableValue =
   | null
   | boolean
@@ -1716,6 +1754,9 @@ export type BaseParamCodeObjImplUnion =
   | TextAreaParamCodeObjImpl
   | DropzoneParamCodeObjImpl
   | NestedParamCodeObjImpl;
+export type BaseParentCodeObjImplUnion =
+  | CodeCallableCodeObjImpl
+  | NestedParamCodeObjImpl;
 
 export type UserDefaultCodeParamCodeObjImpl = {
   coreNameType: ParamNameType;
@@ -2890,25 +2931,195 @@ export function createSharePolicy(
   );
 }
 
-export type SettingsState = {
-  backend: {
-    runSnapshotMode: RunSnapshotMode;
-  };
-  gui: {
-    sectionTagColorChoices: Array<{
-      color: string;
-      description: string;
-    }>;
-  };
+export type SettingsShortcuts = {
+  newCardShortcut: string;
+  newGroupShortcut: string;
+  typeCheckShortcut: string;
+  newProjectConfigShortcut: string;
+  undoShortcut: string;
+  redoShortcut: string;
+  groupShortcut: string;
+  ungroupShortcut: string;
+  saveShortcut: string;
+  saveAsShortcut: string;
+  loadShortcut: string;
+  searchShortcut: string;
+  advancedSearchShortcut: string;
+  commandPaletteShortcut: string;
+  resetZoomShortcut: string;
+  copyShortcut: string;
+  pasteShortcut: string;
+  pasteAsRefShortcut: string;
+  sortingShortcut: string;
+  movingFreeShortcut: string;
+  showTooltipShortcut: string;
+  tooltipToPlaintextShortcut: string;
+  tooltipToMarkdownShortcut: string;
+  freezeTooltipShortcut: string;
+  frozenTooltipToPlaintextShortcut: string;
+  frozenTooltipToMarkdownShortcut: string;
+  incrementTooltipPageShortcut: string;
+  decrementTooltipPageShortcut: string;
+  copyTooltipTextShortcut: string;
+  frozenTooltipIncrementShortcut: string;
+  frozenTooltipDecrementShortcut: string;
+  frozenTooltipCopyShortcut: string;
+  newTerminalShortcut: string;
+  fitViewShortcut: string;
+  zoomToMouseShortcut: string;
+  deleteSectionShortcut: string;
+  selectAll: string;
+  selectTopLevelNonGroupSections: string;
+  showVersionsTabShortcut: string;
+  showParamUITypeTabShortcut: string;
+  showProjectOverviewTabShortcut: string;
+  focusHeaderShortcut: string;
+  focusOverviewShortcut: string;
+  focusCanvasShortcut: string;
+  focusUiEditorShortcut: string;
+  nextTopLevelSectionShortcut: string;
+  prevTopLevelSectionShortcut: string;
+  runCodeShortcut: string;
+  runEntryCodeBlockShortcut: string;
+  paramSelect: string;
+  paramIndentShortcut: string;
+  paramUnindentShortcut: string;
+  paramMoveUpShortcut: string;
+  paramMoveDownShortcut: string;
+  formatCode: string;
+  selectionKeyCode: string;
+  multiSelectionKeyCode: string;
+  panActivationKeyCode: string;
+  zoomActivationKeyCode: string;
+  zoomInShortcut: string;
+  zoomOutShortcut: string;
+  restartLanguageServerShortcut: string;
 };
-export function createSettingsState(
-  options: Partial<SettingsState> = {},
-): SettingsState {
-  const defaults: SettingsState = {
-    backend: {
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+export function createSettingsShortcuts(
+  options: Partial<SettingsShortcuts> = {},
+): SettingsShortcuts {
+  return mergeGeneratedOptions(
+    {
+      newCardShortcut: "N",
+      newGroupShortcut: "G",
+      typeCheckShortcut: "",
+      newProjectConfigShortcut: "",
+      undoShortcut: "Mod + Z",
+      redoShortcut: "Mod + Shift + Z",
+      groupShortcut: "Mod + G",
+      ungroupShortcut: "Shift + Mod + G",
+      saveShortcut: "Mod + S",
+      saveAsShortcut: "Mod + Shift + S",
+      loadShortcut: "Mod + L",
+      searchShortcut: "Mod + K",
+      advancedSearchShortcut: "Mod + P",
+      commandPaletteShortcut: "Mod + Shift + P",
+      resetZoomShortcut: "Mod + Comma",
+      copyShortcut: "Mod + C",
+      pasteShortcut: "Mod + V",
+      pasteAsRefShortcut: "Mod + Shift + V",
+      sortingShortcut: "Mod + Alt",
+      movingFreeShortcut: "Alt",
+      showTooltipShortcut: "Q",
+      tooltipToPlaintextShortcut: "Q + S",
+      tooltipToMarkdownShortcut: "Q + W",
+      freezeTooltipShortcut: "Q + F",
+      frozenTooltipToPlaintextShortcut: "S",
+      frozenTooltipToMarkdownShortcut: "W",
+      incrementTooltipPageShortcut: "Q + ArrowRight",
+      decrementTooltipPageShortcut: "Q + ArrowLeft",
+      copyTooltipTextShortcut: "Q + C",
+      frozenTooltipIncrementShortcut: "ArrowRight",
+      frozenTooltipDecrementShortcut: "ArrowLeft",
+      frozenTooltipCopyShortcut: "C",
+      newTerminalShortcut: "Ctrl + \u0060",
+      fitViewShortcut: "F",
+      zoomToMouseShortcut: "Z",
+      deleteSectionShortcut: "Backspace",
+      selectAll: "Mod + A",
+      selectTopLevelNonGroupSections: "Mod + Shift + A",
+      showVersionsTabShortcut: "V",
+      showParamUITypeTabShortcut: "P",
+      showProjectOverviewTabShortcut: "O",
+      focusHeaderShortcut: "Ctrl + Shift + 1",
+      focusOverviewShortcut: "Ctrl + Shift + 2",
+      focusCanvasShortcut: "Ctrl + Shift + 3",
+      focusUiEditorShortcut: "Ctrl + Shift + 4",
+      nextTopLevelSectionShortcut: "Alt + J",
+      prevTopLevelSectionShortcut: "Alt + K",
+      runCodeShortcut: "Mod + Enter",
+      runEntryCodeBlockShortcut: "Mod + Shift + Enter",
+      paramSelect: "Mod + Shift",
+      paramIndentShortcut: "Tab",
+      paramUnindentShortcut: "Shift + Tab",
+      paramMoveUpShortcut: "Alt + ArrowUp",
+      paramMoveDownShortcut: "Alt + ArrowDown",
+      formatCode: "Shift + Alt + F",
+      selectionKeyCode: "Shift",
+      multiSelectionKeyCode: "Mod",
+      panActivationKeyCode: "Space",
+      zoomActivationKeyCode: "Mod",
+      zoomInShortcut: "Equal",
+      zoomOutShortcut: "Minus",
+      restartLanguageServerShortcut: "Alt + Shift + R",
     },
-    gui: {
+    options,
+  );
+}
+
+export type SettingsGUI = {
+  snapGrid: [number, number];
+  showGridLines: boolean;
+  gridPattern: BackgroundVariant;
+  gridPatternSize: number;
+  gridColor: string;
+  gridColorDarkMode: string;
+  wireColor: string;
+  wireColorDarkMode: string;
+  defaultZoomLevel: number;
+  minZoom: number;
+  maxZoom: number;
+  panOnDrag: boolean;
+  panOnScroll: boolean;
+  panOnScrollSpeed: number;
+  panOnScrollMode: PanOnScrollMode;
+  zoomOnScroll: boolean;
+  zoomOnPinch: boolean;
+  zoomOnDoubleClick: boolean;
+  selectionMode: SelectionMode;
+  leftSidePaneShiftsMap: boolean;
+  transitionDuration: number;
+  sectionTagColorChoices: Array<{
+    color: string;
+    description: string;
+  }>;
+};
+export function createSettingsGUI(
+  options: Partial<SettingsGUI> = {},
+): SettingsGUI {
+  return mergeGeneratedOptions(
+    {
+      snapGrid: [15, 15],
+      showGridLines: true,
+      gridPattern: BackgroundVariantEnum.dots,
+      gridPatternSize: 2,
+      gridColor: "#afbacf",
+      gridColorDarkMode: "#2b364a",
+      wireColor: "#41506c",
+      wireColorDarkMode: "#bac2d3",
+      defaultZoomLevel: 1.0,
+      minZoom: 0.1,
+      maxZoom: 10.0,
+      panOnDrag: true,
+      panOnScroll: true,
+      panOnScrollSpeed: 1.0,
+      panOnScrollMode: PanOnScrollModeEnum.free,
+      zoomOnScroll: true,
+      zoomOnPinch: true,
+      zoomOnDoubleClick: false,
+      selectionMode: SelectionModeEnum.partial,
+      leftSidePaneShiftsMap: true,
+      transitionDuration: 50,
       sectionTagColorChoices: [
         { color: "#ef4444", description: "Red" },
         { color: "#f97316", description: "Orange" },
@@ -2920,11 +3131,789 @@ export function createSettingsState(
         { color: "#64748b", description: "Slate" },
       ],
     },
+    options,
+  );
+}
+
+export type SettingsBackend = {
+  showDefaultConfigOnLoad: boolean;
+  autosave: boolean;
+  autobackup: boolean;
+  autobackupFreq: number;
+  autobackupKeepLastN: number;
+  clearTerminalBeforeMarkingAsReady: boolean;
+  defaultTerminalShell?: string | null;
+  exportDbReadableOnSave: boolean;
+  exportDbReadableWithVariantsOnSave: boolean;
+  autoRefetchCallableParamsOnLspMismatch: boolean;
+  renameRefactorMode: RenameRefactorMode;
+  saveRenderedValues: boolean;
+  runSnapshotMode: RunSnapshotMode;
+  completionGuardEnabled: boolean;
+};
+export function createSettingsBackend(
+  options: Partial<SettingsBackend> = {},
+): SettingsBackend {
+  return mergeGeneratedOptions(
+    {
+      showDefaultConfigOnLoad: true,
+      autosave: true,
+      autobackup: true,
+      autobackupFreq: 300,
+      autobackupKeepLastN: 10,
+      clearTerminalBeforeMarkingAsReady: true,
+      defaultTerminalShell: null,
+      exportDbReadableOnSave: false,
+      exportDbReadableWithVariantsOnSave: false,
+      autoRefetchCallableParamsOnLspMismatch: true,
+      renameRefactorMode: RenameRefactorModeEnum.ALWAYS_ASK,
+      saveRenderedValues: false,
+      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+      completionGuardEnabled: false,
+    },
+    options,
+  );
+}
+
+export type SectionSizingPolicyTypeEntry = {
+  minHeight: number;
+  maxHeight: number;
+  minWidth: number;
+  maxWidth: number;
+};
+
+export type SectionSizingPolicyCallableTypeEntry =
+  SectionSizingPolicyTypeEntry & {
+    hideSearchMinHeight: number;
+    hideParamsMinHeight: number;
+  };
+
+export type MetaControlSizingPolicyTypeEntry = {
+  minHeight: number;
+  minWidth: number;
+  sizeModeHeight: MetaControlSizeMode;
+  sizeModeWidth: MetaControlSizeMode;
+};
+
+export type MetaControlSizingPolicyByType = {
+  CodeCallable: MetaControlSizingPolicyTypeEntry;
+  CodeParam: MetaControlSizingPolicyTypeEntry;
+  TextParam: MetaControlSizingPolicyTypeEntry;
+  DateParam: MetaControlSizingPolicyTypeEntry;
+  TimeParam: MetaControlSizingPolicyTypeEntry;
+  ButtonParam: MetaControlSizingPolicyTypeEntry;
+  SliderParam: MetaControlSizingPolicyTypeEntry;
+  RotaryParam: MetaControlSizingPolicyTypeEntry;
+  SwitchParam: MetaControlSizingPolicyTypeEntry;
+  ColorPickerParam: MetaControlSizingPolicyTypeEntry;
+  DropdownParam: MetaControlSizingPolicyTypeEntry;
+  PasswordParam: MetaControlSizingPolicyTypeEntry;
+  TextAreaParam: MetaControlSizingPolicyTypeEntry;
+  DropzoneParam: MetaControlSizingPolicyTypeEntry;
+  NestedParam: MetaControlSizingPolicyTypeEntry;
+};
+export function createMetaControlSizingPolicyByType(
+  options: Partial<MetaControlSizingPolicyByType> = {},
+): MetaControlSizingPolicyByType {
+  return {
+    ...mergeGeneratedOptions(
+      {
+        CodeCallable: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        CodeParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        TextParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        DateParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        TimeParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        ButtonParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        SliderParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        RotaryParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        SwitchParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        ColorPickerParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        DropdownParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        PasswordParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        TextAreaParam: {
+          minHeight: 80,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        DropzoneParam: {
+          minHeight: 120,
+          minWidth: 240,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+        NestedParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: MetaControlSizeModeEnum.any,
+          sizeModeWidth: MetaControlSizeModeEnum.any,
+        },
+      },
+      options,
+    ),
+    CodeCallable: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.CodeCallable ?? {},
+    ),
+    CodeParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.CodeParam ?? {},
+    ),
+    TextParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.TextParam ?? {},
+    ),
+    DateParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.DateParam ?? {},
+    ),
+    TimeParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.TimeParam ?? {},
+    ),
+    ButtonParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.ButtonParam ?? {},
+    ),
+    SliderParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.SliderParam ?? {},
+    ),
+    RotaryParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.RotaryParam ?? {},
+    ),
+    SwitchParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.SwitchParam ?? {},
+    ),
+    ColorPickerParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.ColorPickerParam ?? {},
+    ),
+    DropdownParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.DropdownParam ?? {},
+    ),
+    PasswordParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.auto_only,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.PasswordParam ?? {},
+    ),
+    TextAreaParam: mergeGeneratedOptions(
+      {
+        minHeight: 80,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.TextAreaParam ?? {},
+    ),
+    DropzoneParam: mergeGeneratedOptions(
+      {
+        minHeight: 120,
+        minWidth: 240,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.DropzoneParam ?? {},
+    ),
+    NestedParam: mergeGeneratedOptions(
+      {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: MetaControlSizeModeEnum.any,
+        sizeModeWidth: MetaControlSizeModeEnum.any,
+      },
+      options.NestedParam ?? {},
+    ),
+  };
+}
+
+export type SectionSizingPolicyGlobals = {
+  pinnedParamsAreaMinHeight: number;
+  unpinnedParamsAreaMinHeight: number;
+  minimizedHeight: number;
+  infiniteMaxHeight: number;
+  infiniteMaxWidth: number;
+  autoMaxHeight: number;
+};
+export function createSectionSizingPolicyGlobals(
+  options: Partial<SectionSizingPolicyGlobals> = {},
+): SectionSizingPolicyGlobals {
+  return mergeGeneratedOptions(
+    {
+      pinnedParamsAreaMinHeight: 64,
+      unpinnedParamsAreaMinHeight: 36,
+      minimizedHeight: 32,
+      infiniteMaxHeight: 100000,
+      infiniteMaxWidth: 100000,
+      autoMaxHeight: 350,
+    },
+    options,
+  );
+}
+
+export type SectionSizingPolicyByType = {
+  Callable: SectionSizingPolicyCallableTypeEntry;
+  Dict: SectionSizingPolicyTypeEntry;
+  ListRoot: SectionSizingPolicyTypeEntry;
+  Group: SectionSizingPolicyTypeEntry;
+  Image: SectionSizingPolicyTypeEntry;
+  Chart: SectionSizingPolicyTypeEntry;
+  Draw: SectionSizingPolicyTypeEntry;
+  Prompt: SectionSizingPolicyTypeEntry;
+  TextBlock: SectionSizingPolicyTypeEntry;
+  MetaControl: SectionSizingPolicyTypeEntry;
+  Social: SectionSizingPolicyTypeEntry;
+  GlobalVariables: SectionSizingPolicyTypeEntry;
+  Code: SectionSizingPolicyTypeEntry;
+  GenPythonCode: SectionSizingPolicyTypeEntry;
+  GenPythonMetadata: SectionSizingPolicyTypeEntry;
+  Terminal: SectionSizingPolicyTypeEntry;
+  IFrame: SectionSizingPolicyTypeEntry;
+  Chat: SectionSizingPolicyTypeEntry;
+  Browser: SectionSizingPolicyTypeEntry;
+  Plugin: SectionSizingPolicyTypeEntry;
+  TaskBoard: SectionSizingPolicyTypeEntry;
+  Spreadsheet: SectionSizingPolicyTypeEntry;
+};
+export function createSectionSizingPolicyByType(
+  options: Partial<SectionSizingPolicyByType> = {},
+): SectionSizingPolicyByType {
+  return {
+    ...mergeGeneratedOptions(
+      {
+        Callable: {
+          minHeight: 104,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+          hideSearchMinHeight: 42,
+          hideParamsMinHeight: 90,
+        },
+        Dict: {
+          minHeight: 78,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        ListRoot: {
+          minHeight: 50,
+          maxHeight: 50,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Group: {
+          minHeight: 0,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Image: {
+          minHeight: 100,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Chart: {
+          minHeight: 300,
+          maxHeight: 100000,
+          minWidth: 300,
+          maxWidth: 100000,
+        },
+        Draw: {
+          minHeight: 100,
+          maxHeight: 100000,
+          minWidth: 402,
+          maxWidth: 100000,
+        },
+        Prompt: {
+          minHeight: 150,
+          maxHeight: 100000,
+          minWidth: 300,
+          maxWidth: 100000,
+        },
+        TextBlock: {
+          minHeight: 49,
+          maxHeight: 100000,
+          minWidth: 100,
+          maxWidth: 100000,
+        },
+        MetaControl: {
+          minHeight: 10,
+          maxHeight: 100000,
+          minWidth: 100,
+          maxWidth: 100000,
+        },
+        Social: {
+          minHeight: 50,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        GlobalVariables: {
+          minHeight: 78,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Code: {
+          minHeight: 58.2,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        GenPythonCode: {
+          minHeight: 0,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        GenPythonMetadata: {
+          minHeight: 0,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Terminal: {
+          minHeight: 100,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        IFrame: {
+          minHeight: 0,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Chat: {
+          minHeight: 200,
+          maxHeight: 100000,
+          minWidth: 400,
+          maxWidth: 100000,
+        },
+        Browser: {
+          minHeight: 250,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        Plugin: {
+          minHeight: 80,
+          maxHeight: 100000,
+          minWidth: 200,
+          maxWidth: 100000,
+        },
+        TaskBoard: {
+          minHeight: 240,
+          maxHeight: 100000,
+          minWidth: 360,
+          maxWidth: 100000,
+        },
+        Spreadsheet: {
+          minHeight: 260,
+          maxHeight: 100000,
+          minWidth: 420,
+          maxWidth: 100000,
+        },
+      },
+      options,
+    ),
+    Callable: mergeGeneratedOptions(
+      {
+        minHeight: 104,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+        hideSearchMinHeight: 42,
+        hideParamsMinHeight: 90,
+      },
+      options.Callable ?? {},
+    ),
+    Dict: mergeGeneratedOptions(
+      {
+        minHeight: 78,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Dict ?? {},
+    ),
+    ListRoot: mergeGeneratedOptions(
+      {
+        minHeight: 50,
+        maxHeight: 50,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.ListRoot ?? {},
+    ),
+    Group: mergeGeneratedOptions(
+      {
+        minHeight: 0,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Group ?? {},
+    ),
+    Image: mergeGeneratedOptions(
+      {
+        minHeight: 100,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Image ?? {},
+    ),
+    Chart: mergeGeneratedOptions(
+      {
+        minHeight: 300,
+        maxHeight: 100000,
+        minWidth: 300,
+        maxWidth: 100000,
+      },
+      options.Chart ?? {},
+    ),
+    Draw: mergeGeneratedOptions(
+      {
+        minHeight: 100,
+        maxHeight: 100000,
+        minWidth: 402,
+        maxWidth: 100000,
+      },
+      options.Draw ?? {},
+    ),
+    Prompt: mergeGeneratedOptions(
+      {
+        minHeight: 150,
+        maxHeight: 100000,
+        minWidth: 300,
+        maxWidth: 100000,
+      },
+      options.Prompt ?? {},
+    ),
+    TextBlock: mergeGeneratedOptions(
+      {
+        minHeight: 49,
+        maxHeight: 100000,
+        minWidth: 100,
+        maxWidth: 100000,
+      },
+      options.TextBlock ?? {},
+    ),
+    MetaControl: mergeGeneratedOptions(
+      {
+        minHeight: 10,
+        maxHeight: 100000,
+        minWidth: 100,
+        maxWidth: 100000,
+      },
+      options.MetaControl ?? {},
+    ),
+    Social: mergeGeneratedOptions(
+      {
+        minHeight: 50,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Social ?? {},
+    ),
+    GlobalVariables: mergeGeneratedOptions(
+      {
+        minHeight: 78,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.GlobalVariables ?? {},
+    ),
+    Code: mergeGeneratedOptions(
+      {
+        minHeight: 58.2,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Code ?? {},
+    ),
+    GenPythonCode: mergeGeneratedOptions(
+      {
+        minHeight: 0,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.GenPythonCode ?? {},
+    ),
+    GenPythonMetadata: mergeGeneratedOptions(
+      {
+        minHeight: 0,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.GenPythonMetadata ?? {},
+    ),
+    Terminal: mergeGeneratedOptions(
+      {
+        minHeight: 100,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Terminal ?? {},
+    ),
+    IFrame: mergeGeneratedOptions(
+      {
+        minHeight: 0,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.IFrame ?? {},
+    ),
+    Chat: mergeGeneratedOptions(
+      {
+        minHeight: 200,
+        maxHeight: 100000,
+        minWidth: 400,
+        maxWidth: 100000,
+      },
+      options.Chat ?? {},
+    ),
+    Browser: mergeGeneratedOptions(
+      {
+        minHeight: 250,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Browser ?? {},
+    ),
+    Plugin: mergeGeneratedOptions(
+      {
+        minHeight: 80,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
+      },
+      options.Plugin ?? {},
+    ),
+    TaskBoard: mergeGeneratedOptions(
+      {
+        minHeight: 240,
+        maxHeight: 100000,
+        minWidth: 360,
+        maxWidth: 100000,
+      },
+      options.TaskBoard ?? {},
+    ),
+    Spreadsheet: mergeGeneratedOptions(
+      {
+        minHeight: 260,
+        maxHeight: 100000,
+        minWidth: 420,
+        maxWidth: 100000,
+      },
+      options.Spreadsheet ?? {},
+    ),
+  };
+}
+
+export type SectionSizingPolicy = {
+  byType: SectionSizingPolicyByType;
+  metaControlByType: MetaControlSizingPolicyByType;
+  globals: SectionSizingPolicyGlobals;
+};
+export function createSectionSizingPolicy(
+  options: Partial<SectionSizingPolicy> = {},
+): SectionSizingPolicy {
+  const byType = createSectionSizingPolicyByType(options.byType ?? {});
+  const metaControlByType = createMetaControlSizingPolicyByType(
+    options.metaControlByType ?? {},
+  );
+  const globals = createSectionSizingPolicyGlobals(options.globals ?? {});
+  return {
+    ...mergeGeneratedOptions(
+      {
+        byType,
+        metaControlByType,
+        globals,
+      },
+      options,
+    ),
+    byType,
+    metaControlByType,
+    globals,
+  };
+}
+
+export type SettingsState = {
+  shortcuts: SettingsShortcuts;
+  gui: SettingsGUI;
+  backend: SettingsBackend;
+  sectionSizingPolicy: SectionSizingPolicy;
+  languageServer: Record<string, unknown>;
+};
+export function createSettingsState(
+  options: Partial<SettingsState> = {},
+): SettingsState {
+  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
+  const gui = createSettingsGUI(options.gui ?? {});
+  const backend = createSettingsBackend(options.backend ?? {});
+  const sectionSizingPolicy = createSectionSizingPolicy(
+    options.sectionSizingPolicy ?? {},
+  );
+  const defaults: SettingsState = {
+    shortcuts,
+    gui,
+    backend,
+    sectionSizingPolicy,
+    languageServer: {
+      basedpyright: {
+        analysis: {
+          diagnosticSeverityOverrides: {
+            reportUnknownVariableType: "none",
+            reportUnknownMemberType: "none",
+            reportUnannotatedClassAttribute: "none",
+            reportSelfClsParameterName: "none",
+          },
+        },
+      },
+    },
   };
   return {
     ...mergeGeneratedOptions(defaults, options),
-    backend: mergeGeneratedOptions(defaults.backend, options.backend ?? {}),
-    gui: mergeGeneratedOptions(defaults.gui, options.gui ?? {}),
+    shortcuts,
+    gui,
+    backend,
+    sectionSizingPolicy,
+    languageServer: cloneGeneratedValue(
+      options.languageServer ?? defaults.languageServer,
+    ),
   };
 }
 
@@ -2958,6 +3947,11 @@ export const BaseParamCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.TimeParam,
+]);
+
+const BaseParentCodeObjImplTypeSet = new Set([
+  CodeObjTypeEnum.CodeCallable,
+  CodeObjTypeEnum.NestedParam,
 ]);
 
 export const ControlCodeObjTypeSet = new Set([
@@ -3039,6 +4033,12 @@ export function isBaseParamCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is BaseParamCodeObjImplUnion {
   return BaseParamCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParentCodeObjImplUnion {
+  return BaseParentCodeObjImplTypeSet.has(x.type);
 }
 
 export function isBaseParentSectionImpl(

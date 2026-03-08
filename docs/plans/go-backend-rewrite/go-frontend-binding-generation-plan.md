@@ -188,6 +188,20 @@ Current landed wedge:
       - shared code binding enums/types
         - `CodeFileAccessMode`
         - `CodeFileBinding`
+      - current settings helper/enums used by current callers
+        - `SettingsShortcuts`
+        - `SettingsGUI`
+        - `SettingsBackend`
+        - `SectionSizingPolicy`
+        - `createSettingsShortcuts`
+        - `createSettingsGUI`
+        - `createSettingsBackend`
+        - `createSectionSizingPolicy`
+        - `RenameRefactorMode`
+        - `BackgroundVariant`
+        - `SelectionMode`
+        - `PanOnScrollMode`
+        - `MetaControlSizeMode`
       - current section sizing enums/types/helpers used by current callers
         - `SectionSizeMode`
         - `SectionSizeValue`
@@ -682,9 +696,19 @@ Current landed wedge:
     and the Setta API preset helper now consume canonical Go-generated
     top-level section creation, view-mode lifecycle, and section-rename
     bindings
+  - the current settings-backed UI/layout caller cluster in `ProjectNav`,
+    `ProjectPageSearch`, `GlobalWrapper`, `DictArea`, `GroupContainer`,
+    `FlowRenderer`, `ZoomPane`, `Pane`, `Background`, `ProjectAISettings`,
+    `PluginsPane`, and `RenameReferencesModal` now consumes canonical
+    Go-generated settings helpers and enums instead of the legacy
+    Python-generated surface
   - `VariantList`, `EdgePortsSettings`, and `ParamNameInput` now consume the
     canonical Go-generated base-dict section helper surface needed for
     JSON-source and top-level-param-aware dict-section behavior
+  - `ParamSwitch`, `ParamDndMonitor`, `state/actions/params/paramTree`, and
+    `state/actions/params/moveParams` now consume the canonical
+    Go-generated base-parent code-object helper surface needed for nested
+    param tree behavior
   - `plugins/runtime`, `plugins/restart`, and the current `PluginsPane`
     plugin runtime/mutation callers now consume canonical Go-generated plugin
     bindings for plugin runtime/status/config/restart/install/update/rollback

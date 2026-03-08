@@ -22,7 +22,9 @@ import {
   createUserDefaultDictSectionImpl,
   createViewModeConfig,
   isBaseDictSectionImpl,
+  isBaseParentCodeObjImpl,
   ParamNameTypeEnum,
+  ParameterPassingStyleEnum,
   RouteEnum,
   SectionParamCodeObjTypeSet,
   SectionSizeModeEnum,
@@ -150,6 +152,43 @@ describe("generated project state factories", () => {
       throw new Error("expected global variables section to satisfy base dict");
     }
     expect(globalVariablesImpl.topLevelParamId).toBe("globals-root");
+  });
+
+  it("exports the canonical base-parent code object helper for param tree callers", () => {
+    const codeCallableImpl = {
+      type: CodeObjTypeEnum.CodeCallable,
+      id: "callable-code-obj",
+      name: "callable",
+      description: "",
+      isPreset: false,
+      children: ["child-1"],
+    } satisfies BaseCodeObjImplUnion;
+    const nestedParamImpl = {
+      type: CodeObjTypeEnum.NestedParam,
+      id: "nested-param",
+      name: "nested",
+      description: "",
+      isPreset: false,
+      children: ["child-1"],
+      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameEditable: true,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      typeAnnotation: "",
+    } satisfies BaseCodeObjImplUnion;
+    const codeParamImpl = createCodeParamCodeObjImpl(
+      createUserDefaultCodeParamCodeObjImpl(),
+      {
+        id: "code-param",
+      },
+    );
+
+    expect(isBaseParentCodeObjImpl(codeCallableImpl)).toBe(true);
+    expect(isBaseParentCodeObjImpl(nestedParamImpl)).toBe(true);
+    expect(isBaseParentCodeObjImpl(codeParamImpl)).toBe(false);
+    if (!isBaseParentCodeObjImpl(nestedParamImpl)) {
+      throw new Error("expected nested param to satisfy base parent code obj");
+    }
+    expect(nestedParamImpl.children).toEqual(["child-1"]);
   });
 
   it("exports browser-section helpers and saved-search defaults", () => {
