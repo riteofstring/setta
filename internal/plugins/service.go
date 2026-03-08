@@ -242,6 +242,11 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 	if err != nil {
 		return PluginInstallResult{}, err
 	}
+	if candidate.cleanup != nil {
+		defer func() {
+			_ = candidate.cleanup()
+		}()
+	}
 	if err := normalizeCandidate(&candidate, parsedSpec); err != nil {
 		return PluginInstallResult{}, err
 	}
@@ -288,7 +293,7 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 	}
 	activeEntry := findDiscoveredPlugin(snapshot.Plugins, candidate.Manifest.ID, scope)
 	if activeEntry.PluginID == "" {
-		return PluginInstallResult{}, newServiceError(ServiceErrorCodeSourceFetchFailed, "Installed plugin was not discovered: %s", candidate.Manifest.ID)
+		return PluginInstallResult{}, newServiceError(ServiceErrorCodeInstallFailed, "Installed plugin was not discovered: %s", candidate.Manifest.ID)
 	}
 
 	return PluginInstallResult{

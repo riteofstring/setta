@@ -162,6 +162,13 @@ func (r *Runtime) InterpreterPath() string {
 	return r.interpreter
 }
 
+func (r *Runtime) Environ() []string {
+	if r == nil || r.environ == nil {
+		return nil
+	}
+	return append([]string(nil), r.environ()...)
+}
+
 func (r *Runtime) InstalledPackages(ctx context.Context) ([]string, error) {
 	if r == nil {
 		return nil, ErrRuntimeRequired

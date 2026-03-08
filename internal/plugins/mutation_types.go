@@ -5,6 +5,7 @@ type CandidatePlugin struct {
 	Manifest           PluginManifest
 	CanonicalSourceKey string
 	SourceDigestSHA256 *string
+	cleanup            func() error
 }
 
 type PendingRestartRemovedBackendPlugin struct {
