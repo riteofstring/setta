@@ -679,6 +679,18 @@ The next bounded plugin backend follow-on tracked in
   mutation-time runtime refresh remain deferred until a concrete caller
   requires one of those surfaces
 
+The next bounded plugin backend follow-on is now tracked in
+`phase-15-plugin-backend-runtime-refresh-after-mutations.md`:
+
+- live IDE-mode plugin-set mutations should rebuild the backend route/tool/
+  static-dir/listener runtime instead of leaving the startup snapshot in place
+- backend plugin HTTP transport should move to runtime path matching so install/
+  remove/enable/disable changes do not depend on chi routes frozen at startup
+- plugin MCP tools should be replaced as a set on refresh instead of keeping
+  stale runtime registrations alive
+- plugin-defined language-server, external-agent, and codegen-target hot
+  refresh remain deferred until a separate concrete caller requires them
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:
