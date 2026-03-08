@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"text/template"
 )
@@ -25,16 +26,16 @@ type GeneratedBindings struct {
 	EndpointsTS string
 }
 
+type endpointPathParamRenderData struct {
+	Name     string
+	TypeExpr string
+}
+
 type endpointRenderData struct {
 	FunctionName    string
-	Method          string
-	RouteCollection string
-	RouteName       string
-	RequestTypeName string
+	FunctionParams  []endpointPathParamRenderData
 	ResponseTypeRef string
-	UsesRequest     bool
-	UsesGet         bool
-	UsesBinaryGet   bool
+	CallExpression  string
 }
 
 type routeEnumEntry struct {
@@ -53,6 +54,7 @@ type emittedSymbol struct {
 }
 
 var tsIdentifierPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
+var routePathParamPattern = regexp.MustCompile(`\{([^}]+)\}`)
 
 var tsReservedBindingKeywords = map[string]struct{}{
 	"break": {}, "case": {}, "catch": {}, "class": {}, "const": {}, "continue": {},
@@ -116,21 +118,16 @@ func buildBindings(
 			return GeneratedBindings{}, err
 		}
 
-		requestTypeName := ""
-		if spec.RequestType != nil {
-			requestTypeName = frontendTypeName(spec.RequestType)
+		functionParams, addressParamNames, err := renderEndpointFunctionParams(spec, converter)
+		if err != nil {
+			return GeneratedBindings{}, err
 		}
 
 		renderEndpoints = append(renderEndpoints, endpointRenderData{
 			FunctionName:    spec.FunctionName,
-			Method:          spec.Method,
-			RouteCollection: spec.RouteCollection,
-			RouteName:       spec.RouteName,
-			RequestTypeName: requestTypeName,
+			FunctionParams:  functionParams,
 			ResponseTypeRef: tsTypeReference(spec.ResponseType),
-			UsesRequest:     spec.RequestType != nil,
-			UsesGet:         spec.Method == "GET" && !spec.BinaryResponse,
-			UsesBinaryGet:   spec.Method == "GET" && spec.BinaryResponse,
+			CallExpression:  renderEndpointCallExpression(spec, addressParamNames),
 		})
 	}
 
@@ -168,6 +165,94 @@ func buildBindings(
 	}, nil
 }
 
+func renderEndpointFunctionParams(
+	spec EndpointSpec,
+	converter *typeConverter,
+) ([]endpointPathParamRenderData, []string, error) {
+	params := make([]endpointPathParamRenderData, 0, 4)
+
+	pathParamFields, err := endpointPathParamFields(spec.PathParamsType)
+	if err != nil {
+		return nil, nil, fmt.Errorf("endpoint %s: %w", spec.FunctionName, err)
+	}
+	addressParamNames := make([]string, 0, len(pathParamFields))
+	for _, field := range pathParamFields {
+		typeExpr, err := renderEndpointParamTypeExpr(converter, field.Type)
+		if err != nil {
+			return nil, nil, fmt.Errorf(
+				"endpoint %s: path param %s: %w",
+				spec.FunctionName,
+				field.Name,
+				err,
+			)
+		}
+		params = append(params, endpointPathParamRenderData{
+			Name:     field.Name,
+			TypeExpr: typeExpr,
+		})
+		addressParamNames = append(addressParamNames, field.Name)
+	}
+
+	if spec.RequestType != nil {
+		params = append(params, endpointPathParamRenderData{
+			Name:     "x",
+			TypeExpr: tsTypeReference(spec.RequestType),
+		})
+	}
+
+	return params, addressParamNames, nil
+}
+
+func renderEndpointParamTypeExpr(converter *typeConverter, t reflect.Type) (string, error) {
+	if frontendTypeName(t) != "" {
+		if err := converter.AddRootType(t); err != nil {
+			return "", err
+		}
+		return tsTypeReference(t), nil
+	}
+	return converter.renderTypeExpr(t)
+}
+
+func renderEndpointCallExpression(spec EndpointSpec, addressParamNames []string) string {
+	routeRef := spec.RouteCollection + "." + spec.RouteName
+	addressParamsExpr := renderAddressParamsExpr(addressParamNames)
+
+	switch {
+	case spec.BinaryResponse:
+		if addressParamsExpr != "" {
+			return fmt.Sprintf("getBinary(%s, %s)", routeRef, addressParamsExpr)
+		}
+		if spec.RequestType != nil {
+			return fmt.Sprintf("getBinary(%s, x)", routeRef)
+		}
+		return fmt.Sprintf("getBinary(%s)", routeRef)
+	case spec.Method == "GET":
+		if addressParamsExpr != "" {
+			return fmt.Sprintf("get(%s, %s)", routeRef, addressParamsExpr)
+		}
+		if spec.RequestType != nil {
+			return fmt.Sprintf("get(%s, x)", routeRef)
+		}
+		return fmt.Sprintf("get(%s)", routeRef)
+	default:
+		bodyExpr := "null"
+		if spec.RequestType != nil {
+			bodyExpr = "x"
+		}
+		if addressParamsExpr != "" {
+			return fmt.Sprintf("post(%s, %s, %s)", routeRef, bodyExpr, addressParamsExpr)
+		}
+		return fmt.Sprintf("post(%s, %s)", routeRef, bodyExpr)
+	}
+}
+
+func renderAddressParamsExpr(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	return "{ " + strings.Join(names, ", ") + " }"
+}
+
 func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpec) error {
 	routeCollections, err := buildRouteCollectionLookup(routeGroups)
 	if err != nil {
@@ -203,7 +288,8 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		if !ok {
 			return fmt.Errorf("endpoint %s: unknown route collection %q", spec.FunctionName, spec.RouteCollection)
 		}
-		if _, ok := routes[spec.RouteName]; !ok {
+		routePath, ok := routes[spec.RouteName]
+		if !ok {
 			return fmt.Errorf("endpoint %s: route %s.%s is not defined", spec.FunctionName, spec.RouteCollection, spec.RouteName)
 		}
 		if _, ok := generatedEndpointsImportContract.SupportedRouteCollections[spec.RouteCollection]; !ok {
@@ -225,8 +311,14 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		if spec.RequestType != nil && frontendTypeName(spec.RequestType) == "" {
 			return fmt.Errorf("endpoint %s: request type must be a named Go type, got %s", spec.FunctionName, spec.RequestType.String())
 		}
+		if spec.PathParamsType != nil && frontendTypeName(spec.PathParamsType) == "" {
+			return fmt.Errorf("endpoint %s: path params type must be a named Go type, got %s", spec.FunctionName, spec.PathParamsType.String())
+		}
 		if spec.ResponseType != nil && frontendTypeName(spec.ResponseType) == "" {
 			return fmt.Errorf("endpoint %s: response type must be a named Go type, got %s", spec.FunctionName, spec.ResponseType.String())
+		}
+		if err := validateEndpointPathParams(spec, routePath); err != nil {
+			return err
 		}
 
 		if previous, exists := functionNames[spec.FunctionName]; exists {
@@ -253,6 +345,67 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 			)
 		}
 		routeMethods[routeMethodKey] = spec
+	}
+
+	return nil
+}
+
+func validateEndpointPathParams(spec EndpointSpec, routePath string) error {
+	routeParamNames := routePathParamNames(routePath)
+	if spec.Method == "POST" && len(routeParamNames) > 0 && spec.PathParamsType == nil {
+		return fmt.Errorf(
+			"endpoint %s: POST route %s.%s has path params but no path params type",
+			spec.FunctionName,
+			spec.RouteCollection,
+			spec.RouteName,
+		)
+	}
+	if spec.RequestType != nil && spec.PathParamsType != nil && spec.Method == "GET" {
+		return fmt.Errorf(
+			"endpoint %s: GET endpoints cannot combine request and path params yet",
+			spec.FunctionName,
+		)
+	}
+	if spec.PathParamsType == nil {
+		return nil
+	}
+	if len(routeParamNames) == 0 {
+		return fmt.Errorf(
+			"endpoint %s: path params type provided for route %s.%s without route path params",
+			spec.FunctionName,
+			spec.RouteCollection,
+			spec.RouteName,
+		)
+	}
+
+	fields, err := endpointPathParamFields(spec.PathParamsType)
+	if err != nil {
+		return fmt.Errorf("endpoint %s: %w", spec.FunctionName, err)
+	}
+	fieldsByName := make(map[string]endpointPathParamField, len(fields))
+	for _, field := range fields {
+		fieldsByName[field.Name] = field
+	}
+	for _, routeParamName := range routeParamNames {
+		if _, ok := fieldsByName[routeParamName]; !ok {
+			return fmt.Errorf(
+				"endpoint %s: path params type %s is missing route param %q",
+				spec.FunctionName,
+				frontendTypeName(spec.PathParamsType),
+				routeParamName,
+			)
+		}
+	}
+	for _, field := range fields {
+		if !slices.Contains(routeParamNames, field.Name) {
+			return fmt.Errorf(
+				"endpoint %s: path params type %s includes extra field %q not present in route %s",
+				spec.FunctionName,
+				frontendTypeName(spec.PathParamsType),
+				field.Name,
+				routePath,
+			)
+		}
 	}
 
 	return nil
@@ -496,8 +649,13 @@ func validateTSObjectLiteralPropertyName(context string, name string) error {
 	return nil
 }
 
-func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]struct{}, error) {
-	collections := make(map[string]map[string]struct{}, len(routeGroups))
+type endpointPathParamField struct {
+	Name string
+	Type reflect.Type
+}
+
+func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string]string, error) {
+	collections := make(map[string]map[string]string, len(routeGroups))
 	enumNames := make(map[string]string)
 	for _, group := range routeGroups {
 		if group.ConstName == "" {
@@ -520,7 +678,7 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 		if _, exists := collections[group.ConstName]; exists {
 			return nil, fmt.Errorf("duplicate route group %q", group.ConstName)
 		}
-		routes := make(map[string]struct{}, len(group.Routes))
+		routes := make(map[string]string, len(group.Routes))
 		for _, route := range group.Routes {
 			if route.Name == "" {
 				return nil, fmt.Errorf("route group %q contains an empty route name", group.ConstName)
@@ -559,11 +717,67 @@ func buildRouteCollectionLookup(routeGroups []RouteGroup) (map[string]map[string
 				}
 				enumNames[route.EnumName] = route.Path
 			}
-			routes[route.Name] = struct{}{}
+			routes[route.Name] = route.Path
 		}
 		collections[group.ConstName] = routes
 	}
 	return collections, nil
+}
+
+func endpointPathParamFields(t reflect.Type) ([]endpointPathParamField, error) {
+	if t == nil {
+		return nil, nil
+	}
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == nil || t.Kind() != reflect.Struct {
+		if t == nil {
+			return nil, fmt.Errorf("path params type must be a named struct, got <nil>")
+		}
+		return nil, fmt.Errorf("path params type must be a named struct, got %s", t.String())
+	}
+
+	fields := make([]endpointPathParamField, 0, t.NumField())
+	for i := range t.NumField() {
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		name, optional, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		if optional || field.Type.Kind() == reflect.Pointer {
+			return nil, fmt.Errorf("path param field %s.%s cannot be optional", t.Name(), field.Name)
+		}
+		if err := validateTSBindingIdentifier(
+			fmt.Sprintf("path params type %s field %q", t.Name(), name),
+			name,
+		); err != nil {
+			return nil, err
+		}
+		fields = append(fields, endpointPathParamField{
+			Name: name,
+			Type: field.Type,
+		})
+	}
+	if len(fields) == 0 {
+		return nil, fmt.Errorf("path params type %s has no exported JSON fields", t.Name())
+	}
+	return fields, nil
+}
+
+func routePathParamNames(routePath string) []string {
+	matches := routePathParamPattern.FindAllStringSubmatch(routePath, -1)
+	names := make([]string, 0, len(matches))
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		names = append(names, match[1])
+	}
+	return names
 }
 
 func flattenRouteEnumEntries(routeGroups []RouteGroup) []routeEnumEntry {

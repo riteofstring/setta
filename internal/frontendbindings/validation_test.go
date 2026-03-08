@@ -21,6 +21,24 @@ type BuildTestResponse struct {
 	Ok bool `json:"ok"`
 }
 
+type BuildTestPathParams struct {
+	ThingID string `json:"thingId"`
+}
+
+type BuildTestRouteParams struct {
+	DeploymentName string `json:"deploymentName"`
+	Version        string `json:"version"`
+}
+
+type BuildTestExtraPathParams struct {
+	ThingID string `json:"thingId"`
+	Extra   string `json:"extra"`
+}
+
+type BuildTestOptionalPathParams struct {
+	ThingID *string `json:"thingId,omitempty"`
+}
+
 type ConverterOptionalExample struct {
 	Name   string          `json:"name"`
 	Count  *int            `json:"count,omitempty"`
@@ -41,6 +59,11 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 					Name:     "saveThing",
 					Path:     "/saveThing",
 					EnumName: "SAVE_THING",
+				},
+				{
+					Name:     "loadThingByID",
+					Path:     "/things/{thingId}",
+					EnumName: "LOAD_THING_BY_ID",
 				},
 			},
 		},
@@ -178,6 +201,126 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 				}{}),
 			},
 			want: "response type must be a named Go type",
+		},
+		{
+			name: "post route path params require explicit path params type",
+			spec: EndpointSpec{
+				FunctionName:    "route_load_thing_by_id",
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "loadThingByID",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "has path params but no path params type",
+		},
+		{
+			name: "unnamed path params type",
+			spec: EndpointSpec{
+				FunctionName:    "route_load_thing_by_id",
+				Method:          "GET",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "loadThingByID",
+				PathParamsType: reflect.TypeOf(struct {
+					ThingID string `json:"thingId"`
+				}{}),
+				ResponseType: reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "path params type must be a named Go type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := buildBindings(routeGroups, []EndpointSpec{tt.spec}, nil, nil)
+			if err == nil {
+				t.Fatalf("buildBindings(...) unexpectedly succeeded")
+			}
+			if !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("buildBindings(...) error = %q, want substring %q", err.Error(), tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildBindingsRejectsInvalidEndpointPathParams(t *testing.T) {
+	routeGroups := []RouteGroup{
+		{
+			ConstName: "GoHTTPRoutes",
+			Routes: []NamedRoute{
+				{Name: "getThingByID", Path: "/things/{thingId}", EnumName: "GET_THING_BY_ID"},
+				{Name: "getDeploymentThing", Path: "/deployments/{deploymentName}/{version}", EnumName: "GET_DEPLOYMENT_THING"},
+				{Name: "saveThing", Path: "/saveThing", EnumName: "SAVE_THING"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name string
+		spec EndpointSpec
+		want string
+	}{
+		{
+			name: "path params type cannot add extra fields",
+			spec: EndpointSpec{
+				FunctionName:    "route_get_thing_by_id",
+				Method:          "GET",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "getThingByID",
+				PathParamsType:  reflect.TypeOf(BuildTestExtraPathParams{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: `includes extra field "extra"`,
+		},
+		{
+			name: "path params type cannot omit route fields",
+			spec: EndpointSpec{
+				FunctionName:    "route_get_deployment_thing",
+				Method:          "GET",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "getDeploymentThing",
+				PathParamsType:  reflect.TypeOf(BuildTestPathParams{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: `missing route param "deploymentName"`,
+		},
+		{
+			name: "path params type cannot be optional",
+			spec: EndpointSpec{
+				FunctionName:    "route_get_thing_by_id",
+				Method:          "GET",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "getThingByID",
+				PathParamsType:  reflect.TypeOf(BuildTestOptionalPathParams{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "cannot be optional",
+		},
+		{
+			name: "path params type requires route params",
+			spec: EndpointSpec{
+				FunctionName:    "route_save_thing",
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "saveThing",
+				PathParamsType:  reflect.TypeOf(BuildTestPathParams{}),
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "without route path params",
+		},
+		{
+			name: "GET cannot mix request and path params",
+			spec: EndpointSpec{
+				FunctionName:    "route_get_deployment_thing",
+				Method:          "GET",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "getDeploymentThing",
+				PathParamsType:  reflect.TypeOf(BuildTestRouteParams{}),
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: "GET endpoints cannot combine request and path params yet",
 		},
 	}
 
@@ -856,6 +999,7 @@ export async function getBinary<T>(
 export async function post<T>(
   _address: string,
   _payload: unknown,
+  _params?: unknown,
 ): Promise<ResponseDataAndStatus<T>> {
   return await emptyResponse<T>();
 }

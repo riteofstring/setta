@@ -3,6 +3,7 @@ package frontendbindings
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -78,6 +79,60 @@ func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 
 	if !strings.Contains(bindings.TypesTS, `export const GeneratedSupport = "ok";`) {
 		t.Fatalf("types output missing additional declaration:\n%s", bindings.TypesTS)
+	}
+}
+
+func TestBuildBindingsRendersPathParamAwareEndpoints(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings([]RouteGroup{
+		{
+			ConstName: "GoHTTPRoutes",
+			Routes: []NamedRoute{
+				{
+					Name:     "getDeploymentThing",
+					Path:     "/deployments/{deploymentName}/{version}",
+					EnumName: "GET_DEPLOYMENT_THING",
+				},
+				{
+					Name:     "saveDeploymentThing",
+					Path:     "/deployments/{deploymentName}/{version}/save",
+					EnumName: "SAVE_DEPLOYMENT_THING",
+				},
+			},
+		},
+	}, []EndpointSpec{
+		{
+			FunctionName:    "route_get_deployment_thing",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getDeploymentThing",
+			PathParamsType:  reflect.TypeOf(BuildTestRouteParams{}),
+			ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+		},
+		{
+			FunctionName:    "route_save_deployment_thing",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "saveDeploymentThing",
+			PathParamsType:  reflect.TypeOf(BuildTestRouteParams{}),
+			RequestType:     reflect.TypeOf(BuildTestRequest{}),
+			ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+		},
+	}, nil, nil)
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		"export async function route_get_deployment_thing(deploymentName: string, version: string): Promise<ResponseDataAndStatus<gt.BuildTestResponse>> {",
+		"return await get(GoHTTPRoutes.getDeploymentThing, { deploymentName, version });",
+		"export async function route_save_deployment_thing(deploymentName: string, version: string, x: gt.BuildTestRequest): Promise<ResponseDataAndStatus<gt.BuildTestResponse>> {",
+		"return await post(GoHTTPRoutes.saveDeploymentThing, x, { deploymentName, version });",
+	} {
+		if !strings.Contains(bindings.EndpointsTS, snippet) {
+			t.Fatalf("generated endpoints output missing %q:\n%s", snippet, bindings.EndpointsTS)
+		}
 	}
 }
 

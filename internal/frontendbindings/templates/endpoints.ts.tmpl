@@ -4,15 +4,10 @@ import { GoHTTPRoutes } from "./generatedRoutes";
 import * as gt from "./generatedTypes";
 
 
-{{- range .Endpoints }}
-export async function {{ .FunctionName }}({{ if .UsesRequest }}x: gt.{{ .RequestTypeName }}{{ end }}): Promise<ResponseDataAndStatus<{{ .ResponseTypeRef }}>> {
-{{ if .UsesBinaryGet }}
-  return await getBinary({{ .RouteCollection }}.{{ .RouteName }}{{ if .UsesRequest }}, x{{ end }});
-{{ else if .UsesGet }}
-  return await get({{ .RouteCollection }}.{{ .RouteName }}{{ if .UsesRequest }}, x{{ end }});
-{{ else }}
-  return await post({{ .RouteCollection }}.{{ .RouteName }}, {{ if .UsesRequest }}x{{ else }}null{{ end }});
-{{ end }}
+{{ range .Endpoints }}
+export async function {{ .FunctionName }}({{ range $index, $param := .FunctionParams }}{{ if $index }}, {{ end }}{{ $param.Name }}: {{ $param.TypeExpr }}{{ end }}): Promise<ResponseDataAndStatus<{{ .ResponseTypeRef }}>> {
+
+  return await {{ .CallExpression }};
 }
 
-{{- end }}
+{{ end }}

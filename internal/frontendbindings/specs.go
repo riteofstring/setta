@@ -24,6 +24,7 @@ type EndpointSpec struct {
 	RouteCollection string
 	RouteName       string
 	RequestType     reflect.Type
+	PathParamsType  reflect.Type
 	ResponseType    reflect.Type
 	BinaryResponse  bool
 }
