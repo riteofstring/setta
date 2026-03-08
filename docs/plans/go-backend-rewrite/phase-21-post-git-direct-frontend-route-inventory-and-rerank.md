@@ -126,7 +126,7 @@ These routes drove Phase 22 because they had live direct frontend callers:
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
 - `POST /loadCachedBrushStrokes`
-- `POST /loadCachedDrawAreaLayerItemTransform`
+- `POST /loadDrawAreaLayerItemTransform`
 - `POST /updateArtifacts`
 - `POST /deleteArtifacts`
 - `GET /binary/{contentId}`
@@ -145,7 +145,7 @@ Current callers include:
 - `frontend/src/utils/nativeFileImport.ts`
 - deployment publish modals and the Home workspace browser
 
-Current Go ownership status after the landed Phase 22 Slices 1 and 2:
+Current Go ownership status after the landed Phase 22 Slices 1, 2, and 3:
 
 - `internal/filebrowser` plus thin `internal/httpapi` transport now own the
   workspace file-browser subset
@@ -153,14 +153,15 @@ Current Go ownership status after the landed Phase 22 Slices 1 and 2:
   download transport for the active file-browser preview/editor callers
 - `internal/artifacts` plus thin `internal/httpapi` transport now own the
   bounded IDE artifact import/update/delete and cached-read surface
-- only the share/deployment artifact overlay behavior remains Python-owned in
-  this cluster
+- `internal/shareartifacts` plus thin `internal/httpapi` transport now own the
+  deployment/share-session artifact overlay behavior for the live cached-read
+  and mutation surface
+- this cluster no longer has a caller-backed Python transport owner
 
 Rerank result that remains valid:
 
 - this was the actual next caller-backed direct frontend route cluster
-- its remaining work is now the Phase 22 artifact-owner follow-on, not a new
-  rerank away from the cluster
+- the cluster is now closed for the current caller-backed surface
 
 ### 3. Listener-chat routes still have no live direct frontend callers
 
@@ -249,7 +250,6 @@ Rerank:
 
 ## Next Recommended Step
 
-- continue Phase 22 with Slice 3 for share/deployment artifact overlay
-  ownership only if the current deployment caller surface still requires it
-- keep listener-chat, detached runs, and default-project transport closed
-  unless a new concrete caller appears
+Run a broader rerank outside the now-closed artifact/file-browser cluster.
+Keep listener-chat, detached runs, and default-project transport closed unless
+a new concrete caller appears.

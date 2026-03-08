@@ -24,7 +24,7 @@ Completed in this slice:
   - `POST /loadCachedImageArtifacts`
   - `POST /loadCachedChartData`
   - `POST /loadCachedBrushStrokes`
-  - `POST /loadCachedDrawAreaLayerItemTransform`
+  - `POST /loadDrawAreaLayerItemTransform`
   - `POST /updateArtifacts`
   - `POST /deleteArtifacts`
 - real IDE app wiring and focused service/route/app coverage
@@ -57,7 +57,7 @@ Routes in scope for this slice:
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
 - `POST /loadCachedBrushStrokes`
-- `POST /loadCachedDrawAreaLayerItemTransform`
+- `POST /loadDrawAreaLayerItemTransform`
 - `POST /updateArtifacts`
 - `POST /deleteArtifacts`
 
@@ -227,7 +227,6 @@ in the route layer.
 
 ## Next Recommended Step
 
-- continue with Phase 22 Slice 3 only for the remaining share/deployment
-  artifact-session overlay behavior
-- keep the bounded IDE owner intact; do not reopen a broad Python-shaped
-  artifact manager
+The remaining share/deployment overlay follow-on is now landed in
+`phase-22-share-artifact-session-overlay-plan.md`. Keep this bounded IDE owner
+intact; do not reopen a broad mixed artifact manager.

@@ -13,9 +13,25 @@ deployment runtime.
 
 ## Status
 
-Planned on 2026-03-10.
+Landed on 2026-03-10.
 
-Current status before this slice:
+Completed in this slice:
+
+- new explicit `internal/shareartifacts` owner for deployment/share-session
+  cached reads, in-memory updates/deletes, deployment-relative id
+  normalization, and share-session overlay cleanup
+- thin `internal/httpapi` deployment-mode transport over
+  `RequireShareSession(...)` for:
+  - `POST /loadCachedImageArtifacts`
+  - `POST /loadCachedChartData`
+  - `POST /loadCachedBrushStrokes`
+  - `POST /loadDrawAreaLayerItemTransform`
+  - `POST /updateArtifacts`
+  - `POST /deleteArtifacts`
+- Go `UpdateArtifacts` frontend websocket messages scoped by share session
+- real app wiring plus focused service/route/app coverage
+
+Status before this slice:
 
 - Phase 22 Slice 1 is landed for the workspace file-browser and binary
   download surface
@@ -25,7 +41,7 @@ Current status before this slice:
   - `POST /loadCachedImageArtifacts`
   - `POST /loadCachedChartData`
   - `POST /loadCachedBrushStrokes`
-  - `POST /loadCachedDrawAreaLayerItemTransform`
+  - `POST /loadDrawAreaLayerItemTransform`
   - `POST /updateArtifacts`
   - `POST /deleteArtifacts`
 
@@ -237,18 +253,12 @@ When deployment sessions expire:
 
 ## Verification
 
-Add focused coverage for:
+Completed verification:
 
-- overlay-first cached loads, disk fallback, and delete tombstones
-- deployment-relative id normalization
-- `AllowParamChanges` rejection
-- share-session-scoped websocket `UpdateArtifacts` delivery
-- route behavior in deployment mode with `X-Share-Session-Id`
-- real app deployment/share round-trip for cached load/update/delete
-- session cleanup removing overlay state
+- `./scripts/go.sh test ./internal/shareartifacts ./internal/httpapi ./internal/realtime ./internal/app -run 'Test(NewUpdateArtifactsMessage|Service(UpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched|DeleteIsInMemoryOnlyAndNormalizesIDs|DeleteShareSessionDropsOverlayState|UpdateRejectsPolicyDenied)|RegisterArtifactRoutes(ShareModeUpdatesAndLoadsOverlay|ShareModeRejectsPolicyDenied|RoundTripAndUnsupportedUpdate|BlocksLauncherMode)|AppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates|CleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState)' -count=1`
 
 ## Next Recommended Step
 
-Implement this slice as a new bounded deployment-session artifact owner plus
-thin artifact-route branching, then update the Phase 22 parent docs with the
-landed behavior and any remaining direct gaps.
+Phase 22 is now closed for the current caller-backed artifact/file-browser
+cluster. The next recommended step is a broader rerank outside this cluster
+instead of reopening artifact transport.

@@ -24,7 +24,7 @@ attachments, deployment publish modals, and artifact-backed param UIs.
 
 ## Status
 
-Current repo status as of 2026-03-10 after the landed Slices 1 and 2:
+Current repo status as of 2026-03-10 after the landed Slices 1, 2, and 3:
 
 - Phase 19 project-shell route ownership is complete for the current
   caller-backed surface
@@ -50,11 +50,12 @@ Current repo status as of 2026-03-10 after the landed Slices 1 and 2:
   - `POST /loadCachedImageArtifacts`
   - `POST /loadCachedChartData`
   - `POST /loadCachedBrushStrokes`
-  - `POST /loadCachedDrawAreaLayerItemTransform`
+  - `POST /loadDrawAreaLayerItemTransform`
   - `POST /updateArtifacts`
   - `POST /deleteArtifacts`
-- the remaining caller-backed Phase 22 gap is now only the share/deployment
-  overlay behavior for the artifact routes above
+- the deployment/share overlay follow-on is now also Go-owned for the active
+  cached-load and mutation routes
+- there is no remaining caller-backed Phase 22 gap inside this cluster
 
 ## Scope
 
@@ -74,7 +75,7 @@ Caller-backed route surface for this phase:
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
 - `POST /loadCachedBrushStrokes`
-- `POST /loadCachedDrawAreaLayerItemTransform`
+- `POST /loadDrawAreaLayerItemTransform`
 - `POST /updateArtifacts`
 - `POST /deleteArtifacts`
 - `GET /binary/{contentId}`
@@ -131,8 +132,7 @@ Explicit non-goals for the first artifact/file-browser phase:
 
 What is still missing:
 
-- explicit share/deployment-session artifact overlay behavior over the current
-  Go runtime boundaries
+- no caller-backed transport/runtime gap remains inside this cluster
 
 ## Desired Go Boundaries
 
@@ -283,7 +283,7 @@ Routes:
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
 - `POST /loadCachedBrushStrokes`
-- `POST /loadCachedDrawAreaLayerItemTransform`
+- `POST /loadDrawAreaLayerItemTransform`
 - `POST /updateArtifacts`
 - `POST /deleteArtifacts`
 
@@ -335,7 +335,7 @@ Routes:
   - `POST /loadCachedImageArtifacts`
   - `POST /loadCachedChartData`
   - `POST /loadCachedBrushStrokes`
-  - `POST /loadCachedDrawAreaLayerItemTransform`
+  - `POST /loadDrawAreaLayerItemTransform`
 
 Deliverables:
 
@@ -354,20 +354,36 @@ Why this is third:
 
 Status:
 
-- planned
+- landed on 2026-03-10
+
+Completed in this slice:
+
+- new explicit `internal/shareartifacts` owner for deployment/share-session
+  overlay reads, in-memory mutations, and session cleanup
+- deployment-mode `internal/httpapi` artifact transport over
+  `RequireShareSession(...)`
+- share-session-scoped frontend `UpdateArtifacts` websocket broadcasts for
+  non-file deployment updates
+- focused service, route, realtime-message, app, and cleanup coverage
+
+Decisions recorded in this slice:
+
+- the live draw-area cached-load caller path is
+  `POST /loadDrawAreaLayerItemTransform`; the earlier
+  `loadCachedDrawAreaLayerItemTransform` wording in planning text was stale
+  and is corrected here
+- IDE artifact ownership remains separate from deployment/share-session
+  overlay ownership
+- deployment/share updates and deletes stay in memory for the session overlay;
+  deployment disk remains the fallback source of truth for cached loads
 
 ## Verification
 
 - `./scripts/go.sh test ./internal/filebrowser ./internal/httpapi ./internal/app -run 'Test(Service|RegisterFileBrowserRoutes|RegisterBinaryRoutes|AppServesFileBrowserRoutes)' -count=1`
-- caller and route inventory verified through `rg`, Python router/test reads,
-  and current Go route-owner inspection before implementation
+- `./scripts/go.sh test ./internal/shareartifacts ./internal/httpapi ./internal/realtime ./internal/app -run 'Test(NewUpdateArtifactsMessage|Service(UpdateAndLoadUsePerSessionOverlayAndLeaveDiskUntouched|DeleteIsInMemoryOnlyAndNormalizesIDs|DeleteShareSessionDropsOverlayState|UpdateRejectsPolicyDenied)|RegisterArtifactRoutes(ShareModeUpdatesAndLoadsOverlay|ShareModeRejectsPolicyDenied|RoundTripAndUnsupportedUpdate|BlocksLauncherMode)|AppShareModeServesArtifactOverlayRoutesAndBroadcastsScopedUpdates|CleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState)' -count=1`
 
 ## Next Recommended Step
 
-- implement Slice 3 from this plan:
-  - add explicit share/deployment artifact-session overlay ownership for the
-    remaining deployment-mode caller surface
-  - keep the landed IDE owner separate instead of folding share behavior back
-    into a mixed artifact manager
-  - execute the bounded implementation in
-    `docs/plans/go-backend-rewrite/phase-22-share-artifact-session-overlay-plan.md`
+Phase 22 is closed for the current caller-backed artifact/file-browser
+cluster. The next recommended step is a broader rerank outside this cluster
+instead of reopening artifact/file-browser transport work.

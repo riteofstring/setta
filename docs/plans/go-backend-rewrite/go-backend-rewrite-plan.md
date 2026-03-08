@@ -291,7 +291,7 @@ The second Phase 22 slice is now landed for the bounded IDE artifact owner:
 - `POST /loadCachedImageArtifacts`
 - `POST /loadCachedChartData`
 - `POST /loadCachedBrushStrokes`
-- `POST /loadCachedDrawAreaLayerItemTransform`
+- `POST /loadDrawAreaLayerItemTransform`
 - `POST /updateArtifacts`
 - `POST /deleteArtifacts`
 - explicit `internal/artifacts` ownership for state-relative artifact ids,
@@ -304,14 +304,27 @@ The second Phase 22 slice is now landed for the bounded IDE artifact owner:
 - typed unsupported-artifact behavior for `Image` and `ChartData` updates in
   this slice
 
-With that second Phase 22 slice landed, the remaining caller-backed gap in
-this cluster is now only the share/deployment artifact overlay behavior for
-the same route surface.
+The third and final Phase 22 slice is now also landed for the remaining
+deployment/share artifact overlay behavior:
 
-The next recommended step is therefore Phase 22 Slice 3: explicit
-share/deployment artifact-session overlay ownership above the landed IDE
-artifact owner, tracked in
-`docs/plans/go-backend-rewrite/phase-22-share-artifact-session-overlay-plan.md`.
+- `POST /loadCachedImageArtifacts`
+- `POST /loadCachedChartData`
+- `POST /loadCachedBrushStrokes`
+- `POST /loadDrawAreaLayerItemTransform`
+- `POST /updateArtifacts`
+- `POST /deleteArtifacts`
+- explicit `internal/shareartifacts` ownership for per-session overlay reads,
+  in-memory updates/deletes, deployment-relative ids, and session cleanup
+- thin `internal/httpapi` deployment transport plus real app wiring and
+  focused service/route/realtime/app coverage
+- share-session-scoped `UpdateArtifacts` websocket broadcasts for non-file
+  deployment updates
+
+With that third slice landed, the caller-backed Phase 22 artifact/file-browser
+cluster is now Go-owned for the current surface.
+
+The next recommended step is now a broader rerank outside this closed cluster
+instead of another artifact/file-browser transport slice.
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
