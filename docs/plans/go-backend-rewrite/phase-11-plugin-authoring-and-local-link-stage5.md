@@ -27,13 +27,11 @@ As of 2026-03-08:
   - `disable`
   - `uninstall`
   - `rollback`
-- Python still owns the remaining plugin CLI surface in:
-  - `backend/setta/start.py`
-  - `backend/setta/plugins/manager.py`
-- the remaining Python-owned commands are:
-  - `init`
-  - `validate`
-  - `link`
+- Go now also owns the authoring/local-link slice in:
+  - `internal/plugins/authoring.go`
+  - `internal/settacmd/plugins.go`
+  - `backend/setta/entrypoint.py`
+- Python now owns only the remaining plugin commands:
   - `install`
   - `update`
   - `pin`
@@ -191,18 +189,30 @@ Do not include:
 
 - 2026-03-08: created this Stage 5 plan to keep the remaining plugin CLI work
   bounded around the self-contained authoring/local-link slice first.
+- 2026-03-08: completed the Stage 5 slice.
+  - `setta plugins init|validate|link` now route through the shipped Go CLI
+  - Go now owns plugin template scaffolding, local folder validation,
+    `pyproject` metadata identity checks, PEP 440 Setta-version checks, and
+    local symlink install semantics
+  - local link now persists `local:` install metadata and preserves
+    restart-required behavior for backend replacement
+  - partial Python entrypoint dispatch now includes the completed
+    authoring/local-link subcommands
 
 ## Verification
 
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/buildinfo ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement the bounded Stage 5 slice:
+Write a dedicated Phase 11 Stage 6 plan for the still-remaining plugin
+source-acquisition, lockfile, and restart surface:
 
-1. `setta plugins init`
-2. `setta plugins validate`
-3. `setta plugins link`
-
-Then write a later Stage 6 plan for the still-remaining remote
-source-acquisition, lockfile, and restart surface.
+1. `install`
+2. `update`
+3. `pin`
+4. `lock write`
+5. `lock apply`
+6. `restart`

@@ -503,35 +503,43 @@ func writeStoreJSONFile(path string, payload any) error {
 }
 
 func computeDirectoryDigest(root string) (string, error) {
-	info, err := os.Stat(root)
+	resolvedRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
-		return "", fmt.Errorf("stat digest root %s: %w", root, err)
+		if os.IsNotExist(err) {
+			resolvedRoot = root
+		} else {
+			return "", fmt.Errorf("resolve plugin digest root %s: %w", root, err)
+		}
+	}
+	info, err := os.Stat(resolvedRoot)
+	if err != nil {
+		return "", fmt.Errorf("stat digest root %s: %w", resolvedRoot, err)
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("%w: %s", ErrPluginRootInvalid, root)
+		return "", fmt.Errorf("%w: %s", ErrPluginRootInvalid, resolvedRoot)
 	}
 	entries := make([]string, 0)
-	if err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, walkErr error) error {
+	if err := filepath.WalkDir(resolvedRoot, func(path string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if entry.IsDir() {
 			return nil
 		}
-		relativePath, err := filepath.Rel(root, path)
+		relativePath, err := filepath.Rel(resolvedRoot, path)
 		if err != nil {
 			return err
 		}
 		entries = append(entries, filepath.ToSlash(relativePath))
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("walk plugin root %s: %w", root, err)
+		return "", fmt.Errorf("walk plugin root %s: %w", resolvedRoot, err)
 	}
 	slices.Sort(entries)
 	hasher := sha256.New()
 	for _, relativePath := range entries {
 		hasher.Write([]byte(relativePath))
-		resolvedPath := filepath.Join(root, filepath.FromSlash(relativePath))
+		resolvedPath := filepath.Join(resolvedRoot, filepath.FromSlash(relativePath))
 		handle, err := os.Open(resolvedPath)
 		if err != nil {
 			return "", fmt.Errorf("open plugin file %s: %w", resolvedPath, err)

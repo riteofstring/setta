@@ -5,9 +5,9 @@ entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
 Go-owned commands are handed off to packaged Go binaries, while the remaining
 Python-owned local commands still route through `backend/setta/start.py`.
 `setta plugins` is currently split:
-`list`, `rescan`, `restart-required`, `enable`, `disable`, `uninstall`, and
-`rollback` are Go-owned; the remaining plugin subcommands still route through
-Python.
+`init`, `validate`, `list`, `rescan`, `restart-required`, `link`, `enable`,
+`disable`, `uninstall`, and `rollback` are Go-owned; the remaining plugin
+subcommands still route through Python.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -40,7 +40,7 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
-| `setta plugins` | yes | no | Plugin scaffold, install/update/link, lockfile, and restart commands. |
+| `setta plugins` | yes | no | Split command cluster: Go owns authoring/local-link plus status/lifecycle; Python still owns install/update/pin, lockfile, and restart. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
@@ -278,8 +278,10 @@ Subcommands:
 
 - `setta plugins init <plugin_id> [--template backend|frontend|full|content] [--out PATH]`
   - Scaffold a plugin package with `setta.plugin.json`, `pyproject.toml`, and template files.
+  - Ownership: Go.
 - `setta plugins validate <plugin_folder>`
   - Validate a plugin manifest/folder contract.
+  - Ownership: Go.
 - `setta plugins list [--json]`
   - List discovered plugin runtime status entries.
   - Ownership: Go.
@@ -287,6 +289,7 @@ Subcommands:
   - Install plugin source into a selected scope.
 - `setta plugins link <local_plugin_root> [--scope ...] [--no-enable] [--force] [--json]`
   - Link a local folder as an installed plugin (development workflow).
+  - Ownership: Go.
 - `setta plugins uninstall <plugin_id> [--scope ...] [--json]`
   - Remove a plugin from a scope.
   - Ownership: Go.

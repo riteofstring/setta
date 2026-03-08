@@ -37,10 +37,15 @@ As of 2026-03-08:
   - package-manager-aware discovery in `internal/plugins`
   - `setta plugins enable|disable|uninstall|rollback` in `internal/settacmd`
   - partial Python-entrypoint dispatch for those completed lifecycle controls
+- Go now also owns the plugin authoring/local-link slice:
+  - plugin template scaffolding and local folder validation in
+    `internal/plugins`
+  - `setta plugins init|validate|link` in `internal/settacmd`
+  - partial Python-entrypoint dispatch for those completed authoring/local-link
+    commands
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
-  - the remaining `plugins` source-acquisition, authoring, lockfile, and
-    restart commands
+  - the remaining `plugins` source-acquisition, lockfile, and restart commands
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
@@ -93,7 +98,7 @@ As of 2026-03-08:
 
 3. `plugins` is a much larger CLI parity surface than the remaining command
    count suggests
-   - current Python CLI surface spans:
+   - current plugin CLI surface spans:
      - authoring: `init`, `validate`, `link`
      - runtime state and mutation: `list`, `install`, `uninstall`, `enable`,
        `disable`, `rescan`, `update`, `pin`, `rollback`
@@ -114,9 +119,11 @@ As of 2026-03-08:
      - `disable`
      - `uninstall`
      - `rollback`
-   - Go does not yet own several CLI-facing plugin behaviors:
-     - template init and folder validation
-     - local link workflow
+   - Go now also owns the authoring/local-link slice:
+     - `init`
+     - `validate`
+     - `link`
+   - Go does not yet own the remaining CLI-facing plugin behaviors:
      - install/update/pin source acquisition
      - lockfile write/apply
      - programmatic restart acceptance/rejection
@@ -158,18 +165,11 @@ Phase 11 Stage 3 is complete in
 Phase 11 Stage 4 is now complete in
 `phase-11-plugin-lifecycle-controls-stage4.md`.
 
-The dedicated Phase 11 Stage 5 plan now exists in
+Phase 11 Stage 5 is now complete in
 `phase-11-plugin-authoring-and-local-link-stage5.md`.
 
-The current bounded rewrite slice is:
-
-- plugin authoring and local link:
-  - `plugins init`
-  - `plugins validate`
-  - `plugins link`
-
-The remaining later plugin surface after Stage 5 should stay explicitly out of
-scope until a separate follow-on plan lands:
+The remaining plugin surface should stay explicitly out of scope until a
+separate follow-on plan lands:
 
 - `plugins install`
 - `plugins update`
@@ -219,9 +219,15 @@ scope until a separate follow-on plan lands:
     production candidate-provider path
   - `plugins restart` stays separate until a later stage decides whether to
     keep it manual-only or land a real Go restart boundary
+- 2026-03-08: completed the plugin Stage 5 slice.
+  - `setta plugins init|validate|link` are now Go-owned
+  - Go now owns local plugin template scaffolding, folder validation, local
+    symlink install metadata, and PEP 440 Setta-version checks
+  - the remaining Python-owned maintenance surface is now the plugin
+    source-acquisition, lockfile, and restart cluster
 
 ## Verification
 
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/pythonenv ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/buildinfo ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`

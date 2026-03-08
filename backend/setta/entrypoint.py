@@ -24,9 +24,12 @@ _GO_OWNED_COMMANDS = frozenset(
 _GO_OWNED_SUBCOMMANDS = {
     "plugins": frozenset(
         {
+            "init",
+            "validate",
             "list",
             "rescan",
             "restart-required",
+            "link",
             "enable",
             "disable",
             "uninstall",

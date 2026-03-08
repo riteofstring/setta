@@ -186,6 +186,71 @@ func TestRunPluginsRestartRequiredTextAndJSON(t *testing.T) {
 	}
 }
 
+// Plugins init should scaffold a plugin template that validate accepts immediately.
+func TestRunPluginsInitAndValidateText(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+
+	initStdout, initStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "init", "setta-cli-init-fixture", "--template", "frontend", "--out", cwd)
+	if err != nil {
+		t.Fatalf("run plugins init: %v", err)
+	}
+	if initStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", initStderr)
+	}
+
+	pluginRoot := filepath.Join(cwd, "setta-cli-init-fixture")
+	if !strings.Contains(initStdout, "Initialized plugin template at "+pluginRoot) {
+		t.Fatalf("expected init output to mention plugin root, got %q", initStdout)
+	}
+
+	validateStdout, validateStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "validate", pluginRoot)
+	if err != nil {
+		t.Fatalf("run plugins validate: %v", err)
+	}
+	if validateStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", validateStderr)
+	}
+	if !strings.Contains(validateStdout, "Plugin manifest is valid: "+pluginRoot) {
+		t.Fatalf("expected validate output to mention plugin root, got %q", validateStdout)
+	}
+}
+
+// Plugins link JSON should expose the Go-owned local-link payload, including trust metadata.
+func TestRunPluginsLinkJSONIncludesInstallPayload(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	sourceRoot := filepath.Join(cwd, "my-local-plugin")
+	writeFrontendPluginFixture(t, sourceRoot, "setta-fixture-frontend", "Setta Fixture Frontend", "0.1.0")
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "link", sourceRoot, "--scope", "workspace", "--json")
+	if err != nil {
+		t.Fatalf("run plugins link: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
+		t.Fatalf("decode plugins link json: %v", err)
+	}
+	if got := payload["pluginId"]; got != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin id %#v", got)
+	}
+	if got := payload["sourceScopeLabel"]; got != "workspace" {
+		t.Fatalf("unexpected source scope label %#v", got)
+	}
+	if got := payload["trustStatus"]; got != "unverified" {
+		t.Fatalf("unexpected trust status %#v", got)
+	}
+	if got := payload["state"]; got != "active" {
+		t.Fatalf("unexpected plugin state %#v", got)
+	}
+}
+
 // Enable/disable JSON should expose the Go-owned lifecycle payload over real plugins_state transitions.
 func TestRunPluginsEnableDisableJSON(t *testing.T) {
 	t.Parallel()

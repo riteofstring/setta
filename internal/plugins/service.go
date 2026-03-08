@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"setta/internal/buildinfo"
 	"setta/internal/config"
 	"setta/internal/pythonenv"
 )
@@ -26,6 +27,7 @@ type ServiceOptions struct {
 	SettaHome                 string
 	ServerMode                config.Mode
 	RestartCommand            string
+	SettaVersion              string
 	CandidateProvider         CandidateProvider
 	PackageManagerRuntime     *pythonenv.Runtime
 	PackageManagerSearchPaths []string
@@ -36,6 +38,7 @@ type Service struct {
 	discoveryService  *DiscoveryService
 	candidateProvider CandidateProvider
 	restartCommand    string
+	settaVersion      string
 
 	mu                          sync.Mutex
 	installTargetReservations   map[string]struct{}
@@ -75,9 +78,18 @@ func NewService(options ServiceOptions) (*Service, error) {
 		discoveryService:            discoveryService,
 		candidateProvider:           options.CandidateProvider,
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
+		settaVersion:                resolvedSettaVersion(options.SettaVersion),
 		installTargetReservations:   map[string]struct{}{},
 		pendingRestartRemovedPlugin: map[string]PendingRestartRemovedBackendPlugin{},
 	}, nil
+}
+
+func resolvedSettaVersion(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed != "" {
+		return trimmed
+	}
+	return buildinfo.HostPackageVersion()
 }
 
 func (s *Service) Rescan() (DiscoverySnapshot, error) {
