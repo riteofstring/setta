@@ -254,13 +254,16 @@ Use the docs in this order:
   - completed implementation-plan doc for Go-owned `stream_app_definition`
     parity over the completed app-definition read/write/validation owners
 91. `phase-6-plugin-management-runtime-foundation.md`
-  - focused implementation-plan doc for the Go-owned plugin install/discovery
-    runtime foundation required before plugin-management MCP parity can land
-92. `spike-mcp.md`
+  - implementation-plan doc for the Go-owned plugin install/discovery runtime
+    foundation; the shared store/discovery stages are now complete
+92. `phase-6-plugin-management-mutation-owner.md`
+  - focused implementation-plan doc for the remaining Go-owned plugin mutation
+    service above the completed store/discovery foundation
+93. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-93. `spike-pty.md`
+94. `spike-pty.md`
    - PTY uncertainty-reduction plan
-94. `spike-lsp.md`
+95. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -39,8 +39,8 @@ Current repo status as of 2026-03-08:
   - `set_ui_setting_value`
   - `reveal_ui_setting`
   - `stream_app_definition`
-- the remaining 6 tools now fall into one larger plugin-management foundation
-  plus one blocked environment-introspection gap
+- the remaining 6 tools now fall into one plugin-management mutation/transport
+  cluster plus one blocked environment-introspection gap
 
 ## Inputs
 
@@ -107,9 +107,8 @@ Go already owns the following Python MCP tools that do not come from
 - `update_plugin`
 - `rollback_plugin`
 
-These are blocked on missing Go ownership for plugin discovery/install/update
-runtime behavior. Current Go plugin work is still centered on codegen/runtime
-materialization, not MCP-facing package management.
+The store/discovery foundation is now in Go under `internal/plugins`, but the
+mutation owner and transport still need to land for these five tools.
 
 ### 2. Environment Introspection Gap
 
@@ -138,15 +137,15 @@ heuristics.
 
 ## Recommended Next Step
 
-Execute the dedicated plugin-management runtime foundation slice in
-`phase-6-plugin-management-runtime-foundation.md`.
+Execute the dedicated plugin-management mutation-owner slice in
+`phase-6-plugin-management-mutation-owner.md`.
 
 This is now the highest-leverage next slice because:
 
 - it unblocks five remaining MCP tools instead of only one
-- Go already has partial plugin root and manifest-reading foundations under
-  `internal/plugins`, but it still lacks explicit install/discovery/state
-  ownership for package-management mutations
+- Go now has the shared plugin store/discovery foundation under
+  `internal/plugins`, but it still lacks explicit install/update/uninstall/
+  rollback owners and their typed response payloads
 - `getInstalledPythonPackages` remains blocked on Python-environment
   source-of-truth work and should not leapfrog the plugin runtime gap with a
   heuristic shell-out
@@ -199,3 +198,6 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed `stream_app_definition` parity, reducing the remaining
   non-project-state Python MCP gap count from 7 to 6 and closing the last
   bounded app-definition MCP transport gap.
+- 2026-03-08: completed the plugin-management store/discovery foundation under
+  `internal/plugins`, so the highest-leverage remaining runtime gap is now the
+  plugin mutation owner above that shared store/discovery layer.

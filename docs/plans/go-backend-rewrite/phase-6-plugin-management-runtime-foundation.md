@@ -24,11 +24,15 @@ Current repo status as of 2026-03-08:
     `internal/plugins`
   - plugin-root precedence and enablement reads for codegen-target resolution in
     `internal/plugins/filesystem_worker_spec_resolver.go`
+  - typed plugin manifest, state, metadata, and history-snapshot ownership in
+    `internal/plugins/types.go`, `internal/plugins/manifest.go`, and
+    `internal/plugins/store.go`
+  - a bounded filesystem discovery/rescan owner in
+    `internal/plugins/discovery.go`
 - Go does not yet own:
-  - file-backed plugin install metadata and rollback-history persistence
   - install/update/uninstall mutation owners for plugin package roots
-  - plugin rescan/discovery state as an explicit runtime service
   - plugin-management response payloads and restart-required bookkeeping
+  - plugin-management MCP transport
 
 ## Scope
 
@@ -119,15 +123,18 @@ This slice should cover:
 1. State/store foundation
    - add typed Go ownership for plugin scopes, install metadata, history
      snapshots, and enablement state files
+   - status: completed 2026-03-08
 
 2. Discovery/rescan owner
    - add a runtime service that walks plugin roots, validates manifests,
      resolves precedence/enablement, and computes pending-restart state
+   - status: completed 2026-03-08
 
 3. Mutation owner
    - add install, uninstall, update, and rollback service methods above the
      completed store/discovery owners
    - keep installer and archive/network edges behind explicit interfaces
+   - next detailed scope: `phase-6-plugin-management-mutation-owner.md`
 
 4. Follow-on transport slice
    - once the runtime foundation is stable, expose the five plugin-management
@@ -144,3 +151,14 @@ This slice should cover:
   local-fixture coverage first
 - whether pending-restart plugin state should live entirely inside the plugin
   runtime service or remain app-owned metadata composed around it
+
+## Progress Notes
+
+- 2026-03-08: added shared Go plugin manifest/state/install-metadata/history
+  ownership under `internal/plugins`, and refactored the existing filesystem
+  worker spec resolver to consume the shared store and manifest helpers.
+- 2026-03-08: added a Go-owned filesystem discovery/rescan service covering
+  precedence, enablement, invalid-manifest visibility, canonical source keys,
+  and persisted pending-restart state.
+- 2026-03-08: narrowed the remaining plugin-management runtime gap to the
+  mutation owner for install, uninstall, update, and rollback.
