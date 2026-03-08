@@ -17,8 +17,16 @@ Update after Slice 1 landing on 2026-03-10:
   the broader sdist
 - native-installer workflow jobs now build wheels for that installer-managed
   path
-- the remaining Phase 32 work is now the docs retarget plus the explicit
-  `verify_install.sh` sdist-smoke decision
+- the remaining Phase 32 work is now the explicit `verify_install.sh`
+  sdist-smoke decision
+
+Update after Slice 2 landing on 2026-03-10:
+
+- `docs/reference/remote-built-install.md` now documents only the wheel-based
+  packaged-user install path
+- source-package guidance is now narrowed to the separate
+  `./verify_install.sh` smoke role instead of being presented as a parallel
+  normal install option
 
 ## Current Status
 
@@ -100,7 +108,7 @@ Rerank implication:
 - the packaged end-user runtime boundary is now wheel-first in practice
 - the remaining work is no longer generic package slimming
 
-### 2. Installer-managed and release-smoke paths still anchor on the sdist
+### 2. Installer-managed and release-smoke paths still anchored on the sdist at rerank time
 
 Current shipped/release paths:
 

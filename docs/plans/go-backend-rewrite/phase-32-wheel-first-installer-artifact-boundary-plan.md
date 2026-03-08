@@ -20,7 +20,8 @@ After Phase 31:
 - default packaged dependencies now align with that wheel boundary
 - repo-local source/dev bootstrap is explicit and separate
 
-But the installer-managed release/install surface still uses the broader sdist:
+At selection time, the installer-managed release/install surface still used the
+broader sdist:
 
 - native macOS and Windows installers bundle `setta-<version>.tar.gz`
 - native-installer smoke verifies the installed launcher version, but not a
@@ -94,10 +95,8 @@ Now landed in Slice 1:
 
 Remaining gap:
 
-- installer-managed built-install docs still normalize sdist as a packaged-user
-  path
 - `verify_install.sh` still intentionally smokes sdist completeness and has not
-  yet been explicitly reranked after Slice 1
+  yet been explicitly reranked after the installer/doc retarget
 
 ## Inputs
 
@@ -157,6 +156,15 @@ Non-goals:
 - removing mention of sdist entirely when it still matters for source-smoke or
   advanced debugging
 
+Slice 2 status:
+
+- completed on 2026-03-10
+- `docs/reference/remote-built-install.md` now documents only the wheel-based
+  packaged-user install path
+- source-package guidance is now narrowed to the explicit
+  `./verify_install.sh` smoke role instead of treating `.tar.gz` as a normal
+  remote install option
+
 ### Slice 3: Explicit sdist-smoke boundary decision
 
 Goal:
@@ -208,9 +216,9 @@ Slice 1 status:
 
 ## Next Recommended Step
 
-Implement Slice 2:
+Implement Slice 3:
 
-- retarget `docs/reference/remote-built-install.md` and any adjacent
-  installer-managed built-install docs to the landed wheel-first boundary
-- keep `verify_install.sh` as a separate explicit Slice 3 decision instead of
-  changing its sdist-smoke role implicitly during the docs pass
+- decide whether `verify_install.sh` should remain the explicit sdist
+  completeness smoke or whether that role should be split or retargeted
+- stop Phase 32 after that decision unless another concrete packaged-user
+  boundary gap appears

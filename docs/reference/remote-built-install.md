@@ -1,6 +1,9 @@
-# Remote Install of Built Package
+# Remote Install of Built Wheel
 
-After running `./build.sh`, the deployable artifacts live in `dist/`. That build path now stages the frontend/static bundle and then packages the Python distribution through the shared Go-binary distribution helper. Upload the wheel to the remote server and install it with `uv`.
+After running `./build.sh`, the deployable artifacts live in `dist/`. That
+build path stages the frontend/static bundle and then packages the Python
+distribution through the shared Go-binary distribution helper. For packaged-user
+installs, upload the built wheel to the remote server and install it with `uv`.
 
 ## Steps
 
@@ -10,10 +13,12 @@ After running `./build.sh`, the deployable artifacts live in `dist/`. That build
 ./build.sh
 ```
 
-2. Resolve the platform wheel that `./build.sh` produced:
+2. Resolve the one platform wheel that `./build.sh` produced:
 
 ```bash
-WHEEL_PATH="$(printf '%s\n' dist/setta-0.0.18-*.whl)"
+# shellcheck source=/dev/null
+. ./scripts/lib/distribution_artifact_path.sh
+WHEEL_PATH="$(setta_resolve_single_dist_artifact "$(pwd)/dist" "*.whl" "wheel")"
 ```
 
 3. Upload the wheel to the remote host:
@@ -28,18 +33,20 @@ scp "${WHEEL_PATH}" paperspace:/tmp/
 uv pip install --force-reinstall "/tmp/$(basename "${WHEEL_PATH}")"
 ```
 
-If you prefer a source install, upload `dist/setta-0.0.18.tar.gz` and install that instead.
+This page is intentionally wheel-first. If you want to smoke source-package
+completeness, use `./verify_install.sh` from the repo checkout instead of
+treating `.tar.gz` as the normal remote install path.
 
-## Cleanup (remove source files)
+## Cleanup
 
-If you uploaded or unpacked source artifacts on the remote host, remove them explicitly:
+Remove the uploaded wheel explicitly:
 
 ```bash
-rm -f "/tmp/$(basename "${WHEEL_PATH}")" /tmp/setta-0.0.18.tar.gz
-rm -rf /tmp/setta-0.0.18
+rm -f "/tmp/$(basename "${WHEEL_PATH}")"
 ```
 
-Wheel installs do not leave a source tree behind. If you also want to remove the installed package itself, run:
+Wheel installs do not leave a source tree behind. If you also want to remove the
+installed package itself, run:
 
 ```bash
 uv pip uninstall setta

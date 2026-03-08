@@ -2017,11 +2017,17 @@ Do not weaken this rule during the rewrite.
      - installer payloads preserve the real wheel filename instead of renaming
        it to a generic placeholder, keeping the bundled artifact installable by
        `uv`
-   - the remaining Phase 32 work is now narrower:
-     - installer-managed built-install docs still need wheel-first retargeting
-     - `verify_install.sh` remains an explicit separate sdist-smoke question
-   - the next selected work is now the Phase 32 docs retarget slice, not
-     broader packaging cleanup
+   - the second Phase 32 slice is now landed for installer-managed built-install
+     docs retargeting:
+     - `docs/reference/remote-built-install.md` now documents only the
+       wheel-based packaged-user install path
+     - source-package guidance is now narrowed to the separate
+       `./verify_install.sh` smoke role instead of being presented as a normal
+       remote install option
+   - the remaining Phase 32 work is now only the explicit `verify_install.sh`
+     sdist-smoke boundary decision
+   - the next selected work is now that narrow Phase 32 Slice 3 decision,
+     not broader packaging cleanup
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise
