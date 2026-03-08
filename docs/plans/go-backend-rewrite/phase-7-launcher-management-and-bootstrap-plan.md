@@ -208,3 +208,7 @@ Recommended landing order:
 - 2026-03-08: completed that launcher-home slice in Go; next recommended step
   is the focused `openLauncherWorkspace` plus launcher executable/target
   contract slice.
+- 2026-03-08: split that next slice into a dedicated implementation doc in
+  `phase-7-launcher-open-workspace-and-bootstrap-contract.md`; the immediate
+  landing target is now Stage 1 from that doc: executable/bootstrap contract
+  ownership.

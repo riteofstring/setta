@@ -104,7 +104,8 @@ Current repo status as of 2026-03-08:
 
 Create and execute the next focused Phase 7 slice for
 `POST /openLauncherWorkspace` plus the launcher executable/target contract it
-depends on.
+depends on, using
+`phase-7-launcher-open-workspace-and-bootstrap-contract.md`.
 
 That is now the highest-leverage next step because:
 
@@ -147,6 +148,10 @@ That is now the highest-leverage next step because:
 - 2026-03-08: completed that launcher-home recent-workspace and directory
   browser slice in Go; next recommended step is the focused
   `openLauncherWorkspace` plus launcher executable/target contract slice.
+- 2026-03-08: created
+  `phase-7-launcher-open-workspace-and-bootstrap-contract.md` to split that
+  next slice into a first executable/bootstrap prerequisite stage and a later
+  `openLauncherWorkspace` route stage.
 
 ## Verification
 
