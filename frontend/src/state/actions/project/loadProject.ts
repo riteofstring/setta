@@ -1,13 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { unstable_batchedUpdates } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
-import {
-  getHydratedActiveSectionUIState,
-  sanitizeProjectStateActiveIds,
-  useActiveSectionUI,
-} from "state/activeSectionUI";
 import {
   useAllProjectMetadata,
   useLocalStorage,
@@ -56,7 +49,6 @@ export async function loadProjectConfig({ projectConfigName }) {
 
 export async function loadProjectState(p: ProjectStateSingleConfig) {
   const { viewport, viewportInitialized } = p.projectConfig;
-  cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -67,25 +59,14 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  const nextProjectState = {
-    ...sanitizeProjectStateActiveIds(p),
-    previewSectionVariantMap: {},
-  };
-  const nextActiveSectionUIState = getHydratedActiveSectionUIState(
-    p.projectConfig.activeIds,
-  );
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  unstable_batchedUpdates(() => {
-    useProjectState.setState(nextProjectState);
-    useNodeInternals.setState({ x: nextNodesMap });
-    if (nextActiveSectionUIState !== null) {
-      useActiveSectionUI.setState(nextActiveSectionUIState);
-    }
-  });
+  useProjectState.setState({ ...p, previewSectionVariantMap: {} });
   applyPendingNameValidationErrors(p.projectConfig.id);
+  useNodeInternals.setState((state) => ({
+    x: createNodesMapFromProjectConfigChildren(
+      useProjectState.getState(),
+      state.x,
+    ),
+  }));
   return true;
 }
 

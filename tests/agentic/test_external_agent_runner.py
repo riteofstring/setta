@@ -89,6 +89,7 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
+    AGENTIC_CONTEXT_RUN_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
@@ -338,6 +339,7 @@ class TestExternalAgentRunnerContext:
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
                 chat_section_id
             )
+            assert headers.get(AGENTIC_CONTEXT_RUN_ID_HEADER) == str(context.run.id)
             assert headers.get(AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER) == (
                 "frontend-codex"
             )
@@ -381,6 +383,7 @@ class TestExternalAgentRunnerContext:
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
                 chat_section_id
             )
+            assert headers.get(AGENTIC_CONTEXT_RUN_ID_HEADER) == str(context.run.id)
 
 
 async def _apply_claude_payloads(

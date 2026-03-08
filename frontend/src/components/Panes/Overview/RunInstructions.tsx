@@ -1,4 +1,5 @@
 import * as Switch from "@radix-ui/react-switch";
+import { getStateMachineNodePresentation } from "components/Section/Layouts/stateMachineNodePresentation";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
 import { usePluginStatusEntries } from "plugins/runtime";
@@ -20,7 +21,14 @@ import {
   getSectionShouldRender,
 } from "state/actions/sectionInfos";
 import {
+  resetStateMachineRun,
+  startStateMachineRun,
+  stopStateMachineRun,
+  subscribeStateMachineRunPolling,
+} from "state/actions/stateMachineRuns";
+import {
   CustomRunItem,
+  useAIStore,
   useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
@@ -64,6 +72,10 @@ import {
   type RunInstructionsAccordionItemValue,
 } from "./runInstructionsAccordionState";
 import { isRunnableSectionForCustomRun } from "./runInstructionsRunnableCodeBlocks";
+import {
+  collectRunInstructionsStateMachineControls,
+  type RunInstructionsStateMachineControl,
+} from "./runInstructionsStateMachineControls";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
@@ -106,6 +118,13 @@ const CUSTOM_RUN_ROW_CLASSES =
   "mx-[2px] flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md bg-setta-100/30 px-2 py-0.5 text-xs dark:bg-setta-900/40";
 const CUSTOM_RUN_EMPTY_STATE_CLASSES =
   "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1 text-xs text-setta-600 dark:bg-setta-900/40 dark:text-setta-300";
+const WORKFLOW_CONTROL_ROW_CLASSES =
+  "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1.5 text-xs dark:bg-setta-900/40";
+const WORKFLOW_CONTROL_BUTTON_CLASSES =
+  "inline-flex h-6 items-center rounded px-2 text-[11px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-45";
+const WORKFLOW_CONTROL_START_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-emerald-500/50 bg-emerald-500/15 text-emerald-900 hover:bg-emerald-500/25 dark:border-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-100 dark:hover:bg-emerald-500/30`;
+const WORKFLOW_CONTROL_STOP_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-amber-500/50 bg-amber-500/15 text-amber-900 hover:bg-amber-500/25 dark:border-amber-600 dark:bg-amber-500/20 dark:text-amber-100 dark:hover:bg-amber-500/30`;
+const WORKFLOW_CONTROL_RESET_BUTTON_CLASSES = `${WORKFLOW_CONTROL_BUTTON_CLASSES} border border-slate-500/40 bg-slate-500/10 text-slate-900 hover:bg-slate-500/20 dark:border-slate-600 dark:bg-slate-500/15 dark:text-slate-100 dark:hover:bg-slate-500/25`;
 const CODEGEN_SECTION_TYPES: SectionType[] = [
   SectionTypeEnum.Callable,
   SectionTypeEnum.Dict,
@@ -223,6 +242,10 @@ export function RunInstructions() {
     : "default";
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
+  );
+  const workflowControls = useProjectState(
+    (state) => collectRunInstructionsStateMachineControls(state),
+    _.isEqual,
   );
   const pluginStatusEntries = usePluginStatusEntries();
   const storedAccordionOpenValues = useLocalStorage(
@@ -422,6 +445,13 @@ export function RunInstructions() {
     }
     ensureDefaultCustomRuns(projectConfigId);
   }, [projectConfigId, canRun]);
+
+  React.useEffect(() => {
+    if (isDeploymentMode || workflowControls.length === 0) {
+      return;
+    }
+    return subscribeStateMachineRunPolling();
+  }, [isDeploymentMode, workflowControls.length]);
 
   const runSnapshotModeMeta =
     RUN_SNAPSHOT_MODE_OPTIONS.find(
@@ -1314,6 +1344,24 @@ export function RunInstructions() {
       content: codegenPolicyContent,
     },
     {
+      value: "run-instructions-workflow-controls",
+      title: "Workflow Controls",
+      triggerTestId: "run-instructions-accordion-workflow-controls",
+      disabled: workflowControls.length === 0,
+      disabledReason: "No workflow start sections are available",
+      content: (
+        <div className="space-y-1">
+          {workflowControls.map((workflow) => (
+            <WorkflowControlRow
+              key={workflow.sectionId}
+              workflow={workflow}
+              projectConfigId={projectConfigId}
+            />
+          ))}
+        </div>
+      ),
+    },
+    {
       value: "run-instructions-custom-runs",
       title: "Run Button Dropdown Items",
       triggerTestId: "run-instructions-accordion-custom-runs",
@@ -1373,7 +1421,7 @@ export function RunInstructions() {
       <p
         className={`${RUN_INSTRUCTIONS_INLINE_INSET_CLASS} text-xs text-setta-500 dark:text-setta-300`}
       >
-        Define custom run types (once or continuous) and choose which ones
+        Start workflows here, then define custom run types and choose which ones
         appear in the main Run dropdown.
       </p>
       <div
@@ -1387,6 +1435,137 @@ export function RunInstructions() {
         />
       </div>
     </div>
+  );
+}
+
+function WorkflowControlRow({
+  workflow,
+  projectConfigId,
+}: {
+  workflow: RunInstructionsStateMachineControl;
+  projectConfigId: string;
+}) {
+  const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
+  const machineRun = useAIStore(
+    (state) =>
+      getStateMachineNodePresentation({
+        runs: state.agentRuns,
+        projectConfigId,
+        machineGroupId: workflow.machineGroupId,
+        sectionId: workflow.sectionId,
+        sectionType: SectionTypeEnum.StateMachineStart,
+      }),
+    _.isEqual,
+  );
+  const [pendingAction, setPendingAction] = React.useState<
+    "start" | "stop" | "reset" | null
+  >(null);
+  const activityLabel =
+    machineRun.failureSummaryLabel ??
+    machineRun.activityItems[0]?.label ??
+    null;
+  const controlsDisabled = pendingAction !== null || isDeploymentMode;
+
+  async function handleStartClick(): Promise<void> {
+    setPendingAction("start");
+    try {
+      await startStateMachineRun(workflow.machineGroupId, workflow.sectionId);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function handleStopClick(): Promise<void> {
+    setPendingAction("stop");
+    try {
+      await stopStateMachineRun(workflow.machineGroupId);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  async function handleResetClick(): Promise<void> {
+    setPendingAction("reset");
+    try {
+      await resetStateMachineRun(workflow.machineGroupId);
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  return (
+    <section
+      className={WORKFLOW_CONTROL_ROW_CLASSES}
+      data-testid={`run-instructions-workflow-control-row-${workflow.sectionId}`}
+    >
+      <div className="min-w-0">
+        <div className="truncate text-[11px] font-semibold text-setta-800 dark:text-setta-100">
+          {workflow.label}
+        </div>
+        <div className="truncate font-mono text-[10px] text-setta-500 dark:text-setta-400">
+          {workflow.machineGroupId}
+        </div>
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${machineRun.statusClasses}`}
+          data-testid={`run-instructions-workflow-status-${workflow.sectionId}`}
+        >
+          {machineRun.statusLabel}
+        </span>
+        {machineRun.iterationLabel ? (
+          <span className="rounded-full border border-setta-300/70 bg-white/65 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-setta-600 dark:border-setta-700 dark:bg-setta-950/35 dark:text-setta-300">
+            {machineRun.iterationLabel}
+          </span>
+        ) : null}
+      </div>
+      {activityLabel ? (
+        <p
+          className={`mt-1 truncate text-[10px] ${
+            machineRun.failureSummaryLabel
+              ? "text-rose-700 dark:text-rose-300"
+              : "text-setta-500 dark:text-setta-300"
+          }`}
+        >
+          {activityLabel}
+        </p>
+      ) : null}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <button
+          className={WORKFLOW_CONTROL_START_BUTTON_CLASSES}
+          data-testid={`run-instructions-workflow-start-${workflow.sectionId}`}
+          disabled={controlsDisabled || machineRun.isRunning}
+          onClick={() => {
+            void handleStartClick();
+          }}
+          type="button"
+        >
+          Start
+        </button>
+        <button
+          className={WORKFLOW_CONTROL_STOP_BUTTON_CLASSES}
+          data-testid={`run-instructions-workflow-stop-${workflow.sectionId}`}
+          disabled={controlsDisabled || !machineRun.isRunning}
+          onClick={() => {
+            void handleStopClick();
+          }}
+          type="button"
+        >
+          Stop
+        </button>
+        <button
+          className={WORKFLOW_CONTROL_RESET_BUTTON_CLASSES}
+          data-testid={`run-instructions-workflow-reset-${workflow.sectionId}`}
+          disabled={controlsDisabled || !machineRun.hasRun}
+          onClick={() => {
+            void handleResetClick();
+          }}
+          type="button"
+        >
+          Reset
+        </button>
+      </div>
+    </section>
   );
 }
 

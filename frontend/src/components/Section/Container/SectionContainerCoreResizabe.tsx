@@ -1,6 +1,5 @@
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
-import React from "react";
 import {
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
@@ -28,6 +27,7 @@ import { PluginArea } from "../Layouts/PluginArea";
 import { PromptArea } from "../Layouts/PromptArea";
 import { SocialArea } from "../Layouts/SocialArea";
 import { SpreadsheetArea } from "../Layouts/SpreadsheetArea";
+import { StateMachineNodeArea } from "../Layouts/StateMachineNodeArea";
 import { TaskBoardArea } from "../Layouts/TaskBoardArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
@@ -40,6 +40,7 @@ import { getBgColor } from "./utils";
 type SectionContainerCoreResizableProps = {
   sectionId: string;
   sectionTypeName: SectionType;
+  isActiveSection: boolean;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
   positionAndSizeLocked: boolean;
@@ -47,9 +48,10 @@ type SectionContainerCoreResizableProps = {
   hideHeader?: boolean;
 };
 
-function _SectionContainerCoreResizable({
+export function SectionContainerCoreResizable({
   sectionId,
   sectionTypeName,
+  isActiveSection,
   isInOtherProjectConfigs,
   isUserView,
   positionAndSizeLocked,
@@ -95,15 +97,6 @@ function _SectionContainerCoreResizable({
   const metaControlLayoutClassName = isMetaControl
     ? "grid-cols-1 grid-rows-1"
     : undefined;
-  const sectionBody = !isMinimized ? (
-    <AreaSwitch
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      bgColor={bgColor}
-      isMinimized={isMinimized}
-      isUserView={isUserView}
-    />
-  ) : null;
 
   return (
     <CustomResizable
@@ -111,6 +104,7 @@ function _SectionContainerCoreResizable({
       as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
       isMetaControl={useMetaControlStyle}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -148,25 +142,28 @@ function _SectionContainerCoreResizable({
             </div>
           </div>
         )
-      ) : !hideHeader ? (
+      ) : hideHeader ? null : (
         <SectionHeader
           sectionId={sectionId}
+          isActiveSection={isActiveSection}
           sectionTypeName={sectionTypeName}
           isInOtherProjectConfigs={isInOtherProjectConfigs}
           isUserView={isUserView}
           isRoot={isRoot}
           hasSectionStyleTheme={hasSectionStyleTheme}
         />
-      ) : null}
+      )}
       {isRoot && <Incrementer sectionId={sectionId} isRoot={isRoot} />}
-      {sectionBody}
+      <AreaSwitch
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        bgColor={bgColor}
+        isMinimized={isMinimized}
+        isUserView={isUserView}
+      />
     </CustomResizable>
   );
 }
-
-export const SectionContainerCoreResizable = React.memo(
-  _SectionContainerCoreResizable,
-);
 
 function AreaSwitch({
   sectionId,
@@ -231,6 +228,10 @@ function AreaSwitch({
       return <TaskBoardArea sectionId={sectionId} />;
     case SectionTypeEnum.Spreadsheet:
       return <SpreadsheetArea sectionId={sectionId} />;
+    case SectionTypeEnum.StateMachineStart:
+    case SectionTypeEnum.StateMachineGate:
+    case SectionTypeEnum.StateMachineEnd:
+      return <StateMachineNodeArea sectionId={sectionId} />;
     case SectionTypeEnum.ListRoot:
     case SectionTypeEnum.Group:
       return null;

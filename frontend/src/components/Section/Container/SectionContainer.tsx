@@ -9,14 +9,12 @@ import {
   getSectionViewModeVisibility,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
-import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { MaybeManyNestedSections } from "./ManyNestedSections";
@@ -45,8 +43,8 @@ function _SectionContainer({
     sectionTypeName,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
-    attachedTerminalId,
     isJoinedAttachedTerminalGroup,
+    isJoinedGroupActive,
   } = useProjectState((x) => {
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
       sectionId,
@@ -55,8 +53,10 @@ function _SectionContainer({
     const viewMode = getActiveViewModeConfig(x);
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const pythonTarget = getPythonCodegenTarget(x.projectConfig);
+    const activeIds = x.projectConfig.activeIds;
+    const isActive = activeIds.includes(sectionId);
     let isJoinedAttachedTerminalGroup = false;
-    let attachedTerminalId: string | null = null;
+    let isJoinedGroupActive = isActive;
 
     const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
       x,
@@ -64,7 +64,9 @@ function _SectionContainer({
     );
     if (embeddedTerminal) {
       isJoinedAttachedTerminalGroup = !embeddedTerminal.isTerminalMinimized;
-      attachedTerminalId = embeddedTerminal.attachedTerminalId;
+      isJoinedGroupActive =
+        isJoinedGroupActive ||
+        activeIds.includes(embeddedTerminal.attachedTerminalId);
     }
     return {
       visibility,
@@ -79,15 +81,10 @@ function _SectionContainer({
       sectionTypeName: impl.type,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-      attachedTerminalId,
       isJoinedAttachedTerminalGroup,
+      isJoinedGroupActive,
     };
-  }, shallow);
-  const isActiveSection = useIsSectionUIActive(sectionId);
-  const isAttachedTerminalActive = useIsSectionUIActive(
-    attachedTerminalId ?? "__no_active_terminal__",
-  );
-  const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
+  }, _.isEqual);
 
   if (isGenPython && !hasPythonCodegen) {
     return null;
