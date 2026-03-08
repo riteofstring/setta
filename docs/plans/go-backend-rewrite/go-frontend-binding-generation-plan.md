@@ -58,6 +58,9 @@ Start with explicit route ownership wedges, not full schema reflection.
     wrappers plus request/response types for `mcpServerRuntimeStatus`,
     `getAppGenSkills`, `getAppGenSkillContent`,
     `upsertAppGenCustomSkill`, and `revealPathInOsFileExplorer`
+  - current landed wedge: active LSP helper endpoint wrappers plus
+    request/response types for `restartLanguageServer`, `typeCheck`, and
+    `setTypeErrorIgnore`
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals

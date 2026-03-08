@@ -63,6 +63,17 @@ export type MCPServerRuntimeStatusResponse = {
   externalServers: Array<MCPServerRuntimeStatusEntry>;
 };
 
+export type TypeCheckRequestInput = {
+  projectConfigId: string;
+};
+
+export type SetTypeErrorIgnoreRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  ignoreTypeErrors: boolean;
+};
+
 export type LaunchRequestInput = {
   launchIntentToken?: string | null;
   workspaceRoot?: string | null;
@@ -442,6 +453,18 @@ export async function route_reveal_path_in_os_file_explorer(x: RevealPathInOsFil
 
 export async function route_get_mcp_server_runtime_status(x: GetMCPServerRuntimeStatusRequestInput): Promise<ResponseDataAndStatus<MCPServerRuntimeStatusResponse>> {
   return await post(GoHTTPRoutes.getMCPServerRuntimeStatus, x);
+}
+
+export async function route_restart_language_server(): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.restartLanguageServer, null);
+}
+
+export async function route_type_check(x: TypeCheckRequestInput): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.typeCheck, x);
+}
+
+export async function route_set_type_error_ignore(x: SetTypeErrorIgnoreRequestInput): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setTypeErrorIgnore, x);
 }
 
 export async function route_create_workspace_launch_intent(x: CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>> {

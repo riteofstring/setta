@@ -1,11 +1,34 @@
-import { useProjectState, useTypeErrors } from "state/definitions";
+import {
+  useProjectState,
+  useShareSession,
+  useTypeErrors,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,
   type SettaProjectConfigDiagnostics,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { processTypeErrors } from "./typeCheck";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { processTypeErrors, requestTypeCheck } from "./typeCheck";
+
+const { routeTypeCheck, addTemporaryNotification, getCurrProjectConfigId } =
+  vi.hoisted(() => ({
+    routeTypeCheck: vi.fn(),
+    addTemporaryNotification: vi.fn(),
+    getCurrProjectConfigId: vi.fn(() => "project-1"),
+  }));
+
+vi.mock("utils/generatedGoEndpoints", () => ({
+  route_type_check: routeTypeCheck,
+}));
+
+vi.mock("./notifications", () => ({
+  addTemporaryNotification,
+}));
+
+vi.mock("./sectionInfos", () => ({
+  getCurrProjectConfigId,
+}));
 
 describe("processTypeErrors", () => {
   beforeEach(() => {
@@ -142,5 +165,39 @@ describe("processTypeErrors", () => {
         params: {},
       });
     });
+  });
+});
+
+describe("requestTypeCheck", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    useProjectState.setState({
+      projectConfig: createProjectConfig({ id: "project-1" }),
+    });
+    routeTypeCheck.mockReset();
+    addTemporaryNotification.mockReset();
+    getCurrProjectConfigId.mockReturnValue("project-1");
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("targets the current project through the Go-generated type-check wrapper", async () => {
+    await requestTypeCheck(true);
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith("Checking types...");
+    expect(routeTypeCheck).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+  });
+
+  it("skips the helper call in deployment mode", async () => {
+    useShareSession.setState({ isDeploymentMode: true });
+
+    await requestTypeCheck(true);
+
+    expect(addTemporaryNotification).not.toHaveBeenCalled();
+    expect(routeTypeCheck).not.toHaveBeenCalled();
   });
 });

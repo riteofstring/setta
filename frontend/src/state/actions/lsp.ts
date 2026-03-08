@@ -1,5 +1,5 @@
 import { useShareSession, useWaitingForLSPResult } from "state/definitions";
-import { route_restart_language_server } from "utils/generatedEndpoints";
+import { route_restart_language_server } from "utils/generatedGoEndpoints";
 import { addTemporaryNotification } from "./notifications";
 
 function setWaitingForLSP({ category, id, delay = 200 }) {

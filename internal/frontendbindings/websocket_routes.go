@@ -87,6 +87,18 @@ func CurrentHTTPRoutes() []HTTPRoute {
 			Path: httpapi.RouteMCPServerRuntimeStatus,
 		},
 		{
+			Name: "restartLanguageServer",
+			Path: httpapi.RouteRestartLanguageServer,
+		},
+		{
+			Name: "typeCheck",
+			Path: httpapi.RouteTypeCheck,
+		},
+		{
+			Name: "setTypeErrorIgnore",
+			Path: httpapi.RouteSetTypeErrorIgnore,
+		},
+		{
 			Name: "getLauncherRecentWorkspaces",
 			Path: httpapi.RouteGetLauncherRecentWorkspaces,
 		},
