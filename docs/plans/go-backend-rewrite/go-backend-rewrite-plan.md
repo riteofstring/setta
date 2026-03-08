@@ -6,8 +6,8 @@ Plan a full backend rewrite from Python to Go without treating this as a simple 
 The current backend is a large stateful runtime with:
 
 - 34 router modules under `backend/setta/routers/`
-- 312 route constants in `backend/setta/types/routes.py`
-- 372 backend test files under `tests/`
+- 317 route enum entries in `backend/setta/types/routes.py`
+- 373 backend test files under `tests/`
 - heavy custom logic around project state, websockets, MCP, LSP, plugins, terminals, and multi-mode runtime behavior
 
 This rewrite is a clean break. We can reuse good ideas from the current backend, but we do not need backward compatibility, legacy route preservation, storage migrations, or Python-shaped internal structure.

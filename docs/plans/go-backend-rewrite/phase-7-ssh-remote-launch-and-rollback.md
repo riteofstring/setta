@@ -117,8 +117,8 @@ before the first shell-execution owner is wired.
   heuristics
 - treat CLI docs/tests as product references for remote behavior, not a
   requirement to port CLI entrypoints in this slice
-- use shell-compatible SSH arg parsing via `github.com/google/shlex` instead of
-  adding an ad hoc argument splitter
+- keep shell-compatible SSH arg parsing in the bounded `internal/sshx` owner
+  instead of broadening this slice into a general shell parser
 - reject invalid `settaFilesLocation` values at the utility boundary instead of
   silently downgrading them during remote log-path resolution
 
