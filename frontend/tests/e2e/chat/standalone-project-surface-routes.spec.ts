@@ -1259,6 +1259,74 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("standalone section routes resolve the renamed slug and fail closed on the stale slug", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const { sectionId, sectionName } = await createTextBlockSection(
+        page,
+        projectContext.projectConfigId,
+        "Standalone Slug Route",
+      );
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const initialSlug = await resolveSectionSlug(page, sectionName);
+      const renamedSectionName = `${sectionName}-renamed`;
+      const renamedSlug = await resolveSectionSlug(page, renamedSectionName);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/section/${encodeURIComponent(initialSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        standalonePage.getByTestId("standalone-section-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByText(sectionName, { exact: true }),
+      ).toBeVisible();
+
+      await postBackend(page, "/setSectionName", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        name: renamedSectionName,
+      });
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/section/${encodeURIComponent(initialSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        standalonePage.getByTestId("standalone-section-not-found"),
+      ).toBeVisible();
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/section/${encodeURIComponent(renamedSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        standalonePage.getByTestId("standalone-section-surface"),
+      ).toBeVisible();
+      await expect(
+        standalonePage.getByText(renamedSectionName, { exact: true }),
+      ).toBeVisible();
+    } finally {
+      await standalonePage.close();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("restoring a saved window space preserves unrelated live floating windows", async ({
     page,
   }) => {

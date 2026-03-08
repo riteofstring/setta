@@ -266,3 +266,94 @@ async def test_agentic_edge_routes_accept_real_manager_linked_chat_targets() -> 
                 project_config_id
             )
             assert project_state.projectConfig.agenticEdges == [replacement_edge]
+
+
+@pytest.mark.asyncio
+async def test_agentic_edge_routes_ignore_invalid_persisted_llm_config_for_non_linked_edges() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        project_config_id = (
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        assert project_config_id is not None
+        await project_fixture.manager.finish_pending_operations()
+        project_fixture.dbe.write_llm_config(
+            {
+                "configs": {
+                    "broken": [],
+                }
+            }
+        )
+
+        state = SimpleNamespace(
+            share_mode=False,
+            deployment_mode=False,
+            wmh_frontend_sender=project_fixture.manager.websocket_msg_handler,
+            project_manager_switcher=ProjectManagerSwitcher(
+                main_manager=project_fixture.manager,
+                settings_manager=settings_fixture.manager,
+            ),
+        )
+
+        with runtime_context(state) as ctx:
+            caller_response = await project_fixture.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Chat,
+                    position=Position(x=0, y=0),
+                ),
+            )
+            target_response = await project_fixture.manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Dict,
+                    position=Position(x=300, y=0),
+                ),
+            )
+
+            await route_create_agentic_edge(
+                CreateAgenticEdgeRequest(
+                    projectConfigId=project_config_id,
+                    sourceSectionId=caller_response.sectionId,
+                    targetSectionId=target_response.sectionId,
+                    kind=AgenticEdgeKind.chat_section,
+                ),
+                ctx,
+            )
+
+            project_state = project_fixture.manager.get_single_config_state(
+                project_config_id
+            )
+            created_edge = project_state.projectConfig.agenticEdges[0]
+            assert created_edge.kind == AgenticEdgeKind.chat_section
+
+            await route_update_agentic_edge(
+                UpdateAgenticEdgeRequest(
+                    projectConfigId=project_config_id,
+                    edge=created_edge.model_copy(update={"hidden": True}),
+                ),
+                ctx,
+            )
+
+            replacement_edge = AgenticEdge(
+                id="edge-chat-section-replacement",
+                sourceSectionId=caller_response.sectionId,
+                targetSectionId=target_response.sectionId,
+                kind=AgenticEdgeKind.chat_section,
+            )
+            await route_set_agentic_edges(
+                SetAgenticEdgesRequest(
+                    projectConfigId=project_config_id,
+                    edges=[replacement_edge],
+                ),
+                ctx,
+            )
+
+            project_state = project_fixture.manager.get_single_config_state(
+                project_config_id
+            )
+            assert project_state.projectConfig.agenticEdges == [replacement_edge]

@@ -34,7 +34,6 @@ from setta.agentic.chat_view import (
 )
 from setta.agentic.linked_chat_targets import (
     LinkedChatTargetResolutionError,
-    is_executable_linked_chat_target,
     resolve_executable_linked_chat_target,
 )
 from setta.agentic.store import list_agent_run_ids_by_metadata
@@ -4959,7 +4958,6 @@ class BaseProjectManager(ABC):
             x.searchEnabled,
             x.dictationMode,
         )
-        self._prune_non_executable_linked_chat_edges(project_state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
@@ -5097,10 +5095,13 @@ class BaseProjectManager(ABC):
         project_state: ProjectStateSingleConfig,
         edges: list[AgenticEdge],
     ) -> None:
+        linked_chat_edges = [
+            edge for edge in edges if edge.kind == AgenticEdgeKind.chat_chat
+        ]
+        if not linked_chat_edges:
+            return
         llm_configs = self._load_llm_configs()
-        for edge in edges:
-            if edge.kind != AgenticEdgeKind.chat_chat:
-                continue
+        for edge in linked_chat_edges:
             try:
                 resolve_executable_linked_chat_target(
                     project_state,
@@ -5116,26 +5117,6 @@ class BaseProjectManager(ABC):
                 raise ValueError(
                     f"Linked chat '{target_label}' is not executable: {exc.reason}."
                 ) from exc
-
-    def _prune_non_executable_linked_chat_edges(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        llm_configs = self._load_llm_configs()
-        next_edges: list[AgenticEdge] = []
-        for edge in project_state.projectConfig.agenticEdges:
-            if edge.kind != AgenticEdgeKind.chat_chat:
-                next_edges.append(edge)
-                continue
-            if is_executable_linked_chat_target(
-                project_state,
-                edge.targetSectionId,
-                dbe=self.dbe,
-                llm_configs=llm_configs,
-            ):
-                next_edges.append(edge)
-        if len(next_edges) != len(project_state.projectConfig.agenticEdges):
-            project_state.projectConfig.agenticEdges = next_edges
 
     @enqueue_method
     async def admit_linked_chat_section_invocation(

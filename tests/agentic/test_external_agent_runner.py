@@ -445,6 +445,34 @@ class TestExternalAgentRunnerContext:
                 chat_section_id
             )
 
+    def test_context_skips_persisted_llm_validation_when_no_linked_chats_exist(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _project_config, chat_section_id, context_section_id = (
+                _write_project_state_with_agentic_context(dbe)
+            )
+            dbe.write_llm_config({"configs": {"broken": []}})
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                id="opencode-config-no-linked",
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-opencode-no-linked"),
+                inputs={"sectionId": str(chat_section_id)},
+            )
+
+            assert context.agentic_context_section_ids == (context_section_id,)
+            assert "## Agentic Context" in context.system_prompt
+            assert "`invoke_linked_chat`" not in context.system_prompt
+
 
 async def _apply_claude_payloads(
     runner: ExternalAgentRunner,
@@ -729,6 +757,10 @@ class TestExternalAgentRunner:
                 projectConfigs={
                     project_config_a.id: project_config_a,
                     project_config_b.id: project_config_b,
+                },
+                projectChatWindowingByProjectConfigId={
+                    project_config_a.id: {},
+                    project_config_b.id: {},
                 },
                 defaultProjectConfigId=project_config_a.id,
             )

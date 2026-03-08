@@ -21,6 +21,14 @@ type SectionSlugIndex = {
   childrenByParent: Record<string, Array<string>>;
 };
 
+const sectionSlugIndexCache = new WeakMap<
+  object,
+  WeakMap<
+    object,
+    WeakMap<object, WeakMap<object, WeakMap<object, SectionSlugIndex>>>
+  >
+>();
+
 type StandaloneSectionSlugResolution =
   | {
       kind: "found";
@@ -125,6 +133,32 @@ export function resolveSectionFullPathName(
 export function getSectionSlugIndex(
   state: SectionSlugProjectState,
 ): SectionSlugIndex {
+  const sectionVariantMap = state.projectConfig.sectionVariantMap;
+  const byParentSectionMap = getOrCreateWeakMap(
+    sectionSlugIndexCache,
+    state.sections,
+    () => new WeakMap(),
+  );
+  const bySectionImpls = getOrCreateWeakMap(
+    byParentSectionMap,
+    state.parentSectionMap,
+    () => new WeakMap(),
+  );
+  const bySectionVariants = getOrCreateWeakMap(
+    bySectionImpls,
+    state.sectionImpls,
+    () => new WeakMap(),
+  );
+  const bySectionVariantMap = getOrCreateWeakMap(
+    bySectionVariants,
+    state.sectionVariants,
+    () => new WeakMap(),
+  );
+  const cached = bySectionVariantMap.get(sectionVariantMap);
+  if (cached) {
+    return cached;
+  }
+
   const slugToIds: Record<string, Array<string>> = {};
   for (const id of Object.keys(state.sections)) {
     const fullPathName = resolveSectionFullPathName(state, id, null);
@@ -146,7 +180,9 @@ export function getSectionSlugIndex(
     childrenByParent[parentId].push(childId);
   }
 
-  return { slugToIds, childrenByParent };
+  const index = { slugToIds, childrenByParent };
+  bySectionVariantMap.set(sectionVariantMap, index);
+  return index;
 }
 
 export function collectDescendantSectionIds(
@@ -211,4 +247,18 @@ export function resolveStandaloneSectionSlug(
     sectionName: section.name,
     sectionType: getSectionEffectiveImplForSlugPath(state, sectionId).type,
   };
+}
+
+function getOrCreateWeakMap<K extends object, V extends object>(
+  cache: WeakMap<K, V>,
+  key: K,
+  createValue: () => V,
+): V {
+  const cached = cache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const nextValue = createValue();
+  cache.set(key, nextValue);
+  return nextValue;
 }

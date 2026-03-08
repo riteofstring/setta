@@ -10,7 +10,10 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { resolveStandaloneSectionSlug } from "./sectionSlugPaths";
+import {
+  getSectionSlugIndex,
+  resolveStandaloneSectionSlug,
+} from "./sectionSlugPaths";
 
 function createSectionState(input: {
   sections: Record<string, { name: string }>;
@@ -140,7 +143,28 @@ describe("sectionSlugPaths", () => {
     });
   });
 
-  it("rebuilds the slug index after an in-place section rename", () => {
+  it("reuses the cached slug index when relevant state refs are unchanged", () => {
+    const state = createSectionState({
+      sections: {
+        parent: { name: "Parent" },
+        child: { name: "Blue Star" },
+      },
+      parentSectionMap: {
+        parent: null,
+        child: "parent",
+      },
+      groupChildrenById: {
+        parent: ["child"],
+      },
+    });
+
+    const first = getSectionSlugIndex(state);
+    const second = getSectionSlugIndex(state);
+
+    expect(second).toBe(first);
+  });
+
+  it("rebuilds the slug index after a production-shaped section rename", () => {
     const state = createSectionState({
       sections: {
         parent: { name: "Parent" },
@@ -166,15 +190,32 @@ describe("sectionSlugPaths", () => {
     if (!childSection) {
       throw new Error("Expected a child section to rename.");
     }
-    childSection.name = "Green Star";
+    const renamedState = {
+      ...state,
+      sections: {
+        ...state.sections,
+        child: createCore({
+          ...childSection,
+          name: "Green Star",
+        }),
+      },
+    };
 
-    expect(resolveStandaloneSectionSlug(state, "parent_green_star")).toEqual({
+    expect(getSectionSlugIndex(renamedState)).not.toBe(
+      getSectionSlugIndex(state),
+    );
+
+    expect(
+      resolveStandaloneSectionSlug(renamedState, "parent_green_star"),
+    ).toEqual({
       kind: "found",
       sectionId: "child",
       sectionName: "Green Star",
       sectionType: SectionTypeEnum.Code,
     });
-    expect(resolveStandaloneSectionSlug(state, "parent_blue_star")).toEqual({
+    expect(
+      resolveStandaloneSectionSlug(renamedState, "parent_blue_star"),
+    ).toEqual({
       kind: "not_found",
       sectionSlug: "parent_blue_star",
     });

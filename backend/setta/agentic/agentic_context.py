@@ -55,7 +55,7 @@ def build_agentic_context_payload(
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
     *,
-    llm_configs: AllLLMConfigs,
+    llm_configs: AllLLMConfigs | None,
     format_section_id: Callable[[ID], str] | None = None,
     summary_text_by_section_id: dict[ID, str] | None = None,
     summary_by_section: dict[ID, object] | None = None,
@@ -164,8 +164,10 @@ def _resolve_linked_chat_section_ids(
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
     *,
-    llm_configs: AllLLMConfigs,
+    llm_configs: AllLLMConfigs | None,
 ) -> list[ID]:
+    if llm_configs is None:
+        return []
     linked_chat_section_ids: list[ID] = []
     for edge in project_state.projectConfig.agenticEdges:
         if edge.kind != AgenticEdgeKind.chat_chat:

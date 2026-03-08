@@ -1,5 +1,6 @@
 import copy
 from enum import Enum
+from typing import Any
 
 from pydantic import (
     BaseModel,
@@ -202,6 +203,43 @@ class ProjectStateCore(BaseModel, extra="forbid"):
         default_factory=dict
     )
     codeObjVariants: dict[ID, Variant] = Field(default_factory=dict)
+
+
+def normalize_project_state_backend_payload(
+    payload: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    project_configs = payload.get("projectConfigs")
+    if not isinstance(project_configs, dict):
+        return payload, False
+
+    raw_windowing = payload.get("projectChatWindowingByProjectConfigId")
+    if raw_windowing is None:
+        if not project_configs:
+            return payload, False
+        next_windowing_by_project_config_id: dict[str, Any] = {}
+        did_change = True
+    elif isinstance(raw_windowing, dict):
+        next_windowing_by_project_config_id = dict(raw_windowing)
+        did_change = False
+    else:
+        return payload, False
+
+    for project_config_id in project_configs:
+        if project_config_id in next_windowing_by_project_config_id:
+            continue
+        next_windowing_by_project_config_id[project_config_id] = (
+            ProjectChatWindowingState().model_dump(mode="json")
+        )
+        did_change = True
+
+    if not did_change:
+        return payload, False
+
+    next_payload = dict(payload)
+    next_payload["projectChatWindowingByProjectConfigId"] = (
+        next_windowing_by_project_config_id
+    )
+    return next_payload, True
 
 
 class ProjectStateBackend(

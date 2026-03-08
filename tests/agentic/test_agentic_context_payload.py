@@ -1,6 +1,9 @@
 from pathlib import Path
 
 from setta.agentic.agentic_context import build_agentic_context_payload
+from setta.agentic.agentic_context_payload_builder import (
+    build_agentic_context_payload_with_temporary_ids,
+)
 from setta.agentic.store import save_engine_configs
 from setta.database.db_objs import DBE
 from setta.database.utils import create_new_id
@@ -446,3 +449,50 @@ def test_build_agentic_context_payload_omits_non_executable_linked_chat_targets(
     assert payload.section_ids == [ID(valid_linked_chat_id)]
     assert "Planner" in payload.text
     assert "Scriptable" not in payload.text
+
+
+def test_build_agentic_context_payload_builder_skips_llm_config_loading_when_no_linked_chats(
+    tmp_path: Path,
+) -> None:
+    dbe, _llm_configs = _build_context_inputs(tmp_path)
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(name="agentic-context-non-linked-test")
+    )
+    chat_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    context_section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TextBlock,
+        Position(),
+    )
+    set_text_block_text(project_state, context_section_id, "Context block")
+    create_agentic_edge(
+        project_state,
+        AgenticEdge(
+            id=create_new_id(),
+            sourceSectionId=chat_section_id,
+            targetSectionId=context_section_id,
+            kind=AgenticEdgeKind.chat_section,
+            contextMode=AgenticEdgeContextMode.inline_text,
+        ),
+    )
+    dbe.write_llm_config({"configs": {"broken": []}})
+
+    payload = build_agentic_context_payload_with_temporary_ids(
+        dbe,
+        project_state,
+        chat_section_id,
+        canonical_to_temporary={},
+        temporary_to_canonical={},
+        persist_temp_id_map=False,
+    )
+
+    assert payload.section_ids == [ID(context_section_id)]
+    assert "Context block" in payload.text
+    assert "`invoke_linked_chat`" not in payload.text

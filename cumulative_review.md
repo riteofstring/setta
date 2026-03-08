@@ -727,3 +727,33 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/project/loadProject.test.ts` passed: 48 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "standalone git graph windows keep git-pane visibility local to the standalone surface"` passed: 1 test.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/writing_happy` injected a saved standalone git-graph window-space record with `embeddedGitPaneVisible=true`, navigated to the standalone route, and confirmed the route rendered with the `Hide git pane sidebar` toggle already pressed at both narrow and wide viewport sizes.
+
+## 2026-03-10 20:59:20 PDT
+
+Implemented the remaining consolidated review fixes for legacy project migration, linked-chat validation scope, linked-edge persistence, and standalone section-slug caching.
+
+What changed:
+- Added `normalize_project_state_backend_payload(...)` in `backend/setta/types/project_state.py` and wired `DBE.read_project()` / `read_project_required()` through a normalization path in `backend/setta/database/db_objs.py`. Legacy backends that predate `projectChatWindowingByProjectConfigId` now backfill an empty authoritative `ProjectChatWindowingState()` per project config and persist the upgraded backend JSON once, after which the strict invariant still applies.
+- Removed destructive linked-chat edge pruning from `BaseProjectManager.set_chat_section_settings(...)`. Changing a target chat from managed to scriptable-only no longer mutates `projectConfig.agenticEdges`; the explicit `chat_chat` topology remains the source of truth.
+- Narrowed `_validate_executable_linked_chat_edges(...)` so LLM-config loading only happens for actual `chat_chat` edges. This removes the branch regression where malformed persisted `llm_config` data could block unrelated `chat_section` / `section_chat` edge edits.
+- Relaxed agentic-context construction so `build_agentic_context_payload_with_temporary_ids(...)` only loads persisted LLM config when the current chat section actually has outgoing linked-chat edges. Non-linked scoped external-agent runs now stay independent from linked-chat admission metadata and continue to build context successfully even if persisted LLM config is malformed.
+- Removed dead helper `_collect_chat_section_ids(...)` from `backend/setta/agentic/agentic_scope.py`, which no longer had production callers.
+- Restored shared frontend slug-index memoization in `frontend/src/utils/sectionSlugPaths.ts`, keyed by the authoritative project-state reference set used to derive full slug paths. Repeated rename validation and standalone slug resolution now reuse the derived slug index when the relevant state references have not changed.
+- Added a standalone browser regression so a renamed section’s stale slug fails closed and the new slug resolves the renamed section route, covering the user-visible path that depends on the restored slug-index caching.
+
+UX before/after:
+- Before: opening an existing workspace created on `main` could fail immediately because the backend now required `projectChatWindowingByProjectConfigId` before load-time upgrade had happened. After: legacy workspaces load, backfill empty authoritative windowing state once, and continue under the strict new schema.
+- Before: setting a linked target chat to scriptable-only silently deleted incoming `chat_chat` edges, so restoring the target later still left the user with a broken graph they had to rebuild manually. After: the link remains visible and persisted, but invocation fails closed with `unsupported_scriptable_target` until the target is executable again.
+- Before: malformed saved LLM config could unexpectedly break plain scope-edge edits and scoped external-agent runs even when no linked chats were involved. After: only linked-chat-specific paths depend on linked-chat executability inputs.
+- Before: rename validation and standalone route resolution rebuilt the entire slug index repeatedly on unchanged state, which made large-project typing and section-route lookups less responsive. After: unchanged lookups reuse the cached derived index, while real rename updates invalidate it and recompute the correct new slug.
+
+DX before/after:
+- Before: backend schema strictness was correct in principle but happened too early, at raw payload validation time, which made upgrade behavior depend on whether callers happened to run an out-of-band migration first. After: backend reads own the one-time normalization step, so every consumer sees post-migration state without adding permanent fallback logic to higher layers.
+- Before: linked-chat executability leaked across edge editing, chat settings, context building, and runtime invocation in different ways, including destructive mutation and unrelated config coupling. After: user-authored linked edges persist, admission still validates at the point of use, and non-linked flows no longer pay the linked-chat validation cost.
+- Before: the frontend had a helper named like a cached selector but it rebuilt the slug index each call, which made behavior and performance assumptions diverge. After: the helper once again behaves like a shared cached derivation, and the tests lock both cache reuse and rename invalidation.
+
+Verification:
+- `source activate.sh && pytest tests/database/test_dbe_project_payload_validation.py tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_agentic_edge_routes.py tests/agentic/test_agentic_context_payload.py tests/agentic/test_external_agent_runner.py tests/routers/test_mcp_linked_chat_tool.py` passed: 166 tests.
+- `pnpm -C frontend exec vitest run src/utils/sectionSlugPaths.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/router.test.tsx` passed: 3 files, 28 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "renamed slug"` passed: 1 test.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098` created a disposable standalone text section route, confirmed the old slug rendered `Section Not Found` after rename, and confirmed the new slug rendered the renamed standalone section surface.

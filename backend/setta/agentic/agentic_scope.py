@@ -469,14 +469,6 @@ def _resolve_missing_edge_kind(
     return AgenticEdgeKind.chat_section
 
 
-def _collect_chat_section_ids(project_state: ProjectStateSingleConfig) -> set[ID]:
-    chat_ids: set[ID] = set()
-    for section_id in project_state.sections:
-        if _is_chat_section(project_state, section_id):
-            chat_ids.add(section_id)
-    return chat_ids
-
-
 def _is_chat_section(
     project_state: ProjectStateSingleConfig,
     section_id: ID,

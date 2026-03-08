@@ -38,6 +38,7 @@ from setta.types.project_state import (
     ProjectChatWindowInstance,
     ProjectStateBackend,
     ProjectStateSingleConfig,
+    normalize_project_state_backend_payload,
 )
 from setta.types.section_impls import (
     ChatDictationMode,
@@ -178,23 +179,92 @@ def test_project_state_backend_normalizes_authoritative_windowing_payloads() -> 
     )
 
 
+def test_normalize_project_state_backend_payload_backfills_missing_windowing_entries() -> (
+    None
+):
+    project_config = ProjectConfig(id="cfg-1", name="legacy-windowing")
+    normalized_payload, did_change = normalize_project_state_backend_payload(
+        {
+            "projectConfigs": {
+                project_config.id: project_config.model_dump(mode="json"),
+            },
+            "defaultProjectConfigId": project_config.id,
+        }
+    )
+
+    assert did_change is True
+    assert normalized_payload["projectChatWindowingByProjectConfigId"] == {
+        project_config.id: ProjectChatWindowingState().model_dump(mode="json")
+    }
+
+
 @pytest.mark.asyncio
-async def test_load_project_config_requires_authoritative_windowing() -> None:
+async def test_load_project_config_backfills_missing_authoritative_windowing() -> None:
     async with real_project_manager() as fixture:
         manager = fixture.manager
         project_config_id = manager.project_state_backend.defaultProjectConfigId
         if project_config_id is None:
             raise AssertionError("Expected a default project config id.")
-        manager.project_state_backend.projectChatWindowingByProjectConfigId.pop(
+        persisted_payload = fixture.dbe.read_json(fixture.dbe.project)
+        persisted_payload.pop("projectChatWindowingByProjectConfigId", None)
+        fixture.dbe.write_json(fixture.dbe.project, persisted_payload)
+
+        manager.project_state_backend = manager.load_initial_state()
+        loaded_project_state = await manager.load_project_config(project_config_id)
+
+        assert loaded_project_state.projectChatWindowing == ProjectChatWindowingState()
+        assert fixture.dbe.read_json(fixture.dbe.project)[
+            "projectChatWindowingByProjectConfigId"
+        ] == {project_config_id: ProjectChatWindowingState().model_dump(mode="json")}
+
+
+@pytest.mark.asyncio
+async def test_set_chat_section_settings_preserves_linked_chat_edges_when_target_becomes_non_executable_for_real_manager() -> (
+    None
+):
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        (
             project_config_id,
-            None,
+            caller_section_id,
+            target_section_id,
+        ) = await _create_linked_chat_sections(manager)
+        expected_edge = AgenticEdge(
+            id=ID("edge-linked"),
+            sourceSectionId=caller_section_id,
+            targetSectionId=target_section_id,
+            kind=AgenticEdgeKind.chat_chat,
+        )
+        project_state = manager.get_single_config_state(project_config_id)
+        assert project_state.projectConfig.agenticEdges == [expected_edge]
+
+        await manager.set_chat_section_settings(
+            SetChatSectionSettingsRequest(
+                projectConfigId=project_config_id,
+                sectionId=target_section_id,
+                managed=False,
+                engineConfigId=None,
+                transcriptionProfileId=None,
+                agentProfileId=None,
+                thinking=False,
+                permissionMode=ChatPermissionMode.minimal,
+                searchEnabled=True,
+                dictationMode=ChatDictationMode.auto,
+            )
         )
 
-        with pytest.raises(
-            KeyError,
-            match="Missing project chat windowing state",
-        ):
-            await manager.load_project_config(project_config_id)
+        project_state = manager.get_single_config_state(project_config_id)
+        assert project_state.projectConfig.agenticEdges == [expected_edge]
+
+        with pytest.raises(LinkedChatAdmissionError) as exc_info:
+            await manager.admit_linked_chat_section_invocation(
+                project_config_id,
+                caller_section_id,
+                target_section_id,
+            )
+        assert exc_info.value.reason == "unsupported_scriptable_target"
+        project_state = manager.get_single_config_state(project_config_id)
+        assert project_state.projectConfig.agenticEdges == [expected_edge]
 
 
 @pytest.mark.asyncio
@@ -428,46 +498,6 @@ async def _create_linked_chat_sections(
     )
     await manager.update(project_state)
     return project_config_id, caller_section_id, target_section_id
-
-
-@pytest.mark.asyncio
-async def test_set_chat_section_settings_prunes_non_executable_linked_chat_edges_for_real_manager() -> (
-    None
-):
-    async with real_project_manager() as fixture:
-        manager = fixture.manager
-        (
-            project_config_id,
-            caller_section_id,
-            target_section_id,
-        ) = await _create_linked_chat_sections(manager)
-        project_state = manager.get_single_config_state(project_config_id)
-        assert project_state.projectConfig.agenticEdges == [
-            AgenticEdge(
-                id=ID("edge-linked"),
-                sourceSectionId=caller_section_id,
-                targetSectionId=target_section_id,
-                kind=AgenticEdgeKind.chat_chat,
-            )
-        ]
-
-        await manager.set_chat_section_settings(
-            SetChatSectionSettingsRequest(
-                projectConfigId=project_config_id,
-                sectionId=target_section_id,
-                managed=False,
-                engineConfigId=None,
-                transcriptionProfileId=None,
-                agentProfileId=None,
-                thinking=False,
-                permissionMode=ChatPermissionMode.minimal,
-                searchEnabled=True,
-                dictationMode=ChatDictationMode.auto,
-            )
-        )
-
-        project_state = manager.get_single_config_state(project_config_id)
-        assert project_state.projectConfig.agenticEdges == []
 
 
 @pytest.mark.asyncio

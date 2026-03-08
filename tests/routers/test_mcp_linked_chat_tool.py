@@ -27,6 +27,7 @@ from setta.project_state.linked_chat_admission import (
     LinkedChatAdmissionError,
     LinkedChatSectionAdmission,
 )
+from setta.project_state.project_manager_types import SetChatSectionSettingsRequest
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.share.session_store import MemorySessionStore
@@ -1333,6 +1334,157 @@ async def test_tools_call_invoke_linked_chat_runs_through_real_session_project_m
         assert payload["structuredContent"]["chatId"] == str(tmp_target_chat_id)
         assert payload["structuredContent"]["status"] == "completed"
         assert agent_runner.calls
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_preserves_real_manager_edge_for_scriptable_targets() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+
+        agent_runner = _DummyAgentRunner()
+        _seed_llm_runtime_config(project_fixture.dbe, agent_runner.config)
+        _seed_engine_config(project_fixture.dbe, ID("engine-linked"))
+
+        project_state = manager.get_single_config_state(project_config_id)
+        caller_section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        target_section_id = create_top_level_section(
+            SettingsState(),
+            project_state,
+            SectionType.Chat,
+            Position(),
+        )
+        project_state.sections[caller_section_id].displayName = "Caller"
+        project_state.sections[target_section_id].displayName = "Planner"
+        set_chat_section_settings(
+            project_state,
+            target_section_id,
+            True,
+            ID("engine-linked"),
+            None,
+            None,
+            False,
+            ChatPermissionMode.minimal,
+            True,
+            ChatDictationMode.auto,
+        )
+        expected_edge = AgenticEdge(
+            id=ID("edge-linked"),
+            sourceSectionId=caller_section_id,
+            targetSectionId=target_section_id,
+            kind=AgenticEdgeKind.chat_chat,
+        )
+        create_agentic_edge(project_state, expected_edge)
+        await manager.update(project_state)
+
+        await manager.set_chat_section_settings(
+            SetChatSectionSettingsRequest(
+                projectConfigId=project_config_id,
+                sectionId=target_section_id,
+                managed=False,
+                engineConfigId=None,
+                transcriptionProfileId=None,
+                agentProfileId=None,
+                thinking=False,
+                permissionMode=ChatPermissionMode.minimal,
+                searchEnabled=True,
+                dictationMode=ChatDictationMode.auto,
+            )
+        )
+
+        switcher = ProjectManagerSwitcher(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+        )
+        canonical_to_temporary, temporary_to_canonical = (
+            project_fixture.dbe.read_temporary_id_map()
+        )
+        tmp_project_id = convert_canonical_ids_to_temporary(
+            [
+                project_config_id,
+                caller_section_id,
+                target_section_id,
+                ID("caller-chat-scriptable"),
+            ],
+            canonical_to_temporary,
+            temporary_to_canonical,
+        )
+        project_fixture.dbe.write_temporary_id_map(canonical_to_temporary)
+        (
+            tmp_project_config_id,
+            tmp_caller_section_id,
+            tmp_target_section_id,
+            tmp_caller_chat_id,
+        ) = tmp_project_id
+
+        state = type(
+            "_State",
+            (),
+            {
+                "project_manager_switcher": switcher,
+                "dbe": project_fixture.dbe,
+                "share_mode": False,
+                "deployment_mode": False,
+                "wmh_frontend_sender": project_fixture.manager.websocket_msg_handler,
+                "wait_until_ready": _noop_wait_until_ready,
+                "agent_runner": agent_runner,
+                "external_agent_runner": SimpleNamespace(disabled=True),
+            },
+        )()
+        app = FastAPI()
+        mcp_server = SettaFastMCP(
+            app,
+            state,
+            "/mcp-test",
+            "Test MCP Server",
+            project_fixture.manager.websocket_msg_handler,
+            project_fixture.dbe,
+        )
+        state.mcp_server = mcp_server
+        app.state.setta = state
+        app.include_router(mcp_tools_router)
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            response = await client.post(
+                "/__setta__/tools/call",
+                json={
+                    "tool": "invoke_linked_chat",
+                    "arguments": {
+                        "targetSectionId": str(tmp_target_section_id),
+                        "prompt": "Try a scriptable target.",
+                    },
+                    "agenticContext": {
+                        "projectConfigId": str(tmp_project_config_id),
+                        "chatId": str(tmp_caller_chat_id),
+                        "sectionId": str(tmp_caller_section_id),
+                    },
+                },
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["isError"] is True
+        assert payload["structuredContent"]["reason"] == "unsupported_scriptable_target"
+        assert agent_runner.calls == []
+        assert manager.get_single_config_state(
+            project_config_id
+        ).projectConfig.agenticEdges == [expected_edge]
 
 
 @pytest.mark.asyncio
