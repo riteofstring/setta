@@ -58,17 +58,7 @@ Current repo status as of 2026-03-08:
 ## Initial Observations
 
 1. Launcher/runtime-control still looks Python-owned
-   - the Python routers for `launch.py`, `launcher_home.py`, and launcher parts
-     of `status.py` expose workspace launch, recent-workspace storage, launcher
-     installation/update/remove, and launcher-mode filesystem browsing
-   - current route overlap includes:
-     - `/launch`
-     - `/createWorkspaceLaunchIntent`
-     - `/launcherStatus`
-     - `/setupLauncher`
-     - `/repairLauncher`
-     - `/removeLauncher`
-     - `/updateLauncher`
+   - Go now owns the launcher-mode home/runtime browser slice:
      - `/launcherRecentWorkspaces`
      - `/addLauncherRecentWorkspace`
      - `/removeLauncherRecentWorkspace`
@@ -76,7 +66,16 @@ Current repo status as of 2026-03-08:
      - `/launcherFilesystemRoots`
      - `/listLauncherDirectory`
      - `/openLauncherWorkspace`
-   - there is no obvious Go HTTP route cluster that owns those flows today
+   - the remaining Python-owned launcher/runtime routes are concentrated in:
+     - `/launch`
+     - `/createWorkspaceLaunchIntent`
+     - `/launcherStatus`
+     - `/setupLauncher`
+     - `/repairLauncher`
+     - `/removeLauncher`
+     - `/updateLauncher`
+   - the next obvious Go route cluster is now IDE launcher management/status,
+     not launcher-home runtime browsing
 
 2. Deployment runtime handoff is now complete for the current bounded slice
    - Go now serves:
@@ -107,19 +106,17 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Create and execute the next focused Phase 7 slice for
-`POST /openLauncherWorkspace` plus the launcher executable/target contract it
-depends on, using
-`phase-7-launcher-open-workspace-and-bootstrap-contract.md`.
+Create and execute the next focused Phase 7 slice for IDE launcher
+management/status ownership, using
+`phase-7-launcher-management-and-bootstrap-plan.md` as the parent plan.
 
 That is now the highest-leverage next step because:
 
 - the bounded deployment slice is complete end to end
 - the dedicated launcher/bootstrap Phase 7 plan now exists
-- the first launcher-mode route cluster is now complete in Go
+- the launcher-mode runtime/browser slice is now complete in Go
 - the launcher executable/bootstrap prerequisite is now complete
-- the remaining launcher prerequisite is concentrated around workspace-open
-  handoff
+- the largest remaining launcher-only backend cluster is management/status
 
 ## Progress Notes
 
@@ -163,6 +160,12 @@ That is now the highest-leverage next step because:
   `internal/localsessions/registry.go`,
   `internal/httpapi/bootstrap_page.go`, and `internal/config/config.go`; next
   recommended step is Stage 2: Go-owned `POST /openLauncherWorkspace`.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-launcher-open-workspace-and-bootstrap-contract.md` by adding
+  launcher workspace-open ownership in `internal/launcher/open_workspace.go`,
+  local IDE session spawn/reuse in `internal/launcher/session_launcher.go`, and
+  launcher-home transport wiring in `internal/httpapi/launcher_home_routes.go`;
+  next recommended step is IDE launcher management/status ownership.
 
 ## Verification
 

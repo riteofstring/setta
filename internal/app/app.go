@@ -89,33 +89,54 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 
 	var (
-		projectStates      *projectstate.Registry
-		deploymentRuntime  *deployments.Runtime
-		projectRuntime     *projectstate.Runtime
-		settingsRuntime    *projectstate.Runtime
-		codegenValidator   projectstate.CodegenTargetValidator
-		lspDiagnostics     *projectstate.LSPDiagnosticsRegistry
-		projectLSPSyncer   *lsp.ProjectSynchronizer
-		lspCompletion      *lspcompletion.Service
-		lspSignature       *lspsignature.Service
-		pythonMaterializer *codegen.PythonMaterializer
-		pluginMaterializer *codegen.PluginMaterializer
-		watchCodeService   *watchcode.Service
-		boundCodeService   *boundcode.Service
-		watchCodeWarnings  *watchCodeWarningTracker
-		codeUpdates        *codeUpdateService
-		renameRefactors    *renameRefactorService
-		plannerFilesRoot   string
-		artifactsRoot      string
-		deploymentCatalog  *deployments.Catalog
-		sharePublisher     *deployments.SharePublisher
-		appPublisher       *deployments.AppPublisher
-		shareSessions      modes.ShareSessionStore
-		launcherHome       *launcher.HomeService
+		projectStates         *projectstate.Registry
+		deploymentRuntime     *deployments.Runtime
+		projectRuntime        *projectstate.Runtime
+		settingsRuntime       *projectstate.Runtime
+		codegenValidator      projectstate.CodegenTargetValidator
+		lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
+		projectLSPSyncer      *lsp.ProjectSynchronizer
+		lspCompletion         *lspcompletion.Service
+		lspSignature          *lspsignature.Service
+		pythonMaterializer    *codegen.PythonMaterializer
+		pluginMaterializer    *codegen.PluginMaterializer
+		watchCodeService      *watchcode.Service
+		boundCodeService      *boundcode.Service
+		watchCodeWarnings     *watchCodeWarningTracker
+		codeUpdates           *codeUpdateService
+		renameRefactors       *renameRefactorService
+		plannerFilesRoot      string
+		artifactsRoot         string
+		deploymentCatalog     *deployments.Catalog
+		sharePublisher        *deployments.SharePublisher
+		appPublisher          *deployments.AppPublisher
+		shareSessions         modes.ShareSessionStore
+		launcherHome          *launcher.HomeService
+		launcherOpenWorkspace *launcher.OpenWorkspaceService
 	)
 	launcherHome = launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: os.LookupEnv,
 	})
+	if modePolicy.IsLauncher() {
+		executablePath, err := os.Executable()
+		if err != nil {
+			return nil, err
+		}
+		localIDESessionLauncher, err := launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
+			ExecutablePath: executablePath,
+		})
+		if err != nil {
+			return nil, err
+		}
+		launcherOpenWorkspace, err = launcher.NewOpenWorkspaceService(launcher.OpenWorkspaceServiceOptions{
+			DefaultSettaHome: cfg.Paths.SettaHome,
+			Home:             launcherHome,
+			Sessions:         localIDESessionLauncher,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	if modePolicy.IsDeployment() {
 		deploymentRuntime, err = deployments.Open(context.Background(), deployments.RuntimeOptions{
 			DeploymentRoot: cfg.Paths.DeploymentRoot,
@@ -633,6 +654,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:       modePolicy,
 				DefaultSettaHome: cfg.Paths.SettaHome,
 				Home:             launcherHome,
+				OpenWorkspace:    launcherOpenWorkspace,
 			}); err != nil {
 				panic(err)
 			}

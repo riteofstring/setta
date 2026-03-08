@@ -19,17 +19,21 @@ As of 2026-03-08:
   publish/list/latest transport
 - Go owns the first launcher-mode home slice for recent workspaces and
   directory browsing
+- Go now owns the focused launcher workspace-open/runtime slice:
+  - `POST /openLauncherWorkspace`
+  - local IDE session spawn/reuse for launcher-mode opens
+  - bootstrap URL fragment minting for launched IDE sessions
+  - launcher last-used-workspace and recent-workspace updates
 - Go owns the launcher executable/bootstrap prerequisite:
   - local IDE/launcher session registration and cleanup
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - launcher-mode fallback startup without an explicit project workspace
 - Python still owns:
   - IDE launcher installation/status/update/remove routes in `status.py`
-  - launcher-mode workspace-open handoff in `launcher_home.py`
   - launch-intent creation, workspace launch, and bootstrap token/origin
     handoff in `launch.py` and `bootstrap.py`
-
-Nothing in this cluster is currently owned by a Go HTTP route package.
+- the remaining Phase 7 launcher gap is now concentrated around IDE launcher
+  management/status plus launch/bootstrap handoff
 
 ## Inputs
 
@@ -106,29 +110,19 @@ artifact boundary stays local to the launcher package.
 
 ## Architecture Check
 
-After reading the current Go entrypoint and launcher-mode surface, the full
-management-route slice is not yet independently landable.
+The earlier management-route blocker from this plan is now cleared enough to
+move back to launcher management/status ownership.
 
-Current dependency gap:
+The previously missing prerequisite is now in place:
 
-- the current Go binary entrypoint in `cmd/setta-server/main.go` does not expose
-  a launcher-specific command contract like the Python-managed launcher
-  artifacts expect
-- Go does not yet own the launcher-mode home/runtime browser routes from
-  `launcher_home.py`
-- Go does not yet own the launch/bootstrap handoff routes that a launched
-  workspace depends on
+- the current Go binary now has a usable launcher runtime contract
+- Go now owns the launcher-mode home/runtime browser routes needed to get from
+  launcher mode into a local IDE session
+- Go now serves the bootstrap HTML consumed by those Go-owned launch flows
 
-That means a direct Go port of launcher artifact setup/update today would
-either:
-
-- generate desktop artifacts that launch an incomplete Go launcher runtime, or
-- keep pointing launcher artifacts back at Python, which violates the clean
-  break for this rewrite
-
-Because of that, Stage 1 should not start with managed artifact installation.
-The artifact-owning portion of launcher management depends on a real Go launcher
-runtime target first.
+The remaining boundary question is narrower now: whether the next management
+slice should start with metadata/status/setup/remove semantics only or include
+artifact install/update ownership in the same landing.
 
 ## Explicit Non-Goals
 
@@ -174,29 +168,29 @@ Do not broaden Stage 1 into:
 
 ## Recommended Option
 
-Implement the launcher runtime prerequisite first:
+Implement IDE launcher management/status next, now that the runtime prerequisite
+and launcher-mode workspace-open slice are complete.
 
-1. establish the Go launcher executable/command contract that installed desktop
-   artifacts should target
-2. port the launcher-mode home/runtime browser routes needed immediately after a
-   launcher starts
-3. return to the IDE launcher management/status route cluster once artifact
-   setup can target a working Go launcher
+This remains the recommended option because:
 
-This is the recommended option because it preserves a robust source of truth and
-avoids shipping launcher setup that writes broken desktop artifacts.
+- launcher setup/update can now target a working Go runtime path
+- launcher management is the largest coherent launcher-only backend cluster
+  still owned by Python
+- launch/bootstrap handoff remains a separate concern with its own trust and
+  remote-launch boundaries
 
 ## Recommended Next Step
 
-Create and execute the next focused slice for `POST /openLauncherWorkspace`
-plus the launcher executable/target contract it depends on.
+Create and execute the next focused slice for IDE launcher management/status
+ownership.
 
 Recommended landing order:
 
-1. launcher-mode home/runtime browser ownership
-2. launcher executable/target contract for desktop artifacts
-3. IDE launcher management/status transport and runtime
-4. launch/bootstrap handoff ownership
+1. IDE launcher management/status transport and runtime
+2. any launcher artifact install/update ownership that still belongs inside
+   that slice
+3. launch/bootstrap handoff ownership
+4. remote launch / launch-intent ownership
 
 ## Progress Notes
 
@@ -220,3 +214,7 @@ Recommended landing order:
   `phase-7-launcher-open-workspace-and-bootstrap-contract.md`; next
   recommended step is Stage 2 from that doc: Go-owned
   `POST /openLauncherWorkspace`.
+- 2026-03-08: completed Stage 2 from
+  `phase-7-launcher-open-workspace-and-bootstrap-contract.md`; Go now owns the
+  launcher-mode workspace-open path end to end. The next recommended step is a
+  focused launcher management/status slice above that runtime prerequisite.

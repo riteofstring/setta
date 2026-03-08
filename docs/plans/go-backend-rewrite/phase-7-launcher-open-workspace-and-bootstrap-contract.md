@@ -16,17 +16,21 @@ porting the remaining launcher management routes:
 
 As of 2026-03-08:
 
-- Go owns launcher-mode recent-workspace and directory-browser routes
+- Go owns launcher-mode recent-workspace, directory-browser, and
+  `POST /openLauncherWorkspace` routes
 - Go now owns Stage 1 from this doc:
   - local IDE/launcher session registration and cleanup
   - bootstrap HTML at `GET /__setta__/bootstrap`
   - launcher-mode fallback runtime startup without an explicit project workspace
-- Go does not yet own `POST /openLauncherWorkspace`
-- Python still owns the executable/session/bootstrap path through:
-  - `backend/setta/start.py`
-  - `backend/setta/launch.py`
-  - `backend/setta/routers/launcher_home.py`
-  - `backend/setta/routers/bootstrap.py`
+- Go now owns Stage 2 from this doc:
+  - workspace-root validation and create-if-missing behavior for launcher mode
+  - local IDE session spawn/reuse and bootstrap URL fragment minting
+  - launcher recent-workspace and last-used-workspace updates after successful
+    launch
+- Python still owns:
+  - `/launch` and `/createWorkspaceLaunchIntent`
+  - launcher-origin trust persistence and proof validation
+  - IDE launcher management/status routes
 
 ## Inputs
 
@@ -112,16 +116,23 @@ Do not include:
   bootstrap in `cmd/setta-server/local_session.go`, bootstrap HTML in
   `internal/httpapi/bootstrap_page.go`, and launcher-mode fallback startup
   defaults in `internal/config/config.go`.
+- 2026-03-08: completed Stage 2 by adding Go-owned local IDE session
+  spawn/reuse in `internal/launcher/session_launcher.go`, workspace-open
+  ownership in `internal/launcher/open_workspace.go`, launcher-home transport
+  in `internal/httpapi/launcher_home_routes.go`, and launcher-mode dependency
+  wiring in `internal/app/app.go`.
+- 2026-03-08: kept launcher-origin trust and proof handoff explicitly out of
+  this slice. Go-owned `POST /openLauncherWorkspace` now returns a plain
+  bootstrap fragment and relies on the already-landed Go bootstrap page, while
+  later launch/bootstrap handoff work remains responsible for origin trust.
 
 ## Recommended Next Step
 
-Implement Stage 2 from this doc: `POST /openLauncherWorkspace` with Go-owned
-local IDE session spawn/reuse, bootstrap URL minting, and launcher-home state
-updates.
+Return to the broader Phase 7 launcher plan and implement the next bounded
+slice: IDE launcher management/status transport and runtime ownership.
 
 ## Verification
 
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/localsessions -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./cmd/setta-server -count=1 -timeout 300s`
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/config -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/launcher ./internal/localsessions -count=1 -timeout 300s`
 - `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppLauncherModeListsAndMutatesRecentWorkspacesOverHTTP' -count=1 -timeout 300s`

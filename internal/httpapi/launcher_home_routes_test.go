@@ -11,8 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/auth"
 	"setta/internal/config"
 	"setta/internal/launcher"
 	"setta/internal/modes"
@@ -32,12 +34,13 @@ func TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces(t *testing.T)
 		t.Fatalf("resolve workspace root: %v", err)
 	}
 
-	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, settaHome, launcher.NewHomeService(launcher.HomeServiceOptions{
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: testEnv{
 			"HOME":                         os.Getenv("HOME"),
 			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
 		}.lookup,
-	}))
+	})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, settaHome, home, newLauncherHomeOpenWorkspaceService(t, settaHome, home, &httpAPICapturingLauncher{}))
 
 	addResponse := httptest.NewRecorder()
 	addRequest := httptest.NewRequest(
@@ -133,12 +136,14 @@ func TestRegisterLauncherHomeRoutesListsDirectoriesWithPagination(t *testing.T) 
 		}
 	}
 
-	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, filepath.Join(t.TempDir(), ".setta"), launcher.NewHomeService(launcher.HomeServiceOptions{
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: testEnv{
 			"HOME":                         os.Getenv("HOME"),
 			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
 		}.lookup,
-	}))
+	})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, &httpAPICapturingLauncher{}))
 
 	firstResponse := httptest.NewRecorder()
 	firstRequest := httptest.NewRequest(
@@ -189,12 +194,14 @@ func TestRegisterLauncherHomeRoutesListsFilesystemRoots(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve allowed root: %v", err)
 	}
-	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, filepath.Join(t.TempDir(), ".setta"), launcher.NewHomeService(launcher.HomeServiceOptions{
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: testEnv{
 			"HOME":                         os.Getenv("HOME"),
 			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
 		}.lookup,
-	}))
+	})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, &httpAPICapturingLauncher{}))
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetLauncherFilesystemRoots, nil)
@@ -236,12 +243,13 @@ func TestRegisterLauncherHomeRoutesUsesDefaultSettaHomeWhenScopeBlank(t *testing
 		t.Fatalf("resolve workspace root: %v", err)
 	}
 
-	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, launcher.NewHomeService(launcher.HomeServiceOptions{
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
 		EnvLookup: testEnv{
 			"HOME":                         os.Getenv("HOME"),
 			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
 		}.lookup,
-	}))
+	})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, &httpAPICapturingLauncher{}))
 
 	addResponse := httptest.NewRecorder()
 	addRequest := httptest.NewRequest(
@@ -275,10 +283,184 @@ func TestRegisterLauncherHomeRoutesUsesDefaultSettaHomeWhenScopeBlank(t *testing
 	}
 }
 
+func TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	if err := os.MkdirAll(defaultSettaHome, 0o755); err != nil {
+		t.Fatalf("mkdir default setta home: %v", err)
+	}
+	workspaceRoot := filepath.Join(allowedRoot, "workspace-open")
+	resolvedWorkspaceRoot, err := filepath.EvalSymlinks(allowedRoot)
+	if err != nil {
+		t.Fatalf("resolve allowed root: %v", err)
+	}
+	resolvedWorkspaceRoot = filepath.Join(resolvedWorkspaceRoot, "workspace-open")
+	resolvedSettaHome, err := filepath.EvalSymlinks(defaultSettaHome)
+	if err != nil {
+		t.Fatalf("resolve default setta home: %v", err)
+	}
+
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	sessionLauncher := &httpAPICapturingLauncher{
+		resultFunc: func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+			return launcher.IDELaunchResult{
+				Session: auth.SessionMetadata{
+					ID:   "session-1",
+					Host: "127.0.0.1",
+					Port: 61234,
+				},
+				Secret: []byte("secret"),
+				Paths: config.Paths{
+					WorkspaceRoot:         resolvedWorkspaceRoot,
+					SettaHome:             resolvedSettaHome,
+					SettaFilesRoot:        filepath.Join(resolvedWorkspaceRoot, "setta_files"),
+					ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
+					RuntimeRoot:           filepath.Join(resolvedWorkspaceRoot, "setta_files", "runtime"),
+				},
+				StartedNew: true,
+			}, nil
+		},
+	}
+
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, sessionLauncher))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteOpenLauncherWorkspace,
+		stringsReader(`{"workspaceRoot":"`+workspaceRoot+`","createIfMissing":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherOpenWorkspaceResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode open workspace payload: %v", err)
+	}
+	if !payload.Ok || payload.BootstrapURLFragment == nil || *payload.BootstrapURLFragment != "http://127.0.0.1:61234/__setta__/bootstrap#token=tok" {
+		t.Fatalf("unexpected open workspace payload %#v", payload)
+	}
+	if payload.WorkspaceRoot == nil || *payload.WorkspaceRoot != resolvedWorkspaceRoot {
+		t.Fatalf("unexpected workspace root payload %#v", payload.WorkspaceRoot)
+	}
+	if payload.SettaHome == nil || *payload.SettaHome != resolvedSettaHome {
+		t.Fatalf("unexpected setta home payload %#v", payload.SettaHome)
+	}
+	if payload.SessionID == nil || *payload.SessionID != "session-1" || payload.StartedNew == nil || !*payload.StartedNew {
+		t.Fatalf("unexpected session payload %#v", payload)
+	}
+	if sessionLauncher.input == nil || sessionLauncher.input.SettaFilesLocation == nil || *sessionLauncher.input.SettaFilesLocation != "auto" {
+		t.Fatalf("expected route to normalize omitted files location to auto, got %#v", sessionLauncher.input)
+	}
+}
+
+func TestRegisterLauncherHomeRoutesOpenWorkspaceProfilePreservesOmittedSettaFilesLocation(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	workspaceRoot := filepath.Join(allowedRoot, "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	sessionLauncher := &httpAPICapturingLauncher{
+		err: &launcher.SessionLaunchError{
+			Code:    "Captured",
+			Message: "intentional capture",
+		},
+	}
+
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, sessionLauncher))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteOpenLauncherWorkspace,
+		stringsReader(`{"workspaceRoot":"`+workspaceRoot+`","profile":"dev"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload launcherOpenWorkspaceResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode open workspace payload: %v", err)
+	}
+	if payload.Ok || payload.Error == nil || payload.Error.Code != "Captured" {
+		t.Fatalf("unexpected open workspace error payload %#v", payload)
+	}
+	if sessionLauncher.input == nil {
+		t.Fatal("expected launcher input to be captured")
+	}
+	if sessionLauncher.input.SettaFilesLocation != nil {
+		t.Fatalf("expected omitted files location with profile to remain nil, got %#v", sessionLauncher.input.SettaFilesLocation)
+	}
+}
+
+func TestRegisterLauncherHomeRoutesOpenWorkspaceExplicitAutoOverridesProfile(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	workspaceRoot := filepath.Join(allowedRoot, "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	sessionLauncher := &httpAPICapturingLauncher{
+		err: &launcher.SessionLaunchError{
+			Code:    "Captured",
+			Message: "intentional capture",
+		},
+	}
+
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeLauncher, defaultSettaHome, home, newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, sessionLauncher))
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteOpenLauncherWorkspace,
+		stringsReader(`{"workspaceRoot":"`+workspaceRoot+`","profile":"dev","settaFilesLocation":"auto"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	if sessionLauncher.input == nil || sessionLauncher.input.SettaFilesLocation == nil || *sessionLauncher.input.SettaFilesLocation != "auto" {
+		t.Fatalf("expected explicit auto to be preserved, got %#v", sessionLauncher.input)
+	}
+}
+
 func TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode(t *testing.T) {
 	t.Parallel()
 
-	handler := newLauncherHomeRouteTestHandler(t, config.ModeIDE, filepath.Join(t.TempDir(), ".setta"), launcher.NewHomeService(launcher.HomeServiceOptions{}))
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{})
+	handler := newLauncherHomeRouteTestHandler(t, config.ModeIDE, filepath.Join(t.TempDir(), ".setta"), home, newLauncherHomeOpenWorkspaceService(t, filepath.Join(t.TempDir(), ".setta"), home, &httpAPICapturingLauncher{}))
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetLauncherRecentWorkspaces, nil)
@@ -288,7 +470,7 @@ func TestRegisterLauncherHomeRoutesIsNotMountedOutsideLauncherMode(t *testing.T)
 	}
 }
 
-func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSettaHome string, home *launcher.HomeService) http.Handler {
+func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSettaHome string, home *launcher.HomeService, openWorkspace *launcher.OpenWorkspaceService) http.Handler {
 	t.Helper()
 
 	handler, err := NewHandler(Dependencies{
@@ -303,6 +485,7 @@ func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSett
 				ModePolicy:       modes.NewPolicy(mode),
 				DefaultSettaHome: defaultSettaHome,
 				Home:             home,
+				OpenWorkspace:    openWorkspace,
 			}); err != nil {
 				t.Fatalf("register launcher home routes: %v", err)
 			}
@@ -316,6 +499,45 @@ func newLauncherHomeRouteTestHandler(t *testing.T, mode config.Mode, defaultSett
 
 func stringsReader(value string) io.Reader {
 	return strings.NewReader(value)
+}
+
+func newLauncherHomeOpenWorkspaceService(t *testing.T, defaultSettaHome string, home *launcher.HomeService, sessionLauncher launcher.IDEWorkspaceSessionLauncher) *launcher.OpenWorkspaceService {
+	t.Helper()
+
+	service, err := launcher.NewOpenWorkspaceService(launcher.OpenWorkspaceServiceOptions{
+		DefaultSettaHome: defaultSettaHome,
+		Home:             home,
+		Sessions:         sessionLauncher,
+		MintBootstrapToken: func(string, []byte, time.Time) (string, error) {
+			return "tok", nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new launcher open-workspace service: %v", err)
+	}
+	return service
+}
+
+type httpAPICapturingLauncher struct {
+	input      *launcher.IDELaunchInput
+	resultFunc func(launcher.IDELaunchInput) (launcher.IDELaunchResult, error)
+	err        error
+}
+
+func (l *httpAPICapturingLauncher) EnsureSession(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+	inputCopy := input
+	if input.SettaFilesLocation != nil {
+		location := *input.SettaFilesLocation
+		inputCopy.SettaFilesLocation = &location
+	}
+	l.input = &inputCopy
+	if l.resultFunc != nil {
+		return l.resultFunc(input)
+	}
+	if l.err != nil {
+		return launcher.IDELaunchResult{}, l.err
+	}
+	return launcher.IDELaunchResult{}, nil
 }
 
 func urlQueryEscape(value string) string {
