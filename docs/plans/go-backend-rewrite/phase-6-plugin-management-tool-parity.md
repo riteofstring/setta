@@ -14,21 +14,27 @@ The goal is to expose the remaining plugin-management MCP tools
 Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
-- the remaining non-project-state Python MCP gap count is 6
+- the remaining non-project-state Python MCP gap count is 1
 - Go now owns:
   - plugin manifest/state/install-metadata/history persistence
   - filesystem discovery/rescan ownership
   - plugin install/update/uninstall/rollback runtime ownership
   - source-spec parsing and retargeting for `github:` and `pypi:` requests
-- Go does not yet own:
-  - MCP tool registration and invocation handlers for the five remaining
-    plugin-management tools
-  - authenticated SSE and MCP HTTP route parity for those tools
-  - app wiring for the plugin mutation service and candidate-provider boundary
+  - MCP registration and transport parity for:
+    - `install_plugin`
+    - `uninstall_plugin`
+    - `rescan_plugins`
+    - `update_plugin`
+    - `rollback_plugin`
+  - app wiring for the plugin mutation service
+- Go still does not own:
+  - a real remote plugin candidate provider for install/update in the
+    production app
+  - `getInstalledPythonPackages`
 
 ## Scope
 
-This slice should cover:
+This slice covered:
 
 - MCP server registration for:
   - `install_plugin`
@@ -77,21 +83,44 @@ This slice should cover:
   than embedding network or package-manager logic in MCP handlers
 - if no real provider is wired yet in the app, expose the explicit runtime
   unavailable/fetch unavailable failure instead of routing through Python
+- keep `rescan_plugins` aligned with the Python aggregate-count response shape
+  instead of leaking the larger Go discovery snapshot directly
 
-## Recommended Implementation Order
+## Completed Work
 
 1. Server/tool registration
-   - add the five plugin-management tools and their schemas
+   - added the five plugin-management tools and their schemas
 
 2. Handler wiring
-   - map tool requests onto `internal/plugins.Service`
-   - preserve explicit IDE-mode/runtime-availability failures
+   - mapped tool requests onto `internal/plugins.Service`
+   - normalized plugin runtime errors into MCP `invalid_arguments` or
+     `internal_error` results
 
 3. App/route transport
-   - wire the service into app startup
-   - add MCP HTTP route and authenticated SSE coverage
+   - wired the plugin mutation service into IDE app startup
+   - added MCP HTTP route and authenticated SSE coverage
+
+## Next Recommended Step
+
+Move to the explicit Python-environment runtime prerequisite in
+`phase-6-python-environment-introspection-foundation.md`.
+
+That is now the highest-leverage next step because plugin-management MCP parity
+is complete and `getInstalledPythonPackages` is the only remaining
+non-project-state Python MCP gap.
 
 ## Verification Targets
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx ./internal/httpapi ./internal/app -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins -run 'Test(ParseSourceSpec|RetargetSourceSpec|Service)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|PluginManagementTools)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsPluginManagementTools|SupportsAgentProfileReadTools|SupportsRunAgentProfile|SupportsStreamAppDefinition|SupportsUISettingSearchReadWrite)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsPluginManagementToolsOverAuthenticatedSSE|ToolCallRouteSupportsPluginManagementTools|ServerSupportsRunAgentProfileOverAuthenticatedSSE|ToolCallRouteSupportsRunAgentProfile|ServerSupportsStreamAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsStreamAppDefinition|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite)' -count=1 -timeout 420s`
+
+## Progress Notes
+
+- 2026-03-08: completed MCP transport parity for `install_plugin`,
+  `uninstall_plugin`, `rescan_plugins`, `update_plugin`, and
+  `rollback_plugin`.
+- 2026-03-08: wired the IDE app to a real Go plugin mutation service while
+  preserving explicit provider-unavailable failures for install/update until a
+  real candidate provider lands.

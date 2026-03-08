@@ -19,7 +19,7 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 19 of those now have Go parity:
+- 24 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
@@ -39,8 +39,12 @@ Current repo status as of 2026-03-08:
   - `set_ui_setting_value`
   - `reveal_ui_setting`
   - `stream_app_definition`
-- the remaining 6 tools now fall into one plugin-management mutation/transport
-  cluster plus one blocked environment-introspection gap
+  - `install_plugin`
+  - `uninstall_plugin`
+  - `rescan_plugins`
+  - `update_plugin`
+  - `rollback_plugin`
+- the remaining 1 tool is now the blocked environment-introspection gap
 
 ## Inputs
 
@@ -99,18 +103,7 @@ Go already owns the following Python MCP tools that do not come from
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Plugin Management Gaps
-
-- `install_plugin`
-- `uninstall_plugin`
-- `rescan_plugins`
-- `update_plugin`
-- `rollback_plugin`
-
-The full runtime owner is now in Go under `internal/plugins`, but the MCP
-transport still needs to land for these five tools.
-
-### 2. Environment Introspection Gap
+### 1. Environment Introspection Gap
 
 - `getInstalledPythonPackages`
 
@@ -128,6 +121,7 @@ heuristics.
 - treat the managed agent-run foundation as complete and closed
 - treat `run_agent_profile` transport as complete and closed
 - treat the bounded `stream_app_definition` slice as complete and closed
+- treat the plugin-management transport slice as complete and closed
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
@@ -137,26 +131,23 @@ heuristics.
 
 ## Recommended Next Step
 
-Execute the dedicated plugin-management transport slice in
-`phase-6-plugin-management-tool-parity.md`.
+Execute the explicit Python-environment runtime prerequisite in
+`phase-6-python-environment-introspection-foundation.md`.
 
 This is now the highest-leverage next slice because:
 
-- it unblocks five remaining MCP tools instead of only one
-- Go now has the shared plugin store/discovery/mutation foundation under
-  `internal/plugins`, but it still lacks MCP server, route, SSE, and app
-  transport wiring for those five tools
-- `getInstalledPythonPackages` remains blocked on Python-environment
-  source-of-truth work and should not leapfrog the plugin runtime gap with a
-  heuristic shell-out
+- it is the only remaining non-project-state Python MCP gap
+- `getInstalledPythonPackages` still lacks an explicit Go source of truth for
+  which Python environment to inspect
+- implementing the tool before that runtime owner would require heuristic
+  interpreter selection, which conflicts with the rewrite constraints
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/appspec -run 'Test(ParsePatchLinesIgnoresCommentsAndBlanks|ParsePatchLineReturnsNilForInvalidPayloads|ApplyPatchOpsAppliesRootAndElementSet|ApplyPatchOpsDoesNotMutateInitialSpec|ApplyPatchOpsRequiresExistingNestedElement|ApplyPatchOpsListMutationSemantics)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(StreamAppDefinitionUsesProvidedBaseSpecAndPersistsResult|StreamAppDefinitionUsesStoredSpecWhenBaseSpecOmitted|StreamAppDefinitionFallsBackToEmptySpecWhenConfiguredFileIsMissing|StreamAppDefinitionRejectsInvalidNestedElementPatch)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|StreamAppDefinition.*)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsStreamAppDefinition|StreamAppDefinitionAcceptsTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsStreamAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsStreamAppDefinition)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins -run 'Test(ParseSourceSpec|RetargetSourceSpec|Service)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|PluginManagementTools)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsPluginManagementTools|SupportsAgentProfileReadTools|SupportsRunAgentProfile|SupportsStreamAppDefinition|SupportsUISettingSearchReadWrite)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsPluginManagementToolsOverAuthenticatedSSE|ToolCallRouteSupportsPluginManagementTools|ServerSupportsRunAgentProfileOverAuthenticatedSSE|ToolCallRouteSupportsRunAgentProfile|ServerSupportsStreamAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsStreamAppDefinition|ServerSupportsUISettingSearchReadWriteOverAuthenticatedSSE|ToolCallRouteSupportsUISettingSearchReadWrite)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -204,3 +195,7 @@ This is now the highest-leverage next slice because:
 - 2026-03-08: completed the plugin-management mutation owner under
   `internal/plugins`, so the highest-leverage remaining plugin gap is now the
   bounded MCP transport slice for the five plugin-management tools.
+- 2026-03-08: completed Go MCP parity for `install_plugin`,
+  `uninstall_plugin`, `rescan_plugins`, `update_plugin`, and
+  `rollback_plugin`, reducing the remaining non-project-state Python MCP gap
+  count from 6 to 1.

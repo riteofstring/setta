@@ -17,8 +17,7 @@ Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity remains the active rewrite phase
 - Go now has parity for `stream_app_definition`
-- the remaining non-project-state Python MCP gap count is 6
-- five of those six remaining tools are plugin-management mutations
+- the remaining non-project-state Python MCP gap count is 1
 - Go already owns:
   - plugin worker/runtime and codegen execution boundaries under
     `internal/plugins`
@@ -31,8 +30,10 @@ Current repo status as of 2026-03-08:
     `internal/plugins/discovery.go`
   - install/update/uninstall/rollback mutation ownership plus restart
     bookkeeping in `internal/plugins/service.go`
+  - plugin-management MCP transport parity in `internal/mcpx`, `internal/app`,
+    and `internal/httpapi`
 - Go does not yet own:
-  - plugin-management MCP transport
+  - `getInstalledPythonPackages`
 
 ## Scope
 
@@ -137,9 +138,9 @@ This slice should cover:
    - status: completed 2026-03-08
 
 4. Follow-on transport slice
-   - once the runtime foundation is stable, expose the five plugin-management
-     MCP tools as thin structural handlers
-   - next detailed scope: `phase-6-plugin-management-tool-parity.md`
+   - expose the five plugin-management MCP tools as thin structural handlers
+   - status: completed 2026-03-08
+   - next detailed scope: `phase-6-python-environment-introspection-foundation.md`
 
 ## Verification Targets
 
@@ -164,3 +165,6 @@ This slice should cover:
 - 2026-03-08: completed the plugin mutation owner with source-spec parsing,
   install/update/uninstall/rollback service methods, and pending-restart
   tombstones, so the remaining gap is now MCP transport over that owner.
+- 2026-03-08: completed plugin-management MCP transport parity, so the next
+  remaining non-project-state MCP gap is now the blocked
+  `getInstalledPythonPackages` environment-introspection foundation.

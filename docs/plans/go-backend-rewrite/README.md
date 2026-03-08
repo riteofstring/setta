@@ -261,13 +261,18 @@ Use the docs in this order:
     service above the completed store/discovery foundation; this runtime slice
     is now complete
 93. `phase-6-plugin-management-tool-parity.md`
-  - focused implementation-plan doc for the remaining Go-owned MCP transport
-    slice over the completed plugin-management runtime owners
-94. `spike-mcp.md`
+  - completed implementation-plan doc for Go-owned MCP transport parity for
+    `install_plugin`, `uninstall_plugin`, `rescan_plugins`, `update_plugin`,
+    and `rollback_plugin` over the completed plugin-management runtime owners
+94. `phase-6-python-environment-introspection-foundation.md`
+  - focused implementation-plan doc for the explicit Go Python-environment
+    selection and package-inspection owner required before
+    `getInstalledPythonPackages`
+95. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-95. `spike-pty.md`
+96. `spike-pty.md`
    - PTY uncertainty-reduction plan
-96. `spike-lsp.md`
+97. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
