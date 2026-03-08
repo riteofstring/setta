@@ -728,12 +728,16 @@ Use the docs in this order:
     frontend route cluster remains after the landed Phase 22 closeout and that
     the next planning boundary should shift to broader capability/runtime
     inventory
-199. `spike-mcp.md`
+199. `phase-24-caller-backed-capability-gap-inventory-and-rerank.md`
+  - focused broader rerank doc showing that the remaining typed Go
+    `unsupported` / `unavailable` branches still do not select a new
+    caller-backed backend phase after Phase 23
+200. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-200. `spike-pty.md`
+201. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-201. `spike-lsp.md`
+202. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

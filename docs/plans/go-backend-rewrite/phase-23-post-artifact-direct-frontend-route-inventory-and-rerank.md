@@ -36,6 +36,14 @@ Current repo status as of 2026-03-10:
 - dormant listener-chat, detached-run, and non-caller-backed default-project
   routes still remain out of scope until a real caller changes that result
 
+Postscript after the next broader rerank:
+
+- the follow-on capability inventory is now recorded in
+  `phase-24-caller-backed-capability-gap-inventory-and-rerank.md`
+- that broader pass still did not select a new caller-backed backend phase
+- this doc should now be read as the closeout of the direct-frontend
+  route-cluster track, not as the active planning frontier
+
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/go-backend-rewrite-plan.md`
@@ -204,6 +212,10 @@ Current status:
 
 Run a broader rewrite inventory outside the closed direct frontend route
 cluster.
+
+Later outcome:
+
+- completed in `phase-24-caller-backed-capability-gap-inventory-and-rerank.md`
 
 Start from:
 

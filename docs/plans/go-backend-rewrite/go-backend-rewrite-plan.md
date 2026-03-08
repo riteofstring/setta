@@ -338,6 +338,23 @@ cluster to open after the landed Phase 22 closeout:
 The next recommended step is therefore a broader rerank outside the now-closed
 direct frontend route-cluster track.
 
+That broader rerank is now also recorded in
+`phase-24-caller-backed-capability-gap-inventory-and-rerank.md`.
+The current evidence still does not select a new backend implementation phase:
+
+- `runCode` CLI-output fallback remains degraded in Go, but it has no current
+  frontend caller
+- managed agent-run / run-chain unavailability remains explicit in Go, but
+  current frontend code only uses the already-landed read surface
+- the remaining unsupported artifact write types are not used by current live
+  update callsites
+- several visible `unsupported` / `unavailable` states are already the
+  intended clean-break product boundary, not hidden route debt
+
+The roadmap should therefore stay honest here: there is no new caller-backed
+backend slice to open until a concrete product surface or runtime gap changes
+that evidence.
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.
@@ -1747,7 +1764,7 @@ Do not weaken this rule during the rewrite.
    - do not reopen a broad LiteLLM-equivalent managed runtime
    - do reuse the landed Phase 14 managed-run foundations for the now-reranked
      direct frontend managed chat slice
-6. The post-Phase-22 rerank is now complete.
+6. The post-Phase-24 rerank is now complete.
    - the inventory outcome is recorded in
      `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
    - the completed project-shell phase is recorded in
@@ -1766,6 +1783,8 @@ Do not weaken this rule during the rewrite.
      `phase-22-share-artifact-session-overlay-plan.md`
    - the post-Phase-22 rerank is recorded in
      `phase-23-post-artifact-direct-frontend-route-inventory-and-rerank.md`
+   - the broader post-Phase-23 capability rerank is recorded in
+     `phase-24-caller-backed-capability-gap-inventory-and-rerank.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
@@ -1774,10 +1793,13 @@ Do not weaken this rule during the rewrite.
      - `POST /git/commitFileDiff`
    - the direct frontend route-cluster track is now closed for the current
      caller-backed surface after the landed Phase 22 closeout
-   - the next planning step is now broader than route transport:
-     - rerank caller-backed capability gaps and remaining runtime ownership
-     - do not reopen completed route clusters without a concrete new caller or
-       runtime gap
+   - the broader capability-gap rerank is now also complete:
+     - the remaining typed Go `unsupported` / `unavailable` branches still do
+       not select a new caller-backed backend phase
+     - do not reopen completed route clusters or bounded product boundaries
+       without a concrete new caller or runtime gap
+   - there is currently no new backend implementation slice selected by the
+     roadmap evidence alone
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise
