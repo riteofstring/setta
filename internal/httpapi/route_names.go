@@ -13,6 +13,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RoutePluginsConfig):                           {},
 	bareRouteName(RoutePluginsEnable):                           {},
 	bareRouteName(RoutePluginsInstall):                          {},
+	bareRouteName(RoutePluginsLink):                             {},
 	bareRouteName(RoutePluginsRollback):                         {},
 	bareRouteName(RoutePluginsRestart):                          {},
 	bareRouteName(RoutePluginsRescan):                           {},

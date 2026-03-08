@@ -146,6 +146,15 @@ func TestServiceLinkCreatesSymlinkedInstallMetadata(t *testing.T) {
 	if result.PluginID != "setta-local-frontend-plugin" || result.State != PluginRuntimeStateActive || result.RestartRequired {
 		t.Fatalf("unexpected link result %#v", result)
 	}
+	if result.SourceScopeLabel != "workspace" {
+		t.Fatalf("expected workspace source scope label, got %#v", result.SourceScopeLabel)
+	}
+	if result.TrustStatus != PluginSourceTrustStatusUnverified {
+		t.Fatalf("expected unverified trust status, got %#v", result.TrustStatus)
+	}
+	if result.TrustWarning != unverifiedSourceWarning {
+		t.Fatalf("expected trust warning %q, got %#v", unverifiedSourceWarning, result.TrustWarning)
+	}
 
 	targetRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-local-frontend-plugin")
 	info, err := os.Lstat(targetRoot)

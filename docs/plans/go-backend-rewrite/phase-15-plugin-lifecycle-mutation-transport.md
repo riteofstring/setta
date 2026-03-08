@@ -60,16 +60,18 @@ Current repo status as of 2026-03-09:
   - `route_plugins_rollback(...)`
 - the caller-backed direct frontend HTTP transport for those routes is now
   Go-owned
-- Python-only plugin HTTP routes now remaining outside this bounded phase are
-  the deferred non-caller routes:
+- the bounded follow-on in `phase-15-plugin-link-transport.md` is now also
+  landed:
   - `POST /plugins/link`
+- Python-only plugin HTTP routes now remaining outside this bounded phase are:
   - `POST /plugins/lock/write`
   - `POST /plugins/lock/apply`
 
 Inventory notes that matter for sequencing:
 
-- `route_plugins_link(...)` is generated but has no current direct frontend
-  caller in `frontend/src`
+- `route_plugins_link(...)` still has no current direct frontend caller in
+  `frontend/src`, but it became a concrete plugin E2E/manual-flow dependency
+  and is now Go-owned through the separate bounded follow-on doc
 - `route_plugins_lock_write(...)` and `route_plugins_lock_apply(...)` likewise
   have no current direct frontend caller
 - `Update(...)` and `Rollback(...)` depend on the same install-metadata and
@@ -87,7 +89,6 @@ This plan covers only:
 
 ## Non-Goals
 
-- `POST /plugins/link`
 - `POST /plugins/lock/write`
 - `POST /plugins/lock/apply`
 - higher-level Go backend plugin runtime ownership for:
@@ -136,8 +137,8 @@ This plan covers only:
   - do not leak broader Go-only payloads like the full `DiscoverySnapshot`
     where the frontend currently expects a narrower response
 - defer adjacent non-caller routes
-  - `link` and `lock*` should stay out until they become direct blockers or a
-    bounded dependency requires them
+  - `lock*` should stay out until they become direct blockers or a bounded
+    dependency requires them
 
 ## Recommended Sequencing
 
@@ -228,7 +229,6 @@ Status:
 
 ### Deferred Unless Needed
 
-- `POST /plugins/link`
 - `POST /plugins/lock/write`
 - `POST /plugins/lock/apply`
 
@@ -336,8 +336,10 @@ Recommendation:
 
 - the first higher-level backend plugin runtime follow-on is now landed in
   `phase-15-plugin-backend-codegen-registration-runtime.md`
-- keep `POST /plugins/link` and `POST /plugins/lock/*` deferred until they
-  become caller-backed or a concrete follow-on phase requires them
+- the bounded local-link transport follow-on is now also landed in
+  `phase-15-plugin-link-transport.md`
+- keep `POST /plugins/lock/*` deferred until they become caller-backed or a
+  concrete follow-on phase requires them
 - if plugin rewrite work resumes beyond that bounded codegen slice, focus next
   on a concrete higher-level backend plugin runtime boundary only when a caller
   requires it
@@ -346,7 +348,6 @@ Recommendation:
 
 ## Open Questions
 
-- whether `link` should stay deferred even if Python route coverage still
-  touches it
-  - recommendation: yes; test-only adjacency is not enough reason to broaden
-    the direct frontend rewrite slice
+- whether `POST /plugins/lock/*` should be pulled forward now that `link` is
+  landed
+  - recommendation: no; there is still no current caller or bounded dependency

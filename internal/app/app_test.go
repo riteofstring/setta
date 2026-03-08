@@ -225,6 +225,132 @@ func TestAppServesPluginRuntimeAndFrontendAssets(t *testing.T) {
 	}
 }
 
+func TestAppLinksPluginRoutesAndServesRuntime(t *testing.T) {
+	// The real app should expose local plugin linking through the shared Go plugin service.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	repoRoot := appTestRepoRoot(t)
+	localPluginRoot := filepath.Join(t.TempDir(), "frontend")
+	copyAppTestDir(t, filepath.Join(repoRoot, "tests", "fixtures", "plugins", "frontend"), localPluginRoot)
+	manifestPath := filepath.Join(localPluginRoot, "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode plugin manifest: %v", err)
+	}
+	frontend := manifest["frontend"].(map[string]any)
+	frontend["entrypoint"] = "frontend/src/index.js"
+	frontend["style"] = "frontend/src/index.css"
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write plugin manifest: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	linkRequest, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RoutePluginsLink,
+		bytes.NewReader(mustAppJSON(t, map[string]any{
+			"localPluginRoot": localPluginRoot,
+			"scope":           "workspace",
+			"enable":          true,
+			"force":           false,
+		})),
+	)
+	if err != nil {
+		t.Fatalf("new plugin link request: %v", err)
+	}
+	linkRequest.Header.Set("Content-Type", "application/json")
+	linkRequest.AddCookie(authCookie)
+
+	linkResponse, err := http.DefaultClient.Do(linkRequest)
+	if err != nil {
+		t.Fatalf("post plugin link: %v", err)
+	}
+	defer linkResponse.Body.Close()
+	if linkResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(linkResponse.Body)
+		t.Fatalf("expected plugin link 200, got %d with body %q", linkResponse.StatusCode, string(body))
+	}
+
+	var linkPayload struct {
+		PluginID         string `json:"pluginId"`
+		SourceScopeLabel string `json:"sourceScopeLabel"`
+		TrustStatus      string `json:"trustStatus"`
+		TrustWarning     string `json:"trustWarning"`
+		State            string `json:"state"`
+	}
+	if err := json.NewDecoder(linkResponse.Body).Decode(&linkPayload); err != nil {
+		t.Fatalf("decode plugin link payload: %v", err)
+	}
+	if linkPayload.PluginID != "setta-fixture-frontend" || linkPayload.State != "active" {
+		t.Fatalf("unexpected plugin link payload %#v", linkPayload)
+	}
+	if linkPayload.SourceScopeLabel != "workspace" {
+		t.Fatalf("expected workspace source scope label, got %#v", linkPayload.SourceScopeLabel)
+	}
+	if linkPayload.TrustStatus != "unverified" || linkPayload.TrustWarning != "Source is unverified. Install only from trusted owners." {
+		t.Fatalf("unexpected plugin link trust payload %#v", linkPayload)
+	}
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime after link: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		Status struct {
+			Plugins []struct {
+				PluginID string `json:"pluginId"`
+				State    string `json:"state"`
+			} `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime payload after link: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 1 {
+		t.Fatalf("expected one linked plugin in runtime payload, got %#v", runtimePayload.Status.Plugins)
+	}
+	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-frontend" || runtimePayload.Status.Plugins[0].State != "active" {
+		t.Fatalf("unexpected plugin runtime payload after link %#v", runtimePayload.Status.Plugins[0])
+	}
+}
+
 func TestAppServesPluginRuntimeWithBackendCodegenRegistrations(t *testing.T) {
 	// The real app should surface worker-backed backend codegen registrations through plugin runtime.
 	cfg := testConfig(t)

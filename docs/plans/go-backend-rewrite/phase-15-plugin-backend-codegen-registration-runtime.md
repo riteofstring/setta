@@ -58,7 +58,7 @@ This slice covered only:
 - plugin router/static-dir/MCP/UI-setting registration parity
 - a broad long-lived backend plugin supervisor or global singleton
 - changing install/restart policy semantics for backend plugins
-- widening scope to the deferred `link` or `lock*` routes
+- widening scope to the deferred `lock*` routes
 
 ## Inputs
 
@@ -128,16 +128,15 @@ This slice covered only:
 
 - `./scripts/go.sh test ./internal/plugins -run 'TestService(RuntimeIncludesBackendCodegenTargetRegistrations|StatusSurfacesPluginScopedBackendCodegenRegistrationErrors)' -count=1`
 - `./scripts/go.sh test ./internal/app -run 'TestApp(ServesPluginRuntimeAndFrontendAssets|ServesPluginRuntimeWithBackendCodegenRegistrations)' -count=1`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/plugins/plugin-codegen-target.spec.ts`
 - `git diff --check`
-- relevant Playwright not run
-  - `frontend/tests/e2e/overview/plugins/plugin-codegen-target.spec.ts`
-    still depends on deferred `POST /plugins/link`, which is intentionally
-    outside this bounded slice
 
 ## Next Recommended Step
 
-- keep `POST /plugins/link` and `POST /plugins/lock/*` deferred unless they
-  become caller-backed or a bounded dependency requires them
+- the bounded local-link transport follow-on is now landed in
+  `phase-15-plugin-link-transport.md`
+- keep `POST /plugins/lock/*` deferred unless they become caller-backed or a
+  bounded dependency requires them
 - if plugin backend runtime work resumes, only take the next higher-level
   registration slice when a concrete caller needs it
   - likely candidates are language-server or external-agent registration

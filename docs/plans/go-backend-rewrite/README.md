@@ -611,12 +611,15 @@ Use the docs in this order:
 167. `phase-15-plugin-backend-codegen-registration-runtime.md`
   - focused completed-slice doc for Go-owned worker-backed backend codegen
     target registration loading in plugin runtime/status payloads
-168. `spike-mcp.md`
+168. `phase-15-plugin-link-transport.md`
+  - focused completed-slice doc for Go-owned local plugin link transport over
+    the existing shared plugin authoring/link service
+169. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-169. `spike-pty.md`
+170. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-170. `spike-lsp.md`
+171. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

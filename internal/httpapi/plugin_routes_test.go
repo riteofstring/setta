@@ -149,6 +149,112 @@ func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesLinksLocalPlugin(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	localPluginRoot := filepath.Join(t.TempDir(), "frontend")
+	sourceRoot := filepath.Join(routePluginFixtureRepoRoot(t), "tests", "fixtures", "plugins", "frontend")
+	if err := copyRoutePluginFixtureDir(sourceRoot, localPluginRoot); err != nil {
+		t.Fatalf("copy local plugin fixture: %v", err)
+	}
+	if err := rewriteRoutePluginManifest(localPluginRoot, func(payload map[string]any) {
+		frontend := payload["frontend"].(map[string]any)
+		frontend["entrypoint"] = "frontend/src/index.js"
+		frontend["style"] = "frontend/src/index.css"
+	}); err != nil {
+		t.Fatalf("rewrite local plugin manifest: %v", err)
+	}
+
+	linkResponse := httptest.NewRecorder()
+	linkRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLink, strings.NewReader(`{"localPluginRoot":"`+filepath.ToSlash(localPluginRoot)+`","scope":"workspace","enable":true,"force":false}`))
+	handler.ServeHTTP(linkResponse, linkRequest)
+	if linkResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin link 200, got %d with body %q", linkResponse.Code, linkResponse.Body.String())
+	}
+
+	var linkPayload plugins.PluginInstallResult
+	if err := json.Unmarshal(linkResponse.Body.Bytes(), &linkPayload); err != nil {
+		t.Fatalf("decode plugin link response: %v", err)
+	}
+	if linkPayload.PluginID != "setta-fixture-frontend" || linkPayload.Version != "0.1.0" {
+		t.Fatalf("unexpected link payload %#v", linkPayload)
+	}
+	if linkPayload.SourceScope != plugins.PluginScopeWorkspace || linkPayload.SourceScopeLabel != "workspace" {
+		t.Fatalf("unexpected link scope payload %#v", linkPayload)
+	}
+	if linkPayload.TrustStatus != plugins.PluginSourceTrustStatusUnverified {
+		t.Fatalf("expected unverified link trust status, got %#v", linkPayload.TrustStatus)
+	}
+	if linkPayload.TrustWarning != "Source is unverified. Install only from trusted owners." {
+		t.Fatalf("unexpected link trust warning %#v", linkPayload.TrustWarning)
+	}
+	if linkPayload.State != plugins.PluginRuntimeStateActive || linkPayload.RestartRequired {
+		t.Fatalf("unexpected link state payload %#v", linkPayload)
+	}
+
+	runtimeResponse := httptest.NewRecorder()
+	runtimeRequest := httptest.NewRequest(http.MethodGet, "/api"+RoutePluginsRuntime, nil)
+	handler.ServeHTTP(runtimeResponse, runtimeRequest)
+	if runtimeResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin runtime 200 after link, got %d with body %q", runtimeResponse.Code, runtimeResponse.Body.String())
+	}
+
+	var runtimePayload plugins.RuntimeResponse
+	if err := json.Unmarshal(runtimeResponse.Body.Bytes(), &runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime response after link: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 1 || runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-frontend" {
+		t.Fatalf("unexpected plugin runtime payload after link %#v", runtimePayload.Status.Plugins)
+	}
+}
+
+func TestRegisterPluginRoutesMapsLinkSourceValidationErrors(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLink, strings.NewReader(`{"localPluginRoot":"/tmp/missing-plugin","scope":"workspace","enable":true,"force":false}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected plugin link 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode link validation error response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeSourceNotFound) {
+		t.Fatalf("expected source not found code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesRejectInvalidJSONForLink(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLink, strings.NewReader(`{"localPluginRoot"`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid link json 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid link json response: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+	}
+}
+
 func TestRegisterPluginRoutesUpdateAndRollbackPlugin(t *testing.T) {
 	t.Parallel()
 
@@ -735,6 +841,7 @@ func TestRegisterPluginRoutesBlocksLifecycleSlicesOutsideIDE(t *testing.T) {
 	}{
 		{name: "rescan", path: RoutePluginsRescan},
 		{name: "install", path: RoutePluginsInstall, body: `{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip"}`},
+		{name: "link", path: RoutePluginsLink, body: `{"localPluginRoot":"/tmp/plugin","scope":"workspace","enable":true,"force":false}`},
 		{name: "uninstall", path: RoutePluginsUninstall, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`},
 		{name: "update", path: RoutePluginsUpdate, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace","to":null}`},
 		{name: "rollback", path: RoutePluginsRollback, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`},

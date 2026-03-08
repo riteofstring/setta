@@ -544,6 +544,18 @@ The first higher-level backend plugin runtime follow-on tracked in
 - `registeredLanguageServers` and `registeredExternalAgentAdapters` remain
   deferred until a concrete caller needs them
 
+The bounded plugin local-link transport follow-on tracked in
+`phase-15-plugin-link-transport.md` is now landed:
+
+- Go now owns:
+  - `POST /plugins/link`
+- `internal/httpapi` now exposes thin IDE-only transport over the existing
+  shared `internal/plugins` local-link service
+- shared local-link results now include the install-style
+  `sourceScopeLabel`, `trustStatus`, and `trustWarning` fields
+- the route is now available for the existing plugin E2E/manual flows that use
+  linked local fixtures, while `POST /plugins/lock/*` remains deferred
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:

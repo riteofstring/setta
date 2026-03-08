@@ -16,6 +16,7 @@ import (
 const RoutePluginsRuntime = "/plugins/runtime"
 const RoutePluginsRescan = "/plugins/rescan"
 const RoutePluginsInstall = "/plugins/install"
+const RoutePluginsLink = "/plugins/link"
 const RoutePluginsUninstall = "/plugins/uninstall"
 const RoutePluginsUpdate = "/plugins/update"
 const RoutePluginsRollback = "/plugins/rollback"
@@ -44,6 +45,7 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 	router.Get(RoutePluginsRuntime, pluginRuntimeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRescan, pluginRescanHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsInstall, pluginInstallHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsLink, pluginLinkHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUninstall, pluginUninstallHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsUpdate, pluginUpdateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRollback, pluginRollbackHandler(deps))
@@ -156,6 +158,44 @@ func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 			Installer:  payload.Installer,
 			Enable:     enable,
 			Force:      force,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginLinkHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type linkPluginRequest struct {
+		LocalPluginRoot string               `json:"localPluginRoot"`
+		Scope           *plugins.PluginScope `json:"scope"`
+		Enable          *bool                `json:"enable"`
+		Force           *bool                `json:"force"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[linkPluginRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		enable := true
+		if payload.Enable != nil {
+			enable = *payload.Enable
+		}
+		force := false
+		if payload.Force != nil {
+			force = *payload.Force
+		}
+
+		response, err := deps.Service.Link(plugins.LinkOptions{
+			LocalPluginRoot: payload.LocalPluginRoot,
+			Scope:           payload.Scope,
+			Enable:          enable,
+			Force:           force,
 		})
 		if err != nil {
 			writePluginRouteError(w, r, err)
