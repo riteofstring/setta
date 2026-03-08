@@ -1,6 +1,5 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
@@ -8,10 +7,7 @@ import {
   ActiveSectionPolicyResult,
   resolveActiveSectionChange,
 } from "./activeSectionPolicy";
-import {
-  type SetActiveSectionIdsOptions,
-  setActiveSectionIds,
-} from "./activeSections";
+import { setActiveSectionIds } from "./activeSections";
 import {
   getCurrEffectiveSectionImpl,
   getHighestAncestor,
@@ -136,9 +132,8 @@ function buildPolicyContext(
 
 export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
-  options?: SetActiveSectionIdsOptions,
 ): ActiveSectionControllerResult {
-  const activeIds = getActiveSectionUIIds();
+  const activeIds = useProjectState.getState().projectConfig.activeIds;
   const isSelectingParams = useMisc.getState().isSelectingParams;
   const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 
@@ -150,10 +145,9 @@ export function applyActiveSectionChange(
   );
   const decision = resolveActiveSectionChange(context);
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
-  const shouldApplyActiveIds = activeIdsChanged || options?.forceDurableSync;
 
-  if (shouldApplyActiveIds) {
-    setActiveSectionIds(decision.nextActiveIds, options);
+  if (activeIdsChanged) {
+    setActiveSectionIds(decision.nextActiveIds);
   }
 
   if (decision.updateZIndex) {

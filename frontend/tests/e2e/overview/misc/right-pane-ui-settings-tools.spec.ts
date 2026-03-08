@@ -125,8 +125,8 @@ async function resolveTemporarySectionIdFromSummary(
 
 async function readFrontendActiveIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const { useActiveSectionUI } = await import("/src/state/definitions.ts");
-    return [...useActiveSectionUI.getState().activeIds];
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    return [...useProjectState.getState().projectConfig.activeIds];
   });
 }
 
@@ -155,81 +155,11 @@ async function setFrontendActiveIds(
   nextActiveIds: string[],
 ): Promise<void> {
   await page.evaluate(async (activeIds) => {
-    const { setActiveSectionIds } = await import(
-      "/src/state/actions/activeSections.ts"
-    );
-    setActiveSectionIds(activeIds, { syncMode: "ui-only" });
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = activeIds;
+    });
   }, nextActiveIds);
-}
-
-async function scheduleFrontendActiveIdsWithBlockedRaf(
-  page: Page,
-  nextActiveIds: string[],
-): Promise<void> {
-  await page.evaluate(async (activeIds) => {
-    type ActiveIdsRafWindow = Window & {
-      __settaActiveIdsBlockedRafCallback?: FrameRequestCallback | null;
-      __settaActiveIdsBlockedRafHandle?: number;
-      __settaActiveIdsOriginalRequestAnimationFrame?: typeof window.requestAnimationFrame;
-      __settaActiveIdsOriginalCancelAnimationFrame?: typeof window.cancelAnimationFrame;
-    };
-    const windowRef = window as ActiveIdsRafWindow;
-    windowRef.__settaActiveIdsBlockedRafCallback = null;
-    windowRef.__settaActiveIdsBlockedRafHandle = 1;
-    windowRef.__settaActiveIdsOriginalRequestAnimationFrame =
-      window.requestAnimationFrame.bind(window);
-    windowRef.__settaActiveIdsOriginalCancelAnimationFrame =
-      window.cancelAnimationFrame.bind(window);
-    const originalRequestAnimationFrame =
-      windowRef.__settaActiveIdsOriginalRequestAnimationFrame;
-    const originalCancelAnimationFrame =
-      windowRef.__settaActiveIdsOriginalCancelAnimationFrame;
-    window.requestAnimationFrame = (callback) => {
-      if (windowRef.__settaActiveIdsBlockedRafCallback === null) {
-        windowRef.__settaActiveIdsBlockedRafCallback = callback;
-        return windowRef.__settaActiveIdsBlockedRafHandle ?? 1;
-      }
-      return originalRequestAnimationFrame(callback);
-    };
-    window.cancelAnimationFrame = (handle) => {
-      if (handle === (windowRef.__settaActiveIdsBlockedRafHandle ?? 1)) {
-        windowRef.__settaActiveIdsBlockedRafCallback = null;
-        window.requestAnimationFrame = originalRequestAnimationFrame;
-        window.cancelAnimationFrame = originalCancelAnimationFrame;
-        return;
-      }
-      originalCancelAnimationFrame(handle);
-    };
-
-    const { setActiveSectionIds } = await import(
-      "/src/state/actions/activeSections.ts"
-    );
-    setActiveSectionIds(activeIds);
-  }, nextActiveIds);
-}
-
-async function flushBlockedFrontendActiveIdsRaf(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    type ActiveIdsRafWindow = Window & {
-      __settaActiveIdsBlockedRafCallback?: FrameRequestCallback | null;
-      __settaActiveIdsOriginalRequestAnimationFrame?: typeof window.requestAnimationFrame;
-      __settaActiveIdsOriginalCancelAnimationFrame?: typeof window.cancelAnimationFrame;
-    };
-    const windowRef = window as ActiveIdsRafWindow;
-    const blockedCallback = windowRef.__settaActiveIdsBlockedRafCallback;
-    const originalRequestAnimationFrame =
-      windowRef.__settaActiveIdsOriginalRequestAnimationFrame;
-    const originalCancelAnimationFrame =
-      windowRef.__settaActiveIdsOriginalCancelAnimationFrame;
-    windowRef.__settaActiveIdsBlockedRafCallback = null;
-    if (originalRequestAnimationFrame) {
-      window.requestAnimationFrame = originalRequestAnimationFrame;
-    }
-    if (originalCancelAnimationFrame) {
-      window.cancelAnimationFrame = originalCancelAnimationFrame;
-    }
-    blockedCallback?.(16);
-  });
 }
 
 async function rewriteNextRevealActiveSectionId(
@@ -523,112 +453,6 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
   }
 });
 
-test("right-pane reveal_ui_setting cancels a queued durable active-id sync before transient activation", async ({
-  page,
-}) => {
-  await setOverviewTab(page, "Overview");
-  const projectContext = await openIsolatedProject(page);
-  const initialSectionId = await createCallableSection(
-    page,
-    projectContext.projectConfigId,
-  );
-  const targetSectionId = await createCallableSection(
-    page,
-    projectContext.projectConfigId,
-  );
-  const initialSectionName = `right-pane-queued-initial-${Date.now()}`;
-  const targetSectionName = `right-pane-queued-target-${Date.now()}`;
-
-  try {
-    await postBackend(page, "/setSectionName", {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId: initialSectionId,
-      name: initialSectionName,
-    });
-    await postBackend(page, "/setSectionName", {
-      projectConfigId: projectContext.projectConfigId,
-      sectionId: targetSectionId,
-      name: targetSectionName,
-    });
-    await postBackend(page, "/setActiveIds", {
-      projectConfigId: projectContext.projectConfigId,
-      activeIds: [],
-    });
-
-    const seedResult = await callMcpTool<RevealUISettingResult>(
-      page,
-      projectContext.projectConfigId,
-      "reveal_ui_setting",
-      {
-        settingId: RIGHT_PANE_SETTING_ID,
-      },
-    );
-    if (typeof seedResult.projectConfigId !== "string") {
-      throw new Error(
-        `Expected temporary projectConfigId in seed result: ${JSON.stringify(seedResult)}`,
-      );
-    }
-    const temporaryInitialSectionId =
-      await resolveTemporarySectionIdFromSummary(
-        page,
-        projectContext.projectConfigId,
-        seedResult.projectConfigId,
-        initialSectionName,
-      );
-    const temporaryTargetSectionId = await resolveTemporarySectionIdFromSummary(
-      page,
-      projectContext.projectConfigId,
-      seedResult.projectConfigId,
-      targetSectionName,
-    );
-
-    // Frontend active ids stay in the live UI store using the real section ids.
-    expect(temporaryInitialSectionId).toBeTruthy();
-    await scheduleFrontendActiveIdsWithBlockedRaf(page, [initialSectionId]);
-    await expect
-      .poll(async () => readFrontendActiveIds(page))
-      .toEqual([initialSectionId]);
-
-    const revealResultPromise = callMcpTool<RevealUISettingResult>(
-      page,
-      projectContext.projectConfigId,
-      "reveal_ui_setting",
-      {
-        settingId: RIGHT_PANE_SETTING_ID,
-        sectionIdToActivate: temporaryTargetSectionId,
-        durationMs: 8000,
-      },
-    );
-
-    await expect
-      .poll(async () => readFrontendActiveIds(page))
-      .toEqual([targetSectionId]);
-
-    await flushBlockedFrontendActiveIdsRaf(page);
-
-    const latestProjectState = await postBackend<{
-      projectState?: {
-        projectConfig?: { activeIds?: string[] };
-      };
-    }>(page, "/getLatestProjectState", {
-      projectConfigId: projectContext.projectConfigId,
-    });
-    expect(latestProjectState?.projectState?.projectConfig?.activeIds).toEqual(
-      [],
-    );
-    await expect
-      .poll(async () => readFrontendActiveIds(page))
-      .toEqual([targetSectionId]);
-
-    const revealResult = await revealResultPromise;
-    expect(revealResult.emittedRevealCount).toBe(1);
-    expect(revealResult.statuses[0]?.status).toBe("revealed");
-    expect(revealResult.statuses[0]?.error).toBeNull();
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
 test("right-pane reveal_ui_setting restores frontend activeIds when incoming reveal target is stale", async ({
   page,
 }) => {
@@ -684,11 +508,10 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
         seedResult.projectConfigId,
         requestedSectionName,
       );
-    expect(temporaryInitialSectionId).toBeTruthy();
-    await setFrontendActiveIds(page, [initialSectionId]);
+    await setFrontendActiveIds(page, [temporaryInitialSectionId]);
     await expect
       .poll(async () => readFrontendActiveIds(page))
-      .toEqual([initialSectionId]);
+      .toEqual([temporaryInitialSectionId]);
 
     await rewriteNextRevealActiveSectionId(
       page,
@@ -714,114 +537,7 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
     expect(await wasRevealActiveSectionRewriteConsumed(page)).toBe(true);
     await expect
       .poll(async () => readFrontendActiveIds(page))
-      .toEqual([initialSectionId]);
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
-test("frontend selection keeps the newer ui-only target after a stale durable ack", async ({
-  page,
-}) => {
-  await setOverviewTab(page, "Overview");
-  const projectContext = await openIsolatedProject(page);
-  const initialSectionId = "section-initial";
-  const targetSectionId = "section-target";
-
-  try {
-    const finalActiveIds = await page.evaluate(
-      async ({ initialId, projectConfigId, targetId }) => {
-        const [
-          {
-            getActiveSectionUISelectionGeneration,
-            markPendingActiveSectionBackendSyncOp,
-            useActiveSectionUI,
-          },
-          { setActiveSectionIds },
-          { loadProjectState },
-          { processProjectStateUpdateFromBackend },
-          {
-            createCodeSectionImpl,
-            createCore,
-            createProjectConfig,
-            createSingletonSections,
-            createUserDefaultCodeSectionImpl,
-            createVariant,
-          },
-        ] = await Promise.all([
-          import("/src/state/activeSectionUI.ts"),
-          import("/src/state/actions/activeSections.ts"),
-          import("/src/state/actions/project/loadProject.ts"),
-          import("/src/state/actions/sectionInfos.ts"),
-          import("/src/utils/generatedTypes.ts"),
-        ]);
-        const buildProjectState = (activeIds) => {
-          const sectionVariantMap = {};
-          const sections = {};
-          const sectionImpls = {};
-          const sectionVariants = {};
-          for (const sectionId of [initialId, targetId]) {
-            const variantId = `variant-${sectionId}`;
-            const implId = `impl-${sectionId}`;
-            sectionVariantMap[sectionId] = variantId;
-            sections[sectionId] = createCore({ id: sectionId });
-            sectionVariants[variantId] = createVariant({
-              id: variantId,
-              impl: implId,
-              nonPresetImpls: [implId],
-              name: `variant-${sectionId}`,
-            });
-            sectionImpls[implId] = createCodeSectionImpl(
-              createUserDefaultCodeSectionImpl(),
-              {
-                id: implId,
-              },
-            );
-          }
-          return {
-            projectConfig: createProjectConfig({
-              id: projectConfigId,
-              activeIds,
-              sectionVariantMap,
-            }),
-            sections,
-            sectionImpls,
-            sectionVariants,
-            codeObjs: {},
-            codeObjImpls: {},
-            codeObjVariants: {},
-            artifactGroups: {},
-            singletonSections: createSingletonSections(),
-            parentSectionMap: {},
-            shownParamIds: {},
-            requiredDecodedImages: [],
-            genCodeBinding: null,
-          };
-        };
-
-        await loadProjectState(buildProjectState([]));
-        setActiveSectionIds([initialId], { syncMode: "ui-only" });
-        const staleOpId = "stale-selection-op";
-        markPendingActiveSectionBackendSyncOp(
-          staleOpId,
-          getActiveSectionUISelectionGeneration(),
-        );
-        setActiveSectionIds([targetId], { syncMode: "ui-only" });
-        processProjectStateUpdateFromBackend({
-          projectState: buildProjectState([initialId]),
-          completedOpIds: [staleOpId],
-          pendingOpIds: [],
-        });
-        return [...useActiveSectionUI.getState().activeIds];
-      },
-      {
-        initialId: initialSectionId,
-        projectConfigId: projectContext.projectConfigId,
-        targetId: targetSectionId,
-      },
-    );
-
-    expect(finalActiveIds).toEqual([targetSectionId]);
+      .toEqual([temporaryInitialSectionId]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -908,153 +624,6 @@ test("right-pane reveal_ui_setting keeps frontend activation and pane state unch
   }
 });
 
-test("right-pane reveal rollback returns backend authority to later backend snapshots", async ({
-  page,
-}) => {
-  await setOverviewTab(page, "Overview");
-  const projectContext = await openIsolatedProject(page);
-
-  try {
-    const result = await page.evaluate(
-      async ({ projectConfigId }) => {
-        const [
-          { useActiveSectionUI },
-          { receiveUISettingReveal },
-          { loadProjectState },
-          { processProjectStateUpdateFromBackend },
-          {
-            createCodeSectionImpl,
-            createCore,
-            createProjectConfig,
-            createSingletonSections,
-            createUserDefaultCodeSectionImpl,
-            createVariant,
-          },
-        ] = await Promise.all([
-          import("/src/state/definitions.ts"),
-          import("/src/state/actions/uiSettingReveal.ts"),
-          import("/src/state/actions/project/loadProject.ts"),
-          import("/src/state/actions/sectionInfos.ts"),
-          import("/src/utils/generatedTypes.ts"),
-        ]);
-
-        const initialId = "section-initial";
-        const targetId = "section-target";
-        const backendId = "section-backend";
-
-        const buildProjectState = (activeIds: string[]) => {
-          const sectionVariantMap: Record<string, string> = {};
-          const sections: Record<string, unknown> = {};
-          const sectionImpls: Record<string, unknown> = {};
-          const sectionVariants: Record<string, unknown> = {};
-
-          for (const sectionId of [initialId, targetId, backendId]) {
-            const variantId = `variant-${sectionId}`;
-            const implId = `impl-${sectionId}`;
-            sectionVariantMap[sectionId] = variantId;
-            sections[sectionId] = createCore({ id: sectionId });
-            sectionVariants[variantId] = createVariant({
-              id: variantId,
-              impl: implId,
-              nonPresetImpls: [implId],
-              name: `variant-${sectionId}`,
-            });
-            sectionImpls[implId] = createCodeSectionImpl(
-              createUserDefaultCodeSectionImpl(),
-              {
-                id: implId,
-              },
-            );
-          }
-
-          return {
-            projectConfig: createProjectConfig({
-              id: projectConfigId,
-              activeIds,
-              sectionVariantMap,
-            }),
-            sections,
-            sectionImpls,
-            sectionVariants,
-            codeObjs: {},
-            codeObjImpls: {},
-            codeObjVariants: {},
-            artifactGroups: {},
-            singletonSections: createSingletonSections(),
-            parentSectionMap: {},
-            shownParamIds: {},
-            requiredDecodedImages: [],
-            genCodeBinding: null,
-          };
-        };
-
-        await loadProjectState(buildProjectState([initialId]));
-
-        const originalQuerySelector = document.querySelector.bind(document);
-        document.querySelector = ((selector: string) => {
-          if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
-            return {
-              querySelector: () => null,
-            } as unknown as Element;
-          }
-          return originalQuerySelector(selector);
-        }) as typeof document.querySelector;
-
-        try {
-          const statuses = await receiveUISettingReveal({
-            projectConfigId,
-            chatId: null,
-            durationMs: 120,
-            requestId: "pw-reveal-rollback-authority",
-            activeSectionId: targetId,
-            reveals: [
-              {
-                settingId: "core.code.section_variants",
-                side: "right",
-                overviewTabKey: null,
-                uiEditorTabName: "SectionVariantsConfig",
-                pluginId: null,
-                paneId: null,
-                strategy: "dom_anchor",
-                anchorId: "core.code.section_variants",
-                pluginRevealKey: null,
-                revealActivationSteps: [],
-              },
-            ],
-          });
-          const afterRollback = [...useActiveSectionUI.getState().activeIds];
-          const backendHydrationEnabled =
-            useActiveSectionUI.getState().backendHydrationEnabled;
-
-          processProjectStateUpdateFromBackend({
-            projectState: buildProjectState([backendId]),
-            completedOpIds: [],
-            pendingOpIds: [],
-          });
-
-          return {
-            afterBackend: [...useActiveSectionUI.getState().activeIds],
-            afterRollback,
-            backendHydrationEnabled,
-            statuses,
-          };
-        } finally {
-          document.querySelector = originalQuerySelector;
-        }
-      },
-      { projectConfigId: projectContext.projectConfigId },
-    );
-
-    expect(result.statuses[0]?.status).toBe("failed");
-    expect(result.statuses[0]?.errorMessage).toContain("Could not find anchor");
-    expect(result.afterRollback).toEqual(["section-initial"]);
-    expect(result.backendHydrationEnabled).toBe(true);
-    expect(result.afterBackend).toEqual(["section-backend"]);
-  } finally {
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
 test("right-pane reveal timeout preserves user ABA activeIds navigation", async ({
   page,
 }) => {
@@ -1128,9 +697,9 @@ test("right-pane reveal timeout preserves user ABA activeIds navigation", async 
     }>(page, "/getLatestProjectState", {
       projectConfigId: projectContext.projectConfigId,
     });
-    expect(
-      projectStateAfterDroppedAck?.projectState?.projectConfig?.activeIds,
-    ).toEqual([]);
+    expect(projectStateAfterDroppedAck?.projectState?.projectConfig?.activeIds).toEqual(
+      [],
+    );
 
     await postBackend(page, "/setActiveIds", {
       projectConfigId: projectContext.projectConfigId,
