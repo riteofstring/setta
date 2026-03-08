@@ -99,8 +99,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 67 {
-		t.Fatalf("expected 67 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 70 {
+		t.Fatalf("expected 70 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -118,8 +118,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 67 {
-		t.Fatalf("expected 67 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 70 {
+		t.Fatalf("expected 70 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -154,6 +154,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "get_setta_docs") {
 		t.Fatalf("expected get_setta_docs in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "get_ui_setting_value") {
+		t.Fatalf("expected get_ui_setting_value in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "list_app_components") {
 		t.Fatalf("expected list_app_components in registered tool names, got %#v", rawNames)
 	}
@@ -187,8 +190,14 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "search_mcp_tools") {
 		t.Fatalf("expected search_mcp_tools in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "search_ui_settings") {
+		t.Fatalf("expected search_ui_settings in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "toggle_group_orientation") {
 		t.Fatalf("expected toggle_group_orientation in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "set_ui_setting_value") {
+		t.Fatalf("expected set_ui_setting_value in registered tool names, got %#v", rawNames)
 	}
 
 	missingContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{

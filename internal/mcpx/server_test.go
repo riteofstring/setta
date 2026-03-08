@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 67 {
-		t.Fatalf("expected 67 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 70 {
+		t.Fatalf("expected 70 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -403,6 +403,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"get_latest_project_state_summary",
 		"get_mcp_server_runtime_status",
 		"get_setta_docs",
+		"get_ui_setting_value",
 		"list_agent_profiles",
 		"list_app_components",
 		"list_mcp_tools",
@@ -410,6 +411,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"report_completion_status",
 		"run_agent_profile",
 		"search_mcp_tools",
+		"search_ui_settings",
 		"set_agentic_context",
 		"set_app_definition",
 		"set_callable",
@@ -437,6 +439,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"set_show_param_display_names",
 		"set_top_level_section_layout",
 		"set_type_error_ignore",
+		"set_ui_setting_value",
 		"set_watch_code_enabled",
 		"set_watch_code_inputs",
 		"toggle_group_orientation",
@@ -1049,8 +1052,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 67 {
-		t.Fatalf("expected 67 registered tool names, got %#v", listNames)
+	if len(listNames) != 70 {
+		t.Fatalf("expected 70 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{

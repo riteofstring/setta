@@ -1,6 +1,10 @@
 package uisettings
 
-import "context"
+import (
+	"context"
+
+	"setta/internal/projectstate"
+)
 
 type Source string
 
@@ -130,4 +134,16 @@ type RuntimeEntry struct {
 	Metadata   Entry
 	ReadValue  ReadFunc
 	WriteValue WriteFunc
+}
+
+type CoreProjectState interface {
+	Snapshot() projectstate.Snapshot
+	CompareAndSetShowParamDisplayNames(ctx context.Context, projectID string, show bool, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
+	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
+	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
+	CompareAndSetAppDefinitionCatalogID(ctx context.Context, catalogID string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecVersion(ctx context.Context, appSpecVersion string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecPath(ctx context.Context, appSpecPath string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionThemeMode(ctx context.Context, themeMode string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 }

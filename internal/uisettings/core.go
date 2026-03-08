@@ -28,7 +28,7 @@ var (
 	}
 )
 
-func NewCoreRegistry(runtime *projectstate.Runtime, workspaceRoot string) (*Registry, error) {
+func NewCoreRegistry(runtime CoreProjectState, workspaceRoot string) (*Registry, error) {
 	if runtime == nil {
 		return nil, projectstate.ErrRuntimeClosed
 	}

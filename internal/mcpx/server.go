@@ -124,6 +124,10 @@ type projectStateProvider interface {
 	CompareAndSetWatchCodeEnabled(ctx context.Context, projectID string, enabled bool, workspaceRoot string, expectedOldValue *bool) (projectstate.Snapshot, projectstate.CompareAndSetResult[bool], error)
 	CompareAndSetWatchCodeFolders(ctx context.Context, projectID string, folders []projectstate.WatchCodeFolder, workspaceRoot string, expectedOldValue []projectstate.WatchCodeFolder) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]projectstate.WatchCodeFolder], error)
 	CompareAndSetWatchCodeFiles(ctx context.Context, projectID string, files []string, workspaceRoot string, expectedOldValue []string) (projectstate.Snapshot, projectstate.CompareAndSetResult[[]string], error)
+	CompareAndSetAppDefinitionCatalogID(ctx context.Context, catalogID string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecVersion(ctx context.Context, appSpecVersion string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionSpecPath(ctx context.Context, appSpecPath string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
+	CompareAndSetAppDefinitionThemeMode(ctx context.Context, themeMode string, expectedOldValue *string) (projectstate.Snapshot, projectstate.CompareAndSetResult[string], error)
 	ToggleGroupOrientation(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
 	TogglePositionLocks(ctx context.Context, projectID string, sectionIDs []string) (projectstate.Snapshot, error)
 	ToggleMinimized(ctx context.Context, projectID string, sectionID string) (projectstate.Snapshot, error)
@@ -3148,6 +3152,137 @@ func defaultToolDefinitions(
 	}
 
 	if projectState != nil {
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "search_ui_settings",
+				Description: "Search canonical core UI settings by natural-language query.",
+				Metadata: tools.Metadata{
+					Kind:                          tools.KindDiscoverable,
+					AccessType:                    tools.AccessTypeRead,
+					DefaultTargetSingletonSection: "GlobalVariables",
+					SearchCategory:                "project",
+					SearchTags:                    []string{"ui", "settings", "discover"},
+				},
+				Handler: newSearchUISettingsHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Canonical project config id whose UI settings should be searched.",
+					},
+					"query": map[string]any{
+						"type":        "string",
+						"description": "Natural-language query used to rank UI settings.",
+					},
+					"limit": map[string]any{
+						"type":        "integer",
+						"description": "Optional maximum number of results to return.",
+					},
+					"sourceFilter": map[string]any{
+						"type":        "string",
+						"description": "Optional source filter: core, plugin, or all.",
+					},
+				},
+				"required": []string{"projectConfigId", "query"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"results": map[string]any{
+						"type":  "array",
+						"items": uiSettingSummarySchema(),
+					},
+				},
+				"required": []string{"results"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "get_ui_setting_value",
+				Description: "Read the current value for a canonical UI setting id.",
+				Metadata: tools.Metadata{
+					Kind:                          tools.KindDiscoverable,
+					AccessType:                    tools.AccessTypeRead,
+					DefaultTargetSingletonSection: "GlobalVariables",
+					SearchCategory:                "project",
+					SearchTags:                    []string{"ui", "settings", "read"},
+				},
+				Handler: newGetUISettingValueHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Canonical project config id whose UI setting should be read.",
+					},
+					"settingId": map[string]any{
+						"type":        "string",
+						"description": "Canonical UI setting id to read.",
+					},
+				},
+				"required": []string{"projectConfigId", "settingId"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"setting": uiSettingSummarySchema(),
+					"value":   map[string]any{},
+					"error":   uiSettingErrorSchema(),
+				},
+				"required": []string{"value"},
+			},
+		})
+
+		definitions = append(definitions, toolDefinition{
+			Spec: tools.Spec{
+				Name:        "set_ui_setting_value",
+				Description: "Set a canonical core UI setting value using compare-and-set write protection.",
+				Metadata: tools.Metadata{
+					Kind:                          tools.KindDiscoverable,
+					AccessType:                    tools.AccessTypeWrite,
+					DefaultTargetSingletonSection: "GlobalVariables",
+					SearchCategory:                "project",
+					SearchTags:                    []string{"ui", "settings", "write", "mutate"},
+				},
+				Handler: newSetUISettingValueHandler(projectState, workspaceRoot),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"projectConfigId": map[string]any{
+						"type":        "string",
+						"description": "Canonical project config id whose UI setting should be written.",
+					},
+					"settingId": map[string]any{
+						"type":        "string",
+						"description": "Canonical UI setting id to write.",
+					},
+					"value": map[string]any{
+						"description": "New JSON value to persist for the setting.",
+					},
+				},
+				"required": []string{"projectConfigId", "settingId", "value"},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"setting":         uiSettingSummarySchema(),
+					"oldValue":        map[string]any{},
+					"newValue":        map[string]any{},
+					"normalizedValue": map[string]any{},
+					"changed": map[string]any{
+						"type": "boolean",
+					},
+					"error": uiSettingErrorSchema(),
+				},
+				"required": []string{"oldValue", "newValue", "normalizedValue", "changed"},
+			},
+		})
+
 		definitions = append(definitions, toolDefinition{
 			Spec: tools.Spec{
 				Name:        "get_latest_project_state_summary",
