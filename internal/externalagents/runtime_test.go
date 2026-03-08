@@ -1,6 +1,7 @@
 package externalagents
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -76,6 +77,45 @@ func TestRuntimeActivatesRunAndStoresLiveChatState(t *testing.T) {
 	}
 	if got := state.ToolCallArguments["tool-call-1"]; got != "{\"path\":\"README.md\"}" {
 		t.Fatalf("unexpected tool call arguments %q", got)
+	}
+}
+
+func TestRuntimeWaitForRunUnblocksAfterDeactivate(t *testing.T) {
+	store, runtime := buildRuntimeFixture(t)
+	run := newPersistedRuntimeRun(t, store, "run-wait", agentruns.RunStatusRunning)
+	controller := &stubRunController{}
+	if err := runtime.ActivateRun(run.ID, controller); err != nil {
+		t.Fatalf("activate run: %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		time.Sleep(50 * time.Millisecond)
+		persisted, err := store.Load(run.ID)
+		if err != nil {
+			t.Errorf("load active run: %v", err)
+			return
+		}
+		finishedAt := time.Date(2026, 3, 9, 9, 0, 1, 0, time.UTC)
+		persisted.Status = agentruns.RunStatusCompleted
+		persisted.FinishedAt = &finishedAt
+		if err := store.Save(persisted); err != nil {
+			t.Errorf("save completed run: %v", err)
+			return
+		}
+		runtime.DeactivateRun(run.ID)
+	}()
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	completed, err := runtime.WaitForRun(waitCtx, run.ID)
+	if err != nil {
+		t.Fatalf("wait for run: %v", err)
+	}
+	<-done
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed run, got %#v", completed)
 	}
 }
 

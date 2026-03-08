@@ -2,10 +2,10 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 14 follow-on after the landed managed
-run-chain runtime.
+This doc records the landed Phase 14 follow-on after the managed-only
+run-chain slice.
 
-The goal of this slice is to let Go-owned `start/stopRunChain` orchestrate
+The goal of this slice was to let Go-owned `start/stopRunChain` orchestrate
 external-agent child steps over an explicit external run owner, without
 reopening route transport, without tunneling through `/getLLMResponse`, and
 without broadening scope into richer run-chain realtime behavior.
@@ -21,34 +21,42 @@ Completed before this slice:
 - Phase 14 managed-only `start/stopRunChain` ownership over a dedicated
   `internal/runchains` runtime
 
-Current Go state before this slice:
+Current Go state after this slice:
 
-- `internal/runchains`
-  - owns parent chain-run persistence, active chain task lifecycle, managed
-    child-step orchestration, snapshot/event recording, and stop cancellation
-  - explicitly rejects external-agent-backed child steps
 - `internal/externalagents`
-  - owns external run activation, cancellation, live chat state, approval and
-    question routing, and executor-backed terminal persistence
-  - does not yet expose a lower-level non-chat run owner with
-    `start/stop/wait` semantics for orchestration callers
-  - does not yet expose a first-class wait boundary above executor completion
+  - now owns a bounded `RunService` for orchestrated non-chat external runs
+  - now exposes `Runtime.WaitForRun(...)` over the existing executor lifecycle
+  - still keeps executor/process ownership, live chat state, stop
+    cancellation, approval/question routing, and terminal persistence in the
+    same runtime boundary
+- `internal/runchains`
+  - now orchestrates child steps for both supported engine types:
+    - `setta_llm`
+    - `external_agent`
+  - still owns parent chain-run persistence, active chain task lifecycle,
+    step summaries, and stop cancellation
+- `internal/httpapi/agent_run_routes.go`
+  - still owns thin `POST /startRunChain` and `POST /stopRunChain`
+  - now maps external-step unavailability and preflight failures explicitly
+- `internal/app.App`
+  - now wires the run-chain runtime through both the managed and external
+    step owners in IDE mode
+  - no longer treats the run-chain runtime as disabled just because the
+    managed executor path is still unwired
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - a bounded Go external-agent run owner for orchestrated non-chat runs
-- a waitable external-agent runtime boundary so orchestration callers can block
-  until terminal persisted state exists
-- run-chain step dispatch for both supported engine types:
-  - `setta_llm`
-  - `external_agent`
+- a waitable external-agent runtime boundary above the landed executor loops
+- run-chain child-step dispatch by resolved engine type
 - focused tests for:
   - external child-step success
   - external child-step stop/cancellation
-  - synchronous validation for unavailable external runtime / bad external
-    inputs
+  - synchronous validation for unavailable external runtime
+  - external run-owner start and preflight validation
+  - external runtime wait behavior
 
 ## Non-Goals
 
@@ -57,7 +65,7 @@ This slice should deliver:
 - Python-shaped external-run singleton state or storage shape
 - richer run-chain websocket/progress streaming
 - broad external-agent context parity beyond the landed Go external-run surface
-- changing managed run-chain behavior that already landed
+- changing the managed run-chain behavior that already landed
 
 ## Inputs
 
@@ -72,142 +80,79 @@ This slice should deliver:
 - `internal/externalagents/service.go`
 - `internal/agentruns/runtime.go`
 
-## Planning Findings
+## Implementation Notes
 
-### 1. The existing Go external send path is the wrong orchestration boundary
+1. Add a lower-level external run owner instead of routing run-chain through
+   the chat send service.
+   - `internal/externalagents.RunService` now validates project/section scope,
+     resolves the external engine/config pair, runs bounded preflight,
+     normalizes prompt-only runs into initial user messages, merges agent
+     profile prompt content into `systemPrompt`, and starts the existing
+     executor boundary directly
 
-`internal/externalagents.SendService` is intentionally chat-route shaped. It
-owns branching, continuation, permission-mode defaults, app-generation prompt
-sections, and the HTTP-facing request envelope for `/getLLMResponse`.
+2. Reuse the landed external runtime instead of inventing a second active task
+   registry.
+   - active external run state now carries a `done` channel
+   - `Runtime.WaitForRun(...)` now blocks until executor teardown closes that
+     channel or cancellation makes the run terminal
 
-Run-chain should not compose through that chat transport abstraction.
+3. Keep run-chain orchestration ownership in `internal/runchains`.
+   - `RuntimeOptions` now accept an optional external step runner
+   - the owner validates each step by resolved engine type
+   - child-step stop dispatch now routes through the matching managed or
+     external owner
 
-### 2. The executor/runtime split is already usable
+4. Preserve only the product semantics that matter for persisted runs.
+   - external child steps still use the same parent/child run metadata shape
+     as the managed slice
+   - prompt-only external steps now get deterministic initial user messages so
+     persisted/live chat state stays source-of-truth-driven
+   - when `includePreviousOutputs` is true, the synthetic context message now
+     gets a generated message id so the external chat state normalizer can own
+     it directly
 
-The landed Codex/OpenCode/Claude executors already:
+5. Keep transport thin.
+   - no new routes
+   - no route-shape changes
+   - only error mapping expanded for:
+     - unavailable external child-step runtime
+     - external-agent preflight failure
+     - generic run-chain unavailability when neither child-step owner is wired
 
-- start provider processes
-- persist terminal run state
-- keep live chat state current
-- call `runtime.DeactivateRun(runID)` on completion/failure/teardown
+## Verification
 
-What is missing is only the explicit wait boundary above that completion path.
-
-### 3. The clean-break target is a lower-level external run owner
-
-Run-chain external child steps should use an explicit Go owner that:
-
-- resolves the external engine config and config store entry
-- runs preflight through the bounded checker
-- validates project/section scope and known input shape
-- starts a persisted external run directly against the existing executor
-  boundary
-
-That owner should accept run inputs, not a chat-route request shape.
-
-### 4. Child-step chat continuity should stay explicit
-
-If a chain step does not provide `chatId`, the Go owner should create a fresh
-external chat identity for that run. If a caller wants continuity, it should
-provide `chatId` explicitly and let the owner seed session/thread continuity
-from the latest run for that chat.
-
-That keeps continuity source-of-truth-driven instead of heuristic.
-
-## Recommended Design
-
-### 1. Add an external-agent run service above the landed runtime
-
-Recommended shape:
-
-- `internal/externalagents.RunService`
-  - `ValidateRun(profile, inputs) error`
-  - `StartRun(ctx, profile, inputs) (agentruns.Run, error)`
-  - `Disabled() bool`
-
-Responsibilities:
-
-- resolve the selected external engine and external-agent config
-- run bounded preflight
-- validate:
-  - `projectConfigId`
-  - `sectionId` / `allowUnscoped`
-  - `engineConfigId`
-  - `prompt`
-  - `messages`
-- normalize initial user messages for prompt-only runs
-- merge agent-profile prompt content into `systemPrompt`
-- attach token-backed attachment payloads when messages include attachments
-- seed same-chat session continuity only when `chatId` is explicitly provided
-- persist the running run and `run_started` event
-- activate runtime, initialize live chat state, and start the executor
-
-### 2. Extend the external-agent runtime with `WaitForRun`
-
-Recommended shape:
-
-- active runtime state stores a `done` channel per active run
-- `ActivateRun` initializes that wait channel
-- `DeactivateRun` closes it before cleanup
-- `StopRun` also closes it when cancellation makes the run terminal
-- new method:
-  - `WaitForRun(ctx, runID) (agentruns.Run, error)`
-
-That gives run-chain the same explicit `start/stop/wait` orchestration model it
-already uses for managed child steps.
-
-### 3. Keep `internal/runchains` as the orchestrator
-
-Recommended changes:
-
-- add an optional external-step runner dependency to `internal/runchains`
-- validate each step by resolved engine type:
-  - managed steps continue using the landed managed runtime path
-  - external steps validate through the new external run owner
-- dispatch child execution by engine type
-- stop the active child step through the matching runtime owner
-
-### 4. Keep transport thin and unchanged
-
-`POST /startRunChain` and `POST /stopRunChain` should remain unchanged.
-
-Only error mapping needs expansion for:
-
-- unavailable external child-step runtime
-- unavailable external preflight
-
-## Verification Targets
-
-- `internal/externalagents`
-  - run service start persists a running run and initializes live chat state
-  - runtime wait unblocks on completion/stop cleanup
-- `internal/runchains`
-  - external child-step success
-  - external child-step stop/cancellation
-  - synchronous validation for unavailable external runtime
-- `internal/httpapi`
-  - `startRunChain` maps external runtime/preflight failures deterministically
-- `internal/app`
-  - IDE wiring can construct the new external run owner and pass it into the
-    run-chain runtime
+- `./scripts/go.sh test ./internal/externalagents -count=1`
+- `./scripts/go.sh test ./internal/runchains -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'AgentRun|RunChain' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'ManagedAgentRun|RunChain' -count=1`
 
 ## Decisions Made
 
-- keep the next follow-on inside Phase 14 instead of opening a new transport
-  phase
 - use a lower-level external run owner instead of routing run-chain through the
   chat send service
 - add a wait boundary to the landed external runtime instead of inventing a
-  second active external task registry
-- keep run-chain orchestration ownership in `internal/runchains`
+  separate orchestration-specific registry
+- keep the run-chain owner as the parent-run orchestrator for both step types
+- let run-chain availability depend on either child-step owner being wired,
+  not only on the managed path
+
+## Open Questions
+
+- whether product work still needs richer run-chain progress realtime behavior
+  beyond persisted run polling
+- whether any later follow-on should broaden external child-step semantics
+  beyond the current bounded Go external-run surface
 
 ## Progress Notes
 
 - 2026-03-09: opened the focused follow-on for Go-owned external-agent
   child-step orchestration above the landed managed run-chain runtime.
+- 2026-03-09: landed the Go-owned external-agent child-step follow-on over a
+  bounded `internal/externalagents.RunService`, runtime wait boundary, and the
+  existing `internal/runchains` parent owner.
 
 ## Next Recommended Step
 
-- land the bounded external-agent run owner plus runtime wait boundary
-- wire `internal/runchains` to dispatch external child steps through that new
-  owner
+- treat the current bounded Phase 14 agentic runtime route surface as complete
+- only reopen this area for a concrete caller or product decision around
+  richer run-chain progress behavior

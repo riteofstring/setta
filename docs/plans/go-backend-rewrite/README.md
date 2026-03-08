@@ -539,7 +539,7 @@ Use the docs in this order:
     owner above the landed managed runtime, with external-agent child-step
     orchestration explicitly deferred
 159. `phase-14-run-chain-external-agent-child-step-runtime.md`
-  - focused implementation-plan doc for the next bounded Phase 14 follow-on:
+  - focused completed-slice doc for the bounded Phase 14 follow-on:
     Go-owned external-agent child-step orchestration over the landed
     run-chain and external-agent runtime boundaries
 160. `spike-mcp.md`

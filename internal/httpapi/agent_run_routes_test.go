@@ -21,6 +21,8 @@ import (
 	"setta/internal/runchains"
 )
 
+const routeAgentRunWaitTimeout = 5 * time.Second
+
 func TestRegisterAgentRunRoutesListsRuns(t *testing.T) {
 	t.Parallel()
 
@@ -143,7 +145,7 @@ func TestRegisterAgentRunRoutesStartsManagedRun(t *testing.T) {
 		t.Fatalf("expected running run, got %#v", started)
 	}
 
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), routeAgentRunWaitTimeout)
 	defer cancel()
 	completed, err := fixture.runtime.WaitForRun(waitCtx, started.ID)
 	if err != nil {
@@ -181,7 +183,7 @@ func TestRegisterAgentRunRoutesStopsManagedRun(t *testing.T) {
 	}
 	select {
 	case <-fixture.blocking.started:
-	case <-time.After(2 * time.Second):
+	case <-time.After(routeAgentRunWaitTimeout):
 		t.Fatal("timed out waiting for managed run start")
 	}
 
@@ -201,7 +203,7 @@ func TestRegisterAgentRunRoutesStopsManagedRun(t *testing.T) {
 		t.Fatalf("expected cancelled run, got %#v", stopped)
 	}
 
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), routeAgentRunWaitTimeout)
 	defer cancel()
 	waited, err := fixture.runtime.WaitForRun(waitCtx, startedRun.ID)
 	if err != nil {
@@ -254,7 +256,7 @@ func TestRegisterAgentRunRoutesStartsManagedRunChain(t *testing.T) {
 		t.Fatalf("expected running run chain, got %#v", started)
 	}
 
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), routeAgentRunWaitTimeout)
 	defer cancel()
 	completed, err := fixture.chains.WaitForRun(waitCtx, started.ID)
 	if err != nil {
@@ -302,7 +304,7 @@ func TestRegisterAgentRunRoutesStopsManagedRunChain(t *testing.T) {
 	}
 	select {
 	case <-fixture.blocking.started:
-	case <-time.After(2 * time.Second):
+	case <-time.After(routeAgentRunWaitTimeout):
 		t.Fatal("timed out waiting for run-chain child execution start")
 	}
 
@@ -319,7 +321,7 @@ func TestRegisterAgentRunRoutesStopsManagedRunChain(t *testing.T) {
 	if stopped.Status != agentruns.RunStatusCancelled {
 		t.Fatalf("expected cancelled run chain, got %#v", stopped)
 	}
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), routeAgentRunWaitTimeout)
 	defer cancel()
 	waited, err := fixture.chains.WaitForRun(waitCtx, started.ID)
 	if err != nil {
@@ -415,7 +417,7 @@ func TestRegisterAgentRunRoutesRejectsExternalAgentProfileOnStart(t *testing.T) 
 	}
 }
 
-func TestRegisterAgentRunRoutesRejectsExternalAgentStepOnStart(t *testing.T) {
+func TestRegisterAgentRunRoutesReturnsExternalStepUnavailableWhenNoExternalRuntimeIsWired(t *testing.T) {
 	t.Parallel()
 
 	fixture := newAgentRunRouteFixture(t, config.ModeIDE, &routeAgentRunExecutor{})
@@ -448,15 +450,74 @@ func TestRegisterAgentRunRoutesRejectsExternalAgentStepOnStart(t *testing.T) {
 
 	fixture.handler.ServeHTTP(response, request)
 
-	if response.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", response.Code, response.Body.String())
 	}
 	var payload errorResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode error payload: %v", err)
 	}
-	if payload.Error.Code != "managed_run_chain_engine_required" {
-		t.Fatalf("expected managed_run_chain_engine_required, got %#v", payload)
+	if payload.Error.Code != "external_run_chain_unavailable" {
+		t.Fatalf("expected external_run_chain_unavailable, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentRunRoutesStartsExternalRunChainStepWhenExternalRuntimeIsWired(t *testing.T) {
+	t.Parallel()
+
+	external := &routeExternalRunner{}
+	fixture := newAgentRunRouteFixtureWithExternal(t, config.ModeIDE, &routeAgentRunExecutor{}, external)
+	if err := fixture.engines.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-primary",
+			Name:             "Primary",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: routeAgentRunStringPointer("primary"),
+		},
+		{
+			ID:                    "engine-external",
+			Name:                  "External",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: routeAgentRunStringPointer("external-primary"),
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, strings.NewReader(`{
+		"spec":{
+			"id":"chain-alpha",
+			"name":"Chain Alpha",
+			"steps":[{"id":"step-alpha","name":"Step Alpha","engineConfigId":"engine-external","prompt":"hello"}]
+		},
+		"inputs":{"allowUnscoped":true}
+	}`))
+	response := httptest.NewRecorder()
+
+	fixture.handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var started agentruns.Run
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode started run chain: %v", err)
+	}
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running chain, got %#v", started)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	completed, err := fixture.chains.WaitForRun(waitCtx, started.ID)
+	if err != nil {
+		t.Fatalf("wait for external run chain: %v", err)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed chain, got %#v", completed)
+	}
+	if len(external.startCalls) != 1 || len(external.waitCalls) != 1 {
+		t.Fatalf("expected one external step start/wait, got %#v / %#v", external.startCalls, external.waitCalls)
 	}
 }
 
@@ -631,6 +692,47 @@ func (e *blockingRouteAgentRunExecutor) Execute(ctx context.Context, _ agentruns
 	}
 }
 
+type routeExternalRunner struct {
+	validateCalls []map[string]any
+	startCalls    []map[string]any
+	waitCalls     []string
+	stopCalls     []string
+	validateErr   error
+	disabled      bool
+}
+
+func (r *routeExternalRunner) Disabled() bool {
+	return r.disabled
+}
+
+func (r *routeExternalRunner) ValidateRun(_ agentprofiles.Profile, inputs map[string]any) error {
+	r.validateCalls = append(r.validateCalls, cloneAgentRunRouteMap(inputs))
+	return r.validateErr
+}
+
+func (r *routeExternalRunner) StartRun(_ context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	r.startCalls = append(r.startCalls, cloneAgentRunRouteMap(inputs))
+	run := agentruns.NewRun(routeAgentRunStringPointer(profile.ID), inputs, time.Date(2026, 3, 9, 19, 0, 0, 0, time.UTC))
+	return run, nil
+}
+
+func (r *routeExternalRunner) StopRun(runID string) (agentruns.Run, error) {
+	r.stopCalls = append(r.stopCalls, runID)
+	run := agentruns.NewRun(nil, map[string]any{}, time.Date(2026, 3, 9, 19, 0, 0, 0, time.UTC))
+	run.ID = runID
+	run.Status = agentruns.RunStatusCancelled
+	return run, nil
+}
+
+func (r *routeExternalRunner) WaitForRun(_ context.Context, runID string) (agentruns.Run, error) {
+	r.waitCalls = append(r.waitCalls, runID)
+	run := agentruns.NewRun(nil, map[string]any{}, time.Date(2026, 3, 9, 19, 0, 0, 0, time.UTC))
+	run.ID = runID
+	run.Status = agentruns.RunStatusCompleted
+	run.Outputs = map[string]any{"messages": []any{}}
+	return run, nil
+}
+
 type agentRunRouteFixture struct {
 	handler  http.Handler
 	profiles *agentprofiles.Store
@@ -644,6 +746,10 @@ type agentRunRouteFixture struct {
 }
 
 func newAgentRunRouteFixture(t *testing.T, mode config.Mode, executor agentruns.Executor) agentRunRouteFixture {
+	return newAgentRunRouteFixtureWithExternal(t, mode, executor, nil)
+}
+
+func newAgentRunRouteFixtureWithExternal(t *testing.T, mode config.Mode, executor agentruns.Executor, external *routeExternalRunner) agentRunRouteFixture {
 	t.Helper()
 
 	root := t.TempDir()
@@ -712,12 +818,24 @@ func newAgentRunRouteFixture(t *testing.T, mode config.Mode, executor agentruns.
 	if err != nil {
 		t.Fatalf("new managed runtime: %v", err)
 	}
+	var externalRuntime interface {
+		Disabled() bool
+		ValidateRun(agentprofiles.Profile, map[string]any) error
+		StartRun(context.Context, agentprofiles.Profile, map[string]any) (agentruns.Run, error)
+		StopRun(string) (agentruns.Run, error)
+		WaitForRun(context.Context, string) (agentruns.Run, error)
+	}
+	if external != nil {
+		externalRuntime = external
+	}
+
 	chains, err := runchains.NewRuntime(runchains.RuntimeOptions{
 		Runs:         store,
 		Engines:      engines,
 		Profiles:     profiles,
 		ProjectState: projectRuntime,
 		Managed:      runtime,
+		External:     externalRuntime,
 		TemporaryIDs: routeTemporaryIDs{},
 		TimeNow: func() time.Time {
 			return time.Date(2026, 3, 9, 19, 0, 0, 0, time.UTC)
@@ -777,6 +895,17 @@ func newAgentRunRouteTestRun(runID string, chatID string, projectConfigID string
 		"toolType": "codex",
 	}
 	return run
+}
+
+func cloneAgentRunRouteMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 type routeTemporaryIDs struct{}

@@ -146,8 +146,8 @@ This slice delivered:
 
 ## Open Questions
 
-- whether a later clean-break run-chain slice still needs external-agent child
-  steps at all
+- that later clean-break run-chain slice was reopened and landed in
+  `phase-14-run-chain-external-agent-child-step-runtime.md`
 - whether future run-chain progress events need a dedicated realtime surface or
   whether persisted run polling remains sufficient
 
@@ -157,9 +157,12 @@ This slice delivered:
   managed `start/stopRunChain` over the landed managed-run runtime.
 - 2026-03-09: landed the Go-owned managed-only run-chain runtime and thin
   `start/stopRunChain` transport over `internal/runchains`.
+- 2026-03-09: the later external-agent child-step follow-on landed in
+  `phase-14-run-chain-external-agent-child-step-runtime.md`.
 
 ## Next Recommended Step
 
-- treat the current bounded agentic runtime route surface as complete
-- only reopen this area if product work requires external-agent child-step
-  orchestration or richer chain-progress realtime behavior
+- follow the landed external-agent child-step slice in
+  `phase-14-run-chain-external-agent-child-step-runtime.md`
+- after that, only reopen this area for a concrete caller or product decision
+  around richer chain-progress realtime behavior

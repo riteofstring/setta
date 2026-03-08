@@ -30,8 +30,8 @@ Current Python-owned route surface after the landed run-chain follow-on:
 
 - none for the current bounded clean-break scope
 - the deferred follow-on is no longer route transport
-- the only remaining question is whether product work still needs Python's
-  older external-agent child-step orchestration inside run-chain
+- the only remaining question is whether product work still needs richer
+  run-chain progress behavior than persisted polling
 
 Current caller status relevant to scope:
 
@@ -56,9 +56,8 @@ Current Go foundations already landed:
 
 What is still deferred in Go after the landed follow-ons:
 
-- external-agent child-step orchestration inside run-chain
 - any richer run-chain progress realtime surface beyond persisted run polling
-- the focused executable follow-on for the first item is now opened in
+- the former external-agent child-step follow-on is now landed in
   `phase-14-run-chain-external-agent-child-step-runtime.md`
 
 ## Inputs

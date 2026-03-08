@@ -11,6 +11,7 @@ import (
 
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
+	"setta/internal/externalagents"
 	"setta/internal/projectstate"
 )
 
@@ -20,14 +21,16 @@ const (
 )
 
 var (
-	ErrRunStoreRequired          = errors.New("run-chain store is required")
-	ErrEngineStoreRequired       = errors.New("run-chain engine store is required")
-	ErrProfileStoreRequired      = errors.New("run-chain profile store is required")
-	ErrProjectStateRequired      = errors.New("run-chain project state is required")
-	ErrManagedRuntimeRequired    = errors.New("run-chain managed runtime is required")
-	ErrManagedRuntimeUnavailable = errors.New("managed run-chain runtime is not available")
-	ErrInvalidRunChainInput      = errors.New("invalid run chain input")
-	ErrManagedStepEngineRequired = errors.New("run-chain steps require a Setta LLM engine config")
+	ErrRunStoreRequired            = errors.New("run-chain store is required")
+	ErrEngineStoreRequired         = errors.New("run-chain engine store is required")
+	ErrProfileStoreRequired        = errors.New("run-chain profile store is required")
+	ErrProjectStateRequired        = errors.New("run-chain project state is required")
+	ErrStepRuntimeRequired         = errors.New("run-chain step runtime is required")
+	ErrManagedRuntimeRequired      = errors.New("run-chain managed step runtime is required")
+	ErrManagedRuntimeUnavailable   = errors.New("managed run-chain runtime is not available")
+	ErrExternalRuntimeUnavailable  = errors.New("external-agent run-chain steps are not available")
+	ErrInvalidRunChainInput        = errors.New("invalid run chain input")
+	ErrSupportedStepEngineRequired = errors.New("run-chain steps require a Setta LLM or external-agent engine config")
 )
 
 var chainInputKeys = []string{
@@ -42,7 +45,8 @@ type RuntimeOptions struct {
 	Engines      *agentruns.EngineStore
 	Profiles     *agentprofiles.Store
 	ProjectState *projectstate.Runtime
-	Managed      *agentruns.Runtime
+	Managed      managedStepRunner
+	External     externalStepRunner
 	TemporaryIDs agentruns.TemporaryIDs
 	BaseContext  context.Context
 	TimeNow      func() time.Time
@@ -53,7 +57,8 @@ type Runtime struct {
 	engines      *agentruns.EngineStore
 	profiles     *agentprofiles.Store
 	projectState *projectstate.Runtime
-	managed      *agentruns.Runtime
+	managed      managedStepRunner
+	external     externalStepRunner
 	temporaryIDs agentruns.TemporaryIDs
 	baseContext  context.Context
 	timeNow      func() time.Time
@@ -63,9 +68,25 @@ type Runtime struct {
 }
 
 type activeRunState struct {
-	cancel    context.CancelFunc
-	done      chan struct{}
-	stepRunID string
+	cancel         context.CancelFunc
+	done           chan struct{}
+	stepRunID      string
+	stepEngineType agentruns.EngineType
+}
+
+type managedStepRunner interface {
+	Disabled() bool
+	StartRun(profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error)
+	StopRun(runID string) (agentruns.Run, error)
+	WaitForRun(ctx context.Context, runID string) (agentruns.Run, error)
+}
+
+type externalStepRunner interface {
+	Disabled() bool
+	ValidateRun(profile agentprofiles.Profile, inputs map[string]any) error
+	StartRun(ctx context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error)
+	StopRun(runID string) (agentruns.Run, error)
+	WaitForRun(ctx context.Context, runID string) (agentruns.Run, error)
 }
 
 func NewRuntime(options RuntimeOptions) (*Runtime, error) {
@@ -81,8 +102,8 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	if options.ProjectState == nil {
 		return nil, ErrProjectStateRequired
 	}
-	if options.Managed == nil {
-		return nil, ErrManagedRuntimeRequired
+	if options.Managed == nil && options.External == nil {
+		return nil, ErrStepRuntimeRequired
 	}
 	baseContext := options.BaseContext
 	if baseContext == nil {
@@ -100,6 +121,7 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 		profiles:     options.Profiles,
 		projectState: options.ProjectState,
 		managed:      options.Managed,
+		external:     options.External,
 		temporaryIDs: options.TemporaryIDs,
 		baseContext:  baseContext,
 		timeNow:      timeNow,
@@ -108,15 +130,20 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 }
 
 func (r *Runtime) Disabled() bool {
-	return r == nil || r.managed == nil || r.managed.Disabled()
+	if r == nil {
+		return true
+	}
+	managedDisabled := r.managed == nil || r.managed.Disabled()
+	externalDisabled := r.external == nil || r.external.Disabled()
+	return managedDisabled && externalDisabled
 }
 
 func (r *Runtime) StartRun(specInput SpecInput, inputs map[string]any) (agentruns.Run, error) {
-	if r == nil || r.managed == nil {
-		return agentruns.Run{}, ErrManagedRuntimeRequired
+	if r == nil || (r.managed == nil && r.external == nil) {
+		return agentruns.Run{}, ErrStepRuntimeRequired
 	}
-	if r.managed.Disabled() {
-		return agentruns.Run{}, ErrManagedRuntimeUnavailable
+	if r.Disabled() {
+		return agentruns.Run{}, ErrStepRuntimeRequired
 	}
 	spec, err := NormalizeSpec(specInput)
 	if err != nil {
@@ -168,11 +195,11 @@ func (r *Runtime) StartRun(specInput SpecInput, inputs map[string]any) (agentrun
 }
 
 func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
-	if r == nil || r.managed == nil {
-		return agentruns.Run{}, ErrManagedRuntimeRequired
+	if r == nil || (r.managed == nil && r.external == nil) {
+		return agentruns.Run{}, ErrStepRuntimeRequired
 	}
-	if r.managed.Disabled() {
-		return agentruns.Run{}, ErrManagedRuntimeUnavailable
+	if r.Disabled() {
+		return agentruns.Run{}, ErrStepRuntimeRequired
 	}
 	trimmedRunID := strings.TrimSpace(runID)
 	if trimmedRunID == "" {
@@ -186,16 +213,29 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 		active.cancel()
 	}
 	if ok && strings.TrimSpace(active.stepRunID) != "" {
-		if _, err := r.managed.StopRun(active.stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
-			return agentruns.Run{}, err
+		switch active.stepEngineType {
+		case agentruns.EngineTypeExternalAgent:
+			if r.external == nil {
+				return agentruns.Run{}, ErrExternalRuntimeUnavailable
+			}
+			if _, err := r.external.StopRun(active.stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+				return agentruns.Run{}, err
+			}
+		default:
+			if r.managed == nil {
+				return agentruns.Run{}, ErrManagedRuntimeRequired
+			}
+			if _, err := r.managed.StopRun(active.stepRunID); err != nil && !errors.Is(err, agentruns.ErrRunNotFound) {
+				return agentruns.Run{}, err
+			}
 		}
 	}
 	return r.markCancelled(trimmedRunID)
 }
 
 func (r *Runtime) WaitForRun(ctx context.Context, runID string) (agentruns.Run, error) {
-	if r == nil || r.managed == nil {
-		return agentruns.Run{}, ErrManagedRuntimeRequired
+	if r == nil || (r.managed == nil && r.external == nil) {
+		return agentruns.Run{}, ErrStepRuntimeRequired
 	}
 	trimmedRunID := strings.TrimSpace(runID)
 	if trimmedRunID == "" {
@@ -220,18 +260,34 @@ func (r *Runtime) validateSpec(spec Spec, chainInputs map[string]any) error {
 		if err != nil {
 			return err
 		}
-		if engineConfig.EngineType != agentruns.EngineTypeSettaLLM {
-			return fmt.Errorf("%w: run chain step %d requires a Setta LLM engine config", ErrManagedStepEngineRequired, index)
-		}
-		if _, err := r.resolveStepProfile(step); err != nil {
+		profile, err := r.resolveStepProfile(step)
+		if err != nil {
 			return err
 		}
 		stepInputs, err := r.buildStepInputs(step, index, "validation-run", chainInputs, nil)
 		if err != nil {
 			return err
 		}
-		if err := r.validateManagedStepInputs(stepInputs); err != nil {
-			return err
+		switch engineConfig.EngineType {
+		case agentruns.EngineTypeSettaLLM:
+			if r.managed == nil {
+				return ErrManagedRuntimeRequired
+			}
+			if r.managed.Disabled() {
+				return ErrManagedRuntimeUnavailable
+			}
+			if err := r.validateManagedStepInputs(stepInputs); err != nil {
+				return err
+			}
+		case agentruns.EngineTypeExternalAgent:
+			if r.external == nil || r.external.Disabled() {
+				return ErrExternalRuntimeUnavailable
+			}
+			if err := r.external.ValidateRun(profile, stepInputs); err != nil {
+				return normalizeExternalValidationError(err)
+			}
+		default:
+			return fmt.Errorf("%w: run chain step %d uses unsupported engine type %q", ErrSupportedStepEngineRequired, index, engineConfig.EngineType)
 		}
 	}
 	return nil
@@ -336,7 +392,11 @@ func (r *Runtime) runStep(
 		return agentruns.Run{}, err
 	}
 	if engineConfig.EngineType != agentruns.EngineTypeSettaLLM {
-		return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrManagedStepEngineRequired, step.ID, engineConfig.EngineType)
+		switch engineConfig.EngineType {
+		case agentruns.EngineTypeExternalAgent:
+		default:
+			return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, step.ID, engineConfig.EngineType)
+		}
 	}
 	inputs, err := r.buildStepInputs(step, stepIndex, chainRunID, chainInputs, previousOutputs)
 	if err != nil {
@@ -347,13 +407,32 @@ func (r *Runtime) runStep(
 		return agentruns.Run{}, err
 	}
 	profile.EngineConfigID = cloneStringPtr(&step.EngineConfigID)
-	childRun, err := r.managed.StartRun(profile, inputs)
-	if err != nil {
-		return agentruns.Run{}, err
+	switch engineConfig.EngineType {
+	case agentruns.EngineTypeSettaLLM:
+		if r.managed == nil {
+			return agentruns.Run{}, ErrManagedRuntimeRequired
+		}
+		childRun, err := r.managed.StartRun(profile, inputs)
+		if err != nil {
+			return agentruns.Run{}, err
+		}
+		r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeSettaLLM)
+		defer r.clearActiveStep(chainRunID, childRun.ID)
+		return r.managed.WaitForRun(ctx, childRun.ID)
+	case agentruns.EngineTypeExternalAgent:
+		if r.external == nil {
+			return agentruns.Run{}, ErrExternalRuntimeUnavailable
+		}
+		childRun, err := r.external.StartRun(ctx, profile, inputs)
+		if err != nil {
+			return agentruns.Run{}, err
+		}
+		r.setActiveStep(chainRunID, childRun.ID, agentruns.EngineTypeExternalAgent)
+		defer r.clearActiveStep(chainRunID, childRun.ID)
+		return r.external.WaitForRun(ctx, childRun.ID)
+	default:
+		return agentruns.Run{}, fmt.Errorf("%w: step %q uses unsupported engine type %q", ErrSupportedStepEngineRequired, step.ID, engineConfig.EngineType)
 	}
-	r.setActiveStep(chainRunID, childRun.ID)
-	defer r.clearActiveStep(chainRunID, childRun.ID)
-	return r.managed.WaitForRun(ctx, childRun.ID)
 }
 
 func (r *Runtime) resolveStepProfile(step Step) (agentprofiles.Profile, error) {
@@ -458,6 +537,7 @@ func buildPreviousOutputsMessage(previousOutputs []map[string]any) (map[string]a
 		return nil, fmt.Errorf("%w: encode previous outputs: %v", ErrInvalidRunChainInput, err)
 	}
 	return map[string]any{
+		"id":   newRandomID(),
 		"role": "user",
 		"content": []any{
 			map[string]any{
@@ -680,7 +760,7 @@ func (r *Runtime) markFailed(runID string, payload map[string]any) (agentruns.Ru
 	return r.runs.Load(runID)
 }
 
-func (r *Runtime) setActiveStep(runID string, stepRunID string) {
+func (r *Runtime) setActiveStep(runID string, stepRunID string, stepEngineType agentruns.EngineType) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	active, ok := r.active[runID]
@@ -688,6 +768,7 @@ func (r *Runtime) setActiveStep(runID string, stepRunID string) {
 		return
 	}
 	active.stepRunID = stepRunID
+	active.stepEngineType = stepEngineType
 	r.active[runID] = active
 }
 
@@ -702,6 +783,7 @@ func (r *Runtime) clearActiveStep(runID string, stepRunID string) {
 		return
 	}
 	active.stepRunID = ""
+	active.stepEngineType = ""
 	r.active[runID] = active
 }
 
@@ -719,4 +801,19 @@ func derefString(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+func normalizeExternalValidationError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, externalagents.ErrInvalidRunInput):
+		message := strings.TrimPrefix(strings.TrimSpace(err.Error()), externalagents.ErrInvalidRunInput.Error()+": ")
+		if message == "" {
+			return ErrInvalidRunChainInput
+		}
+		return fmt.Errorf("%w: %s", ErrInvalidRunChainInput, message)
+	default:
+		return err
+	}
 }

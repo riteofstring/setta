@@ -599,18 +599,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		runChainRuntime, err = runchains.NewRuntime(runchains.RuntimeOptions{
-			Runs:         agentRunStore,
-			Engines:      engineStore,
-			Profiles:     agentProfileStore,
-			ProjectState: projectRuntime,
-			Managed:      agentRunRuntime,
-			TemporaryIDs: temporaryIDs,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
 		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
 			Tools:        mcpClient,
 			TemporaryIDs: temporaryIDs,
@@ -694,6 +682,33 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Preflight:    externalPreflightChecker,
 			Attachments:  attachmentService,
 			Executor:     externalAgentExecutor,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		externalAgentRunService, err := externalagents.NewRunService(externalagents.RunServiceOptions{
+			ProjectState: projectRuntime,
+			Engines:      engineStore,
+			Runs:         agentRunStore,
+			Configs:      externalConfigStore,
+			Runtime:      externalAgentRuntime,
+			Preflight:    externalPreflightChecker,
+			Attachments:  attachmentService,
+			Executor:     externalAgentExecutor,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		runChainRuntime, err = runchains.NewRuntime(runchains.RuntimeOptions{
+			Runs:         agentRunStore,
+			Engines:      engineStore,
+			Profiles:     agentProfileStore,
+			ProjectState: projectRuntime,
+			Managed:      agentRunRuntime,
+			External:     externalAgentRunService,
+			TemporaryIDs: temporaryIDs,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

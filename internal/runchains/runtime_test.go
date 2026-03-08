@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +13,8 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/projectstate"
 )
+
+const runtimeWaitTimeout = 5 * time.Second
 
 type recordingExecutor struct {
 	results  []agentruns.ExecutionResult
@@ -52,6 +55,130 @@ func (e *blockingExecutor) Execute(ctx context.Context, request agentruns.Execut
 	}
 }
 
+type externalRunCall struct {
+	Profile agentprofiles.Profile
+	Inputs  map[string]any
+	RunID   string
+}
+
+type recordingExternalRunner struct {
+	validateCalls []externalRunCall
+	startCalls    []externalRunCall
+	waitCalls     []string
+	stopCalls     []string
+	validateErr   error
+	disabled      bool
+}
+
+func (r *recordingExternalRunner) Disabled() bool {
+	return r.disabled
+}
+
+func (r *recordingExternalRunner) ValidateRun(profile agentprofiles.Profile, inputs map[string]any) error {
+	r.validateCalls = append(r.validateCalls, externalRunCall{
+		Profile: profile,
+		Inputs:  cloneAnyMap(inputs),
+	})
+	return r.validateErr
+}
+
+func (r *recordingExternalRunner) StartRun(_ context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	run := agentruns.NewRun(stringPtr(profile.ID), inputs, time.Date(2026, 3, 9, 20, 0, 0, 0, time.UTC))
+	r.startCalls = append(r.startCalls, externalRunCall{
+		Profile: profile,
+		Inputs:  cloneAnyMap(inputs),
+		RunID:   run.ID,
+	})
+	return run, nil
+}
+
+func (r *recordingExternalRunner) StopRun(runID string) (agentruns.Run, error) {
+	r.stopCalls = append(r.stopCalls, runID)
+	run := agentruns.NewRun(nil, map[string]any{}, time.Date(2026, 3, 9, 20, 0, 0, 0, time.UTC))
+	run.ID = runID
+	run.Status = agentruns.RunStatusCancelled
+	return run, nil
+}
+
+func (r *recordingExternalRunner) WaitForRun(_ context.Context, runID string) (agentruns.Run, error) {
+	r.waitCalls = append(r.waitCalls, runID)
+	run := agentruns.NewRun(nil, map[string]any{}, time.Date(2026, 3, 9, 20, 0, 0, 0, time.UTC))
+	run.ID = runID
+	run.Status = agentruns.RunStatusCompleted
+	run.Outputs = map[string]any{
+		"messages": []any{},
+		"result":   "external",
+	}
+	return run, nil
+}
+
+type blockingExternalRunner struct {
+	mu        sync.Mutex
+	started   chan string
+	stopCalls []string
+	runs      map[string]agentruns.Run
+	waiters   map[string]chan struct{}
+}
+
+func (r *blockingExternalRunner) Disabled() bool {
+	return false
+}
+
+func (r *blockingExternalRunner) ValidateRun(agentprofiles.Profile, map[string]any) error {
+	return nil
+}
+
+func (r *blockingExternalRunner) StartRun(_ context.Context, profile agentprofiles.Profile, inputs map[string]any) (agentruns.Run, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.runs == nil {
+		r.runs = map[string]agentruns.Run{}
+	}
+	if r.waiters == nil {
+		r.waiters = map[string]chan struct{}{}
+	}
+	run := agentruns.NewRun(stringPtr(profile.ID), inputs, time.Date(2026, 3, 9, 20, 0, 0, 0, time.UTC))
+	r.runs[run.ID] = run
+	r.waiters[run.ID] = make(chan struct{})
+	if r.started != nil {
+		select {
+		case r.started <- run.ID:
+		default:
+		}
+	}
+	return run, nil
+}
+
+func (r *blockingExternalRunner) StopRun(runID string) (agentruns.Run, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.stopCalls = append(r.stopCalls, runID)
+	run := r.runs[runID]
+	run.Status = agentruns.RunStatusCancelled
+	r.runs[runID] = run
+	if waiter, ok := r.waiters[runID]; ok {
+		close(waiter)
+		delete(r.waiters, runID)
+	}
+	return run, nil
+}
+
+func (r *blockingExternalRunner) WaitForRun(ctx context.Context, runID string) (agentruns.Run, error) {
+	r.mu.Lock()
+	waiter := r.waiters[runID]
+	r.mu.Unlock()
+	if waiter != nil {
+		select {
+		case <-waiter:
+		case <-ctx.Done():
+			return agentruns.Run{}, ctx.Err()
+		}
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.runs[runID], nil
+}
+
 type testTemporaryIDs struct{}
 
 func (testTemporaryIDs) EnsureTemporaryID(canonicalID string) (string, error) {
@@ -65,7 +192,7 @@ func (testTemporaryIDs) Snapshot() (map[string]string, error) {
 func TestRuntimeEmptyChainCompletes(t *testing.T) {
 	t.Parallel()
 
-	runtime, _, _, _ := buildRuntimeFixture(t, &recordingExecutor{})
+	runtime, _, _, _ := buildRuntimeFixture(t, &recordingExecutor{}, nil)
 	run, err := runtime.StartRun(SpecInput{
 		ID:    "chain-alpha",
 		Name:  "Chain Alpha",
@@ -77,7 +204,7 @@ func TestRuntimeEmptyChainCompletes(t *testing.T) {
 		t.Fatalf("start run chain: %v", err)
 	}
 
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), runtimeWaitTimeout)
 	defer cancel()
 	completed, err := runtime.WaitForRun(waitCtx, run.ID)
 	if err != nil {
@@ -120,7 +247,7 @@ func TestRuntimeManagedStepCompletionInjectsPreviousOutputs(t *testing.T) {
 			{Outputs: map[string]any{"messages": []any{}, "result": "second"}},
 		},
 	}
-	runtime, _, _, _ := buildRuntimeFixture(t, executor)
+	runtime, _, _, _ := buildRuntimeFixture(t, executor, nil)
 
 	run, err := runtime.StartRun(SpecInput{
 		ID:   "chain-alpha",
@@ -152,7 +279,7 @@ func TestRuntimeManagedStepCompletionInjectsPreviousOutputs(t *testing.T) {
 		t.Fatalf("start run chain: %v", err)
 	}
 
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), runtimeWaitTimeout)
 	defer cancel()
 	completed, err := runtime.WaitForRun(waitCtx, run.ID)
 	if err != nil {
@@ -207,7 +334,7 @@ func TestRuntimeStopRunCancelsActiveManagedStep(t *testing.T) {
 		started: make(chan string, 1),
 		release: make(chan struct{}),
 	}
-	runtime, runs, _, _ := buildRuntimeFixture(t, executor)
+	runtime, runs, _, _ := buildRuntimeFixture(t, executor, nil)
 
 	run, err := runtime.StartRun(SpecInput{
 		ID:   "chain-alpha",
@@ -227,7 +354,7 @@ func TestRuntimeStopRunCancelsActiveManagedStep(t *testing.T) {
 	var childRunID string
 	select {
 	case childRunID = <-executor.started:
-	case <-time.After(2 * time.Second):
+	case <-time.After(runtimeWaitTimeout):
 		t.Fatal("timed out waiting for child run start")
 	}
 
@@ -239,7 +366,7 @@ func TestRuntimeStopRunCancelsActiveManagedStep(t *testing.T) {
 		t.Fatalf("expected cancelled chain, got %#v", cancelled)
 	}
 
-	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	waitCtx, cancel := context.WithTimeout(context.Background(), runtimeWaitTimeout)
 	defer cancel()
 	waited, err := runtime.WaitForRun(waitCtx, run.ID)
 	if err != nil {
@@ -257,10 +384,110 @@ func TestRuntimeStopRunCancelsActiveManagedStep(t *testing.T) {
 	}
 }
 
-func TestRuntimeRejectsExternalAgentStep(t *testing.T) {
+func TestRuntimeExternalStepCompletionUsesExternalRunner(t *testing.T) {
 	t.Parallel()
 
-	runtime, _, engines, _ := buildRuntimeFixture(t, &recordingExecutor{})
+	executor := &recordingExecutor{
+		results: []agentruns.ExecutionResult{
+			{Outputs: map[string]any{"messages": []any{}, "result": "first"}},
+		},
+	}
+	external := &recordingExternalRunner{}
+	runtime, _, engines, _ := buildRuntimeFixture(t, executor, external)
+	if err := engines.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-primary",
+			Name:             "Primary",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: stringPtr("primary"),
+		},
+		{
+			ID:                    "engine-external",
+			Name:                  "External",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: stringPtr("external-primary"),
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	run, err := runtime.StartRun(SpecInput{
+		ID:   "chain-alpha",
+		Name: "Chain Alpha",
+		Steps: []StepInput{
+			{
+				ID:             "step-managed",
+				Name:           "Managed Step",
+				EngineConfigID: "engine-primary",
+				Prompt:         stringPtr("first"),
+			},
+			{
+				ID:             "step-external",
+				Name:           "External Step",
+				EngineConfigID: "engine-external",
+				Prompt:         stringPtr("second"),
+			},
+		},
+	}, map[string]any{})
+	if err != nil {
+		t.Fatalf("start run chain: %v", err)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), runtimeWaitTimeout)
+	defer cancel()
+	completed, err := runtime.WaitForRun(waitCtx, run.ID)
+	if err != nil {
+		t.Fatalf("wait for completed run chain: %v", err)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed chain, got %#v", completed)
+	}
+	if len(external.validateCalls) != 1 {
+		t.Fatalf("expected one external validation call, got %#v", external.validateCalls)
+	}
+	if len(external.startCalls) != 1 {
+		t.Fatalf("expected one external start call, got %#v", external.startCalls)
+	}
+	if len(external.waitCalls) != 1 {
+		t.Fatalf("expected one external wait call, got %#v", external.waitCalls)
+	}
+	externalInputs := external.startCalls[0].Inputs
+	if externalInputs["allowUnscoped"] != true {
+		t.Fatalf("expected external allowUnscoped=true, got %#v", externalInputs["allowUnscoped"])
+	}
+	if _, ok := externalInputs["previousOutputs"].([]any); !ok {
+		t.Fatalf("expected previousOutputs on external step, got %#v", externalInputs["previousOutputs"])
+	}
+	rawMessages, ok := externalInputs["messages"].([]any)
+	if !ok || len(rawMessages) == 0 {
+		t.Fatalf("expected previous-output context message, got %#v", externalInputs["messages"])
+	}
+	firstMessage, ok := rawMessages[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected first message object, got %#v", rawMessages[0])
+	}
+	messageID, _ := firstMessage["id"].(string)
+	if strings.TrimSpace(messageID) == "" {
+		t.Fatalf("expected synthetic previous-output message id, got %#v", firstMessage)
+	}
+	content, ok := firstMessage["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("expected previous-output text content, got %#v", firstMessage["content"])
+	}
+	part, ok := content[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected previous-output text part, got %#v", content[0])
+	}
+	text, _ := part["text"].(string)
+	if !strings.HasPrefix(text, "Previous step outputs:\n") {
+		t.Fatalf("expected previous outputs prefix, got %#v", text)
+	}
+}
+
+func TestRuntimeRejectsExternalAgentStepWhenExternalRuntimeUnavailable(t *testing.T) {
+	t.Parallel()
+
+	runtime, _, engines, _ := buildRuntimeFixture(t, &recordingExecutor{}, nil)
 	if err := engines.Write([]agentruns.EngineConfig{
 		{
 			ID:               "engine-primary",
@@ -289,15 +516,84 @@ func TestRuntimeRejectsExternalAgentStep(t *testing.T) {
 			},
 		},
 	}, map[string]any{})
-	if !errors.Is(err, ErrManagedStepEngineRequired) {
-		t.Fatalf("expected managed step engine required, got %v", err)
+	if !errors.Is(err, ErrExternalRuntimeUnavailable) {
+		t.Fatalf("expected external runtime unavailable, got %v", err)
+	}
+}
+
+func TestRuntimeStopRunCancelsActiveExternalStep(t *testing.T) {
+	t.Parallel()
+
+	external := &blockingExternalRunner{
+		started: make(chan string, 1),
+	}
+	runtime, _, engines, _ := buildRuntimeFixture(t, &recordingExecutor{}, external)
+	if err := engines.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-primary",
+			Name:             "Primary",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: stringPtr("primary"),
+		},
+		{
+			ID:                    "engine-external",
+			Name:                  "External",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: stringPtr("external-primary"),
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	run, err := runtime.StartRun(SpecInput{
+		ID:   "chain-alpha",
+		Name: "Chain Alpha",
+		Steps: []StepInput{
+			{
+				ID:             "step-alpha",
+				Name:           "Step Alpha",
+				EngineConfigID: "engine-external",
+				Prompt:         stringPtr("hello"),
+			},
+		},
+	}, map[string]any{})
+	if err != nil {
+		t.Fatalf("start run chain: %v", err)
+	}
+
+	var childRunID string
+	select {
+	case childRunID = <-external.started:
+	case <-time.After(runtimeWaitTimeout):
+		t.Fatal("timed out waiting for external child run start")
+	}
+
+	cancelled, err := runtime.StopRun(run.ID)
+	if err != nil {
+		t.Fatalf("stop run chain: %v", err)
+	}
+	if cancelled.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected cancelled chain, got %#v", cancelled)
+	}
+	if len(external.stopCalls) != 1 || external.stopCalls[0] != childRunID {
+		t.Fatalf("expected external stop for child run %q, got %#v", childRunID, external.stopCalls)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), runtimeWaitTimeout)
+	defer cancel()
+	waited, err := runtime.WaitForRun(waitCtx, run.ID)
+	if err != nil {
+		t.Fatalf("wait for cancelled run chain: %v", err)
+	}
+	if waited.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected waited cancelled chain, got %#v", waited)
 	}
 }
 
 func TestRuntimeRejectsMismatchedStepEngineConfigInput(t *testing.T) {
 	t.Parallel()
 
-	runtime, _, _, _ := buildRuntimeFixture(t, &recordingExecutor{})
+	runtime, _, _, _ := buildRuntimeFixture(t, &recordingExecutor{}, nil)
 	_, err := runtime.StartRun(SpecInput{
 		ID:   "chain-alpha",
 		Name: "Chain Alpha",
@@ -317,7 +613,7 @@ func TestRuntimeRejectsMismatchedStepEngineConfigInput(t *testing.T) {
 	}
 }
 
-func buildRuntimeFixture(t *testing.T, executor agentruns.Executor) (*Runtime, *agentruns.RunStore, *agentruns.EngineStore, *agentprofiles.Store) {
+func buildRuntimeFixture(t *testing.T, executor agentruns.Executor, external externalStepRunner) (*Runtime, *agentruns.RunStore, *agentruns.EngineStore, *agentprofiles.Store) {
 	t.Helper()
 
 	root := t.TempDir()
@@ -393,6 +689,7 @@ func buildRuntimeFixture(t *testing.T, executor agentruns.Executor) (*Runtime, *
 		Profiles:     profiles,
 		ProjectState: projectRuntime,
 		Managed:      managed,
+		External:     external,
 		TemporaryIDs: testTemporaryIDs{},
 		TimeNow: func() time.Time {
 			return time.Date(2026, 3, 9, 20, 0, 0, 0, time.UTC)

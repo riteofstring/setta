@@ -50,6 +50,8 @@ type Runtime struct {
 type runState struct {
 	controller RunController
 	liveChat   *ChatState
+	done       chan struct{}
+	doneClosed bool
 }
 
 type ApprovalState struct {
@@ -105,6 +107,10 @@ func (r *Runtime) ActivateRun(runID string, controller RunController) error {
 	defer r.mu.Unlock()
 	state := r.activeRuns[trimmedRunID]
 	state.controller = controller
+	if state.done == nil || state.doneClosed {
+		state.done = make(chan struct{})
+		state.doneClosed = false
+	}
 	r.activeRuns[trimmedRunID] = state
 	return nil
 }
@@ -118,6 +124,9 @@ func (r *Runtime) DeactivateRun(runID string) {
 		return
 	}
 	r.mu.Lock()
+	if state, ok := r.activeRuns[trimmedRunID]; ok {
+		closeRunDone(&state)
+	}
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
 	r.clearQuestionsLocked(trimmedRunID)
@@ -395,6 +404,9 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 	}
 
 	r.mu.Lock()
+	if state, ok := r.activeRuns[trimmedRunID]; ok {
+		closeRunDone(&state)
+	}
 	delete(r.activeRuns, trimmedRunID)
 	r.clearApprovalsLocked(trimmedRunID)
 	r.clearQuestionsLocked(trimmedRunID)
@@ -407,6 +419,28 @@ func (r *Runtime) StopRun(runID string) (agentruns.Run, error) {
 		}
 	}
 	return run, nil
+}
+
+func (r *Runtime) WaitForRun(ctx context.Context, runID string) (agentruns.Run, error) {
+	if r == nil || r.runs == nil {
+		return agentruns.Run{}, ErrRuntimeRunStoreRequired
+	}
+	trimmedRunID := strings.TrimSpace(runID)
+	if trimmedRunID == "" {
+		return agentruns.Run{}, ErrRunIDRequired
+	}
+
+	r.mu.RLock()
+	state, ok := r.activeRuns[trimmedRunID]
+	r.mu.RUnlock()
+	if ok && state.done != nil {
+		select {
+		case <-state.done:
+		case <-ctx.Done():
+			return agentruns.Run{}, ctx.Err()
+		}
+	}
+	return r.runs.Load(trimmedRunID)
 }
 
 func (s ApprovalState) normalized() (ApprovalState, error) {
@@ -503,4 +537,12 @@ func appendRunEvent(run *agentruns.Run, eventType string, payload map[string]any
 		return
 	}
 	run.Events = append(run.Events, agentruns.NewRunEvent(eventType, payload, now))
+}
+
+func closeRunDone(state *runState) {
+	if state == nil || state.done == nil || state.doneClosed {
+		return
+	}
+	close(state.done)
+	state.doneClosed = true
 }

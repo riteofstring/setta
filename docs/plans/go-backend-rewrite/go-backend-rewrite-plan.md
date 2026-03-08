@@ -413,18 +413,21 @@ That bounded follow-on tracked in
 - the route is intentionally managed-only in Go and rejects
   external-agent-backed child steps instead of preserving Python's hybrid
   chain-step dispatch
-- the current bounded agentic runtime route surface is now Go-owned
-- the next bounded follow-on is now opened in
+- the next bounded follow-on was the external-agent child-step slice tracked in
   `phase-14-run-chain-external-agent-child-step-runtime.md`
 
-That focused follow-on records the next honest executable slice:
+That focused follow-on is now landed:
 
-- add a bounded Go external-agent run owner for non-chat orchestration callers
-- add a wait boundary to the landed external-agent runtime
-- reuse those boundaries inside `internal/runchains` so external child steps
-  no longer need to be rejected
-- keep route transport unchanged and keep richer chain-progress realtime out of
-  scope
+- `internal/externalagents.RunService` now owns non-chat external step start
+  validation and executor launch over the existing runtime/executor boundary
+- `internal/externalagents.Runtime` now exposes `WaitForRun(...)` so
+  orchestration callers can block on terminal persisted state
+- `internal/runchains` now dispatches child steps for both supported engine
+  types instead of rejecting external-agent-backed steps
+- thin run-chain transport stays unchanged apart from explicit external runtime
+  / preflight error mapping
+- the current bounded Phase 14 agentic runtime route surface is now Go-owned
+  for both managed and external child-step execution
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -436,8 +439,8 @@ external-agent runtime or Phase 13 settings surfaces. The next bounded priority
 is no longer inventory or transport cleanup; those are now complete. The
 bounded agentic runtime route surface is also now complete for the current
 clean-break scope. New work here should now come only from a concrete caller
-or product decision to reopen deferred run-chain behavior such as
-external-agent child-step orchestration.
+or product decision around richer run-chain progress behavior, not from any
+remaining route/runtime ownership gap.
 
 ## Current Reality
 
