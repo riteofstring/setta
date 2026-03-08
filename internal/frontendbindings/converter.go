@@ -590,10 +590,8 @@ func buildSectionSizingPolicyCreateBodyTS() string {
   };`
 }
 
-const settingsStateFactoryTS = `export function createSettingsState(
-  options: Partial<SettingsState> = {},
-): SettingsState {
-  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
+func buildSettingsStateCreateBodyTS() string {
+	return `  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
   const gui = createSettingsGUI(options.gui ?? {});
   const backend = createSettingsBackend(options.backend ?? {});
   const sectionSizingPolicy = createSectionSizingPolicy(
@@ -626,8 +624,8 @@ const settingsStateFactoryTS = `export function createSettingsState(
     languageServer: cloneGeneratedValue(
       options.languageServer ?? defaults.languageServer,
     ),
-  };
-}`
+  };`
+}
 
 var defaultSectionCodegenAllowlistMembers = []string{
 	"SectionTypeEnum.Callable",
@@ -2036,9 +2034,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode"},
 				TypeProperty{Name: "completionGuardEnabled", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(SettingsState{}): objectDeclarationWithFactory(
+			reflect.TypeOf(SettingsState{}): objectDeclarationWithCreateBody(
 				"SettingsState",
-				settingsStateFactoryTS,
+				buildSettingsStateCreateBodyTS(),
 				TypeProperty{Name: "shortcuts", TypeExpr: "SettingsShortcuts"},
 				TypeProperty{Name: "gui", TypeExpr: "SettingsGUI"},
 				TypeProperty{Name: "backend", TypeExpr: "SettingsBackend"},

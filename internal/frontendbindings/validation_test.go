@@ -1521,7 +1521,6 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
-		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -1891,6 +1890,7 @@ func TestTaskBoardSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -2444,6 +2444,7 @@ func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -2596,7 +2597,7 @@ func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy", Optional: false},
 				{Name: "languageServer", TypeExpr: "Record<string, unknown>", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 	}
 
@@ -2619,6 +2620,9 @@ func TestSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.CreateBody != "") != tt.hasCreateBody {
+				t.Fatalf("%s CreateBody presence = %t, want %t", tt.name, declaration.CreateBody != "", tt.hasCreateBody)
 			}
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)

@@ -2233,9 +2233,7 @@ export type SettingsState = {
   sectionSizingPolicy: SectionSizingPolicy;
   languageServer: Record<string, unknown>;
 };
-export function createSettingsState(
-  options: Partial<SettingsState> = {},
-): SettingsState {
+export function createSettingsState(options: Partial<SettingsState> = {}): SettingsState {
   const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
   const gui = createSettingsGUI(options.gui ?? {});
   const backend = createSettingsBackend(options.backend ?? {});
