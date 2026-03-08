@@ -264,12 +264,17 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 	}
 	defer s.releaseInstallTargetPathReservationLocked(targetPath)
 
-	currentSnapshot, err := s.rescanLocked()
-	if err != nil {
-		return PluginInstallResult{}, err
+	hadBackendBefore := false
+	if options.existingEntry != nil {
+		hadBackendBefore = options.existingEntry.HasBackend()
+	} else if !options.skipLookupRescan {
+		currentSnapshot, err := s.rescanLocked()
+		if err != nil {
+			return PluginInstallResult{}, err
+		}
+		existingEntry := findDiscoveredPlugin(currentSnapshot.Plugins, candidate.Manifest.ID, scope)
+		hadBackendBefore = existingEntry.PluginID != "" && existingEntry.HasBackend()
 	}
-	existingEntry := findDiscoveredPlugin(currentSnapshot.Plugins, candidate.Manifest.ID, scope)
-	hadBackendBefore := existingEntry.PluginID != "" && existingEntry.HasBackend()
 
 	if err := s.installCandidateLocked(candidate, targetPath, scope, options.SourceSpec, installer, options.Enable, options.Force); err != nil {
 		return PluginInstallResult{}, err
@@ -285,6 +290,27 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 		if err := s.discardPendingRestartBackendIDLocked(candidate.Manifest.ID); err != nil {
 			return PluginInstallResult{}, err
 		}
+	}
+
+	if options.skipFinalRescan {
+		state := PluginRuntimeStateActive
+		if !options.Enable {
+			state = PluginRuntimeStateDisabled
+		} else if restartRequired {
+			state = PluginRuntimeStatePendingRestart
+		}
+		return PluginInstallResult{
+			PluginID:              candidate.Manifest.ID,
+			Version:               candidate.Manifest.Version,
+			SourceScope:           scope,
+			SourcePath:            targetPath,
+			CanonicalSourceKey:    candidate.CanonicalSourceKey,
+			SourceDigestSHA256:    cloneOptionalString(candidate.SourceDigestSHA256),
+			RequestedCapabilities: append([]string(nil), candidate.Manifest.Capabilities...),
+			Components:            manifestComponents(candidate.Manifest),
+			State:                 state,
+			RestartRequired:       restartRequired,
+		}, nil
 	}
 
 	snapshot, err := s.rescanLocked()
@@ -318,9 +344,17 @@ func (s *Service) Uninstall(_ context.Context, options UninstallOptions) (Plugin
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	scope, entry, err := s.resolveScopeAndEntryLocked(options.PluginID, options.Scope)
-	if err != nil {
-		return PluginUninstallResult{}, err
+	scope := PluginScope("")
+	entry := DiscoveredPlugin{}
+	var err error
+	if options.resolvedEntry != nil {
+		scope = options.resolvedEntry.Scope
+		entry = *options.resolvedEntry
+	} else {
+		scope, entry, err = s.resolveScopeAndEntryLocked(options.PluginID, options.Scope)
+		if err != nil {
+			return PluginUninstallResult{}, err
+		}
 	}
 	if err := ensureSettaManagedForWrite(entry, "uninstall"); err != nil {
 		return PluginUninstallResult{}, err
@@ -362,8 +396,10 @@ func (s *Service) Uninstall(_ context.Context, options UninstallOptions) (Plugin
 		}
 		delete(s.pendingRestartRemovedPlugin, entry.PluginID)
 	}
-	if _, err := s.rescanLocked(); err != nil {
-		return PluginUninstallResult{}, err
+	if !options.skipFinalRescan {
+		if _, err := s.rescanLocked(); err != nil {
+			return PluginUninstallResult{}, err
+		}
 	}
 	return PluginUninstallResult{
 		PluginID:         entry.PluginID,

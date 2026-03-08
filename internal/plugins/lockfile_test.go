@@ -1,9 +1,11 @@
 package plugins
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"setta/internal/config"
@@ -107,6 +109,228 @@ func TestServiceWriteLockfileIncludesMetadataAndExcludesShadowedAndPackageManage
 	}
 }
 
+// Lockfile apply should reject duplicate scope/plugin entries deterministically.
+func TestServiceApplyLockfileRejectsDuplicateScopeEntries(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{
+			{
+				"pluginId":           "setta-fixture-frontend",
+				"version":            "0.1.0",
+				"canonicalSourceKey": "pypi:setta-fixture-frontend",
+				"scope":              "workspace",
+			},
+			{
+				"pluginId":           "setta-fixture-frontend",
+				"version":            "0.1.0",
+				"canonicalSourceKey": "pypi:setta-fixture-frontend",
+				"scope":              "workspace",
+			},
+		},
+	})
+
+	_, err := service.ApplyLockfile(context.Background(), false)
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeLockfileInvalid)
+}
+
+// Lockfile apply should reject entries that need installation but omit sourceSpec.
+func TestServiceApplyLockfileRequiresSourceSpecForMissingPlugin(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{
+			{
+				"pluginId":           "setta-fixture-frontend",
+				"version":            "0.1.0",
+				"canonicalSourceKey": "pypi:setta-fixture-frontend",
+				"scope":              "workspace",
+			},
+		},
+	})
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 1 || checkResult.PlannedChanges[0] != "install setta-fixture-frontend in workspace" {
+		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
+	}
+
+	_, err = service.ApplyLockfile(context.Background(), false)
+	assertPluginServiceErrorCode(t, err, ServiceErrorCodeLockfileEntryMissing)
+}
+
+// Lockfile convergence should ignore package-manager managed entries in current runtime.
+func TestServiceApplyLockfileSkipsPackageManagerDrift(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	sitePackages, _ := installPackageManagerFixture(t, "content", "setta-fixture-content", "0.1.0", nil)
+	service := mustNewPluginMutationServiceWithPackageManager(t, roots, nil, config.ModeIDE, []string{sitePackages})
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{},
+	})
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 0 {
+		t.Fatalf("expected no planned changes, got %#v", checkResult.PlannedChanges)
+	}
+
+	applyResult, err := service.ApplyLockfile(context.Background(), false)
+	if err != nil {
+		t.Fatalf("apply lockfile: %v", err)
+	}
+	if !applyResult.Applied || len(applyResult.PlannedChanges) != 0 {
+		t.Fatalf("unexpected apply result %#v", applyResult)
+	}
+}
+
+// Lockfile apply should uninstall extra Setta-managed plugins that are absent from the lockfile.
+func TestServiceApplyLockfileUninstallsPluginsMissingFromLockfile(t *testing.T) {
+	t.Parallel()
+
+	roots := newFilesystemResolverTestRoots(t)
+	service := mustNewPluginMutationService(t, roots, nil, config.ModeIDE)
+	pluginRoot := filepath.Join(roots.workspaceRoot, ".setta_plugins", "setta-fixture-frontend")
+	writeLockfileFrontendFixture(t, pluginRoot, "setta-fixture-frontend", "0.1.0")
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{},
+	})
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 1 || checkResult.PlannedChanges[0] != "uninstall setta-fixture-frontend from workspace" {
+		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
+	}
+
+	applyResult, err := service.ApplyLockfile(context.Background(), false)
+	if err != nil {
+		t.Fatalf("apply lockfile: %v", err)
+	}
+	if !applyResult.Applied {
+		t.Fatalf("expected apply result to be applied")
+	}
+	if _, err := os.Stat(pluginRoot); !os.IsNotExist(err) {
+		t.Fatalf("expected plugin root to be removed, got err=%v", err)
+	}
+}
+
+// Lockfile apply should preserve disabled state when reconciling a plugin source.
+func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	artifactDir := t.TempDir()
+	buildLocalPyPIWheelFromFixture(t, artifactDir, "frontend", "setta-fixture-frontend", "0.1.0")
+
+	t.Setenv("PIP_NO_INDEX", "1")
+	t.Setenv("PIP_FIND_LINKS", artifactDir)
+
+	provider := NewProductionCandidateProvider(ProductionCandidateProviderOptions{
+		PackageManagerRuntime: mustNewPythonRuntime(t),
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaVersion:          "0.1.0",
+	})
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:     roots.workspaceRoot,
+		SettaFilesRoot:    roots.settaFilesRoot,
+		SettaHome:         roots.settaHome,
+		ServerMode:        config.ModeIDE,
+		CandidateProvider: provider,
+	})
+	if err != nil {
+		t.Fatalf("new plugin service: %v", err)
+	}
+
+	installResult, err := service.Install(context.Background(), InstallOptions{
+		SourceSpec: "pypi:setta-fixture-frontend==0.1.0",
+		Scope:      scopePointer(PluginScopeWorkspace),
+		Installer:  installerPointer(PluginInstallerBackendPip),
+		Enable:     true,
+	})
+	if err != nil {
+		t.Fatalf("install plugin: %v", err)
+	}
+	if installResult.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active install state, got %q", installResult.State)
+	}
+	if _, err := service.Disable(context.Background(), EnableDisableOptions{PluginID: "setta-fixture-frontend"}); err != nil {
+		t.Fatalf("disable plugin: %v", err)
+	}
+
+	lockfilePath := filepath.Join(roots.workspaceRoot, ".setta_plugins", "plugins.lock.json")
+	writeJSONFile(t, lockfilePath, map[string]any{
+		"plugins": []map[string]any{
+			{
+				"pluginId":           "setta-fixture-frontend",
+				"version":            "0.1.0",
+				"canonicalSourceKey": "pypi:setta_fixture_frontend",
+				"scope":              "workspace",
+				"sourceSpec":         "pypi:setta_fixture_frontend==0.1.0",
+			},
+		},
+	})
+
+	checkResult, err := service.ApplyLockfile(context.Background(), true)
+	if err != nil {
+		t.Fatalf("check lockfile: %v", err)
+	}
+	if len(checkResult.PlannedChanges) != 1 || !strings.Contains(checkResult.PlannedChanges[0], "reconcile source for setta-fixture-frontend in workspace") {
+		t.Fatalf("unexpected planned changes %#v", checkResult.PlannedChanges)
+	}
+
+	applyResult, err := service.ApplyLockfile(context.Background(), false)
+	if err != nil {
+		t.Fatalf("apply lockfile: %v", err)
+	}
+	if !applyResult.Applied {
+		t.Fatalf("expected lockfile apply to complete")
+	}
+
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load plugin status: %v", err)
+	}
+	entries := make([]StatusEntry, 0)
+	for _, entry := range status.Plugins {
+		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
+			entries = append(entries, entry)
+		}
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected one primary plugin entry, got %#v", entries)
+	}
+	if entries[0].State != PluginRuntimeStateDisabled {
+		t.Fatalf("expected disabled state after reconcile, got %q", entries[0].State)
+	}
+	if entries[0].CanonicalSourceKey != "pypi:setta_fixture_frontend" {
+		t.Fatalf("unexpected canonical source key %q", entries[0].CanonicalSourceKey)
+	}
+
+	metadataEntry, ok, err := service.store.GetInstallMetadata("setta-fixture-frontend", PluginScopeWorkspace)
+	if err != nil {
+		t.Fatalf("load install metadata: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected install metadata for reconciled plugin")
+	}
+	if metadataEntry.SourceSpec != "pypi:setta_fixture_frontend==0.1.0" {
+		t.Fatalf("unexpected stored source spec %q", metadataEntry.SourceSpec)
+	}
+}
+
 func writeLockfileFrontendFixture(t *testing.T, root string, pluginID string, version string) {
 	t.Helper()
 
@@ -135,4 +359,9 @@ func writeLockfileFrontendFixture(t *testing.T, root string, pluginID string, ve
 			"registerPane",
 		},
 	})
+}
+
+func installerPointer(installer PluginInstallerBackend) *PluginInstallerBackend {
+	resolvedInstaller := installer
+	return &resolvedInstaller
 }

@@ -27,6 +27,10 @@ type InstallOptions struct {
 	Installer  *PluginInstallerBackend
 	Enable     bool
 	Force      bool
+
+	existingEntry    *DiscoveredPlugin
+	skipLookupRescan bool
+	skipFinalRescan  bool
 }
 
 type UpdateOptions struct {
@@ -42,6 +46,10 @@ type EnableDisableOptions struct {
 type UninstallOptions struct {
 	PluginID string
 	Scope    *PluginScope
+
+	resolvedEntry    *DiscoveredPlugin
+	skipLookupRescan bool
+	skipFinalRescan  bool
 }
 
 type RollbackOptions struct {

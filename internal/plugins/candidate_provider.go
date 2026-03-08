@@ -174,14 +174,19 @@ func (p *ProductionCandidateProvider) resolveGitHubCandidate(ctx context.Context
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
+	finalRoot, err := relocateCandidateRoot(tempRoot, cloneRoot, manifest.ID)
+	if err != nil {
+		_ = cleanup()
+		return CandidatePlugin{}, err
+	}
 
-	digest, err := computeDirectoryDigest(cloneRoot)
+	digest, err := computeDirectoryDigest(finalRoot)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
 	return CandidatePlugin{
-		Root:               cloneRoot,
+		Root:               finalRoot,
 		Manifest:           manifest,
 		CanonicalSourceKey: spec.CanonicalSourceKey,
 		SourceDigestSHA256: stringPtr(digest),
@@ -261,14 +266,19 @@ func (p *ProductionCandidateProvider) resolvePyPICandidate(ctx context.Context, 
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
+	finalRoot, err := relocateCandidateRoot(tempRoot, pluginRoot, manifest.ID)
+	if err != nil {
+		_ = cleanup()
+		return CandidatePlugin{}, err
+	}
 
-	digest, err := computeDirectoryDigest(pluginRoot)
+	digest, err := computeDirectoryDigest(finalRoot)
 	if err != nil {
 		_ = cleanup()
 		return CandidatePlugin{}, err
 	}
 	return CandidatePlugin{
-		Root:               pluginRoot,
+		Root:               finalRoot,
 		Manifest:           manifest,
 		CanonicalSourceKey: spec.CanonicalSourceKey,
 		SourceDigestSHA256: stringPtr(digest),
@@ -362,6 +372,20 @@ func (p *ProductionCandidateProvider) installWithUV(ctx context.Context, package
 func buildGitHubCloneURL(baseURL string, owner string, repo string) string {
 	trimmedBase := strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	return trimmedBase + "/" + strings.TrimSpace(owner) + "/" + strings.TrimSpace(repo) + ".git"
+}
+
+func relocateCandidateRoot(tempRoot string, currentRoot string, pluginID string) (string, error) {
+	if filepath.Base(currentRoot) == pluginID {
+		return currentRoot, nil
+	}
+	targetRoot := filepath.Join(tempRoot, pluginID)
+	if err := os.RemoveAll(targetRoot); err != nil {
+		return "", fmt.Errorf("clear candidate target root %s: %w", targetRoot, err)
+	}
+	if err := os.Rename(currentRoot, targetRoot); err != nil {
+		return "", fmt.Errorf("move candidate root %s to %s: %w", currentRoot, targetRoot, err)
+	}
+	return targetRoot, nil
 }
 
 func stripGitMetadata(root string) error {
