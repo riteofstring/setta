@@ -14,6 +14,9 @@ Last verified: `2026-03-10`
   - maintenance rules for keeping the caller-backed checklist current-caller-accurate
 - `go-backend-rewrite-plan.md`
   - stable rewrite rules, selected follow-ons, and reopening criteria
+- `go-frontend-binding-generation-plan.md`
+  - working slice doc for the selected Go-owned frontend binding generation
+    follow-on
 - `testing-strategy.md`
   - test expectations for rewrite work
 - `go-dependency-inventory-and-rationale.md`
@@ -32,6 +35,7 @@ Last verified: `2026-03-10`
   - keep generated contract surfaces deliberate and explicit
   - schema reflection from arbitrary Go structs should remain a tool, not the
     default contract owner
+  - current slice doc: `go-frontend-binding-generation-plan.md`
 - Converge Go-owned OpenAI API interactions on `github.com/openai/openai-go/v3`
   - apply this at the provider edge for managed chat, transcription, realtime,
     and later Go-owned OpenAI provider surfaces

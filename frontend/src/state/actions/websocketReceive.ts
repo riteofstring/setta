@@ -58,6 +58,7 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
+import { GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import { createNewId } from "utils/idNameCreation";
 import {
   receiveAgentProfilesUpdate,
@@ -108,7 +109,6 @@ const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
 const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
-const FRONTEND_WEBSOCKET_ROUTE = "/ws/frontend";
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
@@ -152,7 +152,7 @@ function beginWebsocketGeneration(): number {
 
 function buildFrontendWebsocketUrl(shareSessionId: string | null): string {
   const targetUrl = new URL(
-    FRONTEND_WEBSOCKET_ROUTE,
+    GoWebsocketRoutes.frontend,
     C_ADDRESSES.BACKEND_ORIGIN,
   );
   targetUrl.protocol = targetUrl.protocol === "https:" ? "wss:" : "ws:";
@@ -173,7 +173,7 @@ export const openWebSocket = _.debounce(
     if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = FRONTEND_WEBSOCKET_ROUTE;
+    const route = GoWebsocketRoutes.frontend;
     const targetUrl = buildFrontendWebsocketUrl(shareSessionId);
     if (
       wssReady(wss) &&

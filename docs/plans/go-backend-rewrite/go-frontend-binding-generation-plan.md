@@ -50,4 +50,4 @@ Start with explicit route ownership wedges, not full schema reflection.
 ## Working Decision
 
 Use small generated TS modules from Go-owned route constants first, then widen
- only after current callers adopt them cleanly.
+only after current callers adopt them cleanly.
