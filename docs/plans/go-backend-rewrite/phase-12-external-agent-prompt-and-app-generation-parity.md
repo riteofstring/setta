@@ -27,21 +27,52 @@ Completed before this slice:
 - Codex/OpenCode/Claude rich item plus MCP-status parity
 - Codex raw non-`response_item` tool-item parity
 
-Still missing before this slice:
+Completed in this slice:
 
-- Go external-agent send path does not yet compose app-generation-mode prompt
-  sections the way Python `route_get_llm_response` does
-- Go external-agent send path does not yet include agent-profile
-  `systemPrompt` content in the prompt payload sent to Codex/OpenCode/Claude
-- Go does not yet normalize image-reference prompt inputs for external
-  app-generation mode, so those fields are currently accepted by the route but
-  ignored by the runtime
-- focused Go tests do not yet prove this prompt-shaping behavior for external
-  runs
+- `internal/externalagents/prompt_sections.go`
+  - explicit Go-owned app-generation prompt construction for:
+    - `json_render`
+    - `json_render_with_image`
+    - `prompt_builder`
+    - `mcp_server`
+  - explicit reference-image URL/notes normalization and size validation
+  - explicit agent-profile prompt section composition for profile name,
+    description, and `systemPrompt`
+- `internal/externalagents/send.go`
+  - Go-owned external send-path prompt composition using:
+    - agent-profile prompt section
+    - app-generation-mode prompt section
+    - runtime execution-policy prompt
+    - required completion-gate prompt
+  - image-reference prompt inputs are now gated to image mode instead of being
+    silently accepted for unrelated modes
+- `internal/httpapi/ai_routes.go`
+  - typed external-send transport errors for invalid app-generation mode and
+    oversized reference-image inputs
+- focused tests in:
+  - `internal/externalagents/prompt_sections_test.go`
+  - `internal/externalagents/send_test.go`
+  - `internal/httpapi/ai_routes_test.go`
+
+Resolved by this slice:
+
+- Go external-agent send path now composes app-generation-mode prompt sections
+  from the same explicit route inputs already used by Python
+- Go external-agent send path now includes agent-profile `systemPrompt`
+  content in the executor payload sent to Codex/OpenCode/Claude
+- Go now normalizes and validates image-reference prompt inputs for external
+  app-generation mode instead of dropping them
+- focused Go tests now prove this prompt-shaping behavior for external runs
+
+Still missing after this slice:
+
+- only final Phase 12 inventory/closeout work to determine whether any
+  concrete external-agent product-visible gap still remains after the landed
+  runtime, executor, parity, and prompt-composition slices
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - bounded prompt-shaping helpers in `internal/externalagents`
   - build external app-generation-mode prompt sections from:
@@ -107,17 +138,19 @@ This slice should deliver:
 
 ## Landing Outcome
 
-1. Restore external agent-profile system-prompt delivery in the Go send path.
-2. Restore external app-generation prompt shaping, including reference-image
+1. Restored external agent-profile system-prompt delivery in the Go send path.
+2. Restored external app-generation prompt shaping, including reference-image
    prompt text where applicable.
-3. Add focused tests proving external prompt composition and input validation.
-4. Reassess whether Phase 12 is back to final closeout/inventory after this
-   landing.
+3. Added focused tests proving external prompt composition and input
+   validation.
+4. Returned the remaining Phase 12 work to final closeout/inventory rather
+   than another known external-agent runtime slice.
 
 ## Verification
 
 - `./scripts/go.sh test ./internal/externalagents -run 'Send|Codex|OpenCode|Claude'`
 - `./scripts/go.sh test ./internal/httpapi -run 'AI|ExternalAgent|GetLLMResponse'`
+- `./scripts/go.sh test ./internal/externalagents ./internal/httpapi -count=1`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 
 ## Decisions Made
@@ -131,13 +164,13 @@ This slice should deliver:
 
 ## Open Questions
 
-- whether a later slice should also port more of Python's broader external
-  system-prompt scaffolding, such as additional project/profile framing beyond
-  the profile system prompt and app-generation sections
-  - recommendation: not in this slice; land the clearly observed prompt gap
-    first and reassess from concrete behavior
+- whether any concrete product-visible external-agent prompt gap still remains
+  after restoring profile-system-prompt delivery and app-generation prompt
+  shaping
+  - recommendation: answer this with the final Phase 12 inventory/closeout
+    pass rather than widening prompt construction speculatively
 
 ## Next Recommended Step
 
-- land this bounded external prompt/app-generation slice, then reassess whether
-  Phase 12 can return to final closeout/inventory
+- run the final Phase 12 external-agent inventory/closeout pass and only open
+  another slice if that reassessment finds a concrete user-facing gap

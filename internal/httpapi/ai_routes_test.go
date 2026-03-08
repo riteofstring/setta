@@ -190,6 +190,83 @@ func TestRegisterAIRoutesRejectsWhitespaceFrontendAffinityTokenForExternalSend(t
 	}
 }
 
+func TestRegisterAIRoutesRejectsInvalidAppGenerationModeForExternalSend(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-1","role":"user","content":[{"type":"text","text":"Create a new app."}]},
+			"engineConfigId":"engine-external",
+			"thinking":false,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false,
+			"appGenerationMode":"unknown_mode"
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "app_generation_mode_invalid" {
+		t.Fatalf("expected invalid app-generation mode error, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesRejectsOversizedReferenceImageURLForExternalSend(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.send, fixture.service, fixture.runtime)
+	body, err := json.Marshal(map[string]any{
+		"chatId":                         nil,
+		"message":                        map[string]any{"id": "user-1", "role": "user", "content": []any{map[string]any{"type": "text", "text": "Create a new app."}}},
+		"engineConfigId":                 "engine-external",
+		"thinking":                       false,
+		"projectConfigId":                "project-alpha",
+		"sectionId":                      nil,
+		"allowUnscoped":                  true,
+		"permissionMode":                 "minimal",
+		"searchEnabled":                  false,
+		"appGenerationMode":              "json_render_with_image",
+		"appGenerationReferenceImageUrl": strings.Repeat("x", 4097),
+	})
+	if err != nil {
+		t.Fatalf("encode request body: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetLLMResponse, strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "app_generation_reference_image_url_too_large" {
+		t.Fatalf("expected oversized reference image URL error, got %#v", payload)
+	}
+}
+
 func TestRegisterAIRoutesReturnsConflictForExternalChatEngineMismatch(t *testing.T) {
 	t.Parallel()
 

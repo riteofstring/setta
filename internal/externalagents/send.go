@@ -257,6 +257,27 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if err != nil {
 		return StartChatResult{}, err
 	}
+	appGenerationMode, err := normalizeAppGenerationMode(request.AppGenerationMode)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	referenceImageURL, referenceImageNotes, err := normalizeReferenceImageInputs(
+		request.AppGenerationReferenceImageURL,
+		request.AppGenerationReferenceImageNotes,
+	)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	if appGenerationMode == nil || *appGenerationMode != AppGenerationModeJSONRenderWithImage {
+		referenceImageURL = nil
+		referenceImageNotes = nil
+	}
+	appGenerationModePrompt := buildAppGenerationModePrompt(
+		appGenerationMode,
+		request.AppSpecStreamingEnabled,
+		referenceImageURL,
+		referenceImageNotes,
+	)
 
 	projectDocument := s.projectState.Snapshot().Document
 	project, err := projectDocument.ProjectByID(projectConfigID)
@@ -384,6 +405,8 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		inputs["sandboxPolicy"] = *sandboxPolicyOverride
 	}
 	inputs["systemPrompt"] = combinePromptSections(
+		buildExternalProfilePrompt(profile),
+		appGenerationModePrompt,
 		buildExecutionPolicyPrompt(request.PermissionMode, request.SearchEnabled),
 		requiredErrorCheckPrompt,
 	)

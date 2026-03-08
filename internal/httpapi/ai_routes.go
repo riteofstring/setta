@@ -319,6 +319,12 @@ func writeGetLLMResponseError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, r, http.StatusBadRequest, "continue_from_chat_conflict", err.Error())
 	case errors.Is(err, externalagents.ErrFrontendAffinityTokenInvalid):
 		writeError(w, r, http.StatusBadRequest, "frontend_affinity_token_invalid", "frontendAffinityToken must not be blank.")
+	case errors.Is(err, externalagents.ErrAppGenerationModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "app_generation_mode_invalid", "appGenerationMode is invalid.")
+	case errors.Is(err, externalagents.ErrAppGenerationReferenceImageURLTooLarge):
+		writeError(w, r, http.StatusBadRequest, "app_generation_reference_image_url_too_large", err.Error())
+	case errors.Is(err, externalagents.ErrAppGenerationReferenceImageNotesTooLarge):
+		writeError(w, r, http.StatusBadRequest, "app_generation_reference_image_notes_too_large", err.Error())
 	case errors.As(err, &continueErr):
 		writeError(w, r, http.StatusNotFound, "source_chat_not_found", continueErr.Error())
 	case errors.As(err, &branchErr):

@@ -100,26 +100,28 @@ The bounded Codex follow-on tracked in
   omit aggregated output or diff fields
 - persisted `tool_result` run events for those raw Codex tool outputs
 
-The final reassessment found one more concrete Phase 12 gap: external-agent
-send-time prompt shaping is still incomplete in Go. The current next step is
-the bounded follow-on tracked in
-`phase-12-external-agent-prompt-and-app-generation-parity.md`:
+The bounded follow-on tracked in
+`phase-12-external-agent-prompt-and-app-generation-parity.md` is now also
+landed:
 
-- external agent-profile `systemPrompt` content must reach Go-owned external
-  runs
+- external agent-profile `systemPrompt` content now reaches Go-owned external
+  runs through the shared executor `systemPrompt` payload
 - external app-generation-mode prompt sections and reference-image prompt
-  inputs must reach Go-owned external runs
+  inputs now reach Go-owned external runs with Go-owned normalization and typed
+  validation
 
-If that slice lands cleanly and no other concrete product-visible gap remains,
-Phase 12 is effectively complete for the external-agent surface.
+That returns the remaining Phase 12 work to final inventory/closeout. If that
+reassessment finds no other concrete product-visible gap, Phase 12 is
+effectively complete for the external-agent surface.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the remaining
-concrete Phase 12 gap above the completed hydration and send-route foundations,
-not by reopening completed foundation choices.
+follow-up tracked in `spike-pty.md`. New work should start from the final
+Phase 12 external-agent reassessment above the completed hydration, runtime,
+executor, parity, and prompt-composition foundations, not by reopening
+completed foundation choices.
 
 ## Current Reality
 

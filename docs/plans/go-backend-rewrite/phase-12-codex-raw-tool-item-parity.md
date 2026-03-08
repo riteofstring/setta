@@ -148,8 +148,9 @@ This slice should deliver:
    Codex-only storage.
 3. Added focused executor tests that prove persisted message and `tool_result`
    closeout for raw Codex items plus buffered output/diff handling.
-4. Narrowed the remaining Phase 12 work to final inventory/closeout instead of
-   another known executor or parser slice.
+4. Narrowed the remaining Phase 12 work to the now-landed external-agent
+   prompt/app-generation follow-on and then final inventory/closeout instead
+   of another known executor or parser slice.
 
 ## Verification
 
@@ -178,6 +179,5 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land the bounded external-agent prompt/app-generation follow-on tracked in
-  `phase-12-external-agent-prompt-and-app-generation-parity.md`, then
-  reassess whether the external-agent Phase 12 surface is effectively complete
+- run the final Phase 12 external-agent inventory/closeout pass now that the
+  bounded prompt/app-generation follow-on has also landed

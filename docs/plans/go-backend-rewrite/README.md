@@ -445,7 +445,7 @@ Use the docs in this order:
     raw non-`response_item` tool-item persistence over the completed Codex
     runtime helpers
 137. `phase-12-external-agent-prompt-and-app-generation-parity.md`
-  - focused implementation-plan doc for the bounded external-agent send-time
+  - focused completed-slice doc for the bounded external-agent send-time
     prompt gap: agent-profile system prompt plus app-generation-mode prompt
     shaping over the completed Go runtime/executor boundary
 138. `spike-mcp.md`

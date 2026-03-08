@@ -149,6 +149,80 @@ func TestSendServiceStartsExternalChatAndPersistsRunningRun(t *testing.T) {
 	}
 }
 
+func TestSendServiceComposesExternalPromptFromProfileAndAppGenerationMode(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	profile := agentprofiles.Profile{
+		ID:             "profile-app-builder",
+		Name:           "App Builder",
+		Description:    "Build polished app specs.",
+		SystemPrompt:   "Prioritize clean structure and concise tool use.",
+		EngineConfigID: stringPtr(fixture.engineID),
+		ToolAllowlist:  []string{"mcp__setta__set_app_definition"},
+	}
+	if err := fixture.profiles.Write([]agentprofiles.Profile{profile}); err != nil {
+		t.Fatalf("write agent profiles: %v", err)
+	}
+
+	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Generate the app spec."},
+			},
+		},
+		EngineConfigID:          fixture.engineID,
+		AgentProfileID:          stringPtr(profile.ID),
+		Thinking:                false,
+		ProjectConfigID:         "project-alpha",
+		AllowUnscoped:           true,
+		PermissionMode:          ChatPermissionModeYolo,
+		SearchEnabled:           false,
+		AppSpecStreamingEnabled: true,
+		AppGenerationMode:       stringPtr(AppGenerationModeJSONRender),
+	})
+	if err != nil {
+		t.Fatalf("start external app-generation chat: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	if fixture.executor.last.Profile == nil || fixture.executor.last.Profile.ID != profile.ID {
+		t.Fatalf("expected executor profile to be preserved, got %#v", fixture.executor.last.Profile)
+	}
+
+	systemPrompt, _ := fixture.executor.last.Inputs["systemPrompt"].(string)
+	if !containsText(systemPrompt, "## Agent profile") {
+		t.Fatalf("expected system prompt to include agent profile heading, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "- name: App Builder") {
+		t.Fatalf("expected system prompt to include profile name, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "- description: Build polished app specs.") {
+		t.Fatalf("expected system prompt to include profile description, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "Prioritize clean structure and concise tool use.") {
+		t.Fatalf("expected system prompt to include profile system prompt, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "## App spec generation mode") {
+		t.Fatalf("expected system prompt to include app-generation section, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "mode: json_render") {
+		t.Fatalf("expected system prompt to include app-generation mode, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "streamingPreview: enabled") {
+		t.Fatalf("expected system prompt to include streaming flag, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "setta__stream_app_definition") {
+		t.Fatalf("expected system prompt to include stream app definition tool guidance, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "- permissionMode: yolo") {
+		t.Fatalf("expected system prompt to include execution policy prompt, got %q", systemPrompt)
+	}
+}
+
 func TestSendServiceSeedsContinuationMessagesFromPriorExternalChat(t *testing.T) {
 	t.Parallel()
 
@@ -559,6 +633,7 @@ type sendServiceFixture struct {
 	executor *stubExternalAgentExecutor
 	runtime  *Runtime
 	runs     *agentruns.RunStore
+	profiles *agentprofiles.Store
 	engineID string
 	now      time.Time
 }
@@ -684,6 +759,7 @@ func newSendServiceFixture(t *testing.T, options sendFixtureOptions) sendService
 		executor: executor,
 		runtime:  runtime,
 		runs:     runs,
+		profiles: profiles,
 		engineID: engineID,
 		now:      now,
 	}

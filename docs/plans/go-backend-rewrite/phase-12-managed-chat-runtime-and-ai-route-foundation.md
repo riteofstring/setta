@@ -67,8 +67,9 @@ Current repo status as of 2026-03-09:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - any still-user-facing residual Codex gap that remains after the now-landed
-    Codex/OpenCode/Claude parity slices plus the Codex raw tool-item follow-on
+  - only any residual external-agent product-visible gap that may still remain
+    after the now-landed Codex/OpenCode/Claude parity, Codex raw tool-item,
+    and prompt/app-generation follow-on slices
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
   - the active runtime, stop route, approval/question routes, send-route
@@ -84,8 +85,9 @@ Current repo status as of 2026-03-09:
     complete
   - the Codex raw non-`response_item` tool-item follow-on in
     `phase-12-codex-raw-tool-item-parity.md` is now complete
-  - the final reassessment found one more bounded send-time prompt gap tracked
-    in `phase-12-external-agent-prompt-and-app-generation-parity.md`
+  - the bounded external-agent prompt/app-generation follow-on in
+    `phase-12-external-agent-prompt-and-app-generation-parity.md` is now
+    complete
 
 ## Scope
 
@@ -213,10 +215,12 @@ It should include:
 
 Missing Go owners:
 
-- any still-user-facing residual external-agent runtime behavior that proves to
-  be missing after the now-landed Codex/OpenCode/Claude parity slices
-- any remaining external-agent websocket/event streaming closeout that the
-  current frontend UX still depends on
+- only any still-user-facing residual external-agent runtime behavior that
+  proves to be missing after the now-landed Codex/OpenCode/Claude parity,
+  Codex raw tool-item, and prompt/app-generation slices
+- any remaining external-agent websocket/event streaming closeout only if the
+  current frontend UX still depends on behavior not covered by the landed
+  persisted/live chat path
 
 ## Completed In This Slice
 
