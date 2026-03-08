@@ -9,9 +9,11 @@ import React, {
   useRef,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
+import { setActiveSectionIds } from "state/actions/activeSections";
 import { openPaneContextMenu } from "state/actions/contextMenus";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useSettings } from "state/definitions";
 import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
@@ -53,6 +55,12 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
   const prevSelectedNodesCount = useRef<number>(0);
   const containerBounds = useRef<DOMRect>();
   const { userSelectionActive } = useReactFlow(selector, shallow);
+
+  const syncSelectionRectActiveIds = () => {
+    setActiveSectionIds(getActiveSectionUIIds(), {
+      forceDurableSync: true,
+    });
+  };
 
   const resetUserSelection = () => {
     useReactFlow.setState({
@@ -103,10 +111,13 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     const { x, y } = getEventPosition(event, containerBounds.current);
 
-    applyActiveSectionChange({
-      interaction: "selection-rect",
-      selectedIds: [],
-    });
+    applyActiveSectionChange(
+      {
+        interaction: "selection-rect",
+        selectedIds: [],
+      },
+      { syncMode: "ui-only" },
+    );
 
     useReactFlow.setState({
       userSelectionRect: {
@@ -151,10 +162,13 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
 
     if (prevSelectedNodesCount.current !== selectedNodeIds.length) {
       prevSelectedNodesCount.current = selectedNodeIds.length;
-      applyActiveSectionChange({
-        interaction: "selection-rect",
-        selectedIds: selectedNodeIds,
-      });
+      applyActiveSectionChange(
+        {
+          interaction: "selection-rect",
+          selectedIds: selectedNodeIds,
+        },
+        { syncMode: "ui-only" },
+      );
     }
 
     useReactFlow.setState({
@@ -180,12 +194,16 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     useReactFlow
       .getState()
       .setNodesSelection(prevSelectedNodesCount.current, true);
+    if (userSelectionActive) {
+      syncSelectionRectActiveIds();
+    }
     resetUserSelection();
   };
 
-  const onMouseLeave = (event: ReactMouseEvent) => {
+  const onMouseLeave = () => {
     if (userSelectionActive) {
       useReactFlow.getState().setNodesSelection(prevSelectedNodesCount.current);
+      syncSelectionRectActiveIds();
     }
     resetUserSelection();
   };

@@ -1,9 +1,11 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
+import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
   useAgenticScopeHighlights,
   useLocalStorage,
@@ -16,11 +18,9 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
-import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import {
   getOnSectionClick,
   getOutlineColor,
@@ -45,7 +45,6 @@ function _SectionContainerCore({
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
   const {
-    isActiveSection,
     sectionTypeName,
     // jsonSourceMissing,
     isInOtherProjectConfigs,
@@ -63,7 +62,6 @@ function _SectionContainerCore({
       getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
         null && !impl.isMinimized;
     return {
-      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
       // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
@@ -76,6 +74,7 @@ function _SectionContainerCore({
       isJoinedAttachedTerminalChild,
     };
   }, shallow);
+  const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
@@ -112,6 +111,10 @@ function _SectionContainerCore({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const viewportInteractionActive = useReactFlow(
+    (state) => state.viewportInteractionActive,
+  );
+  const shouldPromoteSectionShellLayer = viewportInteractionActive;
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -126,6 +129,15 @@ function _SectionContainerCore({
         "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
       } as React.CSSProperties)
     : undefined;
+  const sectionShellStyle = shouldPromoteSectionShellLayer
+    ? ({
+        ...sectionStyleVars,
+        willChange: "transform",
+        transform: "translateZ(0)",
+        backfaceVisibility: "hidden",
+        isolation: "isolate",
+      } as React.CSSProperties)
+    : sectionStyleVars;
   const sectionStyleChromeClassName = hasSectionStyleTheme
     ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
     : "";
@@ -177,46 +189,28 @@ function _SectionContainerCore({
   const handleScopeClassName = omitAgenticHandleScopeClass
     ? ""
     : "agentic-handle-scope";
-  const shouldRenderSharedChatHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
-  const isWorkflowOnlyNodeSection =
-    sectionTypeName === SectionTypeEnum.StateMachineStart ||
-    sectionTypeName === SectionTypeEnum.StateMachineGate ||
-    sectionTypeName === SectionTypeEnum.StateMachineEnd;
-  const shouldRenderChatSharedHandles =
-    shouldRenderSharedChatHandles && sectionTypeName === SectionTypeEnum.Chat;
   const shouldRenderAgenticEdgeHandles =
-    shouldRenderSharedChatHandles &&
-    !shouldRenderChatSharedHandles &&
-    !isWorkflowOnlyNodeSection;
-  const shouldRenderStateMachineEdgeHandles =
-    shouldRenderSharedChatHandles && isWorkflowOnlyNodeSection;
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${isActiveSection ? "z-[150]" : "z-10"} ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
-      style={sectionStyleVars}
+      data-section-active={isActiveSection ? "true" : "false"}
+      style={sectionShellStyle}
     >
-      {shouldRenderChatSharedHandles ? (
-        <ChatSharedEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderAgenticEdgeHandles ? (
+      {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
-      ) : null}
-      {shouldRenderStateMachineEdgeHandles ? (
-        <StateMachineEdgeHandles isUserView={isUserView} />
-      ) : null}
+      )}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}

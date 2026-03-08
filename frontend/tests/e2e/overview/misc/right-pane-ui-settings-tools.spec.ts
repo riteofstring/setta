@@ -125,8 +125,8 @@ async function resolveTemporarySectionIdFromSummary(
 
 async function readFrontendActiveIds(page: Page): Promise<string[]> {
   return page.evaluate(async () => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    return [...useProjectState.getState().projectConfig.activeIds];
+    const { useActiveSectionUI } = await import("/src/state/definitions.ts");
+    return [...useActiveSectionUI.getState().activeIds];
   });
 }
 
@@ -155,11 +155,81 @@ async function setFrontendActiveIds(
   nextActiveIds: string[],
 ): Promise<void> {
   await page.evaluate(async (activeIds) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    useProjectState.setState((state) => {
-      state.projectConfig.activeIds = activeIds;
-    });
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections.ts"
+    );
+    setActiveSectionIds(activeIds, { syncMode: "ui-only" });
   }, nextActiveIds);
+}
+
+async function scheduleFrontendActiveIdsWithBlockedRaf(
+  page: Page,
+  nextActiveIds: string[],
+): Promise<void> {
+  await page.evaluate(async (activeIds) => {
+    type ActiveIdsRafWindow = Window & {
+      __settaActiveIdsBlockedRafCallback?: FrameRequestCallback | null;
+      __settaActiveIdsBlockedRafHandle?: number;
+      __settaActiveIdsOriginalRequestAnimationFrame?: typeof window.requestAnimationFrame;
+      __settaActiveIdsOriginalCancelAnimationFrame?: typeof window.cancelAnimationFrame;
+    };
+    const windowRef = window as ActiveIdsRafWindow;
+    windowRef.__settaActiveIdsBlockedRafCallback = null;
+    windowRef.__settaActiveIdsBlockedRafHandle = 1;
+    windowRef.__settaActiveIdsOriginalRequestAnimationFrame =
+      window.requestAnimationFrame.bind(window);
+    windowRef.__settaActiveIdsOriginalCancelAnimationFrame =
+      window.cancelAnimationFrame.bind(window);
+    const originalRequestAnimationFrame =
+      windowRef.__settaActiveIdsOriginalRequestAnimationFrame;
+    const originalCancelAnimationFrame =
+      windowRef.__settaActiveIdsOriginalCancelAnimationFrame;
+    window.requestAnimationFrame = (callback) => {
+      if (windowRef.__settaActiveIdsBlockedRafCallback === null) {
+        windowRef.__settaActiveIdsBlockedRafCallback = callback;
+        return windowRef.__settaActiveIdsBlockedRafHandle ?? 1;
+      }
+      return originalRequestAnimationFrame(callback);
+    };
+    window.cancelAnimationFrame = (handle) => {
+      if (handle === (windowRef.__settaActiveIdsBlockedRafHandle ?? 1)) {
+        windowRef.__settaActiveIdsBlockedRafCallback = null;
+        window.requestAnimationFrame = originalRequestAnimationFrame;
+        window.cancelAnimationFrame = originalCancelAnimationFrame;
+        return;
+      }
+      originalCancelAnimationFrame(handle);
+    };
+
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections.ts"
+    );
+    setActiveSectionIds(activeIds);
+  }, nextActiveIds);
+}
+
+async function flushBlockedFrontendActiveIdsRaf(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    type ActiveIdsRafWindow = Window & {
+      __settaActiveIdsBlockedRafCallback?: FrameRequestCallback | null;
+      __settaActiveIdsOriginalRequestAnimationFrame?: typeof window.requestAnimationFrame;
+      __settaActiveIdsOriginalCancelAnimationFrame?: typeof window.cancelAnimationFrame;
+    };
+    const windowRef = window as ActiveIdsRafWindow;
+    const blockedCallback = windowRef.__settaActiveIdsBlockedRafCallback;
+    const originalRequestAnimationFrame =
+      windowRef.__settaActiveIdsOriginalRequestAnimationFrame;
+    const originalCancelAnimationFrame =
+      windowRef.__settaActiveIdsOriginalCancelAnimationFrame;
+    windowRef.__settaActiveIdsBlockedRafCallback = null;
+    if (originalRequestAnimationFrame) {
+      window.requestAnimationFrame = originalRequestAnimationFrame;
+    }
+    if (originalCancelAnimationFrame) {
+      window.cancelAnimationFrame = originalCancelAnimationFrame;
+    }
+    blockedCallback?.(16);
+  });
 }
 
 async function rewriteNextRevealActiveSectionId(
@@ -453,6 +523,112 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
   }
 });
 
+test("right-pane reveal_ui_setting cancels a queued durable active-id sync before transient activation", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const initialSectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
+  const targetSectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
+  const initialSectionName = `right-pane-queued-initial-${Date.now()}`;
+  const targetSectionName = `right-pane-queued-target-${Date.now()}`;
+
+  try {
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: initialSectionId,
+      name: initialSectionName,
+    });
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: targetSectionId,
+      name: targetSectionName,
+    });
+    await postBackend(page, "/setActiveIds", {
+      projectConfigId: projectContext.projectConfigId,
+      activeIds: [],
+    });
+
+    const seedResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+      },
+    );
+    if (typeof seedResult.projectConfigId !== "string") {
+      throw new Error(
+        `Expected temporary projectConfigId in seed result: ${JSON.stringify(seedResult)}`,
+      );
+    }
+    const temporaryInitialSectionId =
+      await resolveTemporarySectionIdFromSummary(
+        page,
+        projectContext.projectConfigId,
+        seedResult.projectConfigId,
+        initialSectionName,
+      );
+    const temporaryTargetSectionId = await resolveTemporarySectionIdFromSummary(
+      page,
+      projectContext.projectConfigId,
+      seedResult.projectConfigId,
+      targetSectionName,
+    );
+
+    // Frontend active ids stay in the live UI store using the real section ids.
+    expect(temporaryInitialSectionId).toBeTruthy();
+    await scheduleFrontendActiveIdsWithBlockedRaf(page, [initialSectionId]);
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([initialSectionId]);
+
+    const revealResultPromise = callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+        sectionIdToActivate: temporaryTargetSectionId,
+        durationMs: 8000,
+      },
+    );
+
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([targetSectionId]);
+
+    await flushBlockedFrontendActiveIdsRaf(page);
+
+    const latestProjectState = await postBackend<{
+      projectState?: {
+        projectConfig?: { activeIds?: string[] };
+      };
+    }>(page, "/getLatestProjectState", {
+      projectConfigId: projectContext.projectConfigId,
+    });
+    expect(latestProjectState?.projectState?.projectConfig?.activeIds).toEqual(
+      [],
+    );
+    await expect
+      .poll(async () => readFrontendActiveIds(page))
+      .toEqual([targetSectionId]);
+
+    const revealResult = await revealResultPromise;
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    expect(revealResult.statuses[0]?.error).toBeNull();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("right-pane reveal_ui_setting restores frontend activeIds when incoming reveal target is stale", async ({
   page,
 }) => {
@@ -508,10 +684,11 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
         seedResult.projectConfigId,
         requestedSectionName,
       );
-    await setFrontendActiveIds(page, [temporaryInitialSectionId]);
+    expect(temporaryInitialSectionId).toBeTruthy();
+    await setFrontendActiveIds(page, [initialSectionId]);
     await expect
       .poll(async () => readFrontendActiveIds(page))
-      .toEqual([temporaryInitialSectionId]);
+      .toEqual([initialSectionId]);
 
     await rewriteNextRevealActiveSectionId(
       page,
@@ -537,7 +714,7 @@ test("right-pane reveal_ui_setting restores frontend activeIds when incoming rev
     expect(await wasRevealActiveSectionRewriteConsumed(page)).toBe(true);
     await expect
       .poll(async () => readFrontendActiveIds(page))
-      .toEqual([temporaryInitialSectionId]);
+      .toEqual([initialSectionId]);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -697,9 +874,9 @@ test("right-pane reveal timeout preserves user ABA activeIds navigation", async 
     }>(page, "/getLatestProjectState", {
       projectConfigId: projectContext.projectConfigId,
     });
-    expect(projectStateAfterDroppedAck?.projectState?.projectConfig?.activeIds).toEqual(
-      [],
-    );
+    expect(
+      projectStateAfterDroppedAck?.projectState?.projectConfig?.activeIds,
+    ).toEqual([]);
 
     await postBackend(page, "/setActiveIds", {
       projectConfigId: projectContext.projectConfigId,

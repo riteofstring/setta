@@ -145,61 +145,25 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const { paramIsSelected, isKwarg, paramChildren, isNestedParam } =
-    useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImplWithTypeGuard(
-        x,
-        sectionId,
-        isBaseSectionWithParamsImpl,
-      );
-      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-        x,
-        sectionId,
-        paramInfoId,
-        isBaseParamCodeObjImpl,
-      );
-      const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
-      return {
-        paramIsSelected: impl.selectedParams.includes(paramInfoId),
-        isKwarg: codeObjImpl.coreNameEditable,
-        paramChildren: isNestedParam ? codeObjImpl.children : [],
-        isNestedParam,
-      };
-    }, _.isEqual);
-
-  const dndContext = useParamDndContext();
-  const dndEnabled = Boolean(dndContext?.enabled);
-  const listKey = props.listKey;
-  const dndId = getParamDndItemId(paramInfoId, listKey);
-  const hasNested = paramChildren.length > 0;
-  const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: dndId,
-    disabled: !dndEnabled,
-    data: {
-      type: "param",
-      paramId: paramInfoId,
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      x,
       sectionId,
-      listKey,
-      isTopLevel: false,
-      hasNested,
-      onlyChildId,
-    },
-  });
-  const { role: _role, ...restAttributes } = attributes;
-  const scaledTransform = applyZoomToTransform(transform);
-  const dndStyle = {
-    transform: transformToString(scaledTransform),
-    transition,
-    zIndex: isDragging ? 1000 : undefined,
-  };
+      isBaseSectionWithParamsImpl,
+    ),
+  );
+  const codeObjImpl = useProjectState((x) =>
+    getCurrEffectiveCodeObjImplWithTypeGuard(
+      x,
+      sectionId,
+      paramInfoId,
+      isBaseParamCodeObjImpl,
+    ),
+  );
+  const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
+  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
+  const isKwarg = codeObjImpl.coreNameEditable;
+  const paramChildren = isNestedParam ? codeObjImpl.children : [];
 
   const hasChildren = paramChildren.length > 0;
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
@@ -243,43 +207,108 @@ function RealParamSwitch(props: ParamSwitchProps) {
     border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 
+  const label = isKwarg ? (
+    <ParamNameInput
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      hasChildren={hasChildren}
+      onMouseDown={onMouseDownConditional}
+      border={hasChildren ? border : ""}
+      bg={hasChildren ? bg : ""}
+    />
+  ) : (
+    <ParamTextLabel
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      onMouseDown={onMouseDownConditional}
+      bg={hasChildren ? bg : ""}
+    />
+  );
+
+  const sharedProps = {
+    ...props,
+    bg,
+    border,
+    hasSectionStyleTheme,
+    isKwarg,
+    isNestedParam,
+    label,
+    maybeErrorMessage,
+    onClick: handleParamClick,
+    onMouseDown: onMouseDownAlways,
+    paramChildren,
+  };
+
+  return <SortableRealParamSwitchRow {...sharedProps} />;
+}
+
+export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
+
+function SortableRealParamSwitchRow({
+  sectionId,
+  paramInfoId,
+  listKey,
+  paramChildren,
+  label,
+  ...props
+}: ParamSwitchProps & {
+  bg: string;
+  border: string;
+  isKwarg: boolean;
+  isNestedParam: boolean;
+  label: React.ReactNode;
+  maybeErrorMessage: string;
+  onClick: React.MouseEventHandler;
+  onMouseDown: React.MouseEventHandler;
+  paramChildren: string[];
+}) {
+  const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
+  const dndId = getParamDndItemId(paramInfoId, listKey);
+  const hasNested = paramChildren.length > 0;
+  const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: dndId,
+    disabled: !dndEnabled,
+    data: {
+      type: "param",
+      paramId: paramInfoId,
+      sectionId,
+      listKey,
+      isTopLevel: false,
+      hasNested,
+      onlyChildId,
+    },
+  });
+  const { role: _role, ...restAttributes } = attributes;
+  const scaledTransform = applyZoomToTransform(transform);
+  const dndStyle = {
+    transform: transformToString(scaledTransform),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+  };
+
   return (
     <ParamContainer
       {...props}
-      isKwarg={isKwarg}
-      isNestedParam={isNestedParam}
-      hasSectionStyleTheme={hasSectionStyleTheme}
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      listKey={listKey}
       paramChildren={paramChildren}
-      onMouseDown={onMouseDownAlways}
-      onClick={handleParamClick}
-      maybeErrorMessage={maybeErrorMessage}
-      border={border}
-      bg={bg}
       dndAttributes={restAttributes}
       dndListeners={listeners}
       dndRef={setNodeRef}
       dndStyle={dndStyle}
       dndClassName={isDragging ? "opacity-80" : ""}
     >
-      {isKwarg ? (
-        <ParamNameInput
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          hasChildren={hasChildren}
-          onMouseDown={onMouseDownConditional}
-          border={hasChildren ? border : ""}
-          bg={hasChildren ? bg : ""}
-        />
-      ) : (
-        <ParamTextLabel
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          onMouseDown={onMouseDownConditional}
-          bg={hasChildren ? bg : ""}
-        />
-      )}
+      {label}
     </ParamContainer>
   );
 }
-
-export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
