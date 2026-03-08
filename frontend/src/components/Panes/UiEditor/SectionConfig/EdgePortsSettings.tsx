@@ -3,6 +3,7 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import _ from "lodash";
 import {
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
   type DragEvent,
@@ -20,7 +21,11 @@ import {
   setSectionVariantImplValue,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import { usePendingOperations, useProjectState } from "state/definitions";
+import {
+  usePendingOperations,
+  useProjectState,
+  type ZustandProjectState,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
@@ -35,6 +40,7 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { shallow } from "zustand/shallow";
 
 type EdgePortsSettingsProps = {
   sectionId: string;
@@ -84,52 +90,100 @@ function shouldRollbackJsonSourceKeys(
   return _.isEqual(impl.jsonSourceKeys, expectedKeys);
 }
 
+function buildParamLabels(
+  state: ZustandProjectState,
+  sectionId: string,
+  pinnedRequiredParamIdsToPaths: Record<string, Array<string>>,
+  unpinnedRequiredParamIdsToPaths: Record<string, Array<string>>,
+) {
+  const requiredParamIdsToPaths = {
+    ...pinnedRequiredParamIdsToPaths,
+    ...unpinnedRequiredParamIdsToPaths,
+  };
+  return Object.keys(requiredParamIdsToPaths).map((paramId) => {
+    const path = requiredParamIdsToPaths[paramId];
+    const label = path
+      ? paramNameFromPathArray(state, sectionId, path)
+      : getParamDisplayName(state, sectionId, paramId);
+    return { id: paramId, label };
+  });
+}
+
 export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   const { canEditStructure, canEditVariants } = useShareCapabilities();
+  const { edgeInputParams, edgeOutputPorts, jsonSourceKeys, isJsonSource } =
+    useProjectState((state) => {
+      const impl = getCurrEffectiveSectionImplWithTypeGuard(
+        state,
+        sectionId,
+        isBaseSectionWithParamsImpl,
+      );
+      let jsonSourceKeys: string[] = [];
+      let isJsonSource = false;
+      if (isBaseDictSectionImpl(impl)) {
+        jsonSourceKeys = impl.jsonSourceKeys;
+        isJsonSource = impl.isJsonSource;
+      }
+      return {
+        edgeInputParams: impl.edgeInputParams,
+        edgeOutputPorts: impl.edgeOutputPorts,
+        jsonSourceKeys,
+        isJsonSource,
+      };
+    }, shallow);
+  const variantId = useProjectState((state) =>
+    getCurrSectionVariantId(state, sectionId),
+  );
+  const allowJsonSourceKeyEdits = useProjectState(
+    (state) => state.projectConfig.allowJsonSourceKeyEdits,
+  );
   const {
-    edgeInputParams,
-    edgeOutputPorts,
-    paramLabels,
-    jsonSourceKeys,
-    isJsonSource,
-    variantId,
-    allowJsonSourceKeyEdits,
+    showParamDisplayNames,
+    projectSectionVariantMap,
+    sections,
+    sectionVariants,
+    sectionImpls,
+    codeObjs,
+    codeObjVariants,
+    codeObjImpls,
+    pinnedRequiredParamIdsToPaths,
+    unpinnedRequiredParamIdsToPaths,
   } = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const variantId = getCurrSectionVariantId(state, sectionId);
-    let jsonSourceKeys: string[] = [];
-    let isJsonSource = false;
-    if (isBaseDictSectionImpl(impl)) {
-      jsonSourceKeys = impl.jsonSourceKeys;
-      isJsonSource = impl.isJsonSource;
-    }
     const pinned = getCurrShownParamIds(state, sectionId, true, true);
     const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-    const requiredParamIdsToPaths = {
-      ...pinned.requiredParamIdsToPaths,
-      ...unpinned.requiredParamIdsToPaths,
-    };
-    const paramLabels = Object.keys(requiredParamIdsToPaths).map((paramId) => {
-      const path = requiredParamIdsToPaths[paramId];
-      const label = path
-        ? paramNameFromPathArray(state, sectionId, path)
-        : getParamDisplayName(state, sectionId, paramId);
-      return { id: paramId, label };
-    });
     return {
-      edgeInputParams: impl.edgeInputParams,
-      edgeOutputPorts: impl.edgeOutputPorts,
-      paramLabels,
-      jsonSourceKeys,
-      isJsonSource,
-      variantId,
-      allowJsonSourceKeyEdits: state.projectConfig.allowJsonSourceKeyEdits,
+      showParamDisplayNames: state.projectConfig.showParamDisplayNames,
+      projectSectionVariantMap: state.projectConfig.sectionVariantMap,
+      sections: state.sections,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
+      codeObjs: state.codeObjs,
+      codeObjVariants: state.codeObjVariants,
+      codeObjImpls: state.codeObjImpls,
+      pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
+      unpinnedRequiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
     };
-  }, _.isEqual);
+  }, shallow);
+  const paramLabels = useMemo(() => {
+    return buildParamLabels(
+      useProjectState.getState(),
+      sectionId,
+      pinnedRequiredParamIdsToPaths,
+      unpinnedRequiredParamIdsToPaths,
+    );
+  }, [
+    codeObjImpls,
+    codeObjVariants,
+    codeObjs,
+    pinnedRequiredParamIdsToPaths,
+    projectSectionVariantMap,
+    sectionId,
+    sectionImpls,
+    sections,
+    sectionVariants,
+    showParamDisplayNames,
+    unpinnedRequiredParamIdsToPaths,
+  ]);
 
   const canEditJsonSourceKeys = canEditVariants && allowJsonSourceKeyEdits;
   const [jsonSourcePath, setJsonSourcePath] = useState("");
@@ -353,21 +407,27 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setDraggedPortId(null);
   }
 
-  const completionsFn = wrappedCompletionsFn(
-    async (fullText: string, position: number) => {
-      const res = await route_output_accessor_completion({
-        projectConfigId: getCurrProjectConfigId(),
-        sectionId,
-        fullText,
-        position,
-      });
-      if (res200(res)) {
-        return res.data;
-      }
-      return [];
-    },
+  const completionsFn = useMemo(
+    () =>
+      wrappedCompletionsFn(async (fullText: string, position: number) => {
+        const res = await route_output_accessor_completion({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          fullText,
+          position,
+        });
+        if (res200(res)) {
+          return res.data;
+        }
+        return [];
+      }),
+    [sectionId],
   );
   const tooltipParentDivId = `edge-output-ports-${sectionId}`;
+  const edgeInputParamIdSet = useMemo(
+    () => new Set(edgeInputParams),
+    [edgeInputParams],
+  );
 
   return (
     <section className="flex flex-col gap-4">
@@ -416,7 +476,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
             >
               <input
                 type="checkbox"
-                checked={edgeInputParams.includes(param.id)}
+                checked={edgeInputParamIdSet.has(param.id)}
                 onChange={() => onToggleInput(param.id)}
                 disabled={!canEditStructure}
               />

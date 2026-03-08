@@ -1,4 +1,5 @@
-import { useProjectSearch, useProjectState } from "state/definitions";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
+import { useProjectSearch } from "state/definitions";
 import { ProjectSearchModeEnum } from "utils/constants";
 
 export const ProjectPageSearchBarDivId = "ProjectPageSearchBar";
@@ -18,7 +19,7 @@ function clickOrFocusOnSearchBar(mode: "click" | "focus") {
 }
 
 export function focusOnSearch() {
-  const sectionIds = useProjectState.getState().projectConfig.activeIds;
+  const sectionIds = getActiveSectionUIIds();
   if (sectionIds.length === 1) {
     const element = document.getElementById(`${sectionIds[0]}-args-filter`);
     if (element) {

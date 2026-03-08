@@ -44,6 +44,7 @@ export type MiniMapNodesType = Pick<
 
 export type MiniMapNodeProps = {
   id: string;
+  dataMinimapNodeId: string;
   x: number;
   y: number;
   width: number;
@@ -54,7 +55,6 @@ export type MiniMapNodeProps = {
   shapeRendering: string;
   strokeColor: string;
   strokeWidth: number;
-  selected?: boolean;
   style?: CSSProperties;
   onClick?: (event: MouseEvent, id: string) => void;
 };
