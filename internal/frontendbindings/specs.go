@@ -547,6 +547,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "DELETE_ARTIFACTS",
 				},
 				{
+					Name:     "appendDrawAreaLayerItem",
+					Path:     httpapi.RouteAppendDrawAreaLayerItem,
+					EnumName: "APPEND_DRAW_AREA_LAYER_ITEM",
+				},
+				{
 					Name:     "forceRefreshListener",
 					Path:     httpapi.RouteForceRefreshListener,
 					EnumName: "FORCE_REFRESH_LISTENER",
@@ -1735,6 +1740,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "deleteArtifacts",
 			RequestType:     reflect.TypeOf(DeleteArtifactsRequestInput{}),
 			ResponseType:    reflect.TypeOf(DeleteArtifactsResponse{}),
+		},
+		{
+			FunctionName:    "route_append_draw_area_layer_item",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "appendDrawAreaLayerItem",
+			RequestType:     reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}),
 		},
 		{
 			FunctionName:    "route_force_refresh_listener",

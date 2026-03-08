@@ -487,6 +487,11 @@ export async function route_delete_artifacts(x: gt.DeleteArtifactsRequestInput):
   return await post(GoHTTPRoutes.deleteArtifacts, x);
 
 }
+export async function route_append_draw_area_layer_item(x: gt.AppendDrawAreaLayerItemRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.appendDrawAreaLayerItem, x);
+
+}
 export async function route_force_refresh_listener(x: gt.ForceRefreshListenerRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.forceRefreshListener, x);

@@ -85,6 +85,7 @@ Current landed wedge:
   - current param value/config, code-object naming/display,
     python-codegen prefix/suffix, and attached-terminal helper route constants
   - current group-orientation and section-data helper route constants
+  - current draw-area append helper route constant
   - current chart metadata helper route constants
   - current text-block helper route constants
   - current section param-filter, meta-control-title, and group-overflow route
@@ -150,6 +151,7 @@ Current landed wedge:
       - `SetTaskBoardSectionStateRequestInput`
       - `SetImageAreaImagePathRequestInput`
       - `SetSocialURLRequestInput`
+      - `AppendDrawAreaLayerItemRequestInput`
       - `SetChartAreaDataPathRequestInput`
       - `SetChartTypeRequestInput`
       - `SetChartSettingsRequestInput`
@@ -476,6 +478,7 @@ Current landed wedge:
       - `LoadCachedChartDataResponse`
       - `LoadCachedBrushStrokesResponse`
       - `LoadCachedDrawAreaLayerItemTransformResponse`
+      - `AppendDrawAreaLayerItemRequestInput`
       - `UpdateArtifactsRequestInput`
       - `UpdateArtifactsResponse`
       - `DeleteArtifactsRequestInput`

@@ -341,6 +341,8 @@ type SetImageAreaImagePathRequestInput struct{}
 
 type SetSocialURLRequestInput struct{}
 
+type AppendDrawAreaLayerItemRequestInput struct{}
+
 type SetChartAreaDataPathRequestInput struct{}
 
 type SetChartTypeRequestInput struct{}
@@ -596,6 +598,16 @@ export type SetSocialURLRequestInput = {
   projectConfigId: string;
   sectionId: string;
   url: string;
+};
+`
+
+const appendDrawAreaLayerItemRequestInputRawTS = `
+export type AppendDrawAreaLayerItemRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  layerIdx: number;
+  element: DrawAreaLayerItem;
 };
 `
 

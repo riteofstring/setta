@@ -6969,6 +6969,17 @@ export function createDeleteArtifactsRequestInput(options: Partial<DeleteArtifac
 export type DeleteArtifactsResponse = Array<string>;
 
 
+
+export type AppendDrawAreaLayerItemRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  layerIdx: number;
+  element: DrawAreaLayerItem;
+};
+
+
+
 export type ForceRefreshListenerRequestInput = {
   projectConfigId: string;
 };

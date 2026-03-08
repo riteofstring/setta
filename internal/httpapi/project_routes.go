@@ -90,6 +90,7 @@ const (
 	RouteSetTaskBoardSectionState          = "/setTaskBoardSectionState"
 	RouteSetImageAreaImagePath             = "/setImageAreaImagePath"
 	RouteSetSocialURL                      = "/setSocialUrl"
+	RouteAppendDrawAreaLayerItem           = "/appendDrawAreaLayerItem"
 	RouteSetChartAreaDataPath              = "/setChartAreaDataPath"
 	RouteSetChartType                      = "/setChartType"
 	RouteSetChartSettings                  = "/setChartSettings"
@@ -750,6 +751,14 @@ type SetSocialURLRequest struct {
 	URL          string  `json:"url"`
 }
 
+type AppendDrawAreaLayerItemRequest struct {
+	FrontendOpID *string                        `json:"frontendOpId"`
+	ProjectID    string                         `json:"projectConfigId"`
+	SectionID    string                         `json:"sectionId"`
+	LayerIdx     int                            `json:"layerIdx"`
+	Element      projectstate.DrawAreaLayerItem `json:"element"`
+}
+
 type SetChartAreaDataPathRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -1017,6 +1026,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTaskBoardSectionState, setTaskBoardSectionStateHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetImageAreaImagePath, setImageAreaImagePathHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSocialURL, setSocialURLHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAppendDrawAreaLayerItem, appendDrawAreaLayerItemHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChartAreaDataPath, setChartAreaDataPathHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChartType, setChartTypeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChartSettings, setChartSettingsHandler(deps))
@@ -3744,6 +3754,43 @@ func setSocialURLHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func appendDrawAreaLayerItemHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[AppendDrawAreaLayerItemRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.AppendDrawAreaLayerItem(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.LayerIdx,
+			payload.Element,
+		); err != nil {
+			writeDrawAreaMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setChartAreaDataPathHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetChartAreaDataPathRequest](r)
@@ -4884,6 +4931,19 @@ func writeSectionDataMutationError(w http.ResponseWriter, r *http.Request, err e
 		writeError(w, r, http.StatusUnprocessableEntity, "image_section_required", "Section must resolve to an image section.")
 	case errors.Is(err, projectstate.ErrSocialSectionRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "social_section_required", "Section must resolve to a social section.")
+	default:
+		writeProjectLayoutMutationError(w, r, err)
+	}
+}
+
+func writeDrawAreaMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrDrawSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "draw_section_required", "Section must resolve to a draw section.")
+	case errors.Is(err, projectstate.ErrDrawAreaLayerIndexInvalid):
+		writeError(w, r, http.StatusBadRequest, "draw_layer_index_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrDrawAreaLayerItemTypeInvalid):
+		writeError(w, r, http.StatusBadRequest, "draw_area_layer_item_type_invalid", err.Error())
 	default:
 		writeProjectLayoutMutationError(w, r, err)
 	}

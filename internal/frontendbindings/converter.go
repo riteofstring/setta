@@ -469,6 +469,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setSocialURLRequestInputRawTS,
 			},
+			reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}): {
+				Name: "AppendDrawAreaLayerItemRequestInput",
+				Kind: "raw",
+				Raw:  appendDrawAreaLayerItemRequestInputRawTS,
+			},
 			reflect.TypeOf(SetChartAreaDataPathRequestInput{}): {
 				Name: "SetChartAreaDataPathRequestInput",
 				Kind: "raw",

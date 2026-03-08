@@ -3551,6 +3551,138 @@ func TestRegisterProjectRoutesSectionDataMutationsRejectInvalidInputs(t *testing
 	}
 }
 
+func TestRegisterProjectRoutesAppendDrawAreaLayerItemPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": drawAreaRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppendDrawAreaLayerItem, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	requestBody := `{"projectConfigId":"project-alpha","sectionId":"draw-section","layerIdx":0,"element":{"type":"BrushStroke","dataPath":"artifacts/new-stroke.json","transformId":"artifacts/new-transform.json"}}`
+	for range 2 {
+		response := post(requestBody)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 append response, got %d with body %q", response.Code, response.Body.String())
+		}
+	}
+
+	latestRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteGetLatestProjectState, strings.NewReader(`{"projectConfigId":"project-alpha"}`))
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	drawModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["draw-section"].SharedModifier)
+	rawLayers, ok := drawModifier["layers"].([]any)
+	if !ok || len(rawLayers) != 1 {
+		t.Fatalf("expected one draw layer, got %#v", drawModifier["layers"])
+	}
+	layer, ok := rawLayers[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw layer object, got %#v", rawLayers[0])
+	}
+	rawElements, ok := layer["elements"].([]any)
+	if !ok || len(rawElements) != 2 {
+		t.Fatalf("expected duplicate append to keep two layer elements, got %#v", layer["elements"])
+	}
+	appended, ok := rawElements[1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected appended draw element object, got %#v", rawElements[1])
+	}
+	if appended["type"] != "BrushStroke" {
+		t.Fatalf("expected appended draw element type BrushStroke, got %#v", appended["type"])
+	}
+	if appended["dataPath"] != "artifacts/new-stroke.json" {
+		t.Fatalf("expected appended draw element dataPath, got %#v", appended["dataPath"])
+	}
+	if appended["transformId"] != "artifacts/new-transform.json" {
+		t.Fatalf("expected appended draw element transformId, got %#v", appended["transformId"])
+	}
+}
+
+func TestRegisterProjectRoutesAppendDrawAreaLayerItemRejectsInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": drawAreaRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","layerIdx":0,"element":{"type":"BrushStroke","dataPath":"artifacts/new-stroke.json","transformId":"artifacts/new-transform.json"}}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"draw_section_required"`,
+		},
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"draw-section","layerIdx":4,"element":{"type":"BrushStroke","dataPath":"artifacts/new-stroke.json","transformId":"artifacts/new-transform.json"}}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"draw_layer_index_invalid"`,
+		},
+		{
+			body:         `{"projectConfigId":"project-alpha","sectionId":"draw-section","layerIdx":0,"element":{"type":"File","dataPath":"artifacts/new-file.bin","transformId":"artifacts/new-transform.json"}}`,
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `"code":"draw_area_layer_item_type_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+RouteAppendDrawAreaLayerItem, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for appendDrawAreaLayerItem, got %d with body %q", requestSpec.expectedCode, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesChartMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -6475,6 +6607,70 @@ func sectionDataRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize section data route project: %v", err)
+	}
+	return project
+}
+
+func drawAreaRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"draw-section":  "draw-variant",
+			"plain-section": "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"draw-section": {
+				ID:               "draw-section",
+				Name:             "Draw Section",
+				VariantIDs:       []string{"draw-variant"},
+				DefaultVariantID: "draw-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain Section",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"draw-variant":  {ID: "draw-variant", ImplID: "draw-impl"},
+			"plain-variant": {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"draw-impl": {
+				ID:   "draw-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":   "draw-impl",
+					"type": "Draw",
+					"layers": []any{
+						map[string]any{
+							"name":         "Layer 1",
+							"visible":      true,
+							"layerOpacity": 1.0,
+							"elements": []any{
+								map[string]any{
+									"type":        "BrushStroke",
+									"dataPath":    "artifacts/existing-stroke.json",
+									"transformId": "artifacts/existing-transform.json",
+								},
+							},
+						},
+					},
+				}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize draw area route project: %v", err)
 	}
 	return project
 }

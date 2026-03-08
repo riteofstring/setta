@@ -4,6 +4,7 @@ import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_add_kwarg,
+  route_append_draw_area_layer_item,
   route_append_transcription_audio,
   route_binary_download,
   route_binary_upload,
@@ -2931,8 +2932,18 @@ describe("generatedEndpoints binary and artifact helpers", () => {
     await route_load_cached_draw_area_layer_item_transform({
       paths: ["artifacts/transform.json"],
     });
+    await route_append_draw_area_layer_item({
+      projectConfigId: "project-1",
+      sectionId: "draw-section",
+      layerIdx: 0,
+      element: {
+        type: "BrushStroke",
+        dataPath: "artifacts/stroke.json",
+        transformId: "artifacts/transform.json",
+      },
+    });
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/importFilesToArtifacts`,
     );
@@ -2955,6 +2966,22 @@ describe("generatedEndpoints binary and artifact helpers", () => {
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}/loadDrawAreaLayerItemTransform`,
     );
+    expect(fetchMock.mock.calls[5]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/appendDrawAreaLayerItem`,
+    );
+    expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "draw-section",
+        layerIdx: 0,
+        element: {
+          type: "BrushStroke",
+          dataPath: "artifacts/stroke.json",
+          transformId: "artifacts/transform.json",
+        },
+      }),
+    });
   });
 
   it("posts artifact mutation payloads with typed artifact unions", async () => {
