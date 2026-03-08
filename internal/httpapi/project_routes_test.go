@@ -139,6 +139,95 @@ func TestRegisterProjectRoutesReturnsLatestProjectStateEnvelope(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesGetsPasswordParamValue(t *testing.T) {
+	t.Parallel()
+
+	// The Go project route should return the stored secret for active password
+	// params without relying on the Python project manager path.
+	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	if err := passwordSecrets.Set("shared-secret-impl", "topsecret"); err != nil {
+		t.Fatalf("seed password secret: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	}, projectstate.RuntimeOptions{
+		PasswordSecrets: passwordSecrets,
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetPasswordParamValue,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-secret"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload GetPasswordParamValueResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode password param response: %v", err)
+	}
+	if payload.Value != "topsecret" {
+		t.Fatalf("expected topsecret, got %q", payload.Value)
+	}
+}
+
+func TestRegisterProjectRoutesGetPasswordParamValueRejectsNonPasswordParam(t *testing.T) {
+	t.Parallel()
+
+	// Non-password params should fail with a typed caller error instead of
+	// falling through to a generic internal failure.
+	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	}, projectstate.RuntimeOptions{
+		PasswordSecrets: passwordSecrets,
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetPasswordParamValue,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"password_param_required"`) {
+		t.Fatalf("expected password_param_required body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesReturnsCompletedFrontendOpIDsAfterMutation(t *testing.T) {
 	t.Parallel()
 
@@ -2459,4 +2548,101 @@ func mustProjectRouteRawJSON(t *testing.T, value map[string]any) projectstate.Ra
 		t.Fatalf("marshal raw JSON: %v", err)
 	}
 	return projectstate.RawJSON(encoded)
+}
+
+func passwordParamRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"dict-a": "dict-a-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"dict-a": {
+				ID:               "dict-a",
+				Name:             "Dict A",
+				VariantIDs:       []string{"dict-a-variant"},
+				DefaultVariantID: "dict-a-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"dict-a-variant": {
+				ID:     "dict-a-variant",
+				ImplID: "dict-a-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"dict-a-impl": {
+				ID:   "dict-a-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":              "dict-a-impl",
+					"type":            "Dict",
+					"topLevelParamId": "shared-root",
+					"codeObjVariantMap": map[string]string{
+						"shared-root":   "shared-root-variant",
+						"shared-child":  "shared-child-variant",
+						"shared-secret": "shared-secret-variant",
+					},
+				}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"shared-root": {
+				ID:               "shared-root",
+				Name:             "root",
+				VariantIDs:       []string{"shared-root-variant"},
+				DefaultVariantID: "shared-root-variant",
+			},
+			"shared-child": {
+				ID:               "shared-child",
+				Name:             "child",
+				VariantIDs:       []string{"shared-child-variant"},
+				DefaultVariantID: "shared-child-variant",
+			},
+			"shared-secret": {
+				ID:               "shared-secret",
+				Name:             "secret",
+				VariantIDs:       []string{"shared-secret-variant"},
+				DefaultVariantID: "shared-secret-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"shared-root-variant": {
+				ID:     "shared-root-variant",
+				ImplID: "shared-root-impl",
+			},
+			"shared-child-variant": {
+				ID:     "shared-child-variant",
+				ImplID: "shared-child-impl",
+			},
+			"shared-secret-variant": {
+				ID:     "shared-secret-variant",
+				ImplID: "shared-secret-impl",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"shared-root-impl": {
+				ID:      "shared-root-impl",
+				Type:    "NestedParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "shared-root-impl", "type": "NestedParam", "children": []string{"shared-child", "shared-secret"}}),
+			},
+			"shared-child-impl": {
+				ID:      "shared-child-impl",
+				Type:    "TextParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "shared-child-impl", "type": "TextParam", "value": "seed"}),
+			},
+			"shared-secret-impl": {
+				ID:      "shared-secret-impl",
+				Type:    "PasswordParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "shared-secret-impl", "type": "PasswordParam", "value": ""}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize password route test project: %v", err)
+	}
+	return project
 }

@@ -75,6 +75,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteMCPServerRuntimeStatus):                  {},
 	bareRouteName(RouteMCPToolCall):                             {},
 	bareRouteName(RouteGetLatestProjectState):                   {},
+	bareRouteName(RouteGetPasswordParamValue):                   {},
 	bareRouteName(RouteCreateTopLevelSection):                   {},
 	bareRouteName(RouteCreateViewMode):                          {},
 	bareRouteName(RouteSetActiveViewMode):                       {},

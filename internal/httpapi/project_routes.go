@@ -53,6 +53,7 @@ const (
 	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
 	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
 	RouteSetWatchCodeInputs             = "/setWatchCodeInputs"
+	RouteGetPasswordParamValue          = "/getPasswordParamValue"
 )
 
 var (
@@ -103,6 +104,16 @@ type SetProjectConfigCodegenTargetsRequest struct {
 type GetLatestProjectStateRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
+}
+
+type GetPasswordParamValueRequest struct {
+	ProjectID   string `json:"projectConfigId"`
+	SectionID   string `json:"sectionId"`
+	ParamInfoID string `json:"paramInfoId"`
+}
+
+type GetPasswordParamValueResponse struct {
+	Value string `json:"value"`
 }
 
 type CreateTopLevelSectionRequest struct {
@@ -376,6 +387,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetLatestProjectState, getLatestProjectStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetPasswordParamValue, getPasswordParamValueHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateTopLevelSection, createTopLevelSectionHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateViewMode, createViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetActiveViewMode, setActiveViewModeHandler(deps))
@@ -448,6 +460,32 @@ func getLatestProjectStateHandler(deps ProjectRouteDependencies) http.HandlerFun
 			CompletedOpIDs: frontendOps.Completed,
 			PendingOpIDs:   frontendOps.Pending,
 		})
+	}
+}
+
+func getPasswordParamValueHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[GetPasswordParamValueRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		value, err := deps.ProjectState.GetPasswordParamValue(
+			r.Context(),
+			payload.ProjectID,
+			payload.SectionID,
+			payload.ParamInfoID,
+		)
+		if err != nil {
+			writeGetPasswordParamValueError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, GetPasswordParamValueResponse{Value: value})
 	}
 }
 
@@ -1578,6 +1616,27 @@ func writeProjectRouteStateError(w http.ResponseWriter, r *http.Request, err err
 		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
 	case errors.Is(err, projectstate.ErrProjectNotFound):
 		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeGetPasswordParamValueError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrSectionIDRequired):
+		writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+	case errors.Is(err, projectstate.ErrCodeObjIDRequired):
+		writeError(w, r, http.StatusBadRequest, "param_info_id_required", "Param info id is required.")
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound):
+		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
+	case errors.Is(err, projectstate.ErrPasswordParamRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "password_param_required", "Param info must resolve to a password param.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}
