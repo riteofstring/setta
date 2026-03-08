@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { getNodes } from "state/actions/nodeInternals";
-import { useActiveSectionUI } from "state/activeSectionUI";
 import {
   useNodeInternals,
+  useProjectState,
   type ZustandNodeInternalsState,
 } from "state/definitions";
 import { useReactFlow } from "../core/store";
@@ -42,7 +42,7 @@ function _MiniMapNodes({
   const nodeColorFunc = getAttrFunction(nodeColor);
   const nodeStrokeColorFunc = getAttrFunction(nodeStrokeColor);
   const nodeClassNameFunc = getAttrFunction(nodeClassName);
-  const activeSectionIds = useActiveSectionUI((x) => x.activeIds);
+  const activeSectionIds = useProjectState((x) => x.projectConfig.activeIds);
 
   const isBrowser = typeof window !== "undefined";
   const isChrome = isBrowser && "chrome" in window;

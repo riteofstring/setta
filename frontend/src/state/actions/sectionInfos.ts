@@ -12,7 +12,6 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -1649,7 +1648,7 @@ export async function groupActiveSections() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const sectionIds = getActiveSectionUIIds();
+  const sectionIds = useProjectState.getState().projectConfig.activeIds;
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
@@ -1662,7 +1661,7 @@ export async function ungroupActiveGroups() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const groupIds = getActiveSectionUIIds();
+  const groupIds = useProjectState.getState().projectConfig.activeIds;
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
