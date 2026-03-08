@@ -80,7 +80,7 @@ import {
   resolveCodeLanguageFromPath,
 } from "utils/codeLanguage";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_get_attachment_download_urls } from "utils/generatedGoEndpoints";
+import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
   BaseChatMessageUnion,
   ChatFileAttachment,

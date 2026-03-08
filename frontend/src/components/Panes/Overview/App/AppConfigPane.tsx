@@ -32,7 +32,7 @@ import {
   route_get_app_definition,
   route_set_app_definition,
   route_validate_app_definition,
-} from "utils/generatedGoEndpoints";
+} from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
   EngineTypeEnum,

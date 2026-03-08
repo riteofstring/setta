@@ -7,12 +7,14 @@ import {
   route_repair_launcher,
   route_setup_launcher,
   route_update_launcher,
+} from "utils/generatedEndpoints";
+import {
   type LauncherRequestBaseInput,
   type LauncherStatusResponse,
   type LauncherUpdateResponse,
   type SetupLauncherRequestInput,
   type UpdateLauncherRequestInput,
-} from "utils/generatedGoEndpoints";
+} from "utils/generatedTypes";
 
 type LauncherActionState =
   | "refresh"

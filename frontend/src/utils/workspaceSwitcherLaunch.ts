@@ -1,5 +1,5 @@
 import { HOME_ROUTER_PATH } from "utils/constants";
-import type { LaunchRequestInput } from "utils/generatedGoEndpoints";
+import type { LaunchRequestInput } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
 export type PendingWorkspaceLaunch = {

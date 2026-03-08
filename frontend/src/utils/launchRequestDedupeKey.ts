@@ -1,4 +1,4 @@
-import type { LaunchRequestInput } from "utils/generatedGoEndpoints";
+import type { LaunchRequestInput } from "utils/generatedTypes";
 
 type SerializableValue =
   | null

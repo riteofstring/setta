@@ -27,15 +27,15 @@ import {
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  type AppGenSkillContent,
-  type AppGenSkillEntry,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_mcp_server_runtime_status,
   route_reveal_path_in_os_file_explorer,
   route_upsert_app_gen_custom_skill,
-} from "utils/generatedGoEndpoints";
+} from "utils/generatedEndpoints";
 import {
+  type AppGenSkillContent,
+  type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   EngineTypeEnum,

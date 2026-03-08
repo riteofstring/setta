@@ -29,11 +29,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
+  route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
-import { route_get_auth_refresh_status } from "utils/generatedGoEndpoints";
-import { GoRootRoutes, GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -43,6 +42,7 @@ import {
   DependencyValueTypeEnum,
   FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
+  RouteEnum,
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
@@ -107,7 +107,8 @@ let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
 const SHARE_SESSION_MISSING_CODE = 4400;
 const SHARE_SESSION_UNKNOWN_CODE = 4404;
-const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRoutes.bootstrapPage}`;
+const BOOTSTRAP_URL = `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.BOOTSTRAP_PAGE}`;
+const FRONTEND_WEBSOCKET_ROUTE = "/ws/frontend";
 const AUTH_RECOVERY_INTERVAL_MS = 2000;
 const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
   C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS;
@@ -151,7 +152,7 @@ function beginWebsocketGeneration(): number {
 
 function buildFrontendWebsocketUrl(shareSessionId: string | null): string {
   const targetUrl = new URL(
-    GoWebsocketRoutes.frontend,
+    FRONTEND_WEBSOCKET_ROUTE,
     C_ADDRESSES.BACKEND_ORIGIN,
   );
   targetUrl.protocol = targetUrl.protocol === "https:" ? "wss:" : "ws:";
@@ -172,7 +173,7 @@ export const openWebSocket = _.debounce(
     if (!isDeploymentMode) {
       stopShareHeartbeat();
     }
-    const route = GoWebsocketRoutes.frontend;
+    const route = FRONTEND_WEBSOCKET_ROUTE;
     const targetUrl = buildFrontendWebsocketUrl(shareSessionId);
     if (
       wssReady(wss) &&

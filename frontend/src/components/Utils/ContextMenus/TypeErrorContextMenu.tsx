@@ -3,7 +3,7 @@ import _ from "lodash";
 import { closeAllContextMenus } from "state/actions/contextMenus";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useContextMenus } from "state/definitions";
-import { route_set_type_error_ignore } from "utils/generatedGoEndpoints";
+import { route_set_type_error_ignore } from "utils/generatedEndpoints";
 import { ContextMenuCore } from "./ContextMenuCore";
 
 export function TypeErrorContextMenu() {

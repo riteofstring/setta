@@ -15,15 +15,18 @@ import {
 } from "state/definitions";
 import { bumpRemoteRevisions } from "state/utils/revisions";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { replaceAddressParams, res200 } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_load_cached_brush_strokes,
   route_load_cached_chart_data,
   route_load_cached_draw_area_layer_item_transform,
   route_load_cached_image_artifacts,
 } from "utils/generatedEndpoints";
-import { GoHTTPRoutes } from "utils/generatedGoRoutes";
-import { ArtifactTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import {
+  ArtifactTypeEnum,
+  RouteEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
@@ -62,9 +65,10 @@ async function loadCachedImages(paths: Array<string>) {
 }
 
 async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
-  const endpoint = replaceAddressParams(GoHTTPRoutes.binaryDownload, {
-    contentId: encodeURIComponent(contentId),
-  });
+  const endpoint = RouteEnum.BINARY_DOWNLOAD.replace(
+    "{contentId}",
+    encodeURIComponent(contentId),
+  );
   const shareSession = useShareSession.getState();
   const headers: HeadersInit = {};
   if (shareSession.isDeploymentMode && shareSession.shareSessionId) {

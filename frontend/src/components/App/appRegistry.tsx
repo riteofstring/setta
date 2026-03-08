@@ -45,10 +45,10 @@ import {
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { res200 } from "utils/endpointUtils";
 import {
+  route_get_password_param_value,
   route_load_cached_image_artifacts,
   route_set_param_entered_value,
 } from "utils/generatedEndpoints";
-import { route_get_password_param_value } from "utils/generatedGoEndpoints";
 import type {
   DateParamCodeObjImpl,
   TimeParamCodeObjImpl,

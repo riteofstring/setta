@@ -9,9 +9,11 @@ import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_workspace_launch_intent,
   route_get_setta_home_info,
+} from "utils/generatedEndpoints";
+import {
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
-} from "utils/generatedGoEndpoints";
+} from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,

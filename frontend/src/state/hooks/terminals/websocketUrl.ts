@@ -1,8 +1,10 @@
 import { C_ADDRESSES } from "utils/c_addresses";
 import { replaceAddressParams } from "utils/endpointUtils";
 import { RouteEnum } from "utils/generatedTypes";
-import { GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import { createNewId } from "utils/idNameCreation";
+
+const IDE_TERMINAL_WEBSOCKET_ROUTE =
+  "/ws/terminals/{projectConfigId}/{sectionId}";
 
 export type BuildTerminalWebsocketUrlOptions = {
   projectConfigId: string;
@@ -28,9 +30,9 @@ export function buildTerminalWebsocketUrl({
         sectionId,
         id: legacyClientID ?? createNewId(),
       })
-    : replaceAddressParams(GoWebsocketRoutes.terminalBySection, {
-        projectID: projectConfigId,
-        sectionID: sectionId,
+    : replaceAddressParams(IDE_TERMINAL_WEBSOCKET_ROUTE, {
+        projectConfigId,
+        sectionId,
       });
 
   const url = new URL(`${C_ADDRESSES.WEBSOCKET}${routePath}`);

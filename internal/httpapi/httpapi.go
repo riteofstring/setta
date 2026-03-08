@@ -23,8 +23,6 @@ import (
 
 const apiPrefix = "/api"
 
-const RouteAPIPrefix = apiPrefix
-
 type InfoService interface {
 	ServerMode(context.Context) string
 	RuntimeInfo(context.Context) RuntimeInfo
