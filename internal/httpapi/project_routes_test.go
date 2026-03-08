@@ -2155,6 +2155,145 @@ func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *
 	}
 }
 
+func TestSectionSizeValueRequestUnmarshalJSONSupportsAutoAndNumbers(t *testing.T) {
+	t.Parallel()
+
+	var autoValue sectionSizeValueRequest
+	if err := json.Unmarshal([]byte(`"auto"`), &autoValue); err != nil {
+		t.Fatalf("unmarshal auto value: %v", err)
+	}
+	if !autoValue.Auto {
+		t.Fatalf("expected auto value to set Auto=true, got %#v", autoValue)
+	}
+
+	var numberValue sectionSizeValueRequest
+	if err := json.Unmarshal([]byte(`240`), &numberValue); err != nil {
+		t.Fatalf("unmarshal numeric value: %v", err)
+	}
+	if numberValue.Auto || numberValue.Value != 240 {
+		t.Fatalf("expected numeric section size value 240, got %#v", numberValue)
+	}
+
+	var invalidValue sectionSizeValueRequest
+	if err := json.Unmarshal([]byte(`"wide"`), &invalidValue); err == nil {
+		t.Fatal("expected invalid section size string to fail")
+	}
+
+	var incompleteSize sectionSizeRequest
+	if err := json.Unmarshal([]byte(`{"width":"auto"}`), &incompleteSize); err == nil {
+		t.Fatal("expected incomplete section size object to fail")
+	}
+}
+
+func TestRegisterProjectRoutesSetSectionSizesPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionSizeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetSectionSizes,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionSizes":{"code-section":{"width":600,"height":120}}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	latestRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLatestProjectState,
+		strings.NewReader(`{"projectConfigId":"project-alpha"}`),
+	)
+	latestRequest.Header.Set("Content-Type", "application/json")
+	latestResponse := httptest.NewRecorder()
+	handler.ServeHTTP(latestResponse, latestRequest)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	codeVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["code-section"]
+	codeImplID := payload.ProjectState.SectionVariants[codeVariantID].Impl
+	codeImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[codeImplID])
+	codeSize, ok := codeImplPayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected code-section size payload, got %#v", codeImplPayload)
+	}
+	if got := codeSize["width"]; got != float64(600) {
+		t.Fatalf("expected code-section width 600, got %#v", got)
+	}
+
+	terminalVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["terminal-section"]
+	terminalImplID := payload.ProjectState.SectionVariants[terminalVariantID].Impl
+	terminalImplPayload := decodeProjectRouteRawObject(t, payload.ProjectState.SectionImpls[terminalImplID])
+	terminalSize, ok := terminalImplPayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected terminal-section size payload, got %#v", terminalImplPayload)
+	}
+	if got := terminalSize["width"]; got != float64(600) {
+		t.Fatalf("expected terminal-section width 600, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesSetSectionSizesRejectsConflictingEmbeddedWidths(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionSizeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetSectionSizes,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionSizes":{"code-section":{"width":600,"height":240},"terminal-section":{"width":500,"height":160}}}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), `"code":"invalid_auto_layout"`) {
+		t.Fatalf("expected invalid_auto_layout body, got %q", response.Body.String())
+	}
+}
+
 func TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -3384,6 +3523,114 @@ func layoutPresentationRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize layout presentation route project: %v", err)
+	}
+	return project
+}
+
+func sectionSizeRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:               "project-alpha",
+		Name:             "Alpha",
+		EntryCodeBlockID: "code-section",
+		ActiveViewModeID: "focus",
+		TopLevelSectionIDs: []string{
+			"code-section",
+			"chart-section",
+		},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"code-section":  {X: 20, Y: 40, ZIndex: 0},
+			"chart-section": {X: 900, Y: 120, ZIndex: 1},
+		},
+		ViewModes: map[string]projectstate.ViewMode{
+			"focus": {
+				ID:   "focus",
+				Name: "Focus",
+				VisibilityBySectionID: map[string]bool{
+					"code-section":  true,
+					"chart-section": true,
+				},
+				TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+					"code-section":  {X: 20, Y: 40, ZIndex: 0},
+					"chart-section": {X: 900, Y: 120, ZIndex: 1},
+				},
+			},
+		},
+		SectionVariantMap: map[string]string{
+			"code-section":     "code-variant",
+			"terminal-section": "terminal-variant",
+			"chart-section":    "chart-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"terminal-section": {
+				ID:               "terminal-section",
+				Name:             "Terminal",
+				ParentSectionID:  "code-section",
+				VariantIDs:       []string{"terminal-variant"},
+				DefaultVariantID: "terminal-variant",
+			},
+			"chart-section": {
+				ID:               "chart-section",
+				Name:             "Chart",
+				VariantIDs:       []string{"chart-variant"},
+				DefaultVariantID: "chart-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"code-variant":     {ID: "code-variant", ImplID: "code-impl"},
+			"terminal-variant": {ID: "terminal-variant", ImplID: "terminal-impl"},
+			"chart-variant":    {ID: "chart-variant", ImplID: "chart-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: projectstate.SectionKindCode,
+				Code: &projectstate.CodeSectionImpl{
+					Language:                  projectstate.CodeLanguagePython,
+					AttachedTerminalSectionID: "terminal-section",
+					Children:                  []string{"terminal-section"},
+				},
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                        "code-impl",
+					"type":                      "Code",
+					"codeLanguage":              "python",
+					"attachedTerminalSectionId": "terminal-section",
+					"children":                  []string{"terminal-section"},
+					"size": map[string]any{
+						"width":  420.0,
+						"height": 180.0,
+					},
+				}),
+			},
+			"terminal-impl": {
+				ID:       "terminal-impl",
+				Kind:     projectstate.SectionKindTerminal,
+				Terminal: &projectstate.TerminalSectionImpl{},
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":   "terminal-impl",
+					"type": "Terminal",
+					"size": map[string]any{
+						"width":  420.0,
+						"height": 160.0,
+					},
+				}),
+			},
+			"chart-impl": {
+				ID:      "chart-impl",
+				Kind:    projectstate.SectionKind("chart"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "chart-impl", "type": "Chart", "size": map[string]any{"width": 180.0, "height": 180.0}}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize section size route project: %v", err)
 	}
 	return project
 }

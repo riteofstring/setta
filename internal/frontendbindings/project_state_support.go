@@ -123,6 +123,8 @@ type UngroupGroupsRequestInput struct {
 	GroupIDs        []string `json:"groupIds"`
 }
 
+type SetSectionSizesRequestInput struct{}
+
 type ToggleParamSelectedRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`
@@ -191,6 +193,14 @@ export type SetSectionParamFilterRequestInput = {
   projectConfigId: string;
   sectionId: string;
   value: string;
+};
+`
+
+const setSectionSizesRequestInputRawTS = `
+export type SetSectionSizesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionSizes: Record<string, SectionSize>;
 };
 `
 

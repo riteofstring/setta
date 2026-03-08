@@ -6519,6 +6519,15 @@ export function createUngroupGroupsRequestInput(options: Partial<UngroupGroupsRe
 }
 
 
+
+export type SetSectionSizesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionSizes: Record<string, SectionSize>;
+};
+
+
+
 export type SetActiveIDsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

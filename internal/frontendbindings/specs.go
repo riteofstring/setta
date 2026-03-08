@@ -417,6 +417,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "UNGROUP_GROUPS",
 				},
 				{
+					Name:     "setSectionSizes",
+					Path:     httpapi.RouteSetSectionSizes,
+					EnumName: "SET_SECTION_SIZES",
+				},
+				{
 					Name:     "setActiveIds",
 					Path:     httpapi.RouteSetActiveIDs,
 					EnumName: "SET_ACTIVE_IDS",
@@ -1329,6 +1334,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "ungroupGroups",
 			RequestType:     reflect.TypeOf(UngroupGroupsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_sizes",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionSizes",
+			RequestType:     reflect.TypeOf(SetSectionSizesRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_active_ids",

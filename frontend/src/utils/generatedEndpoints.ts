@@ -357,6 +357,11 @@ export async function route_ungroup_groups(x: gt.UngroupGroupsRequestInput): Pro
   return await post(GoHTTPRoutes.ungroupGroups, x);
 
 }
+export async function route_set_section_sizes(x: gt.SetSectionSizesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionSizes, x);
+
+}
 export async function route_set_active_ids(x: gt.SetActiveIDsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setActiveIds, x);

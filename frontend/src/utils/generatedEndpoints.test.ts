@@ -72,6 +72,7 @@ import {
   route_set_meta_control_show_section_title,
   route_set_group_overflow_mode,
   route_set_section_param_filter,
+  route_set_section_sizes,
   route_set_section_column_width,
   route_set_section_name,
   route_set_top_level_section_layout,
@@ -649,6 +650,45 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         frontendOpId: "frontend-op-2a",
         activeIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts section size writes with the canonical size-map request shape", async () => {
+    await route_set_section_sizes({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-resize",
+      sectionSizes: {
+        "section-a": {
+          width: 320,
+          height: "auto",
+        },
+        "section-b": {
+          width: "auto",
+          height: 180,
+        },
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionSizes`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-resize",
+        sectionSizes: {
+          "section-a": {
+            width: 320,
+            height: "auto",
+          },
+          "section-b": {
+            width: "auto",
+            height: 180,
+          },
+        },
       }),
     });
   });

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -43,6 +44,7 @@ const (
 	RouteTogglePositionLocks            = "/togglePositionLocks"
 	RouteToggleMinimized                = "/toggleMinimized"
 	RouteSetGroupOverflowMode           = "/setGroupOverflowMode"
+	RouteSetSectionSizes                = "/setSectionSizes"
 	RouteSetCode                        = "/setCode"
 	RouteSetCodeFileBinding             = "/setCodeFileBinding"
 	RouteFormatCode                     = "/formatCode"
@@ -292,6 +294,66 @@ type ToggleMinimizedRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
 	SectionID    string  `json:"sectionId"`
+}
+
+type sectionSizeValueRequest struct {
+	projectstate.SectionSizeValue
+}
+
+func (v *sectionSizeValueRequest) UnmarshalJSON(data []byte) error {
+	var stringValue string
+	if err := json.Unmarshal(data, &stringValue); err == nil {
+		if stringValue != "auto" {
+			return fmt.Errorf("section size value must be a number or \"auto\"")
+		}
+		v.SectionSizeValue = projectstate.AutoSectionSizeValue()
+		return nil
+	}
+
+	var number float64
+	if err := json.Unmarshal(data, &number); err == nil {
+		if math.IsNaN(number) || math.IsInf(number, 0) {
+			return fmt.Errorf("section size value must be finite")
+		}
+		v.SectionSizeValue = projectstate.FixedSectionSizeValue(number)
+		return nil
+	}
+
+	return fmt.Errorf("section size value must be a number or \"auto\"")
+}
+
+type sectionSizeRequest struct {
+	Width  sectionSizeValueRequest `json:"width"`
+	Height sectionSizeValueRequest `json:"height"`
+}
+
+func (s *sectionSizeRequest) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		Width  *sectionSizeValueRequest `json:"width"`
+		Height *sectionSizeValueRequest `json:"height"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+	if payload.Width == nil || payload.Height == nil {
+		return fmt.Errorf("section size must include width and height")
+	}
+	s.Width = *payload.Width
+	s.Height = *payload.Height
+	return nil
+}
+
+func (s sectionSizeRequest) ProjectStateValue() projectstate.SectionSize {
+	return projectstate.SectionSize{
+		Width:  s.Width.SectionSizeValue,
+		Height: s.Height.SectionSizeValue,
+	}
+}
+
+type SetSectionSizesRequest struct {
+	FrontendOpID *string                       `json:"frontendOpId"`
+	ProjectID    string                        `json:"projectConfigId"`
+	SectionSizes map[string]sectionSizeRequest `json:"sectionSizes"`
 }
 
 type SetCallableRequest struct {
@@ -544,6 +606,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteViewMode, deleteViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetTopLevelSectionLayout, setTopLevelSectionLayoutHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAutoLayoutTopLevelSections, autoLayoutTopLevelSectionsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionSizes, setSectionSizesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetShowParamDisplayNames, setShowParamDisplayNamesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionName, setSectionNameHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteAcceptRenameRefactor, acceptRenameRefactorHandler(deps))
@@ -880,6 +943,47 @@ func setShowParamDisplayNamesHandler(deps ProjectRouteDependencies) http.Handler
 		}
 
 		if _, err := deps.ProjectState.SetShowParamDisplayNames(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, payload.ShowParamDisplayNames); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionSizesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionSizesRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
+		if err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+
+		sectionSizes := make(map[string]projectstate.SectionSize, len(payload.SectionSizes))
+		for sectionID, size := range payload.SectionSizes {
+			sectionSizes[sectionID] = size.ProjectStateValue()
+		}
+		if _, err := deps.ProjectState.SetSectionSizes(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionSizes,
+			settings,
+		); err != nil {
 			writeProjectLayoutMutationError(w, r, err)
 			return
 		}
@@ -2482,6 +2586,10 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusUnprocessableEntity, "section_param_filter_unsupported", err.Error())
 	case errors.Is(err, projectstate.ErrMetaControlSectionRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "meta_control_section_required", "Section must resolve to a meta control section.")
+	case projectstate.IsInvalidAutoLayoutError(err),
+		errors.Is(err, projectstate.ErrSettingsValueInvalid),
+		errors.Is(err, settingsstate.ErrSettingsValueInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_auto_layout", err.Error())
 	case errors.Is(err, projectstate.ErrSectionParamColumnWidthUnsupported):
 		writeError(w, r, http.StatusUnprocessableEntity, "section_param_column_width_unsupported", err.Error())
 	default:

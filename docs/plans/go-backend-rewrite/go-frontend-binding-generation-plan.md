@@ -128,6 +128,7 @@ Current landed wedge:
     - current layout/selection/viewport mutation payloads
       - `TopLevelSectionLayoutInput`
       - `SetTopLevelSectionLayoutRequestInput`
+      - `SetSectionSizesRequestInput`
       - `SetActiveIDsRequestInput`
       - `ViewportInput`
       - `SetViewportRequestInput`

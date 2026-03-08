@@ -364,6 +364,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setSectionParamFilterRequestInputRawTS,
 			},
+			reflect.TypeOf(SetSectionSizesRequestInput{}): {
+				Name: "SetSectionSizesRequestInput",
+				Kind: "raw",
+				Raw:  setSectionSizesRequestInputRawTS,
+			},
 			reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}): {
 				Name: "SetMetaControlShowSectionTitleRequestInput",
 				Kind: "raw",
