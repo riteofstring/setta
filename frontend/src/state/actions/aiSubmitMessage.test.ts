@@ -47,7 +47,6 @@ let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
-const DRAFT_SURFACE_ID = "submit-draft-surface";
 
 describe("submitMessage", () => {
   beforeAll(async () => {
@@ -134,7 +133,6 @@ describe("submitMessage", () => {
           waitingForResponse: false,
         },
       },
-      pendingChatDetailsBySurfaceId: {},
     });
 
     mockedRouteGetLLMResponse.mockResolvedValue({
@@ -207,7 +205,6 @@ describe("submitMessage", () => {
         "engine-primary",
         false,
         {
-          pendingSurfaceId: DRAFT_SURFACE_ID,
           appGeneration: {
             mode: "mcp_server",
             referenceImageUrl: "https://example.com/reference.png",
@@ -252,9 +249,6 @@ describe("submitMessage", () => {
         true,
         "engine-primary",
         false,
-        {
-          pendingSurfaceId: DRAFT_SURFACE_ID,
-        },
       ),
     ).resolves.toBeNull();
 
@@ -288,7 +282,6 @@ describe("submitMessage", () => {
         "engine-primary",
         false,
         {
-          pendingSurfaceId: DRAFT_SURFACE_ID,
           executionSettings: {
             permissionMode: "yolo",
             searchEnabled: false,
@@ -313,6 +306,45 @@ describe("submitMessage", () => {
     expect(payload.permissionMode).toBe("yolo");
     expect(payload.searchEnabled).toBe(false);
     expect(payload.appSpecStreamingEnabled).toBe(true);
+  });
+
+  it("forces streaming preview on json-render app generation submits", async () => {
+    useLocalStorage.setState({
+      appSpecStreamingEnabled: false,
+    });
+    mockedRouteGetLLMResponse.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Generate directly in the app pane.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          appGeneration: {
+            mode: "json_render",
+            referenceImageUrl: null,
+            referenceImageNotes: null,
+          },
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(mockedRouteGetLLMResponse).toHaveBeenCalledTimes(1);
+    const [payload] = mockedRouteGetLLMResponse.mock.calls[0] as [
+      {
+        appSpecStreamingEnabled: boolean;
+        appGenerationMode: string | null;
+      },
+    ];
+    expect(payload.appSpecStreamingEnabled).toBe(true);
+    expect(payload.appGenerationMode).toBe("json_render");
   });
 
   it("refreshes agent runs after successful submit hydration", async () => {
@@ -377,9 +409,6 @@ describe("submitMessage", () => {
         true,
         "engine-primary",
         false,
-        {
-          pendingSurfaceId: DRAFT_SURFACE_ID,
-        },
       ),
     ).resolves.toBe(returnedChatId);
 
@@ -408,9 +437,6 @@ describe("submitMessage", () => {
         false,
         "engine-primary",
         false,
-        {
-          pendingSurfaceId: DRAFT_SURFACE_ID,
-        },
       ),
     ).resolves.toBeNull();
 
@@ -422,7 +448,6 @@ describe("submitMessage", () => {
 
   it("routes optimistic user messages to the selected chat when chatId is provided", async () => {
     const chatId = "chat-route-selected";
-    const untouchedSurfaceId = "untouched-surface";
     const releaseSubmit: { resolve: (() => void) | null } = { resolve: null };
     const submitGate = new Promise<void>((resolve) => {
       releaseSubmit.resolve = resolve;
@@ -462,23 +487,7 @@ describe("submitMessage", () => {
           waitingForResponse: false,
         },
       },
-      pendingChatDetailsBySurfaceId: {
-        [untouchedSurfaceId]: {
-          ...getDefaultChatDetails(),
-          messages: [
-            createUserChatMessage({
-              id: "untouched-user-msg",
-              content: [
-                createMessageTextContent({
-                  text: "Do not touch this pending draft.",
-                }),
-              ],
-              attachments: [],
-            }),
-          ],
-          waitingForResponse: true,
-        },
-      },
+      pendingChatDetails: null,
     });
 
     const submitPromise = submitMessage(
@@ -501,10 +510,7 @@ describe("submitMessage", () => {
       )
       .toBe(true);
     const optimisticState = useAIStore.getState();
-    expect(
-      optimisticState.pendingChatDetailsBySurfaceId[untouchedSurfaceId]
-        ?.messages[0]?.id,
-    ).toBe("untouched-user-msg");
+    expect(optimisticState.pendingChatDetails).toBeNull();
     releaseSubmit.resolve?.();
 
     await expect(submitPromise).resolves.toBe(chatId);
@@ -546,7 +552,7 @@ describe("submitMessage", () => {
     });
     useAIStore.setState({
       activeChatId: undefined,
-      pendingChatDetailsBySurfaceId: {},
+      pendingChatDetails: null,
       chatDetails: {
         [existingChatId]: {
           ...getDefaultChatDetails(),
@@ -573,9 +579,6 @@ describe("submitMessage", () => {
       true,
       "engine-primary",
       false,
-      {
-        pendingSurfaceId: DRAFT_SURFACE_ID,
-      },
     );
 
     // Wait for optimistic pending draft state to be applied.
@@ -584,9 +587,9 @@ describe("submitMessage", () => {
         return (
           useAIStore
             .getState()
-            .pendingChatDetailsBySurfaceId[
-              DRAFT_SURFACE_ID
-            ]?.messages.some((message) => message.role === "user") ?? false
+            .pendingChatDetails?.messages.some(
+              (message) => message.role === "user",
+            ) ?? false
         );
       })
       .toBe(true);
@@ -605,9 +608,10 @@ describe("submitMessage", () => {
     });
 
     const stateDuringRace = useAIStore.getState();
-    const pendingUserMessage = stateDuringRace.pendingChatDetailsBySurfaceId[
-      DRAFT_SURFACE_ID
-    ]?.messages.find((message) => message.role === "user");
+    const pendingUserMessage =
+      stateDuringRace.pendingChatDetails?.messages.find(
+        (message) => message.role === "user",
+      );
     const pendingUserText =
       pendingUserMessage?.content
         .filter((part) => part.type === "text")

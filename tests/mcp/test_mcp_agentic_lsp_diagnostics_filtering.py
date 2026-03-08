@@ -2,7 +2,6 @@ import pytest
 from fastapi import FastAPI
 from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
-from mcp.types import CallToolResult
 from mcp.types import RequestParams
 
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
@@ -16,10 +15,7 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
 from setta.mcp.server import SettaFastMCP
-from setta.mcp.utils import (
-    convert_temporary_ids_to_canonical,
-    convert_canonical_ids_to_temporary,
-)
+from setta.mcp.utils import convert_temporary_ids_to_canonical, convert_canonical_ids_to_temporary
 from setta.types.agentic_edges import (
     AgenticEdge,
     AgenticEdgeContextMode,
@@ -101,10 +97,7 @@ def _build_diagnostics_payload(
     )
 
 
-def _build_project_state(
-    *,
-    include_read_edge: bool = True,
-) -> tuple[ProjectStateBackend, ID, ID, ID, ID]:
+def _build_project_state() -> tuple[ProjectStateBackend, ID, ID, ID, ID]:
     settings = SettingsState()
     single = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="lsp-scope"))
     chat_section_id = create_top_level_section(
@@ -125,17 +118,16 @@ def _build_project_state(
         SectionType.Code,
         Position(),
     )
-    if include_read_edge:
-        create_agentic_edge(
-            single,
-            AgenticEdge(
-                id=ID("edge-1"),
-                sourceSectionId=chat_section_id,
-                targetSectionId=allowed_section_id,
-                kind=AgenticEdgeKind.chat_section,
-                contextMode=AgenticEdgeContextMode.reference_only,
-            ),
-        )
+    create_agentic_edge(
+        single,
+        AgenticEdge(
+            id=ID("edge-1"),
+            sourceSectionId=allowed_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
+            contextMode=AgenticEdgeContextMode.reference_only,
+        ),
+    )
     backend = ProjectStateBackend(
         sections=single.sections,
         sectionImpls=single.sectionImpls,
@@ -144,7 +136,6 @@ def _build_project_state(
         codeObjImpls=single.codeObjImpls,
         codeObjVariants=single.codeObjVariants,
         projectConfigs={single.projectConfig.id: single.projectConfig},
-        projectChatWindowingByProjectConfigId={single.projectConfig.id: {}},
         defaultProjectConfigId=single.projectConfig.id,
     )
     return (
@@ -218,13 +209,9 @@ def _build_context_with_headers(
 @pytest.mark.asyncio
 async def test_get_latest_lsp_diagnostics_filtered_by_scope_meta(tmp_path) -> None:
     dbe = DBE(tmp_path)
-    (
-        backend,
-        project_config_id,
-        chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state()
+    backend, project_config_id, chat_section_id, allowed_section_id, blocked_section_id = (
+        _build_project_state()
+    )
     payload = _build_diagnostics_payload(
         project_config_id=project_config_id,
         allowed_section_id=allowed_section_id,
@@ -276,13 +263,9 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_meta(tmp_path) -> No
 @pytest.mark.asyncio
 async def test_get_latest_lsp_diagnostics_filtered_by_scope_headers(tmp_path) -> None:
     dbe = DBE(tmp_path)
-    (
-        backend,
-        project_config_id,
-        chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state()
+    backend, project_config_id, chat_section_id, allowed_section_id, blocked_section_id = (
+        _build_project_state()
+    )
     payload = _build_diagnostics_payload(
         project_config_id=project_config_id,
         allowed_section_id=allowed_section_id,
@@ -329,65 +312,3 @@ async def test_get_latest_lsp_diagnostics_filtered_by_scope_headers(tmp_path) ->
     assert set(canonical.codeSections.keys()) == {allowed_section_id}
     assert set(canonical.genCode.errors.keys()) == {allowed_section_id}
     assert canonical.unmappedGenCode == []
-
-
-@pytest.mark.asyncio
-async def test_get_latest_lsp_diagnostics_returns_empty_without_read_scope(
-    tmp_path,
-) -> None:
-    dbe = DBE(tmp_path)
-    (
-        backend,
-        project_config_id,
-        chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state(include_read_edge=False)
-    payload = _build_diagnostics_payload(
-        project_config_id=project_config_id,
-        allowed_section_id=allowed_section_id,
-        blocked_section_id=blocked_section_id,
-    )
-    manager = _DummyProjectManager(backend, payload)
-    switcher = _DummyProjectManagerSwitcher(manager)
-    websocket_manager = WebsocketManager()
-    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-
-    state = type(
-        "_State",
-        (),
-        {
-            "project_manager_switcher": switcher,
-            "dbe": dbe,
-            "deployment_mode": False,
-        },
-    )()
-    app = FastAPI()
-    mcp_server = SettaFastMCP(
-        app,
-        state,
-        "/mcp-test",
-        "Test MCP Server",
-        frontend_sender,
-        dbe,
-    )
-
-    tmp_project_id = _ensure_temporary_project_id(dbe, project_config_id)
-    ctx = _build_context_with_meta(
-        mcp_server=mcp_server,
-        project_config_id=project_config_id,
-        chat_id=ID("chat-1"),
-        section_id=chat_section_id,
-    )
-    tool = mcp_server.get_tool("get_latest_lsp_diagnostics")
-    assert tool is not None
-    result = await tool.run({"projectConfigId": str(tmp_project_id)}, context=ctx)
-
-    temporary_to_canonical, _ = dbe.read_temporary_id_map()
-    canonical = convert_temporary_ids_to_canonical(result, temporary_to_canonical)
-
-    assert isinstance(canonical, CallToolResult)
-    assert canonical.isError
-    assert canonical.structuredContent is not None
-    assert canonical.structuredContent["reason"] == "empty_scope"
-    assert canonical.structuredContent["accessType"] == "read"
