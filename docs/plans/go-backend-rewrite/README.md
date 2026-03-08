@@ -10,19 +10,21 @@ for historical phase material.
    - current state, deliberate boundaries, and agent workflow
 2. `backend-feature-checklist.md`
    - fastest feature/parity lookup
-3. `go-backend-rewrite-plan.md`
+3. `backend-feature-checklist-audit-plan.md`
+   - maintenance rules for keeping the checklist current-caller-accurate
+4. `go-backend-rewrite-plan.md`
    - stable rewrite charter and reopening rules
-4. `testing-strategy.md`
+5. `testing-strategy.md`
    - test bar for follow-on work
-5. `go-dependency-inventory-and-rationale.md`
+6. `go-dependency-inventory-and-rationale.md`
    - current `go.mod` explanation
-6. `go-backend-rewrite-stack-recommendations.md`
+7. `go-backend-rewrite-stack-recommendations.md`
    - earlier design input, not the current source of truth
-7. `dependency-docs-local-reference.md`
+8. `dependency-docs-local-reference.md`
    - dependency-doc acquisition rules
-8. `pyproject-dependency-replacement-snapshot.md`
+9. `pyproject-dependency-replacement-snapshot.md`
    - point-in-time Python dependency classification
-9. `archive/README.md`
+10. `archive/README.md`
    - historical `phase-*` and `spike-*` docs
 
 ## Agent Rules
