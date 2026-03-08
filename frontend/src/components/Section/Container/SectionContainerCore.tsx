@@ -18,9 +18,12 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
-import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import { getOnSectionClick, useAiSectionHighlight } from "./utils";
+import {
+  getOnSectionClick,
+  getOutlineColor,
+  useAiSectionHighlight,
+} from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -121,20 +124,57 @@ function _SectionContainerCore({
         "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
       } as React.CSSProperties)
     : undefined;
-  const sectionShellClassName = getSectionContainerShellClassName({
+  const sectionStyleChromeClassName = hasSectionStyleTheme
+    ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
+    : "";
+
+  // const boxShadow = !positionAndSizeLocked
+  //   ? isActiveSection
+  //     ? "shadow-2xl dark:shadow-setta-925"
+  //     : "shadow-md dark:shadow-setta-900/30 [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:shadow-2xl dark:[&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
+  //   : "";
+
+  const boxShadow = !positionAndSizeLocked
+    ? "shadow-md dark:shadow-setta-900/30"
+    : "";
+
+  const outlineColor = getOutlineColor({
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
-    useMetaControlStyle,
-    hasSectionStyleTheme,
-    positionAndSizeLocked,
-    forceHideOutline,
-    joinedCorners,
-    isJoinedAttachedTerminalChild,
-    omitAgenticHandleScopeClass,
-    aiHighlightClassName,
-    scopeHighlightClassName,
+    // jsonSourceMissing,
   });
+  const sectionStyleOutlineClassName = hasSectionStyleTheme
+    ? isActiveSection
+      ? "outline-[color:var(--setta-section-style-outline)]"
+      : "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-[color:var(--setta-section-style-outline)]"
+    : outlineColor;
+  const containerBgClass = useMetaControlStyle
+    ? "bg-transparent dark:bg-transparent"
+    : "bg-white dark:bg-setta-925";
+  const containerBorderClass = useMetaControlStyle
+    ? "!border-transparent dark:!border-transparent"
+    : "";
+  const outlineClassName = useMetaControlStyle
+    ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
+    : sectionStyleOutlineClassName;
+  const shouldHideOutline = forceHideOutline || isJoinedAttachedTerminalChild;
+  let outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
+  if (shouldHideOutline) {
+    outlineSizeClassName = "outline-0";
+  }
+  const themedHandleScopeClassName = hasSectionStyleTheme
+    ? "agentic-handle-scope--themed"
+    : "";
+  let joinedCornerClassName = "";
+  if (joinedCorners === "code-terminal-parent") {
+    joinedCornerClassName = "rounded-b-none";
+  } else if (isJoinedAttachedTerminalChild) {
+    joinedCornerClassName = "rounded-t-none";
+  }
+  const handleScopeClassName = omitAgenticHandleScopeClass
+    ? ""
+    : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
@@ -142,7 +182,7 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={sectionShellClassName}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
