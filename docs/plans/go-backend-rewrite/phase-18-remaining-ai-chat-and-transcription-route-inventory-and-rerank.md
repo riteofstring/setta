@@ -60,6 +60,9 @@ Current Go state relevant to this inventory:
 - `internal/transcriptionprofiles`
   - already owns transcription-profile read/write plus live capability
     attachment
+- `internal/transcriptionsessions`
+  - now owns scoped file-mode transcription session lifecycle, WAV upload, and
+    TTL cleanup in IDE mode
 
 Question this inventory answers:
 
@@ -169,9 +172,9 @@ Why this belongs with managed chat instead of a separate transport slice:
 - Go already has the project-state mutation transport pattern needed for these
   routes
 
-### 3. Transcription session runtime is still active, but it is a separate runtime cluster
+### 3. Transcription session runtime is now partially landed as a separate runtime cluster
 
-These direct frontend routes remain Python-owned:
+These direct frontend routes are now Go-owned for the bounded file-mode slice:
 
 - `POST /startTranscriptionSession`
 - `POST /appendTranscriptionAudio`
@@ -183,7 +186,16 @@ Current callers:
 - `frontend/src/state/actions/ai.ts`
   - drives the full dictation/provider-transcription flow through these routes
 
-Why this is not the same slice as managed chat:
+What landed:
+
+- file-mode session ownership in `internal/transcriptionsessions`
+- explicit `internal/transcriptionprofiles.Resolve(...)` lookup boundary
+- thin AI transport in `internal/httpapi`
+- real IDE app wiring through the auth session scope and LLM runtime
+- temporary `auto -> file` resolution for the current bounded Go slice
+- explicit `503 transcription_runtime_unavailable` for realtime profiles
+
+Why this remains a separate cluster from managed chat:
 
 - the runtime owner is audio-session and provider-transcription lifecycle, not
   managed chat send/hydrate/stop
@@ -195,9 +207,9 @@ Why this is not the same slice as managed chat:
 
 Rerank:
 
-- still important
-- not the first Phase 18 executable slice
-- recommended as the next adjacent AI/runtime follow-on after managed chat
+- file-mode caller-backed surface is now landed
+- realtime transport remains the next adjacent AI/runtime follow-on if
+  incremental provider dictation is still required
 
 ### 4. `POST /getChatSectionChatId` remains dormant for the current direct frontend surface
 
@@ -224,8 +236,9 @@ Rerank:
    managed `/getLLMResponse`, `/getLLMChat`, `/stopLLMChat`, plus
    `/setChatSectionSettings`, `/setChatSectionState`, and
    `/setChatSectionChatId`.
-2. The next adjacent AI/runtime slice after that should be transcription
-   session ownership if dictation remains an active product dependency.
+2. The next adjacent AI/runtime slice after that is now realtime
+   transcription-session ownership if incremental provider dictation remains
+   an active product dependency.
 3. Dormant `getChatSectionChatId` does not justify a separate route slice now.
 
 ## Decisions Made
@@ -270,6 +283,12 @@ Rerank:
   AI-follow result parity or broader preview-kind coverage, plus optional
   broader provider-native reasoning defaults, while transcription remains
   separate.
+- 2026-03-09: landed the bounded Go-owned transcription-session file slice for
+  start / append / stop / cancel transport, scoped in-memory session runtime,
+  and real IDE app wiring.
+- 2026-03-09: kept realtime explicit as a remaining Go runtime gap instead of
+  misclassifying it as an unsupported model when the selected config may be
+  valid.
 
 ## Verification
 
@@ -283,15 +302,13 @@ Rerank:
   - `./scripts/go.sh test ./internal/agentruns ./internal/managedllm ./internal/httpapi ./internal/app -run 'Test(ServiceRunSubAgentRejectsValidatedRequestBeforeSave|Executor(RejectsThinkingWithoutExplicitProviderConfig|ValidateAllowsThinkingWithExplicitReasoningConfig)|RegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported|AppServesManagedChatThinkingUnsupportedWithoutExplicitProviderConfig)' -count=1`
   - `./scripts/go.sh test ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/app -run 'Test(ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ToolPreviewAccumulatorBuildsAppSpecPatchEvent|ScanPartialJSONStringsHandlesEscapedPreviewString|ExecutorExecuteStreamsManagedToolArgumentPreview|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket)' -count=1`
   - `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
+  - `./scripts/go.sh test ./internal/transcriptionprofiles ./internal/transcriptionsessions ./internal/httpapi ./internal/app -run 'Test(Service|RegisterAIRoutes|AppServes(FileModeTranscriptionSessionRoutes|ManagedChatSendThroughManagedExecutor|ManagedChatThinkingUnsupportedWithoutExplicitProviderConfig))' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- add broader preview-kind coverage only if a concrete current frontend caller
-  still depends on websocket surfaces beyond the landed app-spec patch preview
-  and tool-result follow slices
-- add broader provider-native managed reasoning defaults only if the active
-  product surface still needs more than explicit config plus early rejection
-- otherwise keep transcription-session runtime as the next adjacent bounded
-  AI/runtime slice
+Implement the bounded realtime transcription-session owner if incremental
+provider dictation is still required by the active surface. Only rerank back
+to broader managed preview or reasoning follow-ons if a concrete current
+caller proves that gap first.

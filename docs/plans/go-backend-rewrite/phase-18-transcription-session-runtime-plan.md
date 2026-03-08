@@ -49,6 +49,22 @@ Still Python-owned before this slice:
 - file-mode provider upload execution
 - route-level typed transcription error mapping
 
+Landed during Slice 1:
+
+- `internal/transcriptionsessions` now owns scoped in-memory transcription
+  session lifecycle for IDE mode
+- Go now owns file-mode buffered PCM16 validation, WAV conversion, stop-time
+  provider upload, and TTL cleanup
+- `internal/transcriptionprofiles.Service` now exposes an explicit
+  `Resolve(...)` boundary so session start does not read raw stores directly
+- `internal/httpapi` now owns thin Go routes for:
+  - `POST /startTranscriptionSession`
+  - `POST /appendTranscriptionAudio`
+  - `POST /stopTranscriptionSession`
+  - `POST /cancelTranscriptionSession`
+- the real IDE app now wires those routes through the auth session scope, the
+  landed LLM runtime, and the new transcription-session cleanup loop
+
 ## Scope
 
 This slice should land the first bounded Go-owned transcription surface:
@@ -176,9 +192,7 @@ websocket transport.
 
 ## Verification
 
-Planned verification for this slice:
-
-- `./scripts/go.sh test ./internal/transcriptionsessions ./internal/httpapi ./internal/app -run 'Test(Service|RegisterAIRoutes|AppServesTranscriptionSession)' -count=1`
+- `./scripts/go.sh test ./internal/transcriptionprofiles ./internal/transcriptionsessions ./internal/httpapi ./internal/app -run 'Test(Service|RegisterAIRoutes|AppServes(FileModeTranscriptionSessionRoutes|ManagedChatSendThroughManagedExecutor|ManagedChatThinkingUnsupportedWithoutExplicitProviderConfig))' -count=1`
 
 ## Progress Notes
 
@@ -190,9 +204,19 @@ Planned verification for this slice:
 - 2026-03-09: scoped Slice 1 to file-mode session ownership, temporary
   `auto -> file`, and explicit realtime runtime-unavailable behavior rather
   than bundling realtime session transport into the same landing.
+- 2026-03-09: landed the explicit `internal/transcriptionprofiles.Resolve`
+  boundary so the new runtime consumes hydrated profile/config state instead
+  of raw store reads.
+- 2026-03-09: landed Go-owned file-mode transcription session ownership,
+  route transport, typed error mapping, and real app wiring through the
+  current IDE session scope.
+- 2026-03-09: kept realtime transport explicit by returning
+  `503 transcription_runtime_unavailable` for realtime profiles rather than
+  smuggling in a partial or misleading fallback.
 
 ## Next Recommended Step
 
-Implement the bounded file-mode transcription session runtime and route
-transport, then rerank to the first realtime session slice if the active
-caller still needs incremental provider dictation.
+Implement the bounded realtime transcription session owner if the active
+caller still needs incremental provider dictation; otherwise keep the landed
+file-mode surface and temporary `auto -> file` rule as the bounded Go-owned
+provider-dictation path.

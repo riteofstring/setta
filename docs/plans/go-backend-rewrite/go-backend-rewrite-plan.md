@@ -50,6 +50,13 @@ managed reasoning defaults beyond the landed explicit-config / explicit-reject
 landed managed live chat runtime, the bounded OpenAI executor, and the bounded
 MCP tool path.
 
+The separate transcription-session runtime is no longer completely deferred:
+the bounded file-mode slice is now Go-owned through
+`internal/transcriptionsessions`, thin AI route transport, and real IDE app
+wiring. The remaining direct transcription gap is narrower and explicit:
+realtime session ownership, with temporary `auto -> file` behavior kept as the
+current bounded clean-break rule until that runtime lands.
+
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
 
@@ -106,9 +113,21 @@ parity:
 - real IDE app websocket coverage proving the existing frontend preview
   consumer path now receives managed app-spec patch preview deltas
 
-The separate transcription-session runtime remains a later bounded AI follow-on
-instead of being bundled into that managed-chat slice. The current bounded
-Go-owned Phase 12 surface now includes:
+The eighth Phase 18 slice is now landed for bounded transcription-session
+file-mode ownership:
+
+- Go-owned `POST /startTranscriptionSession`,
+  `POST /appendTranscriptionAudio`, `POST /stopTranscriptionSession`, and
+  `POST /cancelTranscriptionSession`
+- scoped IDE in-memory transcription session ownership in
+  `internal/transcriptionsessions`
+- file-mode PCM16 buffering, WAV conversion, stop-time provider upload, and
+  typed route error mapping
+- real IDE app wiring plus cleanup-loop ownership for inactive sessions
+
+The remaining transcription follow-on is now the bounded realtime session
+owner rather than the whole route cluster. The current bounded Go-owned Phase
+12 surface now includes:
 
 - `internal/externalagentconfigs`
   - read access to `external_agents.json`
