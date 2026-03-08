@@ -488,7 +488,6 @@ function CustomResizableSuperCore({
     isYouTube,
     frameClassName,
     layoutClassName: layoutClassNameToUse,
-    zIndexClassName: zIndexClass,
     metaHoverZIndexClassName: metaHoverZIndexClass,
   });
 

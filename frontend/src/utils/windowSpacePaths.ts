@@ -4,7 +4,7 @@ import { sanitizeNameForSlug } from "./nameValidation";
 
 type WindowSpacePathProjectState = {
   projectConfig: {
-    windowSpaces?: Record<string, WindowSpaceConfig> | null;
+    windowSpaces: Record<string, WindowSpaceConfig>;
   };
 };
 
@@ -29,7 +29,7 @@ type StandaloneWindowSpaceSlugResolution =
 function getWindowSpaceSlugIndex(
   state: WindowSpacePathProjectState,
 ): WindowSpaceSlugIndex {
-  const windowSpaces = state.projectConfig.windowSpaces ?? {};
+  const { windowSpaces } = state.projectConfig;
   const slugToIds: WindowSpaceSlugIndex = {};
   for (const [windowSpaceId, windowSpace] of Object.entries(windowSpaces)) {
     const slug = sanitizeNameForSlug(windowSpace.name);
@@ -66,8 +66,7 @@ export function resolveStandaloneWindowSpaceSlug(
       windowSpaceSlug,
     };
   }
-  const windowSpaces = state.projectConfig.windowSpaces ?? {};
-  const windowSpace = windowSpaces[windowSpaceId];
+  const windowSpace = state.projectConfig.windowSpaces[windowSpaceId];
   if (!windowSpace) {
     return {
       kind: "not_found",

@@ -70,19 +70,7 @@ export function sortWindowSpaces(
 export function getProjectWindowSpaces(
   projectConfig: Pick<ZustandProjectState["projectConfig"], "windowSpaces">,
 ): Record<string, WindowSpaceConfig> {
-  return projectConfig.windowSpaces ?? {};
-}
-
-function ensureProjectWindowSpaces(
-  projectConfig: ZustandProjectState["projectConfig"],
-): Record<string, WindowSpaceConfig> {
-  const existingWindowSpaces = projectConfig.windowSpaces;
-  if (existingWindowSpaces) {
-    return existingWindowSpaces;
-  }
-  const nextWindowSpaces: Record<string, WindowSpaceConfig> = {};
-  projectConfig.windowSpaces = nextWindowSpaces;
-  return nextWindowSpaces;
+  return projectConfig.windowSpaces;
 }
 
 function resolveNextWindowSpaceName(
@@ -104,7 +92,7 @@ export function applyWindowSpaceSortOrder(
   state: ZustandProjectState,
   orderedWindowSpaceIds: Array<string>,
 ): void {
-  const windowSpaces = ensureProjectWindowSpaces(state.projectConfig);
+  const windowSpaces = state.projectConfig.windowSpaces;
   if (orderedWindowSpaceIds.length !== Object.keys(windowSpaces).length) {
     throw new Error(
       "orderedWindowSpaceIds must include every window space exactly once.",
@@ -123,7 +111,11 @@ export function applyWindowSpaceSortOrder(
   }
 
   orderedWindowSpaceIds.forEach((windowSpaceId, index) => {
-    windowSpaces[windowSpaceId].sortIndex = index;
+    const windowSpace = windowSpaces[windowSpaceId];
+    if (!windowSpace) {
+      throw new Error(`Window space ${windowSpaceId} not found.`);
+    }
+    windowSpace.sortIndex = index;
   });
 }
 
@@ -413,13 +405,13 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   if (!(windowSpaceId in windowSpaces)) {
     throw new Error(`Window space ${windowSpaceId} not found.`);
   }
+  const windowSpace = windowSpaces[windowSpaceId];
+  if (!windowSpace) {
+    throw new Error(`Window space ${windowSpaceId} not found.`);
+  }
   const restoredFloatingWindowing =
-    createProjectChatWindowingStateFromWindowSpace(
-      windowSpaces[windowSpaceId],
-      state,
-    );
-  const currentWindowing =
-    state.projectChatWindowing ?? createProjectChatWindowingState();
+    createProjectChatWindowingStateFromWindowSpace(windowSpace, state);
+  const currentWindowing = state.projectChatWindowing;
   const remappedRestoredFloatingWindowing =
     remapRestoredWindowSpaceInstanceIdsForWorkspace(
       restoredFloatingWindowing,
@@ -532,7 +524,7 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     return null;
   }
   useProjectState.setState((currentState) => {
-    const windowSpaces = ensureProjectWindowSpaces(currentState.projectConfig);
+    const windowSpaces = currentState.projectConfig.windowSpaces;
     if (windowSpaces[response.data]) {
       return;
     }

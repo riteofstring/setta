@@ -1,10 +1,10 @@
-import {
-  getCurrEffectiveSectionImpl,
-  getSectionChildren,
-} from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
-import type { SectionType } from "utils/generatedTypes";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  isBaseParentSectionImpl,
+  SectionTypeEnum,
+  type BaseSectionImplUnion,
+  type SectionType,
+} from "utils/generatedTypes";
 import { sanitizeNameForSlug } from "./nameValidation";
 
 type SectionSlugProjectState = Pick<
@@ -50,6 +50,44 @@ function resolveSectionName(
   return state.sections[sectionId]?.name ?? "";
 }
 
+function getSectionEffectiveImplForSlugPath(
+  state: SectionSlugProjectState,
+  sectionId: string,
+): BaseSectionImplUnion {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    throw new Error(`Missing section variant for section ${sectionId}.`);
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    throw new Error(`Missing section variant ${variantId}.`);
+  }
+  const baseImpl = state.sectionImpls[variant.impl];
+  if (!baseImpl) {
+    throw new Error(`Missing section impl ${variant.impl}.`);
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    throw new Error(`Missing section core ${sectionId}.`);
+  }
+  return {
+    ...baseImpl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  } as BaseSectionImplUnion;
+}
+
+function getSectionChildrenForSlugPath(
+  state: SectionSlugProjectState,
+  parentId: string,
+): Array<string> {
+  const impl = getSectionEffectiveImplForSlugPath(state, parentId);
+  if (!isBaseParentSectionImpl(impl)) {
+    throw new Error(`Section ${parentId} is not a parent section.`);
+  }
+  return impl.children;
+}
+
 export function resolveSectionFullPathName(
   state: SectionSlugProjectState,
   sectionId: string,
@@ -68,9 +106,9 @@ export function resolveSectionFullPathName(
   let childId = sectionId;
   let output = "";
   while (parentId) {
-    const childImpl = getCurrEffectiveSectionImpl(state, childId);
+    const childImpl = getSectionEffectiveImplForSlugPath(state, childId);
     if (childImpl.type === SectionTypeEnum.ListRoot) {
-      const siblings = getSectionChildren(state, parentId);
+      const siblings = getSectionChildrenForSlugPath(state, parentId);
       const idx = siblings.indexOf(childId);
       output = `[${idx}]${output}`;
     } else {
@@ -189,6 +227,6 @@ export function resolveStandaloneSectionSlug(
     kind: "found",
     sectionId,
     sectionName: section.name,
-    sectionType: getCurrEffectiveSectionImpl(state, sectionId).type,
+    sectionType: getSectionEffectiveImplForSlugPath(state, sectionId).type,
   };
 }

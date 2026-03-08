@@ -34,9 +34,10 @@ vi.mock("@radix-ui/react-menubar", async () => {
       sideOffset,
       alignOffset,
       ...props
-    }: Record<string, unknown>) => React.createElement(Tag, props, children);
+    }: { children?: React.ReactNode } & Record<string, unknown>) =>
+      React.createElement(Tag, props, children);
   };
-  const Fragment = ({ children }) =>
+  const Fragment = ({ children }: { children?: React.ReactNode }) =>
     React.createElement(React.Fragment, null, children);
   return {
     Root: passthrough("div"),

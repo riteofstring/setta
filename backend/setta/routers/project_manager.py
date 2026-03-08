@@ -240,6 +240,13 @@ async def _deny_deployment_mode_view_modes(ctx) -> None:
     )
 
 
+async def _enforce_window_space_layout_policy(ctx) -> None:
+    if not ctx.share_mode:
+        await _deny_deployment_mode_view_modes(ctx)
+        return
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
+
+
 async def _deny_deployment_mode_diagnostics(ctx) -> None:
     await deny_in_deployment_mode(
         deployment_mode=ctx.deployment_mode,
@@ -507,7 +514,7 @@ async def route_delete_view_mode(
 async def route_create_window_space(
     x: CreateWindowSpaceRequest, ctx: RuntimeContextFromRequest
 ) -> str:
-    await _deny_deployment_mode_view_modes(ctx)
+    await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         return await manager.create_window_space(x)
@@ -519,7 +526,7 @@ async def route_create_window_space(
 async def route_set_window_space_name(
     x: SetWindowSpaceNameRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_deployment_mode_view_modes(ctx)
+    await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         await manager.set_window_space_name(x)
@@ -531,7 +538,7 @@ async def route_set_window_space_name(
 async def route_set_window_space_sort_order(
     x: SetWindowSpaceSortOrderRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_deployment_mode_view_modes(ctx)
+    await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     try:
         await manager.set_window_space_sort_order(x)
@@ -551,7 +558,7 @@ async def route_set_window_space_sort_order(
 async def route_delete_window_space(
     x: DeleteWindowSpaceRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_deployment_mode_view_modes(ctx)
+    await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.delete_window_space(x)
 
@@ -560,7 +567,7 @@ async def route_delete_window_space(
 async def route_set_window_space_state(
     x: SetWindowSpaceStateRequest, ctx: RuntimeContextFromRequest
 ) -> None:
-    await _deny_deployment_mode_view_modes(ctx)
+    await _enforce_window_space_layout_policy(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_window_space_state(x)
 

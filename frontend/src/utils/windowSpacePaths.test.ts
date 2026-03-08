@@ -36,9 +36,12 @@ describe("windowSpacePaths", () => {
     );
   });
 
-  it("treats legacy project configs without window spaces as empty", () => {
+  it("treats empty window-space state as not found", () => {
     const state = {
-      projectConfig: {},
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
     };
 
     expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
@@ -98,7 +101,11 @@ describe("windowSpacePaths", () => {
     expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
       kind: "found",
       windowSpaceId: "space-id",
-      windowSpace: state.projectConfig.windowSpaces["space-id"],
+      windowSpace:
+        state.projectConfig.windowSpaces["space-id"] ??
+        (() => {
+          throw new Error("Expected a saved window space.");
+        })(),
     });
 
     state.projectConfig.windowSpaces["space-id"].name = "Planning Board";
@@ -106,7 +113,11 @@ describe("windowSpacePaths", () => {
     expect(resolveStandaloneWindowSpaceSlug(state, "planning_board")).toEqual({
       kind: "found",
       windowSpaceId: "space-id",
-      windowSpace: state.projectConfig.windowSpaces["space-id"],
+      windowSpace:
+        state.projectConfig.windowSpaces["space-id"] ??
+        (() => {
+          throw new Error("Expected a renamed window space.");
+        })(),
     });
     expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
       kind: "not_found",

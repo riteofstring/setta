@@ -166,7 +166,11 @@ describe("sectionSlugPaths", () => {
       sectionType: SectionTypeEnum.Code,
     });
 
-    state.sections.child.name = "Green Star";
+    const childSection = state.sections.child;
+    if (!childSection) {
+      throw new Error("Expected a child section to rename.");
+    }
+    childSection.name = "Green Star";
 
     expect(resolveStandaloneSectionSlug(state, "parent_green_star")).toEqual({
       kind: "found",

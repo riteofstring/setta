@@ -25,7 +25,6 @@ import {
   ChatWindowPlacementEnum,
   SectionTypeEnum,
   createProjectChatWindowInstance as createProjectChatWindowInstanceModel,
-  createProjectChatWindowingState,
   createSectionSize,
   type ChatWindowBounds,
   type ChatWindowMode,
@@ -117,7 +116,7 @@ const pendingProjectChatWindowingWrites = new Set<Promise<unknown>>();
 function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
 ): ProjectChatWindowingState {
-  return state.projectChatWindowing ?? createProjectChatWindowingState();
+  return state.projectChatWindowing;
 }
 
 function getTrackedGitPaneGraphWindowInstanceIdFromMisc(): string | null {
@@ -593,35 +592,6 @@ export function ensureTrackedGitPaneGraphWindow({
   setProjectChatWindowingStateInStore(next);
   setTrackedGitPaneGraphWindowInstanceId(created.instanceId);
   return created.instanceId;
-}
-
-function getOpenFloatingProjectChatWindowInstanceForSectionInState(
-  state: ProjectChatWindowingState,
-  sectionId: string,
-): ProjectChatWindowInstance | null {
-  const normalized = normalizeProjectChatWindowingOrder(state).state;
-  let bestMatch: ProjectChatWindowInstance | null = null;
-  for (const instanceId of normalized.order) {
-    const instance = normalized.instancesById[instanceId];
-    if (!instance || instance.sectionIdOrNull !== sectionId) {
-      continue;
-    }
-    if (instance.placement !== ChatWindowPlacementEnum.floating) {
-      continue;
-    }
-    if (instance.isClosed || instance.isMinimized) {
-      continue;
-    }
-    if (
-      !bestMatch ||
-      instance.zIndex > bestMatch.zIndex ||
-      (instance.zIndex === bestMatch.zIndex &&
-        instance.lastFocusedAt > bestMatch.lastFocusedAt)
-    ) {
-      bestMatch = instance;
-    }
-  }
-  return bestMatch;
 }
 
 export function getOpenExternalProjectChatWindowInstanceForSectionInState(
@@ -1636,26 +1606,6 @@ export function showSectionInProjectChatWindow(
     return;
   }
   setProjectChatWindowingStateInStore(next);
-}
-
-function showProjectChatWindowForMode(
-  mode: ChatWindowMode,
-  {
-    placement = ChatWindowPlacementEnum.floating,
-    title = null,
-  }: {
-    placement?: ChatWindowPlacement;
-    title?: string | null;
-  } = {},
-): string {
-  const state = useProjectState.getState();
-  const currentWindowing = getProjectChatWindowingStateFromStore(state);
-  const next = showProjectChatWindowForModeInState(currentWindowing, mode, {
-    placement,
-    title,
-  });
-  setProjectChatWindowingStateInStore(next.state);
-  return next.instanceId;
 }
 
 export function undockProjectChatWindowFromCanvasSection(

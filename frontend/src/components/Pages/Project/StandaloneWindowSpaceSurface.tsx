@@ -198,6 +198,63 @@ function setStandaloneProjectChatWindowChatId(
   };
 }
 
+function areStandaloneWindowsEqual(
+  a: StandaloneWindowSpaceWindow,
+  b: StandaloneWindowSpaceWindow,
+): boolean {
+  return (
+    a.instanceId === b.instanceId &&
+    a.surfaceKind === b.surfaceKind &&
+    a.sectionIdOrNull === b.sectionIdOrNull &&
+    a.mode === b.mode &&
+    a.title === b.title &&
+    a.chatId === b.chatId &&
+    a.zIndex === b.zIndex &&
+    areBoundsEqual(a.bounds, b.bounds)
+  );
+}
+
+export function mergeHydratedStandaloneWindows(
+  currentWindowsById: Record<string, StandaloneWindowSpaceWindow>,
+  previousHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>,
+  nextHydratedWindowsById: Record<string, StandaloneWindowSpaceWindow>,
+): Record<string, StandaloneWindowSpaceWindow> {
+  let changed =
+    Object.keys(currentWindowsById).length !==
+    Object.keys(nextHydratedWindowsById).length;
+  const nextWindowsById: Record<string, StandaloneWindowSpaceWindow> = {};
+
+  for (const [instanceId, nextHydratedWindow] of Object.entries(
+    nextHydratedWindowsById,
+  )) {
+    const currentWindow = currentWindowsById[instanceId];
+    if (!currentWindow) {
+      changed = true;
+      nextWindowsById[instanceId] = nextHydratedWindow;
+      continue;
+    }
+    const previousHydratedWindow = previousHydratedWindowsById[instanceId];
+    const nextWindow: StandaloneWindowSpaceWindow = {
+      ...currentWindow,
+      surfaceKind: nextHydratedWindow.surfaceKind,
+      sectionIdOrNull: nextHydratedWindow.sectionIdOrNull,
+      mode: nextHydratedWindow.mode,
+      title: nextHydratedWindow.title,
+      bounds:
+        previousHydratedWindow &&
+        !areBoundsEqual(currentWindow.bounds, previousHydratedWindow.bounds)
+          ? currentWindow.bounds
+          : nextHydratedWindow.bounds,
+    };
+    if (!changed && !areStandaloneWindowsEqual(currentWindow, nextWindow)) {
+      changed = true;
+    }
+    nextWindowsById[instanceId] = changed ? nextWindow : currentWindow;
+  }
+
+  return changed ? nextWindowsById : currentWindowsById;
+}
+
 export function StandaloneWindowSpaceSurface({
   windowSpace,
 }: {
@@ -263,10 +320,23 @@ export function StandaloneWindowSpaceSurface({
   );
   const [localWindowsById, setLocalWindowsById] = useState(hydratedWindowsById);
   const activeSnapResizeRef = useRef<ActiveStandaloneSnapResize | null>(null);
+  const previousHydratedWindowsByIdRef = useRef(hydratedWindowsById);
 
   useEffect(() => {
     setLocalWindowsById(hydratedWindowsById);
     activeSnapResizeRef.current = null;
+    previousHydratedWindowsByIdRef.current = hydratedWindowsById;
+  }, [windowSpace]);
+
+  useEffect(() => {
+    setLocalWindowsById((current) =>
+      mergeHydratedStandaloneWindows(
+        current,
+        previousHydratedWindowsByIdRef.current,
+        hydratedWindowsById,
+      ),
+    );
+    previousHydratedWindowsByIdRef.current = hydratedWindowsById;
   }, [hydratedWindowsById]);
 
   const visibleWindows = useMemo(() => {
@@ -327,6 +397,9 @@ export function StandaloneWindowSpaceSurface({
       let maxCoordinate = Infinity;
       for (const instanceId of handle.leadingInstanceIds) {
         const bounds = startBoundsByInstanceId[instanceId];
+        if (!bounds) {
+          return;
+        }
         minCoordinate = Math.max(
           minCoordinate,
           bounds.x + STANDALONE_WINDOW_SPACE_MIN_WIDTH_PX,
@@ -334,6 +407,9 @@ export function StandaloneWindowSpaceSurface({
       }
       for (const instanceId of handle.trailingInstanceIds) {
         const bounds = startBoundsByInstanceId[instanceId];
+        if (!bounds) {
+          return;
+        }
         maxCoordinate = Math.min(
           maxCoordinate,
           bounds.x + bounds.width - STANDALONE_WINDOW_SPACE_MIN_WIDTH_PX,
@@ -356,6 +432,9 @@ export function StandaloneWindowSpaceSurface({
       let maxCoordinate = Infinity;
       for (const instanceId of handle.leadingInstanceIds) {
         const bounds = startBoundsByInstanceId[instanceId];
+        if (!bounds) {
+          return;
+        }
         minCoordinate = Math.max(
           minCoordinate,
           bounds.y + STANDALONE_WINDOW_SPACE_MIN_HEIGHT_PX,
@@ -363,6 +442,9 @@ export function StandaloneWindowSpaceSurface({
       }
       for (const instanceId of handle.trailingInstanceIds) {
         const bounds = startBoundsByInstanceId[instanceId];
+        if (!bounds) {
+          return;
+        }
         maxCoordinate = Math.min(
           maxCoordinate,
           bounds.y + bounds.height - STANDALONE_WINDOW_SPACE_MIN_HEIGHT_PX,

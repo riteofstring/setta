@@ -50,6 +50,16 @@ export function UnifiedChatSurface({
   projectChatId,
   setProjectChatId,
 }: UnifiedChatSurfaceProps) {
+  const projectChatProps: {
+    chatId?: string | null;
+    setChatId?: (next: SetStateAction<string | null | undefined>) => void;
+  } = {};
+  if (projectChatId !== undefined) {
+    projectChatProps.chatId = projectChatId;
+  }
+  if (setProjectChatId !== undefined) {
+    projectChatProps.setChatId = setProjectChatId;
+  }
   const externalizedWindowId = useProjectState((state) => {
     if (host !== "section_layout" || !sectionId) {
       return null;
@@ -62,7 +72,7 @@ export function UnifiedChatSurface({
     );
   });
 
-  if (externalizedWindowId) {
+  if (externalizedWindowId && sectionId) {
     return (
       <SectionWindowPlaceholder
         instanceId={externalizedWindowId}
@@ -80,7 +90,7 @@ export function UnifiedChatSurface({
         data-chat-surface-host={host}
         data-testid={dataTestId}
       >
-        <ProjectChat chatId={projectChatId} setChatId={setProjectChatId} />
+        <ProjectChat {...projectChatProps} />
       </div>
     );
   }

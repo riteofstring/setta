@@ -181,7 +181,7 @@ export function StandaloneProjectSurfacePage() {
     if (target.kind !== "window_space") {
       return null;
     }
-    return state.projectConfig.windowSpaces?.[target.windowSpaceId] ?? null;
+    return state.projectConfig.windowSpaces[target.windowSpaceId] ?? null;
   }, shallow);
   const { activeChatId, agentRuns, agentRunsAuthorityState } = useAIStore(
     (state) => ({
@@ -220,10 +220,12 @@ export function StandaloneProjectSurfacePage() {
     standaloneProjectChatThreadEntry === null;
   const standaloneProjectChatThreadSyncPending =
     target.kind === "project_chat_thread" && activeChatId !== target.chatId;
+  const resolvedDoneLoading = doneLoading === true;
+  const resolvedIs404 = is404 === true;
 
-  useCodeMirrorStyleLoader(doneLoading, is404);
+  useCodeMirrorStyleLoader(resolvedDoneLoading, resolvedIs404);
   useAddMouseLocationListener();
-  usePluginRuntimeBootstrap(doneLoading && !is404);
+  usePluginRuntimeBootstrap(resolvedDoneLoading && !resolvedIs404);
 
   useEffect(() => {
     if (target.kind !== "project_chat_thread") {
@@ -239,24 +241,24 @@ export function StandaloneProjectSurfacePage() {
     document.title = resolveStandaloneDocumentTitle(
       projectConfigName,
       target,
-      is404,
+      resolvedIs404,
       standaloneProjectChatThreadMissing
         ? "Thread Not Found"
         : projectChatThreadTitle,
     );
   }, [
-    is404,
+    resolvedIs404,
     projectConfigName,
     projectChatThreadTitle,
     standaloneProjectChatThreadMissing,
     target,
   ]);
 
-  if (!doneLoading) {
+  if (!resolvedDoneLoading) {
     return <LoadingSpinner />;
   }
 
-  if (is404) {
+  if (resolvedIs404) {
     return <NotFound />;
   }
 

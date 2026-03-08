@@ -6,7 +6,10 @@ import {
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
+import {
+  StandaloneWindowSpaceSurface,
+  mergeHydratedStandaloneWindows,
+} from "./StandaloneWindowSpaceSurface";
 
 type MockProjectState = {
   sections: Record<string, { name: string }>;
@@ -97,6 +100,8 @@ describe("StandaloneWindowSpaceSurface", () => {
           windowsById: {
             "chat-window": {
               surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
+              mode: ChatWindowModeEnum.project_ai_mode,
               title: "Research Chat",
               chatId: "chat-window-1",
               zIndex: 1,
@@ -109,7 +114,10 @@ describe("StandaloneWindowSpaceSurface", () => {
             },
             "graph-window": {
               surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
               mode: ChatWindowModeEnum.git_graph_mode,
+              title: null,
+              chatId: null,
               zIndex: 2,
               normalizedBounds: {
                 x: 0,
@@ -121,6 +129,9 @@ describe("StandaloneWindowSpaceSurface", () => {
             "section-window": {
               surfaceKind: WindowSpaceSurfaceKindEnum.section,
               sectionIdOrNull: "section-1",
+              mode: ChatWindowModeEnum.section_mode,
+              title: null,
+              chatId: null,
               zIndex: 3,
               normalizedBounds: {
                 x: 0.5,
@@ -154,6 +165,10 @@ describe("StandaloneWindowSpaceSurface", () => {
           windowsById: {
             "left-window": {
               surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
+              mode: ChatWindowModeEnum.project_ai_mode,
+              title: null,
+              chatId: null,
               zIndex: 1,
               normalizedBounds: {
                 x: 0,
@@ -164,6 +179,10 @@ describe("StandaloneWindowSpaceSurface", () => {
             },
             "right-window": {
               surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
+              mode: ChatWindowModeEnum.project_ai_mode,
+              title: null,
+              chatId: null,
               zIndex: 2,
               normalizedBounds: {
                 x: 0.5,
@@ -200,5 +219,74 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain(
       "This window space does not have any saved floating windows.",
     );
+  });
+
+  it("preserves local chat ids and resized bounds when hydration only changes presentation", () => {
+    const previousHydratedWindowsById = {
+      "chat-window": {
+        instanceId: "chat-window",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.project_ai_mode,
+        title: "Research Chat",
+        chatId: "chat-window-1",
+        zIndex: 1,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 900,
+          height: 520,
+        },
+      },
+    };
+    const currentWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        chatId: "chat-window-2",
+        zIndex: 7,
+        bounds: {
+          x: 12,
+          y: 24,
+          width: 840,
+          height: 460,
+        },
+      },
+    };
+    const nextHydratedWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        title: "Renamed Chat",
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 720,
+          height: 440,
+        },
+      },
+    };
+
+    expect(
+      mergeHydratedStandaloneWindows(
+        currentWindowsById,
+        previousHydratedWindowsById,
+        nextHydratedWindowsById,
+      ),
+    ).toEqual({
+      "chat-window": {
+        instanceId: "chat-window",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.project_ai_mode,
+        title: "Renamed Chat",
+        chatId: "chat-window-2",
+        zIndex: 7,
+        bounds: {
+          x: 12,
+          y: 24,
+          width: 840,
+          height: 460,
+        },
+      },
+    });
   });
 });

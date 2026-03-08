@@ -8,6 +8,7 @@ import { resetProjectStores } from "state/utils";
 import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
+  createProjectConfig,
   createProjectStateSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -17,10 +18,21 @@ function buildProjectState(
   projectChatWindowing = createProjectChatWindowingState(),
 ) {
   return createProjectStateSingleConfig({
-    projectConfig: {
+    projectConfig: createProjectConfig({
       id: "project-config-1",
-    },
+    }),
     projectChatWindowing,
+  });
+}
+
+function setLocalProjectState(
+  projectChatWindowing = createProjectChatWindowingState(),
+) {
+  useProjectState.setState((state) => {
+    state.projectConfig = createProjectConfig({
+      id: "project-config-1",
+    });
+    state.projectChatWindowing = projectChatWindowing;
   });
 }
 
@@ -48,32 +60,31 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
       isClosed: false,
     });
 
-    useProjectState.setState({
-      projectConfig: {
-        id: "project-config-1",
-      },
-      projectChatWindowing: createProjectChatWindowingState({
+    setLocalProjectState(
+      createProjectChatWindowingState({
         instancesById: {
           [localWindow.instanceId]: localWindow,
         },
         order: [localWindow.instanceId],
         nextInstanceNumber: 2,
       }),
-    });
+    );
 
-    processProjectStateUpdateFromBackend({
-      projectState: buildProjectState(
-        createProjectChatWindowingState({
-          instancesById: {
-            [backendWindow.instanceId]: backendWindow,
-          },
-          order: [backendWindow.instanceId],
-          nextInstanceNumber: 2,
-        }),
-      ),
-      completedOpIds: [],
-      pendingOpIds: [],
-    });
+    expect(() =>
+      processProjectStateUpdateFromBackend({
+        projectState: buildProjectState(
+          createProjectChatWindowingState({
+            instancesById: {
+              [backendWindow.instanceId]: backendWindow,
+            },
+            order: [backendWindow.instanceId],
+            nextInstanceNumber: 2,
+          }),
+        ),
+        completedOpIds: [],
+        pendingOpIds: [],
+      }),
+    ).not.toThrow();
 
     expect(useProjectState.getState().projectChatWindowing).toEqual(
       createProjectChatWindowingState({
@@ -92,18 +103,15 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
       title: "Server title",
     });
 
-    useProjectState.setState({
-      projectConfig: {
-        id: "project-config-1",
-      },
-      projectChatWindowing: createProjectChatWindowingState({
+    setLocalProjectState(
+      createProjectChatWindowingState({
         instancesById: {
           [backendWindow.instanceId]: backendWindow,
         },
         order: [backendWindow.instanceId],
         nextInstanceNumber: 2,
       }),
-    });
+    );
     usePendingOperations.setState({
       pending: [
         {
