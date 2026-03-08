@@ -19,6 +19,7 @@ import {
   toggleParamSelected,
   unselectAllParams,
 } from "state/actions/sectionInfos";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import type { ZustandProjectState } from "state/definitions";
 import { useProjectState, useShareSession } from "state/definitions";
 import {
@@ -535,7 +536,7 @@ function getParamUnindentContext(): {
 function resolveSectionWithSelectedParams(
   state: ZustandProjectState,
 ): string | null {
-  const activeId = state.projectConfig.activeIds[0] ?? null;
+  const activeId = getActiveSectionUIIds()[0] ?? null;
   if (activeId) {
     const impl = getCurrEffectiveSectionImpl(state, activeId);
     if (isBaseSectionWithParamsImpl(impl) && impl.selectedParams.length > 0) {

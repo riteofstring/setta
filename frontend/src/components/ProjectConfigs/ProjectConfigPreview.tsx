@@ -33,12 +33,7 @@ export function ProjectConfigPreview({
     height,
     offset,
     nodes,
-    nodeColor: (node) => {
-      if (node.className?.includes("selected")) {
-        return "#ffffff";
-      }
-      return "#d6dee8";
-    },
+    nodeColor: "#d6dee8",
     nodeBorderRadius: 2,
     nodeStrokeWidth: 2,
     nodeStrokeColor: "transparent",
@@ -46,5 +41,6 @@ export function ProjectConfigPreview({
     maskStrokeColor: "transparent",
     maskStrokeWidth: 1,
     shapeRendering: "geometricPrecision",
+    enableSelectionSync: false,
   });
 }
