@@ -186,6 +186,33 @@ Current landed wedge:
       - `MessageStopEvent`
       - `MessageFinalizedEvent`
       - `LLMStreamingResponse`
+    - current project-level AI settings/config types used by current pure
+      callers
+      - LLM config and API-key support
+        - `APIKeys`
+        - `LLMConfig`
+        - `createLLMConfig`
+        - `MCPServerTransport`
+        - `MCPServerConfig`
+        - `AllLLMConfigs`
+        - `createAllLLMConfigs`
+      - external-agent settings/config support
+        - `ExternalAgentToolType`
+        - `ExternalAgentRunMode`
+        - `ExternalAgentSettingsMode`
+        - `ExternalAgentWorkingDirStrategy`
+        - `ClaudeSettingsSource`
+        - `ExternalAgentConfig`
+        - `createExternalAgentConfig`
+        - `ExternalAgentPreflightStatus`
+        - `createExternalAgentPreflightStatus`
+      - prompt-template settings support
+        - `PromptFormat`
+        - `PromptTemplate`
+        - `createPromptTemplate`
+      - this slice is type/helper coverage only; the broader project-level AI
+        action and route wrapper cutover remains open until the missing
+        canonical AI endpoint surface lands
   - app-config pane contract types
     - `AppCatalogResponse` and the catalog component/action/prop payloads
     - `AppDefinition`, `AppRoute`, and the app-definition read/mutation
@@ -360,6 +387,10 @@ Current landed wedge:
     canonical Go-generated LSP diagnostics/admin bindings
   - `ProjectChatSkillsMcpViewer` is now covered by canonical Go-generated
     app-gen-skill and MCP-runtime bindings
+  - the current pure project-level AI settings/config helper callers,
+    including `buildLLMConfigGroups`, `resolveProviderDictationAvailability`,
+    `ProjectLLMSettings`, and `projectChatSkillsMcpViewerUtils`, now consume
+    canonical Go-generated AI settings/config types and enums
   - `ParamInput` and the app-mode password reveal path in `appRegistry` are
     now covered by the canonical Go-generated password-value helper binding
   - `AppRenderer` and `ChatMessages` are now covered by canonical

@@ -131,6 +131,42 @@ func newTypeConverter() *typeConverter {
 				{Name: "Manual", Value: "manual"},
 				{Name: "Programmatic", Value: "programmatic"},
 			},
+			reflect.TypeOf(MCPServerTransport("")): {
+				{Name: "sse", Value: "sse"},
+				{Name: "streamable_http", Value: "streamable_http"},
+				{Name: "stdio", Value: "stdio"},
+			},
+			reflect.TypeOf(PromptFormat("")): {
+				{Name: "Jinja", Value: "Jinja"},
+			},
+			reflect.TypeOf(ExternalAgentToolType("")): {
+				{Name: "claude_code", Value: "claude_code"},
+				{Name: "codex", Value: "codex"},
+				{Name: "opencode", Value: "opencode"},
+				{Name: "plugin", Value: "plugin"},
+			},
+			reflect.TypeOf(ExternalAgentRunMode("")): {
+				{Name: "mcp", Value: "mcp"},
+				{Name: "server", Value: "server"},
+				{Name: "sdk", Value: "sdk"},
+				{Name: "app_server", Value: "app_server"},
+			},
+			reflect.TypeOf(ExternalAgentSettingsMode("")): {
+				{Name: "read_only", Value: "read_only"},
+				{Name: "managed_local", Value: "managed_local"},
+				{Name: "managed_project", Value: "managed_project"},
+				{Name: "explicit_path", Value: "explicit_path"},
+			},
+			reflect.TypeOf(ExternalAgentWorkingDirStrategy("")): {
+				{Name: "project_root", Value: "project_root"},
+				{Name: "temp_dir", Value: "temp_dir"},
+				{Name: "custom", Value: "custom"},
+			},
+			reflect.TypeOf(ClaudeSettingsSource("")): {
+				{Name: "user", Value: "user"},
+				{Name: "project", Value: "project"},
+				{Name: "local", Value: "local"},
+			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
 			reflect.TypeOf(SectionDependencyKey{}): {

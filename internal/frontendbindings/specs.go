@@ -820,6 +820,11 @@ func CurrentEndpoints() []EndpointSpec {
 
 func CurrentAdditionalTypeRoots() []reflect.Type {
 	return []reflect.Type{
+		reflect.TypeOf(APIKeys{}),
+		reflect.TypeOf(AllLLMConfigs{}),
+		reflect.TypeOf(PromptTemplate{}),
+		reflect.TypeOf(ExternalAgentConfig{}),
+		reflect.TypeOf(ExternalAgentPreflightStatus{}),
 		reflect.TypeOf(AIRuntimeSupport{}),
 		reflect.TypeOf(DependencyKeyType("")),
 		reflect.TypeOf(SectionDependencyKey{}),

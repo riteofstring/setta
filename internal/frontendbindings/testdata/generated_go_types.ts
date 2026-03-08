@@ -2,6 +2,231 @@
 
 export type ObjectValues<T> = T[keyof T];
 
+export type APIKeys = Record<string, string>;
+
+
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string | null;
+  base_url?: string | null;
+  api_key_env?: string | null;
+  other_params?: Record<string, unknown> | null;
+  mcpServerIds?: Array<string> | null;
+  temporary: boolean;
+};
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
+
+
+export const MCPServerTransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+export type MCPServerTransport = ObjectValues<typeof MCPServerTransportEnum>;
+
+
+export type MCPServerConfig = {
+  transport: MCPServerTransport;
+  url?: string | null;
+  command?: string | null;
+  args?: Array<string> | null;
+  env?: Record<string, string> | null;
+  http_headers?: Record<string, string> | null;
+  cwd?: string | null;
+  encoding?: string | null;
+  encoding_error_handler?: string | null;
+};
+export function createMCPServerConfig(options: Partial<MCPServerConfig> = {}): MCPServerConfig {
+  return options as MCPServerConfig;
+}
+
+
+export type AllLLMConfigs = {
+  configs: Record<string, LLMConfig>;
+  mcpServers: Record<string, MCPServerConfig>;
+  defaultMcpServerIds: Array<string>;
+  default_config_id?: string | null;
+  codexMcpImportedAt?: string | null;
+};
+export function createAllLLMConfigs(options: Partial<AllLLMConfigs> = {}): AllLLMConfigs {
+  return options as AllLLMConfigs;
+}
+
+
+export const PromptFormatEnum = {
+  Jinja: "Jinja",
+} as const;
+export type PromptFormat = ObjectValues<typeof PromptFormatEnum>;
+
+
+export type PromptTemplate = {
+  id: string;
+  name: string;
+  description: string;
+  template: string;
+  format: PromptFormat;
+  inputSchema: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+};
+export function createPromptTemplate(options: Partial<PromptTemplate> = {}): PromptTemplate {
+  return options as PromptTemplate;
+}
+
+
+export const ExternalAgentToolTypeEnum = {
+  claude_code: "claude_code",
+  codex: "codex",
+  opencode: "opencode",
+  plugin: "plugin",
+} as const;
+export type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
+
+
+export const ExternalAgentRunModeEnum = {
+  mcp: "mcp",
+  server: "server",
+  sdk: "sdk",
+  app_server: "app_server",
+} as const;
+export type ExternalAgentRunMode = ObjectValues<typeof ExternalAgentRunModeEnum>;
+
+
+export const ExternalAgentSettingsModeEnum = {
+  read_only: "read_only",
+  managed_local: "managed_local",
+  managed_project: "managed_project",
+  explicit_path: "explicit_path",
+} as const;
+export type ExternalAgentSettingsMode = ObjectValues<typeof ExternalAgentSettingsModeEnum>;
+
+
+export const ClaudeSettingsSourceEnum = {
+  user: "user",
+  project: "project",
+  local: "local",
+} as const;
+export type ClaudeSettingsSource = ObjectValues<typeof ClaudeSettingsSourceEnum>;
+
+
+export type ClaudeSettingsPermissions = {
+  allow: Array<string>;
+  ask: Array<string>;
+  deny: Array<string>;
+};
+export function createClaudeSettingsPermissions(options: Partial<ClaudeSettingsPermissions> = {}): ClaudeSettingsPermissions {
+  return options as ClaudeSettingsPermissions;
+}
+
+
+export type ClaudeSettingsManaged = {
+  permissions?: ClaudeSettingsPermissions | null;
+  defaultMode?: string | null;
+  mcp?: Record<string, unknown> | null;
+};
+export function createClaudeSettingsManaged(options: Partial<ClaudeSettingsManaged> = {}): ClaudeSettingsManaged {
+  return options as ClaudeSettingsManaged;
+}
+
+
+export type CodexSettingsManaged = {
+  approvalPolicy?: string | null;
+  sandboxMode?: string | null;
+  enabledTools?: Array<string> | null;
+  model?: string | null;
+};
+export function createCodexSettingsManaged(options: Partial<CodexSettingsManaged> = {}): CodexSettingsManaged {
+  return options as CodexSettingsManaged;
+}
+
+
+export type OpenCodeSettingsManaged = {
+  permission?: unknown;
+  mcp?: Record<string, unknown> | null;
+  model?: string | null;
+};
+export function createOpenCodeSettingsManaged(options: Partial<OpenCodeSettingsManaged> = {}): OpenCodeSettingsManaged {
+  return options as OpenCodeSettingsManaged;
+}
+
+
+export type ExternalAgentSettingsManagedBlock = {
+  claude?: ClaudeSettingsManaged | null;
+  codex?: CodexSettingsManaged | null;
+  opencode?: OpenCodeSettingsManaged | null;
+};
+export function createExternalAgentSettingsManagedBlock(options: Partial<ExternalAgentSettingsManagedBlock> = {}): ExternalAgentSettingsManagedBlock {
+  return options as ExternalAgentSettingsManagedBlock;
+}
+
+
+export const ExternalAgentWorkingDirStrategyEnum = {
+  project_root: "project_root",
+  temp_dir: "temp_dir",
+  custom: "custom",
+} as const;
+export type ExternalAgentWorkingDirStrategy = ObjectValues<typeof ExternalAgentWorkingDirStrategyEnum>;
+
+
+export type ExternalAgentConfig = {
+  id: string;
+  name: string;
+  description: string;
+  toolType: ExternalAgentToolType;
+  pluginAdapterId?: string | null;
+  runMode: ExternalAgentRunMode;
+  commandPath?: string | null;
+  baseUrl?: string | null;
+  defaultModel?: string | null;
+  sandboxPolicy?: string | null;
+  approvalPolicy?: string | null;
+  settingsMode: ExternalAgentSettingsMode;
+  settingsSources?: Array<ClaudeSettingsSource> | null;
+  settingsFilePath?: string | null;
+  settingsManagedBlock?: ExternalAgentSettingsManagedBlock | null;
+  settingsAllowSettaEdits: boolean;
+  envVarWhitelist: Array<string>;
+  workingDirStrategy: ExternalAgentWorkingDirStrategy;
+  workingDir?: string | null;
+  codexSkipGitRepoCheck?: boolean | null;
+};
+export function createExternalAgentConfig(options: Partial<ExternalAgentConfig> = {}): ExternalAgentConfig {
+  return options as ExternalAgentConfig;
+}
+
+
+export type ExternalAgentEnvVarStatus = {
+  present: Array<string>;
+  missing: Array<string>;
+};
+export function createExternalAgentEnvVarStatus(options: Partial<ExternalAgentEnvVarStatus> = {}): ExternalAgentEnvVarStatus {
+  return options as ExternalAgentEnvVarStatus;
+}
+
+
+export type ExternalAgentPreflightStatus = {
+  configId: string;
+  name: string;
+  toolType: ExternalAgentToolType;
+  runMode: ExternalAgentRunMode;
+  supported: boolean;
+  available: boolean;
+  issues: Array<string>;
+  nodePath?: string | null;
+  nodeVersion?: string | null;
+  sdkVersion?: string | null;
+  cliVersion?: string | null;
+  baseUrl?: string | null;
+  workingDir?: string | null;
+  envVars: ExternalAgentEnvVarStatus;
+};
+export function createExternalAgentPreflightStatus(options: Partial<ExternalAgentPreflightStatus> = {}): ExternalAgentPreflightStatus {
+  return options as ExternalAgentPreflightStatus;
+}
+
+
 
 export const EngineTypeEnum = {
   setta_llm: "setta_llm",
