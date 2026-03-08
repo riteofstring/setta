@@ -604,9 +604,13 @@ Use the docs in this order:
 165. `phase-15-plugin-restart-transport.md`
   - focused completed-slice doc for Go-owned direct frontend plugin restart
     transport plus the bounded optional restart-callback service boundary
-166. `spike-mcp.md`
+166. `phase-15-plugin-lifecycle-mutation-transport.md`
+  - focused current-work doc for the remaining direct frontend plugin
+    lifecycle mutation transports, sequenced into bounded rescan/enable-disable,
+    install-uninstall, and update-rollback slices
+167. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-167. `spike-pty.md`
+168. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
 168. `spike-lsp.md`

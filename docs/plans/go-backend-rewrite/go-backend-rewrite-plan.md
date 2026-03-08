@@ -503,6 +503,24 @@ The next bounded plugin follow-on tracked in
 - the real app remains manual-only because no concrete restart hook is wired
   there yet
 
+The remaining caller-backed plugin lifecycle mutation cluster is now tracked in
+`phase-15-plugin-lifecycle-mutation-transport.md`:
+
+- the current direct frontend route gap is now narrowed to:
+  - `POST /plugins/rescan`
+  - `POST /plugins/enable`
+  - `POST /plugins/disable`
+  - `POST /plugins/install`
+  - `POST /plugins/uninstall`
+  - `POST /plugins/update`
+  - `POST /plugins/rollback`
+- `POST /plugins/link` and `POST /plugins/lock/*` are not current direct
+  frontend callers and stay explicitly deferred
+- the first bounded follow-on is the smallest transport slice:
+  - `POST /plugins/rescan`
+  - `POST /plugins/enable`
+  - `POST /plugins/disable`
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:
