@@ -3,9 +3,6 @@ from pydantic import ValidationError
 from setta.agentic.store import save_engine_configs
 from setta.llm.config import save_llm_config
 from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
-from setta.types.agentic import EngineConfig, EngineType
-from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.project_state.project_manager_types import (
     CreateWindowSpaceRequest,
     SaveAsNewProjectConfigRequest,
@@ -13,18 +10,22 @@ from setta.project_state.project_manager_types import (
     SetProjectChatWindowChatIdRequest,
     SetProjectChatWindowingStateRequest,
 )
+from setta.types.agentic import EngineConfig, EngineType
+from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
+from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
-from setta.types.helpers_lvl3 import (
-    convert_backend_to_single_config,
-    merge_single_config_into_backend,
-)
 from setta.types.helpers_lvl2 import (
     create_agentic_edge,
     create_top_level_section,
     set_chat_section_chat_id,
     set_chat_section_settings,
 )
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
 from setta.types.id import ID
+from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import (
     Position,
     ProjectConfig,
@@ -47,7 +48,6 @@ from setta.types.section_impls import (
     ChatSectionImpl,
     SectionType,
 )
-from setta.types.generated.settings_state import SettingsState
 
 from tests.utils.manager_fixture import real_project_manager
 
@@ -425,6 +425,65 @@ async def test_set_project_chat_window_chat_id_returns_updated_windowing_state()
         )
 
         assert updated.instancesById["project-chat-window-1"].chatId == "chat-after"
+
+
+@pytest.mark.asyncio
+async def test_set_project_chat_window_chat_id_rejects_git_graph_windows() -> None:
+    # Dedicated thread binding only applies to project-ai windows.
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+
+        initial = await manager.set_project_chat_windowing_state(
+            SetProjectChatWindowingStateRequest(
+                projectConfigId=project_config_id,
+                state=ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.git_graph_mode,
+                            chatId=None,
+                            zIndex=1,
+                            bounds=ChatWindowBounds(
+                                x=48,
+                                y=64,
+                                width=520,
+                                height=360,
+                            ),
+                        ),
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                ),
+            )
+        )
+        assert initial.instancesById["project-chat-window-1"].chatId is None
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "Project chat window project-chat-window-1 must use "
+                "project_ai_mode to bind chatId."
+            ),
+        ):
+            await manager.set_project_chat_window_chat_id(
+                SetProjectChatWindowChatIdRequest(
+                    projectConfigId=project_config_id,
+                    instanceId="project-chat-window-1",
+                    chatId="chat-after",
+                )
+            )
+
+        project_state = manager.get_single_config_state(project_config_id)
+        assert (
+            project_state.projectChatWindowing.instancesById[
+                "project-chat-window-1"
+            ].chatId
+            is None
+        )
 
 
 @pytest.mark.asyncio

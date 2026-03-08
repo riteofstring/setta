@@ -31,6 +31,7 @@ const routeDeleteWindowSpaceMock = vi.fn();
 const routeSetWindowSpaceNameMock = vi.fn();
 const routeSetWindowSpaceSortOrderMock = vi.fn();
 const routeSetProjectChatWindowingStateMock = vi.fn();
+const routeSetProjectChatWindowChatIdMock = vi.fn();
 const addTemporaryNotificationMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
@@ -44,6 +45,8 @@ vi.mock("utils/generatedEndpoints", () => ({
     routeSetWindowSpaceNameMock(...args),
   route_set_project_chat_windowing_state: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
+  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+    routeSetProjectChatWindowChatIdMock(...args),
   route_set_section_name: vi.fn(),
 }));
 
@@ -139,6 +142,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
+    routeSetProjectChatWindowChatIdMock.mockReset();
     addTemporaryNotificationMock.mockReset();
     usePendingOperations.setState({ pending: [] });
     routeSetProjectChatWindowingStateMock.mockImplementation(
@@ -148,6 +152,31 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
         hasResponse: true,
       }),
     );
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) => {
+      const currentWindowing = useProjectState.getState().projectChatWindowing;
+      const currentWindow = currentWindowing.instancesById[request.instanceId];
+      if (!currentWindow) {
+        return {
+          data: { detail: "Project chat window not found." },
+          status: 404,
+          hasResponse: true,
+        };
+      }
+      return {
+        data: createProjectChatWindowingState({
+          ...currentWindowing,
+          instancesById: {
+            ...currentWindowing.instancesById,
+            [request.instanceId]: {
+              ...currentWindow,
+              chatId: request.chatId,
+            },
+          },
+        }),
+        status: 200,
+        hasResponse: true,
+      };
+    });
   });
 
   it("serializes only visible floating windows with normalized bounds", () => {
@@ -639,8 +668,41 @@ describe("window-space optimistic rollback", () => {
     routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
+    routeSetProjectChatWindowChatIdMock.mockReset();
     addTemporaryNotificationMock.mockReset();
     usePendingOperations.setState({ pending: [] });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) => {
+      const currentWindowing = useProjectState.getState().projectChatWindowing;
+      const currentWindow = currentWindowing.instancesById[request.instanceId];
+      if (!currentWindow) {
+        return {
+          data: { detail: "Project chat window not found." },
+          status: 404,
+          hasResponse: true,
+        };
+      }
+      return {
+        data: createProjectChatWindowingState({
+          ...currentWindowing,
+          instancesById: {
+            ...currentWindowing.instancesById,
+            [request.instanceId]: {
+              ...currentWindow,
+              chatId: request.chatId,
+            },
+          },
+        }),
+        status: 200,
+        hasResponse: true,
+      };
+    });
   });
 
   it("rolls back a rejected reorder to the authoritative sort order", async () => {
@@ -1415,8 +1477,41 @@ describe("restoreWindowSpaceInWorkspace", () => {
     routeSetWindowSpaceNameMock.mockReset();
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
+    routeSetProjectChatWindowChatIdMock.mockReset();
     addTemporaryNotificationMock.mockReset();
     usePendingOperations.setState({ pending: [] });
+    routeSetProjectChatWindowingStateMock.mockImplementation(
+      async (request) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) => {
+      const currentWindowing = useProjectState.getState().projectChatWindowing;
+      const currentWindow = currentWindowing.instancesById[request.instanceId];
+      if (!currentWindow) {
+        return {
+          data: { detail: "Project chat window not found." },
+          status: 404,
+          hasResponse: true,
+        };
+      }
+      return {
+        data: createProjectChatWindowingState({
+          ...currentWindowing,
+          instancesById: {
+            ...currentWindowing.instancesById,
+            [request.instanceId]: {
+              ...currentWindow,
+              chatId: request.chatId,
+            },
+          },
+        }),
+        status: 200,
+        hasResponse: true,
+      };
+    });
   });
 
   it("rehydrates saved window-space windows as floating workspace windows", () => {
@@ -1557,8 +1652,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
-    await flushOptimisticMutation();
+    await restoreWindowSpaceInWorkspace("space-1");
 
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
@@ -1623,8 +1717,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
-    await flushOptimisticMutation();
+    await restoreWindowSpaceInWorkspace("space-1");
 
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([
       "project-chat-window-99",
@@ -1661,7 +1754,85 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
   });
 
-  it("remaps restored window ids when a saved floating window collides with an existing non-floating workspace window", () => {
+  it("restores saved section-backed project-ai threads through the dedicated chat binding route", async () => {
+    const sectionState = buildChatSectionState("section-1", "workspace-thread");
+    useProjectState.setState({
+      ...sectionState,
+      projectConfig: createProjectConfig({
+        ...sectionState.projectConfig,
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "section-window": {
+                surfaceKind: "section",
+                sectionIdOrNull: "section-1",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                chatId: "saved-section-thread",
+                zIndex: 5,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["section-window"],
+          },
+        },
+      }),
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["section-window"],
+        instancesById: {
+          "section-window": {
+            instanceId: "section-window",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            sectionIdOrNull: "section-1",
+            chatId: "workspace-thread",
+            zIndex: 2,
+            bounds: {
+              x: 520,
+              y: 160,
+              width: 280,
+              height: 220,
+            },
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    await restoreWindowSpaceInWorkspace("space-1");
+
+    expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: expect.objectContaining({
+          instancesById: expect.objectContaining({
+            "section-window": expect.objectContaining({
+              chatId: "workspace-thread",
+            }),
+          }),
+        }),
+      }),
+    );
+    expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instanceId: "section-window",
+        chatId: "saved-section-thread",
+      }),
+    );
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "section-window"
+      ]?.chatId,
+    ).toBe("saved-section-thread");
+  });
+
+  it("remaps restored window ids when a saved floating window collides with an existing non-floating workspace window", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1710,7 +1881,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     const nextState = useProjectState.getState().projectChatWindowing;
     expect(nextState.order[0]).toBe("project-chat-window-2");
@@ -1731,7 +1902,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(4);
   });
 
-  it("restores saved floating windows in place when they own the same project chat thread", () => {
+  it("restores saved floating windows in place when they own the same project chat thread", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1787,7 +1958,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     const nextState = useProjectState.getState().projectChatWindowing;
     expect(nextState.order).toEqual(["project-chat-window-2"]);
@@ -1868,10 +2039,8 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
-    await flushOptimisticMutation();
-    restoreWindowSpaceInWorkspace("space-1");
-    await flushOptimisticMutation();
+    await restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     const nextState = useProjectState.getState().projectChatWindowing;
     expect(nextState.order).toEqual(["project-chat-window-2"]);
@@ -1886,7 +2055,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(3);
   });
 
-  it("remaps restored floating windows when the same instance id belongs to a different live owner", () => {
+  it("remaps restored floating windows when the same instance id belongs to a different live owner", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1942,7 +2111,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     const nextState = useProjectState.getState().projectChatWindowing;
     expect(nextState.order).toEqual([
@@ -2052,7 +2221,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     ]);
   });
 
-  it("preserves an existing non-floating section host when a saved floating section chat collides with it", () => {
+  it("preserves an existing non-floating section host when a saved floating section chat collides with it", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -2107,7 +2276,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     const nextState = useProjectState.getState().projectChatWindowing;
     const sectionInstances = Object.values(nextState.instancesById).filter(
@@ -2124,7 +2293,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.order).toEqual(["canvas-section-window"]);
   });
 
-  it("restores persisted embedded git-pane visibility when restoring a saved workspace layout", () => {
+  it("restores persisted embedded git-pane visibility when restoring a saved workspace layout", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -2170,7 +2339,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
@@ -2253,8 +2422,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     );
 
-    restoreWindowSpaceInWorkspace("space-1");
-    await flushOptimisticMutation();
+    await restoreWindowSpaceInWorkspace("space-1");
 
     expect(useProjectState.getState().projectChatWindowing).toEqual(
       previousWindowing,
@@ -2264,7 +2432,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     ).toEqual(previousVisibility);
   });
 
-  it("preserves foreign-project git-pane visibility when restoring a workspace layout", () => {
+  it("preserves foreign-project git-pane visibility when restoring a workspace layout", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -2310,7 +2478,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       hasResponse: true,
     });
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
@@ -2326,7 +2494,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
   });
 
-  it("is a strict no-op when deployment policy disallows restore-side layout changes", () => {
+  it("is a strict no-op when deployment policy disallows restore-side layout changes", async () => {
     useShareSession.setState({
       isDeploymentMode: true,
       shareSessionId: "share-session-1",
@@ -2410,7 +2578,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     );
 
-    restoreWindowSpaceInWorkspace("space-1");
+    await restoreWindowSpaceInWorkspace("space-1");
 
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
     expect(useProjectState.getState().projectChatWindowing).toEqual(

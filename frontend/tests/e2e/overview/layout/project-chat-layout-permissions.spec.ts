@@ -111,9 +111,7 @@ async function seedReadOnlyVisibleProjectChatWindows(
   });
 }
 
-async function seedReadOnlyHiddenProjectChatWindow(
-  page: Page,
-): Promise<void> {
+async function seedReadOnlyHiddenProjectChatWindow(page: Page): Promise<void> {
   await page.evaluate(async () => {
     const { useLocalStorage, useProjectState, useShareSession } = await import(
       "/src/state/definitions.ts"

@@ -251,7 +251,7 @@ function WindowSpaceRow({
             if (!canEditLayout) {
               return;
             }
-            restoreWindowSpaceInWorkspace(windowSpace.id);
+            void restoreWindowSpaceInWorkspace(windowSpace.id);
           }}
           data-testid="window-space-open"
           disabled={!canEditLayout}
@@ -371,7 +371,7 @@ function WindowSpaceEditingRow({
           if (!canEditLayout) {
             return;
           }
-          restoreWindowSpaceInWorkspace(windowSpace.id);
+          void restoreWindowSpaceInWorkspace(windowSpace.id);
         }}
         disabled={!canEditLayout}
         aria-label={`Restore ${windowSpace.name}`}

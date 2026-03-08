@@ -1,5 +1,4 @@
 import pytest
-
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
@@ -144,6 +143,39 @@ def test_set_project_chat_window_chat_id_updates_the_target_window() -> None:
     assert (
         project_state.projectChatWindowing.instancesById[instance.instanceId].chatId
         == "chat-after"
+    )
+
+
+def test_set_project_chat_window_chat_id_rejects_git_graph_windows() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    instance = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        mode=ChatWindowMode.git_graph_mode,
+        chatId=None,
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={instance.instanceId: instance},
+        order=[instance.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "Project chat window project-chat-window-1 must use "
+            "project_ai_mode to bind chatId."
+        ),
+    ):
+        set_project_chat_window_chat_id(
+            project_state,
+            instance.instanceId,
+            "chat-after",
+        )
+
+    assert (
+        project_state.projectChatWindowing.instancesById[instance.instanceId].chatId
+        is None
     )
 
 
@@ -337,6 +369,30 @@ def test_project_state_normalizes_section_mode_window_chat_ids_to_none() -> None
     assert (
         project_state.projectChatWindowing.instancesById[
             section_window.instanceId
+        ].chatId
+        is None
+    )
+
+
+def test_project_state_normalizes_git_graph_window_chat_ids_to_none() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    git_graph_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        mode=ChatWindowMode.git_graph_mode,
+        chatId="stale-thread",
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={git_graph_window.instanceId: git_graph_window},
+        order=[git_graph_window.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    project_state.validate_project_chat_windowing()
+
+    assert (
+        project_state.projectChatWindowing.instancesById[
+            git_graph_window.instanceId
         ].chatId
         is None
     )

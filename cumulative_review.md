@@ -1,3 +1,43 @@
+## 2026-03-11 11:24:44 PDT
+
+Implemented the remaining consolidated fixes from the current top-level review documents for workspace restore authority, non-chat `chatId` invariants, read-only window placeholder affordances, and dead project-chat helper cleanup, then verified the affected paths with backend pytest, frontend Vitest, focused Playwright, and a live CDP browser check.
+
+Workspace restore authority and thread rebinding:
+- Split workspace saved-layout restore into two explicit phases instead of trying to persist layout shape and project-chat thread ownership through the same generic state write.
+- The workspace restore path now sends a layout-safe `projectChatWindowing` snapshot first, then reapplies saved `project_ai_mode` thread bindings through the dedicated `setProjectChatWindowChatId(...)` route once the layout mutation has settled.
+- Saved section-backed project-chat windows now restore the correct bound thread deterministically even when layout state and thread state need different permission and validation rules.
+
+Non-chat `chatId` invariant enforcement:
+- Normalized persisted windowing state so only `project_ai_mode` windows can carry a direct `chatId`.
+- `section_mode` and `git_graph_mode` now strip or ignore `chatId` during normalization, snapshot creation, restore, and explicit thread-binding mutation paths.
+- Backend helper code now rejects direct `setProjectChatWindowChatId(...)` calls for non-chat window modes instead of silently accepting semantically invalid state.
+
+Read-only placeholder affordance cleanup:
+- `SectionWindowPlaceholder` now uses the same share/deployment layout capability check as the rest of the windowing UI.
+- In read-only contexts, the placeholder keeps the non-mutating `Focus window` path but hides the `Show in canvas` affordance that the reducer and backend would reject anyway.
+- This keeps the UI aligned with actual permissions instead of advertising a control that cannot succeed.
+
+Dead API/helper cleanup:
+- Removed the unused `getProjectChatWindowInstanceForModeInState(...)` helper rather than keeping a second stale project-chat lookup surface alive.
+- Kept the restore and mutation helpers small and explicit instead of layering more conditionals on top of the previous restore path.
+
+UX before vs after:
+- Before: restoring a saved workspace layout with thread-bound project-chat windows could leave the right windows open but rebound to the wrong thread, or fail because the layout route was carrying thread intent it does not own. After: layout restore and thread restore happen in the correct order through the correct contracts, so saved threads reopen reliably.
+- Before: non-chat windows could accumulate meaningless `chatId` state and persist it into saved layouts. After: only `project_ai_mode` windows can own a direct `chatId`, and invalid writes fail closed.
+- Before: read-only users could still see `Show in canvas` on the externalized section placeholder even though the action was blocked. After: read-only users only see affordances that can actually succeed.
+
+DX before vs after:
+- Before: workspace restore mixed layout intent and thread-binding intent in one path, which made rollback and correctness reasoning brittle. After: the two responsibilities are explicit and independently testable.
+- Before: the typed project-chat window model was not actually enforced by every mutation path. After: frontend and backend both preserve the same simple invariant about which window modes may carry `chatId`.
+- Before: placeholder permission behavior was locally inconsistent with the rest of the windowing UI. After: the capability rule is shared, shallow, and obvious in code.
+- Before: the windowing helpers carried dead lookup surface area. After: the active helpers match the live behavior more closely and are easier to read.
+
+Verification:
+- `source activate.sh && pytest tests/types/test_project_chat_windowing.py tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_share_policy_routes.py -q` passed: 61 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts src/components/Section/Container/SectionWindowPlaceholder.test.tsx src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx` passed: 114 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "saved window spaces preserve distinct project chat threads per window in both workspace and standalone views"` passed: 1 test.
+- CDP verification used the running dev app to put an externalized section into read-only/share mode and confirmed the placeholder exposed `Focus window` but no `Show in canvas` action.
+
 ## 2026-03-11 08:22:43 PDT
 
 Implemented the remaining current review fixes for MCP run-start reservation scoping, project-chat thread rebinding under share/deployment permissions, standalone window-space same-layout hydration, git-graph canvas admission, and project-chat surface state authority. Verified the affected paths with backend pytest, frontend Vitest, focused Playwright, and live CDP checks.

@@ -5,6 +5,7 @@ import {
   reopenProjectChatWindow,
 } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 
 type SectionWindowPlaceholderProps = {
   instanceId: string;
@@ -17,6 +18,7 @@ export function SectionWindowPlaceholder({
   sectionId,
   dataTestId = "section-window-placeholder",
 }: SectionWindowPlaceholderProps) {
+  const { canEditLayout } = useShareCapabilities();
   const sectionName = useProjectState((state) => {
     const section = state.sections[sectionId];
     if (!section) {
@@ -44,7 +46,9 @@ export function SectionWindowPlaceholder({
             {sectionName} moved to a window
           </p>
           <p className="text-xs text-setta-700/90 dark:text-setta-200/85">
-            Focus the external window or return this section to the canvas.
+            {canEditLayout
+              ? "Focus the external window or return this section to the canvas."
+              : "Focus the external window from here."}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -58,16 +62,18 @@ export function SectionWindowPlaceholder({
             >
               Focus window
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center rounded-md border border-setta-300 bg-setta-50 px-2.5 py-1 text-xs font-medium text-setta-800 shadow-sm transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100 dark:hover:bg-setta-850"
-              onClick={() => {
-                void bootProjectChatWindowToCanvasSection(instanceId);
-              }}
-              data-testid="section-window-placeholder-restore"
-            >
-              Show in canvas
-            </button>
+            {canEditLayout ? (
+              <button
+                type="button"
+                className="inline-flex items-center rounded-md border border-setta-300 bg-setta-50 px-2.5 py-1 text-xs font-medium text-setta-800 shadow-sm transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100 dark:hover:bg-setta-850"
+                onClick={() => {
+                  void bootProjectChatWindowToCanvasSection(instanceId);
+                }}
+                data-testid="section-window-placeholder-restore"
+              >
+                Show in canvas
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

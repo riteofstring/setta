@@ -1009,6 +1009,35 @@ describe("project chat windowing reducer helpers", () => {
     ).not.toHaveBeenCalled();
   });
 
+  it("ignores window chat-id writes for git-graph windows", async () => {
+    const gitGraphWindow = createProjectChatWindowInstance({
+      instanceId: "chat-window-git-graph",
+      mode: ChatWindowModeEnum.git_graph_mode,
+      chatId: null,
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        instancesById: {
+          [gitGraphWindow.instanceId]: gitGraphWindow,
+        },
+        order: [gitGraphWindow.instanceId],
+        nextInstanceNumber: 2,
+      });
+    });
+
+    setProjectChatWindowChatId(gitGraphWindow.instanceId, "git-thread");
+    await flushPendingProjectChatWindowingWrites();
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        gitGraphWindow.instanceId
+      ]?.chatId,
+    ).toBeNull();
+    expect(
+      hoistedProjectChatWindowing.routeSetProjectChatWindowChatId,
+    ).not.toHaveBeenCalled();
+  });
+
   it("updates the global active project chat for unscoped project-ai windows", () => {
     const projectWindow = createProjectChatWindowInstance({
       instanceId: "chat-window-project",

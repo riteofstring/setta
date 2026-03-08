@@ -7,18 +7,26 @@ import {
   flushPendingProjectChatWindowingWrites,
   replaceProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
-import { recordAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
+import {
+  getAuthoritativeProjectChatWindowingState,
+  recordAuthoritativeProjectChatWindowingState,
+} from "state/actions/projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "state/actions/projectChatWindowingEphemeral";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useProjectState, type ZustandProjectState } from "state/definitions";
+import {
+  useProjectState,
+  useShareSession,
+  type ZustandProjectState,
+} from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_window_space,
   route_delete_window_space,
+  route_set_project_chat_window_chat_id,
   route_set_project_chat_windowing_state,
   route_set_window_space_name,
   route_set_window_space_sort_order,
@@ -433,11 +441,14 @@ function resolveWindowSpaceSnapshotChatId(
   state: WindowSpaceSnapshotState,
   instance: ProjectChatWindowInstance,
 ): string | null {
+  if (instance.mode === ChatWindowModeEnum.project_ai_mode) {
+    return instance.chatId;
+  }
   if (
     instance.mode !== ChatWindowModeEnum.section_mode ||
     instance.sectionIdOrNull === null
   ) {
-    return instance.chatId;
+    return null;
   }
   return getCurrEffectiveSectionImplOfType(
     state,
@@ -449,13 +460,9 @@ function resolveWindowSpaceSnapshotChatId(
 function resolveRestoredWorkspaceWindowChatId(
   window: NonNullable<WindowSpaceState["windowsById"][string]>,
 ): string | null | undefined {
-  if (
-    window.surfaceKind === WindowSpaceSurfaceKindEnum.section &&
-    window.mode === ChatWindowModeEnum.section_mode
-  ) {
-    return null;
-  }
-  return window.chatId;
+  return window.mode === ChatWindowModeEnum.project_ai_mode
+    ? window.chatId
+    : null;
 }
 
 function resolveNextProjectChatWindowInstanceNumber(
@@ -896,7 +903,175 @@ function buildRestoredGitGraphEmbeddedPaneVisibleInstanceIds(
   return visibleInstanceIds;
 }
 
-export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
+type RestoredProjectChatThreadBinding = {
+  instanceId: string;
+  chatId: string | null;
+};
+
+function canRestoreWindowSpaceInWorkspace(): boolean {
+  const shareSession = useShareSession.getState();
+  return (
+    !shareSession.isDeploymentMode ||
+    shareSession.sharePolicy?.allowLayoutChanges !== false
+  );
+}
+
+function resolveProjectChatThreadBindingChatId(
+  instance: ProjectChatWindowInstance | undefined,
+): string | null {
+  if (!instance || instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+    return null;
+  }
+  return instance.chatId ?? null;
+}
+
+function areWorkspaceRestoreBoundsEqual(
+  a: ProjectChatWindowInstance["bounds"],
+  b: ProjectChatWindowInstance["bounds"],
+): boolean {
+  return (
+    a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+  );
+}
+
+function doesWorkspaceRestoreLayoutMatch(
+  current: ProjectChatWindowInstance,
+  expected: ProjectChatWindowInstance,
+): boolean {
+  return (
+    current.instanceId === expected.instanceId &&
+    current.placement === expected.placement &&
+    current.mode === expected.mode &&
+    current.sectionIdOrNull === expected.sectionIdOrNull &&
+    current.title === expected.title &&
+    current.isClosed === expected.isClosed &&
+    current.isMinimized === expected.isMinimized &&
+    current.isMaximized === expected.isMaximized &&
+    current.lastPlacementBeforeMaximize ===
+      expected.lastPlacementBeforeMaximize &&
+    current.zIndex === expected.zIndex &&
+    current.lastFocusedAt === expected.lastFocusedAt &&
+    areWorkspaceRestoreBoundsEqual(current.bounds, expected.bounds)
+  );
+}
+
+function buildWorkspaceRestoreLayoutState(
+  currentWindowing: ProjectChatWindowingState,
+  restoredWindowing: ProjectChatWindowingState,
+): {
+  layoutWindowing: ProjectChatWindowingState;
+  threadBindings: Array<RestoredProjectChatThreadBinding>;
+} {
+  const threadBindings: Array<RestoredProjectChatThreadBinding> = [];
+  const layoutInstancesById: ProjectChatWindowingState["instancesById"] = {};
+
+  for (const [instanceId, instance] of Object.entries(
+    restoredWindowing.instancesById,
+  )) {
+    if (instance.mode !== ChatWindowModeEnum.project_ai_mode) {
+      layoutInstancesById[instanceId] =
+        instance.chatId === null ? instance : { ...instance, chatId: null };
+      continue;
+    }
+
+    const desiredChatId = instance.chatId ?? null;
+    const currentChatId = resolveProjectChatThreadBindingChatId(
+      currentWindowing.instancesById[instanceId],
+    );
+    if (desiredChatId !== currentChatId) {
+      threadBindings.push({
+        instanceId,
+        chatId: desiredChatId,
+      });
+    }
+    layoutInstancesById[instanceId] =
+      desiredChatId === currentChatId
+        ? instance
+        : {
+            ...instance,
+            chatId: currentChatId,
+          };
+  }
+
+  return {
+    layoutWindowing: createProjectChatWindowingState({
+      ...restoredWindowing,
+      instancesById: layoutInstancesById,
+    }),
+    threadBindings,
+  };
+}
+
+async function restoreWorkspaceProjectChatThreadBindings(
+  projectConfigId: string,
+  layoutWindowing: ProjectChatWindowingState,
+  threadBindings: Array<RestoredProjectChatThreadBinding>,
+): Promise<void> {
+  await flushPendingProjectChatWindowingWrites();
+  if (threadBindings.length === 0) {
+    return;
+  }
+
+  let encounteredFailure = false;
+  for (const threadBinding of threadBindings) {
+    if (useProjectState.getState().projectConfig.id !== projectConfigId) {
+      return;
+    }
+
+    const authoritativeWindowing =
+      getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+      useProjectState.getState().projectChatWindowing;
+    const expectedLayoutInstance =
+      layoutWindowing.instancesById[threadBinding.instanceId];
+    const currentInstance =
+      authoritativeWindowing.instancesById[threadBinding.instanceId];
+    if (
+      !expectedLayoutInstance ||
+      !currentInstance ||
+      currentInstance.mode !== ChatWindowModeEnum.project_ai_mode ||
+      !doesWorkspaceRestoreLayoutMatch(
+        currentInstance,
+        expectedLayoutInstance,
+      ) ||
+      (currentInstance.chatId ?? null) === threadBinding.chatId
+    ) {
+      continue;
+    }
+
+    const response = await route_set_project_chat_window_chat_id({
+      projectConfigId,
+      instanceId: threadBinding.instanceId,
+      chatId: threadBinding.chatId,
+      frontendOpId: null,
+    });
+    if (!res200(response)) {
+      encounteredFailure = true;
+      console.error("Failed to restore saved project chat thread binding.", {
+        projectConfigId,
+        instanceId: threadBinding.instanceId,
+        chatId: threadBinding.chatId,
+        status: response.status,
+        detail: getErrorDetail(response.data),
+      });
+      continue;
+    }
+    publishSyncedProjectChatWindowingState(projectConfigId, response.data);
+  }
+
+  if (encounteredFailure) {
+    addTemporaryNotification(
+      "Failed to restore one or more saved chat threads.",
+      SettaNotificationTypeEnum.error,
+    );
+  }
+}
+
+export async function restoreWindowSpaceInWorkspace(
+  windowSpaceId: string,
+): Promise<void> {
+  if (!canRestoreWindowSpaceInWorkspace()) {
+    return;
+  }
   const state = useProjectState.getState();
   const windowSpaces = getProjectWindowSpaces(state.projectConfig);
   if (!(windowSpaceId in windowSpaces)) {
@@ -1005,9 +1180,30 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
       nextGitPaneVisibleInstanceIds.push(instance.instanceId);
     }
   }
-  replaceProjectChatWindowingState(nextWindowing, {
+  const { layoutWindowing, threadBindings } = buildWorkspaceRestoreLayoutState(
+    currentWindowing,
+    nextWindowing,
+  );
+  replaceProjectChatWindowingState(layoutWindowing, {
     nextGitPaneVisibleInstanceIds,
   });
+  try {
+    await restoreWorkspaceProjectChatThreadBindings(
+      state.projectConfig.id,
+      layoutWindowing,
+      threadBindings,
+    );
+  } catch (error) {
+    console.error("Failed to restore saved project chat threads.", {
+      projectConfigId: state.projectConfig.id,
+      windowSpaceId,
+      error,
+    });
+    addTemporaryNotification(
+      "Failed to restore saved chat threads.",
+      SettaNotificationTypeEnum.error,
+    );
+  }
 }
 
 function publishSyncedProjectChatWindowingState(

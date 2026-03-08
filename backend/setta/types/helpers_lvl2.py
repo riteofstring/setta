@@ -3235,7 +3235,12 @@ def set_project_chat_window_chat_id(
 ):
     if instanceId not in p.projectChatWindowing.instancesById:
         raise KeyError(f"Project chat window {instanceId} not found.")
-    p.projectChatWindowing.instancesById[instanceId].chatId = chatId
+    instance = p.projectChatWindowing.instancesById[instanceId]
+    if getattr(instance.mode, "value", instance.mode) != "project_ai_mode":
+        raise ValueError(
+            f"Project chat window {instanceId} must use project_ai_mode to bind chatId."
+        )
+    instance.chatId = chatId
     normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
 
 

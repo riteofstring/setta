@@ -27,10 +27,10 @@ from setta.project_state.project_manager_types import (
     RunCodeRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
-    SetChatSectionChatIdRequest,
     SetChartAreaDataPathRequest,
     SetChartSettingsRequest,
     SetChartTypeRequest,
+    SetChatSectionChatIdRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
@@ -91,10 +91,10 @@ from setta.routers.project_manager import (
     route_paste_sections,
     route_set_callable,
     route_set_callable_hide_params,
-    route_set_chat_section_chat_id,
     route_set_chart_area_data_path,
     route_set_chart_settings,
     route_set_chart_type,
+    route_set_chat_section_chat_id,
     route_set_code,
     route_set_code_file_binding,
     route_set_code_obj_display_name,
@@ -159,23 +159,23 @@ from setta.types.project_config import (
     Position,
     ProjectConfig,
     WindowSpaceConfig,
-    WindowSpaceSurfaceKind,
     WindowSpaceState,
+    WindowSpaceSurfaceKind,
     WindowSpaceWindow,
     WindowSpaceWindowMode,
 )
 from setta.types.project_state import (
     ChatWindowMode,
     ChatWindowPlacement,
-    ProjectChatWindowInstance,
     ProjectChatWindowingState,
+    ProjectChatWindowInstance,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
-    ChatSectionImpl,
     ChatPermissionMode,
+    ChatSectionImpl,
     CodeFileAccessMode,
     SectionType,
     TextBlockSectionImpl,
@@ -1644,6 +1644,69 @@ class TestSharePolicyRoutes:
             )
             assert ctx.value.status_code == 403
             assert ctx.value.detail == "Deployment policy disallows LLM access."
+            assert (
+                session_state.projectChatWindowing.instancesById[
+                    "project-chat-window-1"
+                ].chatId
+                is None
+            )
+
+    async def test_project_chat_window_thread_binding_rejects_git_graph_windows(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            project_config_name = "share-policy-route-test"
+            root = _build_share_deployment_root(tmpdir, project_config_name)
+            project_config_id = _write_share_project(
+                root,
+                project_config_name=project_config_name,
+                deployment_version=root.name,
+            )
+            _write_share_policy(
+                root,
+                SharePolicy(allowLLM=True, allowLayoutChanges=False),
+            )
+            dbe = DBE(root)
+            project_state = dbe.read_project()
+            project_state.projectChatWindowingByProjectConfigId[project_config_id] = (
+                ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.git_graph_mode,
+                            chatId=None,
+                        )
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                )
+            )
+            dbe.write_project(project_state)
+            state = await self._build_state(root)
+            session = state.share_session_store.create_session()
+            state.share_runtime_state.create_session_backend(session.id)
+
+            with pytest.raises(HTTPException) as ctx:
+                with runtime_context(state, session.id) as runtime_ctx:
+                    await route_set_project_chat_window_chat_id(
+                        SetProjectChatWindowChatIdRequest(
+                            projectConfigId=project_config_id,
+                            instanceId="project-chat-window-1",
+                            chatId="chat-bound",
+                        ),
+                        runtime_ctx,
+                    )
+
+            session_state = state.share_runtime_state.get_session_state(
+                session.id,
+                project_config_id,
+            )
+            assert ctx.value.status_code == 422
+            assert (
+                ctx.value.detail
+                == "Project chat window project-chat-window-1 must use project_ai_mode to bind chatId."
+            )
             assert (
                 session_state.projectChatWindowing.instancesById[
                     "project-chat-window-1"

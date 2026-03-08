@@ -2321,6 +2321,40 @@ test.describe.serial("standalone project surface routes", () => {
         return sanitizeNameForSlug(name);
       }, windowSpace.name);
 
+      await clearProjectChatWindowingState(
+        page,
+        projectContext.projectConfigId,
+      );
+      await expect(alphaWorkspaceWindow).toHaveCount(0);
+      await expect(betaWorkspaceWindow).toHaveCount(0);
+
+      await page.getByTestId("window-space-open").click();
+
+      await expect(alphaWorkspaceWindow).toContainText(
+        "Workspace alpha thread marker",
+      );
+      await expect(alphaWorkspaceWindow).not.toContainText(
+        "Workspace beta thread marker",
+      );
+      await expect(betaWorkspaceWindow).toContainText(
+        "Workspace beta thread marker",
+      );
+      await expect(betaWorkspaceWindow).not.toContainText(
+        "Workspace alpha thread marker",
+      );
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return {
+            alpha: state.instancesById[alphaWindowId]?.chatId ?? null,
+            beta: state.instancesById[betaWindowId]?.chatId ?? null,
+          };
+        })
+        .toEqual({
+          alpha: "window-chat-alpha",
+          beta: "window-chat-beta",
+        });
+
       await standalonePage.goto(
         buildStandaloneUrl(
           page.url(),

@@ -114,7 +114,10 @@ function hydrateWindowSpaceWindows(
         window.title,
         sectionNamesById,
       ),
-      chatId: window.chatId ?? null,
+      chatId:
+        window.mode === ChatWindowModeEnum.git_graph_mode
+          ? null
+          : window.chatId ?? null,
       embeddedGitPaneVisible: window.embeddedGitPaneVisible,
       zIndex: window.zIndex,
       bounds: denormalizeFloatingBounds(
@@ -212,7 +215,7 @@ function setStandaloneProjectChatWindowChatId(
   chatId: string | null | undefined,
 ): Record<string, StandaloneWindowSpaceWindow> {
   const current = windowsById[instanceId];
-  if (!current) {
+  if (!current || current.mode === ChatWindowModeEnum.git_graph_mode) {
     return windowsById;
   }
   const normalizedChatId = chatId?.trim() ? chatId.trim() : null;

@@ -105,7 +105,10 @@ def normalize_project_chat_windowing(
             placement=instance.placement,
             section_id=section_id,
         )
-        if _enum_value(instance.mode) == "section_mode" and instance.chatId is not None:
+        if (
+            _enum_value(instance.mode) in {"section_mode", "git_graph_mode"}
+            and instance.chatId is not None
+        ):
             instance.chatId = None
         if section_id is not None and section_id not in section_ids:
             continue
@@ -151,12 +154,12 @@ def normalize_project_chat_windowing(
     project_chat_windowing.order = next_order
 
 
-def _normalize_layout_route_chat_id(
+def _normalize_thread_bound_chat_id(
     instance: "ProjectChatWindowInstance | None",
 ) -> ID | None:
     if instance is None:
         return None
-    if _enum_value(instance.mode) == "section_mode":
+    if _enum_value(instance.mode) != "project_ai_mode":
         return None
     return instance.chatId
 
@@ -167,8 +170,8 @@ def validate_project_chat_thread_bindings_unchanged(
 ) -> None:
     for instance_id, next_instance in next_windowing.instancesById.items():
         current_instance = current_windowing.instancesById.get(instance_id)
-        current_chat_id = _normalize_layout_route_chat_id(current_instance)
-        next_chat_id = _normalize_layout_route_chat_id(next_instance)
+        current_chat_id = _normalize_thread_bound_chat_id(current_instance)
+        next_chat_id = _normalize_thread_bound_chat_id(next_instance)
         if current_chat_id == next_chat_id:
             continue
         raise ValueError(

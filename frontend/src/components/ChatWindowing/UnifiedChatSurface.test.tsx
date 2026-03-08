@@ -63,14 +63,22 @@ let mockProjectState: MockProjectState = {
   projectChatWindowing: createProjectChatWindowingState(),
   sections: {},
 };
+let mockCanEditLayout = true;
 
 vi.mock("state/definitions", () => ({
   useProjectState: (selector: (state: MockProjectState) => unknown) =>
     selector(mockProjectState),
 }));
 
+vi.mock("state/hooks/share", () => ({
+  useShareCapabilities: () => ({
+    canEditLayout: mockCanEditLayout,
+  }),
+}));
+
 describe("UnifiedChatSurface", () => {
   beforeEach(() => {
+    mockCanEditLayout = true;
     mockProjectState = {
       projectChatWindowing: createProjectChatWindowingState(),
       sections: {},
@@ -405,6 +413,44 @@ describe("UnifiedChatSurface", () => {
     );
     expect(markup).toContain("section-main-full-w");
     expect(markup).not.toContain('data-testid="mock-project-chat"');
+  });
+
+  it("hides the canvas restore action on read-only placeholders", () => {
+    mockCanEditLayout = false;
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            sectionIdOrNull: "section-123",
+            mode: ChatWindowModeEnum.project_ai_mode,
+            isClosed: false,
+            isMinimized: false,
+          },
+        },
+      }),
+      sections: {
+        "section-123": { name: "Section Chat" },
+      },
+    };
+
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.project_ai_mode}
+        host="section_layout"
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain(
+      'data-testid="project-chat-canvas-floating-placeholder"',
+    );
+    expect(markup).toContain('data-testid="section-window-placeholder-focus"');
+    expect(markup).not.toContain(
+      'data-testid="section-window-placeholder-restore"',
+    );
   });
 
   it("keeps the canvas placeholder when the external chat window is minimized", () => {
