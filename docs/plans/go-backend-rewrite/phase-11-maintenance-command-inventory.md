@@ -148,7 +148,8 @@ As of 2026-03-08:
 Phase 11 Stage 1 is complete in `phase-11-backups-command-stage1.md`.
 
 The next bounded rewrite slice should be the readable-export foundation needed
-before `setta export-db` can move cleanly.
+before `setta export-db` can move cleanly, now scoped in
+`phase-11-readable-export-foundation-stage2.md`.
 
 Do not jump to `plugins` first unless product priorities explicitly outweigh
 the smaller readable-export foundation.
@@ -163,6 +164,9 @@ the smaller readable-export foundation.
   - `setta backups` is now Go-owned
   - the remaining Python-owned maintenance commands are `export-db` and
     `plugins`
+- 2026-03-08: added the dedicated readable-export Stage 2 plan.
+  - the next bounded slice is now explicitly the shared readable-export owner
+    plus thin `setta export-db` routing
 
 ## Verification
 

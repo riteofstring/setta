@@ -374,9 +374,12 @@ Use the docs in this order:
   - focused implementation-plan doc for the first bounded Phase 11 slice:
     Go-owned `setta backups list|restore` over the completed runtime-path and
     local-session foundations
-123. `spike-mcp.md`
+123. `phase-11-readable-export-foundation-stage2.md`
+  - focused implementation-plan doc for the shared readable-export owner and
+    Go-owned `setta export-db` migration
+124. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-124. `spike-pty.md`
+125. `spike-pty.md`
    - PTY uncertainty-reduction plan
 125. `spike-lsp.md`
    - LSP uncertainty-reduction plan
