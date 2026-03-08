@@ -138,6 +138,19 @@ Current landed wedge:
       - `ProjectStateSingleConfig`
       - `ProjectStateSingleConfigWithCompletedOpIds`
       - `SettingsState`
+    - current canonical project-state helper support used by current callers
+      - section/default factories for `Callable`, `Dict`, `ListRoot`,
+        `TextBlock`, `Code`, `Terminal`, `Chat`, `TaskBoard`, and
+        `Spreadsheet`
+      - code-object factories for `CodeParam`
+      - chat message/tool-call helpers and chat section state/branch payloads
+      - runtime enums used by the current helper callers, including
+        `CodeLanguage`, `ConfigLanguage`, `TextBlockFormat`,
+        `TextBlockDisplayMode`, `ChatRole`, `ChatPermissionMode`,
+        `ChatDictationMode`, `TaskBoardViewMode`,
+        `TaskBoardTaskRecurrence`, `TaskBoardRecurringWeekday`,
+        `TaskBoardRecurringMonth`, `SpreadsheetGridDensity`,
+        `ParamNameType`, and `ParameterPassingStyle`
   - app-config pane contract types
     - `AppCatalogResponse` and the catalog component/action/prop payloads
     - `AppDefinition`, `AppRoute`, and the app-definition read/mutation

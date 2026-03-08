@@ -144,6 +144,135 @@ export const ListRootViewModeEnum = {
 } as const;
 export type ListRootViewMode = ObjectValues<typeof ListRootViewModeEnum>;
 
+export const CodeLanguageEnum = {
+  python: "python",
+  bash: "bash",
+  javascript: "javascript",
+  typescript: "typescript",
+  json: "json",
+  yaml: "yaml",
+  toml: "toml",
+  markdown: "markdown",
+  plaintext: "plaintext",
+} as const;
+export type BuiltinCodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
+
+export const ConfigLanguageEnum = {
+  python: "python",
+  json: "json",
+} as const;
+export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
+
+export const TextBlockDisplayModeEnum = {
+  Render: "Render",
+  Edit: "Edit",
+} as const;
+export type TextBlockDisplayMode = ObjectValues<
+  typeof TextBlockDisplayModeEnum
+>;
+
+export const TextBlockFormatEnum = {
+  Plaintext: "Plaintext",
+  Markdown: "Markdown",
+} as const;
+export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
+
+export const ChatRoleEnum = {
+  system: "system",
+  user: "user",
+  assistant: "assistant",
+  tool: "tool",
+} as const;
+export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
+
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
+
+export const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
+
+export const TaskBoardViewModeEnum = {
+  task_list: "task_list",
+  kanban: "kanban",
+} as const;
+export type TaskBoardViewMode = ObjectValues<typeof TaskBoardViewModeEnum>;
+
+export const TaskBoardTaskRecurrenceEnum = {
+  none: "none",
+  hourly: "hourly",
+  daily: "daily",
+  specified_days: "specified_days",
+  specified_months: "specified_months",
+  specified_years: "specified_years",
+} as const;
+export type TaskBoardTaskRecurrence = ObjectValues<
+  typeof TaskBoardTaskRecurrenceEnum
+>;
+
+export const TaskBoardRecurringWeekdayEnum = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+export type TaskBoardRecurringWeekday = ObjectValues<
+  typeof TaskBoardRecurringWeekdayEnum
+>;
+
+export const TaskBoardRecurringMonthEnum = {
+  january: "january",
+  february: "february",
+  march: "march",
+  april: "april",
+  may: "may",
+  june: "june",
+  july: "july",
+  august: "august",
+  september: "september",
+  october: "october",
+  november: "november",
+  december: "december",
+} as const;
+export type TaskBoardRecurringMonth = ObjectValues<
+  typeof TaskBoardRecurringMonthEnum
+>;
+
+export const SpreadsheetGridDensityEnum = {
+  compact: "compact",
+  comfortable: "comfortable",
+} as const;
+export type SpreadsheetGridDensity = ObjectValues<
+  typeof SpreadsheetGridDensityEnum
+>;
+
+export const ParameterPassingStyleEnum = {
+  DEFAULT: "DEFAULT",
+  ARGS: "ARGS",
+  KWARGS: "KWARGS",
+  POSITIONAL_ONLY: "POSITIONAL_ONLY",
+  KEYWORD_ONLY: "KEYWORD_ONLY",
+} as const;
+export type ParameterPassingStyle = ObjectValues<
+  typeof ParameterPassingStyleEnum
+>;
+
+export const ParamNameTypeEnum = {
+  CODE: "CODE",
+  TEXT: "TEXT",
+} as const;
+export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
+
 export const RunSnapshotModeEnum = {
   ephemeral: "ephemeral",
   always: "always",
@@ -443,25 +572,356 @@ export type ProjectStateSingleConfigWithCompletedOpIds = {
   pendingOpIds: Array<string>;
 };
 
-export type BaseChatMessageUnion = {
+type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
+  {
+    defaults: TDefaults;
+    overrides: Partial<TImpl>;
+  };
+
+function isGeneratedImplOverrideCandidate(
+  value: unknown,
+): value is { id?: unknown; type?: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("id" in value || "type" in value)
+  );
+}
+
+function resolveGeneratedFactoryInputs<
+  TDefaults extends object,
+  TImpl extends object,
+>(
+  baseDefaults: TDefaults,
+  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
+  overrides?: Partial<TImpl>,
+): GeneratedFactoryResolution<TDefaults, TImpl> {
+  if (overrides !== undefined) {
+    return {
+      defaults: mergeGeneratedOptions(
+        baseDefaults,
+        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+      ),
+      overrides,
+    };
+  }
+  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
+    return {
+      defaults: cloneGeneratedValue(baseDefaults),
+      overrides: defaultsOrOverrides as Partial<TImpl>,
+    };
+  }
+  return {
+    defaults: mergeGeneratedOptions(
+      baseDefaults,
+      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+    ),
+    overrides: {},
+  };
+}
+
+type JSONValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<JSONValue>
+  | { [key: string]: JSONValue | undefined };
+
+export type ChatFileAttachment = {
   id: string;
-  [key: string]: unknown;
+  name: string;
+  mimeType?: string | null;
+  size?: number | null;
+};
+
+export type MessageTextContent = {
+  type: "text";
+  text: string;
+};
+export function createMessageTextContent(
+  options: Partial<MessageTextContent> = {},
+): MessageTextContent {
+  return mergeGeneratedOptions(
+    {
+      type: "text",
+      text: "",
+    },
+    options,
+  );
+}
+
+export type MessageImageUrl = {
+  url: string;
+  detail?: "auto" | "low" | "high" | null;
+};
+
+export type MessageImageUrlContent = {
+  type: "image_url";
+  image_url: MessageImageUrl;
+};
+
+export type MessageThinkingContent = {
+  type: "thinking";
+  thinking: string;
+  summary?: string | null;
+  signature?: string | null;
+};
+export function createMessageThinkingContent(
+  options: Partial<MessageThinkingContent> = {},
+): MessageThinkingContent {
+  return mergeGeneratedOptions(
+    {
+      type: "thinking",
+      thinking: "",
+      summary: "",
+      signature: "",
+    },
+    options,
+  );
+}
+
+export type MessageContent =
+  | MessageTextContent
+  | MessageImageUrlContent
+  | MessageThinkingContent;
+
+export type ToolReferenceContent = {
+  type: "tool_reference";
+  tool_name: string;
+};
+
+export type ToolCallFunction = {
+  name: string;
+  arguments: { [key: string]: JSONValue | undefined };
+};
+export function createToolCallFunction(
+  options: Partial<ToolCallFunction> = {},
+): ToolCallFunction {
+  return mergeGeneratedOptions(
+    {
+      name: "",
+      arguments: {},
+    },
+    options,
+  );
+}
+
+export type ToolCall = {
+  id: string;
+  type: "function";
+  function: ToolCallFunction;
+};
+export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      type: "function",
+      function: createToolCallFunction(),
+    },
+    options,
+  );
+}
+
+type ContentChatMessageBase = {
+  id: string;
+  content: Array<MessageContent>;
+  attachments: Array<ChatFileAttachment>;
+};
+
+export type SystemChatMessage = ContentChatMessageBase & {
+  role: typeof ChatRoleEnum.system;
+};
+
+export type AssistantChatMessage = ContentChatMessageBase & {
+  role: typeof ChatRoleEnum.assistant;
+  tool_calls?: Array<ToolCall> | null;
+};
+
+export type UserChatMessage = ContentChatMessageBase & {
+  role: typeof ChatRoleEnum.user;
+};
+
+export type ToolChatMessage = {
+  id: string;
+  role: typeof ChatRoleEnum.tool;
+  tool_call_id: string;
+  tool_name?: string | null;
+  arguments: JSONValue;
+  result: JSONValue;
+  content: Array<ToolReferenceContent | Record<string, unknown>>;
+  is_error: boolean;
+  started_at: string;
+  completed_at?: string | null;
+};
+
+export type BaseChatMessageUnion =
+  | SystemChatMessage
+  | AssistantChatMessage
+  | UserChatMessage
+  | ToolChatMessage;
+
+export function createSystemChatMessage(
+  options: Partial<SystemChatMessage> = {},
+): SystemChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.system,
+      content: [],
+      attachments: [],
+    },
+    options,
+  );
+}
+
+export function createAssistantChatMessage(
+  options: Partial<AssistantChatMessage> = {},
+): AssistantChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.assistant,
+      content: [],
+      attachments: [],
+      tool_calls: null,
+    },
+    options,
+  );
+}
+
+export function createUserChatMessage(
+  options: Partial<UserChatMessage> = {},
+): UserChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.user,
+      content: [],
+      attachments: [],
+    },
+    options,
+  );
+}
+
+export function createToolChatMessage(
+  options: Partial<ToolChatMessage> = {},
+): ToolChatMessage {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      role: ChatRoleEnum.tool,
+      tool_call_id: "",
+      tool_name: null,
+      arguments: {},
+      result: null,
+      content: [],
+      is_error: false,
+      started_at: "",
+      completed_at: null,
+    },
+    options,
+  );
+}
+
+export type ChatSectionBranch = {
+  messages: Array<BaseChatMessageUnion>;
+  createdAt: number;
+  parentBranchId?: string | null;
+  branchFromMessageId?: string | null;
+};
+
+export type ChatSectionState = {
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+
+export type CodeSectionDiagnosticsIgnoreState = {
+  muted: boolean;
+  suppressedCodes: Array<string | number>;
 };
 
 export type BaseCodeObjImpl = {
   type: CodeObjType;
   id: string;
-  name?: string;
-  description?: string;
-  isPreset?: boolean;
+  name: string;
+  description: string;
+  isPreset: boolean;
   children?: Array<string>;
+  coreNameType?: ParamNameType;
   coreNameEditable?: boolean;
+  passingStyle?: ParameterPassingStyle;
+  typeAnnotation?: string;
+  defaultVal?: string;
   value?: string;
   [key: string]: unknown;
 };
-export type BaseCodeObjImplUnion = BaseCodeObjImpl;
-export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl;
-export type BaseParamCodeObjImplUnion = BaseCodeObjImpl;
+export type CodeParamCodeObjImpl = BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+export type BaseCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl;
+export type BaseChildlessCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl;
+export type BaseParamCodeObjImplUnion = BaseCodeObjImpl | CodeParamCodeObjImpl;
+
+export type UserDefaultCodeParamCodeObjImpl = {
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+};
+export function createUserDefaultCodeParamCodeObjImpl(
+  options: Partial<UserDefaultCodeParamCodeObjImpl> = {},
+): UserDefaultCodeParamCodeObjImpl {
+  return mergeGeneratedOptions(
+    {
+      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameEditable: false,
+      typeAnnotation: "",
+      defaultVal: "",
+      value: "",
+    },
+    options,
+  );
+}
+
+export function createCodeParamCodeObjImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeParamCodeObjImpl>
+    | Partial<CodeParamCodeObjImpl> = {},
+  overrides?: Partial<CodeParamCodeObjImpl>,
+): CodeParamCodeObjImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeParamCodeObjImpl,
+    CodeParamCodeObjImpl
+  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: CodeObjTypeEnum.CodeParam,
+      id: "",
+      name: "",
+      description: "",
+      isPreset: false,
+      coreNameType: resolved.defaults.coreNameType,
+      coreNameEditable: resolved.defaults.coreNameEditable,
+      passingStyle: ParameterPassingStyleEnum.DEFAULT,
+      typeAnnotation: resolved.defaults.typeAnnotation,
+      defaultVal: resolved.defaults.defaultVal,
+      value: resolved.defaults.value,
+    },
+    resolved.overrides,
+  );
+}
 
 export type BaseSectionImpl = {
   type: SectionType;
@@ -525,7 +985,21 @@ export type BaseSectionImpl = {
   dataPath?: string;
   [key: string]: unknown;
 };
-export type BaseSectionImplUnion = BaseSectionImpl;
+export type CallableSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Callable;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  callable?: string | null;
+  hideParams: boolean;
+};
 export type BaseParentSectionImplUnion = BaseSectionImpl & {
   children: Array<string>;
 };
@@ -550,6 +1024,331 @@ export type DictSectionImpl = BaseSectionImpl & {
   jsonSourceMissing: boolean;
 };
 
+export type UserDefaultCallableSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  hideParams: boolean;
+};
+
+export type ListRootSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.ListRoot;
+  children: Array<string>;
+  defaultChildSectionType: SectionType;
+  viewMode: ListRootViewMode;
+};
+
+export type UserDefaultListRootSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  defaultChildSectionType: SectionType;
+  viewMode: ListRootViewMode;
+};
+
+export type TextBlockSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.TextBlock;
+  format: TextBlockFormat;
+  masterFontSizePx: number;
+  headingAsSectionName: boolean;
+  metaControlStyle: boolean;
+  textDisplayMode: TextBlockDisplayMode;
+  text: string;
+};
+
+export type UserDefaultTextBlockSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  format: TextBlockFormat;
+  masterFontSizePx: number;
+  headingAsSectionName: boolean;
+  metaControlStyle: boolean;
+  textDisplayMode: TextBlockDisplayMode;
+  text: string;
+};
+
+export type CodeSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Code;
+  children: Array<string>;
+  code: string;
+  codeLanguage: string;
+  codeFileBinding?: CodeFileBinding | null;
+  attachedTerminalSectionId?: string | null;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
+export type UserDefaultCodeSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  code: string;
+  codeFileBinding?: CodeFileBinding | null;
+  attachedTerminalSectionId?: string | null;
+  codeLanguage: string;
+  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
+};
+
+export type TerminalSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Terminal;
+};
+
+export type UserDefaultTerminalSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+};
+
+export type ChatSectionImpl = BaseSectionImpl &
+  ChatSectionState & {
+    type: typeof SectionTypeEnum.Chat;
+    managed: boolean;
+    engineConfigId?: string | null;
+    transcriptionProfileId?: string | null;
+    agentProfileId?: string | null;
+    chatId?: string | null;
+    thinking: boolean;
+    permissionMode: ChatPermissionMode;
+    searchEnabled: boolean;
+    dictationMode: ChatDictationMode;
+  };
+
+export type UserDefaultChatSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  managed: boolean;
+  engineConfigId?: string | null;
+  transcriptionProfileId?: string | null;
+  agentProfileId?: string | null;
+  chatId?: string | null;
+  thinking: boolean;
+  permissionMode: ChatPermissionMode;
+  searchEnabled: boolean;
+  dictationMode: ChatDictationMode;
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+
+export type TaskBoardColumn = {
+  id: string;
+  name: string;
+  color: string;
+  sortIndex: number;
+};
+export function createTaskBoardColumn(
+  options: Partial<TaskBoardColumn> = {},
+): TaskBoardColumn {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      color: "#3b82f6",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type TaskBoardTask = {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  columnId?: string | null;
+  dueDateIso: string;
+  recurrence: TaskBoardTaskRecurrence;
+  recurrenceDays: Array<TaskBoardRecurringWeekday>;
+  recurrenceMonths: Array<TaskBoardRecurringMonth>;
+  recurrenceYears: Array<number>;
+  sortIndex: number;
+};
+export function createTaskBoardTask(
+  options: Partial<TaskBoardTask> = {},
+): TaskBoardTask {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      title: "",
+      description: "",
+      completed: false,
+      columnId: null,
+      dueDateIso: "",
+      recurrence: TaskBoardTaskRecurrenceEnum.none,
+      recurrenceDays: [],
+      recurrenceMonths: [],
+      recurrenceYears: [],
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type TaskBoardSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.TaskBoard;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn>;
+  tasks: Array<TaskBoardTask>;
+};
+
+export type UserDefaultTaskBoardSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  viewMode: TaskBoardViewMode;
+  columns: Array<TaskBoardColumn> | null;
+  tasks: Array<TaskBoardTask>;
+};
+
+export type SpreadsheetSectionImpl = BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Spreadsheet;
+  filePath: string;
+  activeSheet?: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+
+export type UserDefaultSpreadsheetSectionImpl = {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  filePath: string;
+  activeSheet?: string | null;
+  readOnly: boolean;
+  showRowNumbers: boolean;
+  density: SpreadsheetGridDensity;
+  autoReloadOnExternalChange: boolean;
+};
+
+export type BaseSectionImplUnion =
+  | CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | TextBlockSectionImpl
+  | CodeSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl
+  | BaseSectionImpl;
+
+function createGeneratedBaseSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+} {
+  return {
+    isFrozen: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      width: 250,
+      height: 150,
+    },
+    aspectRatio: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+  };
+}
+
+function createGeneratedBaseSectionWithParamsDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: ConfigLanguageEnum.python,
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+  };
+}
+
+function createGeneratedBaseCodeSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  code: string;
+  codeFileBinding?: CodeFileBinding | null;
+  attachedTerminalSectionId?: string | null;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    code: "",
+    size: {
+      width: 500,
+      height: 150,
+    },
+    codeFileBinding: null,
+    attachedTerminalSectionId: null,
+  };
+}
+
 export type UserDefaultDictSectionImpl = {
   isFrozen: boolean;
   tagColor: string | null;
@@ -572,22 +1371,7 @@ export function createUserDefaultDictSectionImpl(
 ): UserDefaultDictSectionImpl {
   return mergeGeneratedOptions(
     {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        width: 250,
-        height: 150,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      edgeInputParams: [],
-      edgeOutputPorts: [],
+      ...createGeneratedBaseSectionWithParamsDefaults(),
       isJsonSource: false,
       jsonSourceKeys: [],
     },
@@ -634,6 +1418,468 @@ export function createDictSectionImpl(
       jsonSourceMissing: false,
     },
     overrides,
+  );
+}
+
+export function createUserDefaultCallableSectionImpl(
+  options: Partial<UserDefaultCallableSectionImpl> = {},
+): UserDefaultCallableSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionWithParamsDefaults(),
+      hideParams: false,
+    },
+    options,
+  );
+}
+
+export function createCallableSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCallableSectionImpl>
+    | Partial<CallableSectionImpl> = {},
+  overrides?: Partial<CallableSectionImpl>,
+): CallableSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCallableSectionImpl,
+    CallableSectionImpl
+  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Callable,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      codeObjVariantMap: {},
+      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
+      paramFilter: resolved.defaults.paramFilter,
+      columnWidth: resolved.defaults.columnWidth,
+      configLanguage: resolved.defaults.configLanguage,
+      pinnedParams: [],
+      selectedParams: [],
+      ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      },
+      edgeInputParams: resolved.defaults.edgeInputParams,
+      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
+      callable: null,
+      hideParams: resolved.defaults.hideParams,
+    },
+    resolved.overrides,
+  );
+}
+
+export function createUserDefaultListRootSectionImpl(
+  options: Partial<UserDefaultListRootSectionImpl> = {},
+): UserDefaultListRootSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      defaultChildSectionType: SectionTypeEnum.Callable,
+      viewMode: ListRootViewModeEnum.default,
+    },
+    options,
+  );
+}
+
+export function createListRootSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultListRootSectionImpl>
+    | Partial<ListRootSectionImpl> = {},
+  overrides?: Partial<ListRootSectionImpl>,
+): ListRootSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultListRootSectionImpl,
+    ListRootSectionImpl
+  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.ListRoot,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
+      viewMode: resolved.defaults.viewMode,
+    },
+    resolved.overrides,
+  );
+}
+
+export function createUserDefaultTextBlockSectionImpl(
+  options: Partial<UserDefaultTextBlockSectionImpl> = {},
+): UserDefaultTextBlockSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 500,
+        height: 150,
+      },
+      format: TextBlockFormatEnum.Plaintext,
+      masterFontSizePx: 14,
+      headingAsSectionName: false,
+      metaControlStyle: false,
+      textDisplayMode: TextBlockDisplayModeEnum.Render,
+      text: "",
+    },
+    options,
+  );
+}
+
+export function createTextBlockSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTextBlockSectionImpl>
+    | Partial<TextBlockSectionImpl> = {},
+  overrides?: Partial<TextBlockSectionImpl>,
+): TextBlockSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTextBlockSectionImpl,
+    TextBlockSectionImpl
+  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TextBlock,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      format: resolved.defaults.format,
+      masterFontSizePx: resolved.defaults.masterFontSizePx,
+      headingAsSectionName: resolved.defaults.headingAsSectionName,
+      metaControlStyle: resolved.defaults.metaControlStyle,
+      textDisplayMode: resolved.defaults.textDisplayMode,
+      text: resolved.defaults.text,
+    },
+    resolved.overrides,
+  );
+}
+
+export function createUserDefaultCodeSectionImpl(
+  options: Partial<UserDefaultCodeSectionImpl> = {},
+): UserDefaultCodeSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseCodeSectionDefaults(),
+      codeLanguage: CodeLanguageEnum.python,
+      diagnosticsIgnoreState: {
+        muted: false,
+        suppressedCodes: [],
+      },
+    },
+    options,
+  );
+}
+
+export function createCodeSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultCodeSectionImpl>
+    | Partial<CodeSectionImpl> = {},
+  overrides?: Partial<CodeSectionImpl>,
+): CodeSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultCodeSectionImpl,
+    CodeSectionImpl
+  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Code,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      children: [],
+      code: resolved.defaults.code,
+      codeLanguage: resolved.defaults.codeLanguage,
+      codeFileBinding: resolved.defaults.codeFileBinding,
+      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
+      diagnosticsIgnoreState: resolved.defaults.diagnosticsIgnoreState,
+    },
+    resolved.overrides,
+  );
+}
+
+export function createUserDefaultTerminalSectionImpl(
+  options: Partial<UserDefaultTerminalSectionImpl> = {},
+): UserDefaultTerminalSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+    },
+    options,
+  );
+}
+
+export function createTerminalSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTerminalSectionImpl>
+    | Partial<TerminalSectionImpl> = {},
+  overrides?: Partial<TerminalSectionImpl>,
+): TerminalSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTerminalSectionImpl,
+    TerminalSectionImpl
+  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Terminal,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+    },
+    resolved.overrides,
+  );
+}
+
+export function createUserDefaultChatSectionImpl(
+  options: Partial<UserDefaultChatSectionImpl> = {},
+): UserDefaultChatSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 400,
+        height: 200,
+      },
+      managed: false,
+      engineConfigId: null,
+      transcriptionProfileId: null,
+      agentProfileId: null,
+      chatId: null,
+      thinking: true,
+      permissionMode: ChatPermissionModeEnum.minimal,
+      searchEnabled: true,
+      dictationMode: ChatDictationModeEnum.auto,
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
+    },
+    options,
+  );
+}
+
+export function createChatSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultChatSectionImpl>
+    | Partial<ChatSectionImpl> = {},
+  overrides?: Partial<ChatSectionImpl>,
+): ChatSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultChatSectionImpl,
+    ChatSectionImpl
+  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Chat,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      managed: resolved.defaults.managed,
+      engineConfigId: resolved.defaults.engineConfigId,
+      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
+      agentProfileId: resolved.defaults.agentProfileId,
+      chatId: resolved.defaults.chatId,
+      thinking: resolved.defaults.thinking,
+      permissionMode: resolved.defaults.permissionMode,
+      searchEnabled: resolved.defaults.searchEnabled,
+      dictationMode: resolved.defaults.dictationMode,
+      messages: resolved.defaults.messages,
+      inputText: resolved.defaults.inputText,
+      waitingForResponse: resolved.defaults.waitingForResponse,
+      toolCallArguments: resolved.defaults.toolCallArguments,
+      activeBranchId: resolved.defaults.activeBranchId,
+      branches: resolved.defaults.branches,
+    },
+    resolved.overrides,
+  );
+}
+
+function resolveGeneratedTaskBoardColumns(
+  columns: Array<TaskBoardColumn> | null | undefined,
+): Array<TaskBoardColumn> {
+  if (columns === null || columns === undefined) {
+    return [];
+  }
+  return cloneGeneratedValue(columns);
+}
+
+export function createUserDefaultTaskBoardSectionImpl(
+  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
+): UserDefaultTaskBoardSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 720,
+        height: 430,
+      },
+      viewMode: TaskBoardViewModeEnum.kanban,
+      columns: null,
+      tasks: [],
+    },
+    options,
+  );
+}
+
+export function createTaskBoardSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultTaskBoardSectionImpl>
+    | Partial<TaskBoardSectionImpl> = {},
+  overrides?: Partial<TaskBoardSectionImpl>,
+): TaskBoardSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultTaskBoardSectionImpl,
+    TaskBoardSectionImpl
+  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
+  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
+    ...resolved.overrides,
+  };
+  if (normalizedOverrides.columns === undefined) {
+    delete normalizedOverrides.columns;
+  }
+  if (normalizedOverrides.tasks === undefined) {
+    delete normalizedOverrides.tasks;
+  }
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.TaskBoard,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      viewMode: resolved.defaults.viewMode,
+      columns: resolveGeneratedTaskBoardColumns(resolved.defaults.columns),
+      tasks: resolved.defaults.tasks,
+    },
+    normalizedOverrides,
+  );
+}
+
+export function createUserDefaultSpreadsheetSectionImpl(
+  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
+): UserDefaultSpreadsheetSectionImpl {
+  return mergeGeneratedOptions(
+    {
+      ...createGeneratedBaseSectionDefaults(),
+      size: {
+        width: 760,
+        height: 500,
+      },
+      filePath: "",
+      activeSheet: null,
+      readOnly: false,
+      showRowNumbers: true,
+      density: SpreadsheetGridDensityEnum.compact,
+      autoReloadOnExternalChange: false,
+    },
+    options,
+  );
+}
+
+export function createSpreadsheetSectionImpl(
+  defaultsOrOverrides:
+    | Partial<UserDefaultSpreadsheetSectionImpl>
+    | Partial<SpreadsheetSectionImpl> = {},
+  overrides?: Partial<SpreadsheetSectionImpl>,
+): SpreadsheetSectionImpl {
+  const resolved = resolveGeneratedFactoryInputs<
+    UserDefaultSpreadsheetSectionImpl,
+    SpreadsheetSectionImpl
+  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
+  return mergeGeneratedOptions(
+    {
+      type: SectionTypeEnum.Spreadsheet,
+      id: "",
+      name: "",
+      isFrozen: resolved.defaults.isFrozen,
+      isInOtherProjectConfigs: false,
+      tagColor: resolved.defaults.tagColor,
+      styleColor: resolved.defaults.styleColor,
+      size: resolved.defaults.size,
+      aspectRatio: resolved.defaults.aspectRatio,
+      aspectRatioExtraHeight: 0,
+      aspectRatioExtraWidth: 0,
+      isMinimized: resolved.defaults.isMinimized,
+      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
+      isPreset: false,
+      filePath: resolved.defaults.filePath,
+      activeSheet: resolved.defaults.activeSheet,
+      readOnly: resolved.defaults.readOnly,
+      showRowNumbers: resolved.defaults.showRowNumbers,
+      density: resolved.defaults.density,
+      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
+    },
+    resolved.overrides,
   );
 }
 
