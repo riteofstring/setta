@@ -20,12 +20,13 @@ Current repo status as of 2026-03-08:
     `internal/deployments/catalog.go`
   - share deployment publication from the live runtime snapshot in
     `internal/deployments/share_publish.go`
+  - app deployment publication from the live runtime snapshot in
+    `internal/deployments/app_publish.go`
   - deployment runtime/session overlays in `internal/deployments/runtime.go`
   - deployment session/state/project-config read routes in
     `internal/httpapi/deployment_routes.go`
   - app-spec store and validation owners in `internal/appspec`
 - Go does not yet own:
-  - app deployment publication
   - thin IDE HTTP routes for those publish/list/latest flows
 
 ## Scope
@@ -110,8 +111,6 @@ This slice should cover:
      app-definition work
 
 2. Missing owner seams
-   - there is still no Go app deployment publish owner for app-definition
-     validation, app-spec copy/rebase, and app-mode policy materialization
    - there are no IDE-mode Go routes for deployment publish/list/latest
 
 ## Working Decisions
@@ -142,12 +141,14 @@ This slice should cover:
 3. App deployment publish extension
    - layer app-definition/app-spec requirements and app-spec copy/rebase on top
      of the share publish owner
-   - next focused slice: move to `phase-7-app-deployment-publish-owner.md`
+   - status: complete in `internal/deployments/app_publish.go`
 
 4. Thin IDE transport
    - register the list/latest/publish routes in IDE mode only
    - keep handlers limited to request decoding, mode checks, owner invocation,
      and response mapping
+   - next focused slice: move to
+     `phase-7-deployment-ide-publish-list-transport.md`
 
 5. Focused verification
    - add deployment-owner tests covering:
@@ -180,6 +181,10 @@ This slice should cover:
   owner in `internal/deployments/share_publish.go`, including live runtime
   snapshot publication, asset/code/structured-data rebasing, listener copy, and
   focused publish tests.
+- 2026-03-08: completed Stage 3 by adding a Go-owned app deployment publish
+  owner in `internal/deployments/app_publish.go`, including app-definition
+  preconditions, app-spec validation and deployment-local write, app-mode
+  policy defaults, and focused publish tests.
 
 ## Verification Targets
 
@@ -188,6 +193,6 @@ This slice should cover:
 
 ## Next Recommended Step
 
-Implement Stage 3 of this slice: the Go-owned app deployment publish owner in
-`phase-7-app-deployment-publish-owner.md`, then layer thin IDE publish/list/latest
-transport on top of the completed catalog and publish owners.
+Implement Stage 4 of this slice: thin IDE publish/list/latest transport in
+`phase-7-deployment-ide-publish-list-transport.md` over the completed catalog,
+share publish, and app publish owners.

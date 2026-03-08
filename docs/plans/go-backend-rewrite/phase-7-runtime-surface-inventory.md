@@ -23,6 +23,8 @@ Current repo status as of 2026-03-08:
     `internal/deployments/catalog.go`
   - share deployment publication from the live runtime snapshot in
     `internal/deployments/share_publish.go`
+  - app deployment publication from the live runtime snapshot in
+    `internal/deployments/app_publish.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
   - launcher installation and status management
@@ -71,8 +73,8 @@ Current repo status as of 2026-03-08:
 2. Deployment runtime has partial Go ownership
    - Go already serves current-session and state/project-config reads for share
      and app deployments
-   - Python still owns deployment publication plus deployment listing/latest
-     metadata routes in `share_deployments.py` and `app_deployments.py`
+   - Python still owns the IDE deployment publish/list/latest route layer in
+     `share_deployments.py` and `app_deployments.py`
    - current missing route overlap includes:
      - `GET /share/deployments`
      - `GET /share/deployments/{deploymentName}/versions`
@@ -113,17 +115,18 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Move to the dedicated app-deployment publish implementation-plan doc in
-`phase-7-app-deployment-publish-owner.md`.
+Move to the dedicated deployment IDE publish/list transport plan doc in
+`phase-7-deployment-ide-publish-list-transport.md`.
 
 That is now the highest-leverage next step because:
 
 - Stage 1 deployment catalog/version allocation is complete
 - Stage 2 share deployment publish ownership is complete
+- Stage 3 app deployment publish ownership is complete
 - Go already owns `internal/deployments`, deployment read/session routes, and
   `internal/appspec`
-- app deployment publish is now the smallest remaining deployment-runtime owner
-  before IDE publish/list/latest transport
+- thin IDE publish/list/latest transport is now the smallest remaining
+  deployment-runtime slice before launcher/bootstrap work
 
 ## Progress Notes
 
@@ -137,6 +140,9 @@ That is now the highest-leverage next step because:
 - 2026-03-08: completed Stage 2 by adding a Go-owned share deployment publish
   owner in `internal/deployments/share_publish.go`; next recommended step is
   the app deployment publish owner.
+- 2026-03-08: completed Stage 3 by adding a Go-owned app deployment publish
+  owner in `internal/deployments/app_publish.go`; next recommended step is the
+  IDE publish/list/latest transport slice.
 
 ## Verification
 

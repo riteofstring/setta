@@ -274,8 +274,8 @@ Use the docs in this order:
 96. `phase-7-deployment-publish-and-list-runtime.md`
   - implementation-plan doc for the first bounded Phase 7 slice:
     Go-owned deployment publication/listing above the completed deployment
-    runtime/session read foundation; Stage 1 catalog/version allocation is now
-    complete
+    runtime/session read foundation; the runtime-owner stages are now complete
+    and the remaining gap is the IDE transport layer
 97. `phase-7-share-deployment-publish-owner.md`
   - focused implementation-plan doc for the next bounded Phase 7 slice:
     the Go-owned share deployment publish service above the completed catalog
@@ -283,12 +283,17 @@ Use the docs in this order:
 98. `phase-7-app-deployment-publish-owner.md`
   - focused implementation-plan doc for the next bounded Phase 7 slice:
     the Go-owned app deployment publish service above the completed share
-    publish owner and `internal/appspec` foundation
-99. `spike-mcp.md`
+    publish owner and `internal/appspec` foundation; this runtime slice is now
+    complete
+99. `phase-7-deployment-ide-publish-list-transport.md`
+  - focused implementation-plan doc for the remaining bounded Phase 7
+    deployment slice: thin IDE-mode share/app deployment publish/list/latest
+    transport over the completed deployment owners
+100. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-100. `spike-pty.md`
+101. `spike-pty.md`
    - PTY uncertainty-reduction plan
-101. `spike-lsp.md`
+102. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
