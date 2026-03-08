@@ -26,10 +26,12 @@ As of 2026-03-08:
     `internal/sshx/foundation.go`
   - remote SSH command/session/tunnel runtime ownership in
     `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
-- Python still owns:
-  - the SSH/remote branch of `POST /launch`
+  - the SSH/remote branch of `POST /launch` in
+    `internal/workspacelaunch/remote_launch.go`
   - launcher trust-persistence rollback orchestration around the SSH/remote
     `/launch` branch
+- Python still owns:
+  - no backend behavior inside this scoped SSH launch slice
 
 ## Inputs
 
@@ -143,17 +145,21 @@ before the first shell-execution owner is wired.
   `internal/sshx/tunnel.go`, with stub-backed integration coverage in
   `internal/sshx/runtime_test.go` and compatibility checks against
   `tests/start/test_ssh_connect.py` plus the focused SSH launch route tests.
+- 2026-03-08: completed Stage 3 from this doc by adding the Go-owned remote
+  `/launch` integration and rollback owner in
+  `internal/workspacelaunch/remote_launch.go`, wiring the thin route/app layer
+  updates in `internal/httpapi/workspace_launch_routes.go` and
+  `internal/app/app.go`, and adding focused Go plus Python-reference tests.
 
 ## Open Questions
 
-None blocking Stage 3. The remaining work is route/runtime integration:
-consume stored SSH launch intents from `internal/workspacelaunch`, call the
-completed `internal/sshx` service, and apply launched-workspace trust
-persistence plus rollback when that persistence fails.
+None inside this slice. If remote CLI follow-up still matters after this
+backend route/runtime landing, it should be scoped as a separate doc instead of
+reopening this completed owner.
 
 ## Recommended Next Step
 
-Implement Stage 3 from this doc: wire the SSH/remote `/launch` branch in
-`internal/workspacelaunch` and `internal/httpapi` on top of the completed
-`internal/sshx` runtime, including remote rollback when launcher trust
-persistence fails.
+Return to `phase-7-runtime-surface-inventory.md` and confirm whether any
+non-MCP backend runtime surface remains after the completed launcher/bootstrap
+cluster. If remote CLI parity is still in scope, plan it explicitly as a
+follow-up instead of extending this completed SSH launch slice.

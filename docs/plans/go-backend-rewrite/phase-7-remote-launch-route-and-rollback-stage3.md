@@ -12,19 +12,16 @@ pulling in CLI parity or broad refactors outside the launch/runtime seam.
 
 As of 2026-03-08:
 
-- Go already owns:
-  - launch-intent creation and storage
-  - local `POST /launch`
-  - bootstrap token mint/consume and bootstrap HTML
-  - trusted frontend-origin proof validation and persistence
-  - SSH parsing, remote session discovery/start, and local tunnel lifecycle in
-    `internal/sshx`
-- Go still does not own:
-  - the SSH/remote branch of `POST /launch`
-  - remote rollback orchestration when launcher trust persistence fails
-- Current code gap:
-  - `internal/workspacelaunch/local_launch.go` still returns
-    `SSHLaunchUnavailable` after consuming a stored SSH launch intent
+- this Stage 3 slice is complete
+- Go now owns:
+  - the SSH/remote branch of `POST /launch` in
+    `internal/workspacelaunch/remote_launch.go`
+  - thin `/launch` response mapping for `remoteCmdResolved` in
+    `internal/httpapi/workspace_launch_routes.go`
+  - app-level SSH runtime wiring in `internal/app/app.go`
+  - launcher trust-persistence rollback orchestration for newly started remote
+    sessions and SSH tunnels
+- there is no remaining Python-owned behavior inside this Stage 3 slice
 
 ## Inputs
 
@@ -113,20 +110,36 @@ Do not include:
    - `internal/app`: focused IDE-mode remote launch HTTP integration using the
      existing SSH stub
 
-## Test Plan
+## Verification
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/workspacelaunch -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModeLaunchesRemoteWorkspaceOverHTTP' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMode(LaunchesRemoteWorkspaceOverHTTP|CreatesWorkspaceLaunchIntentsOverHTTP|RejectsWorkspaceLaunchWithoutIntentTokenOverHTTP)' -count=1 -timeout 420s`
+- `source activate.sh && python -m pytest tests/routers/test_launch_routes.py -q -k 'launch_over_ssh_returns_bootstrap_url or launch_over_ssh_requires_remote_launcher_origin_proof or launch_over_ssh_uses_request_origin_for_handoff or remote_rollback_failed'`
 
 ## Progress Notes
 
 - 2026-03-08: created this focused Stage 3 plan after confirming the remaining
   Phase 7 gap is no longer SSH runtime ownership itself, but the `/launch`
   integration and trust-persistence rollback orchestration above it.
+- 2026-03-08: completed this Stage 3 slice by extending
+  `LocalLaunchService` with an explicit SSH runtime dependency, moving the
+  remote branch into `internal/workspacelaunch/remote_launch.go`, wiring the
+  thin transport/app layer updates, and adding focused runtime/HTTP/app tests.
+- 2026-03-08: kept rollback scope explicit: only trust-persistence failures
+  after `startedNew == true` trigger `RollbackRemoteWorkspaceLaunch`, matching
+  the completed `internal/sshx` source-of-truth runtime instead of adding
+  heuristic cleanup branches.
+
+## Open Questions
+
+None inside this slice. Any follow-up around CLI remote-connect or remote-stop
+behavior should be planned separately instead of broadening this completed
+route/runtime owner.
 
 ## Recommended Next Step
 
-Implement this doc end to end: land the Go-owned remote `/launch` branch,
-exercise it with focused tests, then update the broader Phase 7 docs to mark
-the SSH launch slice complete and identify the next remaining Phase 7 gap.
+Return to `phase-7-runtime-surface-inventory.md` and confirm whether any
+non-MCP backend runtime surface remains after the completed launcher/bootstrap
+cluster. If remote CLI parity is still product scope, plan it as a separate
+slice instead of extending this completed Stage 3 owner.

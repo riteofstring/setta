@@ -51,11 +51,13 @@ As of 2026-03-08:
   - remote session list/start/wait/connect-info execution
   - reusable tunnel metadata/start/reuse/rollback ownership in
     `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
-- Python still owns:
-  - the SSH/remote `/launch` branch plus launcher trust-persistence rollback
-    behavior in `launch.py`
-- the remaining Phase 7 launcher gap is now concentrated around
-  SSH/remote launch follow-up work
+- Go now owns the Stage 3 SSH/remote launch integration owner:
+  - SSH/remote `/launch` orchestration in
+    `internal/workspacelaunch/remote_launch.go`
+  - launcher trust-persistence rollback for newly started remote launches
+  - thin `/launch` response mapping for `remoteCmdResolved`
+- there is no remaining backend runtime gap inside this launcher/bootstrap
+  cluster; any remote CLI follow-up is separate scope
 
 ## Inputs
 
@@ -191,27 +193,27 @@ Do not broaden Stage 1 into:
 
 ## Recommended Option
 
-Implement launch/bootstrap handoff ownership next, now that launcher
-management including managed artifacts is complete.
+Close this plan as complete and return to the broader Phase 7 runtime
+inventory before starting any new work.
 
-This remains the recommended option because:
+This is now the recommended option because:
 
-- launcher management no longer blocks desktop artifact ownership
-- the remaining Python surface is now tightly concentrated in launch intent,
-  launch handoff, and bootstrap/origin trust
-- that boundary is product-significant and no longer mixed with unrelated OS
-  integration concerns
+- launcher management, bootstrap, local launch, SSH runtime, and remote
+  `/launch` ownership are all complete in Go
+- no further backend route/runtime work is hiding inside this launcher cluster
+- any remote CLI follow-up should be chosen deliberately as a new bounded slice
+  instead of being treated as leftover launcher work
 
 ## Recommended Next Step
 
-Implement Stage 3 from `phase-7-ssh-remote-launch-and-rollback.md`: the
-Go-owned SSH/remote `/launch` integration layer above the completed
-`internal/sshx` runtime.
+Return to `phase-7-runtime-surface-inventory.md` and determine whether any
+non-MCP backend runtime surface remains after the completed launcher/bootstrap
+cluster.
 
 Recommended landing order:
 
-1. remote `/launch` orchestration plus rollback ownership
-2. any follow-up CLI or cleanup work after those owners land
+1. confirm whether Phase 7 inventory is now effectively closed
+2. if remote CLI behavior still matters, create a separate bounded plan doc
 
 ## Progress Notes
 
@@ -277,3 +279,9 @@ Recommended landing order:
   `internal/sshx` remote runtime/tunnel owner and focused SSH/stub coverage.
   The next recommended step is Stage 3 from that doc: remote `/launch`
   integration plus rollback orchestration.
+- 2026-03-08: completed Stage 3 from
+  `phase-7-ssh-remote-launch-and-rollback.md`; Go now owns the remote
+  `/launch` branch, `remoteCmdResolved` response mapping, and rollback for
+  newly started remote launches when launcher trust persistence fails. The next
+  recommended step is to return to the broader runtime inventory and decide
+  whether any separate remote CLI follow-up is still needed.

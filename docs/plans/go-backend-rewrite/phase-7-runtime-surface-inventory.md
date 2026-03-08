@@ -56,10 +56,10 @@ Current repo status as of 2026-03-08:
     `internal/sshx/foundation.go`
   - remote SSH command/session/tunnel runtime ownership in
     `internal/sshx/runtime.go` and `internal/sshx/tunnel.go`
+  - SSH/remote `/launch` transport/runtime integration and rollback ownership
+    in `internal/workspacelaunch/remote_launch.go`
 - Python still appears to own major non-MCP backend surface in:
-  - the SSH/remote `/launch` transport/runtime integration
-  - launcher trust-persistence rollback behavior around launched remote
-    workspaces
+  - none confirmed in the current launcher/bootstrap inventory
 - nothing is currently in progress in the worktree
 
 ## Inputs
@@ -79,7 +79,7 @@ Current repo status as of 2026-03-08:
 
 ## Initial Observations
 
-1. Launcher/runtime-control still looks Python-owned
+1. Launcher/runtime-control no longer looks like the remaining backend gap
    - Go now owns the launcher-mode home/runtime browser slice:
      - `/launcherRecentWorkspaces`
      - `/addLauncherRecentWorkspace`
@@ -88,12 +88,13 @@ Current repo status as of 2026-03-08:
      - `/launcherFilesystemRoots`
      - `/listLauncherDirectory`
      - `/openLauncherWorkspace`
-   - the remaining Python-owned launcher/runtime behavior is now concentrated
-     in:
-     - `/launch`
+   - Go now also owns:
+     - `POST /createWorkspaceLaunchIntent`
+     - local `POST /launch`
+     - SSH/remote `POST /launch`
      - bootstrap/origin handoff policy around those flows
-   - the next obvious Go slice is now launch/bootstrap handoff, not launcher
-     management
+   - there is no obvious backend route/runtime gap left inside the launcher
+     cluster
 
 2. Deployment runtime handoff is now complete for the current bounded slice
    - Go now serves:
@@ -101,12 +102,15 @@ Current repo status as of 2026-03-08:
      - deployment-mode current-session and state/project-config reads
      - deployment metadata catalog/version allocation
      - share/app publish-time snapshot materialization and policy writing
-   - the remaining Phase 7 runtime gap is no longer deployment transport; it
-     has shifted to launcher/bootstrap ownership
+   - deployment is no longer the source of the next backend rewrite slice, and
+     the launcher/bootstrap follow-up that succeeded it is now complete too
 
-3. Bootstrap and launcher-origin handoff are still tied to Python routers
-   - `backend/setta/routers/bootstrap.py` still carries launcher-origin trust
-     and bootstrap payload behavior that will matter if launcher flows move
+3. The next Phase 7 step is likely planning or closure, not another implicit
+   launcher port
+   - the inventory that started with deployment and launcher/bootstrap work no
+     longer shows a clear remaining backend runtime owner inside that cluster
+   - any follow-up around remote CLI behavior should be selected deliberately as
+     a new bounded slice, not assumed to be leftover `/launch` work
 
 ## Working Decisions
 
@@ -117,26 +121,23 @@ Current repo status as of 2026-03-08:
   owner cluster with clear persistence/process boundaries
 - prefer a cluster that already has partial Go runtime support underneath it
   when that yields a smaller and more coherent first Phase 7 slice
-- treat deployment publication/listing as complete for the current bounded
-  Phase 7 slice
-- move the next Phase 7 plan to launcher/bootstrap ownership, because that is
-  now the largest coherent Python-owned backend cluster left outside MCP
+- treat deployment publication/listing and launcher/bootstrap ownership as
+  complete for the current bounded Phase 7 slices
+- choose any further Phase 7 follow-up only after a fresh inventory pass shows
+  a remaining backend runtime gap worth a dedicated plan doc
 
 ## Recommended Next Step
 
-Implement Stage 3 from
-`phase-7-ssh-remote-launch-and-rollback.md`: Go-owned SSH/remote `/launch`
-integration and rollback orchestration on top of the completed `internal/sshx`
-runtime.
+Re-read the current repo state against `go-backend-rewrite-plan.md` and decide
+whether Phase 7 is effectively closed or whether a separate remote CLI/runtime
+follow-up slice is still product-critical.
 
 That is now the highest-leverage next step because:
 
-- launcher management and local launch/bootstrap handoff are now complete in Go
-- the dedicated Phase 7 SSH/remote follow-up plan now exists and its first two
-  stages are complete
-- the remaining Python-owned runtime gap is concentrated in the `/launch`
-  integration layer and launcher trust-persistence rollback behavior above the
-  new `internal/sshx` owner
+- the previously remaining `/launch` and rollback gap is now complete in Go
+- the current inventory no longer shows an obvious bounded backend route/runtime
+  owner inside the launcher/bootstrap cluster
+- planning is now higher leverage than starting a new slice by assumption
 
 ## Progress Notes
 
@@ -230,9 +231,17 @@ That is now the highest-leverage next step because:
   `internal/sshx` remote runtime/tunnel service and focused integration
   coverage. The next recommended step is Stage 3 from that doc: remote
   `/launch` integration and rollback orchestration.
+- 2026-03-08: completed Stage 3 from
+  `phase-7-ssh-remote-launch-and-rollback.md` by adding the Go-owned remote
+  `/launch` integration and rollback orchestration in
+  `internal/workspacelaunch/remote_launch.go`, wiring
+  `remoteCmdResolved` through the thin HTTP/app layer, and adding focused Go
+  plus Python-reference verification. The next recommended step is to revisit
+  the broader inventory instead of assuming more launcher work remains.
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/workspacelaunch -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEModePublishesAndListsShareDeploymentsOverHTTP' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMode(LaunchesRemoteWorkspaceOverHTTP|CreatesWorkspaceLaunchIntentsOverHTTP|RejectsWorkspaceLaunchWithoutIntentTokenOverHTTP)' -count=1 -timeout 420s`
+- `source activate.sh && python -m pytest tests/routers/test_launch_routes.py -q -k 'launch_over_ssh_returns_bootstrap_url or launch_over_ssh_requires_remote_launcher_origin_proof or launch_over_ssh_uses_request_origin_for_handoff or remote_rollback_failed'`
