@@ -564,6 +564,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		claudeExecutor, err := externalagents.NewClaudeExecutor(externalagents.ClaudeExecutorOptions{
+			Runs:          runStore,
+			Runtime:       externalAgentRuntime,
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			ProcessEnv:    llmconfig.CurrentProcessEnv(),
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		openCodeExecutor, err := externalagents.NewOpenCodeExecutor(externalagents.OpenCodeExecutorOptions{
 			Runs:           runStore,
 			Runtime:        externalAgentRuntime,
@@ -576,6 +586,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalAgentExecutor = externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
+			Claude:   claudeExecutor,
 			Codex:    codexExecutor,
 			OpenCode: openCodeExecutor,
 		})

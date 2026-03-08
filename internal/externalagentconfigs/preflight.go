@@ -63,6 +63,14 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 	if commandIssue != "" {
 		issues = append(issues, commandIssue)
 	}
+	if normalized.ToolType == ToolTypeClaudeCode && normalized.RunMode == RunModeSDK {
+		pythonCommand, err := ResolveClaudePythonCommand()
+		if err != nil {
+			issues = append(issues, fmt.Sprintf("Claude bridge python unavailable (%v)", err))
+		} else if err := CheckClaudeSDKImport(pythonCommand); err != nil {
+			issues = append(issues, fmt.Sprintf("claude-agent-sdk not available for %s", pythonCommand))
+		}
+	}
 	if normalized.ToolType == ToolTypeOpenCode && normalized.RunMode == RunModeSDK && strings.TrimSpace(derefOptionalString(normalized.BaseURL)) == "" {
 		if _, err := exec.LookPath("opencode"); err != nil {
 			issues = append(issues, "opencode CLI not found (install opencode CLI)")
@@ -154,6 +162,8 @@ func defaultCommand(config Config) string {
 	switch {
 	case config.ToolType == ToolTypeCodex && config.RunMode == RunModeAppServer:
 		return "codex"
+	case config.ToolType == ToolTypeClaudeCode && config.RunMode == RunModeSDK:
+		return "claude"
 	case config.ToolType == ToolTypeOpenCode && (config.RunMode == RunModeSDK || config.RunMode == RunModeServer):
 		return "node"
 	default:

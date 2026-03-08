@@ -43,11 +43,34 @@ Completed before this slice:
   - `/respondExternalAgentApproval`
   - `/respondExternalAgentQuestion`
 
-Remaining Phase 12 execution gap:
+Completed in this slice:
 
-- Claude Code execution
-- deferred Codex/OpenCode MCP-rich item parity and any remaining event-fanout
-  closeout
+- `internal/externalagentconfigs`
+  - shared Claude bridge runtime resolution for the repo-pinned Python command
+  - bounded Claude preflight for Claude CLI resolution plus
+    `claude-agent-sdk` import availability
+- `internal/externalagents/send.go`
+  - same-chat Claude `sessionId` continuity seeded from the latest persisted
+    external run for the chat
+- `internal/externalagents/claude_executor.go`
+  - real Claude SDK sidecar execution behind the existing bounded executor
+    interface
+  - bounded managed `.claude/settings.local.json` /
+    `.claude/settings.json` generation in Go
+  - live assistant/tool-call persistence, approval registration, queued
+    question-approval pairing, and terminal completion/failure closeout
+- `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
+  - narrow Python bridge around the official `claude-agent-sdk`
+  - normalized JSONL stream and approval/tool-response protocol for the Go
+    executor
+- `internal/app/app.go`
+  - IDE-mode multi-executor wiring with the real Claude executor installed
+
+Remaining Phase 12 gap after this slice:
+
+- deferred Codex/OpenCode/Claude MCP-rich item parity
+- any remaining external-agent auth/header ownership needed for that parity
+- any remaining active-run websocket/event-fanout closeout
 
 ## Why This Slice Exists
 
@@ -147,34 +170,45 @@ The runtime owner should remain the source of truth for:
    - If the SDK callback id differs from the UI-facing tool-call id, persist the
      callback id as the runtime `ResponseID`.
 
-## Proposed Landing Order
+## Landing Outcome
 
-1. Add this focused plan doc.
-2. Extend preflight for the Claude bridge requirements.
-3. Add bounded Claude settings writing plus same-chat `sessionId` seeding.
-4. Land the Claude SDK sidecar and Go executor.
-5. Add focused Claude executor tests.
-6. Update the Phase 12 docs with completed work and the remaining parity gap.
+1. Added bounded Claude bridge runtime resolution and preflight.
+2. Added bounded managed Claude settings writing plus same-chat `sessionId`
+   seeding in the Go-owned send/executor path.
+3. Landed the Claude SDK sidecar and real Go executor over the existing
+   runtime boundary.
+4. Added focused Claude executor tests for completion, approval flow, question
+   flow, and `sessionId` closeout.
+5. Updated the Phase 12 docs so the remaining gap is now explicitly the
+   deferred MCP-rich parity work rather than another executor foundation.
 
-## Verification Targets
+## Verification
 
 - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
 - `./scripts/go.sh test ./internal/app -run '^$'`
+- `source activate.sh && python -m py_compile backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
+
+## Decisions Made
+
+- keep Claude execution behind the existing bounded executor interface instead
+  of broadening the HTTP or send-service layers
+- keep the Python sidecar self-contained around the official
+  `claude-agent-sdk` instead of importing the broader existing Python runtime
+- keep the Go runtime as the source of truth for approval/question ownership
+  and use `QuestionState.ResponseID` for the Claude AskUserQuestion callback id
+- keep Claude settings ownership bounded to managed `.claude/settings*.json`
+  writing and defer Setta-specific MCP auth/header config to the parity slice
 
 ## Open Questions
 
-- whether Claude MCP auth/header config must land in the same slice
-  - recommendation: no; keep this slice bounded to execution, settings-file
-    ownership, approvals, questions, and `sessionId` continuity
-- whether the Claude sidecar should import helper logic from the current Python
-  adapter or stay self-contained
-  - recommendation: keep the sidecar self-contained around the official SDK so
-    Go depends on a narrow bridge, not the existing Python runtime shape
+- whether the deferred parity slice should start with Claude MCP auth/header
+  ownership or with shared runtime item/tool-result closeout across all three
+  adapters
+  - recommendation: start with the shared runtime item/tool-result closeout and
+    only pull in auth/header work when a concrete parity gap depends on it
 
-## Expected Remaining Gap After This Slice
+## Next Recommended Step
 
-After this Claude landing, the remaining Phase 12 work should be:
-
-- deferred Codex/OpenCode/Claude MCP-rich parity work
-- any still-missing external-agent auth/header config work needed for MCP parity
-- any remaining websocket/event fanout closeout for active external-agent runs
+- land the deferred Phase 12 MCP-rich item/tool-result parity slice over the
+  now-completed three-adapter runtime boundary instead of creating another
+  executor-focused change

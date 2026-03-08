@@ -430,9 +430,8 @@ Use the docs in this order:
     OpenCode-managed settings parsing/writing, and the first Go-owned
     `respondExternalAgentQuestion` landing above the completed Codex runtime
 133. `phase-12-claude-sdk-bridge-executor-runtime.md`
-  - focused current-work implementation-plan doc for the bounded Claude Code
-    executor slice using a narrow Claude SDK bridge above the completed Go
-    runtime
+  - focused completed-slice doc for the bounded Claude Code executor landing
+    using a narrow Claude SDK bridge above the completed Go runtime
 134. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 135. `spike-pty.md`

@@ -381,6 +381,83 @@ func TestSendServiceSeedsOpenCodeSessionIDFromLatestExternalRun(t *testing.T) {
 	}
 }
 
+func TestSendServiceSeedsClaudeSessionIDFromLatestExternalRun(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{
+		externalToolType: externalagentconfigs.ToolTypeClaudeCode,
+		externalRunMode:  externalagentconfigs.RunModeSDK,
+	})
+	chatID := "chat-claude-session"
+	fixture.seedExternalRun(t, chatID, agentruns.RunStatusCompleted, []map[string]any{
+		{
+			"id":   "source-user",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Resume this Claude chat"},
+			},
+		},
+	}, []map[string]any{
+		{
+			"id":   "source-user",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Resume this Claude chat"},
+			},
+		},
+		{
+			"id":   "source-assistant",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Prior Claude reply"},
+			},
+		},
+	})
+
+	runs, err := fixture.runs.ListByMetadata(agentruns.RunFilter{
+		RunType:         stringPtr(RunTypeExternalAgent),
+		ChatID:          stringPtr(chatID),
+		ProjectConfigID: stringPtr("project-alpha"),
+	})
+	if err != nil {
+		t.Fatalf("list prior external runs: %v", err)
+	}
+	latestRun, ok := selectLatestRun(runs)
+	if !ok {
+		t.Fatal("expected prior external run")
+	}
+	latestRun.Outputs = ensureAnyMap(latestRun.Outputs)
+	latestRun.Outputs["sessionId"] = "session-claude-prior"
+	if err := fixture.runs.Save(latestRun); err != nil {
+		t.Fatalf("save prior session id: %v", err)
+	}
+
+	_, err = fixture.service.StartChat(context.Background(), StartChatRequest{
+		ChatID: stringPtr(chatID),
+		Message: map[string]any{
+			"id":   "new-message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Continue on the same Claude session"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("start claude chat with prior session: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+	if got := fixture.executor.last.Inputs["sessionId"]; got != "session-claude-prior" {
+		t.Fatalf("expected prior session id to seed executor inputs, got %#v", got)
+	}
+}
+
 func TestSendServiceRejectsWhitespaceFrontendAffinityToken(t *testing.T) {
 	t.Parallel()
 

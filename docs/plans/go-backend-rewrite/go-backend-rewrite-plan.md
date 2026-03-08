@@ -14,7 +14,7 @@ This rewrite is a clean break. We can reuse good ideas from the current backend,
 
 ## Current Status
 
-As of 2026-03-08, the phase docs through Phase 11 and the recorded spike
+As of 2026-03-09, the phase docs through Phase 11 and the recorded spike
 outcomes describe a repo state where the deployment/launcher runtime slices,
 the shipped CLI migration slices, and the MCP/tooling foundations are complete
 for their bounded scopes.
@@ -27,6 +27,8 @@ Phase 12 surface now includes:
 - `internal/externalagentconfigs`
   - read access to `external_agents.json`
   - bounded preflight checker interface and a minimal concrete checker
+  - Claude bridge preflight for Claude CLI resolution plus repo-pinned Python
+    `claude-agent-sdk` availability
   - typed OpenCode-managed `settingsManagedBlock` reads for model /
     permission / MCP config
 - `internal/externalagents`
@@ -41,6 +43,9 @@ Phase 12 surface now includes:
   - real OpenCode sidecar execution, bounded runtime `opencode.json`
     generation, terminal completion/failure persistence, and same-chat
     `sessionId` continuity
+  - real Claude SDK sidecar execution, bounded `.claude/settings*.json`
+    ownership, terminal completion/failure persistence, approval/question
+    routing, and same-chat `sessionId` continuity
 - `internal/httpapi/ai_routes.go`
   - thin Go transport for:
     - `/getLLMResponse` (external-agent branch only)
@@ -49,8 +54,8 @@ Phase 12 surface now includes:
     - `/respondExternalAgentApproval`
     - `/respondExternalAgentQuestion`
 
-The remaining Phase 12 target is now the Claude-backed execution path plus the
-remaining MCP-rich interaction surface still owned in
+The remaining Phase 12 target is now the MCP-rich interaction surface still
+owned in
 `backend/setta/routers/ai.py`, `backend/setta/routers/agentic.py`, and
 `backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md`,
@@ -58,15 +63,12 @@ remaining MCP-rich interaction surface still owned in
 `phase-12-external-agent-send-route-foundation.md`.
 
 The completed `phase-12-codex-app-server-executor-runtime.md` and
-`phase-12-opencode-executor-and-question-runtime.md` slices now prove the
-runtime split with real Codex and OpenCode execution plus Go-owned active
-question-response transport. The current next step is to land the bounded
-Claude Code execution edge tracked in
-`phase-12-claude-sdk-bridge-executor-runtime.md` without pretending the
-remaining Codex/OpenCode MCP-rich item-parity work belongs in the same change.
-After that Claude slice, the remaining Phase 12 gap should be the deferred
-Codex/OpenCode MCP/tool-result closeout work rather than another executor
-foundation.
+`phase-12-opencode-executor-and-question-runtime.md` plus the now-completed
+`phase-12-claude-sdk-bridge-executor-runtime.md` slices prove the runtime split
+with real Codex, OpenCode, and Claude execution plus Go-owned active
+question-response transport. The current next step is the deferred
+Codex/OpenCode/Claude MCP-rich item-parity closeout work rather than another
+executor foundation.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

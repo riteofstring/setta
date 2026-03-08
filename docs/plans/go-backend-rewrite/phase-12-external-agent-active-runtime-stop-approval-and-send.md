@@ -59,8 +59,8 @@ Completed in this slice:
 
 Still missing:
 
-- Claude Code execution
-- broader Codex/OpenCode MCP and tool-result parity during live execution
+- broader Codex/OpenCode/Claude MCP and tool-result parity during live
+  execution
 
 ## Scope
 
@@ -188,6 +188,13 @@ It should preserve the current rewrite constraints:
   runtime with bounded runtime `opencode.json` generation
 - seeded persisted OpenCode `sessionId` into same-chat follow-up runs so
   OpenCode session continuity is now Go-owned
+- added `internal/externalagentconfigs/claude_runtime.go` so Claude CLI and
+  repo-pinned Python SDK availability share one bounded Go source of truth
+- added `internal/externalagents/claude_executor.go` so Claude-backed external
+  chats now launch and complete through a real Go-owned SDK-bridge runtime
+  with bounded managed `.claude/settings*.json` generation
+- seeded persisted Claude `sessionId` into same-chat follow-up runs so Claude
+  session continuity is now Go-owned
 - added thin `/respondExternalAgentQuestion` transport with typed
   not-found/bad-request mapping
 - added focused tests for:
@@ -197,6 +204,8 @@ It should preserve the current rewrite constraints:
   - real Codex executor completion and approval round-trip over stdio
   - real OpenCode executor completion and question-response round-trip over
     stdio
+  - real Claude executor completion, approval round-trip, and question
+    round-trip over stdio
   - `/getLLMResponse` transport over the new send service
   - live overlay retrieval
   - cancellation persistence and cleanup
@@ -208,6 +217,7 @@ It should preserve the current rewrite constraints:
 - passed:
   - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
   - `./scripts/go.sh test ./internal/app -run '^$'`
+  - `source activate.sh && python -m py_compile backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
 
 ## Verification Targets
 
@@ -241,6 +251,6 @@ It should preserve the current rewrite constraints:
 
 - keep the completed runtime as the execution owner; do not add a parallel send
   path that bypasses it
-- land a bounded Claude Code execution edge on the same runtime boundary now
-  that Codex and OpenCode execution, stop, approval, and question ownership are
-  proven
+- land the deferred MCP-rich item/tool-result parity slice now that Codex,
+  OpenCode, and Claude execution, stop, approval, and question ownership are
+  all proven on the same runtime boundary

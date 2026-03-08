@@ -15,7 +15,7 @@ transcription or unrelated frontend surface.
 
 ## Current Status
 
-Current repo status as of 2026-03-08:
+Current repo status as of 2026-03-09:
 
 - Phase 6 MCP parity is complete for the tracked Python MCP surface
 - Phase 7 deployment/launcher runtime ownership is complete for its bounded
@@ -48,6 +48,9 @@ Current repo status as of 2026-03-08:
     - real OpenCode sidecar execution, bounded runtime `opencode.json`
       generation, persisted `sessionId` continuity, and live question/tool
       persistence
+    - real Claude SDK sidecar execution, bounded managed `.claude/settings*.json`
+      generation, persisted `sessionId` continuity, and queued question
+      callback-id pairing through the existing Go runtime
   - `internal/httpapi/ai_routes.go`
     - thin Go transport for:
       - `/getLLMResponse` (external-agent branch only)
@@ -64,14 +67,15 @@ Current repo status as of 2026-03-08:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - Claude Code adapter-backed execution
-  - broader Codex and OpenCode item-type parity for MCP/tool-result rich flows
+  - broader Codex/OpenCode/Claude item-type parity for MCP/tool-result rich
+    flows
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
-  - the active runtime, stop route, approval-response route, send-route
-    foundations, and the first real Codex executor are implemented in Go
-  - the remaining bounded gap is now the non-Codex adapters plus question/event
-    ownership, not another CLI or launcher slice
+  - the active runtime, stop route, approval/question routes, send-route
+    foundations, and the real Codex/OpenCode/Claude executors are implemented
+    in Go
+  - the remaining bounded gap is now the deferred MCP-rich parity closeout,
+    not another executor or launcher slice
 
 ## Scope
 
@@ -199,8 +203,7 @@ It should include:
 
 Missing Go owners:
 
-- Claude Code execution
-- richer Codex/OpenCode MCP and tool-result item parity
+- richer Codex/OpenCode/Claude MCP and tool-result item parity
 - any remaining external-agent websocket/event streaming closeout that the
   current frontend UX still depends on
 
@@ -243,8 +246,21 @@ Missing Go owners:
     Codex
   - bounded runtime `opencode.json` generation and persisted `sessionId`
     closeout
+- added `internal/externalagentconfigs/claude_runtime.go`
+  - shared Claude bridge runtime resolution plus bounded preflight for Claude
+    CLI resolution and `claude-agent-sdk` availability
+- added `internal/externalagents/claude_executor.go`
+  - Claude SDK sidecar execution behind the same bounded executor interface as
+    Codex and OpenCode
+  - bounded managed `.claude/settings*.json` generation, persisted
+    `sessionId` closeout, and queued question callback-id pairing through the
+    existing Go question runtime
+- added `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
+  - narrow Python bridge around the official `claude-agent-sdk`
 - extended `internal/externalagents/send.go`
   - same-chat OpenCode `sessionId` continuity seeding from the latest persisted
+    external run
+  - same-chat Claude `sessionId` continuity seeding from the latest persisted
     external run
 - added focused Go tests for:
   - persisted hydration
@@ -257,6 +273,8 @@ Missing Go owners:
     handling
   - real OpenCode executor completion and question-response round-trip over
     stdio
+  - real Claude executor completion, approval round-trip, and question
+    round-trip over stdio
   - external-agent preflight failures and send-route transport behavior
   - active-run live overlay retrieval
   - runtime cancellation persistence

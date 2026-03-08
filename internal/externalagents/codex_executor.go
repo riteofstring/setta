@@ -45,17 +45,20 @@ var (
 )
 
 type MultiExecutorOptions struct {
+	Claude   *ClaudeExecutor
 	Codex    *CodexExecutor
 	OpenCode *OpenCodeExecutor
 }
 
 type MultiExecutor struct {
+	claude   *ClaudeExecutor
 	codex    *CodexExecutor
 	openCode *OpenCodeExecutor
 }
 
 func NewMultiExecutor(options MultiExecutorOptions) *MultiExecutor {
 	return &MultiExecutor{
+		claude:   options.Claude,
 		codex:    options.Codex,
 		openCode: options.OpenCode,
 	}
@@ -66,6 +69,11 @@ func (e *MultiExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		return StartResponse{}, ErrExecutorUnavailable
 	}
 	switch request.ExternalConfig.ToolType {
+	case externalagentconfigs.ToolTypeClaudeCode:
+		if e.claude == nil {
+			return StartResponse{}, ErrExecutorUnavailable
+		}
+		return e.claude.Start(ctx, request)
 	case externalagentconfigs.ToolTypeCodex:
 		if e.codex == nil {
 			return StartResponse{}, ErrExecutorUnavailable

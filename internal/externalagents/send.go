@@ -409,6 +409,10 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 			if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
 				inputs["threadId"] = threadID
 			}
+		case externalagentconfigs.ToolTypeClaudeCode:
+			if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
+				inputs["sessionId"] = sessionID
+			}
 		case externalagentconfigs.ToolTypeOpenCode:
 			if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
 				inputs["sessionId"] = sessionID
