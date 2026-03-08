@@ -7,8 +7,6 @@ import {
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
   isOverviewTabKey,
-  OverviewNotificationsPaneTab,
-  OverviewNotificationsPaneTabEnum,
   OverviewTabKey,
   OverviewTabNameEnum,
   ProjectSearchMode,
@@ -32,6 +30,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -52,6 +51,7 @@ import {
   SharePolicy,
   TranscriptionProfile,
   WebsocketConnectionInfo,
+  type ProjectChatWindowingState,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -159,6 +159,7 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
+          projectChatWindowing: createProjectChatWindowingState(),
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
         })),
@@ -446,62 +447,6 @@ export type CustomRunItem = {
   action: CustomRunAction;
 };
 
-export type ProjectChatCustomSlashCommand = {
-  command: string;
-  prompt: string;
-};
-
-export type ProjectChatAuxView =
-  | "none"
-  | "skills"
-  | "mcp"
-  | "slash_commands"
-  | "ai_settings";
-
-function isPersistedRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-  value: unknown,
-): Record<string, Array<ProjectChatCustomSlashCommand>> {
-  if (!isPersistedRecord(value)) {
-    return {};
-  }
-  const normalized: Record<string, Array<ProjectChatCustomSlashCommand>> = {};
-  for (const [projectConfigId, rawCommands] of Object.entries(value)) {
-    const normalizedProjectConfigId = projectConfigId.trim();
-    if (!normalizedProjectConfigId || !Array.isArray(rawCommands)) {
-      continue;
-    }
-    const normalizedCommands: Array<ProjectChatCustomSlashCommand> = [];
-    for (const rawCommand of rawCommands) {
-      if (!isPersistedRecord(rawCommand)) {
-        continue;
-      }
-      const commandValue = rawCommand.command;
-      const promptValue = rawCommand.prompt;
-      if (typeof commandValue !== "string" || typeof promptValue !== "string") {
-        continue;
-      }
-      const command = commandValue.trim();
-      const prompt = promptValue.trim();
-      if (!command || !prompt) {
-        continue;
-      }
-      normalizedCommands.push({
-        command,
-        prompt,
-      });
-    }
-    if (normalizedCommands.length === 0) {
-      continue;
-    }
-    normalized[normalizedProjectConfigId] = normalizedCommands;
-  }
-  return normalized;
-}
-
 type ZustandRunControl = {
   runMode: RunMode;
   continuousRunStarted: boolean;
@@ -721,6 +666,11 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
+        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
+        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
+          string,
+          true
+        >,
       })),
     ),
   ),
@@ -908,7 +858,7 @@ export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "all",
+        mode: "off",
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
@@ -972,6 +922,7 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
+export type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -980,6 +931,7 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
+  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -999,8 +951,6 @@ type ZustandLocalStorage = {
   overviewWidth: number;
   overviewTrueWidth: number;
   overviewTab: OverviewTabKey;
-  overviewNotificationsPaneTab: OverviewNotificationsPaneTab;
-  watchCodePortalOpen: boolean;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -1013,11 +963,6 @@ type ZustandLocalStorage = {
   showNavBarHelpMessage: boolean;
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
-  customProjectChatSlashCommandsByProjectConfigId: Record<
-    string,
-    Array<ProjectChatCustomSlashCommand>
-  >;
-  projectChatAuxViewByProjectConfigId: Record<string, ProjectChatAuxView>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
   runInstructionsAccordionOpenValuesByProjectConfigId: Record<
     string,
@@ -1044,6 +989,10 @@ type ZustandLocalStorage = {
   projectChatThreadOrderByProjectConfigId: Record<string, Array<string>>;
   pinnedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
   trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
+  projectChatWindowingByProjectConfigId: Record<
+    string,
+    ProjectChatWindowingState
+  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -1055,6 +1004,7 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
+      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1074,9 +1024,6 @@ export const useLocalStorage = createWithEqualityFn(
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTab: OverviewTabNameEnum.Overview,
-      overviewNotificationsPaneTab:
-        OverviewNotificationsPaneTabEnum.Notifications,
-      watchCodePortalOpen: false,
       gitGraphSplitPct: DEFAULT_GIT_GRAPH_SPLIT_PCT,
       gitGraphColWidthPx: DEFAULT_GIT_GRAPH_COL_WIDTH_PX,
       gitGraphAuthorWidthPx: DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -1089,8 +1036,6 @@ export const useLocalStorage = createWithEqualityFn(
       showNavBarHelpMessage: true,
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
-      customProjectChatSlashCommandsByProjectConfigId: {},
-      projectChatAuxViewByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
@@ -1100,6 +1045,7 @@ export const useLocalStorage = createWithEqualityFn(
       projectChatThreadOrderByProjectConfigId: {},
       pinnedProjectChatThreadIdsByProjectConfigId: {},
       trashedProjectChatThreadIdsByProjectConfigId: {},
+      projectChatWindowingByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -1148,23 +1094,6 @@ export const useLocalStorage = createWithEqualityFn(
           merged.overviewTab = OverviewTabNameEnum.Overview;
         }
         if (
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.Notifications &&
-          merged.overviewNotificationsPaneTab !==
-            OverviewNotificationsPaneTabEnum.BackendLogs
-        ) {
-          merged.overviewNotificationsPaneTab =
-            OverviewNotificationsPaneTabEnum.Notifications;
-        }
-        // Keep transient visibility session-local even though the store itself
-        // is persisted for durable preferences.
-        merged.watchCodePortalOpen = false;
-        merged.customProjectChatSlashCommandsByProjectConfigId =
-          normalizePersistedCustomProjectChatSlashCommandsByProjectConfigId(
-            merged.customProjectChatSlashCommandsByProjectConfigId,
-          );
-        merged.projectChatAuxViewByProjectConfigId = {};
-        if (
           !merged.viewedProjectChatThreadIdsByProjectConfigId ||
           typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
             "object" ||
@@ -1210,71 +1139,16 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
+        if (
+          !merged.projectChatWindowingByProjectConfigId ||
+          typeof merged.projectChatWindowingByProjectConfigId !== "object" ||
+          Array.isArray(merged.projectChatWindowingByProjectConfigId)
+        ) {
+          merged.projectChatWindowingByProjectConfigId = {};
+        }
 
         return merged;
       },
-      partialize: (state) => ({
-        snapToGrid: state.snapToGrid,
-        showAgenticEdges: state.showAgenticEdges,
-        showArgEdges: state.showArgEdges,
-        darkMode: state.darkMode,
-        colorMode: state.colorMode,
-        showMinimap: state.showMinimap,
-        projectConfigPreviewEnabled: state.projectConfigPreviewEnabled,
-        appSpecStreamingEnabled: state.appSpecStreamingEnabled,
-        homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,
-        favoriteProjectConfigIds: state.favoriteProjectConfigIds,
-        overviewProjectConfigOrder: state.overviewProjectConfigOrder,
-        homeWorkspacePaneVis: state.homeWorkspacePaneVis,
-        homeWorkspacePaneWidth: state.homeWorkspacePaneWidth,
-        homeWorkspacePaneTrueWidth: state.homeWorkspacePaneTrueWidth,
-        homeSelectedProjectPaneVis: state.homeSelectedProjectPaneVis,
-        homeSelectedProjectPaneWidth: state.homeSelectedProjectPaneWidth,
-        homeSelectedProjectPaneTrueWidth:
-          state.homeSelectedProjectPaneTrueWidth,
-        appGenerationMode: state.appGenerationMode,
-        appGenerationPrompt: state.appGenerationPrompt,
-        appGenerationReferenceImageUrl: state.appGenerationReferenceImageUrl,
-        appGenerationReferenceImageNotes:
-          state.appGenerationReferenceImageNotes,
-        overviewVis: state.overviewVis,
-        overviewWidth: state.overviewWidth,
-        overviewTrueWidth: state.overviewTrueWidth,
-        overviewTab: state.overviewTab,
-        overviewNotificationsPaneTab: state.overviewNotificationsPaneTab,
-        gitGraphSplitPct: state.gitGraphSplitPct,
-        gitGraphColWidthPx: state.gitGraphColWidthPx,
-        gitGraphAuthorWidthPx: state.gitGraphAuthorWidthPx,
-        gitGraphDateWidthPx: state.gitGraphDateWidthPx,
-        gitGraphHashWidthPx: state.gitGraphHashWidthPx,
-        uiEditorVis: state.uiEditorVis,
-        uiEditorWidth: state.uiEditorWidth,
-        uiEditorTrueWidth: state.uiEditorTrueWidth,
-        uiEditorTab: state.uiEditorTab,
-        showNavBarHelpMessage: state.showNavBarHelpMessage,
-        tooltipWidth: state.tooltipWidth,
-        customRunsByProjectConfigId: state.customRunsByProjectConfigId,
-        customProjectChatSlashCommandsByProjectConfigId:
-          state.customProjectChatSlashCommandsByProjectConfigId,
-        runSnapshotModeByProjectConfigId:
-          state.runSnapshotModeByProjectConfigId,
-        runInstructionsAccordionOpenValuesByProjectConfigId:
-          state.runInstructionsAccordionOpenValuesByProjectConfigId,
-        projectAiSettingsAccordionOpenValuesByProjectConfigId:
-          state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
-        viewedProjectChatThreadIdsByProjectConfigId:
-          state.viewedProjectChatThreadIdsByProjectConfigId,
-        projectChatThreadGroupsByProjectConfigId:
-          state.projectChatThreadGroupsByProjectConfigId,
-        projectChatThreadAssignmentsByProjectConfigId:
-          state.projectChatThreadAssignmentsByProjectConfigId,
-        projectChatThreadOrderByProjectConfigId:
-          state.projectChatThreadOrderByProjectConfigId,
-        pinnedProjectChatThreadIdsByProjectConfigId:
-          state.pinnedProjectChatThreadIdsByProjectConfigId,
-        trashedProjectChatThreadIdsByProjectConfigId:
-          state.trashedProjectChatThreadIdsByProjectConfigId,
-      }),
       storage: getPersistStorage(),
     },
   ),

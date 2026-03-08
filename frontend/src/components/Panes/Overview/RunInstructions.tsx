@@ -12,7 +12,6 @@ import {
   setCustomRunMode,
   toggleCustomRunInDropdown,
 } from "state/actions/customRuns";
-import { applyProjectCodegenTargetsResponse } from "state/actions/project/codegenTargets";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveCodeObjImpl,
@@ -22,6 +21,7 @@ import {
 } from "state/actions/sectionInfos";
 import {
   CustomRunItem,
+  useAllProjectMetadata,
   useLocalStorage,
   useProjectState,
   useRunControl,
@@ -35,7 +35,6 @@ import {
   isPluginCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { res200 } from "utils/endpointUtils";
 import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
@@ -103,10 +102,6 @@ const PANEL_ICON_BUTTON_CLASSES =
 const PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES =
   "inline-flex h-6 w-6 items-center justify-center rounded text-setta-400 hover:bg-red-500/10 hover:text-red-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-500 dark:hover:text-red-400";
 const RUN_INSTRUCTIONS_INLINE_INSET_CLASS = "pl-[0.375rem] pr-[0.75rem]";
-const CUSTOM_RUN_ROW_CLASSES =
-  "mx-[2px] flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 rounded-md bg-setta-100/30 px-2 py-0.5 text-xs dark:bg-setta-900/40";
-const CUSTOM_RUN_EMPTY_STATE_CLASSES =
-  "mx-[2px] rounded-md bg-setta-100/30 px-2 py-1 text-xs text-setta-600 dark:bg-setta-900/40 dark:text-setta-300";
 const CODEGEN_SECTION_TYPES: SectionType[] = [
   SectionTypeEnum.Callable,
   SectionTypeEnum.Dict,
@@ -316,11 +311,17 @@ export function RunInstructions() {
     void route_set_project_config_codegen_targets({
       projectConfigId,
       codegenTargets: nextTargets,
-    }).then((response) => {
-      if (!res200(response) || !response.data) {
-        return;
-      }
-      applyProjectCodegenTargetsResponse(response.data);
+    });
+    useAllProjectMetadata.setState((state) => ({
+      ...state,
+      projectMetadata: state.projectMetadata.map((entry) =>
+        entry.id === projectConfigId
+          ? { ...entry, codegenTargets: nextTargets }
+          : entry,
+      ),
+    }));
+    useProjectState.setState((state) => {
+      state.projectConfig.codegenTargets = nextTargets;
     });
   };
 
@@ -543,10 +544,7 @@ export function RunInstructions() {
   }
 
   const codegenPolicyContent = !pythonCodegenEnabled ? (
-    <div
-      className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300"
-      data-testid="run-instructions-codegen-policy-disabled-message"
-    >
+    <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
       Enable Python codegen to edit section policy settings.
     </div>
   ) : (
@@ -567,7 +565,6 @@ export function RunInstructions() {
           <Switch.Root
             className={TOGGLE_ROOT_CLASSES}
             checked={pythonTarget.generateMetadata}
-            data-testid="run-instructions-python-metadata-toggle"
             disabled={isDeploymentMode}
             onCheckedChange={(checked) =>
               updatePythonTarget((target) => ({
@@ -811,7 +808,6 @@ export function RunInstructions() {
         <div className="mt-2 flex min-w-0 flex-col gap-1.5">
           <select
             className={`${PANEL_SELECT_CLASSES} w-full`}
-            data-testid="run-instructions-section-override-select"
             disabled={
               isDeploymentMode || availableOverrideSections.length === 0
             }
@@ -830,7 +826,6 @@ export function RunInstructions() {
           <div className="flex justify-end">
             <button
               className={PANEL_ICON_BUTTON_CLASSES}
-              data-testid="run-instructions-section-override-add"
               disabled={isDeploymentMode || !pendingOverrideId}
               onClick={() => {
                 const selected =
@@ -880,14 +875,12 @@ export function RunInstructions() {
                 <div
                   key={entry.sectionId}
                   className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                  data-testid={`run-instructions-section-override-${entry.sectionId}`}
                 >
                   <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                     {entry.name}
                   </div>
                   <select
                     className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-20`}
-                    data-testid={`run-instructions-section-override-mode-${entry.sectionId}`}
                     disabled={isDeploymentMode}
                     value={entry.override.mode}
                     onChange={(event) => {
@@ -917,7 +910,6 @@ export function RunInstructions() {
                   ) : (
                     <select
                       className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
-                      data-testid={`run-instructions-section-override-representation-${entry.sectionId}`}
                       disabled={isDeploymentMode || representationDisabled}
                       value={entry.override.representation}
                       onChange={(event) => {
@@ -944,7 +936,6 @@ export function RunInstructions() {
                   )}
                   <button
                     className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
-                    data-testid={`run-instructions-section-override-remove-${entry.sectionId}`}
                     disabled={isDeploymentMode}
                     onClick={() => {
                       const nextOverrides = {
@@ -1042,7 +1033,6 @@ export function RunInstructions() {
         <div className="mt-2 flex min-w-0 flex-col gap-1.5">
           <select
             className={`${PANEL_SELECT_CLASSES} w-full`}
-            data-testid="run-instructions-codeobj-override-select"
             disabled={
               isDeploymentMode || availableCodeObjOverrides.length === 0
             }
@@ -1061,7 +1051,6 @@ export function RunInstructions() {
           <div className="flex justify-end">
             <button
               className={PANEL_ICON_BUTTON_CLASSES}
-              data-testid="run-instructions-codeobj-override-add"
               disabled={isDeploymentMode || !pendingCodeObjOverrideId}
               onClick={() => {
                 const selected =
@@ -1113,14 +1102,12 @@ export function RunInstructions() {
                 <div
                   key={entry.codeObjId}
                   className="flex flex-wrap items-center gap-2 rounded-md bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                  data-testid={`run-instructions-codeobj-override-${entry.codeObjId}`}
                 >
                   <div className="min-w-0 basis-full truncate text-[11px] text-setta-700 dark:text-setta-200">
                     {entry.label}
                   </div>
                   <select
                     className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
-                    data-testid={`run-instructions-codeobj-override-representation-${entry.codeObjId}`}
                     disabled={isDeploymentMode || representationDisabled}
                     value={entry.override.representation}
                     onChange={(event) => {
@@ -1146,7 +1133,6 @@ export function RunInstructions() {
                   </select>
                   <button
                     className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
-                    data-testid={`run-instructions-codeobj-override-remove-${entry.codeObjId}`}
                     disabled={isDeploymentMode}
                     onClick={() => {
                       const nextOverrides = {
@@ -1235,7 +1221,6 @@ export function RunInstructions() {
                 <Switch.Root
                   className={TOGGLE_ROOT_CLASSES}
                   checked={pythonCodegenEnabled}
-                  data-testid="run-instructions-python-codegen-toggle"
                   disabled={isDeploymentMode}
                   onCheckedChange={handleCodegenTargetToggle}
                 >
@@ -1330,11 +1315,13 @@ export function RunInstructions() {
       triggerTestId: "run-instructions-accordion-custom-runs",
       content:
         customRuns.length === 0 ? (
-          <div className={CUSTOM_RUN_EMPTY_STATE_CLASSES}>
+          <div
+            className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
+          >
             No custom runs yet.
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {customRuns.map((run) => {
               const isActiveContinuousRun =
                 runMode === "continuous" &&
@@ -1380,22 +1367,24 @@ export function RunInstructions() {
   );
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-col gap-2">
-      <p
-        className={`${RUN_INSTRUCTIONS_INLINE_INSET_CLASS} text-xs text-setta-500 dark:text-setta-300`}
-      >
-        Define custom run types (once or continuous) and choose which ones
-        appear in the main Run dropdown.
-      </p>
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
+      <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
+        <p className="text-xs text-setta-500 dark:text-setta-300">
+          Define custom run types (once or continuous) and choose which ones
+          appear in the main Run dropdown.
+        </p>
+      </div>
       <div
-        className={`setta-pane-scroll min-h-0 flex-1 ${RUN_INSTRUCTIONS_INLINE_INSET_CLASS}`}
+        className="setta-pane-scroll min-h-0 flex-1"
         data-testid="run-instructions-scroll-region"
       >
-        <RunInstructionsAccordion
-          openValues={visibleAccordionOpenValues}
-          onOpenValuesChange={setAccordionOpenValues}
-          items={accordionItems}
-        />
+        <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
+          <RunInstructionsAccordion
+            openValues={visibleAccordionOpenValues}
+            onOpenValuesChange={setAccordionOpenValues}
+            items={accordionItems}
+          />
+        </div>
       </div>
     </div>
   );
@@ -1421,54 +1410,58 @@ function CustomRunRow({
   }
 
   return (
-    <div className={CUSTOM_RUN_ROW_CLASSES}>
-      <input
-        type="checkbox"
-        checked={run.includeInRunDropdown}
-        onChange={() => toggleCustomRunInDropdown(projectConfigId, run.id)}
-        className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
-        {...getFloatingBoxHandlers({ content: "Show in Run dropdown" })}
-      />
-      <div className="min-w-0 flex-1 truncate text-setta-800 dark:text-setta-200">
-        {run.name}
+    <div className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-1.5`}>
+      <div className="flex min-w-0 items-center gap-2">
+        <input
+          type="checkbox"
+          checked={run.includeInRunDropdown}
+          onChange={() => toggleCustomRunInDropdown(projectConfigId, run.id)}
+          className="h-4 w-4 rounded-md bg-setta-500/10 checked:bg-blue-500 hover:bg-setta-500/30 hover:checked:bg-blue-500"
+          {...getFloatingBoxHandlers({ content: "Show in Run dropdown" })}
+        />
+        <div className="min-w-0 flex-1 truncate text-setta-800 dark:text-setta-200">
+          {run.name}
+        </div>
       </div>
-      <select
-        className={`${PANEL_COMPACT_SELECT_CLASSES} min-w-[7.5rem] shrink-0`}
-        value={run.runMode}
-        onChange={(e) =>
-          setCustomRunMode(
-            projectConfigId,
-            run.id,
-            e.target.value === "continuous" ? "continuous" : "once",
-          )
-        }
-        {...getFloatingBoxHandlers({ content: "Run mode" })}
-      >
-        <option value="once">once</option>
-        <option value="continuous">continuous</option>
-      </select>
-      <button
-        className={`inline-flex h-6 w-6 items-center justify-center rounded focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-          isActiveContinuousRun
-            ? "bg-blue-800 text-white hover:bg-blue-700"
-            : "text-setta-600 hover:bg-green-500/10 hover:text-green-600 dark:text-setta-300 dark:hover:text-green-400"
-        }`}
-        onClick={() => {
-          void runCustomRun(projectConfigId, run.id);
-        }}
-        type="button"
-        {...getFloatingBoxHandlers({ content: runTooltip })}
-      >
-        {runIcon}
-      </button>
-      <button
-        className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
-        onClick={() => deleteCustomRun(projectConfigId, run.id)}
-        type="button"
-        {...getFloatingBoxHandlers({ content: "Delete" })}
-      >
-        <i className="gg-trash" />
-      </button>
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <select
+          className={`${PANEL_COMPACT_SELECT_CLASSES} flex-1 basis-24`}
+          value={run.runMode}
+          onChange={(e) =>
+            setCustomRunMode(
+              projectConfigId,
+              run.id,
+              e.target.value === "continuous" ? "continuous" : "once",
+            )
+          }
+          {...getFloatingBoxHandlers({ content: "Run mode" })}
+        >
+          <option value="once">once</option>
+          <option value="continuous">continuous</option>
+        </select>
+        <button
+          className={`inline-flex h-6 w-6 items-center justify-center rounded focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            isActiveContinuousRun
+              ? "bg-blue-800 text-white hover:bg-blue-700"
+              : "text-setta-600 hover:bg-green-500/10 hover:text-green-600 dark:text-setta-300 dark:hover:text-green-400"
+          }`}
+          onClick={() => {
+            void runCustomRun(projectConfigId, run.id);
+          }}
+          type="button"
+          {...getFloatingBoxHandlers({ content: runTooltip })}
+        >
+          {runIcon}
+        </button>
+        <button
+          className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
+          onClick={() => deleteCustomRun(projectConfigId, run.id)}
+          type="button"
+          {...getFloatingBoxHandlers({ content: "Delete" })}
+        >
+          <i className="gg-trash" />
+        </button>
+      </div>
     </div>
   );
 }

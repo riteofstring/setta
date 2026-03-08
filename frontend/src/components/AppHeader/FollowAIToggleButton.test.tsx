@@ -28,8 +28,13 @@ let memoryStorage: Storage;
 vi.mock("@radix-ui/react-menubar", async () => {
   const React = await import("react");
   const passthrough = (Tag: React.ElementType) => {
-    return ({ children, ...props }) =>
-      React.createElement(Tag, props, children);
+    return ({
+      children,
+      align,
+      sideOffset,
+      alignOffset,
+      ...props
+    }: Record<string, unknown>) => React.createElement(Tag, props, children);
   };
   const Fragment = ({ children }) =>
     React.createElement(React.Fragment, null, children);
@@ -165,18 +170,6 @@ describe("FollowAIToggleButton", () => {
     );
 
     expect(markup).toContain("No chats yet");
-  });
-
-  it("renders in active mode by default", () => {
-    setEmptyProjectState();
-
-    const markup = renderToStaticMarkup(
-      <Menubar.Root>
-        <FollowAIToggleButton />
-      </Menubar.Root>,
-    );
-
-    expect(markup).toContain("text-blue-600");
   });
 
   it("shows chat sections without chat ids as not started", () => {

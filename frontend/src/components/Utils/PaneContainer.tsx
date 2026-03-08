@@ -10,7 +10,11 @@ import { Resizable } from "re-resizable";
 import { useEffect, useRef } from "react";
 import { RiExpandDiagonalLine } from "react-icons/ri";
 import { useWindowSize } from "state/hooks/utils";
-import { CLOSED_PANE_WIDTH, PaneName } from "utils/constants";
+import {
+  APP_PANE_Z_INDEX_CLASS_NAME,
+  CLOSED_PANE_WIDTH,
+  PaneName,
+} from "utils/constants";
 import { clamp } from "utils/utils";
 
 const FULL_WIDTH_BORDER_EPSILON = 2;
@@ -157,13 +161,13 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
+      className={`single-cell-container ${APP_PANE_Z_INDEX_CLASS_NAME} col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
     >
       {vis ? (
         <button
           type="button"
-          className={`absolute z-20 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded border border-setta-200 bg-transparent text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-transparent dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400 ${fullscreenButtonPositionClass}`}
+          className={`absolute z-20 inline-flex h-6 w-6 items-center justify-center rounded border border-setta-200 bg-setta-100 text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400 ${fullscreenButtonPositionClass}`}
           aria-label="Full screen pane"
           title="Full width"
           data-testid={`${paneName}-pane-fullscreen-button`}

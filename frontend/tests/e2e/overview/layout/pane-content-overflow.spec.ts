@@ -2,7 +2,6 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   ensureAppReady,
   getCurrentProjectConfigId,
-  openOverviewMoreDestination,
   postBackend,
   seedLocalStorage,
 } from "../../helpers";
@@ -139,35 +138,23 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
 
   await createCallableSectionAndFocus(page);
 
-  const overviewTabs: Array<{
-    label: string;
-    open: () => Promise<void>;
-  }> = [
-    {
-      label: "overview custom runs",
-      open: () => openOverviewMoreDestination(page, "Custom Runs"),
-    },
-    {
-      label: "overview-tab-view-modes",
-      open: () => page.getByTestId("overview-tab-view-modes").click(),
-    },
-    {
-      label: "overview-tab-notifications",
-      open: () => page.getByTestId("overview-tab-notifications").click(),
-    },
+  const overviewTabs = [
+    "overview-tab-run-instructions",
+    "overview-tab-view-modes",
+    "overview-tab-notifications",
   ];
-  for (const overviewTab of overviewTabs) {
-    await overviewTab.open();
+  for (const tabTestId of overviewTabs) {
+    await page.getByTestId(tabTestId).click();
     await assertPaneHasNoRightBleed(
       page,
       "#OverviewPane aside",
-      `overview tab ${overviewTab.label}`,
+      `overview tab ${tabTestId}`,
     );
     await assertPaneContentHasHorizontalInset(
       page,
       "#OverviewPane aside",
       "overview-tab-content-shell",
-      `overview tab ${overviewTab.label}`,
+      `overview tab ${tabTestId}`,
     );
   }
 

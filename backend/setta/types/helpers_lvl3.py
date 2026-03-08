@@ -31,6 +31,8 @@ from setta.types.project_config import (
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
+    WindowSpaceConfig,
+    WindowSpaceSurfaceKind,
 )
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
@@ -594,6 +596,21 @@ def _filter_project_config_for_summary(
             for section_id, visible in view_mode.visibilityBySectionId.items()
             if section_id in allowed_section_ids
         }
+    for window_space in cloned.windowSpaces.values():
+        next_windows_by_id = {}
+        for instance_id, window in window_space.windowsById.items():
+            if window.surfaceKind != WindowSpaceSurfaceKind.section:
+                next_windows_by_id[instance_id] = window
+                continue
+            if window.sectionIdOrNull not in allowed_section_ids:
+                continue
+            next_windows_by_id[instance_id] = window
+        window_space.windowsById = next_windows_by_id
+        window_space.order = [
+            instance_id
+            for instance_id in window_space.order
+            if instance_id in next_windows_by_id
+        ]
     return cloned
 
 
@@ -754,6 +771,44 @@ def remap_view_modes(
     return remapped_view_modes
 
 
+def remap_window_spaces(
+    window_spaces: dict[ID, WindowSpaceConfig],
+    section_id_map: dict[ID, ID] | None,
+):
+    if not section_id_map:
+        return window_spaces
+    remapped_window_spaces: dict[ID, WindowSpaceConfig] = {}
+    for window_space_id, window_space in window_spaces.items():
+        remapped_windows_by_id = {}
+        for instance_id, window in window_space.windowsById.items():
+            if window.surfaceKind != WindowSpaceSurfaceKind.section:
+                remapped_windows_by_id[instance_id] = window.model_copy(deep=True)
+                continue
+            section_id = window.sectionIdOrNull
+            if section_id is None:
+                continue
+            if section_id not in section_id_map:
+                raise KeyError(f"Section {section_id} missing for window space remap.")
+            remapped_windows_by_id[instance_id] = window.model_copy(
+                update={
+                    "sectionIdOrNull": section_id_map[section_id],
+                },
+                deep=True,
+            )
+        remapped_window_spaces[window_space_id] = window_space.model_copy(
+            update={
+                "windowsById": remapped_windows_by_id,
+                "order": [
+                    instance_id
+                    for instance_id in window_space.order
+                    if instance_id in remapped_windows_by_id
+                ],
+            },
+            deep=True,
+        )
+    return remapped_window_spaces
+
+
 def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
@@ -783,6 +838,9 @@ def copy_project_config(
         new_values["activeIds"] = [section_id_map[v] for v in project_config.activeIds]
         new_values["viewModes"] = remap_view_modes(
             project_config.viewModes, section_id_map
+        )
+        new_values["windowSpaces"] = remap_window_spaces(
+            project_config.windowSpaces, section_id_map
         )
         if project_config.edges:
             if code_obj_id_map is None:

@@ -524,7 +524,7 @@ export async function route_get_ai_follow_snapshot(
 }
 
 export async function route_get_app_gen_skills(): Promise<
-  ResponseDataAndStatus<gt.GetAppGenSkillsResponse>
+  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
 > {
   return await get("/getAppGenSkills");
 }
@@ -533,12 +533,6 @@ export async function route_get_app_gen_skill_content(
   x: gt.GetAppGenSkillContentRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
   return await post("/getAppGenSkillContent", x);
-}
-
-export async function route_upsert_app_gen_custom_skill(
-  x: gt.UpsertAppGenCustomSkillRequestInput,
-): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
-  return await post("/upsertAppGenCustomSkill", x);
 }
 
 export async function route_get_agent_profiles(): Promise<
@@ -915,6 +909,36 @@ export async function route_delete_view_mode(
   return await post("/deleteViewMode", x);
 }
 
+export async function route_create_window_space(
+  x: gt.CreateWindowSpaceRequestInput,
+): Promise<ResponseDataAndStatus<string>> {
+  return await post("/createWindowSpace", x);
+}
+
+export async function route_set_window_space_name(
+  x: gt.SetWindowSpaceNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setWindowSpaceName", x);
+}
+
+export async function route_set_window_space_sort_order(
+  x: gt.SetWindowSpaceSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setWindowSpaceSortOrder", x);
+}
+
+export async function route_delete_window_space(
+  x: gt.DeleteWindowSpaceRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteWindowSpace", x);
+}
+
+export async function route_set_window_space_state(
+  x: gt.SetWindowSpaceStateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setWindowSpaceState", x);
+}
+
 export async function route_undo(
   x: gt.UndoRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1009,7 +1033,7 @@ export async function route_set_text_block_text(
 
 export async function route_set_project_config_codegen_targets(
   x: gt.SetProjectConfigCodegenTargetsRequestInput,
-): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await post("/setProjectConfigCodegenTargets", x);
 }
 
@@ -1449,6 +1473,12 @@ export async function route_set_chat_section_state(
   x: gt.SetChatSectionStateRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChatSectionState", x);
+}
+
+export async function route_set_project_chat_windowing_state(
+  x: gt.SetProjectChatWindowingStateRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setProjectChatWindowingState", x);
 }
 
 export async function route_get_chat_section_chat_id(

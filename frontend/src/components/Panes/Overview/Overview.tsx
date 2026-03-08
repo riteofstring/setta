@@ -1,6 +1,3 @@
-import * as Menubar from "@radix-ui/react-menubar";
-import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
@@ -11,12 +8,10 @@ import {
 } from "plugins/runtime";
 import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
-import { IoMdGitBranch } from "react-icons/io";
 import { IoChatbox, IoSettingsOutline } from "react-icons/io5";
 import {
   MdBugReport,
   MdExtension,
-  MdMoreHoriz,
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
@@ -30,6 +25,7 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
@@ -47,15 +43,18 @@ import {
 } from "../paneFns";
 import { getPaneMinimumWidth } from "../paneLayout";
 import { AppConfigPane } from "./App/AppConfigPane";
+import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
-import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
+import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
+import { ProjectChatManager } from "./ProjectLevelAI/ProjectChatManager";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
 import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
+import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
 const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
@@ -87,9 +86,9 @@ export function Overview() {
   }));
   const showFileBrowserTab = !isDeploymentMode;
   const showGitTab = !isDeploymentMode;
+  const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
-  const showMoreAppTab = showAppTab;
   let effectiveTabName = selectedTabName;
   const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
   const selectedTabIsPluginPane =
@@ -98,7 +97,10 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Plugins;
   }
   if (!showLLMTabs) {
-    if (selectedTabName === OverviewTabNameEnum.ProjectAIChat) {
+    if (
+      selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
+      selectedTabName === OverviewTabNameEnum.ProjectAISettings
+    ) {
       effectiveTabName = OverviewTabNameEnum.Overview;
     }
   }
@@ -109,6 +111,9 @@ export function Overview() {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showGitTab && selectedTabName === OverviewTabNameEnum.Git) {
+    effectiveTabName = OverviewTabNameEnum.Overview;
+  }
+  if (!showWatchCodeTab && selectedTabName === OverviewTabNameEnum.WatchCode) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
   if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
@@ -127,16 +132,6 @@ export function Overview() {
       "flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500",
     requiredTabs: null,
   };
-  const moreMenuButtonClasses = `flex h-8 w-8 cursor-pointer items-center justify-center rounded-md focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${
-    vis &&
-    (effectiveTabName === OverviewTabNameEnum.RunInstructions ||
-      effectiveTabName === OverviewTabNameEnum.App ||
-      effectiveTabName === OverviewTabNameEnum.Plugins)
-      ? "text-blue-500"
-      : "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500"
-  }`;
-  const moreMenuItemClasses =
-    "flex items-center gap-2 px-1.5 py-1.5 text-xs text-setta-700 dark:text-setta-200 mx-1 rounded-md text-left hover:bg-setta-600 hover:text-white dark:hover:bg-setta-900 dark:hover:text-white active:bg-blue-100 active:dark:bg-blue-950 cursor-pointer";
 
   return (
     <div
@@ -147,7 +142,7 @@ export function Overview() {
     >
       <div
         data-testid="overview-icon-rail"
-        className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        className={`fixed left-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",
           bottom: hasViewModeTabs ? "36px" : "0px",
@@ -168,6 +163,13 @@ export function Overview() {
           data-testid="overview-tab-overview"
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
+        />
+        <TabButton<OverviewTabKey>
+          id="overview-tab-plugins"
+          tabName={OverviewTabNameEnum.Plugins}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Plugins" })}
+          icon={<MdExtension size={18} />}
         />
         {pluginPaneTabs.map((pluginPaneTab) => (
           <TabButton<OverviewTabKey>
@@ -196,9 +198,34 @@ export function Overview() {
             {...commonProps}
             data-testid="overview-tab-git"
             {...getFloatingBoxHandlers({ content: "Git" })}
-            icon={<IoMdGitBranch size={18} />}
+            icon={<RiGitCommitLine size={18} />}
           />
         )}
+        {showWatchCodeTab && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.WatchCode}
+            {...commonProps}
+            data-testid="overview-tab-watch-code"
+            {...getFloatingBoxHandlers({ content: "Watch Code" })}
+            icon={<RiRadarLine size={18} />}
+          />
+        )}
+        {showAppTab && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.App}
+            {...commonProps}
+            data-testid="overview-tab-app"
+            {...getFloatingBoxHandlers({ content: "App" })}
+            icon={<TbLayoutDashboard size={18} />}
+          />
+        )}
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.RunInstructions}
+          {...commonProps}
+          data-testid="overview-tab-run-instructions"
+          {...getFloatingBoxHandlers({ content: "Custom Runs" })}
+          icon={<RiPlayList2Fill size={20} />}
+        />
         <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
@@ -211,62 +238,31 @@ export function Overview() {
           {...commonProps}
           data-testid="overview-tab-notifications"
           {...getFloatingBoxHandlers({ content: "Notifications" })}
+          icon={<MdNotificationsNone size={20} />}
+        />
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.BackendLogs}
+          {...commonProps}
+          data-testid="overview-tab-backend-logs"
+          {...getFloatingBoxHandlers({ content: "Backend Logs" })}
           icon={
             <div className="relative">
-              <MdNotificationsNone size={20} />
+              <MdBugReport size={20} />
               {hasUnreadHighSeverityBackendLogs && (
                 <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 dark:bg-red-400" />
               )}
             </div>
           }
         />
-        <Menubar.Root className="w-8">
-          <NavbarMenuDropdown
-            triggerClassName={moreMenuButtonClasses}
-            trigger={
-              <span
-                data-testid="overview-tab-more"
-                aria-label="More"
-                {...getFloatingBoxHandlers({ content: "More" })}
-              >
-                <MdMoreHoriz size={20} />
-              </span>
-            }
-            contentClassName="z-20 min-w-[180px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850"
-          >
-            <MenuItem
-              className={moreMenuItemClasses}
-              onClick={() =>
-                onOverviewTabClick(OverviewTabNameEnum.RunInstructions)
-              }
-            >
-              <i className="w-3 opacity-80">
-                <RiPlayList2Fill />
-              </i>
-              <span className="ml-0.5">Custom Runs</span>
-            </MenuItem>
-            {showMoreAppTab ? (
-              <MenuItem
-                className={moreMenuItemClasses}
-                onClick={() => onOverviewTabClick(OverviewTabNameEnum.App)}
-              >
-                <i className="w-3 opacity-80">
-                  <TbLayoutDashboard />
-                </i>
-                <span className="ml-0.5">App Gen</span>
-              </MenuItem>
-            ) : null}
-            <MenuItem
-              className={moreMenuItemClasses}
-              onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
-            >
-              <i className="w-3 opacity-80">
-                <MdExtension />
-              </i>
-              <span className="ml-0.5">Plugins</span>
-            </MenuItem>
-          </NavbarMenuDropdown>
-        </Menubar.Root>
+        {showLLMTabs && (
+          <TabButton<OverviewTabKey>
+            tabName={OverviewTabNameEnum.ProjectAISettings}
+            {...commonProps}
+            data-testid="overview-tab-project-ai-settings"
+            {...getFloatingBoxHandlers({ content: "ProjectAI Settings" })}
+            icon={<MdOutlineSmartToy size={20} />}
+          />
+        )}
         <Controls />
         <Link
           to={SETTINGS_ROUTER_PATH}
@@ -417,6 +413,8 @@ function TabContent({
       );
     case OverviewTabNameEnum.Git:
       return <GitPane />;
+    case OverviewTabNameEnum.WatchCode:
+      return <WatchCodePane />;
     case OverviewTabNameEnum.App:
       return <AppConfigPane />;
     case OverviewTabNameEnum.RunInstructions:
@@ -425,8 +423,12 @@ function TabContent({
       return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
+    case OverviewTabNameEnum.BackendLogs:
+      return <BackendLogEventsArea />;
     case OverviewTabNameEnum.ProjectAIChat:
-      return <ProjectChat />;
+      return <ProjectChatManager />;
+    case OverviewTabNameEnum.ProjectAISettings:
+      return <ProjectAISettings />;
     default:
       return <ProjectOverview />;
   }

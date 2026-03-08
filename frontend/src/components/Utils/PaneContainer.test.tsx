@@ -17,6 +17,7 @@ describe("PaneContainer", () => {
       </PaneContainer>,
     );
 
+    expect(markup).toContain("z-[30]");
     expect(markup).toContain("py-2.5");
     expect(markup).toContain("pl-9");
     expect(markup).toContain("border-r");
@@ -30,6 +31,7 @@ describe("PaneContainer", () => {
       </PaneContainer>,
     );
 
+    expect(markup).toContain("z-[30]");
     expect(markup).toContain("py-2.5");
     expect(markup).toContain("pr-7");
     expect(markup).toContain("border-l");
@@ -54,16 +56,5 @@ describe("PaneContainer", () => {
     );
 
     expect(markup).toContain("border-l-0");
-  });
-
-  it("renders fullscreen button with transparent background and pointer cursor", () => {
-    const markup = renderToStaticMarkup(
-      <PaneContainer {...baseProps} right={true}>
-        <div>Pane</div>
-      </PaneContainer>,
-    );
-
-    expect(markup).toContain("bg-transparent");
-    expect(markup).toContain("cursor-pointer");
   });
 });

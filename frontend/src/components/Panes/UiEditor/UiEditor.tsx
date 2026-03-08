@@ -12,6 +12,7 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
   UIEditorTabName,
   UIEditorTabNameEnum,
@@ -74,7 +75,7 @@ export function UiEditor() {
     >
       <div
         data-testid="ui-editor-icon-rail"
-        className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        className={`fixed right-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",
           bottom: hasViewModeTabs ? "36px" : "0px",
@@ -160,7 +161,7 @@ function TabsVisible({
       data-testid="ui-editor-tab-content-shell"
       className="mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
     >
-      <h2 className="mb-1 cursor-pointer select-none pl-4 text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+      <h2 className="mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
         {title}
       </h2>
       <TabContent sectionId={sectionId} selectedTabName={selectedTabName} />

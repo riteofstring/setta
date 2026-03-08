@@ -2,7 +2,6 @@ import { expect, Locator, test } from "@playwright/test";
 import {
   ensureAppReady,
   getCurrentProjectConfigId,
-  openProjectAiSettingsPopover,
   postBackend,
   seedLocalStorage,
   setOverviewTab,
@@ -66,10 +65,8 @@ async function assertScrollRegionUsesStableGutter(
 async function seedManyLlmApiKeys(
   page: import("@playwright/test").Page,
 ): Promise<void> {
-  const configs: Record<
-    string,
-    { model: string; provider: string; api_key_env: string }
-  > = {};
+  const configs: Record<string, { model: string; provider: string; api_key_env: string }> =
+    {};
   for (let i = 0; i < 28; i += 1) {
     configs[`e2e-key-${i}`] = {
       model: "claude-3-5-sonnet-latest",
@@ -102,26 +99,24 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
     page.getByTestId("run-instructions-scroll-region"),
   );
 
-  await setOverviewTab(page, "ProjectAIChat");
+  await setOverviewTab(page, "ProjectAISettings");
   await page.reload({ waitUntil: "domcontentloaded" });
   await ensureAppReady(page);
-  await openProjectAiSettingsPopover(page);
 
   const llmKeysTrigger = page.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",
   );
   await expect(llmKeysTrigger).toBeVisible();
-  const baselineTriggerLeft = (await llmKeysTrigger.boundingBox())?.x;
+  const baselineTriggerLeft = (
+    await llmKeysTrigger.boundingBox()
+  )?.x;
   if (baselineTriggerLeft === undefined) {
-    throw new Error(
-      "Unable to resolve LLM keys trigger geometry before key seed.",
-    );
+    throw new Error("Unable to resolve LLM keys trigger geometry before key seed.");
   }
 
   await seedManyLlmApiKeys(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await ensureAppReady(page);
-  await openProjectAiSettingsPopover(page);
   await assertScrollRegionUsesStableGutter(
     page.getByTestId("project-ai-settings-scroll-region"),
   );
@@ -132,11 +127,8 @@ test("pane scroll regions reserve gutter and prevent horizontal content shift", 
       .boundingBox()
   )?.x;
   if (nextTriggerLeft === undefined) {
-    throw new Error(
-      "Unable to resolve LLM keys trigger geometry after key seed.",
-    );
+    throw new Error("Unable to resolve LLM keys trigger geometry after key seed.");
   }
-  expect(Math.abs(nextTriggerLeft - baselineTriggerLeft)).toBeLessThanOrEqual(
-    1,
-  );
+  expect(Math.abs(nextTriggerLeft - baselineTriggerLeft)).toBeLessThanOrEqual(1);
+
 });

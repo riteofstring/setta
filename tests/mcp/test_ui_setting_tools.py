@@ -999,7 +999,7 @@ async def test_project_ai_settings_are_discoverable_revealable_and_read_only() -
             assert reveal_result.statuses[0].target is not None
             target = reveal_result.statuses[0].target
             assert target is not None
-            assert target.overviewTabKey == "ProjectAIChat"
+            assert target.overviewTabKey == "ProjectAISettings"
             expected_activation = expected_activation_step_by_setting_id.get(setting_id)
             if expected_activation is None:
                 assert target.revealActivationSteps == []

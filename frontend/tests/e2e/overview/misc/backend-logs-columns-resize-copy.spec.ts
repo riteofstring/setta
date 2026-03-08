@@ -1,83 +1,11 @@
 import { expect, test } from "@playwright/test";
-import {
-  ensureAppReady,
-  postBackend,
-  seedLocalStorage,
-  setOverviewTab,
-} from "../../helpers";
-
-test("notifications pane can open logs first and still allows tab switching", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "Notifications",
-    overviewNotificationsPaneTab: "backend_logs",
-    overviewVis: true,
-  });
-  await ensureAppReady(page);
-
-  await expect(
-    page.getByTestId("notifications-pane-backend-logs-view"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("notifications-pane-tab-backend-logs"),
-  ).toHaveAttribute("aria-selected", "true");
-
-  await page.getByTestId("notifications-pane-tab-notifications").click();
-  await expect(
-    page.getByTestId("notifications-pane-notifications-view"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("notifications-pane-tab-notifications"),
-  ).toHaveAttribute("aria-selected", "true");
-  await expect(
-    page.getByTestId("notifications-pane-tab-backend-logs"),
-  ).toHaveAttribute("aria-selected", "false");
-});
-
-test("switching notifications pane state to backend logs always activates logs", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, {
-    overviewTab: "Notifications",
-    overviewNotificationsPaneTab: "notifications",
-    overviewVis: true,
-  });
-  await ensureAppReady(page);
-
-  await expect(
-    page.getByTestId("notifications-pane-notifications-view"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("notifications-pane-tab-notifications"),
-  ).toHaveAttribute("aria-selected", "true");
-
-  await page.evaluate(async () => {
-    const { useLocalStorage } = await import("/src/state/definitions.ts");
-    useLocalStorage.setState({
-      overviewTab: "Notifications",
-      overviewNotificationsPaneTab: "backend_logs",
-      overviewVis: true,
-    });
-  });
-
-  await expect(
-    page.getByTestId("notifications-pane-backend-logs-view"),
-  ).toBeVisible();
-  await expect(
-    page.getByTestId("notifications-pane-tab-backend-logs"),
-  ).toHaveAttribute("aria-selected", "true");
-});
+import { ensureAppReady, postBackend, setOverviewTab } from "../../helpers";
 
 test("backend logs pane supports column resize handles and copy feedback", async ({
   page,
 }) => {
-  await setOverviewTab(page, "Notifications");
+  await setOverviewTab(page, "BackendLogs");
   await ensureAppReady(page);
-  await page.getByTestId("notifications-pane-tab-backend-logs").click();
-  await expect(
-    page.getByTestId("notifications-pane-backend-logs-view"),
-  ).toBeVisible();
 
   const backendOrigin =
     process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";

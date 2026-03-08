@@ -8,6 +8,7 @@ import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "state/actions/chatMergeUtils";
+import { setPersistedProjectChatWindowingState } from "state/actions/projectChatWindowingPersistence";
 import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
@@ -44,6 +45,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  createProjectChatWindowingState,
   ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
@@ -214,6 +216,70 @@ function mergeStreamingChatSections(
   }
 
   return mergedSectionIds;
+}
+
+function mergeProjectChatWindowOrder(
+  currentOrder: string[],
+  incomingOrder: string[],
+  mergedInstancesById: ProjectStateSingleConfig["projectChatWindowing"]["instancesById"],
+): string[] {
+  const nextOrder: string[] = [];
+  const seen = new Set<string>();
+  const appendIfPresent = (instanceId: string) => {
+    if (!mergedInstancesById[instanceId] || seen.has(instanceId)) {
+      return;
+    }
+    seen.add(instanceId);
+    nextOrder.push(instanceId);
+  };
+  for (const instanceId of currentOrder) {
+    appendIfPresent(instanceId);
+  }
+  for (const instanceId of incomingOrder) {
+    appendIfPresent(instanceId);
+  }
+  for (const instanceId of Object.keys(mergedInstancesById)) {
+    appendIfPresent(instanceId);
+  }
+  return nextOrder;
+}
+
+export function mergeProjectChatWindowingFromCurrentState(
+  projectState: ProjectStateSingleConfig,
+  currentState: {
+    projectChatWindowing?: ProjectStateSingleConfig["projectChatWindowing"];
+  },
+): void {
+  const incomingWindowing =
+    projectState.projectChatWindowing ?? createProjectChatWindowingState();
+  const currentWindowing =
+    currentState.projectChatWindowing ?? createProjectChatWindowingState();
+
+  if (
+    currentWindowing.order.length === 0 &&
+    Object.keys(currentWindowing.instancesById).length === 0
+  ) {
+    projectState.projectChatWindowing = incomingWindowing;
+    return;
+  }
+
+  const mergedInstancesById = {
+    ...incomingWindowing.instancesById,
+    ...currentWindowing.instancesById,
+  };
+  projectState.projectChatWindowing = createProjectChatWindowingState({
+    ...incomingWindowing,
+    instancesById: mergedInstancesById,
+    order: mergeProjectChatWindowOrder(
+      currentWindowing.order,
+      incomingWindowing.order,
+      mergedInstancesById,
+    ),
+    nextInstanceNumber: Math.max(
+      incomingWindowing.nextInstanceNumber,
+      currentWindowing.nextInstanceNumber,
+    ),
+  });
 }
 
 function hasMoreCompleteChatMessages(
@@ -975,6 +1041,7 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  mergeProjectChatWindowingFromCurrentState(x.projectState, currentState);
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -1007,6 +1074,10 @@ export function processProjectStateUpdateFromBackend(
     useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => x.projectState);
   });
+  setPersistedProjectChatWindowingState(
+    x.projectState.projectConfig.id,
+    x.projectState.projectChatWindowing,
+  );
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }
