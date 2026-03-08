@@ -215,6 +215,11 @@ Current landed wedge:
         `RotaryParam`, `SwitchParam`, `ColorPickerParam`,
         `DropdownParam`, `PasswordParam`, `TextAreaParam`,
         `DropzoneParam`, and `NestedParam`
+      - current code-object type-set exports used by UI config callers
+        - `BaseChildlessCodeObjImplTypeSet`
+        - `BaseParamCodeObjImplTypeSet`
+        - `ControlCodeObjTypeSet`
+        - `SectionParamCodeObjTypeSet`
       - chat message/tool-call helpers and chat section state/branch payloads
       - agentic-edge enums/helper support
         - `AgenticEdgeKind`

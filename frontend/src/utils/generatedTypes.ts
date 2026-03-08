@@ -3643,7 +3643,7 @@ export function createSettingsState(
   };
 }
 
-const BaseChildlessCodeObjImplTypeSet = new Set([
+export const BaseChildlessCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,
   CodeObjTypeEnum.DateParam,
@@ -3658,7 +3658,7 @@ const BaseChildlessCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.TimeParam,
 ]);
 
-const BaseParamCodeObjImplTypeSet = new Set([
+export const BaseParamCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,
@@ -3673,6 +3673,38 @@ const BaseParamCodeObjImplTypeSet = new Set([
   CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.TextParam,
   CodeObjTypeEnum.TimeParam,
+]);
+
+export const ControlCodeObjTypeSet = new Set([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.DropzoneParam,
+]);
+
+export const SectionParamCodeObjTypeSet = new Set([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
 ]);
 
 const BaseParentSectionImplTypeSet = new Set([

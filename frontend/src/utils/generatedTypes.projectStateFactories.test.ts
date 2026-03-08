@@ -4,6 +4,7 @@ import {
   CodeFileAccessModeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
+  ControlCodeObjTypeSet,
   ConfigLanguageEnum,
   createBrowserSavedSearch,
   createBrowserSavedSearchTypeFilters,
@@ -20,6 +21,7 @@ import {
   createViewModeConfig,
   ParamNameTypeEnum,
   RouteEnum,
+  SectionParamCodeObjTypeSet,
   SectionSizeModeEnum,
   SectionTypeEnum,
   TextBlockFormatEnum,
@@ -106,6 +108,17 @@ describe("generated project state factories", () => {
     expect(SectionSizeModeEnum.auto).toBe("auto");
     expect(autoSize).toEqual({ width: "auto", height: "auto" });
     expect(fixedSize).toEqual({ width: 360, height: 140 });
+  });
+
+  it("exports code object type filter sets for UI config callers", () => {
+    expect(ControlCodeObjTypeSet.has(CodeObjTypeEnum.ButtonParam)).toBe(true);
+    expect(ControlCodeObjTypeSet.has(CodeObjTypeEnum.NestedParam)).toBe(false);
+    expect(SectionParamCodeObjTypeSet.has(CodeObjTypeEnum.NestedParam)).toBe(
+      true,
+    );
+    expect(SectionParamCodeObjTypeSet.has(CodeObjTypeEnum.ButtonParam)).toBe(
+      false,
+    );
   });
 
   it("exports browser-section helpers and saved-search defaults", () => {
