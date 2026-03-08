@@ -111,3 +111,89 @@ type LaunchResponse struct {
 	RemoteCmdResolved    *string                           `json:"remoteCmdResolved"`
 	Error                *LaunchErrorPayload               `json:"error"`
 }
+
+type LauncherHomeErrorPayload struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type GetLauncherRecentWorkspacesRequestInput struct {
+	SettaHome *string `json:"setta_home,omitempty"`
+}
+
+type LauncherRecentWorkspacePayload struct {
+	WorkspaceRoot string `json:"workspaceRoot"`
+	Pinned        bool   `json:"pinned"`
+	LastUsedAt    int64  `json:"lastUsedAt"`
+}
+
+type LauncherRecentWorkspacesResponse struct {
+	Ok         bool                             `json:"ok"`
+	Workspaces []LauncherRecentWorkspacePayload `json:"workspaces"`
+	Error      *LauncherHomeErrorPayload        `json:"error"`
+}
+
+type LauncherRecentWorkspaceRequestInput struct {
+	SettaHome     *string `json:"settaHome,omitempty"`
+	WorkspaceRoot string  `json:"workspaceRoot"`
+	Pinned        *bool   `json:"pinned,omitempty"`
+}
+
+type PinLauncherRecentWorkspaceRequestInput struct {
+	SettaHome     *string `json:"settaHome,omitempty"`
+	WorkspaceRoot string  `json:"workspaceRoot"`
+	Pinned        bool    `json:"pinned"`
+}
+
+type LauncherFilesystemRootsResponse struct {
+	Ok    bool     `json:"ok"`
+	Roots []string `json:"roots"`
+}
+
+type LauncherDirectoryEntryPayload struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	IsDirectory bool   `json:"isDirectory"`
+	IsSymlink   bool   `json:"isSymlink"`
+}
+
+type LauncherListDirectoryRequestInput struct {
+	Path     *string `json:"path,omitempty"`
+	Cursor   *string `json:"cursor,omitempty"`
+	PageSize *int    `json:"pageSize,omitempty"`
+}
+
+type LauncherListDirectoryResponse struct {
+	Ok          bool                            `json:"ok"`
+	CurrentPath *string                         `json:"currentPath"`
+	ParentPath  *string                         `json:"parentPath"`
+	Entries     []LauncherDirectoryEntryPayload `json:"entries"`
+	NextCursor  *string                         `json:"nextCursor"`
+	HasMore     bool                            `json:"hasMore"`
+	Truncated   bool                            `json:"truncated"`
+	Error       *LauncherHomeErrorPayload       `json:"error"`
+}
+
+type LauncherOpenWorkspaceRequestInput struct {
+	WorkspaceRoot      string                    `json:"workspaceRoot"`
+	SettaHome          *string                   `json:"settaHome,omitempty"`
+	Profile            *string                   `json:"profile,omitempty"`
+	SettaFilesRoot     *string                   `json:"settaFilesRoot,omitempty"`
+	SettaFilesLocation *LaunchSettaFilesLocation `json:"settaFilesLocation,omitempty"`
+	RuntimeRoot        *string                   `json:"runtimeRoot,omitempty"`
+	CreateIfMissing    *bool                     `json:"createIfMissing,omitempty"`
+}
+
+type LauncherOpenWorkspaceResponse struct {
+	Ok                   bool                              `json:"ok"`
+	BootstrapURLFragment *string                           `json:"bootstrapUrlFragment"`
+	WorkspaceRoot        *string                           `json:"workspaceRoot"`
+	SettaFilesLocation   *LaunchResolvedSettaFilesLocation `json:"settaFilesLocation"`
+	SettaFilesRoot       *string                           `json:"settaFilesRoot"`
+	RuntimeRoot          *string                           `json:"runtimeRoot"`
+	SettaHome            *string                           `json:"settaHome"`
+	Profile              *string                           `json:"profile"`
+	SessionID            *string                           `json:"sessionId"`
+	StartedNew           *bool                             `json:"startedNew"`
+	Error                *LauncherHomeErrorPayload         `json:"error"`
+}

@@ -10,13 +10,13 @@ import {
   route_open_launcher_workspace,
   route_pin_launcher_recent_workspace,
   route_remove_launcher_recent_workspace,
-} from "utils/generatedEndpoints";
+} from "utils/generatedGoEndpoints";
 import type {
   LauncherDirectoryEntryPayload,
   LauncherListDirectoryRequestInput,
   LauncherListDirectoryResponse,
   LauncherRecentWorkspacePayload,
-} from "utils/generatedTypes";
+} from "utils/generatedGoTypes";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 
@@ -189,9 +189,9 @@ export function LauncherHomePage() {
   const [openInFlight, setOpenInFlight] = useState(false);
 
   async function loadRecentWorkspaces() {
-    const response = await route_get_launcher_recent_workspaces(
-      launcherContext.settaHome,
-    );
+    const response = await route_get_launcher_recent_workspaces({
+      setta_home: launcherContext.settaHome,
+    });
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
       return;

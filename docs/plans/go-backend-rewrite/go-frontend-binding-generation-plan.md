@@ -66,6 +66,7 @@ Current landed wedge:
   - current websocket route constants
   - current status/meta route constants
   - current workspace-launch route constants
+  - current launcher-home route constants
 - `frontend/src/utils/generatedGoTypes.ts`
   - current status/meta request/response contract types
   - explicit workspace-launch boundary contract types
@@ -76,11 +77,27 @@ Current landed wedge:
     - these are dedicated frontend contract types, not a direct reflection of
       `internal/workspacelaunch.Request`, because the runtime request type also
       carries field-presence semantics for intent storage/validation
+  - launcher-home contract types
+    - recent-workspace query/mutation payloads
+    - filesystem-root and directory-listing payloads
+    - `LauncherOpenWorkspaceRequestInput`
+    - `LauncherOpenWorkspaceResponse`
+    - the open-workspace request stays a dedicated frontend contract type
+      rather than reflecting the internal launcher request that tracks
+      `settaFilesLocation` presence for runtime behavior
 - `frontend/src/utils/generatedGoEndpoints.ts`
   - current status/meta endpoint wrappers
   - workspace-launch endpoint wrappers
     - `route_create_workspace_launch_intent`
     - `route_launch`
+  - launcher-home endpoint wrappers
+    - `route_get_launcher_recent_workspaces`
+    - `route_add_launcher_recent_workspace`
+    - `route_remove_launcher_recent_workspace`
+    - `route_pin_launcher_recent_workspace`
+    - `route_get_launcher_filesystem_roots`
+    - `route_list_launcher_directory`
+    - `route_open_launcher_workspace`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -89,6 +106,7 @@ Current landed wedge:
   - `WorkspaceSwitcherModal`, `WorkspaceLaunchPage`,
     `workspaceSwitcherLaunch`, and `launchRequestDedupeKey` now consume the
     Go-generated workspace-launch bindings
+  - `LauncherHomePage` now consumes the Go-generated launcher-home bindings
 
 ## Rules
 

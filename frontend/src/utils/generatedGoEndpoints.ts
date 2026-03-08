@@ -32,6 +32,41 @@ export async function route_launch(
 ): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
   return await post(GoHTTPRoutes.launch, x);
 }
+export async function route_get_launcher_recent_workspaces(
+  x: gt.GetLauncherRecentWorkspacesRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await get(GoHTTPRoutes.getLauncherRecentWorkspaces, x);
+}
+export async function route_add_launcher_recent_workspace(
+  x: gt.LauncherRecentWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await post(GoHTTPRoutes.addLauncherRecentWorkspace, x);
+}
+export async function route_remove_launcher_recent_workspace(
+  x: gt.LauncherRecentWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await post(GoHTTPRoutes.removeLauncherRecentWorkspace, x);
+}
+export async function route_pin_launcher_recent_workspace(
+  x: gt.PinLauncherRecentWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await post(GoHTTPRoutes.pinLauncherRecentWorkspace, x);
+}
+export async function route_get_launcher_filesystem_roots(): Promise<
+  ResponseDataAndStatus<gt.LauncherFilesystemRootsResponse>
+> {
+  return await get(GoHTTPRoutes.getLauncherFilesystemRoots);
+}
+export async function route_list_launcher_directory(
+  x: gt.LauncherListDirectoryRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
+  return await post(GoHTTPRoutes.listLauncherDirectory, x);
+}
+export async function route_open_launcher_workspace(
+  x: gt.LauncherOpenWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
+  return await post(GoHTTPRoutes.openLauncherWorkspace, x);
+}
 export async function route_reveal_path_in_os_file_explorer(
   x: gt.RevealPathInOSFileExplorerRequest,
 ): Promise<ResponseDataAndStatus<null>> {

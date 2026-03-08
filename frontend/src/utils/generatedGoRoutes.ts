@@ -14,6 +14,13 @@ export const GoHTTPRoutes = {
   getSettaHomeInfo: "/settaHomeInfo",
   createWorkspaceLaunchIntent: "/createWorkspaceLaunchIntent",
   launch: "/launch",
+  getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
+  addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
+  removeLauncherRecentWorkspace: "/removeLauncherRecentWorkspace",
+  pinLauncherRecentWorkspace: "/pinLauncherRecentWorkspace",
+  getLauncherFilesystemRoots: "/launcherFilesystemRoots",
+  listLauncherDirectory: "/listLauncherDirectory",
+  openLauncherWorkspace: "/openLauncherWorkspace",
   revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
 } as const;
 export const GoWebsocketRoutes = {

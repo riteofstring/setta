@@ -106,6 +106,104 @@ export type LaunchResponse = {
 };
 
 
+export type GetLauncherRecentWorkspacesRequestInput = {
+  setta_home?: string | null;
+};
+
+
+export type LauncherRecentWorkspacePayload = {
+  workspaceRoot: string;
+  pinned: boolean;
+  lastUsedAt: number;
+};
+
+
+export type LauncherHomeErrorPayload = {
+  code: string;
+  message: string;
+};
+
+
+export type LauncherRecentWorkspacesResponse = {
+  ok: boolean;
+  workspaces: Array<LauncherRecentWorkspacePayload>;
+  error: LauncherHomeErrorPayload | null;
+};
+
+
+export type LauncherRecentWorkspaceRequestInput = {
+  settaHome?: string | null;
+  workspaceRoot: string;
+  pinned?: boolean | null;
+};
+
+
+export type PinLauncherRecentWorkspaceRequestInput = {
+  settaHome?: string | null;
+  workspaceRoot: string;
+  pinned: boolean;
+};
+
+
+export type LauncherFilesystemRootsResponse = {
+  ok: boolean;
+  roots: Array<string>;
+};
+
+
+export type LauncherListDirectoryRequestInput = {
+  path?: string | null;
+  cursor?: string | null;
+  pageSize?: number | null;
+};
+
+
+export type LauncherDirectoryEntryPayload = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+};
+
+
+export type LauncherListDirectoryResponse = {
+  ok: boolean;
+  currentPath: string | null;
+  parentPath: string | null;
+  entries: Array<LauncherDirectoryEntryPayload>;
+  nextCursor: string | null;
+  hasMore: boolean;
+  truncated: boolean;
+  error: LauncherHomeErrorPayload | null;
+};
+
+
+export type LauncherOpenWorkspaceRequestInput = {
+  workspaceRoot: string;
+  settaHome?: string | null;
+  profile?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: LaunchSettaFilesLocation | null;
+  runtimeRoot?: string | null;
+  createIfMissing?: boolean | null;
+};
+
+
+export type LauncherOpenWorkspaceResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  error: LauncherHomeErrorPayload | null;
+};
+
+
 export type RevealPathInOSFileExplorerRequest = {
   path: string;
 };
