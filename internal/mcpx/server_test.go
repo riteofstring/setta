@@ -17,6 +17,7 @@ import (
 	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/agentprofiles"
 	"setta/internal/appspec"
 	"setta/internal/projectstate"
 	"setta/internal/terminals"
@@ -143,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 64 {
-		t.Fatalf("expected 64 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 66 {
+		t.Fatalf("expected 66 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -165,6 +166,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var setWatchCodeInputsTool *sdkmcp.Tool
+	var listAgentProfilesTool *sdkmcp.Tool
+	var getAgentProfileTool *sdkmcp.Tool
 	var getAppDefinitionTool *sdkmcp.Tool
 	var validateAppDefinitionTool *sdkmcp.Tool
 	var setAppDefinitionTool *sdkmcp.Tool
@@ -253,6 +256,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_watch_code_inputs" {
 			setWatchCodeInputsTool = tool
+		}
+		if tool.Name == "list_agent_profiles" {
+			listAgentProfilesTool = tool
+		}
+		if tool.Name == "get_agent_profile" {
+			getAgentProfileTool = tool
 		}
 		if tool.Name == "get_app_definition" {
 			getAppDefinitionTool = tool
@@ -383,12 +392,14 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"format_code",
 		"getProjectConfigNamesAndIds",
 		"getTerminalOutput",
+		"get_agent_profile",
 		"get_app_catalog",
 		"get_app_definition",
 		"get_latest_lsp_diagnostics",
 		"get_latest_project_state_summary",
 		"get_mcp_server_runtime_status",
 		"get_setta_docs",
+		"list_agent_profiles",
 		"list_app_components",
 		"list_mcp_tools",
 		"read_file_range",
@@ -486,6 +497,12 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setWatchCodeInputsTool == nil {
 		t.Fatal("expected set_watch_code_inputs tool")
+	}
+	if listAgentProfilesTool == nil {
+		t.Fatal("expected list_agent_profiles tool")
+	}
+	if getAgentProfileTool == nil {
+		t.Fatal("expected get_agent_profile tool")
 	}
 	if getAppDefinitionTool == nil {
 		t.Fatal("expected get_app_definition tool")
@@ -761,6 +778,20 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if setWatchCodeInputsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_watch_code_inputs, got %#v", setWatchCodeInputsMeta["accessType"])
 	}
+	listAgentProfilesMeta := mustStructuredMap(t, listAgentProfilesTool.Meta[toolMetaNamespace])
+	if listAgentProfilesMeta["accessType"] != string(tools.AccessTypeRead) {
+		t.Fatalf("expected read access type for list_agent_profiles, got %#v", listAgentProfilesMeta["accessType"])
+	}
+	if paths, ok := listAgentProfilesMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected list_agent_profiles to have no id target paths, got %#v", paths)
+	}
+	getAgentProfileMeta := mustStructuredMap(t, getAgentProfileTool.Meta[toolMetaNamespace])
+	if getAgentProfileMeta["accessType"] != string(tools.AccessTypeRead) {
+		t.Fatalf("expected read access type for get_agent_profile, got %#v", getAgentProfileMeta["accessType"])
+	}
+	if paths, ok := getAgentProfileMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected get_agent_profile to have no id target paths, got %#v", paths)
+	}
 	getAppDefinitionMeta := mustStructuredMap(t, getAppDefinitionTool.Meta[toolMetaNamespace])
 	if getAppDefinitionMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for get_app_definition, got %#v", getAppDefinitionMeta["accessType"])
@@ -1003,8 +1034,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 64 {
-		t.Fatalf("expected 64 registered tool names, got %#v", listNames)
+	if len(listNames) != 66 {
+		t.Fatalf("expected 66 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -9023,6 +9054,106 @@ func TestServerReportCompletionStatusBuildsStructuredReportAndRejectsInvalidChec
 	}
 	if invalidPayload["message"] != "checkResults[0].checkName must be non-empty" {
 		t.Fatalf("unexpected invalid message %#v", invalidPayload["message"])
+	}
+}
+
+func TestServerListAgentProfilesAndGetAgentProfile(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := agentprofiles.NewStore(root)
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	engineConfigID := "engine-alpha"
+	memoryScope := "workspace"
+	if err := store.Write([]agentprofiles.Profile{
+		{
+			ID:                          "profile-alpha",
+			Name:                        "Alpha",
+			Description:                 "Primary profile",
+			SystemPrompt:                "You are alpha.",
+			EnableBackgroundSummaryFill: true,
+			EnableLlmChatTitles:         true,
+			EngineConfigID:              &engineConfigID,
+			ToolAllowlist:               []string{"tool.a"},
+			MemoryScope:                 &memoryScope,
+		},
+		{
+			ID:            "profile-beta",
+			Name:          "Beta",
+			Description:   "",
+			SystemPrompt:  "You are beta.",
+			ToolAllowlist: []string{},
+		},
+	}); err != nil {
+		t.Fatalf("seed agent profiles: %v", err)
+	}
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		AgentProfiles:  store,
+	})
+	defer clientSession.Close()
+
+	listResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "list_agent_profiles",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call list_agent_profiles: %v", err)
+	}
+	if listResult.IsError {
+		t.Fatalf("expected list_agent_profiles success, got %#v", listResult.StructuredContent)
+	}
+	listPayload := mustStructuredMap(t, listResult.StructuredContent)
+	profiles := mustStructuredList(t, listPayload["profiles"])
+	if len(profiles) != 2 {
+		t.Fatalf("expected two agent profiles, got %#v", profiles)
+	}
+	firstProfile := mustStructuredMap(t, profiles[0])
+	if firstProfile["id"] != "profile-alpha" {
+		t.Fatalf("expected first profile-alpha entry, got %#v", firstProfile)
+	}
+
+	getResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_agent_profile",
+		Arguments: map[string]any{
+			"profileId": "profile-alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_agent_profile: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_agent_profile success, got %#v", getResult.StructuredContent)
+	}
+	profile := mustStructuredMap(t, getResult.StructuredContent)
+	if profile["name"] != "Alpha" {
+		t.Fatalf("expected Alpha profile, got %#v", profile)
+	}
+	if profile["memoryScope"] != "workspace" {
+		t.Fatalf("expected workspace memoryScope, got %#v", profile["memoryScope"])
+	}
+
+	missingResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_agent_profile",
+		Arguments: map[string]any{
+			"profileId": "missing-profile",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call missing get_agent_profile: %v", err)
+	}
+	if !missingResult.IsError {
+		t.Fatal("expected missing get_agent_profile to fail")
+	}
+	missingPayload := mustStructuredMap(t, missingResult.StructuredContent)
+	if missingPayload["code"] != "invalid_arguments" {
+		t.Fatalf("expected invalid_arguments for missing profile, got %#v", missingPayload["code"])
 	}
 }
 

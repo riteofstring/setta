@@ -18,6 +18,7 @@ import (
 	"time"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/agentprofiles"
 	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/httpapi"
@@ -98,8 +99,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 64 {
-		t.Fatalf("expected 64 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 66 {
+		t.Fatalf("expected 66 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -117,8 +118,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 64 {
-		t.Fatalf("expected 64 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 66 {
+		t.Fatalf("expected 66 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -141,6 +142,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !containsStructuredStringValue(rawNames, "getTerminalOutput") {
 		t.Fatalf("expected getTerminalOutput in registered tool names, got %#v", rawNames)
 	}
+	if !containsStructuredStringValue(rawNames, "get_agent_profile") {
+		t.Fatalf("expected get_agent_profile in registered tool names, got %#v", rawNames)
+	}
 	if !containsStructuredStringValue(rawNames, "get_app_catalog") {
 		t.Fatalf("expected get_app_catalog in registered tool names, got %#v", rawNames)
 	}
@@ -152,6 +156,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "list_app_components") {
 		t.Fatalf("expected list_app_components in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "list_agent_profiles") {
+		t.Fatalf("expected list_agent_profiles in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "report_completion_status") {
 		t.Fatalf("expected report_completion_status in registered tool names, got %#v", rawNames)
@@ -488,6 +495,85 @@ func TestAppIDEMCPServerSupportsReportCompletionStatusOverAuthenticatedSSE(t *te
 	}
 	if firstCheck["source"] != "go test" {
 		t.Fatalf("expected trimmed source, got %#v", firstCheck["source"])
+	}
+}
+
+func TestAppIDEMCPServerSupportsAgentProfileReadToolsOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	saveAppAgentProfiles(t, cfg, []agentprofiles.Profile{
+		{
+			ID:                          "profile-alpha",
+			Name:                        "Alpha",
+			Description:                 "Primary profile",
+			SystemPrompt:                "You are alpha.",
+			EnableBackgroundSummaryFill: true,
+			EnableLlmChatTitles:         true,
+			ToolAllowlist:               []string{"tool.a"},
+		},
+		{
+			ID:           "profile-beta",
+			Name:         "Beta",
+			SystemPrompt: "You are beta.",
+		},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "list_agent_profiles",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call list_agent_profiles: %v", err)
+	}
+	if listResult.IsError {
+		t.Fatalf("expected list_agent_profiles success, got %#v", listResult.StructuredContent)
+	}
+	listPayload := mustStructuredMapValue(t, listResult.StructuredContent)
+	profiles := mustStructuredListValue(t, listPayload["profiles"])
+	if len(profiles) != 2 {
+		t.Fatalf("expected two agent profiles, got %#v", profiles)
+	}
+
+	getResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "get_agent_profile",
+		Arguments: map[string]any{
+			"profileId": "profile-alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_agent_profile: %v", err)
+	}
+	if getResult.IsError {
+		t.Fatalf("expected get_agent_profile success, got %#v", getResult.StructuredContent)
+	}
+	profile := mustStructuredMapValue(t, getResult.StructuredContent)
+	if profile["name"] != "Alpha" {
+		t.Fatalf("expected Alpha profile, got %#v", profile)
 	}
 }
 
@@ -7061,6 +7147,99 @@ func TestAppIDEMCPToolCallRouteSupportsReportCompletionStatus(t *testing.T) {
 	}
 }
 
+func TestAppIDEMCPToolCallRouteSupportsAgentProfileReadTools(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	saveAppAgentProfiles(t, cfg, []agentprofiles.Profile{
+		{
+			ID:                          "profile-alpha",
+			Name:                        "Alpha",
+			Description:                 "Primary profile",
+			SystemPrompt:                "You are alpha.",
+			EnableBackgroundSummaryFill: true,
+			EnableLlmChatTitles:         true,
+			ToolAllowlist:               []string{"tool.a"},
+		},
+		{
+			ID:           "profile-beta",
+			Name:         "Beta",
+			SystemPrompt: "You are beta.",
+		},
+	})
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+
+	listResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"list_agent_profiles",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post list_agent_profiles tool call route: %v", err)
+	}
+	defer listResponse.Body.Close()
+
+	if listResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(listResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", listResponse.StatusCode, string(body))
+	}
+
+	listPayload := decodeAppToolCallRoutePayload(t, listResponse.Body)
+	if listPayload.IsError {
+		t.Fatalf("expected list_agent_profiles success, got %#v", listPayload.StructuredContent)
+	}
+	listResult := mustStructuredMapValue(t, listPayload.StructuredContent)
+	profiles := mustStructuredListValue(t, listResult["profiles"])
+	if len(profiles) != 2 {
+		t.Fatalf("expected two agent profiles, got %#v", profiles)
+	}
+
+	getResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"get_agent_profile",
+			"arguments":{"profileId":"profile-alpha"}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post get_agent_profile tool call route: %v", err)
+	}
+	defer getResponse.Body.Close()
+
+	if getResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(getResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", getResponse.StatusCode, string(body))
+	}
+
+	getPayload := decodeAppToolCallRoutePayload(t, getResponse.Body)
+	if getPayload.IsError {
+		t.Fatalf("expected get_agent_profile success, got %#v", getPayload.StructuredContent)
+	}
+	profile := mustStructuredMapValue(t, getPayload.StructuredContent)
+	if profile["name"] != "Alpha" {
+		t.Fatalf("expected Alpha profile, got %#v", profile)
+	}
+}
+
 func TestAppIDEMCPToolCallRouteSupportsGetMCPServerRuntimeStatus(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -10682,6 +10861,18 @@ func mustAddAppScopedMCPMetaControlSections(t *testing.T, cfg config.Config) {
 	document.Projects[project.ID] = project
 	if err := store.Save(context.Background(), document); err != nil {
 		t.Fatalf("save scoped MCP meta control project: %v", err)
+	}
+}
+
+func saveAppAgentProfiles(t *testing.T, cfg config.Config, profiles []agentprofiles.Profile) {
+	t.Helper()
+
+	store, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	if err := store.Write(profiles); err != nil {
+		t.Fatalf("write agent profiles: %v", err)
 	}
 }
 

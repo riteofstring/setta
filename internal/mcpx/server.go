@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"setta/internal/agentprofiles"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
@@ -41,6 +42,7 @@ type Server struct {
 	docs                 *settadocs.Loader
 	toolSearch           *tools.SearchIndex
 	temporaryIDs         *TemporaryIDStore
+	agentProfiles        agentProfileProvider
 	server               *sdkmcp.Server
 	handler              http.Handler
 	agenticContextMu     sync.RWMutex
@@ -63,6 +65,7 @@ type ServerOptions struct {
 	Terminals                      terminalHistoryProvider
 	DocsRoot                       string
 	TemporaryIDMapPath             string
+	AgentProfiles                  agentProfileProvider
 }
 
 type toolDefinition struct {
@@ -149,6 +152,11 @@ type terminalHistoryProvider interface {
 	History(sessionID string) (string, error)
 }
 
+type agentProfileProvider interface {
+	List() ([]agentprofiles.Profile, error)
+	Get(profileID string) (agentprofiles.Profile, error)
+}
+
 type listMCPToolsResult struct {
 	Tools []string `json:"tools"`
 }
@@ -183,7 +191,9 @@ var unscopedToolNames = map[string]struct{}{
 	"get_app_catalog":               {},
 	"get_mcp_server_runtime_status": {},
 	"get_setta_docs":                {},
+	"get_agent_profile":             {},
 	"list_app_components":           {},
+	"list_agent_profiles":           {},
 	"list_mcp_tools":                {},
 	"report_completion_status":      {},
 	"search_mcp_tools":              {},
@@ -218,6 +228,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		lspDiagnostics:       opts.LSPDiagnostics,
 		mcpStatuses:          opts.MCPStatuses,
 		terminals:            opts.Terminals,
+		agentProfiles:        opts.AgentProfiles,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
@@ -3044,6 +3055,57 @@ func defaultToolDefinitions(
 				},
 				"required": []string{"completionIntent", "requiresVerification", "checkResults", "verificationStatus"},
 			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "list_agent_profiles",
+				Description: "List the stored agent profiles available in the workspace.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeRead,
+					SearchCategory: "agentic",
+					SearchTags:     []string{"agent", "profile", "profiles", "workspace"},
+				},
+				Handler: newListAgentProfilesHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"profiles": map[string]any{
+						"type":  "array",
+						"items": agentProfileSchema(),
+					},
+				},
+				"required": []string{"profiles"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "get_agent_profile",
+				Description: "Return a stored agent profile by id.",
+				Metadata: tools.Metadata{
+					Kind:           tools.KindDiscoverable,
+					AccessType:     tools.AccessTypeRead,
+					SearchCategory: "agentic",
+					SearchTags:     []string{"agent", "profile", "lookup", "workspace"},
+				},
+				Handler: newGetAgentProfileHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"profileId": map[string]any{
+						"type":        "string",
+						"description": "Stored agent profile id to fetch.",
+					},
+				},
+				"required": []string{"profileId"},
+			},
+			OutputSchema: agentProfileSchema(),
 		},
 	}
 

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agentprofiles"
 	"setta/internal/appspec"
 	"setta/internal/config"
 	"setta/internal/mcpx"
@@ -5461,6 +5462,97 @@ func TestMCPToolCallRouteSupportsReportCompletionStatus(t *testing.T) {
 	}
 	if firstCheck["source"] != "go test" {
 		t.Fatalf("expected trimmed source, got %#v", firstCheck["source"])
+	}
+}
+
+func TestMCPToolCallRouteSupportsAgentProfileReadTools(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	store, err := agentprofiles.NewStore(settaFilesRoot)
+	if err != nil {
+		t.Fatalf("new agent profile store: %v", err)
+	}
+	if err := store.Write([]agentprofiles.Profile{
+		{
+			ID:                          "profile-alpha",
+			Name:                        "Alpha",
+			Description:                 "Primary profile",
+			SystemPrompt:                "You are alpha.",
+			EnableBackgroundSummaryFill: true,
+			EnableLlmChatTitles:         true,
+			ToolAllowlist:               []string{"tool.a"},
+		},
+		{
+			ID:           "profile-beta",
+			Name:         "Beta",
+			SystemPrompt: "You are beta.",
+		},
+	}); err != nil {
+		t.Fatalf("seed agent profiles: %v", err)
+	}
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+		AgentProfiles:  store,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	listResponse := postMCPToolRoute(t, handler, `{
+		"tool":"list_agent_profiles",
+		"arguments":{}
+	}`)
+	if listResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", listResponse.Code, listResponse.Body.String())
+	}
+	listPayload := decodeCallToolRouteResult(t, listResponse.Body.Bytes())
+	if listPayload.IsError {
+		t.Fatalf("expected list_agent_profiles success, got %#v", listPayload.StructuredContent)
+	}
+	listResult := mustStructuredMapForRoute(t, listPayload.StructuredContent)
+	profiles := mustStructuredListForRoute(t, listResult["profiles"])
+	if len(profiles) != 2 {
+		t.Fatalf("expected two agent profiles, got %#v", profiles)
+	}
+
+	getResponse := postMCPToolRoute(t, handler, `{
+		"tool":"get_agent_profile",
+		"arguments":{"profileId":"profile-alpha"}
+	}`)
+	if getResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", getResponse.Code, getResponse.Body.String())
+	}
+	getPayload := decodeCallToolRouteResult(t, getResponse.Body.Bytes())
+	if getPayload.IsError {
+		t.Fatalf("expected get_agent_profile success, got %#v", getPayload.StructuredContent)
+	}
+	profile := mustStructuredMapForRoute(t, getPayload.StructuredContent)
+	if profile["name"] != "Alpha" {
+		t.Fatalf("expected Alpha profile, got %#v", profile)
 	}
 }
 

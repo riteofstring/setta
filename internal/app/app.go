@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"setta/internal/agentprofiles"
 	"setta/internal/auth"
 	"setta/internal/backendlogs"
 	binarypayload "setta/internal/binary"
@@ -364,6 +365,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
 	}
+	agentProfileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
 		ProjectState:   projectRuntime,
 		SettaFilesRoot: plannerFilesRoot,
@@ -420,6 +426,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Terminals:                      terminalService,
 			DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
 			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
+			AgentProfiles:                  agentProfileStore,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
