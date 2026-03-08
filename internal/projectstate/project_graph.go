@@ -46,6 +46,9 @@ var (
 	ErrDrawSectionRequired             = errors.New("section must resolve to a draw section")
 	ErrCallableSectionRequired         = errors.New("section must resolve to a callable section")
 	ErrGroupSectionRequired            = errors.New("section must resolve to a group section")
+	ErrChatSectionRequired             = errors.New("section must resolve to a chat section")
+	ErrChatPermissionModeInvalid       = errors.New("chat permission mode is invalid")
+	ErrChatDictationModeInvalid        = errors.New("chat dictation mode is invalid")
 )
 
 type SectionKind string

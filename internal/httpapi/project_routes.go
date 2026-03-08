@@ -45,6 +45,9 @@ const (
 	RouteSetCallableHideParams          = "/setCallableHideParams"
 	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
 	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
+	RouteSetChatSectionSettings         = "/setChatSectionSettings"
+	RouteSetChatSectionState            = "/setChatSectionState"
+	RouteSetChatSectionChatID           = "/setChatSectionChatId"
 	RouteSetCallable                    = "/setCallable"
 	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
 	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
@@ -273,6 +276,34 @@ type SetSectionPinnedParamsRequest struct {
 	PinnedParams []string `json:"pinnedParams"`
 }
 
+type SetChatSectionSettingsRequest struct {
+	FrontendOpID           *string                         `json:"frontendOpId"`
+	ProjectID              string                          `json:"projectConfigId"`
+	SectionID              string                          `json:"sectionId"`
+	Managed                bool                            `json:"managed"`
+	EngineConfigID         *string                         `json:"engineConfigId"`
+	TranscriptionProfileID *string                         `json:"transcriptionProfileId"`
+	AgentProfileID         *string                         `json:"agentProfileId"`
+	Thinking               bool                            `json:"thinking"`
+	PermissionMode         projectstate.ChatPermissionMode `json:"permissionMode"`
+	SearchEnabled          bool                            `json:"searchEnabled"`
+	DictationMode          projectstate.ChatDictationMode  `json:"dictationMode"`
+}
+
+type SetChatSectionStateRequest struct {
+	FrontendOpID *string                       `json:"frontendOpId"`
+	ProjectID    string                        `json:"projectConfigId"`
+	SectionID    string                        `json:"sectionId"`
+	State        projectstate.ChatSectionState `json:"state"`
+}
+
+type SetChatSectionChatIDRequest struct {
+	FrontendOpID *string `json:"frontendOpId"`
+	ProjectID    string  `json:"projectConfigId"`
+	SectionID    string  `json:"sectionId"`
+	ChatID       *string `json:"chatId"`
+}
+
 type SetWatchCodeEnabledRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -358,6 +389,9 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionPinnedParams, setSectionPinnedParamsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionSettings, setChatSectionSettingsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionState, setChatSectionStateHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetChatSectionChatID, setChatSectionChatIDHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallable, setCallableHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigCodegenTargets, setProjectConfigCodegenTargetsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetWatchCodeEnabled, setWatchCodeEnabledHandler(deps))
@@ -1233,6 +1267,109 @@ func setSectionPinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFu
 	}
 }
 
+func setChatSectionSettingsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetChatSectionSettingsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings := projectstate.ChatSectionSettings{
+			Managed:                payload.Managed,
+			EngineConfigID:         payload.EngineConfigID,
+			TranscriptionProfileID: payload.TranscriptionProfileID,
+			AgentProfileID:         payload.AgentProfileID,
+			Thinking:               payload.Thinking,
+			PermissionMode:         payload.PermissionMode,
+			SearchEnabled:          payload.SearchEnabled,
+			DictationMode:          payload.DictationMode,
+		}
+		if _, err := deps.ProjectState.SetChatSectionSettings(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, settings); err != nil {
+			writeChatSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setChatSectionStateHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetChatSectionStateRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetChatSectionState(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.State); err != nil {
+			writeChatSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setChatSectionChatIDHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetChatSectionChatIDRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetChatSectionChatID(projectMutationContext(r.Context(), payload.FrontendOpID), projectID, sectionID, payload.ChatID); err != nil {
+			writeChatSectionMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setProjectConfigCodegenTargetsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetProjectConfigCodegenTargetsRequest](r)
@@ -1412,6 +1549,19 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeChatSectionMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrChatSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "chat_section_required", "Section must resolve to a chat section.")
+	case errors.Is(err, projectstate.ErrChatPermissionModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "chat_permission_mode_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrChatDictationModeInvalid):
+		writeError(w, r, http.StatusBadRequest, "chat_dictation_mode_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
 	}
 }
 
