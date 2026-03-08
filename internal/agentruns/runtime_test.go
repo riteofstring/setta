@@ -56,7 +56,7 @@ func (e *blockingExecutor) Execute(ctx context.Context, _ ExecutionRequest) (Exe
 	case <-e.release:
 		return e.result, nil
 	case <-ctx.Done():
-		return ExecutionResult{}, ctx.Err()
+		return e.result, ctx.Err()
 	}
 }
 
@@ -225,6 +225,79 @@ func TestRuntimeStopRunCancelsActiveExecution(t *testing.T) {
 		if eventTypes[index] != eventType {
 			t.Fatalf("unexpected event types %#v", eventTypes)
 		}
+	}
+}
+
+func TestRuntimeStopRunPersistsPartialExecutionResultOnCancellation(t *testing.T) {
+	t.Parallel()
+
+	executor := &blockingExecutor{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+		result: ExecutionResult{
+			Outputs: map[string]any{
+				"messages": []any{
+					map[string]any{
+						"id":   "assistant-partial",
+						"role": "assistant",
+						"content": []any{
+							map[string]any{"type": "text", "text": "Partial reply"},
+						},
+						"attachments": []any{},
+					},
+				},
+				"usage": map[string]any{
+					"prompt_tokens":     12,
+					"completion_tokens": 1,
+					"total_tokens":      13,
+				},
+			},
+		},
+	}
+	service, _ := buildRuntimeServiceFixture(t, executor)
+	runtime, err := NewRuntime(RuntimeOptions{Service: service})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	run, err := runtime.StartRun(profile, map[string]any{
+		"allowUnscoped": true,
+		"prompt":        "hello",
+	})
+	if err != nil {
+		t.Fatalf("start run: %v", err)
+	}
+	select {
+	case <-executor.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for executor start")
+	}
+
+	if _, err := runtime.StopRun(run.ID); err != nil {
+		t.Fatalf("stop run: %v", err)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	waited, err := runtime.WaitForRun(waitCtx, run.ID)
+	if err != nil {
+		t.Fatalf("wait for cancelled run: %v", err)
+	}
+	if waited.Status != RunStatusCancelled {
+		t.Fatalf("expected cancelled run, got %#v", waited)
+	}
+	messages, ok := waited.Outputs["messages"].([]any)
+	if !ok || len(messages) != 1 {
+		t.Fatalf("expected partial output messages, got %#v", waited.Outputs["messages"])
+	}
+	usage, ok := waited.Outputs["usage"].(map[string]any)
+	if !ok || usage["total_tokens"] != float64(13) {
+		t.Fatalf("expected persisted usage, got %#v", waited.Outputs["usage"])
 	}
 }
 

@@ -39,6 +39,7 @@ type ExecutionRequest struct {
 	Run             Run
 	EngineConfig    EngineConfig
 	LLMConfig       llmconfig.Config
+	MCPServerIDs    []string
 	RequestParams   map[string]any
 	APIKeys         map[string]string
 	SystemPrompt    string
@@ -178,34 +179,28 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		return Run{}, ErrManagedExecutorUnavailable
 	}
 
-	requestParams, apiKeyEnv := s.llm.Configs().BuildRequestParams(runContext.engine.LLMConfig)
-	apiKeys := s.llm.APIKeys()
-	if apiKeyEnv != "" {
-		apiKeys = llmconfig.FilterEnvVarsForConfig(apiKeys, llmconfig.AllConfigs{
-			Configs: map[string]llmconfig.Config{
-				runContext.engine.LLMConfig.ID: runContext.engine.LLMConfig,
-			},
-			MCPServers: map[string]llmconfig.ServerConfig{},
-		})
+	request, err := s.buildExecutionRequest(runContext)
+	if err != nil {
+		runContext.run.Outputs = buildOutputs(nil, s.buildRunMetadata(runContext), nil)
+		runContext.run.Status = RunStatusFailed
+		finishedAt := s.timeNow().UTC()
+		runContext.run.FinishedAt = &finishedAt
+		if saveErr := s.runs.Save(runContext.run); saveErr != nil {
+			return Run{}, saveErr
+		}
+		if recordErr := s.recordEvent(&runContext.run, "run_failed", map[string]any{"error": err.Error()}); recordErr != nil {
+			return Run{}, recordErr
+		}
+		return s.runs.Load(runContext.run.ID)
 	}
-	result, execErr := s.executor.Execute(ctx, ExecutionRequest{
-		Profile:         runContext.profile,
-		Run:             runContext.run.Clone(),
-		EngineConfig:    runContext.engine.EngineConfig,
-		LLMConfig:       runContext.engine.LLMConfig,
-		RequestParams:   requestParams,
-		APIKeys:         apiKeys,
-		SystemPrompt:    runContext.systemPrompt,
-		ProjectConfigID: runContext.projectConfigID,
-		ChatID:          runContext.chatID,
-		SectionID:       cloneStringPtr(runContext.sectionID),
-		Thinking:        runContext.thinking,
-		Inputs:          cloneAnyMap(runContext.inputs),
-	})
+	result, execErr := s.executor.Execute(ctx, request)
 	if persistedRun, err := s.runs.Load(runContext.run.ID); err == nil {
 		runContext.run = persistedRun
 	}
 	if ctx.Err() != nil || errors.Is(execErr, context.Canceled) || runContext.run.Status == RunStatusCancelled {
+		if err := s.persistExecutionResult(&runContext.run, runContext, result); err != nil {
+			return Run{}, err
+		}
 		return s.cancelRun(runContext.run.ID)
 	}
 	if execErr != nil {
@@ -235,6 +230,62 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		return Run{}, err
 	}
 	return s.runs.Load(runContext.run.ID)
+}
+
+func (s *Service) buildExecutionRequest(runContext runContext) (ExecutionRequest, error) {
+	requestParams, apiKeyEnv := s.llm.Configs().BuildRequestParams(runContext.engine.LLMConfig)
+	apiKeys := s.llm.APIKeys()
+	if apiKeyEnv != "" {
+		apiKeys = llmconfig.FilterEnvVarsForConfig(apiKeys, llmconfig.AllConfigs{
+			Configs: map[string]llmconfig.Config{
+				runContext.engine.LLMConfig.ID: runContext.engine.LLMConfig,
+			},
+			MCPServers: map[string]llmconfig.ServerConfig{},
+		})
+	}
+	mcpServerIDs, err := s.llm.Configs().ResolveMCPServerIDs(runContext.engine.LLMConfig)
+	if err != nil {
+		return ExecutionRequest{}, err
+	}
+	return ExecutionRequest{
+		Profile:         runContext.profile,
+		Run:             runContext.run.Clone(),
+		EngineConfig:    runContext.engine.EngineConfig,
+		LLMConfig:       runContext.engine.LLMConfig,
+		MCPServerIDs:    cloneStringSlice(mcpServerIDs),
+		RequestParams:   requestParams,
+		APIKeys:         apiKeys,
+		SystemPrompt:    runContext.systemPrompt,
+		ProjectConfigID: runContext.projectConfigID,
+		ChatID:          runContext.chatID,
+		SectionID:       cloneStringPtr(runContext.sectionID),
+		Thinking:        runContext.thinking,
+		Inputs:          cloneAnyMap(runContext.inputs),
+	}, nil
+}
+
+func (s *Service) persistExecutionResult(run *Run, context runContext, result ExecutionResult) error {
+	if run == nil {
+		return nil
+	}
+	if result.Outputs == nil && len(result.ToolCalls) == 0 && result.Cost == nil {
+		return nil
+	}
+	run.ToolCalls = cloneToolCalls(result.ToolCalls)
+	run.Cost = cloneFloat64Ptr(result.Cost)
+	run.Outputs = buildOutputs(result.Outputs, s.buildRunMetadata(context), result.Cost)
+	return s.runs.Save(*run)
+}
+
+func cloneStringSlice(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	cloned := make([]string, 0, len(values))
+	for _, value := range values {
+		cloned = append(cloned, value)
+	}
+	return cloned
 }
 
 func (s *Service) cancelRun(runID string) (Run, error) {
