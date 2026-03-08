@@ -39,10 +39,12 @@ Completed in this slice:
 
 - `frontend/backendStart.sh` no longer defaults to the stale venv `setta` shim
 - non-reload startup now uses `python -m setta`
-- reload startup now uses `python -m setta.legacy_start_entrypoint`
+- reload startup now uses `python -m setta.dev_start`
+- the explicit reload owner no longer delegates through `setta.start.cli`
 - `SETTA_BIN` remains as an explicit override for tests and power users
 - focused source/dev tests now fail fast if `backendStart.sh` falls back to the
   venv `setta` shim again
+- direct tests now cover the reload owner itself
 
 ## Inputs
 
@@ -77,17 +79,24 @@ The current source/dev contract is muddled in one specific place:
 
 ### Step 1: Make the command split explicit in `backendStart.sh`
 
+Status: completed
+
 - when `--reload` is not requested, invoke `python -m setta`
-- when `--reload` is requested, invoke an explicit dev-only legacy entrypoint
-  instead of relying on the installed `setta` shim
+- when `--reload` is requested, invoke `python -m setta.dev_start`
+- keep reload parsing/startup in an explicit dev-only module instead of the
+  Click command tree
 - keep current env/path flag shaping and log behavior unchanged
 - preserve `SETTA_BIN` as an override for tests and power users
 
 ### Step 2: Cover the explicit boundary in tests
 
+Status: completed
+
 - add focused tests proving non-reload startup no longer depends on bare
   `setta` from `PATH`
-- add focused tests proving reload now uses an explicit legacy dev entrypoint
+- add focused tests proving reload now uses the explicit `setta.dev_start`
+  owner
+- add direct tests for the `setta.dev_start` module itself
 - keep the current path/env shaping assertions intact
 
 ## Decisions
@@ -97,6 +106,8 @@ The current source/dev contract is muddled in one specific place:
   stale generated script
 - keep reload as an explicit dev-only Python path for now because the current
   Go CLI does not implement reload
+- make that reload path an explicit module instead of a thin alias to
+  `setta.start.cli`
 - do not expand this slice into launcher/install/distribution cleanup
 
 ## Verification
@@ -108,13 +119,16 @@ The current source/dev contract is muddled in one specific place:
 Verification run completed:
 
 - `./scripts/run_backend_tests.sh tests/start/test_dev_script_wiring_backend_start.py tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_dev_script_wiring_structure.py`
+- `./scripts/run_backend_tests.sh tests/start/test_dev_start.py tests/start/test_dev_script_wiring_backend_start.py tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_dev_script_wiring_structure.py tests/start/test_start_interrupt_handling.py tests/start/test_start_workspace_validation.py tests/start/test_startup_message.py`
 
 ## Next Recommended Step
 
-Rerank within Phase 25 Slice 2:
+Slice 2 no longer has a direct implementation gap for the active source/dev
+startup surface.
 
-- if the inherited `backendStart.sh` behavior is sufficient for
-  `run-dev-instance.sh` and `scripts/ai.sh`, keep those wrappers unchanged
-- if a further source/dev cleanup slice is still warranted, make the next
-  bounded step the reload owner itself rather than reopening the normal
-  non-reload command boundary
+If rewrite work continues, move to Phase 25 Slice 3:
+
+- inventory which remaining `backend/setta/start.py` branches are still
+  reachable through active workflows after the dev startup boundary change
+- treat direct `setta.start` test coverage as legacy by default unless that
+  inventory proves a current consumer still needs it

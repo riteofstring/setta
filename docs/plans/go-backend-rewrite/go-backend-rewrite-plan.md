@@ -384,11 +384,13 @@ The first bounded Slice 2 step is now also landed:
 
 - `frontend/backendStart.sh` no longer defaults to the stale venv `setta` shim
 - normal dev startup now routes through `python -m setta`
-- reload remains an explicit temporary legacy path through
-  `python -m setta.legacy_start_entrypoint`
-- the focused next question inside Phase 25 is no longer the normal startup
-  boundary; it is whether the remaining reload exception needs its own follow-on
-  slice at all
+- reload now routes through the explicit dev-only `python -m setta.dev_start`
+  owner instead of `setta.start.cli`
+- the active Phase 25 source/dev startup gap is therefore closed for the
+  current workflow surface
+- the next Phase 25 question, if rewrite work continues, is Slice 3 inventory
+  of which remaining `backend/setta/start.py` branches are still reachable at
+  all
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller

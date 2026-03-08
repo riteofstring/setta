@@ -51,8 +51,10 @@ Completed during Slice 2 sub-slice:
 - `frontend/backendStart.sh` no longer relies on bare `setta` for normal dev
   startup
 - non-reload startup now uses `python -m setta`
-- reload startup now uses `python -m setta.legacy_start_entrypoint`
-- focused source/dev tests now guard that boundary explicitly
+- reload startup now uses the explicit `python -m setta.dev_start` owner
+- the dev reload path no longer delegates through `setta.start.cli`
+- focused source/dev tests now guard that boundary explicitly, including direct
+  tests for the reload owner
 
 Still owned outside Go:
 
@@ -240,14 +242,15 @@ For later slices:
 
 ## Next Recommended Step
 
-Execute Slice 2 next:
+Execute Slice 3 next if rewrite work continues:
 
 - use
   `phase-25-startup-test-surface-classification-and-source-of-truth.md` as the
   contract boundary
-- use `phase-25-dev-startup-command-boundary-plan.md` as the bounded first
-  implementation doc for this slice
-- rerank whether any further source/dev hardening is still needed beyond the
-  landed `backendStart.sh` command split
-- if more work is needed, prefer reducing the explicit reload exception rather
-  than reopening the now-explicit normal startup boundary
+- use `phase-25-dev-startup-command-boundary-plan.md` as the record of the now
+  landed source/dev startup hardening slice
+- inventory which remaining `backend/setta/start.py` branches are still
+  reachable through active workflows now that dev startup no longer depends on
+  the Click root path
+- avoid reopening the now-explicit source/dev startup boundary unless that
+  inventory proves a real remaining dependency
