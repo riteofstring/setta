@@ -30,6 +30,13 @@ Completed before this plan:
 
 Current repo reality:
 
+- the first settings-state foundation slice is now landed:
+  - `internal/settingsstate` owns embedded defaults plus a file-backed
+    store/runtime over `setta-settings.json`
+  - the Go app now opens that settings-state runtime separately from the
+    settings project runtime
+  - app-owned rename-refactor mode and callable-mismatch auto-refetch policy
+    reads now come from the new settings-state owner
 - live frontend callers still hit Python for:
   - `POST /loadSettings`
   - `POST /saveSettings`
@@ -41,6 +48,9 @@ Current repo reality:
 - current Go subsystems still read a few settings-backed values from the
   settings project runtime document, not from a dedicated `SettingsState`
   service
+- the remaining direct settings-policy reads still tied to the settings project
+  document are the auto-layout / section-sizing paths used by project-state and
+  MCP structural mutations
 
 ## Scope
 
@@ -215,6 +225,10 @@ other as authoritative.
 
 ### Slice 1: Settings State Store, Runtime, And Read Helpers
 
+Status:
+
+- in progress
+
 Deliver:
 
 - `internal/settingsstate` store/runtime over `setta-settings.json`
@@ -231,6 +245,27 @@ Acceptance:
 - save/load round-trips preserve the canonical settings object
 - rename-refactor and auto-layout reads no longer depend on the settings
   project runtime document
+
+Completed in the first foundation landing:
+
+- added `internal/settingsstate` with:
+  - embedded checked-in defaults from `internal/settingsstate/defaults.json`
+  - file-backed store load/save behavior over `setta-settings.json`
+  - a bounded in-memory runtime with snapshot and serialized mutation/save APIs
+  - explicit read helpers for:
+    - `backend.renameRefactorMode`
+    - `backend.autoRefetchCallableParamsOnLSPMismatch`
+- added `scripts/generate_settingsstate_defaults.py` so the embedded defaults
+  can be regenerated from the current Python `SettingsState` model without
+  making Python a runtime dependency of the Go server
+- wired the new runtime into `internal/app`
+- moved app-owned rename-refactor and callable-mismatch policy reads off the
+  settings project runtime document and onto the new settings-state owner
+
+Remaining for Slice 1:
+
+- migrate the remaining auto-layout / section-sizing policy reads used by
+  project-state and MCP structural mutations
 
 ### Slice 2: Thin Settings Transport And Realtime Update
 
@@ -286,6 +321,9 @@ Acceptance:
   `SettingsState`
 - prefer a dedicated Go settings-state owner over copying Python's settings
   slice-to-file indirection
+- use an embedded checked-in `defaults.json` generated from the current
+  `SettingsState` model as the runtime seed for now, instead of making Go
+  depend on Python at runtime or hand-porting the full nested schema up front
 
 ## Progress Notes
 
@@ -298,12 +336,12 @@ Acceptance:
 - 2026-03-09: confirmed from Go that current settings-backed reads still parse
   values from the settings project runtime document, so a direct route port
   would leave dual truth.
+- 2026-03-09: landed the first settings-state foundation slice with a dedicated
+  `internal/settingsstate` owner plus app-owned rename-refactor and
+  callable-mismatch policy reads moved onto it.
 
 ## Next Recommended Step
 
-- implement Slice 1 first:
-  - add `internal/settingsstate`
-  - wire it into app startup
-  - migrate current Go settings-backed reads to explicit helpers on that owner
-- only after that lands, move `POST /loadSettings` and `POST /saveSettings`
-  into Go
+- finish Slice 1 by migrating the remaining auto-layout / section-sizing policy
+  reads away from the settings project runtime document
+- after that lands, move `POST /loadSettings` and `POST /saveSettings` into Go

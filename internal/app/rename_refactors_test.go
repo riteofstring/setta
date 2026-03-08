@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"setta/internal/projectstate"
+	"setta/internal/settingsstate"
 )
 
 // ALWAYS_ASK should rename the section immediately but hold dependent value
@@ -117,7 +118,7 @@ func TestRenameRefactorServiceSetSectionNameAlwaysRenameAppliesChangesImmediatel
 func openRenameRefactorTestService(
 	t *testing.T,
 	projectRuntime *projectstate.Runtime,
-	settingsRuntime *projectstate.Runtime,
+	settingsRuntime *settingsstate.Runtime,
 ) *renameRefactorService {
 	t.Helper()
 
@@ -134,7 +135,7 @@ func openRenameRefactorTestService(
 func openRenameRefactorTestRuntimes(
 	t *testing.T,
 	mode projectstate.RenameRefactorMode,
-) (*projectstate.Runtime, *projectstate.Runtime) {
+) (*projectstate.Runtime, *settingsstate.Runtime) {
 	t.Helper()
 
 	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
@@ -153,7 +154,7 @@ func openRenameRefactorTestRuntimes(
 		}
 	})
 
-	settingsRuntime, err := projectstate.OpenOverlayRuntime(renameRefactorSettingsDocument(t, mode))
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(renameRefactorSettingsDocument(t, mode))
 	if err != nil {
 		t.Fatalf("open settings runtime: %v", err)
 	}
@@ -281,82 +282,18 @@ func renameRefactorServiceTestProject(t *testing.T) projectstate.Project {
 	return project
 }
 
-func renameRefactorSettingsDocument(t *testing.T, mode projectstate.RenameRefactorMode) projectstate.Document {
+func renameRefactorSettingsDocument(t *testing.T, mode projectstate.RenameRefactorMode) settingsstate.Document {
 	t.Helper()
 
-	document, err := projectstate.Document{
-		SchemaVersion:    projectstate.CurrentSchemaVersion,
-		DefaultProjectID: "settings-home",
-		Projects: map[string]projectstate.Project{
-			"settings-home": {
-				ID:                 "settings-home",
-				Name:               "settings",
-				TopLevelSectionIDs: []string{"backend-section"},
-				SectionVariantMap: map[string]string{
-					"backend-section": "backend-variant",
-				},
-				Sections: map[string]projectstate.Section{
-					"backend-section": {
-						ID:               "backend-section",
-						Name:             "backend",
-						VariantIDs:       []string{"backend-variant"},
-						DefaultVariantID: "backend-variant",
-					},
-				},
-				SectionVariants: map[string]projectstate.SectionVariant{
-					"backend-variant": {ID: "backend-variant", ImplID: "backend-impl"},
-				},
-				SectionImpls: map[string]projectstate.SectionImpl{
-					"backend-impl": {
-						ID:   "backend-impl",
-						Kind: projectstate.SectionKind("frontend"),
-						Payload: mustRenameRefactorRawJSON(t, map[string]any{
-							"id":              "backend-impl",
-							"type":            "Dict",
-							"topLevelParamId": "backend-root",
-							"codeObjVariantMap": map[string]any{
-								"backend-root":   "backend-root-variant",
-								"rename-setting": "rename-setting-variant",
-							},
-						}),
-					},
-				},
-				CodeObjs: map[string]projectstate.CodeObject{
-					"backend-root": {
-						ID:               "backend-root",
-						Name:             "backend",
-						VariantIDs:       []string{"backend-root-variant"},
-						DefaultVariantID: "backend-root-variant",
-					},
-					"rename-setting": {
-						ID:               "rename-setting",
-						Name:             "renameRefactorMode",
-						VariantIDs:       []string{"rename-setting-variant"},
-						DefaultVariantID: "rename-setting-variant",
-					},
-				},
-				CodeObjVariants: map[string]projectstate.CodeObjectVariant{
-					"backend-root-variant":   {ID: "backend-root-variant", ImplID: "backend-root-impl"},
-					"rename-setting-variant": {ID: "rename-setting-variant", ImplID: "rename-setting-impl"},
-				},
-				CodeObjImpls: map[string]projectstate.CodeObjectImpl{
-					"backend-root-impl": {
-						ID:      "backend-root-impl",
-						Type:    "NestedParam",
-						Payload: mustRenameRefactorRawJSON(t, map[string]any{"id": "backend-root-impl", "type": "NestedParam", "children": []string{"rename-setting"}}),
-					},
-					"rename-setting-impl": {
-						ID:      "rename-setting-impl",
-						Type:    "TextParam",
-						Payload: mustRenameRefactorRawJSON(t, map[string]any{"id": "rename-setting-impl", "type": "TextParam", "value": string(mode)}),
-					},
-				},
-			},
-		},
-	}.Normalized()
+	document, err := settingsstate.NewDocument()
 	if err != nil {
-		t.Fatalf("normalize rename refactor settings document: %v", err)
+		t.Fatalf("default settings document: %v", err)
 	}
+	backend, ok := document["backend"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected backend settings object, got %#v", document["backend"])
+	}
+	backend["renameRefactorMode"] = string(mode)
 	return document
 }
 

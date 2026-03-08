@@ -23,6 +23,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 	"setta/internal/terminals"
 	"setta/internal/wsapi"
 )
@@ -323,8 +324,9 @@ func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *te
 	}); err != nil {
 		t.Fatalf("seed rename refactor project: %v", err)
 	}
-	if _, err := app.ProjectStates().Settings().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-		return renameRefactorSettingsDocument(t, projectstate.RenameRefactorModeAlwaysAsk), nil
+	if _, err := app.SettingsState().Mutate(func(document settingsstate.Document) (settingsstate.Document, error) {
+		next := renameRefactorSettingsDocument(t, projectstate.RenameRefactorModeAlwaysAsk)
+		return next, nil
 	}); err != nil {
 		t.Fatalf("seed rename refactor settings: %v", err)
 	}

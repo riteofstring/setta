@@ -10,6 +10,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 )
 
 type pendingRenameRefactor struct {
@@ -19,7 +20,7 @@ type pendingRenameRefactor struct {
 
 type renameRefactorService struct {
 	projectState *projectstate.Runtime
-	settings     *projectstate.Runtime
+	settings     *settingsstate.Runtime
 	websocketHub *realtime.WebsocketHub
 
 	mu            sync.Mutex
@@ -28,7 +29,7 @@ type renameRefactorService struct {
 
 type renameRefactorServiceOptions struct {
 	ProjectState *projectstate.Runtime
-	Settings     *projectstate.Runtime
+	Settings     *settingsstate.Runtime
 	WebsocketHub *realtime.WebsocketHub
 }
 
@@ -52,7 +53,7 @@ func (s *renameRefactorService) SetSectionName(ctx context.Context, projectID st
 		return projectstate.ErrRuntimeClosed
 	}
 
-	renameMode, err := projectstate.RenameRefactorModeForDocument(s.settings.Snapshot().Document)
+	renameMode, err := settingsstate.RenameRefactorModeForDocument(s.settings.Snapshot().Document)
 	if err != nil {
 		return err
 	}

@@ -42,6 +42,7 @@ import (
 	"setta/internal/runchains"
 	"setta/internal/runs"
 	"setta/internal/runtime"
+	"setta/internal/settingsstate"
 	"setta/internal/sshx"
 	"setta/internal/terminals"
 	"setta/internal/transcriptionprofiles"
@@ -65,6 +66,7 @@ type App struct {
 	agentRuns     *agentruns.Service
 	agentRuntime  *agentruns.Runtime
 	runChains     *runchains.Runtime
+	settingsState *settingsstate.Runtime
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	lspSync       *lsp.ProjectSynchronizer
@@ -106,6 +108,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		deploymentRuntime     *deployments.Runtime
 		projectRuntime        *projectstate.Runtime
 		settingsRuntime       *projectstate.Runtime
+		settingsStateRuntime  *settingsstate.Runtime
 		codegenValidator      projectstate.CodegenTargetValidator
 		lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
 		projectLSPSyncer      *lsp.ProjectSynchronizer
@@ -357,6 +360,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		}
 		projectRuntime = projectStates.Main()
 		settingsRuntime = projectStates.Settings()
+		settingsStateStore, err := settingsstate.NewStore(
+			filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
+			settingsstate.StoreOptions{},
+		)
+		if err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
+		settingsStateRuntime, err = settingsstate.OpenRuntime(context.Background(), settingsStateStore)
+		if err != nil {
+			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
+			return nil, err
+		}
 		plannerFilesRoot = cfg.Paths.SettaFilesRoot
 		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
 		projectLSPSyncer.SetCallableAutoRefetchHandlers(
@@ -366,7 +382,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				}
 			},
 			func(ctx context.Context, projectID string, sectionIDs []string) {
-				enabled, err := projectstate.AutoRefetchCallableParamsOnLSPMismatchEnabled(projectStates.Settings().Snapshot().Document)
+				enabled, err := settingsstate.AutoRefetchCallableParamsOnLSPMismatchEnabled(settingsStateRuntime.Snapshot().Document)
 				if err != nil {
 					logger.Error("lsp callable mismatch refetch policy lookup failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
 					return
@@ -444,7 +460,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			}
 			renameRefactors, err = newRenameRefactorService(renameRefactorServiceOptions{
 				ProjectState: projectRuntime,
-				Settings:     settingsRuntime,
+				Settings:     settingsStateRuntime,
 				WebsocketHub: websocketHub,
 			})
 			if err != nil {
@@ -1075,6 +1091,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		agentRuns:     agentRunService,
 		agentRuntime:  agentRunRuntime,
 		runChains:     runChainRuntime,
+		settingsState: settingsStateRuntime,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		lspSync:       projectLSPSyncer,
@@ -1104,6 +1121,10 @@ func (a *App) Auth() *auth.Service {
 
 func (a *App) ProjectStates() *projectstate.Registry {
 	return a.projectStates
+}
+
+func (a *App) SettingsState() *settingsstate.Runtime {
+	return a.settingsState
 }
 
 func (a *App) DeploymentRuntime() *deployments.Runtime {
@@ -1158,6 +1179,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 	return errors.Join(
 		closeProjectStateServices(a.projectStates, a.deployment, a.lspSync, a.watchCode, a.boundCode, ctx),
 		closeMCPClient(a.mcpClient, ctx),
+		closeSettingsState(a.settingsState),
 		a.terminals.Close(ctx),
 		a.runtime.Shutdown(ctx),
 	)
@@ -1317,4 +1339,11 @@ func closeMCPClient(client *mcpx.Client, ctx context.Context) error {
 		return nil
 	}
 	return client.Close(ctx)
+}
+
+func closeSettingsState(runtime *settingsstate.Runtime) error {
+	if runtime == nil {
+		return nil
+	}
+	return runtime.Close()
 }
