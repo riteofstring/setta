@@ -104,8 +104,7 @@ async function waitForOverviewCount(
 ): Promise<void> {
   await setOverviewTab(page, "Overview");
   await page.waitForFunction(
-    (count) =>
-      document.querySelectorAll("#OverviewPane li").length === count,
+    (count) => document.querySelectorAll("#OverviewPane li").length === count,
     expected,
   );
 }
@@ -163,7 +162,9 @@ function findViewModeId(
   payload: ProjectStateSingleConfigWithCompletedOpIds,
   name: string,
 ): string {
-  for (const viewMode of Object.values(payload.projectState.projectConfig.viewModes)) {
+  for (const viewMode of Object.values(
+    payload.projectState.projectConfig.viewModes,
+  )) {
     if (viewMode.name === name) {
       return viewMode.id;
     }
