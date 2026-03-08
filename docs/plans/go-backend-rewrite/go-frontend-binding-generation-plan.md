@@ -185,6 +185,7 @@ Current landed wedge:
   - current file-browser create/read/write/download/transfer route constants
   - current binary payload and bounded artifact route constants
   - current git read route constants
+  - current LSP completion and diagnostics-mute route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
@@ -723,11 +724,29 @@ Current landed wedge:
     - `route_set_app_definition`
     - `route_validate_app_definition`
   - LSP diagnostics/admin endpoint wrappers
+    - `route_clear_text_field_completion`
+    - `route_text_field_completion`
+    - `route_output_accessor_completion`
+    - `route_code_area_completion`
+    - `route_gen_code_prefix_completion`
+    - `route_gen_code_suffix_completion`
     - `route_get_latest_lsp_diagnostics`
     - `route_restart_language_server`
+    - `route_set_code_section_diagnostics_mute`
+    - `route_set_code_section_diagnostic_code_suppression`
     - `route_set_type_error_ignore`
     - `route_type_check`
   - LSP diagnostics/admin contract types
+    - `ClearTextFieldCompletionRequest`
+    - `TextFieldCompletionRequest`
+    - `OutputAccessorCompletionRequest`
+    - `CodeAreaCompletionRequest`
+    - `GenCodePrefixCompletionRequest`
+    - `GenCodeSuffixCompletionRequest`
+    - `CodeMirrorCompletion`
+    - `CodeMirrorCompletionResponse`
+    - `SetCodeSectionDiagnosticsMuteRequest`
+    - `SetCodeSectionDiagnosticCodeSuppressionRequest`
     - `SettaLspDiagnostic`
     - `SettaLspDiagnosticRange`
     - `SettaLspDiagnosticPosition`

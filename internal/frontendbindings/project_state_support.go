@@ -76,6 +76,13 @@ type DeleteNotificationRequestInput struct {
 
 type NotificationsResponse []SettaNotification
 
+type CodeMirrorCompletion struct {
+	Label string `json:"label"`
+	Type  string `json:"type"`
+}
+
+type CodeMirrorCompletionResponse []CodeMirrorCompletion
+
 type CreateNewSectionVariantRequestInput struct {
 	FrontendOpID    *string `json:"frontendOpId,omitempty"`
 	ProjectConfigID string  `json:"projectConfigId"`

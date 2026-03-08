@@ -8281,6 +8281,82 @@ export function createTypeCheckRequestInput(options: Partial<TypeCheckRequestInp
 }
 
 
+export type ClearTextFieldCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+};
+export function createClearTextFieldCompletionRequest(options: Partial<ClearTextFieldCompletionRequest> = {}): ClearTextFieldCompletionRequest {
+  return options as ClearTextFieldCompletionRequest;
+}
+
+
+export type TextFieldCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  fullText: string;
+  position: number;
+};
+export function createTextFieldCompletionRequest(options: Partial<TextFieldCompletionRequest> = {}): TextFieldCompletionRequest {
+  return options as TextFieldCompletionRequest;
+}
+
+
+export type CodeMirrorCompletion = {
+  label: string;
+  type: string;
+};
+export function createCodeMirrorCompletion(options: Partial<CodeMirrorCompletion> = {}): CodeMirrorCompletion {
+  return options as CodeMirrorCompletion;
+}
+
+
+export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
+
+
+export type OutputAccessorCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  fullText: string;
+  position: number;
+};
+export function createOutputAccessorCompletionRequest(options: Partial<OutputAccessorCompletionRequest> = {}): OutputAccessorCompletionRequest {
+  return options as OutputAccessorCompletionRequest;
+}
+
+
+export type CodeAreaCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  fullText: string;
+  position: number;
+};
+export function createCodeAreaCompletionRequest(options: Partial<CodeAreaCompletionRequest> = {}): CodeAreaCompletionRequest {
+  return options as CodeAreaCompletionRequest;
+}
+
+
+export type GenCodePrefixCompletionRequest = {
+  projectConfigId: string;
+  fullText: string;
+  position: number;
+};
+export function createGenCodePrefixCompletionRequest(options: Partial<GenCodePrefixCompletionRequest> = {}): GenCodePrefixCompletionRequest {
+  return options as GenCodePrefixCompletionRequest;
+}
+
+
+export type GenCodeSuffixCompletionRequest = {
+  projectConfigId: string;
+  fullText: string;
+  position: number;
+};
+export function createGenCodeSuffixCompletionRequest(options: Partial<GenCodeSuffixCompletionRequest> = {}): GenCodeSuffixCompletionRequest {
+  return options as GenCodeSuffixCompletionRequest;
+}
+
+
 export type GetLatestLspDiagnosticsRequestInput = {
   projectConfigId: string;
 };
@@ -8358,6 +8434,27 @@ export type SetTypeErrorIgnoreRequestInput = {
 };
 export function createSetTypeErrorIgnoreRequestInput(options: Partial<SetTypeErrorIgnoreRequestInput> = {}): SetTypeErrorIgnoreRequestInput {
   return options as SetTypeErrorIgnoreRequestInput;
+}
+
+
+export type SetCodeSectionDiagnosticsMuteRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  mute: boolean;
+};
+export function createSetCodeSectionDiagnosticsMuteRequest(options: Partial<SetCodeSectionDiagnosticsMuteRequest> = {}): SetCodeSectionDiagnosticsMuteRequest {
+  return options as SetCodeSectionDiagnosticsMuteRequest;
+}
+
+
+export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  code: unknown;
+  suppress: boolean;
+};
+export function createSetCodeSectionDiagnosticCodeSuppressionRequest(options: Partial<SetCodeSectionDiagnosticCodeSuppressionRequest> = {}): SetCodeSectionDiagnosticCodeSuppressionRequest {
+  return options as SetCodeSectionDiagnosticCodeSuppressionRequest;
 }
 
 

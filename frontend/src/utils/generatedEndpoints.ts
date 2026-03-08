@@ -1062,6 +1062,36 @@ export async function route_type_check(x: gt.TypeCheckRequestInput): Promise<Res
   return await post(GoHTTPRoutes.typeCheck, x);
 
 }
+export async function route_clear_text_field_completion(x: gt.ClearTextFieldCompletionRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.clearTextFieldCompletion, x);
+
+}
+export async function route_text_field_completion(x: gt.TextFieldCompletionRequest): Promise<ResponseDataAndStatus<gt.CodeMirrorCompletionResponse>> {
+
+  return await post(GoHTTPRoutes.textFieldCompletion, x);
+
+}
+export async function route_output_accessor_completion(x: gt.OutputAccessorCompletionRequest): Promise<ResponseDataAndStatus<gt.CodeMirrorCompletionResponse>> {
+
+  return await post(GoHTTPRoutes.outputAccessorCompletion, x);
+
+}
+export async function route_code_area_completion(x: gt.CodeAreaCompletionRequest): Promise<ResponseDataAndStatus<gt.CodeMirrorCompletionResponse>> {
+
+  return await post(GoHTTPRoutes.codeAreaCompletion, x);
+
+}
+export async function route_gen_code_prefix_completion(x: gt.GenCodePrefixCompletionRequest): Promise<ResponseDataAndStatus<gt.CodeMirrorCompletionResponse>> {
+
+  return await post(GoHTTPRoutes.genCodePrefixCompletion, x);
+
+}
+export async function route_gen_code_suffix_completion(x: gt.GenCodeSuffixCompletionRequest): Promise<ResponseDataAndStatus<gt.CodeMirrorCompletionResponse>> {
+
+  return await post(GoHTTPRoutes.genCodeSuffixCompletion, x);
+
+}
 export async function route_get_latest_lsp_diagnostics(x: gt.GetLatestLspDiagnosticsRequestInput): Promise<ResponseDataAndStatus<gt.SettaLspDiagnosticsPayload>> {
 
   return await post(GoHTTPRoutes.getLatestLspDiagnostics, x);
@@ -1070,6 +1100,16 @@ export async function route_get_latest_lsp_diagnostics(x: gt.GetLatestLspDiagnos
 export async function route_set_type_error_ignore(x: gt.SetTypeErrorIgnoreRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setTypeErrorIgnore, x);
+
+}
+export async function route_set_code_section_diagnostics_mute(x: gt.SetCodeSectionDiagnosticsMuteRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCodeSectionDiagnosticsMute, x);
+
+}
+export async function route_set_code_section_diagnostic_code_suppression(x: gt.SetCodeSectionDiagnosticCodeSuppressionRequest): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setCodeSectionDiagnosticCodeSuppression, x);
 
 }
 export async function route_plugins_runtime(): Promise<ResponseDataAndStatus<gt.PluginRuntimeResponse>> {

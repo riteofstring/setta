@@ -11,6 +11,8 @@ import {
   route_binary_upload,
   route_check_if_file_exists,
   route_check_workspace_initialized,
+  route_clear_text_field_completion,
+  route_code_area_completion,
   route_create_agentic_edge,
   route_create_child_sections,
   route_create_child_sections_via_incrementer,
@@ -32,6 +34,8 @@ import {
   route_delete_view_mode,
   route_force_refresh_listener,
   route_format_code,
+  route_gen_code_prefix_completion,
+  route_gen_code_suffix_completion,
   route_get_agent_profiles,
   route_get_agent_runs,
   route_get_app_catalog,
@@ -75,6 +79,7 @@ import {
   route_move_param_groups,
   route_move_params,
   route_move_sections,
+  route_output_accessor_completion,
   route_paste_sections,
   route_plugins_config,
   route_plugins_install,
@@ -108,6 +113,8 @@ import {
   route_set_code_obj_display_name,
   route_set_code_obj_name,
   route_set_code_section_attached_terminal,
+  route_set_code_section_diagnostic_code_suppression,
+  route_set_code_section_diagnostics_mute,
   route_set_default_section_variant,
   route_set_edges,
   route_set_gen_code_prefix,
@@ -154,6 +161,7 @@ import {
   route_set_watch_code_enabled,
   route_set_watch_code_inputs,
   route_start_transcription_session,
+  route_text_field_completion,
   route_toggle_group_orientation,
   route_toggle_is_editing_view_mode,
   route_toggle_minimized,
@@ -3135,6 +3143,120 @@ describe("generatedEndpoints lsp helpers", () => {
     });
   });
 
+  it("posts completion reset and lookup requests with the current LSP payloads", async () => {
+    await route_clear_text_field_completion({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      paramInfoId: null,
+    });
+
+    await route_text_field_completion({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      paramInfoId: "param-1",
+      fullText: "pri",
+      position: 3,
+    });
+
+    await route_output_accessor_completion({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      fullText: "output.",
+      position: 7,
+    });
+
+    await route_code_area_completion({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      fullText: "pri",
+      position: 3,
+    });
+
+    await route_gen_code_prefix_completion({
+      projectConfigId: "project-1",
+      fullText: "import os\\n",
+      position: 10,
+    });
+
+    await route_gen_code_suffix_completion({
+      projectConfigId: "project-1",
+      fullText: "print(state)\\n",
+      position: 13,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/clearTextFieldCompletion`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        paramInfoId: null,
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/textFieldCompletion`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        paramInfoId: "param-1",
+        fullText: "pri",
+        position: 3,
+      }),
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/outputAccessorCompletion`,
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        fullText: "output.",
+        position: 7,
+      }),
+    });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/codeAreaCompletion`,
+    );
+    expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        fullText: "pri",
+        position: 3,
+      }),
+    });
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/genCodePrefixCompletion`,
+    );
+    expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        fullText: "import os\\n",
+        position: 10,
+      }),
+    });
+    expect(fetchMock.mock.calls[5]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/genCodeSuffixCompletion`,
+    );
+    expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        fullText: "print(state)\\n",
+        position: 13,
+      }),
+    });
+  });
+
   it("posts latest-diagnostics reads with the project id", async () => {
     await route_get_latest_lsp_diagnostics({ projectConfigId: "project-1" });
 
@@ -3158,6 +3280,46 @@ describe("generatedEndpoints lsp helpers", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: null,
+    });
+  });
+
+  it("posts diagnostics mute and suppression writes with the current request shapes", async () => {
+    await route_set_code_section_diagnostics_mute({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      mute: true,
+    });
+
+    await route_set_code_section_diagnostic_code_suppression({
+      projectConfigId: "project-1",
+      sectionId: "section-1",
+      code: "reportFoo",
+      suppress: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCodeSectionDiagnosticsMute`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        mute: true,
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setCodeSectionDiagnosticCodeSuppression`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-1",
+        sectionId: "section-1",
+        code: "reportFoo",
+        suppress: true,
+      }),
     });
   });
 
