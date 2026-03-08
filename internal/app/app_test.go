@@ -325,6 +325,139 @@ func TestAppWritesPluginConfigAndUpdatesRuntime(t *testing.T) {
 	}
 }
 
+func TestAppHandlesPluginRescanEnableAndDisableRoutes(t *testing.T) {
+	// The real app should wire rescan plus enable/disable plugin lifecycle routes through the shared Go service.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	seedAppPluginFixture(t, cfg.Paths.WorkspaceRoot, "frontend")
+	manifestPath := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", "setta-fixture-frontend", "setta.plugin.json")
+	manifestPayload, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read plugin manifest: %v", err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestPayload, &manifest); err != nil {
+		t.Fatalf("decode plugin manifest: %v", err)
+	}
+	frontend := manifest["frontend"].(map[string]any)
+	frontend["entrypoint"] = "frontend/src/index.js"
+	frontend["style"] = "frontend/src/index.css"
+	encodedManifest, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		t.Fatalf("encode plugin manifest: %v", err)
+	}
+	encodedManifest = append(encodedManifest, '\n')
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		t.Fatalf("write plugin manifest: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	requestPluginLifecycle := func(path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s request: %v", path, err)
+		}
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		return response
+	}
+
+	rescanResponse := requestPluginLifecycle(httpapi.RoutePluginsRescan, "")
+	defer rescanResponse.Body.Close()
+	if rescanResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanResponse.Body)
+		t.Fatalf("expected plugin rescan 200, got %d with body %q", rescanResponse.StatusCode, string(body))
+	}
+
+	var initialRescan struct {
+		InstalledPlugins int `json:"installedPlugins"`
+		ActivePlugins    int `json:"activePlugins"`
+	}
+	if err := json.NewDecoder(rescanResponse.Body).Decode(&initialRescan); err != nil {
+		t.Fatalf("decode initial rescan payload: %v", err)
+	}
+	if initialRescan.InstalledPlugins != 1 || initialRescan.ActivePlugins != 1 {
+		t.Fatalf("unexpected initial rescan payload %#v", initialRescan)
+	}
+
+	disableResponse := requestPluginLifecycle(httpapi.RoutePluginsDisable, `{"pluginId":"setta-fixture-frontend"}`)
+	defer disableResponse.Body.Close()
+	if disableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(disableResponse.Body)
+		t.Fatalf("expected plugin disable 200, got %d with body %q", disableResponse.StatusCode, string(body))
+	}
+
+	var disabledPayload struct {
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(disableResponse.Body).Decode(&disabledPayload); err != nil {
+		t.Fatalf("decode disable payload: %v", err)
+	}
+	if disabledPayload.State != "disabled" || disabledPayload.RestartRequired {
+		t.Fatalf("unexpected disable payload %#v", disabledPayload)
+	}
+
+	rescanAfterDisableResponse := requestPluginLifecycle(httpapi.RoutePluginsRescan, "")
+	defer rescanAfterDisableResponse.Body.Close()
+	if rescanAfterDisableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(rescanAfterDisableResponse.Body)
+		t.Fatalf("expected plugin rescan after disable 200, got %d with body %q", rescanAfterDisableResponse.StatusCode, string(body))
+	}
+
+	var rescanAfterDisable struct {
+		InstalledPlugins int `json:"installedPlugins"`
+		ActivePlugins    int `json:"activePlugins"`
+	}
+	if err := json.NewDecoder(rescanAfterDisableResponse.Body).Decode(&rescanAfterDisable); err != nil {
+		t.Fatalf("decode post-disable rescan payload: %v", err)
+	}
+	if rescanAfterDisable.InstalledPlugins != 1 || rescanAfterDisable.ActivePlugins != 0 {
+		t.Fatalf("unexpected post-disable rescan payload %#v", rescanAfterDisable)
+	}
+
+	enableResponse := requestPluginLifecycle(httpapi.RoutePluginsEnable, `{"pluginId":"setta-fixture-frontend"}`)
+	defer enableResponse.Body.Close()
+	if enableResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(enableResponse.Body)
+		t.Fatalf("expected plugin enable 200, got %d with body %q", enableResponse.StatusCode, string(body))
+	}
+
+	var enabledPayload struct {
+		State           string `json:"state"`
+		RestartRequired bool   `json:"restartRequired"`
+	}
+	if err := json.NewDecoder(enableResponse.Body).Decode(&enabledPayload); err != nil {
+		t.Fatalf("decode enable payload: %v", err)
+	}
+	if enabledPayload.State != "active" || enabledPayload.RestartRequired {
+		t.Fatalf("unexpected enable payload %#v", enabledPayload)
+	}
+}
+
 func TestAppServesManualPluginRestartRoute(t *testing.T) {
 	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
 	cfg := testConfig(t)

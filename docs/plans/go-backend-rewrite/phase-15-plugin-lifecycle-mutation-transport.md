@@ -29,6 +29,10 @@ Current repo status as of 2026-03-09:
   - `/plugins/{pluginId}/{assetPath:path}`
   - `POST /plugins/config`
   - `POST /plugins/restart`
+- Slice A in this doc is now landed:
+  - `POST /plugins/rescan`
+  - `POST /plugins/enable`
+  - `POST /plugins/disable`
 - `internal/plugins/service.go` already owns the source-of-truth mutation
   semantics for:
   - `Rescan()`
@@ -57,8 +61,6 @@ Inventory notes that matter for sequencing:
   caller in `frontend/src`
 - `route_plugins_lock_write(...)` and `route_plugins_lock_apply(...)` likewise
   have no current direct frontend caller
-- `Rescan()` is the smallest remaining transport gap, but its Python response
-  contract is narrower than the current Go `DiscoverySnapshot`
 - `Update(...)` and `Rollback(...)` depend on the same install-metadata and
   source-spec pathways already exercised by `Install(...)` and `Uninstall(...)`
 
@@ -144,6 +146,20 @@ Rationale:
 - this slice proves the thin-route pattern for the remaining lifecycle writes
   without introducing candidate-provider or install-metadata complexity
 
+Status:
+
+- landed
+- Go now owns thin IDE-only transport for:
+  - `POST /plugins/rescan`
+  - `POST /plugins/enable`
+  - `POST /plugins/disable`
+- `Rescan()` is now narrowed at the route layer to the existing direct
+  frontend response contract:
+  - `schemaVersion`
+  - `serverMode`
+  - `installedPlugins`
+  - `activePlugins`
+
 ### Slice B
 
 Move the direct install/remove flows:
@@ -182,15 +198,49 @@ Recommendation:
 - leave them Python-owned until they become caller-backed or needed by a
   concrete follow-on boundary
 
+## Decisions Made
+
+- keep `rescan` response shaping in the route layer
+  - the shared service still returns the broader `DiscoverySnapshot` used by
+    other Go-owned callers
+  - the HTTP transport now narrows that snapshot to the existing frontend
+    contract instead of broadening the wire payload
+- reuse one enable/disable request decoder
+  - the transport stays thin and route-local while both endpoints continue to
+    call the existing shared service methods directly
+- keep share/app blocking at the route layer only
+  - no mode-policy branching was added to the shared lifecycle semantics
+
+## Landed in Slice A
+
+- `internal/httpapi/plugin_routes.go`
+  - thin IDE-only transport for:
+    - `POST /plugins/rescan`
+    - `POST /plugins/enable`
+    - `POST /plugins/disable`
+- `internal/httpapi/route_names.go`
+  - bare-route registration for the new plugin lifecycle route names
+- focused coverage in:
+  - `internal/httpapi/plugin_routes_test.go`
+  - `internal/app/app_test.go`
+
+## Verification
+
+- `./scripts/go.sh test ./internal/httpapi -run 'Plugin' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Plugin.*(RuntimeAndFrontendAssets|WritesPluginConfig|HandlesPluginRescanEnableAndDisable|ServesManualPluginRestartRoute)' -count=1`
+- `git diff --check`
+
 ## Immediate Next Step
 
-Implement Slice A end-to-end:
+Implement Slice B end-to-end:
 
-1. add thin IDE-only Go transport for `rescan`, `enable`, and `disable`
-2. keep `rescan` response narrowed to the current direct frontend contract
-3. add focused route tests for success, invalid JSON, missing-plugin, and
-   share-mode blocking
-4. add one real-app test proving the routes are wired and affect runtime state
+1. add thin IDE-only Go transport for `install` and `uninstall`
+2. keep install payload shaping aligned with the existing direct frontend
+   contract, including scope/source metadata and restart-required status
+3. add focused route tests for invalid JSON, installer/scope errors,
+   not-found/uninstall ambiguity cases, and share-mode blocking
+4. add one real-app test proving install or uninstall roundtrip over the real
+   app wiring without introducing heuristic source acquisition shortcuts
 
 ## Open Questions
 

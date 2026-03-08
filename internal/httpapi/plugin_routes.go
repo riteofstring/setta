@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,9 @@ import (
 )
 
 const RoutePluginsRuntime = "/plugins/runtime"
+const RoutePluginsRescan = "/plugins/rescan"
+const RoutePluginsEnable = "/plugins/enable"
+const RoutePluginsDisable = "/plugins/disable"
 const RoutePluginsConfig = "/plugins/config"
 const RoutePluginsRestart = "/plugins/restart"
 
@@ -34,6 +38,9 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 	}
 
 	router.Get(RoutePluginsRuntime, pluginRuntimeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRescan, pluginRescanHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsEnable, pluginEnableDisableHandler(deps.Service.Enable))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsDisable, pluginEnableDisableHandler(deps.Service.Disable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRestart, pluginRestartHandler(deps))
 	return nil
@@ -55,6 +62,52 @@ func pluginRuntimeHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		response, err := deps.Service.Runtime(plugins.RuntimeOptions{
 			AssetURLBuilder: buildPluginAssetURL,
+		})
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginRescanHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type pluginRescanResponse struct {
+		SchemaVersion    int    `json:"schemaVersion"`
+		ServerMode       string `json:"serverMode"`
+		InstalledPlugins int    `json:"installedPlugins"`
+		ActivePlugins    int    `json:"activePlugins"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		snapshot, err := deps.Service.Rescan()
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, pluginRescanResponse{
+			SchemaVersion:    1,
+			ServerMode:       string(snapshot.ServerMode),
+			InstalledPlugins: snapshot.InstalledPlugins,
+			ActivePlugins:    snapshot.ActivePlugins,
+		})
+	}
+}
+
+func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)) http.HandlerFunc {
+	type enableDisablePluginRequest struct {
+		PluginID string `json:"pluginId"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[enableDisablePluginRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		response, err := operation(r.Context(), plugins.EnableDisableOptions{
+			PluginID: payload.PluginID,
 		})
 		if err != nil {
 			writePluginRouteError(w, r, err)

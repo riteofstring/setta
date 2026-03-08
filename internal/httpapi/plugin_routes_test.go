@@ -61,6 +61,78 @@ func TestRegisterPluginRoutesReturnsRuntimePayload(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesReturnsRescanSummary(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "frontend")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsRescan, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected plugin rescan 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload struct {
+		SchemaVersion    int    `json:"schemaVersion"`
+		ServerMode       string `json:"serverMode"`
+		InstalledPlugins int    `json:"installedPlugins"`
+		ActivePlugins    int    `json:"activePlugins"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode plugin rescan response: %v", err)
+	}
+	if payload.SchemaVersion != 1 {
+		t.Fatalf("expected rescan schema version 1, got %d", payload.SchemaVersion)
+	}
+	if payload.ServerMode != "ide" {
+		t.Fatalf("expected rescan server mode ide, got %q", payload.ServerMode)
+	}
+	if payload.InstalledPlugins != 1 || payload.ActivePlugins != 1 {
+		t.Fatalf("unexpected rescan summary %#v", payload)
+	}
+}
+
+func TestRegisterPluginRoutesEnableAndDisablePlugin(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeIDE)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "frontend")
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	disableResponse := httptest.NewRecorder()
+	disableRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsDisable, strings.NewReader(`{"pluginId":"setta-fixture-frontend"}`))
+	handler.ServeHTTP(disableResponse, disableRequest)
+	if disableResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin disable 200, got %d with body %q", disableResponse.Code, disableResponse.Body.String())
+	}
+
+	var disabledPayload plugins.PluginEnableDisableResult
+	if err := json.Unmarshal(disableResponse.Body.Bytes(), &disabledPayload); err != nil {
+		t.Fatalf("decode plugin disable response: %v", err)
+	}
+	if disabledPayload.State != plugins.PluginRuntimeStateDisabled || disabledPayload.RestartRequired {
+		t.Fatalf("unexpected disable payload %#v", disabledPayload)
+	}
+
+	enableResponse := httptest.NewRecorder()
+	enableRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsEnable, strings.NewReader(`{"pluginId":"setta-fixture-frontend"}`))
+	handler.ServeHTTP(enableResponse, enableRequest)
+	if enableResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin enable 200, got %d with body %q", enableResponse.Code, enableResponse.Body.String())
+	}
+
+	var enabledPayload plugins.PluginEnableDisableResult
+	if err := json.Unmarshal(enableResponse.Body.Bytes(), &enabledPayload); err != nil {
+		t.Fatalf("decode plugin enable response: %v", err)
+	}
+	if enabledPayload.State != plugins.PluginRuntimeStateActive || enabledPayload.RestartRequired {
+		t.Fatalf("unexpected enable payload %#v", enabledPayload)
+	}
+}
+
 func TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback(t *testing.T) {
 	t.Parallel()
 
@@ -144,6 +216,50 @@ func TestRegisterPluginRoutesRejectsInvalidJSONForConfigWrite(t *testing.T) {
 	}
 	if payload.Error.Code != "invalid_json" {
 		t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesRejectsInvalidJSONForEnable(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsEnable, strings.NewReader("{"))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid json 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid json response: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesMapsMissingEnableTo404(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsEnable, strings.NewReader(`{"pluginId":"missing-plugin"}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected missing plugin enable 404, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing plugin response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeNotFound) {
+		t.Fatalf("expected plugin not found code, got %q", payload.Error.Code)
 	}
 }
 
@@ -282,6 +398,38 @@ func TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE(t *testing.T) {
 	}
 	if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
 		t.Fatalf("expected mode_forbidden envelope, got %q", response.Body.String())
+	}
+}
+
+func TestRegisterPluginRoutesBlocksLifecycleSliceOutsideIDE(t *testing.T) {
+	t.Parallel()
+
+	service, roots := newPluginRouteTestService(t, config.ModeShare)
+	copyPluginRouteFixtureToWorkspace(t, roots.workspaceRoot, "frontend")
+	handler := newPluginRouteTestHandler(t, config.ModeShare, service)
+
+	testCases := []struct {
+		name string
+		path string
+		body string
+	}{
+		{name: "rescan", path: RoutePluginsRescan},
+		{name: "enable", path: RoutePluginsEnable, body: `{"pluginId":"setta-fixture-frontend"}`},
+		{name: "disable", path: RoutePluginsDisable, body: `{"pluginId":"setta-fixture-frontend"}`},
+	}
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/api"+testCase.path, strings.NewReader(testCase.body))
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusForbidden {
+				t.Fatalf("expected share-mode %s 403, got %d with body %q", testCase.name, response.Code, response.Body.String())
+			}
+			if !strings.Contains(response.Body.String(), `"code":"mode_forbidden"`) {
+				t.Fatalf("expected mode_forbidden envelope, got %q", response.Body.String())
+			}
+		})
 	}
 }
 
