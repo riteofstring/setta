@@ -47,6 +47,56 @@ export async function route_delete_selected_params(
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRoutes.deleteSelectedParams, x);
 }
+export async function route_create_top_level_section(
+  x: gt.CreateTopLevelSectionRequestInput,
+): Promise<ResponseDataAndStatus<gt.CreateTopLevelSectionResponse>> {
+  return await post(GoHTTPRoutes.createTopLevelSection, x);
+}
+export async function route_create_view_mode(
+  x: gt.CreateViewModeRequestInput,
+): Promise<ResponseDataAndStatus<gt.CreateViewModeResponse>> {
+  return await post(GoHTTPRoutes.createViewMode, x);
+}
+export async function route_set_active_view_mode(
+  x: gt.SetActiveViewModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setActiveViewMode, x);
+}
+export async function route_toggle_is_editing_view_mode(
+  x: gt.ToggleIsEditingViewModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.toggleIsEditingViewMode, x);
+}
+export async function route_toggle_view_mode_user_facing(
+  x: gt.ToggleViewModeUserFacingRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.toggleViewModeUserFacing, x);
+}
+export async function route_toggle_view_mode_tab(
+  x: gt.ToggleViewModeTabRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.toggleViewModeTab, x);
+}
+export async function route_set_view_mode_name(
+  x: gt.SetViewModeNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setViewModeName, x);
+}
+export async function route_set_view_mode_sort_order(
+  x: gt.SetViewModeSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setViewModeSortOrder, x);
+}
+export async function route_delete_view_mode(
+  x: gt.DeleteViewModeRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.deleteViewMode, x);
+}
+export async function route_set_section_name(
+  x: gt.SetSectionNameRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.setSectionName, x);
+}
 export async function route_create_workspace_launch_intent(
   x: gt.CreateWorkspaceLaunchIntentRequestInput,
 ): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {

@@ -81,6 +81,8 @@ Current landed wedge:
   - current status/meta route constants
   - current project-shell route constants
   - current project-state layout/presence/structure-selection route constants
+  - current top-level section creation, view-mode lifecycle, and section-rename
+    route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
@@ -128,6 +130,21 @@ Current landed wedge:
       - `UngroupGroupsRequestInput`
       - `ToggleParamSelectedRequestInput`
       - `UnselectAllParamsRequestInput`
+    - current top-level section creation, view-mode lifecycle, and
+      section-rename payloads
+      - `Position`
+      - `CreateTopLevelSectionRequestInput`
+      - `CreateTopLevelSectionResponse`
+      - `CreateViewModeRequestInput`
+      - `CreateViewModeResponse`
+      - `SetActiveViewModeRequestInput`
+      - `ToggleIsEditingViewModeRequestInput`
+      - `ToggleViewModeUserFacingRequestInput`
+      - `ToggleViewModeTabRequestInput`
+      - `SetViewModeNameRequestInput`
+      - `SetViewModeSortOrderRequestInput`
+      - `DeleteViewModeRequestInput`
+      - `SetSectionNameRequestInput`
     - shared project-state/core types used by current callers
       - `SectionType`
       - `CodeObjType`
@@ -139,6 +156,7 @@ Current landed wedge:
       - `ProjectStateSingleConfigWithCompletedOpIds`
       - `SettingsState`
     - current canonical project-state helper support used by current callers
+      - `ViewModeConfig` plus `createViewMode` and `createViewModeConfig`
       - section/default factories for `Callable`, `Dict`, `ListRoot`,
         `TextBlock`, `Code`, `Terminal`, `Chat`, `TaskBoard`, and
         `Spreadsheet`
@@ -280,6 +298,16 @@ Current landed wedge:
     - `route_create_project_config`
     - `route_delete_sections`
     - `route_delete_selected_params`
+    - `route_create_top_level_section`
+    - `route_create_view_mode`
+    - `route_set_active_view_mode`
+    - `route_toggle_is_editing_view_mode`
+    - `route_toggle_view_mode_user_facing`
+    - `route_toggle_view_mode_tab`
+    - `route_set_view_mode_name`
+    - `route_set_view_mode_sort_order`
+    - `route_delete_view_mode`
+    - `route_set_section_name`
     - `route_set_top_level_section_layout`
     - `route_group_sections`
     - `route_ungroup_groups`
@@ -461,6 +489,10 @@ Current landed wedge:
     `sectionInfos`, `SelectionContextMenu`, `DeleteOrHideButton`,
     `UngroupButton`, `KwargsControls`, and `PluginArea` now consume canonical
     Go-generated project-state mutation bindings
+  - `createSections`, `ViewingEditingMode`, `ViewModeTabs`, `SectionTitle`,
+    and the Setta API preset helper now consume canonical Go-generated
+    top-level section creation, view-mode lifecycle, and section-rename
+    bindings
   - `plugins/runtime`, `plugins/restart`, and the current `PluginsPane`
     plugin runtime/mutation callers now consume canonical Go-generated plugin
     bindings for plugin runtime/status/config/restart/install/update/rollback

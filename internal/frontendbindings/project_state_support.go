@@ -35,6 +35,82 @@ type DeleteSelectedParamsRequestInput struct {
 	ParamInfoIDs    []string `json:"paramInfoIds"`
 }
 
+type Position struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type CreateTopLevelSectionRequestInput struct {
+	FrontendOpID       *string         `json:"frontendOpId,omitempty"`
+	ProjectConfigID    string          `json:"projectConfigId"`
+	ImplType           string          `json:"implType"`
+	ControlCodeObjType *string         `json:"controlCodeObjType,omitempty"`
+	ImplOverrides      *map[string]any `json:"implOverrides,omitempty"`
+	Position           *Position       `json:"position,omitempty"`
+}
+
+type CreateTopLevelSectionResponse struct {
+	SectionID          string    `json:"sectionId"`
+	MetaControlParamID *string   `json:"metaControlParamId,omitempty"`
+	PanTo              *Position `json:"panTo,omitempty"`
+}
+
+type CreateViewModeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+}
+
+type CreateViewModeResponse string
+
+type SetActiveViewModeRequestInput struct {
+	FrontendOpID     *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID  string  `json:"projectConfigId"`
+	ActiveViewModeID string  `json:"activeViewModeId"`
+}
+
+type ToggleIsEditingViewModeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+}
+
+type ToggleViewModeUserFacingRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	ViewModeID      string  `json:"viewModeId"`
+}
+
+type ToggleViewModeTabRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	ViewModeID      string  `json:"viewModeId"`
+}
+
+type SetViewModeNameRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	ViewModeID      string  `json:"viewModeId"`
+	Name            string  `json:"name"`
+}
+
+type SetViewModeSortOrderRequestInput struct {
+	FrontendOpID       *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID    string   `json:"projectConfigId"`
+	OrderedViewModeIDs []string `json:"orderedViewModeIds"`
+}
+
+type DeleteViewModeRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	ViewModeID      string  `json:"viewModeId"`
+}
+
+type SetSectionNameRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	Name            string  `json:"name"`
+}
+
 type GroupSectionsRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectConfigID string   `json:"projectConfigId"`
@@ -464,6 +540,28 @@ export type ViewMode = {
   viewportInitialized?: boolean;
   topLevelSections?: Record<string, TopLevelSectionLayout>;
 };
+export type ViewModeConfig = ViewMode;
+export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
+export function createViewModeConfig(
+  options: Partial<ViewModeConfig> = {},
+): ViewModeConfig {
+  return createViewMode(options);
+}
 
 export type Edge = {
   id: string;

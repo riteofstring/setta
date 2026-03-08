@@ -4,7 +4,10 @@ import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_append_transcription_audio,
+  route_create_top_level_section,
   route_create_project_config,
+  route_create_view_mode,
+  route_delete_view_mode,
   route_delete_sections,
   route_delete_selected_params,
   route_force_refresh_listener,
@@ -33,15 +36,22 @@ import {
   route_plugins_restart,
   route_plugins_runtime,
   route_restart_language_server,
+  route_set_active_view_mode,
   route_set_active_ids,
   route_set_app_definition,
   route_set_chat_section_state,
   route_set_llm_api_keys,
+  route_set_section_name,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
+  route_set_view_mode_name,
+  route_set_view_mode_sort_order,
   route_set_viewport,
   route_start_transcription_session,
+  route_toggle_is_editing_view_mode,
   route_toggle_param_selected,
+  route_toggle_view_mode_tab,
+  route_toggle_view_mode_user_facing,
   route_type_check,
   route_ungroup_groups,
   route_unselect_all_params,
@@ -312,6 +322,210 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         sectionId: "callable-section",
         paramInfoIds: ["param-a", "param-b"],
+      }),
+    });
+  });
+
+  it("posts top-level section creation with the Go request shape", async () => {
+    await route_create_top_level_section({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-create",
+      implType: "TextBlock",
+      controlCodeObjType: null,
+      implOverrides: null,
+      position: { x: 140, y: 260 },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createTopLevelSection`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-create",
+        implType: "TextBlock",
+        controlCodeObjType: null,
+        implOverrides: null,
+        position: { x: 140, y: 260 },
+      }),
+    });
+  });
+
+  it("posts view-mode creation with the current project id payload", async () => {
+    await route_create_view_mode({
+      projectConfigId: "project-alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createViewMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+      }),
+    });
+  });
+
+  it("posts active view-mode writes", async () => {
+    await route_set_active_view_mode({
+      projectConfigId: "project-alpha",
+      activeViewModeId: "focus-mode",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setActiveViewMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        activeViewModeId: "focus-mode",
+      }),
+    });
+  });
+
+  it("posts view-mode edit toggles", async () => {
+    await route_toggle_is_editing_view_mode({
+      projectConfigId: "project-alpha",
+      frontendOpId: "frontend-op-view-edit",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleIsEditingViewMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        frontendOpId: "frontend-op-view-edit",
+      }),
+    });
+  });
+
+  it("posts view-mode presentation toggles", async () => {
+    await route_toggle_view_mode_user_facing({
+      projectConfigId: "project-alpha",
+      viewModeId: "focus-mode",
+      frontendOpId: "frontend-op-user-facing",
+    });
+
+    await route_toggle_view_mode_tab({
+      projectConfigId: "project-alpha",
+      viewModeId: "focus-mode",
+      frontendOpId: "frontend-op-tab",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleViewModeUserFacing`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        viewModeId: "focus-mode",
+        frontendOpId: "frontend-op-user-facing",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleViewModeTab`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        viewModeId: "focus-mode",
+        frontendOpId: "frontend-op-tab",
+      }),
+    });
+  });
+
+  it("posts view-mode rename and sort-order writes", async () => {
+    await route_set_view_mode_name({
+      projectConfigId: "project-alpha",
+      viewModeId: "focus-mode",
+      name: "Focus",
+      frontendOpId: "frontend-op-rename-mode",
+    });
+
+    await route_set_view_mode_sort_order({
+      projectConfigId: "project-alpha",
+      orderedViewModeIds: ["focus-mode", "secondary-mode"],
+      frontendOpId: "frontend-op-sort",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setViewModeName`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        viewModeId: "focus-mode",
+        name: "Focus",
+        frontendOpId: "frontend-op-rename-mode",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setViewModeSortOrder`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        orderedViewModeIds: ["focus-mode", "secondary-mode"],
+        frontendOpId: "frontend-op-sort",
+      }),
+    });
+  });
+
+  it("posts view-mode deletion writes", async () => {
+    await route_delete_view_mode({
+      projectConfigId: "project-alpha",
+      viewModeId: "focus-mode",
+      frontendOpId: "frontend-op-delete-mode",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/deleteViewMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        viewModeId: "focus-mode",
+        frontendOpId: "frontend-op-delete-mode",
+      }),
+    });
+  });
+
+  it("posts section rename writes", async () => {
+    await route_set_section_name({
+      projectConfigId: "project-alpha",
+      sectionId: "section-a",
+      name: "Renamed Section",
+      frontendOpId: "frontend-op-rename-section",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionName`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-a",
+        name: "Renamed Section",
+        frontendOpId: "frontend-op-rename-section",
       }),
     });
   });

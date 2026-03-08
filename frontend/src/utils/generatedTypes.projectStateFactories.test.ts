@@ -6,10 +6,12 @@ import {
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createTextBlockSectionImpl,
+  createViewModeConfig,
   createUserDefaultCallableSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultCodeSectionImpl,
   ParamNameTypeEnum,
+  RouteEnum,
   SectionTypeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
@@ -80,5 +82,20 @@ describe("generated project state factories", () => {
     expect(codeParamImpl.id).toBe("param-impl");
     expect(codeParamImpl.coreNameType).toBe(ParamNameTypeEnum.TEXT);
     expect(codeParamImpl.value).toBe("5");
+  });
+
+  it("exports the canonical view-mode helper and route enum surface", () => {
+    const viewMode = createViewModeConfig({
+      id: "focus-mode",
+      name: "Focus",
+      isTab: true,
+    });
+
+    expect(viewMode.id).toBe("focus-mode");
+    expect(viewMode.name).toBe("Focus");
+    expect(viewMode.isTab).toBe(true);
+    expect(viewMode.sortIndex).toBe(0);
+    expect(viewMode.topLevelSections).toEqual({});
+    expect(RouteEnum.CREATE_TOP_LEVEL_SECTION).toBe("/createTopLevelSection");
   });
 });
