@@ -326,11 +326,15 @@ Use the docs in this order:
   - focused implementation-plan doc for the first Go `cmd/setta-cli` slice:
     local read-only session discovery plus auth/bootstrap output over the
     completed Go session/auth runtime owners
-110. `spike-mcp.md`
+110. `phase-8-cli-tools-and-api-foundation.md`
+  - focused implementation-plan doc for the next Go `cmd/setta-cli` slice:
+    static tool catalog emission plus authenticated tool-call transport over
+    the completed session/auth foundation and Go-owned MCP route
+111. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-111. `spike-pty.md`
+112. `spike-pty.md`
    - PTY uncertainty-reduction plan
-112. `spike-lsp.md`
+113. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
