@@ -21,5 +21,12 @@ python -m generation.convert_pydantic_to_js && \
 python -m generation.convert_constants_to_js && \
 python -m generation.convert_endpoints && \
 cd .. && \
+./scripts/go.sh run ./cmd/setta-gen-frontend-bindings \
+  -routes-out frontend/src/utils/generatedGoRoutes.ts \
+  -types-out frontend/src/utils/generatedGoTypes.ts \
+  -endpoints-out frontend/src/utils/generatedGoEndpoints.ts && \
+cd frontend && \
+npx prettier src/utils/generatedGoRoutes.ts src/utils/generatedGoTypes.ts src/utils/generatedGoEndpoints.ts --write && \
+cd .. && \
 ./format_code.sh
 echo "Done!"
