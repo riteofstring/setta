@@ -312,7 +312,8 @@ async def _type_check_manager(
             codegenTargets=codegen_targets,
         )
         backend = ProjectStateBackend(
-            projectConfigs={project_config.id: project_config}
+            projectConfigs={project_config.id: project_config},
+            projectChatWindowingByProjectConfigId={project_config.id: {}},
         )
 
         manager = TypeCheckProjectManager(
