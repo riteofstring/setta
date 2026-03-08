@@ -88,8 +88,6 @@ from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER,
-    AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER,
-    AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -112,7 +110,6 @@ def _write_project_state(dbe: DBE) -> ProjectConfig:
     project_config = ProjectConfig()
     project_state = ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
-        projectChatWindowingByProjectConfigId={project_config.id: {}},
         defaultProjectConfigId=project_config.id,
     )
     dbe.write_project(project_state)
@@ -140,9 +137,9 @@ def _write_project_state_with_agentic_context(
         single,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=context_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=context_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.inline_text,
         ),
     )
@@ -154,7 +151,6 @@ def _write_project_state_with_agentic_context(
         codeObjImpls=single.codeObjImpls,
         codeObjVariants=single.codeObjVariants,
         projectConfigs={single.projectConfig.id: single.projectConfig},
-        projectChatWindowingByProjectConfigId={single.projectConfig.id: {}},
         defaultProjectConfigId=single.projectConfig.id,
     )
     dbe.write_project(backend)
@@ -344,65 +340,6 @@ class TestExternalAgentRunnerContext:
             )
             assert headers.get(AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER) == (
                 "frontend-codex"
-            )
-
-    def test_context_injects_linked_chat_recursion_headers_for_opencode(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config, chat_section_id, _ = (
-                _write_project_state_with_agentic_context(dbe)
-            )
-            runner = _build_runner(dbe)
-            engine_config_id = ID("engine-opencode-linked")
-            config = ExternalAgentConfig(
-                id="opencode-config-linked",
-                name="OpenCode SDK",
-                toolType=ExternalAgentToolType.opencode,
-                runMode=ExternalAgentRunMode.sdk,
-            )
-
-            context = _build_context_for_test(
-                runner,
-                config,
-                engine_config_id=engine_config_id,
-                inputs={
-                    "sectionId": str(chat_section_id),
-                    "linkedChatInvocationDepth": 1,
-                    "linkedChatInvocationChainSectionIds": [
-                        "section-root",
-                        "section-mid",
-                    ],
-                },
-            )
-
-            opencode_config_path = Path(str(context.env["OPENCODE_CONFIG"]))
-            payload = json.loads(opencode_config_path.read_text(encoding="utf-8"))
-            mcp = payload.get("mcp")
-            assert isinstance(mcp, dict)
-            setta_entry = mcp.get(SETTA_MCP_SERVER_ID)
-            assert isinstance(setta_entry, dict)
-            headers = setta_entry.get("headers")
-            assert isinstance(headers, dict)
-            assert headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER) == str(
-                project_config.id
-            )
-            assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
-            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
-                chat_section_id
-            )
-            assert headers.get(AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER) == "1"
-            assert headers.get(AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER) == (
-                "section-root,section-mid"
-            )
-            assert "linkedChatInvocationDepth: 1" in context.system_prompt
-            _, canonical_to_temporary = dbe.read_temporary_id_map()
-            tmp_root = canonical_to_temporary.get(ID("section-root"))
-            tmp_mid = canonical_to_temporary.get(ID("section-mid"))
-            assert tmp_root is not None
-            assert tmp_mid is not None
-            assert (
-                f"linkedChatInvocationChainSectionIds: {tmp_root}, {tmp_mid}"
-                in context.system_prompt
             )
 
     def test_context_injects_agentic_headers_for_codex(self) -> None:
@@ -1310,9 +1247,9 @@ class TestExternalAgentRunner:
                 else:
                     os.environ["OPENAI_API_KEY"] = previous_openai_key
 
-    def test_env_whitelist_ignores_dotenv_without_managed_or_process_value(
-        self,
-    ) -> None:
+    def test_env_whitelist_ignores_dotenv_without_managed_or_process_value(self) -> (
+        None
+    ):
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
@@ -1848,9 +1785,9 @@ args = ["mcp"]
 
                 context_2 = _build_context_for_test(runner, config)
                 runtime_payload = tomllib.loads(
-                    (Path(str(context_2.env["CODEX_HOME"])) / "config.toml").read_text(
-                        encoding="utf-8"
-                    )
+                    (
+                        Path(str(context_2.env["CODEX_HOME"])) / "config.toml"
+                    ).read_text(encoding="utf-8")
                 )
                 runtime_servers = runtime_payload.get("mcp_servers")
                 assert isinstance(runtime_servers, dict)
@@ -1987,9 +1924,7 @@ args = ["mcp"]
             runner._cleanup_context(context)
             assert config_path.exists()
 
-    def test_codex_config_omits_completion_report_tool_when_guard_disabled(
-        self,
-    ) -> None:
+    def test_codex_config_omits_completion_report_tool_when_guard_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             _write_project_state(dbe)
@@ -2520,9 +2455,7 @@ class TestExternalAgentRunnerQuestion:
             assert state.section_id == ID("section-1")
             assert state.approval_id is None
 
-    async def test_message_finalized_blocks_user_visible_text_without_report(
-        self,
-    ) -> None:
+    async def test_message_finalized_blocks_user_visible_text_without_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             dbe.write_json(
@@ -3280,9 +3213,7 @@ class TestExternalAgentRunnerClaudeCapture:
 
 
 class TestExternalAgentRunnerUsage:
-    def test_normalize_external_usage_payload_maps_codex_and_context_fields(
-        self,
-    ) -> None:
+    def test_normalize_external_usage_payload_maps_codex_and_context_fields(self) -> None:
         payload = {
             "usedTokens": "17",
             "windowTokens": 272000,
@@ -3333,9 +3264,7 @@ class TestExternalAgentRunnerUsage:
         assert usage_payloads
         assert {"usedTokens": 31, "windowTokens": 272000} in usage_payloads
 
-    def test_extract_usage_payloads_reads_codex_nested_token_usage_payload(
-        self,
-    ) -> None:
+    def test_extract_usage_payloads_reads_codex_nested_token_usage_payload(self) -> None:
         payload = {
             "method": "thread/tokenUsage/updated",
             "params": {
@@ -3362,7 +3291,8 @@ class TestExternalAgentRunnerUsage:
             usage_payloads
         )
         assert any(
-            isinstance(entry, dict) and entry.get("modelContextWindow") == 258400
+            isinstance(entry, dict)
+            and entry.get("modelContextWindow") == 258400
             for entry in usage_payloads
         )
 
@@ -4368,9 +4298,7 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
             assert statuses[0].serverId == "filesystem"
             assert statuses[0].state == MCPServerRuntimeState.error
             assert statuses[0].lastError == "spawn failed"
-            assert (
-                statuses[0].endpoint == "npx @modelcontextprotocol/server-filesystem ."
-            )
+            assert statuses[0].endpoint == "npx @modelcontextprotocol/server-filesystem ."
 
     def test_claude_stream_event_then_system_message_captures_status(self) -> None:
         with TemporaryDirectory() as tmpdir:

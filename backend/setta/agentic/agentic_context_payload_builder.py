@@ -3,10 +3,8 @@ from setta.agentic.agentic_context import (
     build_agentic_context_payload,
 )
 from setta.database.db_objs import DBE
-from setta.llm.config import load_llm_config
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.id import ID
-from setta.types.llm_config import AllLLMConfigs
 from setta.types.project_state import ProjectStateSingleConfig
 
 
@@ -15,7 +13,6 @@ def build_agentic_context_payload_with_temporary_ids(
     project_state: ProjectStateSingleConfig,
     chat_section_id: ID,
     *,
-    llm_configs: AllLLMConfigs | None = None,
     canonical_to_temporary: dict[ID, ID],
     temporary_to_canonical: dict[ID, ID],
     summary_text_by_section_id: dict[ID, str] | None = None,
@@ -35,16 +32,9 @@ def build_agentic_context_payload_with_temporary_ids(
             )
         )
 
-    resolved_llm_configs = (
-        llm_configs
-        if llm_configs is not None
-        else load_llm_config(dbe, allow_write=False)
-    )
     payload = build_agentic_context_payload(
-        dbe,
         project_state,
         chat_section_id,
-        llm_configs=resolved_llm_configs,
         format_section_id=_format_section_id,
         summary_text_by_section_id=summary_text_by_section_id,
         summary_by_section=summary_by_section,
