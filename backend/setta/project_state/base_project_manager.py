@@ -4587,13 +4587,15 @@ class BaseProjectManager(ABC):
             name = generate_memorable_string()
             while sanitize_slug(name) in existing_slugs:
                 name = generate_memorable_string()
+        normalized_state = x.state.model_copy(deep=True)
         window_space = WindowSpaceConfig(
             name=name,
             sortIndex=next_sort_index,
-            windowsById=x.state.windowsById,
-            order=x.state.order,
+            windowsById=normalized_state.windowsById,
+            order=normalized_state.order,
         )
         project_state.projectConfig.windowSpaces[window_space.id] = window_space
+        project_state.validate_window_spaces()
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
         return window_space.id
 

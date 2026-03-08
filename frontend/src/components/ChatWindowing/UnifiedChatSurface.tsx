@@ -115,6 +115,8 @@ export function UnifiedChatSurface({
       )?.instanceId ?? null
     );
   });
+  const remountKey =
+    surfaceId ?? `${host}:${sectionId ?? "project-chat-surface"}`;
 
   if (externalizedWindowId && sectionId) {
     return (
@@ -149,7 +151,7 @@ export function UnifiedChatSurface({
         data-chat-surface-host={host}
         data-testid={dataTestId}
       >
-        <ProjectChat {...projectChatProps} />
+        <ProjectChat key={remountKey} {...projectChatProps} />
       </div>
     );
   }
@@ -193,7 +195,11 @@ export function UnifiedChatSurface({
       data-chat-surface-host={host}
       data-testid={dataTestId}
     >
-      <ChatArea sectionId={sectionId} surfaceId={surfaceId} />
+      <ChatArea
+        key={`${remountKey}:${sectionId}`}
+        sectionId={sectionId}
+        surfaceId={surfaceId}
+      />
     </div>
   );
 }

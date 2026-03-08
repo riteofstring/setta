@@ -13,10 +13,16 @@ import {
 } from "./StandaloneWindowSpaceSurface";
 
 type MockProjectState = {
+  projectConfig: {
+    id: string;
+  };
   sections: Record<string, { name: string }>;
 };
 
 let mockProjectState: MockProjectState = {
+  projectConfig: {
+    id: "project-1",
+  },
   sections: {},
 };
 
@@ -129,6 +135,9 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
 describe("StandaloneWindowSpaceSurface", () => {
   beforeEach(() => {
     mockProjectState = {
+      projectConfig: {
+        id: "project-1",
+      },
       sections: {
         "section-1": { name: "Research Notes" },
       },
@@ -196,7 +205,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain('data-testid="mock-unified-chat-surface"');
     expect(markup).toContain('data-project-chat-id="chat-window-1"');
     expect(markup).toContain(
-      'data-project-chat-surface-id="standalone-window-space:space-id:chat-window"',
+      'data-project-chat-surface-id="standalone-window-space:project-1:space-id:chat-window"',
     );
     expect(markup).toContain('data-testid="mock-git-graph-window-content"');
     expect(markup).toContain('data-show-embedded-git-pane-toggle="true"');
@@ -233,10 +242,58 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain('data-testid="mock-section-window-surface"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
     expect(markup).toContain(
-      'data-project-chat-surface-id="standalone-window-space:space-id:section-window"',
+      'data-project-chat-surface-id="standalone-window-space:project-1:space-id:section-window"',
     );
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
+  });
+
+  it("renders only one standalone section host when saved data duplicates a section binding", () => {
+    const markup = renderToStaticMarkup(
+      <StandaloneWindowSpaceSurface
+        windowSpace={createWindowSpaceConfig({
+          id: "space-id",
+          name: "Research Board",
+          windowsById: {
+            "section-window-a": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.section,
+              sectionIdOrNull: "section-1",
+              mode: ChatWindowModeEnum.section_mode,
+              title: null,
+              chatId: null,
+              zIndex: 1,
+              normalizedBounds: {
+                x: 0,
+                y: 0,
+                width: 0.5,
+                height: 0.75,
+              },
+            },
+            "section-window-b": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.section,
+              sectionIdOrNull: "section-1",
+              mode: ChatWindowModeEnum.project_ai_mode,
+              title: null,
+              chatId: "chat-section-1",
+              zIndex: 3,
+              normalizedBounds: {
+                x: 0.5,
+                y: 0,
+                width: 0.5,
+                height: 0.75,
+              },
+            },
+          },
+          order: ["section-window-a", "section-window-b"],
+        })}
+      />,
+    );
+
+    expect(
+      markup.match(/data-testid="mock-section-window-surface"/g),
+    ).toHaveLength(1);
+    expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
+    expect(markup).toContain('data-project-chat-id="chat-section-1"');
   });
 
   it("renders shared resize handles for snapped window-space layouts", () => {

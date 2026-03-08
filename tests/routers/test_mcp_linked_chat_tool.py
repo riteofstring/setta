@@ -5,8 +5,16 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, SCRIPTABLE_CHAT_RUN_TYPE
-from setta.agentic.store import save_agent_run, save_engine_configs
+from setta.agentic.chat_view import (
+    EXTERNAL_AGENT_RUN_TYPE,
+    LLM_CHAT_RUN_TYPE,
+    SCRIPTABLE_CHAT_RUN_TYPE,
+)
+from setta.agentic.store import (
+    save_agent_run,
+    save_engine_configs,
+    save_external_agent_configs,
+)
 from setta.database.db_objs import DBE
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
@@ -15,6 +23,12 @@ from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.types.agentic import AgentRun, AgentRunStatus, EngineConfig, EngineType
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
+from setta.types.external_agents import (
+    ExternalAgentConfig,
+    ExternalAgentRunMode,
+    ExternalAgentSettingsMode,
+    ExternalAgentToolType,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
@@ -159,14 +173,45 @@ async def _noop_wait_until_ready(self) -> None:  # noqa: ARG001
 
 
 def _seed_engine_config(dbe: DBE, engine_config_id: ID) -> None:
+    _seed_engine_config_with_type(
+        dbe,
+        engine_config_id=engine_config_id,
+        engine_type=EngineType.setta_llm,
+    )
+
+
+def _seed_engine_config_with_type(
+    dbe: DBE,
+    *,
+    engine_config_id: ID,
+    engine_type: EngineType,
+) -> None:
+    external_agent_config_id: ID | None = None
+    if engine_type == EngineType.external_agent:
+        external_agent_config_id = ID("external-agent-linked")
+        save_external_agent_configs(
+            dbe,
+            [
+                ExternalAgentConfig(
+                    id=external_agent_config_id,
+                    name="Linked external agent",
+                    toolType=ExternalAgentToolType.codex,
+                    runMode=ExternalAgentRunMode.sdk,
+                    settingsMode=ExternalAgentSettingsMode.managed_local,
+                )
+            ],
+        )
     save_engine_configs(
         dbe,
         [
             EngineConfig(
                 id=engine_config_id,
                 name="Linked engine",
-                engineType=EngineType.setta_llm,
-                settaLlmConfigId="primary",
+                engineType=engine_type,
+                settaLlmConfigId="primary"
+                if engine_type == EngineType.setta_llm
+                else None,
+                externalAgentConfigId=external_agent_config_id,
             )
         ],
     )
@@ -238,6 +283,8 @@ def _build_test_app(
     managed_target: bool = True,
     seed_target_chat_id: bool = True,
     agent_runner_override: _DummyAgentRunner | None = None,
+    external_agent_runner_override: object | None = None,
+    engine_type: EngineType = EngineType.setta_llm,
 ) -> tuple[
     FastAPI,
     _DummyAgentRunner,
@@ -258,13 +305,19 @@ def _build_test_app(
         managed_target=managed_target,
         seed_target_chat_id=seed_target_chat_id,
     )
-    _seed_engine_config(dbe, ID("engine-linked"))
+    _seed_engine_config_with_type(
+        dbe,
+        engine_config_id=ID("engine-linked"),
+        engine_type=engine_type,
+    )
     manager = _DummyLinkedChatProjectManager(project_state)
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
     agent_runner = agent_runner_override or _DummyAgentRunner()
-    external_agent_runner = SimpleNamespace(disabled=True)
+    external_agent_runner = external_agent_runner_override or SimpleNamespace(
+        disabled=True
+    )
 
     temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
     ids_to_map = [
@@ -368,6 +421,7 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
     assert captured_inputs["projectConfigId"] == str(project_config_id)
     assert captured_inputs["sectionId"] == str(target_section_id)
     assert captured_inputs["chatId"] == "linked-thread-1"
+    assert captured_inputs["runType"] == LLM_CHAT_RUN_TYPE
     assert captured_inputs["linkedChatInvocationDepth"] == 1
     assert captured_inputs["linkedChatInvocationChainSectionIds"] == [
         str(caller_section_id)
@@ -447,6 +501,92 @@ async def test_tools_call_invoke_linked_chat_rejects_mixed_engine_history(
 
 
 @pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_reuses_history_for_typed_managed_runs(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        _manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(tmp_path)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(tmp_caller_chat_id),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+
+        assert first_response.status_code == 200
+        assert first_response.json()["isError"] is False
+
+        _, first_inputs = agent_runner.calls[0]
+        save_agent_run(
+            app.state.setta.dbe,
+            AgentRun(
+                id=ID("linked-run-saved"),
+                status=AgentRunStatus.completed,
+                inputs=first_inputs,
+                outputs={
+                    "messages": [
+                        AssistantChatMessage(
+                            content=[MessageTextContent(text="Linked planner reply")]
+                        ).model_dump(mode="json")
+                    ]
+                },
+            ),
+        )
+
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                **request_payload,
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Continue the plan with concrete steps.",
+                },
+            },
+        )
+
+    assert second_response.status_code == 200
+    assert second_response.json()["isError"] is False
+    assert len(agent_runner.calls) == 2
+
+    _, second_inputs = agent_runner.calls[1]
+    assert second_inputs["runType"] == LLM_CHAT_RUN_TYPE
+    assert [
+        message["content"][0]["text"]
+        for message in second_inputs["messages"]
+        if message["content"]
+    ] == [
+        "Plan the next implementation step.",
+        "Linked planner reply",
+        "Continue the plan with concrete steps.",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_tools_call_invoke_linked_chat_rejects_scriptable_history(
     tmp_path,
 ) -> None:
@@ -514,6 +654,125 @@ async def test_tools_call_invoke_linked_chat_rejects_scriptable_history(
     )
     assert agent_runner.calls == []
     assert manager.set_chat_section_chat_id_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_managed_runner_is_unavailable(
+    tmp_path,
+) -> None:
+    disabled_runner = _DummyAgentRunner()
+    disabled_runner.disabled = True
+    (
+        app,
+        _agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        agent_runner_override=disabled_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "runner_unavailable"
+    assert manager.set_chat_section_chat_id_calls == []
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_does_not_bind_chat_when_external_runner_is_unavailable(
+    tmp_path,
+) -> None:
+    (
+        app,
+        _agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        engine_type=EngineType.external_agent,
+        external_agent_runner_override=SimpleNamespace(disabled=True),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "runner_unavailable"
+    assert manager.set_chat_section_chat_id_calls == []
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        is None
+    )
 
 
 @pytest.mark.asyncio

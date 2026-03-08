@@ -1,3 +1,41 @@
+## 2026-03-10 01:10:58 PDT
+
+Implemented the remaining top-level review fixes for linked-chat admission safety, managed linked-chat runtime typing, canonical chat-surface remounting, authoritative window-space persistence, and layout-permission gating.
+
+Linked-chat lifecycle and continuity:
+- Managed linked-chat runs now persist `runType="llm_chat"` before execution so follow-up history lookup, title generation, and continuity reuse all see the same typed runtime contract as normal managed chat.
+- Linked-chat section binding persistence moved behind the launch preflight for both managed and external runners. A failed start no longer leaves an orphaned `chatId` reserved on the target section.
+- Added backend regressions for managed typed-history reuse plus both managed and external runner-unavailable cases to prove failed admissions are side-effect free.
+
+Window-space authority and persistence:
+- Saving a window space now snapshots from the authoritative post-sync windowing state after `set_project_chat_windowing_state` succeeds, instead of persisting a stale pre-sync client snapshot.
+- Frontend save/restore flows now collapse duplicate section bindings deterministically before persistence or hydration, and standalone window-space hydration applies the same one-section-one-window rule.
+- Backend window-space validation now enforces that same invariant at persistence time, preferring one deterministic binding for duplicate saved section windows and normalizing saved order against authoritative state.
+- `create_window_space(...)` now validates the stored window-space payload before broadcasting it so saved layouts cannot drift from the backend-normalized model.
+
+Surface ownership and window reuse:
+- `UnifiedChatSurface` now remounts project-chat and section-chat surfaces by canonical `surfaceId` ownership rather than reused window `instanceId`, so local UI state does not leak when a host is rebound.
+- `ProjectChat` itself now wraps its stateful internals in a keyed `ProjectChatSurface`, which fixes the same leakage even when callers render `ProjectChat` directly without adding their own remount key.
+- Removed the dead standalone snap-resize `lastBoundsByInstanceId` cache while tightening standalone window-space hydration to dedupe duplicate section windows.
+
+Layout permissions and UI behavior:
+- `WindowSpacesPane` now uses `canEditLayout` consistently instead of structure-edit capability for save, restore, rename, delete, and reorder actions.
+- When layout edits are blocked in deployment/share mode, the pane now renders the non-edit row variant rather than disabled editing rows. That removes drag handles and delete affordances instead of leaving mutating controls visible but inert.
+- `ViewingEditingMode` now passes the layout permission straight through, so frontend gating matches the backend share-policy model.
+
+UX before vs after:
+- Before: linked-chat failures could still mutate the target section into a phantom thread, managed linked chats could lose continuity because they were missing `runType`, reused windows could inherit another surface's draft/history-pane state, and blocked deployment sessions still exposed editing-shaped window-space rows. After: failed linked-chat starts leave no residue, managed linked chats reuse history like normal managed chat, reused chat hosts remount cleanly by owner, and blocked layout sessions show only the non-mutating window-space controls.
+- Before: saved window spaces could preserve stale or duplicate section bindings that later reopened inconsistently across workspace and standalone routes. After: save, restore, standalone hydration, and backend validation all enforce the same deterministic one-section-one-binding contract.
+
+DX before vs after:
+- Before: linked-chat correctness depended on timing, window-space persistence used different authority rules on the frontend and backend, and UI permission bugs required reasoning about `canEditStructure` versus `canEditLayout` plus row-mode rendering details. After: admission is atomic with persistence timing, window-space normalization is shared across save/restore/persistence paths, and layout capability gates the entire window-space mutation surface with matching tests at unit, integration, and E2E layers.
+
+Verification:
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/routers/test_mcp_linked_chat_tool.py tests/types/test_project_state_window_spaces.py` passed: 15 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/windowSpaces.test.ts src/components/Panes/Overview/WindowSpacesPane.test.tsx src/components/Panes/Overview/ViewingEditingMode.test.tsx src/components/Panes/Overview/ViewingEditingMode.integration.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/ChatWindowing/UnifiedChatSurface.remount.test.tsx` passed: 8 files, 54 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` passed: 2 tests.
+- CDP verification confirmed the overview window-spaces pane on a disposable project at `http://127.0.0.1:3098/branch_playing` in both share-mode permission states. With layout edits allowed, save/restore/delete/reorder affordances rendered correctly; with layout edits blocked, the pane switched to disabled non-edit rows with no drag/delete controls. A narrower 1100px viewport check showed the allowed state still laid out cleanly without overlap or clipped controls.
+
 ## 2026-03-10 00:09:16 PDT
 
 Implemented the remaining consolidated fixes from the top-level reviews for project-scoped surface ownership, section-binding restore authority, linked-chat concurrency, and copied-layout persistence, then verified the touched flows end to end.

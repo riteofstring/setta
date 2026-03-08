@@ -449,11 +449,38 @@ export function ProjectChat({
   setChatId: controlledSetChatId,
   onBlockedErrorCodeChange,
 }: ProjectChatProps = {}) {
-  const globalChatId = useAIStore((state) => state.activeChatId);
-  const agentRuns = useAIStore((state) => state.agentRuns);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const resolvedSurfaceId =
     surfaceId ?? buildOverviewProjectChatSurfaceId(projectConfigId);
+  return (
+    <ProjectChatSurface
+      key={resolvedSurfaceId}
+      resolvedSurfaceId={resolvedSurfaceId}
+      controlledChatId={controlledChatId}
+      controlledSetChatId={controlledSetChatId}
+      onBlockedErrorCodeChange={onBlockedErrorCodeChange}
+    />
+  );
+}
+
+function ProjectChatSurface({
+  resolvedSurfaceId,
+  controlledChatId,
+  controlledSetChatId,
+  onBlockedErrorCodeChange,
+}: {
+  resolvedSurfaceId: string;
+  controlledChatId: string | null | undefined;
+  controlledSetChatId?: (
+    next: SetStateAction<string | null | undefined>,
+  ) => void;
+  onBlockedErrorCodeChange?: (
+    errorCode: ProjectChatBlockedErrorCode | null,
+  ) => void;
+}) {
+  const globalChatId = useAIStore((state) => state.activeChatId);
+  const agentRuns = useAIStore((state) => state.agentRuns);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const setGlobalChatId = useCallback(
     (next: SetStateAction<string | null | undefined>) => {
       useAIStore.setState((state) => {

@@ -71,7 +71,8 @@ export function ViewingEditingMode() {
         isEditingViewMode: x.projectConfig.isEditingViewMode,
       };
     }, _.isEqual);
-  const { canEditVariants, canEditStructure } = useShareCapabilities();
+  const { canEditVariants, canEditStructure, canEditLayout } =
+    useShareCapabilities();
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
   const [isViewModesCollapsed, setIsViewModesCollapsed] = useState(false);
   const [isProjectConfigsCollapsed, setIsProjectConfigsCollapsed] =
@@ -231,7 +232,7 @@ export function ViewingEditingMode() {
 
       <WindowSpacesPane
         isEditing={isEditingViewMode}
-        canEditStructure={canEditStructure}
+        canEditLayout={canEditLayout}
       />
 
       <div

@@ -1,10 +1,19 @@
-import { renderToStaticMarkup } from "react-dom/server";
+/* @vitest-environment jsdom */
+
+import { act, type ReactNode } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import "testUtils/reactRefreshPreamble";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import {
   ChatWindowPlacementEnum,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WindowSpacesPane } from "./WindowSpacesPane";
+
+const createWindowSpaceFromCurrentFloatingWindowsMock = vi.fn();
+const persistWindowSpaceSortOrderMock = vi.fn();
+const restoreWindowSpaceInWorkspaceMock = vi.fn();
 
 type MockProjectState = {
   sections: Record<string, { name: string }>;
@@ -40,7 +49,7 @@ let mockProjectState: MockProjectState = {
 };
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
+  ViewModeSortableProvider: ({ children }: { children: ReactNode }) => children,
   useViewModeSortableItem: () => ({
     attributes: {},
     listeners: {},
@@ -58,18 +67,46 @@ vi.mock("state/definitions", () => ({
   ) => selector(mockProjectState),
 }));
 
+vi.mock("state/actions/windowSpaces", async () => {
+  const actual = await vi.importActual<
+    typeof import("state/actions/windowSpaces")
+  >("state/actions/windowSpaces");
+  return {
+    ...actual,
+    createWindowSpaceFromCurrentFloatingWindows: () =>
+      createWindowSpaceFromCurrentFloatingWindowsMock(),
+    persistWindowSpaceSortOrder: (...args: unknown[]) =>
+      persistWindowSpaceSortOrderMock(...args),
+    restoreWindowSpaceInWorkspace: (...args: unknown[]) =>
+      restoreWindowSpaceInWorkspaceMock(...args),
+  };
+});
+
 describe("WindowSpacesPane", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+
   beforeEach(() => {
+    createWindowSpaceFromCurrentFloatingWindowsMock.mockReset();
+    persistWindowSpaceSortOrderMock.mockReset();
+    restoreWindowSpaceInWorkspaceMock.mockReset();
     mockProjectState = {
       sections: {},
       projectConfig: {
         id: "project-config-id",
         name: "Project Alpha",
         windowSpaces: {
-          "window-space-id": createWindowSpaceConfig({
-            id: "window-space-id",
+          "window-space-a": createWindowSpaceConfig({
+            id: "window-space-a",
             name: "Research Board",
             sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+          "window-space-b": createWindowSpaceConfig({
+            id: "window-space-b",
+            name: "Alpha Review",
+            sortIndex: 1,
             windowsById: {},
             order: [],
           }),
@@ -87,17 +124,76 @@ describe("WindowSpacesPane", () => {
         },
       },
     };
+    host = document.createElement("div");
+    document.body.appendChild(host);
+    root = createRoot(host);
   });
 
-  it("renders rename and delete actions on saved spaces outside edit mode", () => {
-    const markup = renderToStaticMarkup(
-      <WindowSpacesPane isEditing={false} canEditStructure />,
+  afterEach(async () => {
+    await act(async () => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
+  it("enables save, restore, rename, delete, and reorder when layout edits are allowed", async () => {
+    await act(async () => {
+      root.render(<WindowSpacesPane isEditing={true} canEditLayout={true} />);
+    });
+
+    const saveButton = host.querySelector(
+      '[data-testid="window-space-save-current-layout"]',
+    ) as HTMLButtonElement | null;
+    const restoreButtons = host.querySelectorAll(
+      '[data-testid="window-space-edit-open"]',
+    );
+    const deleteButtons = host.querySelectorAll(
+      '[data-testid="window-space-delete"]',
+    );
+    const dragHandles = host.querySelectorAll(
+      '[data-testid="window-space-drag-handle"]',
     );
 
-    expect(markup).toContain('data-testid="window-space-open"');
-    expect(markup).toContain('data-testid="window-space-open-new-tab"');
-    expect(markup).toContain('data-testid="window-space-rename"');
-    expect(markup).toContain('data-testid="window-space-delete"');
-    expect(markup).not.toContain('data-testid="window-space-edit-row"');
+    expect(saveButton?.disabled).toBe(false);
+    expect((restoreButtons[0] as HTMLButtonElement | undefined)?.disabled).toBe(
+      false,
+    );
+    expect((deleteButtons[0] as HTMLButtonElement | undefined)?.disabled).toBe(
+      false,
+    );
+    expect(dragHandles).toHaveLength(2);
+  });
+
+  it("renders non-edit rows and disables mutating window-space controls when layout edits are disallowed", async () => {
+    await act(async () => {
+      root.render(<WindowSpacesPane isEditing={true} canEditLayout={false} />);
+    });
+
+    const saveButton = host.querySelector(
+      '[data-testid="window-space-save-current-layout"]',
+    ) as HTMLButtonElement | null;
+    const restoreButton = host.querySelector(
+      '[data-testid="window-space-open"]',
+    ) as HTMLButtonElement | null;
+
+    expect(saveButton?.disabled).toBe(true);
+    expect(restoreButton?.disabled).toBe(true);
+    expect(
+      host.querySelector('[data-testid="window-space-edit-row"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-testid="window-space-drag-handle"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-testid="window-space-rename"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector('[data-testid="window-space-delete"]'),
+    ).toBeNull();
+
+    await act(async () => {
+      restoreButton?.click();
+    });
+    expect(restoreWindowSpaceInWorkspaceMock).not.toHaveBeenCalled();
   });
 });

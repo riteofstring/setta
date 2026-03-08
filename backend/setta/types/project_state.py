@@ -105,6 +105,35 @@ def get_code_language_extension(language: CodeLanguageKey) -> str:
     return normalized or DEFAULT_CODE_LANGUAGE_EXTENSION
 
 
+def _build_window_space_instance_order(window_space) -> list[ID]:
+    ordered_instance_ids: list[ID] = []
+    seen: set[ID] = set()
+    for instance_id in window_space.order:
+        if instance_id in seen:
+            continue
+        seen.add(instance_id)
+        ordered_instance_ids.append(instance_id)
+    for instance_id in window_space.windowsById.keys():
+        if instance_id in seen:
+            continue
+        seen.add(instance_id)
+        ordered_instance_ids.append(instance_id)
+    return ordered_instance_ids
+
+
+def _should_prefer_window_space_section_binding(
+    candidate,
+    candidate_instance_id: ID,
+    current_best,
+    current_best_instance_id: ID | None,
+) -> bool:
+    if current_best is None or current_best_instance_id is None:
+        return True
+    if candidate.zIndex != current_best.zIndex:
+        return candidate.zIndex > current_best.zIndex
+    return str(candidate_instance_id) > str(current_best_instance_id)
+
+
 class SingletonSections(BaseModel, extra="forbid"):
     GlobalVariables: ID | None = None
     GenPythonCode: ID | None = None
@@ -581,11 +610,35 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         project_config = self.projectConfig
         section_ids = set(self.sections.keys())
         for window_space in project_config.windowSpaces.values():
+            ordered_instance_ids = _build_window_space_instance_order(window_space)
+            winning_instance_id_by_section_id: dict[ID, ID] = {}
             next_windows_by_id = {}
-            for instance_id, window in window_space.windowsById.items():
+            for instance_id in ordered_instance_ids:
+                window = window_space.windowsById.get(instance_id)
+                if window is None:
+                    continue
                 if window.surfaceKind == WindowSpaceSurfaceKind.section:
                     section_id = window.sectionIdOrNull
                     if section_id is None or section_id not in section_ids:
+                        continue
+                    current_best_instance_id = winning_instance_id_by_section_id.get(
+                        section_id
+                    )
+                    current_best_window = (
+                        None
+                        if current_best_instance_id is None
+                        else next_windows_by_id[current_best_instance_id]
+                    )
+                    if _should_prefer_window_space_section_binding(
+                        window,
+                        instance_id,
+                        current_best_window,
+                        current_best_instance_id,
+                    ):
+                        if current_best_instance_id is not None:
+                            del next_windows_by_id[current_best_instance_id]
+                        winning_instance_id_by_section_id[section_id] = instance_id
+                    else:
                         continue
                 next_windows_by_id[instance_id] = window
             if len(next_windows_by_id) != len(window_space.windowsById):

@@ -340,6 +340,28 @@ function ProjectScopedDraftHarness() {
   );
 }
 
+function ReusedSurfaceHarness({
+  surfaceId,
+  chatId,
+}: {
+  surfaceId: string;
+  chatId: string | null | undefined;
+}) {
+  const [controlledChatId, setControlledChatId] = useState<
+    string | null | undefined
+  >(chatId);
+
+  return (
+    <section data-testid="reused-surface">
+      <ProjectChat
+        surfaceId={surfaceId}
+        chatId={controlledChatId}
+        setChatId={setControlledChatId}
+      />
+    </section>
+  );
+}
+
 describe("ProjectChat multi-surface state ownership", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -758,5 +780,52 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(
       surfaceB.querySelector('[data-testid="mock-project-chat-aux-skills"]'),
     ).toBeNull();
+  });
+
+  it("resets surface-local UI state when the same host is rebound to a new surface id", async () => {
+    await act(async () => {
+      root.render(
+        <ReusedSurfaceHarness surfaceId="surface-a" chatId="chat-a" />,
+      );
+    });
+
+    const surface = host.querySelector('[data-testid="reused-surface"]');
+    if (!surface) {
+      throw new Error("Expected reused project chat surface.");
+    }
+
+    const engineSelect = surface.querySelector(
+      '[data-testid="project-ai-engine-combobox"]',
+    ) as HTMLSelectElement | null;
+    if (!engineSelect) {
+      throw new Error("Expected reusable surface controls.");
+    }
+
+    await act(async () => {
+      engineSelect.value = "engine-b";
+      engineSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(engineSelect.value).toBe("engine-b");
+
+    await act(async () => {
+      root.render(
+        <ReusedSurfaceHarness surfaceId="surface-b" chatId="chat-a" />,
+      );
+    });
+
+    const reboundSurface = host.querySelector('[data-testid="reused-surface"]');
+    if (!reboundSurface) {
+      throw new Error("Expected rebound project chat surface.");
+    }
+
+    const reboundEngineSelect = reboundSurface.querySelector(
+      '[data-testid="project-ai-engine-combobox"]',
+    ) as HTMLSelectElement | null;
+    if (!reboundEngineSelect) {
+      throw new Error("Expected rebound engine selector.");
+    }
+
+    expect(reboundEngineSelect.value).toBe("engine-a");
   });
 });

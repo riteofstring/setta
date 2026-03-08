@@ -6,6 +6,7 @@ from mcp.types import CallToolResult, TextContent
 from setta.agentic.agentic_scope import resolve_agentic_scope
 from setta.agentic.chat_continuity import get_prior_messages_for_chat_engine
 from setta.agentic.chat_view import (
+    LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
 )
 from setta.agentic.engine_resolver import resolve_engine_config
@@ -215,12 +216,6 @@ async def invoke_linked_chat(
             str(section_id) for section_id in invocation_chain
         ],
     }
-    await _persist_linked_chat_section_binding(
-        manager,
-        agentic_context.project_config_id,
-        target_section_id,
-        chat_id,
-    )
 
     completed_run: AgentRun
     if resolved_engine.engine_config.engineType == EngineType.setta_llm:
@@ -249,6 +244,13 @@ async def invoke_linked_chat(
                 "engineConfigId": effective_engine_config_id,
                 "systemPrompt": combined_system_prompt,
             }
+        )
+        linked_chat_inputs["runType"] = LLM_CHAT_RUN_TYPE
+        await _persist_linked_chat_section_binding(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
         )
         try:
             completed_run = await runner.run_sub_agent(
@@ -300,6 +302,12 @@ async def invoke_linked_chat(
         linked_chat_inputs["systemPrompt"] = _combine_prompt_sections(
             execution_policy_prompt,
             _REQUIRED_ERROR_CHECK_PROMPT,
+        )
+        await _persist_linked_chat_section_binding(
+            manager,
+            agentic_context.project_config_id,
+            target_section_id,
+            chat_id,
         )
         try:
             run = runner.start_run(

@@ -191,10 +191,113 @@ export function snapshotFloatingWindowsForWindowSpace(
     snapshotOrder.push(instanceId);
   }
 
+  return dedupeWindowSpaceSectionBindings(
+    createWindowSpaceState({
+      windowsById: snapshotWindowsById,
+      order: snapshotOrder,
+    }),
+  );
+}
+
+function buildOrderedWindowSpaceInstanceIds(
+  state: WindowSpaceState,
+): Array<string> {
+  const seen = new Set<string>();
+  const orderedInstanceIds: Array<string> = [];
+  for (const instanceId of state.order) {
+    if (!state.windowsById[instanceId] || seen.has(instanceId)) {
+      continue;
+    }
+    seen.add(instanceId);
+    orderedInstanceIds.push(instanceId);
+  }
+  for (const instanceId of Object.keys(state.windowsById)) {
+    if (seen.has(instanceId)) {
+      continue;
+    }
+    seen.add(instanceId);
+    orderedInstanceIds.push(instanceId);
+  }
+  return orderedInstanceIds;
+}
+
+function shouldPreferWindowSpaceSectionBinding(
+  candidateInstanceId: string,
+  candidate: NonNullable<WindowSpaceState["windowsById"][string]>,
+  currentBestInstanceId: string | null,
+  currentBest: NonNullable<WindowSpaceState["windowsById"][string]> | null,
+): boolean {
+  if (!currentBest || currentBestInstanceId === null) {
+    return true;
+  }
+  if (candidate.zIndex !== currentBest.zIndex) {
+    return candidate.zIndex > currentBest.zIndex;
+  }
+  return candidateInstanceId.localeCompare(currentBestInstanceId) > 0;
+}
+
+function dedupeWindowSpaceSectionBindings(
+  state: WindowSpaceState,
+): WindowSpaceState {
+  const orderedInstanceIds = buildOrderedWindowSpaceInstanceIds(state);
+  const winningInstanceIdBySectionId = new Map<string, string>();
+
+  for (const instanceId of orderedInstanceIds) {
+    const window = state.windowsById[instanceId];
+    const sectionId = window?.sectionIdOrNull ?? null;
+    if (!window || !sectionId) {
+      continue;
+    }
+    const currentBestInstanceId = winningInstanceIdBySectionId.get(sectionId);
+    const currentBest =
+      currentBestInstanceId === undefined
+        ? null
+        : state.windowsById[currentBestInstanceId] ?? null;
+    if (
+      !shouldPreferWindowSpaceSectionBinding(
+        instanceId,
+        window,
+        currentBestInstanceId ?? null,
+        currentBest,
+      )
+    ) {
+      continue;
+    }
+    winningInstanceIdBySectionId.set(sectionId, instanceId);
+  }
+
+  let changed = false;
+  const nextWindowsById: WindowSpaceState["windowsById"] = {};
+  for (const [instanceId, window] of Object.entries(state.windowsById)) {
+    const sectionId = window.sectionIdOrNull ?? null;
+    if (
+      sectionId &&
+      winningInstanceIdBySectionId.get(sectionId) !== instanceId
+    ) {
+      changed = true;
+      continue;
+    }
+    nextWindowsById[instanceId] = window;
+  }
+  if (!changed) {
+    return state;
+  }
   return createWindowSpaceState({
-    windowsById: snapshotWindowsById,
-    order: snapshotOrder,
+    windowsById: nextWindowsById,
+    order: orderedInstanceIds.filter(
+      (instanceId) => nextWindowsById[instanceId],
+    ),
   });
+}
+
+function normalizeWindowSpaceForPersistence(
+  state: Pick<
+    ZustandProjectState,
+    "projectChatWindowing" | "projectConfig" | "sections"
+  >,
+  viewport: AuthoringFloatingViewport = resolveAuthoringFloatingViewport(),
+): WindowSpaceState {
+  return snapshotFloatingWindowsForWindowSpace(state, viewport);
 }
 
 function resolveNextProjectChatWindowInstanceNumber(
@@ -410,11 +513,13 @@ export function createProjectChatWindowingStateFromWindowSpace(
     order.push(instanceId);
   }
 
-  return createProjectChatWindowingState({
-    instancesById,
-    order,
-    nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
-  });
+  return dedupeRestoredSectionBindings(
+    createProjectChatWindowingState({
+      instancesById,
+      order,
+      nextInstanceNumber: resolveNextProjectChatWindowInstanceNumber(order),
+    }),
+  );
 }
 
 function remapRestoredWindowSpaceInstanceIdsForWorkspace(
@@ -577,7 +682,7 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
 > {
   await flushPendingProjectChatWindowingWrites();
   const state = useProjectState.getState();
-  const snapshot = snapshotFloatingWindowsForWindowSpace(state);
+  const snapshot = normalizeWindowSpaceForPersistence(state);
   if (Object.keys(snapshot.windowsById).length === 0) {
     return null;
   }
@@ -605,12 +710,17 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     );
     return null;
   }
+  const latestState = useProjectState.getState();
+  const authoritativeSnapshot = normalizeWindowSpaceForPersistence(latestState);
+  if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
+    return null;
+  }
   const nextWindowSpaceName = resolveNextWindowSpaceName(
-    getProjectWindowSpaces(state.projectConfig),
+    getProjectWindowSpaces(latestState.projectConfig),
   );
   const response = await route_create_window_space({
     projectConfigId,
-    state: snapshot,
+    state: authoritativeSnapshot,
     name: nextWindowSpaceName,
   });
   if (!res200(response)) {
@@ -643,8 +753,8 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
       id: response.data,
       name: nextWindowSpaceName,
       sortIndex: nextSortIndex,
-      windowsById: snapshot.windowsById,
-      order: snapshot.order,
+      windowsById: authoritativeSnapshot.windowsById,
+      order: authoritativeSnapshot.order,
     });
   });
   return response.data;

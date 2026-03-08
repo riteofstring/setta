@@ -51,7 +51,7 @@ type WindowSpaceRowSharedProps = {
   windowSpace: WindowSpaceConfig;
   projectConfigId: string;
   projectConfigName: string;
-  canEditStructure: boolean;
+  canEditLayout: boolean;
   sortableEnabled: boolean;
 };
 
@@ -139,10 +139,10 @@ function deleteWindowSpace(
 
 export function WindowSpacesPane({
   isEditing,
-  canEditStructure,
+  canEditLayout,
 }: {
   isEditing: boolean;
-  canEditStructure: boolean;
+  canEditLayout: boolean;
 }) {
   const {
     projectConfigId,
@@ -171,7 +171,7 @@ export function WindowSpacesPane({
     };
   }, _.isEqual);
   const sortableEnabled =
-    isEditing && canEditStructure && windowSpaceList.length > 1;
+    isEditing && canEditLayout && windowSpaceList.length > 1;
 
   const handleReorder = (nextOrderedIds: Array<string>): void => {
     if (!sortableEnabled) {
@@ -206,17 +206,17 @@ export function WindowSpacesPane({
           type="button"
           data-testid="window-space-save-current-layout"
           className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs transition-all ${
-            canEditStructure && canSaveWindowSpace
+            canEditLayout && canSaveWindowSpace
               ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
               : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
           }`}
           onClick={() => {
-            if (!canEditStructure || !canSaveWindowSpace) {
+            if (!canEditLayout || !canSaveWindowSpace) {
               return;
             }
             void createWindowSpaceFromCurrentFloatingWindows();
           }}
-          disabled={!canEditStructure || !canSaveWindowSpace}
+          disabled={!canEditLayout || !canSaveWindowSpace}
           title={
             canSaveWindowSpace
               ? "Save the current floating windows as a window space"
@@ -243,13 +243,13 @@ export function WindowSpacesPane({
         >
           <div className="flex w-full min-w-0 flex-col gap-1">
             {windowSpaceList.map((windowSpace) =>
-              isEditing ? (
+              isEditing && canEditLayout ? (
                 <WindowSpaceEditingRow
                   key={windowSpace.id}
                   windowSpace={windowSpace}
                   projectConfigId={projectConfigId}
                   projectConfigName={projectConfigName}
-                  canEditStructure={canEditStructure}
+                  canEditLayout={canEditLayout}
                   sortableEnabled={sortableEnabled}
                 />
               ) : (
@@ -258,7 +258,7 @@ export function WindowSpacesPane({
                   windowSpace={windowSpace}
                   projectConfigId={projectConfigId}
                   projectConfigName={projectConfigName}
-                  canEditStructure={canEditStructure}
+                  canEditLayout={canEditLayout}
                   sortableEnabled={sortableEnabled}
                 />
               ),
@@ -274,7 +274,7 @@ function WindowSpaceRow({
   windowSpace,
   projectConfigId,
   projectConfigName,
-  canEditStructure,
+  canEditLayout,
 }: WindowSpaceRowSharedProps) {
   const [isRenaming, setIsRenaming] = useState(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -329,9 +329,13 @@ function WindowSpaceRow({
           type="button"
           className="min-w-0 flex-1 truncate text-left hover:text-blue-600 dark:hover:text-blue-300"
           onClick={() => {
+            if (!canEditLayout) {
+              return;
+            }
             restoreWindowSpaceInWorkspace(windowSpace.id);
           }}
           data-testid="window-space-open"
+          disabled={!canEditLayout}
         >
           {windowSpace.name}
         </button>
@@ -347,7 +351,7 @@ function WindowSpaceRow({
       >
         <MdOpenInNew size={14} />
       </button>
-      {canEditStructure ? (
+      {canEditLayout ? (
         <button
           type="button"
           className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
@@ -360,7 +364,7 @@ function WindowSpaceRow({
           <FiEdit3 size={14} />
         </button>
       ) : null}
-      {canEditStructure ? (
+      {canEditLayout ? (
         <button
           type="button"
           className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-red-500 hover:text-white dark:text-setta-400 dark:hover:bg-red-500 dark:hover:text-white"
@@ -381,7 +385,7 @@ function WindowSpaceEditingRow({
   windowSpace,
   projectConfigId,
   projectConfigName,
-  canEditStructure,
+  canEditLayout,
   sortableEnabled,
 }: WindowSpaceRowSharedProps) {
   const sortable = sortableEnabled
@@ -391,7 +395,7 @@ function WindowSpaceEditingRow({
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
     windowSpace.name,
     (name) => {
-      if (!canEditStructure) {
+      if (!canEditLayout) {
         return;
       }
       setWindowSpaceName(
@@ -415,7 +419,7 @@ function WindowSpaceEditingRow({
     <div
       ref={sortable?.setNodeRef}
       className={`flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-xs transition-colors ${
-        canEditStructure
+        canEditLayout
           ? "border-setta-200/80 text-setta-700 dark:border-setta-800 dark:text-setta-300"
           : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
       }`}
@@ -444,14 +448,18 @@ function WindowSpaceEditingRow({
         onPointerDown={(event) => event.stopPropagation()}
         className="min-w-0 flex-1 truncate bg-transparent text-setta-700 focus:outline-none focus:ring-0 dark:text-setta-300"
         placeholder="Window space name"
-        disabled={!canEditStructure}
+        disabled={!canEditLayout}
       />
       <button
         type="button"
         className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
         onClick={() => {
+          if (!canEditLayout) {
+            return;
+          }
           restoreWindowSpaceInWorkspace(windowSpace.id);
         }}
+        disabled={!canEditLayout}
         aria-label={`Restore ${windowSpace.name}`}
         data-testid="window-space-edit-open"
       >
@@ -472,12 +480,12 @@ function WindowSpaceEditingRow({
         type="button"
         className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-500 hover:bg-red-500 hover:text-white dark:text-setta-400 dark:hover:bg-red-500 dark:hover:text-white"
         onClick={() => {
-          if (!canEditStructure) {
+          if (!canEditLayout) {
             return;
           }
           deleteWindowSpace(projectConfigId, windowSpace.id);
         }}
-        disabled={!canEditStructure}
+        disabled={!canEditLayout}
         aria-label={`Delete ${windowSpace.name}`}
         data-testid="window-space-delete"
       >

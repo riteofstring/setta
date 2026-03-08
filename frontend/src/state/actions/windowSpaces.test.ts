@@ -182,6 +182,66 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["minimized-chat"]).toBeUndefined();
   });
 
+  it("collapses duplicate floating section bindings to one authoritative saved window", () => {
+    const snapshot = snapshotFloatingWindowsForWindowSpace({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["floating-section-a", "floating-section-b"],
+        instancesById: {
+          "floating-section-a": {
+            instanceId: "floating-section-a",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 1,
+            bounds: {
+              x: 40,
+              y: 50,
+              width: 320,
+              height: 240,
+            },
+            lastFocusedAt: 1,
+          },
+          "floating-section-b": {
+            instanceId: "floating-section-b",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            sectionIdOrNull: "section-1",
+            isClosed: false,
+            isMinimized: false,
+            isMaximized: false,
+            zIndex: 4,
+            bounds: {
+              x: 380,
+              y: 60,
+              width: 320,
+              height: 240,
+            },
+            lastFocusedAt: 2,
+          },
+        },
+      }),
+      sections: {
+        "section-1": createCore({
+          id: "section-1",
+          name: "Research Notes",
+        }),
+      },
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+    });
+
+    expect(snapshot.order).toEqual(["floating-section-b"]);
+    expect(Object.keys(snapshot.windowsById)).toEqual(["floating-section-b"]);
+    expect(snapshot.windowsById["floating-section-b"]?.mode).toBe(
+      ChatWindowModeEnum.project_ai_mode,
+    );
+  });
+
   it("round-trips snapped layouts back onto the shared resize grid", () => {
     const viewport = {
       viewportWidthPx: 1440,
@@ -567,6 +627,80 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
       SettaNotificationTypeEnum.error,
     );
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual({});
+  });
+
+  it("uses the post-sync authoritative layout when saving a window space", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["floating-before-sync"],
+        instancesById: {
+          "floating-before-sync": {
+            instanceId: "floating-before-sync",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Before Sync",
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 500,
+              height: 360,
+            },
+          },
+        },
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockImplementation(async () => {
+      useProjectState.setState({
+        projectConfig: createProjectConfig({
+          id: "project-id",
+          name: "demo",
+        }),
+        sections: {},
+        projectChatWindowing: createProjectChatWindowingState({
+          order: ["floating-after-sync"],
+          instancesById: {
+            "floating-after-sync": {
+              instanceId: "floating-after-sync",
+              placement: ChatWindowPlacementEnum.floating,
+              mode: ChatWindowModeEnum.project_ai_mode,
+              title: "After Sync",
+              bounds: {
+                x: 40,
+                y: 60,
+                width: 420,
+                height: 320,
+              },
+            },
+          },
+        }),
+      });
+      return {
+        data: null,
+        status: 200,
+        hasResponse: true,
+      };
+    });
+    routeCreateWindowSpaceMock.mockResolvedValue({
+      data: "window-space-1",
+      status: 200,
+      hasResponse: true,
+    });
+
+    await expect(createWindowSpaceFromCurrentFloatingWindows()).resolves.toBe(
+      "window-space-1",
+    );
+
+    const createRequest = routeCreateWindowSpaceMock.mock.calls[0]?.[0];
+    expect(createRequest?.state.order).toEqual(["floating-after-sync"]);
+    expect(
+      useProjectState.getState().projectConfig.windowSpaces["window-space-1"]
+        ?.order,
+    ).toEqual(["floating-after-sync"]);
   });
 
   it("shows an error notification when syncing the workspace layout fails before saving", async () => {
