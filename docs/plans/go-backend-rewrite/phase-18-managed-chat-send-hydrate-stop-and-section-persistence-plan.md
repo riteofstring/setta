@@ -124,7 +124,9 @@ This phase should cover:
 
 - external-agent send, hydrate, stop, approval, question, or AI-follow routes
 - transcription-session runtime and transport
-- `POST /getChatSectionChatId`
+- bundling dormant `POST /getChatSectionChatId` into the original
+  caller-backed managed-chat slice; that later closeout is tracked separately
+  in `phase-18-chat-section-chat-id-read-closeout.md`
 - a LiteLLM-equivalent provider abstraction
 - recreating Python global singleton runner state
 - broad watcher parity or new chat-specific websocket protocols
@@ -375,6 +377,10 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
   any extra preview kinds beyond the landed app-spec patch path, or any
   concrete managed provider/runtime addition that can explicitly expose
   reasoning output, not route movement or basic tool execution ownership.
+- 2026-03-10: the adjacent dormant chat-section read route
+  `POST /getChatSectionChatId` then landed separately in
+  `phase-18-chat-section-chat-id-read-closeout.md`, so the nearby chat-section
+  transport cluster is now fully Go-owned.
 
 ## Verification
 
@@ -388,17 +394,16 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient|StreamsManagedToolArgumentPreviewOverFrontendWebsocket|ChatThinkingUnsupportedWithoutExplicitProviderConfig)|Executor|ToolPreviewAccumulator|ParseToolMetadataIncludesToolArgumentPreview|ServerListsToolsAndScopesToolCalls|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 - `./scripts/go.sh test ./internal/realtime ./internal/managedllm ./internal/app -run 'Test(NewAIFollowToolResultUpdateMessage|ExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns|ExecutorExecuteStreamsManagedToolArgumentPreview|AppServesManagedChatToolCallThroughInternalMCPClient|AppStreamsManagedToolArgumentPreviewOverFrontendWebsocket|AppStreamsManagedAIFollowToolResultUpdateOverFrontendWebsocket)' -count=1`
 - `pnpm -C frontend exec vitest run src/components/Chat/engineUtils.test.ts src/components/Chat/ChatInput.test.tsx`
+- `./scripts/go.sh test ./internal/chatsections ./internal/httpapi ./internal/app -run 'Test(ServiceGetChatID(ReturnsExistingManagedAndExternalChats|ClearsMissingChat)|RegisterProjectRoutes(ChatSectionMutationsPersistAndTrackFrontendOpIDs|ChatSectionMutationsRejectInvalidSectionAndSettings|GetChatSectionChatIDReturnsExistingAndClearsMissing)|AppServes(ChatSectionMutationRoutes|GetChatSectionChatIDRoute))' -count=1`
 
 ## Next Recommended Step
 
-- add extra preview kinds only if a concrete current frontend caller still
-  needs websocket surfaces beyond the landed app-spec patch preview and
-  tool-result follow slices
-- add a concrete managed provider/runtime path that can explicitly expose
-  reasoning output only if the active surface still needs managed visible
-  thinking beyond the landed availability boundary
-- otherwise rerank the adjacent transcription-session runtime slice instead of
-  broadening managed chat by default
+- the direct caller-backed managed chat slice, the adjacent transcription
+  slice, and the dormant chat-section chat-id read closeout are now landed
+- rerank outside this direct AI/chat cluster instead of broadening managed
+  chat by default
+- reopen managed chat only if a concrete current caller still proves a need
+  for broader preview kinds or explicit managed reasoning output
 
 ## Recommended Design
 

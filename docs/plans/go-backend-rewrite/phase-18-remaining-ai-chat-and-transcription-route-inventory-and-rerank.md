@@ -219,13 +219,13 @@ Rerank:
   send/hydrate/stop/tool/preview/follow surface, or a broader rerank outside
   the direct AI route cluster
 
-### 4. `POST /getChatSectionChatId` remains dormant for the current direct frontend surface
+### 4. `POST /getChatSectionChatId` was dormant at inventory time and is now Go-owned as a closeout slice
 
-This route remains Python-owned:
+At inventory time, this route remained Python-owned:
 
 - `POST /getChatSectionChatId`
 
-Current status:
+Inventory-time status:
 
 - this inventory did not find a live direct frontend caller in the current UI
   code
@@ -233,10 +233,16 @@ Current status:
 - current UI flows read chat section `chatId` from project state instead of
   calling this route directly
 
-Rerank:
+What landed later:
 
-- low priority
-- do not bundle it into Phase 18 unless a concrete caller appears
+- Go now owns `POST /getChatSectionChatId` through a small
+  `internal/chatsections` service plus thin `internal/httpapi/project_routes.go`
+  transport
+- the Go owner validates stored section `chatId` values against the durable
+  agent-run index and clears stale project-state values when no chat run
+  exists
+- this stayed a separate closeout slice instead of broadening the earlier
+  caller-backed managed-chat execution work
 
 ## Reranked Outcome
 
@@ -247,7 +253,9 @@ Rerank:
 2. The next adjacent AI/runtime slice after that is now realtime
    transcription-session ownership if incremental provider dictation remains
    an active product dependency.
-3. Dormant `getChatSectionChatId` does not justify a separate route slice now.
+3. The dormant `getChatSectionChatId` route no longer remains in Python; it
+   was later closed opportunistically after the caller-backed Phase 18 work
+   landed.
 
 ## Decisions Made
 
@@ -255,7 +263,9 @@ Rerank:
   landed managed-run foundations, not as something still fully de-scoped
 - keep transcription-session runtime explicitly separate from the managed-chat
   slice
-- keep dormant `getChatSectionChatId` out of scope until a real caller appears
+- keep dormant `getChatSectionChatId` out of the initial caller-backed rerank,
+  then only close it later if continued execution still justifies a bounded
+  opportunistic slice
 
 ## Progress Notes
 
@@ -297,6 +307,9 @@ Rerank:
 - 2026-03-09: kept realtime explicit as a remaining Go runtime gap instead of
   misclassifying it as an unsupported model when the selected config may be
   valid.
+- 2026-03-10: landed the opportunistic closeout slice for dormant
+  `POST /getChatSectionChatId`, leaving no adjacent Python-owned direct AI/chat
+  route in this reranked cluster.
 
 ## Verification
 
@@ -313,10 +326,11 @@ Rerank:
   - `./scripts/go.sh test ./internal/transcriptionprofiles ./internal/transcriptionsessions ./internal/httpapi ./internal/app -run 'Test(Service|RegisterAIRoutes|AppServes(FileModeTranscriptionSessionRoutes|ManagedChatSendThroughManagedExecutor|ManagedChatThinkingUnsupportedWithoutExplicitProviderConfig))' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
+  - `./scripts/go.sh test ./internal/chatsections ./internal/httpapi ./internal/app -run 'Test(ServiceGetChatID(ReturnsExistingManagedAndExternalChats|ClearsMissingChat)|RegisterProjectRoutes(ChatSectionMutationsPersistAndTrackFrontendOpIDs|ChatSectionMutationsRejectInvalidSectionAndSettings|GetChatSectionChatIDReturnsExistingAndClearsMissing)|AppServes(ChatSectionMutationRoutes|GetChatSectionChatIDRoute))' -count=1`
 
 ## Next Recommended Step
 
-Implement the bounded realtime transcription-session owner if incremental
-provider dictation is still required by the active surface. Only rerank back
-to broader managed preview or reasoning follow-ons if a concrete current
-caller proves that gap first.
+The direct AI/chat cluster covered by this inventory is now fully Go-owned for
+its current bounded surface. Rerank outside this cluster instead of opening
+another automatic Phase 18 slice, and only revisit broader managed preview or
+reasoning follow-ons if a concrete current caller proves that gap first.

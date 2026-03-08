@@ -662,8 +662,8 @@ Use the docs in this order:
 181. `phase-18-remaining-ai-chat-and-transcription-route-inventory-and-rerank.md`
   - focused closeout inventory doc for the remaining direct frontend
     Python-owned AI/chat surface after Phase 17, including the reranked split
-    between managed chat, transcription sessions, and dormant chat-section
-    read transport
+    between managed chat, transcription sessions, and the then-dormant
+    chat-section read transport that later closed out
 182. `phase-18-managed-chat-send-hydrate-stop-and-section-persistence-plan.md`
   - focused Phase 18 execution doc for the remaining direct frontend
     managed-chat runtime slice after the landed chat-section persistence
@@ -689,12 +689,16 @@ Use the docs in this order:
   - focused Phase 18 follow-on doc for the bounded Go-owned transcription
     session runtime slice, starting with file-mode ownership and thin route
     transport
-189. `spike-mcp.md`
+189. `phase-18-chat-section-chat-id-read-closeout.md`
+  - focused Phase 18 closeout doc for the opportunistic Go ownership of the
+    dormant `POST /getChatSectionChatId` route over project-state reads and
+    durable chat-run validation
+190. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-190. `spike-pty.md`
+191. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-191. `spike-lsp.md`
+192. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

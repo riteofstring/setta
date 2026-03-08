@@ -27,7 +27,7 @@ Prefer the Go stdlib or well established Go libraries for this rewrite.
 
 ## Current Status
 
-As of 2026-03-09, the phase docs through the current landed Phase 18 slices
+As of 2026-03-10, the phase docs through the current landed Phase 18 slices
 and the recorded spike outcomes describe a repo state where the deployment/
 launcher runtime slices, the shipped CLI migration slices, the MCP/tooling
 foundations, the bounded plugin runtime surface, the direct frontend LLM
@@ -57,6 +57,12 @@ direct frontend caller surface. `internal/transcriptionsessions`, thin AI route
 transport, and real IDE app wiring now cover file-mode and bounded OpenAI
 realtime session ownership, with `transportMode=auto` resolved from explicit
 provider/model capability instead of heuristic fallback.
+
+The adjacent dormant chat-section read route is now also Go-owned. Thin IDE
+project transport now serves `POST /getChatSectionChatId` over an explicit
+`internal/chatsections` service that validates stored section `chatId` values
+against the durable agent-run index and clears stale project-state values when
+the chat no longer exists.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -148,6 +154,15 @@ availability boundary:
 - normal managed callers no longer default into typed
   `thinking_unsupported` failures while managed visible reasoning remains
   unimplemented
+
+The eleventh Phase 18 closeout slice is now landed for the adjacent dormant
+chat-section read transport:
+
+- Go-owned `POST /getChatSectionChatId` route registration and thin transport
+- explicit chat-section read owner over project-state payload lookup plus
+  durable run-index validation
+- stale section `chatId` clearing through the existing project-state mutation
+  path when no durable chat run remains
 
 The current bounded Go-owned Phase 12 surface now includes:
 
