@@ -443,6 +443,36 @@ export function setProjectChatAuxViewForActiveProject(
   });
 }
 
+function setProjectChatThreadVisibility(
+  nextVisibility: SetStateAction<boolean>,
+): void {
+  useAIStore.setState((state) => {
+    const resolvedNextVisibility =
+      typeof nextVisibility === "function"
+        ? nextVisibility(state.viewThreads)
+        : nextVisibility;
+    if (resolvedNextVisibility === state.viewThreads) {
+      return state;
+    }
+    return {
+      viewThreads: resolvedNextVisibility,
+    };
+  });
+}
+
+function setProjectChatThreadsClosedAtLargeWidthPreference(
+  nextClosed: boolean,
+): void {
+  useAIStore.setState((state) => {
+    if (state.projectChatThreadsExplicitlyClosedAtLargeWidth === nextClosed) {
+      return state;
+    }
+    return {
+      projectChatThreadsExplicitlyClosedAtLargeWidth: nextClosed,
+    };
+  });
+}
+
 export function ProjectChat({
   surfaceId,
   chatId: controlledChatId,
@@ -606,33 +636,37 @@ function ProjectChatSurface({
     }),
     _.isEqual,
   );
-  const initialProjectChatAuxView = useLocalStorage(
-    (state): ProjectChatAuxView => {
-      return (
-        state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none"
-      );
-    },
-  );
-  const defaultViewThreads = useAIStore((state) => state.viewThreads);
-  const defaultProjectChatThreadsExplicitlyClosedAtLargeWidth = useAIStore(
+  const projectChatAuxView = useLocalStorage((state): ProjectChatAuxView => {
+    return state.projectChatAuxViewByProjectConfigId[projectConfigId] ?? "none";
+  });
+  const viewThreads = useAIStore((state) => state.viewThreads);
+  const projectChatThreadsExplicitlyClosedAtLargeWidth = useAIStore(
     (state) => state.projectChatThreadsExplicitlyClosedAtLargeWidth,
   );
   const defaultSelectedEngineId = useAIStore(
     (state) => state.projectChatSelectedEngineId,
   );
-  const [projectChatAuxView, setProjectChatAuxView] =
-    useState<ProjectChatAuxView>(initialProjectChatAuxView);
-  const [viewThreads, setViewThreads] = useState(defaultViewThreads);
-  const [
-    projectChatThreadsExplicitlyClosedAtLargeWidth,
-    setProjectChatThreadsExplicitlyClosedAtLargeWidth,
-  ] = useState(defaultProjectChatThreadsExplicitlyClosedAtLargeWidth);
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(
     defaultSelectedEngineId,
   );
-  useEffect(() => {
-    setProjectChatAuxView(initialProjectChatAuxView);
-  }, [initialProjectChatAuxView, projectConfigId]);
+  const setProjectChatAuxView = useCallback(
+    (nextAuxView: ProjectChatAuxView) => {
+      setProjectChatAuxViewForActiveProject(nextAuxView);
+    },
+    [],
+  );
+  const setViewThreads = useCallback(
+    (nextVisibility: SetStateAction<boolean>) => {
+      setProjectChatThreadVisibility(nextVisibility);
+    },
+    [],
+  );
+  const setProjectChatThreadsExplicitlyClosedAtLargeWidth = useCallback(
+    (nextClosed: boolean) => {
+      setProjectChatThreadsClosedAtLargeWidthPreference(nextClosed);
+    },
+    [],
+  );
   const draftMessage = draftMessageByProjectConfigId[projectConfigId] ?? "";
   const setDraftMessage = useCallback(
     (next: SetStateAction<string>) => {

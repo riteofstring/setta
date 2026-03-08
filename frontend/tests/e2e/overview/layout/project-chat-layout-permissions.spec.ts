@@ -143,9 +143,56 @@ test("read-only deployments keep visible project chat windows focusable without 
   page,
 }) => {
   const projectContext = await openIsolatedProject(page);
+  let layoutWriteCalls = 0;
+  let chatIdWriteCalls = 0;
 
   try {
     await seedReadOnlyVisibleProjectChatWindows(page);
+    await page.route("**/setProjectChatWindowingState", async (route) => {
+      layoutWriteCalls += 1;
+      await route.fulfill({
+        status: 403,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: "Deployment policy disallows layout changes.",
+        }),
+      });
+    });
+    await page.route("**/setProjectChatWindowChatId", async (route) => {
+      chatIdWriteCalls += 1;
+      const request = route.request().postDataJSON() as {
+        instanceId: string;
+        chatId: string | null;
+      };
+      const responseState = await page.evaluate(
+        async ({ instanceId, chatId }) => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          const current =
+            useProjectState.getState().projectChatWindowing.instancesById[
+              instanceId
+            ];
+          if (!current) {
+            throw new Error("Expected project chat window instance.");
+          }
+          return {
+            ...useProjectState.getState().projectChatWindowing,
+            instancesById: {
+              ...useProjectState.getState().projectChatWindowing.instancesById,
+              [instanceId]: {
+                ...current,
+                chatId,
+              },
+            },
+          };
+        },
+        request,
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(responseState),
+      });
+    });
 
     const backgroundWindow = page.locator(
       '[data-testid="project-chat-floating-window"][data-chat-window-instance-id="project-chat-window-1"]',
@@ -198,7 +245,31 @@ test("read-only deployments keep visible project chat windows focusable without 
         });
       })
       .toBe(true);
+
+    await page.evaluate(async () => {
+      const { setProjectChatWindowChatId } = await import(
+        "/src/state/actions/projectChatWindowing.ts"
+      );
+      setProjectChatWindowChatId("project-chat-window-1", "chat-after");
+    });
+
+    await expect
+      .poll(async () => {
+        return await page.evaluate(async () => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          return (
+            useProjectState.getState().projectChatWindowing.instancesById[
+              "project-chat-window-1"
+            ]?.chatId ?? null
+          );
+        });
+      })
+      .toBe("chat-after");
+    expect(chatIdWriteCalls).toBe(1);
+    expect(layoutWriteCalls).toBe(0);
   } finally {
+    await page.unroute("**/setProjectChatWindowingState").catch(() => null);
+    await page.unroute("**/setProjectChatWindowChatId").catch(() => null);
     await cleanupIsolatedProject(page, projectContext);
   }
 });

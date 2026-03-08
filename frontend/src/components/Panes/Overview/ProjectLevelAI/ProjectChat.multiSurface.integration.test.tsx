@@ -625,6 +625,94 @@ describe("ProjectChat multi-surface state ownership", () => {
     ).toBeUndefined();
   });
 
+  it("writes aux-view selections to store authority and restores them after remount", async () => {
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    if (!surfaceA) {
+      throw new Error("Expected the first project chat surface.");
+    }
+    const openSkillsButton = surfaceA.querySelector(
+      '[data-testid="project-chat-settings-open-skills"]',
+    ) as HTMLButtonElement | null;
+    if (!openSkillsButton) {
+      throw new Error("Expected project chat aux-view buttons.");
+    }
+
+    await act(async () => {
+      openSkillsButton.click();
+    });
+    expect(
+      useLocalStorage.getState().projectChatAuxViewByProjectConfigId,
+    ).toEqual({
+      "project-1": "skills",
+    });
+
+    const mcpTab = host.querySelector(
+      '[data-testid="project-chat-aux-tab-mcp"]',
+    ) as HTMLButtonElement | null;
+    if (!mcpTab) {
+      throw new Error("Expected the MCP aux-view tab.");
+    }
+
+    await act(async () => {
+      mcpTab.click();
+    });
+    expect(
+      useLocalStorage.getState().projectChatAuxViewByProjectConfigId,
+    ).toEqual({
+      "project-1": "mcp",
+    });
+
+    await act(async () => {
+      root.render(<div />);
+    });
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
+    expect(
+      host.querySelector('[data-testid="mock-project-chat-aux-mcp"]'),
+    ).not.toBeNull();
+  });
+
+  it("writes thread visibility preferences to the AI store and keeps a wide-layout close after remount", async () => {
+    const surfaceA = host.querySelector('[data-testid="surface-a"]');
+    if (!surfaceA) {
+      throw new Error("Expected the first project chat surface.");
+    }
+    const toggleThreadsButton = surfaceA.querySelector(
+      'button[aria-label="View Threads"]',
+    ) as HTMLButtonElement | null;
+    if (!toggleThreadsButton) {
+      throw new Error("Expected the project chat threads toggle.");
+    }
+
+    expect(useAIStore.getState().viewThreads).toBe(true);
+    expect(
+      useAIStore.getState().projectChatThreadsExplicitlyClosedAtLargeWidth,
+    ).toBe(false);
+
+    await act(async () => {
+      toggleThreadsButton.click();
+    });
+
+    expect(useAIStore.getState().viewThreads).toBe(false);
+    expect(
+      useAIStore.getState().projectChatThreadsExplicitlyClosedAtLargeWidth,
+    ).toBe(true);
+
+    await act(async () => {
+      root.render(<div />);
+    });
+    await act(async () => {
+      root.render(<Harness />);
+    });
+
+    expect(
+      host.querySelector('[data-testid="mock-project-chat-history-inline"]'),
+    ).toBeNull();
+    expect(useAIStore.getState().viewThreads).toBe(false);
+  });
+
   it("keeps pending draft state isolated when workspace and standalone hosts reuse the same window id", async () => {
     await act(async () => {
       root.render(<SharedWindowInstanceHarness />);
@@ -738,7 +826,7 @@ describe("ProjectChat multi-surface state ownership", () => {
     ).toBeDefined();
   });
 
-  it("keeps threads and aux views local to the surface that toggles them", async () => {
+  it("keeps threads and aux views project-scoped across surfaces", async () => {
     const surfaceA = host.querySelector('[data-testid="surface-a"]');
     const surfaceB = host.querySelector('[data-testid="surface-b"]');
     if (!surfaceA || !surfaceB) {
@@ -758,7 +846,7 @@ describe("ProjectChat multi-surface state ownership", () => {
 
     expect(
       surfaceA.querySelector('[data-testid^="mock-project-chat-history"]'),
-    ).toBeNull();
+    ).not.toBeNull();
     expect(
       surfaceB.querySelector('[data-testid^="mock-project-chat-history"]'),
     ).not.toBeNull();
@@ -779,7 +867,7 @@ describe("ProjectChat multi-surface state ownership", () => {
     ).not.toBeNull();
     expect(
       surfaceB.querySelector('[data-testid="mock-project-chat-aux-skills"]'),
-    ).toBeNull();
+    ).not.toBeNull();
   });
 
   it("resets surface-local UI state when the same host is rebound to a new surface id", async () => {

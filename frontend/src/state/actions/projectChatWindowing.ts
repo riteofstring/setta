@@ -17,7 +17,10 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_set_project_chat_windowing_state } from "utils/generatedEndpoints";
+import {
+  route_set_project_chat_window_chat_id,
+  route_set_project_chat_windowing_state,
+} from "utils/generatedEndpoints";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -1082,6 +1085,9 @@ export function moveProjectChatWindowToCanvasSectionInState(
     mode = ChatWindowModeEnum.section_mode,
   }: MoveProjectChatWindowToCanvasSectionOptions,
 ): ProjectChatWindowingState {
+  if (mode === ChatWindowModeEnum.git_graph_mode) {
+    return state;
+  }
   const withCanvasPlacement = setProjectChatWindowPlacementInState(
     state,
     instanceId,
@@ -1288,9 +1294,16 @@ type ProjectChatWindowingStoreOptions = {
   nextGitPaneVisibleInstanceIds?: Array<string> | undefined;
 };
 
+type ProjectChatWindowingSend = (
+  projectConfigId: string,
+  frontendOpId: string,
+  nextProjectChatWindowing: ProjectChatWindowingState,
+) => Promise<ProjectChatWindowingTrackedResponse>;
+
 type ProjectChatWindowingMutationResult = {
   nextProjectChatWindowing: ProjectChatWindowingState;
   options?: ProjectChatWindowingStoreOptions;
+  send?: ProjectChatWindowingSend;
 };
 
 type ProjectChatWindowingMutation = (
@@ -1300,11 +1313,12 @@ type ProjectChatWindowingMutation = (
 type PendingProjectChatWindowingMutation = {
   mutation: ProjectChatWindowingMutation;
   opId: string;
+  send: ProjectChatWindowingSend;
 };
 
-type ProjectChatWindowingWriteResponse = Awaited<
-  ReturnType<typeof route_set_project_chat_windowing_state>
->;
+type ProjectChatWindowingWriteResponse =
+  | Awaited<ReturnType<typeof route_set_project_chat_windowing_state>>
+  | Awaited<ReturnType<typeof route_set_project_chat_window_chat_id>>;
 
 type SyntheticProjectChatWindowingWriteResponse = {
   data: ProjectChatWindowingState;
@@ -1435,6 +1449,18 @@ function buildProjectChatWindowingSnapshotForMutation(
   return nextProjectChatWindowing;
 }
 
+function sendProjectChatWindowingSnapshot(
+  projectConfigId: string,
+  frontendOpId: string,
+  nextProjectChatWindowing: ProjectChatWindowingState,
+): Promise<ProjectChatWindowingWriteResponse> {
+  return route_set_project_chat_windowing_state({
+    projectConfigId,
+    state: nextProjectChatWindowing,
+    frontendOpId,
+  });
+}
+
 function buildSyntheticProjectChatWindowingWriteResponse(
   projectConfigId: string,
 ): SyntheticProjectChatWindowingWriteResponse {
@@ -1466,26 +1492,28 @@ function createProjectChatWindowingWriteBarrier(
 function enqueueSerializedProjectChatWindowingWrite(
   projectConfigId: string,
   opId: string,
-  mutation: ProjectChatWindowingMutation,
+  pendingMutation: PendingProjectChatWindowingMutation,
 ): Promise<ProjectChatWindowingTrackedResponse> {
-  addPendingProjectChatWindowingMutation(projectConfigId, {
-    opId,
-    mutation,
-  });
+  addPendingProjectChatWindowingMutation(projectConfigId, pendingMutation);
   const previousBarrier =
     projectChatWindowingWriteBarrierByProjectId.get(projectConfigId) ??
     Promise.resolve();
   const request = previousBarrier.then(async () => {
+    const pendingMutations =
+      getPendingProjectChatWindowingMutations(projectConfigId);
+    const targetMutation = pendingMutations.find(
+      (candidate) => candidate.opId === opId,
+    );
     const nextProjectChatWindowing =
       buildProjectChatWindowingSnapshotForMutation(projectConfigId, opId);
-    if (!nextProjectChatWindowing) {
+    if (!nextProjectChatWindowing || !targetMutation) {
       return buildSyntheticProjectChatWindowingWriteResponse(projectConfigId);
     }
-    const response = await route_set_project_chat_windowing_state({
+    const response = await targetMutation.send(
       projectConfigId,
-      state: nextProjectChatWindowing,
-      frontendOpId: opId,
-    });
+      opId,
+      nextProjectChatWindowing,
+    );
     if (res200(response)) {
       recordAuthoritativeProjectChatWindowingState(
         projectConfigId,
@@ -1571,9 +1599,11 @@ function dispatchProjectChatWindowingMutation(
   const currentProjectState = useProjectState.getState();
   const previousProjectChatWindowing = currentProjectState.projectChatWindowing;
   const previousActiveChatId = useAIStore.getState().activeChatId;
-  const { nextProjectChatWindowing, options: initialOptions } = mutation(
-    getProjectChatWindowingStateFromStore(currentProjectState),
-  );
+  const {
+    nextProjectChatWindowing,
+    options: initialOptions,
+    send = sendProjectChatWindowingSnapshot,
+  } = mutation(getProjectChatWindowingStateFromStore(currentProjectState));
   const previousGitPaneVisibleInstanceIds =
     !projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID
       ? []
@@ -1627,7 +1657,11 @@ function dispatchProjectChatWindowingMutation(
       enqueueSerializedProjectChatWindowingWrite(
         projectConfigId,
         frontendOpId,
-        mutation,
+        {
+          mutation,
+          opId: frontendOpId,
+          send,
+        },
       ),
   });
 }
@@ -1884,6 +1918,13 @@ export function setProjectChatWindowChatId(
       nextProjectChatWindowing.instancesById[instanceId] ?? null;
     return {
       nextProjectChatWindowing,
+      send: (projectConfigId, frontendOpId) =>
+        route_set_project_chat_window_chat_id({
+          projectConfigId,
+          instanceId,
+          chatId: normalizedChatId,
+          frontendOpId,
+        }),
       options: shouldSyncActiveProjectChatId(updatedWindow)
         ? {
             syncActiveChatId: updatedWindow?.chatId ?? undefined,
@@ -1903,6 +1944,9 @@ export async function bootProjectChatWindowToCanvasSection(
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const currentInstance = currentWindowing.instancesById[instanceId];
   if (!currentInstance) {
+    return null;
+  }
+  if (currentInstance.mode === ChatWindowModeEnum.git_graph_mode) {
     return null;
   }
 

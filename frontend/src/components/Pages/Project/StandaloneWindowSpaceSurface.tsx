@@ -301,10 +301,7 @@ export function mergeHydratedStandaloneWindows(
     const nextWindow: StandaloneWindowSpaceWindow = ownerChanged
       ? nextHydratedWindow
       : {
-          ...currentWindow,
-          surfaceKind: nextHydratedWindow.surfaceKind,
-          sectionIdOrNull: nextHydratedWindow.sectionIdOrNull,
-          mode: nextHydratedWindow.mode,
+          ...nextHydratedWindow,
           title: nextHydratedWindow.title,
           chatId:
             previousHydratedWindow &&
@@ -317,6 +314,11 @@ export function mergeHydratedStandaloneWindows(
               previousHydratedWindow.embeddedGitPaneVisible
               ? currentWindow.embeddedGitPaneVisible
               : nextHydratedWindow.embeddedGitPaneVisible,
+          zIndex:
+            previousHydratedWindow &&
+            currentWindow.zIndex !== previousHydratedWindow.zIndex
+              ? currentWindow.zIndex
+              : nextHydratedWindow.zIndex,
           bounds:
             previousHydratedWindow &&
             !areBoundsEqual(currentWindow.bounds, previousHydratedWindow.bounds)

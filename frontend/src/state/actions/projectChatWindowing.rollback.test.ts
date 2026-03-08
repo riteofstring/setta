@@ -16,6 +16,7 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeSetProjectChatWindowingStateMock = vi.fn();
+const routeSetProjectChatWindowChatIdMock = vi.fn();
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: {
     getState: () => ({
@@ -30,6 +31,8 @@ vi.mock("forks/xyflow/core/store", () => ({
 vi.mock("utils/generatedEndpoints", () => ({
   route_set_project_chat_windowing_state: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
+  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+    routeSetProjectChatWindowChatIdMock(...args),
 }));
 
 vi.mock("./sections/createSections", () => ({
@@ -56,6 +59,7 @@ describe("project chat windowing rollback", () => {
   beforeEach(() => {
     resetProjectStores();
     routeSetProjectChatWindowingStateMock.mockReset();
+    routeSetProjectChatWindowChatIdMock.mockReset();
     usePendingOperations.setState({ pending: [] });
     useAIStore.setState({ activeChatId: undefined });
     routeSetProjectChatWindowingStateMock.mockImplementation(
@@ -63,6 +67,32 @@ describe("project chat windowing rollback", () => {
         state: ReturnType<typeof createProjectChatWindowingState>;
       }) => ({
         data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    routeSetProjectChatWindowChatIdMock.mockImplementation(
+      async (request: { chatId: string | null }) => ({
+        data: createProjectChatWindowingState({
+          instancesById: {
+            "project-chat-window-1": createProjectChatWindowInstance({
+              instanceId: "project-chat-window-1",
+              mode: ChatWindowModeEnum.project_ai_mode,
+              sectionIdOrNull: null,
+              chatId: request.chatId,
+              zIndex: 1,
+            }),
+            "project-chat-window-2": createProjectChatWindowInstance({
+              instanceId: "project-chat-window-2",
+              mode: ChatWindowModeEnum.project_ai_mode,
+              sectionIdOrNull: null,
+              chatId: "chat-peer",
+              zIndex: 2,
+            }),
+          },
+          order: ["project-chat-window-1", "project-chat-window-2"],
+          nextInstanceNumber: 3,
+        }),
         status: 200,
         hasResponse: true,
       }),
@@ -116,7 +146,7 @@ describe("project chat windowing rollback", () => {
 
   it("rolls back chat assignment and active chat selection on a handled rejection", async () => {
     useAIStore.setState({ activeChatId: "chat-before" });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+    routeSetProjectChatWindowChatIdMock.mockResolvedValue({
       data: { detail: "Forbidden" },
       status: 403,
       hasResponse: true,
@@ -132,6 +162,7 @@ describe("project chat windowing rollback", () => {
     ).toBe("chat-before");
     expect(useAIStore.getState().activeChatId).toBe("chat-before");
     expect(usePendingOperations.getState().pending).toEqual([]);
+    expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
 
   it("replays a later accepted chat-id update after an earlier focus write fails out of order", async () => {
@@ -159,6 +190,32 @@ describe("project chat windowing rollback", () => {
           hasResponse: true,
         }),
       );
+    routeSetProjectChatWindowChatIdMock.mockImplementation(
+      async (request: { chatId: string | null }) => ({
+        data: createProjectChatWindowingState({
+          instancesById: {
+            "project-chat-window-1": createProjectChatWindowInstance({
+              instanceId: "project-chat-window-1",
+              mode: ChatWindowModeEnum.project_ai_mode,
+              sectionIdOrNull: null,
+              chatId: request.chatId,
+              zIndex: 1,
+            }),
+            "project-chat-window-2": createProjectChatWindowInstance({
+              instanceId: "project-chat-window-2",
+              mode: ChatWindowModeEnum.project_ai_mode,
+              sectionIdOrNull: null,
+              chatId: "chat-peer",
+              zIndex: 2,
+            }),
+          },
+          order: ["project-chat-window-1", "project-chat-window-2"],
+          nextInstanceNumber: 3,
+        }),
+        status: 200,
+        hasResponse: true,
+      }),
+    );
     useAIStore.setState({ activeChatId: "chat-peer" });
 
     focusProjectChatWindow("project-chat-window-1", 1234);
@@ -166,6 +223,7 @@ describe("project chat windowing rollback", () => {
     await flushOptimisticMutation();
 
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
+    expect(routeSetProjectChatWindowChatIdMock).not.toHaveBeenCalled();
 
     resolveFocusWrite?.({
       data: { detail: "Forbidden" },
@@ -182,6 +240,7 @@ describe("project chat windowing rollback", () => {
     expect(useAIStore.getState().activeChatId).toBe("chat-after");
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+    expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not roll back focus into a different project after navigation", async () => {

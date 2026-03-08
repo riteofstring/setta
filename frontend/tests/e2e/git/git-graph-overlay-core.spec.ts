@@ -208,9 +208,7 @@ test("git graph follows the overview pane until it leaves the tracked default st
   }
 });
 
-test("git graph can move into a canvas section and back out as a window", async ({
-  page,
-}) => {
+test("git graph does not expose a canvas move action", async ({ page }) => {
   const workspaceRoot = getWorkspaceRootOrThrow();
   const fixture = await seedGitOverlayFixture(workspaceRoot, {
     historyCommitCount: 8,
@@ -225,23 +223,12 @@ test("git graph can move into a canvas section and back out as a window", async 
 
     const maximizedWindow = page.getByTestId("project-chat-maximized-window");
     await expect(maximizedWindow).toBeVisible();
-    await maximizedWindow
-      .getByTestId("project-chat-window-show-in-canvas")
-      .click();
-
-    const canvasGraph = page.getByPlaceholder(/Filter commits/);
-    await expect(canvasGraph).toBeVisible();
-    await expect(page.getByTestId("project-chat-maximized-window")).toHaveCount(
-      0,
-    );
-
-    await canvasGraph
-      .locator("xpath=ancestor::section[@data-section-id][1]")
-      .getByTestId("section-window-toggle")
-      .click();
-    const floatingWindow = page.getByTestId("project-chat-floating-window");
-    await expect(floatingWindow).toBeVisible();
-    await expect(floatingWindow.getByTestId("git-graph-overlay")).toBeVisible();
+    await expect(
+      maximizedWindow.getByTestId("project-chat-window-show-in-canvas"),
+    ).toHaveCount(0);
+    await expect(
+      maximizedWindow.getByTestId("git-graph-overlay"),
+    ).toBeVisible();
   } finally {
     await cleanupGitOverlayFixture(fixture);
   }

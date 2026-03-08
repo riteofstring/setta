@@ -10,6 +10,7 @@ from setta.project_state.project_manager_types import (
     CreateWindowSpaceRequest,
     SaveAsNewProjectConfigRequest,
     SetChatSectionSettingsRequest,
+    SetProjectChatWindowChatIdRequest,
     SetProjectChatWindowingStateRequest,
 )
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
@@ -230,7 +231,9 @@ async def test_create_project_config_seeds_authoritative_windowing() -> None:
 
         await manager.create_project_config("bg-blue-500/60 dark:bg-blue-600/30")
 
-        new_ids = set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+        new_ids = (
+            set(manager.project_state_backend.projectConfigs.keys()) - existing_ids
+        )
         if len(new_ids) != 1:
             raise AssertionError("Expected exactly one new project config.")
         new_project_config_id = next(iter(new_ids))
@@ -374,6 +377,54 @@ async def test_set_project_chat_windowing_state_returns_backend_normalized_state
             "project-chat-window-2",
         }
         assert "project-chat-window-3" not in authoritative.instancesById
+
+
+@pytest.mark.asyncio
+async def test_set_project_chat_window_chat_id_returns_updated_windowing_state() -> (
+    None
+):
+    # Thread binding writes should update the authoritative windowing response.
+    async with real_project_manager() as fixture:
+        manager = fixture.manager
+        project_config_id = manager.project_state_backend.defaultProjectConfigId
+        if project_config_id is None:
+            raise AssertionError("Expected a default project config id.")
+
+        initial = await manager.set_project_chat_windowing_state(
+            SetProjectChatWindowingStateRequest(
+                projectConfigId=project_config_id,
+                state=ProjectChatWindowingState(
+                    instancesById={
+                        "project-chat-window-1": ProjectChatWindowInstance(
+                            instanceId="project-chat-window-1",
+                            placement=ChatWindowPlacement.floating,
+                            mode=ChatWindowMode.project_ai_mode,
+                            chatId=None,
+                            zIndex=1,
+                            bounds=ChatWindowBounds(
+                                x=48,
+                                y=64,
+                                width=520,
+                                height=360,
+                            ),
+                        ),
+                    },
+                    order=["project-chat-window-1"],
+                    nextInstanceNumber=2,
+                ),
+            )
+        )
+        assert initial.instancesById["project-chat-window-1"].chatId is None
+
+        updated = await manager.set_project_chat_window_chat_id(
+            SetProjectChatWindowChatIdRequest(
+                projectConfigId=project_config_id,
+                instanceId="project-chat-window-1",
+                chatId="chat-after",
+            )
+        )
+
+        assert updated.instancesById["project-chat-window-1"].chatId == "chat-after"
 
 
 @pytest.mark.asyncio

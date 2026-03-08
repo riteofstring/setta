@@ -124,6 +124,12 @@ type PaneTrackedRect = {
   height: number;
 };
 
+function canMoveProjectChatWindowToCanvas(
+  mode: ResolvedWindowPill["mode"],
+): boolean {
+  return mode !== ChatWindowModeEnum.git_graph_mode;
+}
+
 type ActiveSingleDockResize = {
   pointerId: number;
   instanceId: string;
@@ -3846,20 +3852,26 @@ export function ProjectChatBottomDock() {
                                     </button>
                                   </>
                                 ) : null}
-                                <button
-                                  type="button"
-                                  className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                                  onClick={() => {
-                                    void bootProjectChatWindowToCanvasSection(
-                                      pill.instanceId,
-                                    );
-                                  }}
-                                  aria-label={`Show ${pill.title} in canvas`}
-                                  data-testid="project-chat-window-show-in-canvas"
-                                  data-chat-window-instance-id={pill.instanceId}
-                                >
-                                  <MdFlipToFront size={12} />
-                                </button>
+                                {canMoveProjectChatWindowToCanvas(pill.mode) ? (
+                                  <button
+                                    type="button"
+                                    className={
+                                      SECTION_WINDOW_ACTION_BUTTON_CLASS
+                                    }
+                                    onClick={() => {
+                                      void bootProjectChatWindowToCanvasSection(
+                                        pill.instanceId,
+                                      );
+                                    }}
+                                    aria-label={`Show ${pill.title} in canvas`}
+                                    data-testid="project-chat-window-show-in-canvas"
+                                    data-chat-window-instance-id={
+                                      pill.instanceId
+                                    }
+                                  >
+                                    <MdFlipToFront size={12} />
+                                  </button>
+                                ) : null}
                                 <button
                                   type="button"
                                   className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
@@ -3964,18 +3976,23 @@ export function ProjectChatBottomDock() {
                                     },
                                   ]
                                 : []),
-                              {
-                                key: "show_in_canvas",
-                                label: `Show ${pill.title} in canvas`,
-                                testId: "project-chat-window-show-in-canvas",
-                                instanceId: pill.instanceId,
-                                icon: <MdFlipToFront size={12} />,
-                                onClick: () => {
-                                  void bootProjectChatWindowToCanvasSection(
-                                    pill.instanceId,
-                                  );
-                                },
-                              },
+                              ...(canMoveProjectChatWindowToCanvas(pill.mode)
+                                ? [
+                                    {
+                                      key: "show_in_canvas",
+                                      label: `Show ${pill.title} in canvas`,
+                                      testId:
+                                        "project-chat-window-show-in-canvas",
+                                      instanceId: pill.instanceId,
+                                      icon: <MdFlipToFront size={12} />,
+                                      onClick: () => {
+                                        void bootProjectChatWindowToCanvasSection(
+                                          pill.instanceId,
+                                        );
+                                      },
+                                    },
+                                  ]
+                                : []),
                               {
                                 key: "undock",
                                 label: `Undock ${pill.title}`,
@@ -4263,20 +4280,22 @@ export function ProjectChatBottomDock() {
                       headerActions={
                         canEditLayout ? (
                           <>
-                            <button
-                              type="button"
-                              className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                              onClick={() => {
-                                void bootProjectChatWindowToCanvasSection(
-                                  pill.instanceId,
-                                );
-                              }}
-                              aria-label={`Show ${pill.title} in canvas`}
-                              data-testid="project-chat-window-show-in-canvas"
-                              data-chat-window-instance-id={pill.instanceId}
-                            >
-                              <MdFlipToFront size={12} />
-                            </button>
+                            {canMoveProjectChatWindowToCanvas(pill.mode) ? (
+                              <button
+                                type="button"
+                                className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                                onClick={() => {
+                                  void bootProjectChatWindowToCanvasSection(
+                                    pill.instanceId,
+                                  );
+                                }}
+                                aria-label={`Show ${pill.title} in canvas`}
+                                data-testid="project-chat-window-show-in-canvas"
+                                data-chat-window-instance-id={pill.instanceId}
+                              >
+                                <MdFlipToFront size={12} />
+                              </button>
+                            ) : null}
                             <button
                               type="button"
                               className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
@@ -4377,18 +4396,22 @@ export function ProjectChatBottomDock() {
                       onTitlePointerMove={handleFloatingDragPointerMove}
                       onTitlePointerUp={handleFloatingDragPointerUp}
                       actions={[
-                        {
-                          key: "show_in_canvas",
-                          label: `Show ${pill.title} in canvas`,
-                          testId: "project-chat-window-show-in-canvas",
-                          instanceId: pill.instanceId,
-                          icon: <MdFlipToFront size={12} />,
-                          onClick: () => {
-                            void bootProjectChatWindowToCanvasSection(
-                              pill.instanceId,
-                            );
-                          },
-                        },
+                        ...(canMoveProjectChatWindowToCanvas(pill.mode)
+                          ? [
+                              {
+                                key: "show_in_canvas",
+                                label: `Show ${pill.title} in canvas`,
+                                testId: "project-chat-window-show-in-canvas",
+                                instanceId: pill.instanceId,
+                                icon: <MdFlipToFront size={12} />,
+                                onClick: () => {
+                                  void bootProjectChatWindowToCanvasSection(
+                                    pill.instanceId,
+                                  );
+                                },
+                              },
+                            ]
+                          : []),
                         {
                           key: "dock",
                           label: `Dock ${pill.title}`,
@@ -4560,22 +4583,26 @@ export function ProjectChatBottomDock() {
                 headerActions={
                   canEditLayout ? (
                     <>
-                      <button
-                        type="button"
-                        className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
-                        onClick={() => {
-                          void bootProjectChatWindowToCanvasSection(
-                            openMaximizedWindow.instanceId,
-                          );
-                        }}
-                        aria-label={`Show ${openMaximizedWindow.title} in canvas`}
-                        data-testid="project-chat-window-show-in-canvas"
-                        data-chat-window-instance-id={
-                          openMaximizedWindow.instanceId
-                        }
-                      >
-                        <MdFlipToFront size={12} />
-                      </button>
+                      {canMoveProjectChatWindowToCanvas(
+                        openMaximizedWindow.mode,
+                      ) ? (
+                        <button
+                          type="button"
+                          className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
+                          onClick={() => {
+                            void bootProjectChatWindowToCanvasSection(
+                              openMaximizedWindow.instanceId,
+                            );
+                          }}
+                          aria-label={`Show ${openMaximizedWindow.title} in canvas`}
+                          data-testid="project-chat-window-show-in-canvas"
+                          data-chat-window-instance-id={
+                            openMaximizedWindow.instanceId
+                          }
+                        >
+                          <MdFlipToFront size={12} />
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className={SECTION_WINDOW_ACTION_BUTTON_CLASS}
@@ -4657,18 +4684,22 @@ export function ProjectChatBottomDock() {
                       }
                 }
                 actions={[
-                  {
-                    key: "show_in_canvas",
-                    label: `Show ${openMaximizedWindow.title} in canvas`,
-                    testId: "project-chat-window-show-in-canvas",
-                    instanceId: openMaximizedWindow.instanceId,
-                    icon: <MdFlipToFront size={12} />,
-                    onClick: () => {
-                      void bootProjectChatWindowToCanvasSection(
-                        openMaximizedWindow.instanceId,
-                      );
-                    },
-                  },
+                  ...(canMoveProjectChatWindowToCanvas(openMaximizedWindow.mode)
+                    ? [
+                        {
+                          key: "show_in_canvas",
+                          label: `Show ${openMaximizedWindow.title} in canvas`,
+                          testId: "project-chat-window-show-in-canvas",
+                          instanceId: openMaximizedWindow.instanceId,
+                          icon: <MdFlipToFront size={12} />,
+                          onClick: () => {
+                            void bootProjectChatWindowToCanvasSection(
+                              openMaximizedWindow.instanceId,
+                            );
+                          },
+                        },
+                      ]
+                    : []),
                   {
                     key: "restore",
                     label: `Restore ${openMaximizedWindow.title}`,

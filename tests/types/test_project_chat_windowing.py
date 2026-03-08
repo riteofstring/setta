@@ -3,6 +3,7 @@ import pytest
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import (
     create_top_level_section,
+    set_project_chat_window_chat_id,
     set_project_chat_windowing_state,
 )
 from setta.types.project_config import Position, ProjectConfig
@@ -43,6 +44,45 @@ def test_set_project_chat_windowing_state_replaces_runtime_state() -> None:
     }
     assert project_state.projectChatWindowing.order == [instance.instanceId]
     assert project_state.projectChatWindowing.nextInstanceNumber == 2
+
+
+def test_set_project_chat_window_chat_id_updates_the_target_window() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    instance = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        chatId=None,
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={instance.instanceId: instance},
+        order=[instance.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    set_project_chat_window_chat_id(
+        project_state,
+        instance.instanceId,
+        "chat-after",
+    )
+
+    assert (
+        project_state.projectChatWindowing.instancesById[instance.instanceId].chatId
+        == "chat-after"
+    )
+
+
+def test_set_project_chat_window_chat_id_requires_an_existing_window() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+
+    with pytest.raises(
+        KeyError,
+        match="Project chat window project-chat-window-1 not found.",
+    ):
+        set_project_chat_window_chat_id(
+            project_state,
+            "project-chat-window-1",
+            "chat-after",
+        )
 
 
 def test_project_state_normalizes_project_chat_windowing_for_missing_sections() -> None:

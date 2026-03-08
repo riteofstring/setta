@@ -3328,7 +3328,19 @@ test.describe.serial("standalone project surface routes", () => {
       await expect(standaloneProjectChatWindow).not.toContainText(
         "Window chat B marker",
       );
-      await expect(standaloneGitToggle).toHaveAttribute("aria-pressed", "false");
+      await expect(standaloneGitToggle).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+      const initialProjectChatZIndex =
+        await standaloneProjectChatWindow.evaluate(
+          (element) => getComputedStyle(element).zIndex,
+        );
+      const initialGitZIndex = await standaloneGitWindow.evaluate(
+        (element) => getComputedStyle(element).zIndex,
+      );
+      expect(initialProjectChatZIndex).not.toBe("7");
+      expect(initialGitZIndex).not.toBe("3");
 
       await standalonePage.evaluate(
         async ({
@@ -3353,7 +3365,8 @@ test.describe.serial("standalone project surface routes", () => {
               throw new Error("Missing saved standalone chat window.");
             }
 
-            const savedGitWindow = savedWindowSpace.windowsById[nextGitWindowId];
+            const savedGitWindow =
+              savedWindowSpace.windowsById[nextGitWindowId];
             if (!savedGitWindow) {
               throw new Error("Missing saved standalone git window.");
             }
@@ -3366,10 +3379,12 @@ test.describe.serial("standalone project surface routes", () => {
                   [nextProjectChatWindowId]: {
                     ...savedProjectChatWindow,
                     chatId: "window-chat-b",
+                    zIndex: 7,
                   },
                   [nextGitWindowId]: {
                     ...savedGitWindow,
                     embeddedGitPaneVisible: true,
+                    zIndex: 3,
                   },
                 },
               },
@@ -3390,6 +3405,8 @@ test.describe.serial("standalone project surface routes", () => {
         "Window chat A marker",
       );
       await expect(standaloneGitToggle).toHaveAttribute("aria-pressed", "true");
+      await expect(standaloneProjectChatWindow).toHaveCSS("z-index", "7");
+      await expect(standaloneGitWindow).toHaveCSS("z-index", "3");
     } finally {
       await standalonePage.close();
       await page.context().unroute("**/api/getAgentRuns");

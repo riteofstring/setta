@@ -1,3 +1,46 @@
+## 2026-03-11 08:22:43 PDT
+
+Implemented the remaining current review fixes for MCP run-start reservation scoping, project-chat thread rebinding under share/deployment permissions, standalone window-space same-layout hydration, git-graph canvas admission, and project-chat surface state authority. Verified the affected paths with backend pytest, frontend Vitest, focused Playwright, and live CDP checks.
+
+Request-scoped MCP run-start authorization:
+- Replaced the single pending MCP run-start reservation per session with request-scoped pending authorization keyed by `request_id`.
+- `authorize_pending_mcp_run_start(...)`, `commit_pending_mcp_run_start(...)`, `rollback_pending_mcp_run_start(...)`, and pending-state lookup now all operate on the exact request that reserved the slot.
+- Concurrent `startsRun` MCP calls sharing one session can no longer commit or roll back each other's reservation state.
+
+Project-chat thread rebinding and permission separation:
+- Added a dedicated backend/frontend route pair for project-chat window `chatId` rebinding instead of sending thread switches through the full layout snapshot mutation.
+- The new `setProjectChatWindowChatId` path is guarded by `allowLLM`, while full layout mutations remain guarded by layout-edit permissions.
+- Refactored the frontend project-chat windowing mutation queue so each optimistic mutation carries its own send function, which keeps the chat-id path and the layout path explicit instead of branching deep inside one generic persistence routine.
+
+Standalone hydration and git-graph canvas invariants:
+- Simplified same-layout standalone window-space hydration so it starts from the freshly hydrated authoritative window and preserves local fields only when the local standalone tab actually diverged from the previously hydrated value.
+- Added explicit `zIndex` merge behavior: saved z-order wins unless the standalone tab itself restacked that window locally.
+- Prevented git-graph windows from entering canvas state in both the state helpers and the dock/maximized UI affordances. Git graph no longer exposes `Show in canvas`, and internal helpers now return early instead of creating an unsupported canvas representation.
+
+Project-chat persisted UI state cleanup:
+- Removed local shadow state for aux-view and thread-visibility preferences in `ProjectChat`.
+- `projectChatAuxView`, thread visibility, and large-width thread-closure preference now read from and write back to the existing stores directly, so remounts and multi-surface views use one authoritative state source.
+- This removes the stale remount behavior where toggles appeared to work locally but snapped back to older persisted values later.
+
+UX before vs after:
+- Before: two concurrent MCP tool invocations in one session could interfere with the same pending run reservation. After: each invocation owns its own reservation lifecycle.
+- Before: read-only/share deployments could allow chat access but still route thread switches through a layout-protected endpoint, causing chat rebinding to fail or revert. After: thread switching follows chat permission, while drag/resize/layout mutations remain blocked separately.
+- Before: already-open standalone window-space tabs could ignore updated saved z-order during same-layout hydration. After: saved stacking changes appear unless the local standalone tab intentionally diverged.
+- Before: git graph surfaced a canvas action that the canvas renderer did not support. After: the unsupported action is not representable in the UI or helper path.
+- Before: project-chat aux/thread UI state had split local-vs-persisted authority and could restore stale values on remount. After: remount and reload behavior matches the stored state.
+
+DX before vs after:
+- Before: MCP run-start bookkeeping mixed session scope and request scope, which made concurrency reasoning brittle. After: pending authorization data matches the actual request lifecycle.
+- Before: project-chat thread rebinding was entangled with layout persistence. After: chat-intent mutations and layout-intent mutations are separate routes with separate permission boundaries.
+- Before: standalone hydration rules were partial and field-specific in a way that obscured why saved values sometimes lost to local ones. After: the merge rule is explicit: hydrate first, then preserve only true local divergence.
+- Before: `ProjectChat` duplicated persisted state locally, which made ownership unclear in tests and in code. After: state authority is explicit and easier to follow.
+
+Verification:
+- `source activate.sh && pytest tests/routers/test_share_policy_routes.py tests/routers/test_mcp_tools_call_runtime_policy.py tests/project_state/test_project_chat_windowing_persistence.py tests/mcp/test_run_start_authorization.py tests/types/test_project_chat_windowing.py` passed: 66 tests.
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/projectChatWindowing.test.ts src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx` passed: 75 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts frontend/tests/e2e/git/git-graph-overlay-core.spec.ts frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "read-only deployments keep visible project chat windows focusable without layout controls|git graph does not expose a canvas move action|standalone window spaces adopt same-layout saved chat and git updates without navigation"` passed: 3 tests.
+- CDP verification on the running dev app confirmed that the live git-graph maximized window no longer exposes a canvas action and that a live standalone `/windowspace/:slug` route rendered saved windows with the expected saved `z-index` ordering.
+
 ## 2026-03-11 01:33:01 PDT
 
 Implemented the remaining consolidated fixes from the current top-level reviews for transport-independent MCP runtime policy, project-state summary filtering, standalone saved window-space rehydration, and dead project-chat API cleanup, then verified the affected paths with backend pytest, Vitest, Playwright, and a live CDP browser check.

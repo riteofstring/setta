@@ -900,6 +900,96 @@ describe("StandaloneWindowSpaceSurface", () => {
     });
   });
 
+  it("adopts the saved z-index when the standalone window did not diverge locally", () => {
+    const previousHydratedWindowsById = {
+      "chat-window": {
+        instanceId: "chat-window",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.project_ai_mode,
+        title: "Research Chat",
+        chatId: "chat-a",
+        embeddedGitPaneVisible: false,
+        zIndex: 1,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 900,
+          height: 520,
+        },
+      },
+    };
+    const currentWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+      },
+    };
+    const nextHydratedWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        zIndex: 7,
+      },
+    };
+
+    expect(
+      mergeHydratedStandaloneWindows(
+        currentWindowsById,
+        previousHydratedWindowsById,
+        nextHydratedWindowsById,
+      ),
+    ).toEqual({
+      "chat-window": {
+        ...nextHydratedWindowsById["chat-window"],
+      },
+    });
+  });
+
+  it("preserves a locally diverged z-index during same-layout hydration", () => {
+    const previousHydratedWindowsById = {
+      "chat-window": {
+        instanceId: "chat-window",
+        surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+        sectionIdOrNull: null,
+        mode: ChatWindowModeEnum.project_ai_mode,
+        title: "Research Chat",
+        chatId: "chat-a",
+        embeddedGitPaneVisible: false,
+        zIndex: 1,
+        bounds: {
+          x: 0,
+          y: 0,
+          width: 900,
+          height: 520,
+        },
+      },
+    };
+    const currentWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        zIndex: 9,
+      },
+    };
+    const nextHydratedWindowsById = {
+      "chat-window": {
+        ...previousHydratedWindowsById["chat-window"],
+        zIndex: 3,
+      },
+    };
+
+    expect(
+      mergeHydratedStandaloneWindows(
+        currentWindowsById,
+        previousHydratedWindowsById,
+        nextHydratedWindowsById,
+      ),
+    ).toEqual({
+      "chat-window": {
+        ...nextHydratedWindowsById["chat-window"],
+        zIndex: 9,
+      },
+    });
+  });
+
   it("resets owner-local chat and git state when the same window id is rebound", () => {
     const previousHydratedWindowsById = {
       win: {

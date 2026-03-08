@@ -9,10 +9,13 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const routeSetProjectChatWindowingStateMock = vi.fn();
+const routeSetProjectChatWindowChatIdMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_set_project_chat_windowing_state: (...args: unknown[]) =>
     routeSetProjectChatWindowingStateMock(...args),
+  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+    routeSetProjectChatWindowChatIdMock(...args),
 }));
 
 import {
@@ -28,6 +31,7 @@ describe("project chat windowing permissions", () => {
   beforeEach(() => {
     resetProjectStores();
     routeSetProjectChatWindowingStateMock.mockReset();
+    routeSetProjectChatWindowChatIdMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockImplementation(
       async (request) => ({
         data: request.state,
@@ -35,6 +39,11 @@ describe("project chat windowing permissions", () => {
         hasResponse: true,
       }),
     );
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async () => ({
+      data: useProjectState.getState().projectChatWindowing,
+      status: 200,
+      hasResponse: true,
+    }));
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -79,8 +88,8 @@ describe("project chat windowing permissions", () => {
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
 
-  it("rolls back project chat thread binding writes when read-only deployments block layout edits", async () => {
-    // Project chat windowing persists through the shared layout endpoint, so denied writes must roll back cleanly.
+  it("allows project chat thread binding writes when LLM access is allowed but layout edits are blocked", async () => {
+    // Thread selection should remain usable even when layout controls are removed.
     useShareSession.setState({
       isDeploymentMode: true,
       shareSessionId: "share-session-1",
@@ -110,11 +119,21 @@ describe("project chat windowing permissions", () => {
         },
       }),
     });
-    routeSetProjectChatWindowingStateMock.mockResolvedValue({
-      data: { detail: "Deployment policy disallows layout changes." },
-      status: 403,
+    routeSetProjectChatWindowChatIdMock.mockImplementation(async (request) => ({
+      data: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstanceModel({
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.bottom_docked,
+            chatId: request.chatId,
+            isMinimized: false,
+          }),
+        },
+      }),
+      status: 200,
       hasResponse: true,
-    });
+    }));
 
     setProjectChatWindowChatId("project-chat-window-1", "chat-after");
     await flushPendingProjectChatWindowingWrites();
@@ -123,17 +142,13 @@ describe("project chat windowing permissions", () => {
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
       ]?.chatId,
-    ).toBeNull();
-    expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledWith(
+    ).toBe("chat-after");
+    expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
+    expect(routeSetProjectChatWindowChatIdMock).toHaveBeenCalledWith(
       expect.objectContaining({
         projectConfigId: "project-id",
-        state: expect.objectContaining({
-          instancesById: expect.objectContaining({
-            "project-chat-window-1": expect.objectContaining({
-              chatId: "chat-after",
-            }),
-          }),
-        }),
+        instanceId: "project-chat-window-1",
+        chatId: "chat-after",
       }),
     );
   });

@@ -1187,6 +1187,11 @@ class SetProjectChatWindowingStateRequest(ProjectManagerRequestWithProjectConfig
     state: ProjectChatWindowingState
 
 
+class SetProjectChatWindowChatIdRequest(ProjectManagerRequestWithProjectConfig):
+    instanceId: ID
+    chatId: ID | None
+
+
 class GetChatSectionChatIdRequest(ProjectManagerRequestWithSection):
     pass
 

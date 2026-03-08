@@ -17,6 +17,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoistedProjectChatWindowing = vi.hoisted(() => ({
   createTopLevelSectionWithResult: vi.fn(),
+  routeSetProjectChatWindowingState: vi.fn(),
+  routeSetProjectChatWindowChatId: vi.fn(),
 }));
 
 vi.mock("forks/xyflow/core/store", () => ({
@@ -33,6 +35,13 @@ vi.mock("forks/xyflow/core/store", () => ({
 vi.mock("./sections/createSections", () => ({
   createTopLevelSectionWithResult:
     hoistedProjectChatWindowing.createTopLevelSectionWithResult,
+}));
+
+vi.mock("utils/generatedEndpoints", () => ({
+  route_set_project_chat_windowing_state: (...args: unknown[]) =>
+    hoistedProjectChatWindowing.routeSetProjectChatWindowingState(...args),
+  route_set_project_chat_window_chat_id: (...args: unknown[]) =>
+    hoistedProjectChatWindowing.routeSetProjectChatWindowChatId(...args),
 }));
 
 import {
@@ -75,6 +84,24 @@ describe("project chat windowing reducer helpers", () => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
     hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockReset();
+    hoistedProjectChatWindowing.routeSetProjectChatWindowingState.mockReset();
+    hoistedProjectChatWindowing.routeSetProjectChatWindowingState.mockImplementation(
+      async (request: {
+        state: ReturnType<typeof createProjectChatWindowingState>;
+      }) => ({
+        data: request.state,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    hoistedProjectChatWindowing.routeSetProjectChatWindowChatId.mockReset();
+    hoistedProjectChatWindowing.routeSetProjectChatWindowChatId.mockImplementation(
+      async () => ({
+        data: useProjectState.getState().projectChatWindowing,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
   });
 
   it("creates an open bottom-docked chat window instance by default", () => {
@@ -710,7 +737,7 @@ describe("project chat windowing reducer helpers", () => {
     expect(updated.lastFocusedAt).toBe(6789);
   });
 
-  it("moves a git graph window to canvas without changing it away from git-graph mode", () => {
+  it("keeps git graph windows out of canvas state", () => {
     const target = createProjectChatWindowInstance({
       instanceId: "chat-window-a",
       placement: ChatWindowPlacementEnum.maximized,
@@ -741,17 +768,8 @@ describe("project chat windowing reducer helpers", () => {
         mode: ChatWindowModeEnum.git_graph_mode,
       },
     );
-    const updated = next.instancesById[target.instanceId];
-    if (!updated) {
-      throw new Error("Expected updated git graph canvas-section instance.");
-    }
-    expect(updated.placement).toBe(ChatWindowPlacementEnum.canvas_section);
-    expect(updated.sectionIdOrNull).toBe("section-1");
-    expect(updated.mode).toBe(ChatWindowModeEnum.git_graph_mode);
-    expect(updated.isClosed).toBe(false);
-    expect(updated.isMinimized).toBe(false);
-    expect(updated.zIndex).toBe(4);
-    expect(updated.lastFocusedAt).toBe(2468);
+
+    expect(next).toBe(initial);
   });
 
   it("returns original state when moving an unknown window to canvas", () => {
@@ -1217,5 +1235,35 @@ describe("project chat windowing reducer helpers", () => {
         target.instanceId
       ]?.title,
     ).toBeNull();
+  });
+
+  it("does not boot git graph windows into canvas sections", async () => {
+    const target = createProjectChatWindowInstance({
+      instanceId: "chat-window-target",
+      placement: ChatWindowPlacementEnum.maximized,
+      mode: ChatWindowModeEnum.git_graph_mode,
+      title: "Git Graph",
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        order: [target.instanceId],
+        instancesById: {
+          [target.instanceId]: target,
+        },
+        nextInstanceNumber: 2,
+      });
+    });
+
+    await expect(
+      bootProjectChatWindowToCanvasSection(target.instanceId),
+    ).resolves.toBeNull();
+    expect(
+      hoistedProjectChatWindowing.createTopLevelSectionWithResult,
+    ).not.toHaveBeenCalled();
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        target.instanceId
+      ]?.placement,
+    ).toBe(ChatWindowPlacementEnum.maximized);
   });
 });

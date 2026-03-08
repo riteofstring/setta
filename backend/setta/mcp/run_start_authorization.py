@@ -4,7 +4,7 @@ from mcp.server.fastmcp.server import Context
 
 from setta.runtime.context import RuntimeContext
 
-_PENDING_MCP_RUN_START_AUTHORIZATION_ATTR = "_pending_mcp_run_start_authorization"
+_PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR = "_pending_mcp_run_start_authorizations"
 
 
 @dataclass(frozen=True)
@@ -67,48 +67,98 @@ async def rollback_mcp_run_start(
         )
 
 
-def _resolve_pending_run_start_session(ctx: Context) -> object | None:
+def _resolve_pending_run_start_request(ctx: Context) -> tuple[object, object] | None:
     try:
         request_context = ctx.request_context
     except ValueError:
         return None
-    return getattr(request_context, "session", None)
+    session = getattr(request_context, "session", None)
+    request_id = getattr(request_context, "request_id", None)
+    if session is None or request_id is None:
+        return None
+    return session, request_id
+
+
+def _get_pending_run_start_authorizations(
+    session: object,
+) -> dict[object, MCPRunStartAuthorization]:
+    authorizations = getattr(
+        session,
+        _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR,
+        None,
+    )
+    if authorizations is None:
+        authorizations = {}
+        setattr(
+            session,
+            _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR,
+            authorizations,
+        )
+    return authorizations
 
 
 def has_pending_mcp_run_start_authorization(ctx: Context) -> bool:
-    session = _resolve_pending_run_start_session(ctx)
-    if session is None:
+    pending_request = _resolve_pending_run_start_request(ctx)
+    if pending_request is None:
         return False
-    return getattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, None) is not None
+    session, request_id = pending_request
+    authorizations = getattr(
+        session,
+        _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR,
+        None,
+    )
+    if authorizations is None:
+        return False
+    return request_id in authorizations
 
 
 async def authorize_pending_mcp_run_start(ctx: Context) -> None:
     authorization = await authorize_mcp_run_start(ctx)
-    session = _resolve_pending_run_start_session(ctx)
-    if session is None:
+    pending_request = _resolve_pending_run_start_request(ctx)
+    if pending_request is None:
         raise KeyError(
-            "Missing MCP request session for pending run-start authorization."
+            "Missing MCP request-scoped context for pending run-start authorization."
         )
-    setattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, authorization)
+    session, request_id = pending_request
+    authorizations = _get_pending_run_start_authorizations(session)
+    authorizations[request_id] = authorization
 
 
 def commit_pending_mcp_run_start(ctx: Context) -> None:
-    session = _resolve_pending_run_start_session(ctx)
-    if session is None:
+    pending_request = _resolve_pending_run_start_request(ctx)
+    if pending_request is None:
         return
-    authorization = getattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, None)
+    session, request_id = pending_request
+    authorizations = getattr(
+        session,
+        _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR,
+        None,
+    )
+    if authorizations is None:
+        return
+    authorization = authorizations.pop(request_id, None)
     if authorization is None:
         return
-    delattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR)
+    if len(authorizations) == 0:
+        delattr(session, _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR)
     commit_mcp_run_start(ctx, authorization)
 
 
 async def rollback_pending_mcp_run_start(ctx: Context) -> None:
-    session = _resolve_pending_run_start_session(ctx)
-    if session is None:
+    pending_request = _resolve_pending_run_start_request(ctx)
+    if pending_request is None:
         return
-    authorization = getattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR, None)
+    session, request_id = pending_request
+    authorizations = getattr(
+        session,
+        _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR,
+        None,
+    )
+    if authorizations is None:
+        return
+    authorization = authorizations.pop(request_id, None)
     if authorization is None:
         return
-    delattr(session, _PENDING_MCP_RUN_START_AUTHORIZATION_ATTR)
+    if len(authorizations) == 0:
+        delattr(session, _PENDING_MCP_RUN_START_AUTHORIZATIONS_ATTR)
     await rollback_mcp_run_start(ctx, authorization)
