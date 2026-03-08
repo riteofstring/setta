@@ -301,11 +301,45 @@ export async function seedLocalStorage(
   }, patch);
 }
 
+export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
+  const accordionTrigger = page.getByTestId(
+    "project-ai-settings-accordion-llm-api-keys",
+  );
+  if (
+    await accordionTrigger
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    return;
+  }
+  await page.getByRole("button", { name: "Project AI Settings" }).click();
+  await page.getByTestId("project-chat-settings-open-project-settings").click();
+}
+
 export async function setOverviewTab(
   page: Page,
   tabName: string,
 ): Promise<void> {
+  if (tabName === "ProjectAISettings") {
+    throw new Error(
+      "ProjectAISettings was removed. Seed ProjectAIChat and open Project AI Settings through the live UI.",
+    );
+  }
+  if (tabName === "BackendLogs") {
+    throw new Error(
+      "BackendLogs was removed. Seed Notifications and open the Logs subtab through the live UI.",
+    );
+  }
   await seedLocalStorage(page, { overviewTab: tabName, overviewVis: true });
+}
+
+export async function openOverviewMoreDestination(
+  page: Page,
+  destination: "Plugins" | "Custom Runs" | "App Gen",
+): Promise<void> {
+  await page.getByTestId("overview-tab-more").click();
+  await page.getByRole("menuitem", { name: destination, exact: true }).click();
 }
 
 export async function openIsolatedProject(
@@ -466,17 +500,29 @@ export async function ensureManagedChatEngine(
   }
 
   return async () => {
+    // Managed-engine teardown should not mask assertion outcomes in a
+    // disposable Playwright workspace if the backend stalls during cleanup.
     if (createdEngineConfigId) {
-      await postBackend(page, "/deleteEngineConfig", {
-        configId: createdEngineConfigId,
-      });
+      try {
+        await page.request.post(`${BACKEND_ORIGIN}/api/deleteEngineConfig`, {
+          data: { configId: createdEngineConfigId },
+          headers: BACKEND_HELPER_REQUEST_HEADERS,
+          timeout: 5000,
+        });
+      } catch {
+        // Ignore teardown failures; the seeded workspace is disposable.
+      }
     }
     if (createdLlmConfigId || didUpdateLlmConfig) {
-      await postBackend(
-        page,
-        "/llm/config",
-        initialConfigForWrite as Record<string, unknown>,
-      );
+      try {
+        await page.request.post(`${BACKEND_ORIGIN}/api/llm/config`, {
+          data: initialConfigForWrite as Record<string, unknown>,
+          headers: BACKEND_HELPER_REQUEST_HEADERS,
+          timeout: 5000,
+        });
+      } catch {
+        // Ignore teardown failures; the seeded workspace is disposable.
+      }
     }
   };
 }

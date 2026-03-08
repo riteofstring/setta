@@ -279,6 +279,21 @@ describe("Overview rail offsets", () => {
     expect(chatIndex).toBeGreaterThanOrEqual(0);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(chatIndex).toBeLessThan(overviewIndex);
+    expect(markup).not.toContain(
+      'data-testid="overview-tab-project-ai-settings"',
+    );
+    expect(markup).not.toContain('data-testid="overview-tab-backend-logs"');
+    expect(markup).toContain('data-testid="overview-tab-more"');
+    expect(markup).not.toContain('data-testid="overview-tab-run-instructions"');
+    expect(markup).not.toContain('data-testid="overview-tab-app"');
+    expect(markup).not.toContain('id="overview-tab-plugins"');
+    const notificationsIndex = markup.indexOf(
+      'data-testid="overview-tab-notifications"',
+    );
+    const moreIndex = markup.indexOf('data-testid="overview-tab-more"');
+    expect(notificationsIndex).toBeGreaterThanOrEqual(0);
+    expect(moreIndex).toBeGreaterThanOrEqual(0);
+    expect(moreIndex).toBeGreaterThan(notificationsIndex);
   });
 
   it("falls back to Overview when deployment mode hides the selected tab", () => {
@@ -298,5 +313,37 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain('data-testid="overview-tab-content-shell"');
     expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
     expect(markup).toContain(">Overview<");
+  });
+
+  it("falls back to Overview when a removed project ai settings tab is selected", () => {
+    useLocalStorage.setState({
+      overviewTab: "ProjectAISettings" as never,
+    });
+    syncStoreInitialState(useLocalStorage);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain('data-testid="project-chat-content"');
+  });
+
+  it("falls back to Overview when a removed backend logs tab is selected", () => {
+    useLocalStorage.setState({
+      overviewTab: "BackendLogs" as never,
+    });
+    syncStoreInitialState(useLocalStorage);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain(">Overview<");
+    expect(markup).not.toContain('data-testid="notifications-pane-shell"');
   });
 });

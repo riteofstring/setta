@@ -202,6 +202,7 @@ class Route(str, Enum):
     STREAM_APP_SPEC = "/streamAppSpec"
     GET_APP_GEN_SKILLS = "/getAppGenSkills"
     GET_APP_GEN_SKILL_CONTENT = "/getAppGenSkillContent"
+    UPSERT_APP_GEN_CUSTOM_SKILL = "/upsertAppGenCustomSkill"
     SET_PROMPT_TEMPLATE = "/setPromptTemplate"
     SET_PROMPT_INPUTS = "/setPromptInputs"
     SET_PROMPT_FORMAT = "/setPromptFormat"

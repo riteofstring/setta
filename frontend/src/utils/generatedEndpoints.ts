@@ -524,7 +524,7 @@ export async function route_get_ai_follow_snapshot(
 }
 
 export async function route_get_app_gen_skills(): Promise<
-  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
+  ResponseDataAndStatus<gt.GetAppGenSkillsResponse>
 > {
   return await get("/getAppGenSkills");
 }
@@ -533,6 +533,12 @@ export async function route_get_app_gen_skill_content(
   x: gt.GetAppGenSkillContentRequestInput,
 ): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
   return await post("/getAppGenSkillContent", x);
+}
+
+export async function route_upsert_app_gen_custom_skill(
+  x: gt.UpsertAppGenCustomSkillRequestInput,
+): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
+  return await post("/upsertAppGenCustomSkill", x);
 }
 
 export async function route_get_agent_profiles(): Promise<

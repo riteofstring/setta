@@ -23,17 +23,21 @@ export const OverviewTabNameEnum = {
   Plugins: "Plugins",
   FileBrowser: "FileBrowser",
   Git: "Git",
-  WatchCode: "WatchCode",
   App: "App",
   RunInstructions: "RunInstructions",
   ViewModes: "ViewModes",
   Notifications: "Notifications",
-  BackendLogs: "BackendLogs",
   ProjectAIChat: "ProjectAIChat",
-  ProjectAISettings: "ProjectAISettings",
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
+export const OverviewNotificationsPaneTabEnum = {
+  Notifications: "notifications",
+  BackendLogs: "backend_logs",
+} as const;
+export type OverviewNotificationsPaneTab = ObjectValues<
+  typeof OverviewNotificationsPaneTabEnum
+>;
 type PluginOverviewTabName = `PluginPane:${string}:${string}`;
 export type OverviewTabKey = OverviewTabName | PluginOverviewTabName;
 const overviewTabNameValues = new Set<string>(
@@ -57,14 +61,11 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Plugins]: "Plugins",
   [OverviewTabNameEnum.FileBrowser]: "Explorer",
   [OverviewTabNameEnum.Git]: "Git",
-  [OverviewTabNameEnum.WatchCode]: "Watch Code",
   [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",
-  [OverviewTabNameEnum.BackendLogs]: "Backend Logs",
   [OverviewTabNameEnum.ProjectAIChat]: "Project AI Chat",
-  [OverviewTabNameEnum.ProjectAISettings]: "Project AI Settings",
 } as const satisfies Record<OverviewTabName, string>;
 
 const PLUGIN_OVERVIEW_TAB_PREFIX = "PluginPane";

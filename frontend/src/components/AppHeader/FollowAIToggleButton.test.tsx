@@ -172,6 +172,18 @@ describe("FollowAIToggleButton", () => {
     expect(markup).toContain("No chats yet");
   });
 
+  it("renders in active mode by default", () => {
+    setEmptyProjectState();
+
+    const markup = renderToStaticMarkup(
+      <Menubar.Root>
+        <FollowAIToggleButton />
+      </Menubar.Root>,
+    );
+
+    expect(markup).toContain("text-blue-600");
+  });
+
   it("shows chat sections without chat ids as not started", () => {
     setProjectChatState(null);
 

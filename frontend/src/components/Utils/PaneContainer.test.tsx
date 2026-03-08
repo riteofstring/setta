@@ -57,4 +57,15 @@ describe("PaneContainer", () => {
 
     expect(markup).toContain("border-l-0");
   });
+
+  it("renders fullscreen button with transparent background and pointer cursor", () => {
+    const markup = renderToStaticMarkup(
+      <PaneContainer {...baseProps} right={true}>
+        <div>Pane</div>
+      </PaneContainer>,
+    );
+
+    expect(markup).toContain("bg-transparent");
+    expect(markup).toContain("cursor-pointer");
+  });
 });
