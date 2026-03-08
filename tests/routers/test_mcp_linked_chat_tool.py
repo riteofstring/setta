@@ -4,7 +4,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from setta.agentic.store import save_engine_configs
+from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
+from setta.agentic.store import save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
@@ -321,6 +322,72 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
     assert manager.set_chat_section_chat_id_calls == [
         (project_config_id, target_section_id, ID("linked-thread-1"))
     ]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_rejects_mixed_engine_history(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(tmp_path)
+    target_chat_id = ID("linked-thread-1")
+    save_agent_run(
+        app.state.setta.dbe,
+        AgentRun(
+            id=ID("external-run-1"),
+            status=AgentRunStatus.completed,
+            inputs={
+                "runType": EXTERNAL_AGENT_RUN_TYPE,
+                "chatId": str(target_chat_id),
+                "projectConfigId": str(project_config_id),
+                "engineConfigId": "engine-external",
+            },
+            outputs={
+                "messages": [
+                    AssistantChatMessage(
+                        content=[MessageTextContent(text="External reply")]
+                    ).model_dump(mode="json")
+                ]
+            },
+        ),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["isError"] is True
+    assert payload["structuredContent"]["reason"] == "chat_history_conflict"
+    assert payload["structuredContent"]["message"] == "Chat engine mismatch; start a new chat."
+    assert agent_runner.calls == []
+    assert manager.set_chat_section_chat_id_calls == []
 
 
 @pytest.mark.asyncio

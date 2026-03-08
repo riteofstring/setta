@@ -8,7 +8,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { UnifiedChatSurface } from "./UnifiedChatSurface";
 
 vi.mock("components/Panes/Overview/ProjectLevelAI/ProjectChat", () => ({
-  ProjectChat: () => <div data-testid="mock-project-chat">project chat</div>,
+  ProjectChat: ({
+    chatId,
+    setChatId,
+  }: {
+    chatId?: string | null;
+    setChatId?: unknown;
+  }) => (
+    <div
+      data-testid="mock-project-chat"
+      data-project-chat-id={chatId ?? ""}
+      data-project-chat-controlled={setChatId ? "true" : "false"}
+    >
+      project chat:{chatId ?? "global"}
+    </div>
+  ),
 }));
 
 vi.mock("components/Section/Layouts/ChatArea", () => ({
@@ -63,6 +77,7 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain('data-chat-surface-mode="project_ai_mode"');
     expect(markup).toContain('data-chat-surface-host="bottom_docked"');
     expect(markup).toContain('data-testid="mock-project-chat"');
+    expect(markup).toContain('data-project-chat-id=""');
     expect(markup).not.toContain('data-testid="mock-section-chat"');
   });
 
@@ -128,6 +143,31 @@ describe("UnifiedChatSurface", () => {
     expect(markup).not.toContain("section-main-full-w");
     expect(markup).not.toContain("rounded-2xl");
     expect(markup).not.toContain("border-setta-200");
+  });
+
+  it("passes a window-scoped project chat id through to the project chat surface", () => {
+    const markup = renderToStaticMarkup(
+      <div>
+        <UnifiedChatSurface
+          mode={ChatWindowModeEnum.project_ai_mode}
+          host={ChatWindowPlacementEnum.floating}
+          projectChatId="chat-alpha"
+          setProjectChatId={() => {}}
+        />
+        <UnifiedChatSurface
+          mode={ChatWindowModeEnum.project_ai_mode}
+          host={ChatWindowPlacementEnum.bottom_docked}
+          projectChatId="chat-beta"
+          setProjectChatId={() => {}}
+        />
+      </div>,
+    );
+
+    expect(markup).toContain('data-project-chat-id="chat-alpha"');
+    expect(markup).toContain('data-project-chat-id="chat-beta"');
+    expect(markup).toContain("project chat:chat-alpha");
+    expect(markup).toContain("project chat:chat-beta");
+    expect(markup).toContain('data-project-chat-controlled="true"');
   });
 
   it("shows a clear warning when section mode is missing section id", () => {

@@ -4,16 +4,12 @@ from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
 
 from setta.agentic.agentic_scope import resolve_agentic_scope
+from setta.agentic.chat_continuity import get_prior_messages_for_chat_engine
 from setta.agentic.chat_view import (
-    EXTERNAL_AGENT_RUN_TYPE,
-    LLM_CHAT_RUN_TYPE,
     build_chat_state_from_run,
-    get_run_engine_config_id,
-    get_run_project_config_id,
-    get_run_sort_key,
 )
 from setta.agentic.engine_resolver import resolve_engine_config
-from setta.agentic.store import list_agent_runs_by_metadata, require_agent_profile
+from setta.agentic.store import require_agent_profile
 from setta.database.utils import create_new_id
 from setta.project_state.project_manager_types import SetChatSectionChatIdRequest
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, EngineType
@@ -160,7 +156,7 @@ async def invoke_linked_chat(
         )
     chat_id = target_section_impl.chatId or create_new_id()
     try:
-        prior_messages = _get_prior_messages_for_engine(
+        prior_messages = get_prior_messages_for_chat_engine(
             dbe=ctx.fastmcp.state.dbe,
             engine_type=resolved_engine.engine_config.engineType,
             chat_id=chat_id,
@@ -321,55 +317,6 @@ async def invoke_linked_chat(
         run=completed_run,
         invocation_depth=agentic_context.linked_chat_invocation_depth + 1,
     )
-
-
-def _get_prior_messages_for_engine(
-    *,
-    dbe: Any,
-    engine_type: EngineType,
-    chat_id: ID,
-    project_config_id: ID,
-    engine_config_id: ID,
-) -> list[Any]:
-    if engine_type == EngineType.external_agent:
-        llm_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=LLM_CHAT_RUN_TYPE,
-            chat_id=chat_id,
-        )
-        if llm_runs:
-            raise ValueError("Chat engine mismatch; start a new chat.")
-        external_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=EXTERNAL_AGENT_RUN_TYPE,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        for run in external_runs:
-            existing_engine = get_run_engine_config_id(run)
-            if existing_engine != engine_config_id:
-                raise ValueError("Chat engine mismatch; start a new chat.")
-            existing_project = get_run_project_config_id(run)
-            if existing_project != project_config_id:
-                raise ValueError("Chat project config mismatch; start a new chat.")
-        latest_run = _select_latest_run(external_runs)
-    else:
-        llm_runs = list_agent_runs_by_metadata(
-            dbe,
-            run_type=LLM_CHAT_RUN_TYPE,
-            chat_id=chat_id,
-            project_config_id=project_config_id,
-        )
-        latest_run = _select_latest_run(llm_runs)
-    if latest_run is None:
-        return []
-    return build_chat_state_from_run(latest_run).messages
-
-
-def _select_latest_run(runs: list[AgentRun]) -> AgentRun | None:
-    if not runs:
-        return None
-    return max(runs, key=get_run_sort_key)
 
 
 def _build_success_result(

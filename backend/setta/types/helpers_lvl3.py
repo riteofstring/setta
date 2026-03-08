@@ -36,6 +36,7 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
+    ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
@@ -106,6 +107,10 @@ def merge_single_config_into_backend(
         projectConfigs={
             **x.projectConfigs,
             config.projectConfig.id: config.projectConfig,
+        },
+        projectChatWindowingByProjectConfigId={
+            **x.projectChatWindowingByProjectConfigId,
+            config.projectConfig.id: config.projectChatWindowing,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
         appDefinition=x.appDefinition,
@@ -215,6 +220,10 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
         codeObjImpls=project_state_core.codeObjImpls,
         codeObjVariants=project_state_core.codeObjVariants,
         projectConfig=project_config,
+        projectChatWindowing=p.projectChatWindowingByProjectConfigId.get(
+            projectConfigId,
+            ProjectChatWindowingState(),
+        ),
     )
 
 

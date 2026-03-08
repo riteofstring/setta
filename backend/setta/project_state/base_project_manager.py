@@ -4134,6 +4134,10 @@ class BaseProjectManager(ABC):
             if previous_output_root.exists():
                 shutil.rmtree(previous_output_root)
             del self.project_state_backend.projectConfigs[project_config_id]
+            self.project_state_backend.projectChatWindowingByProjectConfigId.pop(
+                project_config_id,
+                None,
+            )
             gen_code = self.gen_code.pop(project_config_id, None)
             if gen_code is not None:
                 gen_code.callback_cleanup()

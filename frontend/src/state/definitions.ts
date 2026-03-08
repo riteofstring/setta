@@ -53,7 +53,6 @@ import {
   SharePolicy,
   TranscriptionProfile,
   WebsocketConnectionInfo,
-  type ProjectChatWindowingState,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -1054,10 +1053,6 @@ type ZustandLocalStorage = {
   projectChatThreadOrderByProjectConfigId: Record<string, Array<string>>;
   pinnedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
   trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
-  projectChatWindowingByProjectConfigId: Record<
-    string,
-    ProjectChatWindowingState
-  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -1115,7 +1110,6 @@ export const useLocalStorage = createWithEqualityFn(
       projectChatThreadOrderByProjectConfigId: {},
       pinnedProjectChatThreadIdsByProjectConfigId: {},
       trashedProjectChatThreadIdsByProjectConfigId: {},
-      projectChatWindowingByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -1226,14 +1220,6 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
-        if (
-          !merged.projectChatWindowingByProjectConfigId ||
-          typeof merged.projectChatWindowingByProjectConfigId !== "object" ||
-          Array.isArray(merged.projectChatWindowingByProjectConfigId)
-        ) {
-          merged.projectChatWindowingByProjectConfigId = {};
-        }
-
         return merged;
       },
       partialize: (state) => ({

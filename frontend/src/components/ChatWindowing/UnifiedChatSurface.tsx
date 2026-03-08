@@ -2,6 +2,7 @@ import { GitGraphWindowContent } from "components/Git/GitGraphWindowContent";
 import { ProjectChat } from "components/Panes/Overview/ProjectLevelAI/ProjectChat";
 import { SectionWindowPlaceholder } from "components/Section/Container/SectionWindowPlaceholder";
 import { ChatArea } from "components/Section/Layouts/ChatArea";
+import type { SetStateAction } from "react";
 import { getOpenExternalProjectChatWindowInstanceForSectionInState } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import {
@@ -19,6 +20,8 @@ type UnifiedChatSurfaceProps = {
   sectionId?: string | null;
   className?: string;
   dataTestId?: string;
+  projectChatId?: string | null;
+  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
 };
 
 function resolveSurfaceHostClasses(
@@ -44,6 +47,8 @@ export function UnifiedChatSurface({
   sectionId = null,
   className,
   dataTestId,
+  projectChatId,
+  setProjectChatId,
 }: UnifiedChatSurfaceProps) {
   const externalizedWindowId = useProjectState((state) => {
     if (host !== "section_layout" || !sectionId) {
@@ -75,7 +80,7 @@ export function UnifiedChatSurface({
         data-chat-surface-host={host}
         data-testid={dataTestId}
       >
-        <ProjectChat />
+        <ProjectChat chatId={projectChatId} setChatId={setProjectChatId} />
       </div>
     );
   }

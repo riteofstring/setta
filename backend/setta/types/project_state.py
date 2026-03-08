@@ -176,6 +176,9 @@ class ProjectStateBackend(
     extra="forbid",
 ):
     projectConfigs: dict[ID, ProjectConfig] = Field(default_factory=dict)
+    projectChatWindowingByProjectConfigId: dict[ID, ProjectChatWindowingState] = Field(
+        default_factory=dict
+    )
     defaultProjectConfigId: ID | None = None
     appDefinition: AppDefinition | None = None
 

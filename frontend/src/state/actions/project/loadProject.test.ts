@@ -1,8 +1,4 @@
-import {
-  useAllProjectMetadata,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
+import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   ChatWindowPlacementEnum,
@@ -94,7 +90,6 @@ describe("loadAllProjectMetadata", () => {
 describe("loadProjectState", () => {
   beforeEach(() => {
     resetProjectStores();
-    useLocalStorage.setState({ projectChatWindowingByProjectConfigId: {} });
   });
 
   it("normalizes legacy project configs that omit window spaces", async () => {
@@ -110,30 +105,7 @@ describe("loadProjectState", () => {
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual({});
   });
 
-  it("rehydrates persisted project chat windowing from local storage", async () => {
-    const persistedWindow = createProjectChatWindowInstance({
-      instanceId: "project-chat-window-2",
-      placement: ChatWindowPlacementEnum.floating,
-      title: "Persisted Notes",
-      bounds: {
-        x: 240,
-        y: 160,
-        width: 520,
-        height: 320,
-      },
-    });
-    useLocalStorage.setState({
-      projectChatWindowingByProjectConfigId: {
-        "project-restore": createProjectChatWindowingState({
-          instancesById: {
-            [persistedWindow.instanceId]: persistedWindow,
-          },
-          order: [persistedWindow.instanceId],
-          nextInstanceNumber: 3,
-        }),
-      },
-    });
-
+  it("keeps backend project chat windowing authoritative on load", async () => {
     const backendProjectState: ProjectStateSingleConfigInput = {
       projectConfig: createProjectConfig({
         id: "project-restore",
@@ -155,17 +127,8 @@ describe("loadProjectState", () => {
     await loadProjectState(backendProjectState);
 
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([
-      "project-chat-window-2",
       "project-chat-window-1",
     ]);
-    expect(
-      useProjectState.getState().projectChatWindowing.instancesById[
-        "project-chat-window-2"
-      ],
-    ).toMatchObject({
-      placement: ChatWindowPlacementEnum.floating,
-      title: "Persisted Notes",
-    });
     expect(
       useProjectState.getState().projectChatWindowing.instancesById[
         "project-chat-window-1"
@@ -174,10 +137,5 @@ describe("loadProjectState", () => {
       placement: ChatWindowPlacementEnum.bottom_docked,
       title: "Docked Chat",
     });
-    expect(
-      useLocalStorage.getState().projectChatWindowingByProjectConfigId[
-        "project-restore"
-      ]?.order,
-    ).toEqual(["project-chat-window-2", "project-chat-window-1"]);
   });
 });

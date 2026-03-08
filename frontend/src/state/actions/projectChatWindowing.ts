@@ -11,6 +11,7 @@ import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper"
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
   NULL_PROJECT_CONFIG_ID,
+  useAIStore,
   useMisc,
   useProjectState,
   type ZustandProjectState,
@@ -33,7 +34,6 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
-import { setPersistedProjectChatWindowingState } from "./projectChatWindowingPersistence";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -112,6 +112,7 @@ const DEFAULT_FLOATING_CHAT_MIN_WIDTH_PX = 380;
 const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
 const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
 const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
+const pendingProjectChatWindowingWrites = new Set<Promise<unknown>>();
 
 function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
@@ -1195,6 +1196,23 @@ export function setProjectChatWindowTitleInState(
   });
 }
 
+function setProjectChatWindowChatIdInState(
+  state: ProjectChatWindowingState,
+  instanceId: string,
+  chatId: string | null | undefined,
+): ProjectChatWindowingState {
+  return withUpdatedWindow(state, instanceId, (current) => {
+    const normalizedChatId = chatId?.trim() ? chatId.trim() : null;
+    if (current.chatId === normalizedChatId) {
+      return current;
+    }
+    return {
+      ...current,
+      chatId: normalizedChatId,
+    };
+  });
+}
+
 export function showProjectChatWindowForModeInState(
   state: ProjectChatWindowingState,
   mode: ChatWindowMode,
@@ -1312,22 +1330,30 @@ function setProjectChatWindowingStateInStore(
     });
     return;
   }
-  setPersistedProjectChatWindowingState(
-    projectConfigId,
-    nextProjectChatWindowing,
-  );
 
   dispatchOptimisticProjectStateUpdate({
     apply: (state) => {
       state.projectChatWindowing = nextProjectChatWindowing;
     },
-    send: (frontendOpId) =>
-      route_set_project_chat_windowing_state({
+    send: (frontendOpId) => {
+      const request = route_set_project_chat_windowing_state({
         projectConfigId,
         state: nextProjectChatWindowing,
         frontendOpId,
-      }),
+      });
+      pendingProjectChatWindowingWrites.add(request);
+      void request.finally(() => {
+        pendingProjectChatWindowingWrites.delete(request);
+      });
+      return request;
+    },
   });
+}
+
+export async function flushPendingProjectChatWindowingWrites(): Promise<void> {
+  while (pendingProjectChatWindowingWrites.size > 0) {
+    await Promise.allSettled([...pendingProjectChatWindowingWrites]);
+  }
 }
 
 export function replaceProjectChatWindowingState(
@@ -1434,6 +1460,16 @@ export function focusProjectChatWindow(
     return;
   }
   setProjectChatWindowingStateInStore(next);
+  const focusedWindow = next.instancesById[instanceId];
+  if (
+    focusedWindow &&
+    focusedWindow.mode === ChatWindowModeEnum.project_ai_mode &&
+    focusedWindow.sectionIdOrNull === null
+  ) {
+    useAIStore.setState({
+      activeChatId: focusedWindow.chatId ?? undefined,
+    });
+  }
 }
 
 export function setProjectChatWindowDockFractions(
@@ -1502,6 +1538,26 @@ export function setProjectChatWindowTitle(
     return;
   }
   setProjectChatWindowingStateInStore(next);
+}
+
+export function setProjectChatWindowChatId(
+  instanceId: string,
+  chatId: string | null | undefined,
+): void {
+  const state = useProjectState.getState();
+  const currentWindowing = getProjectChatWindowingStateFromStore(state);
+  const next = setProjectChatWindowChatIdInState(
+    currentWindowing,
+    instanceId,
+    chatId,
+  );
+  if (next === currentWindowing) {
+    return;
+  }
+  setProjectChatWindowingStateInStore(next);
+  useAIStore.setState({
+    activeChatId: chatId?.trim() ? chatId.trim() : undefined,
+  });
 }
 
 export async function bootProjectChatWindowToCanvasSection(

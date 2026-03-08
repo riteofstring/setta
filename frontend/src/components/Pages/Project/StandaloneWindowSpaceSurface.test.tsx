@@ -39,8 +39,17 @@ vi.mock("components/ChatWindowing/ProjectChatWindowSurface", () => ({
 }));
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
-  UnifiedChatSurface: () => (
-    <div data-testid="mock-unified-chat-surface">project chat</div>
+  UnifiedChatSurface: ({
+    projectChatId,
+  }: {
+    projectChatId?: string | null;
+  }) => (
+    <div
+      data-testid="mock-unified-chat-surface"
+      data-project-chat-id={projectChatId ?? ""}
+    >
+      project chat:{projectChatId ?? "global"}
+    </div>
   ),
 }));
 
@@ -89,6 +98,7 @@ describe("StandaloneWindowSpaceSurface", () => {
             "chat-window": {
               surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
               title: "Research Chat",
+              chatId: "chat-window-1",
               zIndex: 1,
               normalizedBounds: {
                 x: 0,
@@ -129,6 +139,7 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain('data-testid="standalone-window-space-window"');
     expect(markup).toContain('data-testid="mock-project-chat-window-surface"');
     expect(markup).toContain('data-testid="mock-unified-chat-surface"');
+    expect(markup).toContain('data-project-chat-id="chat-window-1"');
     expect(markup).toContain('data-testid="mock-git-graph-window-content"');
     expect(markup).toContain('data-show-embedded-git-pane-toggle="true"');
     expect(markup).toContain('data-testid="mock-section-window-surface"');

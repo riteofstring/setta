@@ -21,15 +21,6 @@ type SectionSlugIndex = {
   childrenByParent: Record<string, Array<string>>;
 };
 
-type CachedSectionSlugIndex = {
-  sectionsRef: SectionSlugProjectState["sections"];
-  parentMapRef: SectionSlugProjectState["parentSectionMap"];
-  sectionImplsRef: SectionSlugProjectState["sectionImpls"];
-  sectionVariantsRef: SectionSlugProjectState["sectionVariants"];
-  sectionVariantMapRef: SectionSlugProjectState["projectConfig"]["sectionVariantMap"];
-  index: SectionSlugIndex;
-};
-
 type StandaloneSectionSlugResolution =
   | {
       kind: "found";
@@ -46,8 +37,6 @@ type StandaloneSectionSlugResolution =
       sectionSlug: string;
       sectionIds: Array<string>;
     };
-
-let cachedSectionSlugIndex: CachedSectionSlugIndex | null = null;
 
 function resolveSectionName(
   state: SectionSlugProjectState,
@@ -98,18 +87,6 @@ export function resolveSectionFullPathName(
 export function getSectionSlugIndex(
   state: SectionSlugProjectState,
 ): SectionSlugIndex {
-  if (
-    cachedSectionSlugIndex &&
-    cachedSectionSlugIndex.sectionsRef === state.sections &&
-    cachedSectionSlugIndex.parentMapRef === state.parentSectionMap &&
-    cachedSectionSlugIndex.sectionImplsRef === state.sectionImpls &&
-    cachedSectionSlugIndex.sectionVariantsRef === state.sectionVariants &&
-    cachedSectionSlugIndex.sectionVariantMapRef ===
-      state.projectConfig.sectionVariantMap
-  ) {
-    return cachedSectionSlugIndex.index;
-  }
-
   const slugToIds: Record<string, Array<string>> = {};
   for (const id of Object.keys(state.sections)) {
     const fullPathName = resolveSectionFullPathName(state, id, null);
@@ -131,16 +108,7 @@ export function getSectionSlugIndex(
     childrenByParent[parentId].push(childId);
   }
 
-  const index = { slugToIds, childrenByParent };
-  cachedSectionSlugIndex = {
-    sectionsRef: state.sections,
-    parentMapRef: state.parentSectionMap,
-    sectionImplsRef: state.sectionImpls,
-    sectionVariantsRef: state.sectionVariants,
-    sectionVariantMapRef: state.projectConfig.sectionVariantMap,
-    index,
-  };
-  return index;
+  return { slugToIds, childrenByParent };
 }
 
 export function collectDescendantSectionIds(

@@ -10,11 +10,6 @@ type WindowSpacePathProjectState = {
 
 type WindowSpaceSlugIndex = Record<string, Array<string>>;
 
-type CachedWindowSpaceSlugIndex = {
-  windowSpacesRef: WindowSpacePathProjectState["projectConfig"]["windowSpaces"];
-  slugToIds: WindowSpaceSlugIndex;
-};
-
 type StandaloneWindowSpaceSlugResolution =
   | {
       kind: "found";
@@ -31,19 +26,10 @@ type StandaloneWindowSpaceSlugResolution =
       windowSpaceIds: Array<string>;
     };
 
-let cachedWindowSpaceSlugIndex: CachedWindowSpaceSlugIndex | null = null;
-
 function getWindowSpaceSlugIndex(
   state: WindowSpacePathProjectState,
 ): WindowSpaceSlugIndex {
   const windowSpaces = state.projectConfig.windowSpaces ?? {};
-  if (
-    cachedWindowSpaceSlugIndex &&
-    cachedWindowSpaceSlugIndex.windowSpacesRef === windowSpaces
-  ) {
-    return cachedWindowSpaceSlugIndex.slugToIds;
-  }
-
   const slugToIds: WindowSpaceSlugIndex = {};
   for (const [windowSpaceId, windowSpace] of Object.entries(windowSpaces)) {
     const slug = sanitizeNameForSlug(windowSpace.name);
@@ -52,11 +38,6 @@ function getWindowSpaceSlugIndex(
     }
     slugToIds[slug].push(windowSpaceId);
   }
-
-  cachedWindowSpaceSlugIndex = {
-    windowSpacesRef: windowSpaces,
-    slugToIds,
-  };
   return slugToIds;
 }
 

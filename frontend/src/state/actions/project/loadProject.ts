@@ -28,14 +28,7 @@ import {
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
-import {
-  getPersistedProjectChatWindowingState,
-  setPersistedProjectChatWindowingState,
-} from "../projectChatWindowingPersistence";
-import {
-  createNodesMapFromProjectConfigChildren,
-  mergeProjectChatWindowingFromCurrentState,
-} from "../sectionInfos";
+import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -71,14 +64,6 @@ export async function loadProjectState(
   projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
 ) {
   const normalizedProjectState = normalizeLoadedProjectState(projectState);
-  const persistedProjectChatWindowing = getPersistedProjectChatWindowingState(
-    normalizedProjectState.projectConfig.id,
-  );
-  if (persistedProjectChatWindowing) {
-    mergeProjectChatWindowingFromCurrentState(normalizedProjectState, {
-      projectChatWindowing: persistedProjectChatWindowing,
-    });
-  }
   const { viewport, viewportInitialized } =
     normalizedProjectState.projectConfig;
   if (!viewport || !viewportInitialized) {
@@ -95,10 +80,6 @@ export async function loadProjectState(
     ...normalizedProjectState,
     previewSectionVariantMap: {},
   });
-  setPersistedProjectChatWindowingState(
-    normalizedProjectState.projectConfig.id,
-    normalizedProjectState.projectChatWindowing,
-  );
   applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(

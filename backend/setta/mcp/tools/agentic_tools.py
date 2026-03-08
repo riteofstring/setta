@@ -196,6 +196,7 @@ attach_tool_access(
     invoke_linked_chat,
     ToolAccessMetadata(
         accessType="read",
+        retryOnDisconnect=False,
         idPathsByType={"section": ["targetSectionId"]},
     ),
 )

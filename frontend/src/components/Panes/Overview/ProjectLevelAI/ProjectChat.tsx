@@ -205,6 +205,11 @@ type ResolveProjectChatDraftMessageByProjectConfigIdUpdateInput = {
   nextDraftMessage: string;
 };
 
+type ProjectChatProps = {
+  chatId?: string | null | undefined;
+  setChatId?: (next: SetStateAction<string | null | undefined>) => void;
+};
+
 export function resolveProjectChatThreadVisibilityFromResize({
   isInitialRun,
   wasLargeEnoughForInlineThreads,
@@ -432,11 +437,14 @@ export function setProjectChatAuxViewForActiveProject(
   });
 }
 
-export function ProjectChat() {
-  const chatId = useAIStore((state) => state.activeChatId);
+export function ProjectChat({
+  chatId: controlledChatId,
+  setChatId: controlledSetChatId,
+}: ProjectChatProps = {}) {
+  const globalChatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const setChatId = useCallback(
+  const setGlobalChatId = useCallback(
     (next: SetStateAction<string | null | undefined>) => {
       useAIStore.setState((state) => {
         const resolved =
@@ -446,6 +454,9 @@ export function ProjectChat() {
     },
     [],
   );
+  const chatId =
+    controlledSetChatId !== undefined ? controlledChatId : globalChatId;
+  const setChatId = controlledSetChatId ?? setGlobalChatId;
   const [draftThreadState, setDraftThreadState] =
     useState<DraftProjectThreadState>({
       phase: "none",

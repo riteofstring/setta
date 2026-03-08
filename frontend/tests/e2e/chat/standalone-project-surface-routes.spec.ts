@@ -53,6 +53,12 @@ type AgentRunRecord = {
   outputs: Record<string, unknown>;
 };
 
+type ProjectChatThreadFixture = {
+  instanceId: string;
+  chatId: string;
+  assistantText: string;
+};
+
 function getProjectConfigNameFromUrl(url: string): string {
   const pathname = new URL(url).pathname;
   const projectConfigName = pathname.split("/").filter(Boolean)[0];
@@ -261,6 +267,51 @@ async function readActiveProjectChatId(
     const { useAIStore } = await import("/src/state/definitions.ts");
     return useAIStore.getState().activeChatId;
   });
+}
+
+async function seedProjectChatWindowThreads(
+  page: Page,
+  fixtures: ProjectChatThreadFixture[],
+): Promise<void> {
+  await page.evaluate(async (nextFixtures) => {
+    const { useAIStore } = await import("/src/state/definitions.ts");
+    const { getDefaultChatDetails } = await import("/src/state/actions/ai.ts");
+    const { setProjectChatWindowChatId } = await import(
+      "/src/state/actions/projectChatWindowing.ts"
+    );
+
+    for (const fixture of nextFixtures) {
+      setProjectChatWindowChatId(fixture.instanceId, fixture.chatId);
+    }
+
+    useAIStore.setState((state) => {
+      const nextChatDetails = { ...state.chatDetails };
+      for (const fixture of nextFixtures) {
+        nextChatDetails[fixture.chatId] = {
+          ...getDefaultChatDetails(),
+          messages: [
+            {
+              id: `assistant-${fixture.chatId}`,
+              role: "assistant",
+              content: [
+                {
+                  type: "text",
+                  text: fixture.assistantText,
+                },
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+          ],
+          waitingForResponse: false,
+        };
+      }
+      return {
+        activeChatId: nextFixtures[0]?.chatId,
+        chatDetails: nextChatDetails,
+      };
+    });
+  }, fixtures);
 }
 
 function getProjectChatWindowOrder(
@@ -731,6 +782,218 @@ test.describe.serial("standalone project surface routes", () => {
         .toEqual(baselineWorkspaceState);
     } finally {
       await standalonePage.close();
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("saved window spaces preserve distinct project chat threads per window in both workspace and standalone views", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const alphaWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Alpha Chat",
+      );
+      const betaWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Beta Chat",
+      );
+      const fixtures: ProjectChatThreadFixture[] = [
+        {
+          instanceId: alphaWindowId,
+          chatId: "window-chat-alpha",
+          assistantText: "Workspace alpha thread marker",
+        },
+        {
+          instanceId: betaWindowId,
+          chatId: "window-chat-beta",
+          assistantText: "Workspace beta thread marker",
+        },
+      ];
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        const response = await route.fetch();
+        const runs = (await response.json()) as AgentRunRecord[];
+        const fixtureRuns = fixtures.map((fixture, index) => ({
+          id: `run-${fixture.chatId}`,
+          profileId: null,
+          status: "completed",
+          startedAt: `2026-03-07T00:00:0${index}Z`,
+          finishedAt: `2026-03-07T00:00:1${index}Z`,
+          events: [],
+          inputs: {
+            runType: "llm_chat",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: fixture.chatId,
+            sectionId: null,
+            messages: [
+              {
+                id: `user-${fixture.chatId}`,
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: `Prompt for ${fixture.chatId}`,
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {},
+        }));
+        await route.fulfill({
+          status: response.status(),
+          headers: {
+            ...response.headers(),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify([
+            ...runs.filter(
+              (run) =>
+                !fixtures.some((fixture) => fixture.chatId === run.inputs.chatId),
+            ),
+            ...fixtureRuns,
+          ]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        const fixture = fixtures.find(
+          (candidate) => candidate.chatId === payload?.chatId,
+        );
+        if (!fixture) {
+          await route.continue();
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            messages: [
+              {
+                id: `assistant-${fixture.chatId}`,
+                role: "assistant",
+                content: [
+                  {
+                    type: "text",
+                    text: fixture.assistantText,
+                  },
+                ],
+                attachments: [],
+                tool_calls: null,
+              },
+            ],
+            waitingForResponse: false,
+            llmConfig: {
+              id: "standalone-thread-config",
+              model: "gpt-4o-mini",
+              provider: "openai",
+              base_url: null,
+              api_key_env: null,
+              other_params: null,
+              mcpServerIds: [],
+              temporary: false,
+            },
+            contextUsage: null,
+          }),
+        });
+      });
+
+      await setProjectChatWindowBounds(page, alphaWindowId, {
+        x: 40,
+        y: 40,
+        width: 440,
+        height: 300,
+      });
+      await setProjectChatWindowBounds(page, betaWindowId, {
+        x: 520,
+        y: 40,
+        width: 440,
+        height: 300,
+      });
+      await seedProjectChatWindowThreads(page, fixtures);
+
+      const alphaWorkspaceWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${alphaWindowId}"]`,
+      );
+      const betaWorkspaceWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${betaWindowId}"]`,
+      );
+      await expect(alphaWorkspaceWindow).toContainText(
+        "Workspace alpha thread marker",
+      );
+      await expect(alphaWorkspaceWindow).not.toContainText(
+        "Workspace beta thread marker",
+      );
+      await expect(betaWorkspaceWindow).toContainText(
+        "Workspace beta thread marker",
+      );
+      await expect(betaWorkspaceWindow).not.toContainText(
+        "Workspace alpha thread marker",
+      );
+
+      await page.getByTestId("window-space-save-current-layout").click();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(1);
+
+      const resolvedWindowSpace = await loadProjectConfigState(
+        page,
+        projectConfigName,
+      );
+      const [windowSpace] = Object.values(
+        resolvedWindowSpace.projectConfig.windowSpaces ?? {},
+      );
+      if (!windowSpace) {
+        throw new Error("Expected the saved window space to be persisted.");
+      }
+      const windowSpaceSlug = await page.evaluate(async (name) => {
+        const { sanitizeNameForSlug } = await import(
+          "/src/utils/nameValidation.ts"
+        );
+        return sanitizeNameForSlug(name);
+      }, windowSpace.name);
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/windowspace/${encodeURIComponent(windowSpaceSlug)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      const alphaStandaloneWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${alphaWindowId}"]`,
+      );
+      const betaStandaloneWindow = standalonePage.locator(
+        `[data-testid="standalone-window-space-window"][data-chat-window-instance-id="${betaWindowId}"]`,
+      );
+      await expect(alphaStandaloneWindow).toContainText(
+        "Workspace alpha thread marker",
+      );
+      await expect(alphaStandaloneWindow).not.toContainText(
+        "Workspace beta thread marker",
+      );
+      await expect(betaStandaloneWindow).toContainText(
+        "Workspace beta thread marker",
+      );
+      await expect(betaStandaloneWindow).not.toContainText(
+        "Workspace alpha thread marker",
+      );
+    } finally {
+      await standalonePage.close();
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);
     }

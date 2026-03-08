@@ -30,6 +30,7 @@ type StandaloneWindowSpaceWindow = {
   sectionIdOrNull: string | null;
   mode: ChatWindowMode;
   title: string;
+  chatId: string | null;
   zIndex: number;
   bounds: ChatWindowBounds;
 };
@@ -106,6 +107,7 @@ function hydrateWindowSpaceWindows(
         window.title,
         sectionNamesById,
       ),
+      chatId: window.chatId ?? null,
       zIndex: window.zIndex,
       bounds: denormalizeFloatingBounds(
         window.normalizedBounds,
@@ -172,6 +174,28 @@ function updateStandaloneWindowBounds(
     };
   }
   return nextWindowsById;
+}
+
+function setStandaloneProjectChatWindowChatId(
+  windowsById: Record<string, StandaloneWindowSpaceWindow>,
+  instanceId: string,
+  chatId: string | null | undefined,
+): Record<string, StandaloneWindowSpaceWindow> {
+  const current = windowsById[instanceId];
+  if (!current) {
+    return windowsById;
+  }
+  const normalizedChatId = chatId?.trim() ? chatId.trim() : null;
+  if (current.chatId === normalizedChatId) {
+    return windowsById;
+  }
+  return {
+    ...windowsById,
+    [instanceId]: {
+      ...current,
+      chatId: normalizedChatId,
+    },
+  };
 }
 
 export function StandaloneWindowSpaceSurface({
@@ -471,6 +495,20 @@ export function StandaloneWindowSpaceSurface({
                 <UnifiedChatSurface
                   mode={window.mode}
                   host={ChatWindowPlacementEnum.floating}
+                  projectChatId={window.chatId}
+                  setProjectChatId={(next) => {
+                    const resolvedChatId =
+                      typeof next === "function"
+                        ? next(window.chatId ?? undefined)
+                        : next;
+                    setLocalWindowsById((current) =>
+                      setStandaloneProjectChatWindowChatId(
+                        current,
+                        window.instanceId,
+                        resolvedChatId,
+                      ),
+                    );
+                  }}
                 />
               )}
             </ProjectChatWindowSurface>

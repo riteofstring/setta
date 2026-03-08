@@ -77,4 +77,71 @@ describe("windowSpacePaths", () => {
       windowSpaceIds: ["space-a", "space-b"],
     });
   });
+
+  it("rebuilds the slug index after an in-place rename", () => {
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-id": {
+            id: "space-id",
+            name: "Research Board",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          },
+        },
+      }),
+    };
+
+    expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
+      kind: "found",
+      windowSpaceId: "space-id",
+      windowSpace: state.projectConfig.windowSpaces["space-id"],
+    });
+
+    state.projectConfig.windowSpaces["space-id"].name = "Planning Board";
+
+    expect(resolveStandaloneWindowSpaceSlug(state, "planning_board")).toEqual({
+      kind: "found",
+      windowSpaceId: "space-id",
+      windowSpace: state.projectConfig.windowSpaces["space-id"],
+    });
+    expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
+      kind: "not_found",
+      windowSpaceSlug: "research_board",
+    });
+  });
+
+  it("rebuilds the slug index after an in-place delete", () => {
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-id": {
+            id: "space-id",
+            name: "Research Board",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          },
+        },
+      }),
+    };
+
+    expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
+      kind: "found",
+      windowSpaceId: "space-id",
+      windowSpace: state.projectConfig.windowSpaces["space-id"],
+    });
+
+    delete state.projectConfig.windowSpaces["space-id"];
+
+    expect(resolveStandaloneWindowSpaceSlug(state, "research_board")).toEqual({
+      kind: "not_found",
+      windowSpaceSlug: "research_board",
+    });
+  });
 });

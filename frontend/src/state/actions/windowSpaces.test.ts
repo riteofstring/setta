@@ -35,6 +35,7 @@ vi.mock("state/actions/notifications", () => ({
     addTemporaryNotificationMock(...args),
 }));
 
+import { replaceProjectChatWindowingState } from "./projectChatWindowing";
 import {
   applyWindowSpaceSortOrder,
   createProjectChatWindowingStateFromWindowSpace,
@@ -50,6 +51,11 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
   });
 
   it("serializes only visible floating windows with normalized bounds", () => {
@@ -300,6 +306,11 @@ describe("applyWindowSpaceSortOrder", () => {
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
   });
 
   it("applies a complete ordered list of window space ids", () => {
@@ -377,6 +388,75 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
     routeSetWindowSpaceSortOrderMock.mockReset();
     routeSetProjectChatWindowingStateMock.mockReset();
     addTemporaryNotificationMock.mockReset();
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+  });
+
+  it("waits for in-flight project chat windowing writes before saving the current layout", async () => {
+    let resolveWindowingWrite:
+      | ((value: { status: number; hasResponse: boolean; data: null }) => void)
+      | null = null;
+    const pendingWindowingWrite = new Promise<{
+      status: number;
+      hasResponse: boolean;
+      data: null;
+    }>((resolve) => {
+      resolveWindowingWrite = resolve;
+    });
+    routeSetProjectChatWindowingStateMock.mockReturnValue(
+      pendingWindowingWrite,
+    );
+    routeCreateWindowSpaceMock.mockResolvedValue({
+      data: "window-space-1",
+      status: 200,
+      hasResponse: true,
+    });
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+
+    replaceProjectChatWindowingState(
+      createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": {
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Research Chat",
+            bounds: {
+              x: 100,
+              y: 120,
+              width: 420,
+              height: 320,
+            },
+          },
+        },
+      }),
+    );
+
+    const savePromise = createWindowSpaceFromCurrentFloatingWindows();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(routeCreateWindowSpaceMock).not.toHaveBeenCalled();
+
+    resolveWindowingWrite?.({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    await expect(savePromise).resolves.toBe("window-space-1");
+    expect(routeCreateWindowSpaceMock).toHaveBeenCalledTimes(1);
   });
 
   it("persists the created window space into local project state after the backend accepts it", async () => {
@@ -423,6 +503,7 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
       await createWindowSpaceFromCurrentFloatingWindows();
 
     expect(createdWindowSpaceId).toBe("window-space-1");
+    expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
     expect(routeCreateWindowSpaceMock).toHaveBeenCalledTimes(1);
     const createRequest = routeCreateWindowSpaceMock.mock.calls[0]?.[0];
     expect(createRequest?.projectConfigId).toBe("project-id");
@@ -486,6 +567,48 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
       SettaNotificationTypeEnum.error,
     );
     expect(useProjectState.getState().projectConfig.windowSpaces).toEqual({});
+  });
+
+  it("shows an error notification when syncing the workspace layout fails before saving", async () => {
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: { detail: "Not Found" },
+      status: 404,
+      hasResponse: true,
+    });
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["floating-chat"],
+        instancesById: {
+          "floating-chat": {
+            instanceId: "floating-chat",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Research Chat",
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 500,
+              height: 360,
+            },
+          },
+        },
+      }),
+    });
+
+    const createdWindowSpaceId =
+      await createWindowSpaceFromCurrentFloatingWindows();
+
+    expect(createdWindowSpaceId).toBeNull();
+    expect(routeCreateWindowSpaceMock).not.toHaveBeenCalled();
+    expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
+      "Failed to sync window layout before saving (404): Not Found",
+      SettaNotificationTypeEnum.error,
+    );
   });
 });
 
@@ -678,5 +801,153 @@ describe("restoreWindowSpaceInWorkspace", () => {
       ],
     ).toBeUndefined();
     expect(routeSetProjectChatWindowingStateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("remaps restored window ids when a saved floating window collides with an existing non-floating workspace window", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Restored Chat",
+                chatId: "chat-restored",
+                zIndex: 3,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-2"],
+        instancesById: {
+          "project-chat-window-2": {
+            instanceId: "project-chat-window-2",
+            placement: ChatWindowPlacementEnum.bottom_docked,
+            title: "Docked Chat",
+            chatId: "chat-live",
+          },
+        },
+        nextInstanceNumber: 3,
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.order[0]).toBe("project-chat-window-2");
+    expect(nextState.instancesById["project-chat-window-2"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.bottom_docked,
+      title: "Docked Chat",
+      chatId: "chat-live",
+    });
+    expect(nextState.instancesById["project-chat-window-3"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Restored Chat",
+      chatId: "chat-restored",
+    });
+    expect(nextState.order).toEqual([
+      "project-chat-window-2",
+      "project-chat-window-3",
+    ]);
+    expect(nextState.nextInstanceNumber).toBe(4);
+  });
+
+  it("restores saved floating windows in place when they replace existing floating workspace windows", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Saved Chat",
+                chatId: "chat-saved",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-2"],
+        instancesById: {
+          "project-chat-window-2": {
+            instanceId: "project-chat-window-2",
+            placement: ChatWindowPlacementEnum.floating,
+            title: "Moved Chat",
+            chatId: "chat-live",
+            zIndex: 1,
+            bounds: {
+              x: 500,
+              y: 400,
+              width: 240,
+              height: 180,
+            },
+          },
+        },
+        nextInstanceNumber: 3,
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.order).toEqual(["project-chat-window-2"]);
+    expect(nextState.instancesById["project-chat-window-2"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Saved Chat",
+      chatId: "chat-saved",
+      zIndex: 4,
+    });
+    expect(
+      nextState.instancesById["project-chat-window-2"]?.bounds,
+    ).not.toEqual({
+      x: 500,
+      y: 400,
+      width: 240,
+      height: 180,
+    });
+    expect(nextState.instancesById["project-chat-window-3"]).toBeUndefined();
+    expect(nextState.nextInstanceNumber).toBe(3);
   });
 });

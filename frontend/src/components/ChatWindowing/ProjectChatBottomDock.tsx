@@ -59,6 +59,7 @@ import {
   resolveDefaultFloatingChatBounds,
   setProjectChatWindowBounds,
   setProjectChatWindowBoundsById,
+  setProjectChatWindowChatId,
   setProjectChatWindowDockFractions,
   setProjectChatWindowPlacement,
   setProjectChatWindowTitle,
@@ -93,6 +94,7 @@ type ResolvedWindowPill = {
   dockWidthFraction: number | null;
   dockPreferredWidthPx: number | null;
   sectionId: string | null;
+  chatId: string | null;
 };
 
 type PillDisplayMode = "full" | "compact" | "cycle" | "menu";
@@ -1477,6 +1479,7 @@ export function ProjectChatBottomDock() {
         dockWidthFraction: instance.dockMetrics.widthFraction,
         dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
         sectionId: instance.sectionIdOrNull,
+        chatId: instance.chatId,
       });
     }
     for (const [instanceId, instance] of Object.entries(instancesById)) {
@@ -1507,6 +1510,7 @@ export function ProjectChatBottomDock() {
         dockWidthFraction: instance.dockMetrics.widthFraction,
         dockPreferredWidthPx: instance.dockMetrics.preferredWidthPx,
         sectionId: instance.sectionIdOrNull,
+        chatId: instance.chatId,
       });
     }
     return output;
@@ -3959,6 +3963,17 @@ export function ProjectChatBottomDock() {
                               <UnifiedChatSurface
                                 mode={pill.mode}
                                 host={ChatWindowPlacementEnum.bottom_docked}
+                                projectChatId={pill.chatId}
+                                setProjectChatId={(next) => {
+                                  const resolvedChatId =
+                                    typeof next === "function"
+                                      ? next(pill.chatId ?? undefined)
+                                      : next;
+                                  setProjectChatWindowChatId(
+                                    pill.instanceId,
+                                    resolvedChatId,
+                                  );
+                                }}
                               />
                             )}
                           </ProjectChatWindowSurface>
@@ -4324,6 +4339,17 @@ export function ProjectChatBottomDock() {
                         <UnifiedChatSurface
                           mode={pill.mode}
                           host={ChatWindowPlacementEnum.floating}
+                          projectChatId={pill.chatId}
+                          setProjectChatId={(next) => {
+                            const resolvedChatId =
+                              typeof next === "function"
+                                ? next(pill.chatId ?? undefined)
+                                : next;
+                            setProjectChatWindowChatId(
+                              pill.instanceId,
+                              resolvedChatId,
+                            );
+                          }}
                         />
                       )}
                     </ProjectChatWindowSurface>
@@ -4573,6 +4599,17 @@ export function ProjectChatBottomDock() {
                   <UnifiedChatSurface
                     mode={openMaximizedWindow.mode}
                     host={ChatWindowPlacementEnum.maximized}
+                    projectChatId={openMaximizedWindow.chatId}
+                    setProjectChatId={(next) => {
+                      const resolvedChatId =
+                        typeof next === "function"
+                          ? next(openMaximizedWindow.chatId ?? undefined)
+                          : next;
+                      setProjectChatWindowChatId(
+                        openMaximizedWindow.instanceId,
+                        resolvedChatId,
+                      );
+                    }}
                   />
                 )}
               </ProjectChatWindowSurface>

@@ -143,4 +143,40 @@ describe("sectionSlugPaths", () => {
       sectionType: SectionTypeEnum.Code,
     });
   });
+
+  it("rebuilds the slug index after an in-place section rename", () => {
+    const state = createSectionState({
+      sections: {
+        parent: { name: "Parent" },
+        child: { name: "Blue Star" },
+      },
+      parentSectionMap: {
+        parent: null,
+        child: "parent",
+      },
+      groupChildrenById: {
+        parent: ["child"],
+      },
+    });
+
+    expect(resolveStandaloneSectionSlug(state, "parent_blue_star")).toEqual({
+      kind: "found",
+      sectionId: "child",
+      sectionName: "Blue Star",
+      sectionType: SectionTypeEnum.Code,
+    });
+
+    state.sections.child.name = "Green Star";
+
+    expect(resolveStandaloneSectionSlug(state, "parent_green_star")).toEqual({
+      kind: "found",
+      sectionId: "child",
+      sectionName: "Green Star",
+      sectionType: SectionTypeEnum.Code,
+    });
+    expect(resolveStandaloneSectionSlug(state, "parent_blue_star")).toEqual({
+      kind: "not_found",
+      sectionSlug: "parent_blue_star",
+    });
+  });
 });

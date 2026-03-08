@@ -1,10 +1,17 @@
+import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  useNodeInternals,
+  usePendingOperations,
+  useProjectState,
+} from "state/definitions";
+import { resetProjectStores } from "state/utils";
 import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectStateSingleConfig,
 } from "utils/generatedTypes";
-import { describe, expect, it } from "vitest";
-import { mergeProjectChatWindowingFromCurrentState } from "./sectionInfos";
+import { beforeEach, describe, expect, it } from "vitest";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 
 function buildProjectState(
   projectChatWindowing = createProjectChatWindowingState(),
@@ -17,116 +24,120 @@ function buildProjectState(
   });
 }
 
-describe("mergeProjectChatWindowingFromCurrentState", () => {
-  it("preserves local chat windowing when an unrelated backend update arrives without window data", () => {
-    // Section deletes and view-mode changes should not wipe the locally open chat windows.
+describe("processProjectStateUpdateFromBackend project chat windowing sync", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+  });
+
+  it("replaces stale local project chat windowing with the backend snapshot when there are no pending ops", () => {
     const localWindow = createProjectChatWindowInstance({
       instanceId: "project-chat-window-1",
-      isClosed: false,
-      isMinimized: false,
+      title: "Local title",
+      isClosed: true,
     });
-    const currentState = buildProjectState(
-      createProjectChatWindowingState({
+    const backendWindow = createProjectChatWindowInstance({
+      instanceId: "project-chat-window-1",
+      title: "Server title",
+      isClosed: false,
+    });
+
+    useProjectState.setState({
+      projectConfig: {
+        id: "project-config-1",
+      },
+      projectChatWindowing: createProjectChatWindowingState({
         instancesById: {
           [localWindow.instanceId]: localWindow,
         },
         order: [localWindow.instanceId],
         nextInstanceNumber: 2,
       }),
-    );
-    const incomingState = buildProjectState();
-
-    mergeProjectChatWindowingFromCurrentState(incomingState, currentState);
-
-    expect(incomingState.projectChatWindowing.order).toEqual([
-      localWindow.instanceId,
-    ]);
-    expect(
-      incomingState.projectChatWindowing.instancesById[localWindow.instanceId],
-    ).toEqual(localWindow);
-    expect(incomingState.projectChatWindowing.nextInstanceNumber).toBe(2);
-  });
-
-  it("keeps the local version of matching windows when the backend snapshot is older", () => {
-    // A stale backend payload must not reopen or reset an already-changed local window.
-    const incomingWindow = createProjectChatWindowInstance({
-      instanceId: "project-chat-window-1",
-      isClosed: false,
-      isMinimized: false,
-      title: "Old title",
     });
-    const currentWindow = createProjectChatWindowInstance({
-      instanceId: "project-chat-window-1",
-      isClosed: true,
-      isMinimized: false,
-      title: "New title",
+
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectState(
+        createProjectChatWindowingState({
+          instancesById: {
+            [backendWindow.instanceId]: backendWindow,
+          },
+          order: [backendWindow.instanceId],
+          nextInstanceNumber: 2,
+        }),
+      ),
+      completedOpIds: [],
+      pendingOpIds: [],
     });
-    const currentState = buildProjectState(
+
+    expect(useProjectState.getState().projectChatWindowing).toEqual(
       createProjectChatWindowingState({
         instancesById: {
-          [currentWindow.instanceId]: currentWindow,
+          [backendWindow.instanceId]: backendWindow,
         },
-        order: [currentWindow.instanceId],
+        order: [backendWindow.instanceId],
         nextInstanceNumber: 2,
       }),
     );
-    const incomingState = buildProjectState(
-      createProjectChatWindowingState({
-        instancesById: {
-          [incomingWindow.instanceId]: incomingWindow,
-        },
-        order: [incomingWindow.instanceId],
-        nextInstanceNumber: 2,
-      }),
-    );
-
-    mergeProjectChatWindowingFromCurrentState(incomingState, currentState);
-
-    expect(
-      incomingState.projectChatWindowing.instancesById[
-        currentWindow.instanceId
-      ],
-    ).toEqual(currentWindow);
   });
 
-  it("retains backend-only windows while preferring local ordering for shared ones", () => {
-    // Merging should preserve unseen backend windows without letting them displace the local dock order.
-    const currentWindow = createProjectChatWindowInstance({
-      instanceId: "project-chat-window-2",
+  it("reapplies a still-pending optimistic windowing update on top of the backend snapshot", () => {
+    const backendWindow = createProjectChatWindowInstance({
+      instanceId: "project-chat-window-1",
+      title: "Server title",
     });
-    const incomingWindow = createProjectChatWindowInstance({
-      instanceId: "project-chat-window-3",
+
+    useProjectState.setState({
+      projectConfig: {
+        id: "project-config-1",
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        instancesById: {
+          [backendWindow.instanceId]: backendWindow,
+        },
+        order: [backendWindow.instanceId],
+        nextInstanceNumber: 2,
+      }),
     });
-    const currentState = buildProjectState(
-      createProjectChatWindowingState({
-        instancesById: {
-          [currentWindow.instanceId]: currentWindow,
+    usePendingOperations.setState({
+      pending: [
+        {
+          opId: "frontend-op-1",
+          acknowledged: false,
+          apply: (state) => {
+            state.projectChatWindowing.instancesById["project-chat-window-1"] =
+              createProjectChatWindowInstance({
+                instanceId: "project-chat-window-1",
+                title: "Optimistic title",
+              });
+          },
         },
-        order: [currentWindow.instanceId],
-        nextInstanceNumber: 3,
-      }),
-    );
-    const incomingState = buildProjectState(
-      createProjectChatWindowingState({
-        instancesById: {
-          [incomingWindow.instanceId]: incomingWindow,
-        },
-        order: [incomingWindow.instanceId],
-        nextInstanceNumber: 4,
-      }),
-    );
-
-    mergeProjectChatWindowingFromCurrentState(incomingState, currentState);
-
-    expect(incomingState.projectChatWindowing.order).toEqual([
-      currentWindow.instanceId,
-      incomingWindow.instanceId,
-    ]);
-    expect(
-      incomingState.projectChatWindowing.instancesById[
-        incomingWindow.instanceId
       ],
-    ).toEqual(incomingWindow);
-    expect(incomingState.projectChatWindowing.nextInstanceNumber).toBe(4);
+    });
+
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectState(
+        createProjectChatWindowingState({
+          instancesById: {
+            [backendWindow.instanceId]: backendWindow,
+          },
+          order: [backendWindow.instanceId],
+          nextInstanceNumber: 2,
+        }),
+      ),
+      completedOpIds: [],
+      pendingOpIds: ["frontend-op-1"],
+    });
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "project-chat-window-1"
+      ]?.title,
+    ).toBe("Optimistic title");
   });
 });

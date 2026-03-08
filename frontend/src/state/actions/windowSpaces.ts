@@ -3,7 +3,10 @@ import {
   normalizeFloatingBounds,
 } from "components/ChatWindowing/projectChatSnapLayout";
 import { resolveProjectChatFloatingViewport } from "components/ChatWindowing/projectChatViewport";
-import { replaceProjectChatWindowingState } from "state/actions/projectChatWindowing";
+import {
+  flushPendingProjectChatWindowingWrites,
+  replaceProjectChatWindowingState,
+} from "state/actions/projectChatWindowing";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -12,6 +15,7 @@ import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_window_space,
+  route_set_project_chat_windowing_state,
   route_set_window_space_sort_order,
 } from "utils/generatedEndpoints";
 import {
@@ -219,6 +223,26 @@ function resolveNextProjectChatWindowInstanceNumber(
   return nextInstanceNumber;
 }
 
+function allocateFreshProjectChatWindowInstanceId(
+  usedInstanceIds: Set<string>,
+  nextInstanceNumber: number,
+): {
+  instanceId: string;
+  nextInstanceNumber: number;
+} {
+  let candidateNumber = nextInstanceNumber;
+  let candidateId = `project-chat-window-${candidateNumber}`;
+  while (usedInstanceIds.has(candidateId)) {
+    candidateNumber += 1;
+    candidateId = `project-chat-window-${candidateNumber}`;
+  }
+  usedInstanceIds.add(candidateId);
+  return {
+    instanceId: candidateId,
+    nextInstanceNumber: candidateNumber + 1,
+  };
+}
+
 function mergeProjectChatWindowSpaceOrder(
   preservedOrder: Array<string>,
   restoredOrder: Array<string>,
@@ -304,6 +328,85 @@ export function createProjectChatWindowingStateFromWindowSpace(
   });
 }
 
+function remapRestoredWindowSpaceInstanceIdsForWorkspace(
+  restoredFloatingWindowing: ProjectChatWindowingState,
+  currentWindowing: ProjectChatWindowingState,
+): ProjectChatWindowingState {
+  const usedInstanceIds = new Set(
+    Object.entries(currentWindowing.instancesById)
+      .filter(
+        ([, instance]) =>
+          instance.placement !== ChatWindowPlacementEnum.floating,
+      )
+      .map(([instanceId]) => instanceId),
+  );
+  const processedRestoredInstanceIds = new Set<string>();
+  const remappedInstancesById: ProjectChatWindowingState["instancesById"] = {};
+  const remappedOrder: Array<string> = [];
+  let nextInstanceNumber = Math.max(
+    currentWindowing.nextInstanceNumber,
+    restoredFloatingWindowing.nextInstanceNumber,
+  );
+
+  for (const instanceId of restoredFloatingWindowing.order) {
+    const instance = restoredFloatingWindowing.instancesById[instanceId];
+    if (!instance) {
+      continue;
+    }
+    processedRestoredInstanceIds.add(instanceId);
+    let nextInstanceId = instanceId;
+    if (usedInstanceIds.has(instanceId)) {
+      const allocated = allocateFreshProjectChatWindowInstanceId(
+        usedInstanceIds,
+        nextInstanceNumber,
+      );
+      nextInstanceId = allocated.instanceId;
+      nextInstanceNumber = allocated.nextInstanceNumber;
+    } else {
+      usedInstanceIds.add(instanceId);
+    }
+    remappedInstancesById[nextInstanceId] =
+      nextInstanceId === instanceId
+        ? instance
+        : {
+            ...instance,
+            instanceId: nextInstanceId,
+          };
+    remappedOrder.push(nextInstanceId);
+  }
+
+  for (const [instanceId, instance] of Object.entries(
+    restoredFloatingWindowing.instancesById,
+  )) {
+    if (processedRestoredInstanceIds.has(instanceId)) {
+      continue;
+    }
+    if (usedInstanceIds.has(instanceId)) {
+      const allocated = allocateFreshProjectChatWindowInstanceId(
+        usedInstanceIds,
+        nextInstanceNumber,
+      );
+      remappedInstancesById[allocated.instanceId] = {
+        ...instance,
+        instanceId: allocated.instanceId,
+      };
+      remappedOrder.push(allocated.instanceId);
+      nextInstanceNumber = allocated.nextInstanceNumber;
+      continue;
+    }
+    usedInstanceIds.add(instanceId);
+    remappedInstancesById[instanceId] = instance;
+    remappedOrder.push(instanceId);
+  }
+
+  return createProjectChatWindowingState({
+    ...restoredFloatingWindowing,
+    instancesById: remappedInstancesById,
+    order: remappedOrder,
+    nextInstanceNumber,
+  });
+}
+
 export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   const state = useProjectState.getState();
   const windowSpaces = getProjectWindowSpaces(state.projectConfig);
@@ -317,6 +420,11 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
     );
   const currentWindowing =
     state.projectChatWindowing ?? createProjectChatWindowingState();
+  const remappedRestoredFloatingWindowing =
+    remapRestoredWindowSpaceInstanceIdsForWorkspace(
+      restoredFloatingWindowing,
+      currentWindowing,
+    );
   const preservedInstancesById: ProjectChatWindowingState["instancesById"] = {};
   const preservedOrder: Array<string> = [];
 
@@ -325,7 +433,7 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
     if (
       !instance ||
       instance.placement === ChatWindowPlacementEnum.floating ||
-      restoredFloatingWindowing.instancesById[instanceId]
+      remappedRestoredFloatingWindowing.instancesById[instanceId]
     ) {
       continue;
     }
@@ -338,7 +446,7 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
   )) {
     if (
       instance.placement === ChatWindowPlacementEnum.floating ||
-      restoredFloatingWindowing.instancesById[instanceId] ||
+      remappedRestoredFloatingWindowing.instancesById[instanceId] ||
       preservedInstancesById[instanceId]
     ) {
       continue;
@@ -348,18 +456,18 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
 
   const instancesById = {
     ...preservedInstancesById,
-    ...restoredFloatingWindowing.instancesById,
+    ...remappedRestoredFloatingWindowing.instancesById,
   };
   const nextWindowing = createProjectChatWindowingState({
     instancesById,
     order: mergeProjectChatWindowSpaceOrder(
       preservedOrder,
-      restoredFloatingWindowing.order,
+      remappedRestoredFloatingWindowing.order,
       instancesById,
     ),
     nextInstanceNumber: Math.max(
       currentWindowing.nextInstanceNumber,
-      restoredFloatingWindowing.nextInstanceNumber,
+      remappedRestoredFloatingWindowing.nextInstanceNumber,
     ),
   });
   replaceProjectChatWindowingState(nextWindowing);
@@ -368,12 +476,36 @@ export function restoreWindowSpaceInWorkspace(windowSpaceId: string): void {
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   string | null
 > {
+  await flushPendingProjectChatWindowingWrites();
   const state = useProjectState.getState();
   const snapshot = snapshotFloatingWindowsForWindowSpace(state);
   if (Object.keys(snapshot.windowsById).length === 0) {
     return null;
   }
   const projectConfigId = getCurrProjectConfigId();
+  const syncResponse = await route_set_project_chat_windowing_state({
+    projectConfigId,
+    state: state.projectChatWindowing,
+    frontendOpId: null,
+  });
+  if (!res200(syncResponse)) {
+    const detail = getErrorDetail(syncResponse.data);
+    const statusSuffix =
+      typeof syncResponse.status === "number"
+        ? ` (${syncResponse.status})`
+        : "";
+    const detailSuffix = detail ? `: ${detail}` : ".";
+    console.error("Failed to sync project chat windowing before saving.", {
+      status: syncResponse.status,
+      detail,
+      projectConfigId,
+    });
+    addTemporaryNotification(
+      `Failed to sync window layout before saving${statusSuffix}${detailSuffix}`,
+      SettaNotificationTypeEnum.error,
+    );
+    return null;
+  }
   const nextWindowSpaceName = resolveNextWindowSpaceName(
     getProjectWindowSpaces(state.projectConfig),
   );
