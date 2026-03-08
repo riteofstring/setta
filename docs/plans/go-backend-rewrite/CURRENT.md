@@ -40,6 +40,9 @@ Last verified: `2026-03-11`
     prefer dedicated Go boundary DTOs plus converter rules, treat raw TS as
     temporary debt only, and require parity/typecheck verification beyond
     golden snapshots
+  - the production generator now runs without raw-TS or `FactoryTS` escape
+    hatches; future widening should use structured declarations, converter
+    rules, or explicit Go boundary DTOs instead of reopening inline TS seams
   - sever frontend ties to Python-generated backend bindings rather than
     preserving a mixed-source transitional state
   - replace the canonical generated frontend contract files instead of keeping

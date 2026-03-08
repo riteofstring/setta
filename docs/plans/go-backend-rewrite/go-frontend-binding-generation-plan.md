@@ -136,6 +136,15 @@ proving the converter or landing a bounded cutover slice. They are not the
 target architecture and should be deleted as soon as the canonical generated
 files are Go-owned.
 
+Current status:
+
+- the production generator now emits the canonical frontend contract files
+  without raw declarations, raw marker types, or `FactoryTS` helper bodies in
+  `internal/frontendbindings`
+- widening the converted surface should use structured declarations,
+  converter-rule additions, or explicit Go boundary DTOs rather than
+  reintroducing inline TypeScript escape hatches
+
 ## Initial Slice
 
 Start by proving the converter pipeline on a small but real Go-owned surface:
