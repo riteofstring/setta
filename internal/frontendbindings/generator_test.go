@@ -113,6 +113,33 @@ func TestBuildBindingsIncludesProjectStateTypeGuardSupport(t *testing.T) {
 	}
 }
 
+func TestProjectStateTypeGuardSupportUsesStructuredDeclarations(t *testing.T) {
+	t.Helper()
+
+	declarations := projectStateSupportDeclarations()
+	seenSets := 0
+	seenGuards := 0
+	for _, declaration := range declarations {
+		switch declaration.Kind {
+		case "set":
+			seenSets++
+		case "type_guard":
+			seenGuards++
+		case "raw":
+			if declaration.Name == "ProjectStateTypeGuardSupport" {
+				t.Fatalf("project-state guard support still uses raw declaration")
+			}
+		}
+	}
+
+	if seenSets != len(projectStateTypeGuardTypeSets) {
+		t.Fatalf("project-state set declaration count = %d, want %d", seenSets, len(projectStateTypeGuardTypeSets))
+	}
+	if seenGuards != len(projectStateTypeGuards) {
+		t.Fatalf("project-state type-guard declaration count = %d, want %d", seenGuards, len(projectStateTypeGuards))
+	}
+}
+
 func TestBuildBindingsIncludesWebsocketSchemaSupport(t *testing.T) {
 	t.Helper()
 

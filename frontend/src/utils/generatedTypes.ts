@@ -8423,6 +8423,7 @@ export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.TimeParam,
 ]);
 
+
 export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.CodeParam,
@@ -8440,10 +8441,12 @@ export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.TimeParam,
 ]);
 
+
 const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeCallable,
   CodeObjTypeEnum.NestedParam,
 ]);
+
 
 export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
@@ -8461,6 +8464,7 @@ export const ControlCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.DropzoneParam,
 ]);
 
+
 export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
@@ -8477,6 +8481,7 @@ export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.NestedParam,
 ]);
 
+
 const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Code,
   SectionTypeEnum.GenPythonCode,
@@ -8485,10 +8490,12 @@ const BaseParentSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.ListRoot,
 ]);
 
+
 const BaseDictSectionImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Dict,
   SectionTypeEnum.GlobalVariables,
 ]);
+
 
 const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.Callable,
@@ -8496,11 +8503,13 @@ const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
   SectionTypeEnum.GlobalVariables,
 ]);
 
+
 export function isBaseChildlessCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is BaseChildlessCodeObjImplUnion {
   return BaseChildlessCodeObjImplTypeSet.has(x.type);
 }
+
 
 export function isBaseParamCodeObjImpl(
   x: BaseCodeObjImplUnion,
@@ -8508,11 +8517,13 @@ export function isBaseParamCodeObjImpl(
   return BaseParamCodeObjImplTypeSet.has(x.type);
 }
 
+
 export function isBaseParentCodeObjImpl(
   x: BaseCodeObjImplUnion,
 ): x is BaseParentCodeObjImplUnion {
   return BaseParentCodeObjImplTypeSet.has(x.type);
 }
+
 
 export function isBaseParentSectionImpl(
   x: BaseSectionImplUnion,
@@ -8520,11 +8531,13 @@ export function isBaseParentSectionImpl(
   return BaseParentSectionImplTypeSet.has(x.type);
 }
 
+
 export function isBaseDictSectionImpl(
   x: BaseSectionImplUnion,
 ): x is BaseDictSectionImplUnion {
   return BaseDictSectionImplTypeSet.has(x.type);
 }
+
 
 export function isBaseSectionWithParamsImpl(
   x: BaseSectionImplUnion,

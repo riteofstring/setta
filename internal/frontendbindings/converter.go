@@ -10,14 +10,20 @@ import (
 var timeType = reflect.TypeOf(time.Time{})
 
 type TypeDeclaration struct {
-	Name       string
-	Kind       string
-	Alias      string
-	Properties []TypeProperty
-	EnumValues []EnumValue
-	Raw        string
-	CreateExpr string
-	FactoryTS  string
+	Name            string
+	Kind            string
+	Alias           string
+	Properties      []TypeProperty
+	EnumValues      []EnumValue
+	Raw             string
+	CreateExpr      string
+	FactoryTS       string
+	Exported        bool
+	SetElementType  string
+	SetMembers      []string
+	GuardInputType  string
+	GuardReturnType string
+	GuardSetName    string
 }
 
 type EnumValue struct {
@@ -76,6 +82,26 @@ func rawDeclaration(name string, raw string) TypeDeclaration {
 		Name: name,
 		Kind: "raw",
 		Raw:  raw,
+	}
+}
+
+func setDeclaration(name string, elementType string, exported bool, members ...string) TypeDeclaration {
+	return TypeDeclaration{
+		Name:           name,
+		Kind:           "set",
+		Exported:       exported,
+		SetElementType: elementType,
+		SetMembers:     append([]string(nil), members...),
+	}
+}
+
+func typeGuardDeclaration(name string, inputType string, returnType string, setName string) TypeDeclaration {
+	return TypeDeclaration{
+		Name:            name,
+		Kind:            "type_guard",
+		GuardInputType:  inputType,
+		GuardReturnType: returnType,
+		GuardSetName:    setName,
 	}
 }
 

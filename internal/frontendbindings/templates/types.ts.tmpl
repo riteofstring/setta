@@ -199,6 +199,18 @@ export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name 
 {{- else if .FactoryTS }}
 {{ .FactoryTS }}
 {{- end }}
+{{ else if eq .Kind "set" }}
+{{ if .Exported }}export {{ end }}const {{ .Name }} = new Set<{{ .SetElementType }}>([
+{{- range .SetMembers }}
+  {{ . }},
+{{- end }}
+]);
+{{ else if eq .Kind "type_guard" }}
+export function {{ .Name }}(
+  x: {{ .GuardInputType }},
+): x is {{ .GuardReturnType }} {
+  return {{ .GuardSetName }}.has(x.type);
+}
 {{ else if eq .Kind "raw" }}
 {{ .Raw }}
 {{ end }}

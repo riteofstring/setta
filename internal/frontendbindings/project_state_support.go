@@ -1,7 +1,5 @@
 package frontendbindings
 
-import "strings"
-
 type ProjectStateSingleConfig struct{}
 
 type ProjectStateSingleConfigWithCompletedOpIds struct{}
@@ -1231,60 +1229,25 @@ var projectStateTypeGuards = []generatedTypeGuardSpec{
 	},
 }
 
-func buildGeneratedTypeSetTS(spec generatedTypeSetSpec) string {
-	var builder strings.Builder
-	if spec.Exported {
-		builder.WriteString("export ")
-	}
-	builder.WriteString("const ")
-	builder.WriteString(spec.Name)
-	builder.WriteString(" = new Set<")
-	builder.WriteString(spec.TypeExpr)
-	builder.WriteString(">([\n")
-	for _, member := range spec.Members {
-		builder.WriteString("  ")
-		builder.WriteString(member)
-		builder.WriteString(",\n")
-	}
-	builder.WriteString("]);")
-	return builder.String()
-}
-
-func buildGeneratedTypeGuardTS(spec generatedTypeGuardSpec) string {
-	var builder strings.Builder
-	builder.WriteString("export function ")
-	builder.WriteString(spec.Name)
-	builder.WriteString("(\n")
-	builder.WriteString("  x: ")
-	builder.WriteString(spec.InputTypeExpr)
-	builder.WriteString(",\n")
-	builder.WriteString("): x is ")
-	builder.WriteString(spec.ReturnTypeExpr)
-	builder.WriteString(" {\n")
-	builder.WriteString("  return ")
-	builder.WriteString(spec.TypeSetName)
-	builder.WriteString(".has(x.type);\n")
-	builder.WriteString("}")
-	return builder.String()
-}
-
-func buildProjectStateTypeGuardSupportTS() string {
-	var builder strings.Builder
-	for idx, spec := range projectStateTypeGuardTypeSets {
-		if idx > 0 {
-			builder.WriteString("\n\n")
-		}
-		builder.WriteString(buildGeneratedTypeSetTS(spec))
+func projectStateTypeGuardDeclarations() []TypeDeclaration {
+	declarations := make([]TypeDeclaration, 0, len(projectStateTypeGuardTypeSets)+len(projectStateTypeGuards))
+	for _, spec := range projectStateTypeGuardTypeSets {
+		declarations = append(
+			declarations,
+			setDeclaration(spec.Name, spec.TypeExpr, spec.Exported, spec.Members...),
+		)
 	}
 	for _, spec := range projectStateTypeGuards {
-		builder.WriteString("\n\n")
-		builder.WriteString(buildGeneratedTypeGuardTS(spec))
+		declarations = append(
+			declarations,
+			typeGuardDeclaration(spec.Name, spec.InputTypeExpr, spec.ReturnTypeExpr, spec.TypeSetName),
+		)
 	}
-	return builder.String()
+	return declarations
 }
 
 func projectStateSupportDeclarations() []TypeDeclaration {
-	return []TypeDeclaration{
+	declarations := []TypeDeclaration{
 		aliasDeclaration(
 			"ImplArgsBundleMap",
 			`{
@@ -1368,9 +1331,7 @@ func projectStateSupportDeclarations() []TypeDeclaration {
   };
 }`,
 		),
-		rawDeclaration(
-			"ProjectStateTypeGuardSupport",
-			buildProjectStateTypeGuardSupportTS(),
-		),
 	}
+	declarations = append(declarations, projectStateTypeGuardDeclarations()...)
+	return declarations
 }
