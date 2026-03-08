@@ -72,6 +72,14 @@ func CurrentRouteGroups() []RouteGroup {
 					Path: httpapi.RouteGetSettaHomeInfo,
 				},
 				{
+					Name: "createWorkspaceLaunchIntent",
+					Path: httpapi.RouteCreateWorkspaceLaunchIntent,
+				},
+				{
+					Name: "launch",
+					Path: httpapi.RouteLaunch,
+				},
+				{
 					Name: "revealPathInOsFileExplorer",
 					Path: httpapi.RouteRevealPathInOSFileExplorer,
 				},
@@ -126,6 +134,22 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getSettaHomeInfo",
 			ResponseType:    reflect.TypeOf(SettaHomeInfoResponse{}),
+		},
+		{
+			FunctionName:    "route_create_workspace_launch_intent",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "createWorkspaceLaunchIntent",
+			RequestType:     reflect.TypeOf(CreateWorkspaceLaunchIntentRequestInput{}),
+			ResponseType:    reflect.TypeOf(CreateWorkspaceLaunchIntentResponse{}),
+		},
+		{
+			FunctionName:    "route_launch",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "launch",
+			RequestType:     reflect.TypeOf(LaunchRequestInput{}),
+			ResponseType:    reflect.TypeOf(LaunchResponse{}),
 		},
 		{
 			FunctionName:    "route_reveal_path_in_os_file_explorer",

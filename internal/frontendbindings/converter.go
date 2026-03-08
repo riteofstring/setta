@@ -32,7 +32,9 @@ func newTypeConverter() *typeConverter {
 	return &typeConverter{
 		seen: make(map[reflect.Type]struct{}),
 		stringEnums: map[reflect.Type][]string{
-			reflect.TypeOf(ServerMode("")): {"ide", "share", "app", "launcher"},
+			reflect.TypeOf(ServerMode("")):                       {"ide", "share", "app", "launcher"},
+			reflect.TypeOf(LaunchSettaFilesLocation("")):         {"auto", "local", "global"},
+			reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): {"local", "global"},
 		},
 	}
 }

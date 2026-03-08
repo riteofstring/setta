@@ -65,15 +65,30 @@ Current landed wedge:
 - `frontend/src/utils/generatedGoRoutes.ts`
   - current websocket route constants
   - current status/meta route constants
+  - current workspace-launch route constants
 - `frontend/src/utils/generatedGoTypes.ts`
   - current status/meta request/response contract types
+  - explicit workspace-launch boundary contract types
+    - `LaunchRequestInput`
+    - `CreateWorkspaceLaunchIntentRequestInput`
+    - `CreateWorkspaceLaunchIntentResponse`
+    - `LaunchResponse`
+    - these are dedicated frontend contract types, not a direct reflection of
+      `internal/workspacelaunch.Request`, because the runtime request type also
+      carries field-presence semantics for intent storage/validation
 - `frontend/src/utils/generatedGoEndpoints.ts`
   - current status/meta endpoint wrappers
+  - workspace-launch endpoint wrappers
+    - `route_create_workspace_launch_intent`
+    - `route_launch`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
     `WorkspaceSwitcherModal` now consume the Go-generated modules for this
     initial slice
+  - `WorkspaceSwitcherModal`, `WorkspaceLaunchPage`,
+    `workspaceSwitcherLaunch`, and `launchRequestDedupeKey` now consume the
+    Go-generated workspace-launch bindings
 
 ## Rules
 

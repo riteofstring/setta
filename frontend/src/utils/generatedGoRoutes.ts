@@ -12,6 +12,8 @@ export const GoHTTPRoutes = {
   getAuthRefreshStatus: "/authRefreshStatus",
   getServerMode: "/serverMode",
   getSettaHomeInfo: "/settaHomeInfo",
+  createWorkspaceLaunchIntent: "/createWorkspaceLaunchIntent",
+  launch: "/launch",
   revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
 } as const;
 export const GoWebsocketRoutes = {

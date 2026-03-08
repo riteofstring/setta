@@ -4,7 +4,7 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { HOME_ROUTER_PATH } from "utils/constants";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_launch } from "utils/generatedEndpoints";
+import { route_launch } from "utils/generatedGoEndpoints";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";

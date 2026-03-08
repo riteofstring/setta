@@ -22,6 +22,16 @@ export async function route_get_setta_home_info(): Promise<
 > {
   return await get(GoHTTPRoutes.getSettaHomeInfo);
 }
+export async function route_create_workspace_launch_intent(
+  x: gt.CreateWorkspaceLaunchIntentRequestInput,
+): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
+  return await post(GoHTTPRoutes.createWorkspaceLaunchIntent, x);
+}
+export async function route_launch(
+  x: gt.LaunchRequestInput,
+): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
+  return await post(GoHTTPRoutes.launch, x);
+}
 export async function route_reveal_path_in_os_file_explorer(
   x: gt.RevealPathInOSFileExplorerRequest,
 ): Promise<ResponseDataAndStatus<null>> {

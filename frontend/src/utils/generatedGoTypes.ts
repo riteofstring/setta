@@ -30,6 +30,68 @@ export type SettaHomeInfoResponse = {
   llmConfigPath: string;
 };
 
+export type LaunchSettaFilesLocation = "auto" | "local" | "global";
+
+export type LaunchRequestInput = {
+  launchIntentToken?: string | null;
+  workspaceRoot?: string | null;
+  profile?: string | null;
+  settaHome?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: LaunchSettaFilesLocation | null;
+  runtimeRoot?: string | null;
+  sshTarget?: string | null;
+  sshArgs?: string | null;
+  remoteCmd?: string | null;
+  localPort?: number | null;
+};
+
+export type CreateWorkspaceLaunchIntentRequestInput = {
+  launchRequest: LaunchRequestInput;
+  returnUrl: string;
+};
+
+export type LaunchErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type CreateWorkspaceLaunchIntentResponse = {
+  ok: boolean;
+  launchIntentToken: string | null;
+  requestedAt: number | null;
+  error: LaunchErrorPayload | null;
+};
+
+export type LaunchResolvedSettaFilesLocation = "local" | "global";
+
+export type LaunchSessionInfo = {
+  id: string;
+  workspacePath: string;
+  workspacePathCanonical: string;
+  host: string;
+  port: number;
+  pid: number;
+  startedAt: string;
+};
+
+export type LaunchResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  returnUrl: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  session: LaunchSessionInfo | null;
+  remoteCmdResolved: string | null;
+  error: LaunchErrorPayload | null;
+};
+
 export type RevealPathInOSFileExplorerRequest = {
   path: string;
 };
