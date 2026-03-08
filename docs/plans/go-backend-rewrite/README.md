@@ -681,12 +681,16 @@ Use the docs in this order:
   - focused Phase 18 follow-on doc for the landed bounded managed
     `tool_argument_preview_delta` parity slice over shared MCP tool metadata
     and the landed live chat runtime
-187. `spike-mcp.md`
+187. `phase-18-managed-ai-follow-result-parity-plan.md`
+  - focused Phase 18 follow-on doc for the bounded managed
+    `AIFollowToolResultUpdate` parity slice over result-path metadata and the
+    landed managed MCP execution/runtime boundary
+188. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-188. `spike-pty.md`
+189. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-189. `spike-lsp.md`
+190. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
