@@ -12,7 +12,7 @@ from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.logging.config import configure_logging
 from setta.sessions import SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
-from setta.start import (
+from setta.startup_runtime import (
     _apply_paths_to_env,
     _is_ssh_session,
     _render_startup_message,
