@@ -17,10 +17,11 @@ As of 2026-03-08:
 - Go owns the completed Phase 6 MCP parity surface
 - Go owns deployment runtime/session reads plus IDE-mode share/app deployment
   publish/list/latest transport
+- Go owns the first launcher-mode home slice for recent workspaces and
+  directory browsing
 - Python still owns:
   - IDE launcher installation/status/update/remove routes in `status.py`
-  - launcher-mode recent-workspace and filesystem browser routes in
-    `launcher_home.py`
+  - launcher-mode workspace-open handoff in `launcher_home.py`
   - launch-intent creation, workspace launch, and bootstrap token/origin
     handoff in `launch.py` and `bootstrap.py`
 
@@ -183,9 +184,8 @@ avoids shipping launcher setup that writes broken desktop artifacts.
 
 ## Recommended Next Step
 
-Implement
-`phase-7-launcher-home-recent-workspaces-and-directory-browser.md`, then
-return to the remaining launcher runtime prerequisite slices.
+Create and execute the next focused slice for `POST /openLauncherWorkspace`
+plus the launcher executable/target contract it depends on.
 
 Recommended landing order:
 
@@ -205,3 +205,6 @@ Recommended landing order:
 - 2026-03-08: split the launcher runtime prerequisite into a first bounded
   launcher-home slice in
   `phase-7-launcher-home-recent-workspaces-and-directory-browser.md`.
+- 2026-03-08: completed that launcher-home slice in Go; next recommended step
+  is the focused `openLauncherWorkspace` plus launcher executable/target
+  contract slice.

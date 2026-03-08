@@ -20,6 +20,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/launcher"
 	"setta/internal/llmconfig"
 	"setta/internal/lsp"
 	"setta/internal/lspcompletion"
@@ -110,7 +111,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		sharePublisher     *deployments.SharePublisher
 		appPublisher       *deployments.AppPublisher
 		shareSessions      modes.ShareSessionStore
+		launcherHome       *launcher.HomeService
 	)
+	launcherHome = launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: os.LookupEnv,
+	})
 	if modePolicy.IsDeployment() {
 		deploymentRuntime, err = deployments.Open(context.Background(), deployments.RuntimeOptions{
 			DeploymentRoot: cfg.Paths.DeploymentRoot,
@@ -621,6 +626,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				Catalog:        deploymentCatalog,
 				SharePublisher: sharePublisher,
 				AppPublisher:   appPublisher,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterLauncherHomeRoutes(r, httpapi.LauncherHomeRouteDependencies{
+				ModePolicy:       modePolicy,
+				DefaultSettaHome: cfg.Paths.SettaHome,
+				Home:             launcherHome,
 			}); err != nil {
 				panic(err)
 			}

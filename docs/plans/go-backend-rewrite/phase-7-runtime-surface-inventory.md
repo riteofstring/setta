@@ -27,6 +27,8 @@ Current repo status as of 2026-03-08:
     `internal/deployments/app_publish.go`
   - IDE-mode share/app deployment publish/list/latest routes in
     `internal/httpapi/deployment_ide_routes.go`
+  - launcher-mode recent-workspace and directory-browser routes in
+    `internal/httpapi/launcher_home_routes.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
   - launcher installation and status management
@@ -100,19 +102,17 @@ Current repo status as of 2026-03-08:
 
 ## Recommended Next Step
 
-Implement
-`phase-7-launcher-home-recent-workspaces-and-directory-browser.md`: the first
-Go-owned launcher-mode home/runtime slice for recent workspaces and directory
-browsing.
+Create and execute the next focused Phase 7 slice for
+`POST /openLauncherWorkspace` plus the launcher executable/target contract it
+depends on.
 
 That is now the highest-leverage next step because:
 
 - the bounded deployment slice is complete end to end
 - the dedicated launcher/bootstrap Phase 7 plan now exists
-- this launcher-home slice is the least-coupled part of the launcher runtime
-  prerequisite
-- it gives Go a real launcher-mode route cluster without dragging
-  launch/bootstrap handoff into the same change
+- the first launcher-mode route cluster is now complete in Go
+- the remaining launcher prerequisite is concentrated around workspace-open
+  handoff and launcher executable/bootstrap ownership
 
 ## Progress Notes
 
@@ -144,6 +144,9 @@ That is now the highest-leverage next step because:
 - 2026-03-08: split that launcher runtime prerequisite into a first bounded
   launcher-home slice for recent workspaces and directory browsing; this is now
   the recommended next step.
+- 2026-03-08: completed that launcher-home recent-workspace and directory
+  browser slice in Go; next recommended step is the focused
+  `openLauncherWorkspace` plus launcher executable/target contract slice.
 
 ## Verification
 

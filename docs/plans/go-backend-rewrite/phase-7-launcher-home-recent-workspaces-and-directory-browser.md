@@ -16,8 +16,12 @@ workspace launch/bootstrap handoff:
 
 As of 2026-03-08:
 
-- Go does not yet own any launcher-mode HTTP route cluster
-- Python owns the full launcher home router in `backend/setta/routers/launcher_home.py`
+- Go now owns this bounded launcher-mode HTTP route cluster in:
+  - `internal/launcher/home.go`
+  - `internal/httpapi/launcher_home_routes.go`
+  - `internal/app/app.go`
+- Python still owns the remainder of `backend/setta/routers/launcher_home.py`,
+  especially `POST /openLauncherWorkspace`
 - the launcher home frontend in
   `frontend/src/components/Pages/Launcher/LauncherHomePage.tsx` consumes:
   - `GET /launcherRecentWorkspaces`
@@ -111,11 +115,25 @@ Do not include:
 
 ## Recommended Next Step
 
-Implement this Stage 1 launcher-home slice end to end, then follow with the
-launcher executable/target contract plus `openLauncherWorkspace`.
+Create and execute the next focused Phase 7 slice for
+`POST /openLauncherWorkspace` plus the launcher executable/target contract it
+depends on.
 
 ## Progress Notes
 
 - 2026-03-08: created the focused launcher-home slice doc for recent
   workspaces and directory browsing, explicitly deferring
   `openLauncherWorkspace`.
+- 2026-03-08: completed this slice by adding a Go-owned launcher home runtime
+  in `internal/launcher/home.go`, thin launcher-mode transport in
+  `internal/httpapi/launcher_home_routes.go`, and launcher-mode app wiring in
+  `internal/app/app.go`.
+- 2026-03-08: decision: keep recent-workspace errors in-band with `{ ok: false,
+  error }`, keep the route cluster mounted only in launcher mode, and use a
+  real file lock for `<setta_home>/launcher/recent-workspaces.json` updates.
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/launcher -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestRegisterLauncherHomeRoutes' -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppLauncherModeListsAndMutatesRecentWorkspacesOverHTTP' -count=1 -timeout 420s`
