@@ -192,5 +192,10 @@ After the post-Phase-24 broader inventory:
 
 ## Next Recommended Step
 
-Use `phase-25-legacy-startup-and-distribution-boundary-plan.md` as the next
-focused planning doc for this broader rewrite track.
+The focused follow-on planning and Slice 1 classification are now recorded in:
+
+- `phase-25-legacy-startup-and-distribution-boundary-plan.md`
+- `phase-25-startup-test-surface-classification-and-source-of-truth.md`
+
+The next executable step is Phase 25 Slice 2 source/dev startup contract
+hardening.

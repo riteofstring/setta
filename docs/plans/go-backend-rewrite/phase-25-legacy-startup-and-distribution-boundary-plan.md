@@ -29,6 +29,16 @@ Completed before this plan:
 - Phase 25 ownership inventory in
   `phase-25-remaining-python-ownership-inventory-and-rerank.md`
 
+Completed during Slice 1:
+
+- shipped CLI/reference docs synced to the Go-owned packaged command surface
+- `tests/start/*` classified explicitly in
+  `phase-25-startup-test-surface-classification-and-source-of-truth.md`
+  into:
+  - active shipped/distribution behavior
+  - active source/dev workflow behavior
+  - legacy fallback behavior
+
 Still owned outside Go:
 
 - legacy `backend/setta/start.py` command/fallback behavior
@@ -117,6 +127,8 @@ Recommendation:
 ## Planned Slices
 
 ### Slice 1: Startup boundary inventory cleanup and source-of-truth docs
+
+Status: completed
 
 Deliverables:
 
@@ -213,9 +225,11 @@ For later slices:
 
 ## Next Recommended Step
 
-Execute Slice 1 first:
+Execute Slice 2 next:
 
-- sync the shipped command reference with the current Go-owned command surface
-- classify remaining `tests/start/*` coverage by active versus legacy role
-- then decide the bounded Slice 2 source/dev startup change set from that
-  classification
+- use
+  `phase-25-startup-test-surface-classification-and-source-of-truth.md` as the
+  contract boundary
+- harden source/dev startup wiring around the explicit Go-owned command surface
+- avoid preserving legacy `setta.start` fallback behavior unless a real current
+  workflow still requires it

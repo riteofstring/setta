@@ -740,12 +740,16 @@ Use the docs in this order:
   - focused plan for the next optional rewrite track: reduce legacy
     `setta.start` ownership and dev/distribution workflow glue without
     reopening backend route/runtime work
-202. `spike-mcp.md`
+202. `phase-25-startup-test-surface-classification-and-source-of-truth.md`
+  - focused Slice 1 outcome doc that classifies `tests/start/*` into active
+    shipped/distribution, active source/dev workflow, and legacy fallback
+    buckets so later startup cleanup has an explicit contract boundary
+203. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-203. `spike-pty.md`
+204. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-204. `spike-lsp.md`
+205. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

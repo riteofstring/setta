@@ -367,6 +367,19 @@ route/runtime ownership at all:
 - if rewrite work continues, the next track is therefore legacy startup and
   distribution boundary work, not another backend phase
 
+That broader track is now narrowed one step further by the landed Slice 1
+classification in
+`phase-25-startup-test-surface-classification-and-source-of-truth.md`:
+
+- active packaged/distribution tests are now separated from source/dev workflow
+  tests and from legacy fallback coverage
+- the next honest implementation step is therefore not broad `start.py`
+  cleanup; it is Phase 25 Slice 2 source/dev startup contract hardening over
+  the current Go-owned command boundary
+- direct `setta.start` / `setta.launch` / `setta.ssh_*` test coverage should
+  now be treated as legacy fallback by default unless a current workflow still
+  proves it necessary
+
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
 changes that rerank.
