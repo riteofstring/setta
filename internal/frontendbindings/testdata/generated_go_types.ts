@@ -7150,6 +7150,36 @@ export function createSetTopLevelSectionLayoutRequestInput(options: Partial<SetT
 }
 
 
+export type ToggleSectionVisibilityRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createToggleSectionVisibilityRequestInput(options: Partial<ToggleSectionVisibilityRequestInput> = {}): ToggleSectionVisibilityRequestInput {
+  return options as ToggleSectionVisibilityRequestInput;
+}
+
+
+export type AutoLayoutTopLevelSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  margin?: number | null;
+};
+export function createAutoLayoutTopLevelSectionsRequestInput(options: Partial<AutoLayoutTopLevelSectionsRequestInput> = {}): AutoLayoutTopLevelSectionsRequestInput {
+  return options as AutoLayoutTopLevelSectionsRequestInput;
+}
+
+
+export type SetShowParamDisplayNamesRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  showParamDisplayNames: boolean;
+};
+export function createSetShowParamDisplayNamesRequestInput(options: Partial<SetShowParamDisplayNamesRequestInput> = {}): SetShowParamDisplayNamesRequestInput {
+  return options as SetShowParamDisplayNamesRequestInput;
+}
+
+
 export type GroupSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7223,6 +7253,26 @@ export function createSetSectionColumnWidthRequestInput(options: Partial<SetSect
 }
 
 
+export type TogglePositionLocksRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+};
+export function createTogglePositionLocksRequestInput(options: Partial<TogglePositionLocksRequestInput> = {}): TogglePositionLocksRequestInput {
+  return options as TogglePositionLocksRequestInput;
+}
+
+
+export type ToggleMinimizedRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+};
+export function createToggleMinimizedRequestInput(options: Partial<ToggleMinimizedRequestInput> = {}): ToggleMinimizedRequestInput {
+  return options as ToggleMinimizedRequestInput;
+}
+
+
 export type SetSectionEdgeInputsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -7285,6 +7335,28 @@ export type SetGroupOverflowModeRequestInput = {
 };
 export function createSetGroupOverflowModeRequestInput(options: Partial<SetGroupOverflowModeRequestInput> = {}): SetGroupOverflowModeRequestInput {
   return options as SetGroupOverflowModeRequestInput;
+}
+
+
+export type SetSectionTagColorRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  tagColor?: string | null;
+};
+export function createSetSectionTagColorRequestInput(options: Partial<SetSectionTagColorRequestInput> = {}): SetSectionTagColorRequestInput {
+  return options as SetSectionTagColorRequestInput;
+}
+
+
+export type SetSectionStyleColorRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  styleColor?: string | null;
+};
+export function createSetSectionStyleColorRequestInput(options: Partial<SetSectionStyleColorRequestInput> = {}): SetSectionStyleColorRequestInput {
+  return options as SetSectionStyleColorRequestInput;
 }
 
 

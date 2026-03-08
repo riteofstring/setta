@@ -667,6 +667,21 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_TOP_LEVEL_SECTION_LAYOUT",
 				},
 				{
+					Name:     "toggleSectionVisibility",
+					Path:     httpapi.RouteToggleSectionVisibility,
+					EnumName: "TOGGLE_SECTION_VISIBILITY",
+				},
+				{
+					Name:     "autoLayoutTopLevelSections",
+					Path:     httpapi.RouteAutoLayoutTopLevelSections,
+					EnumName: "AUTO_LAYOUT_TOP_LEVEL_SECTIONS",
+				},
+				{
+					Name:     "setShowParamDisplayNames",
+					Path:     httpapi.RouteSetShowParamDisplayNames,
+					EnumName: "SET_SHOW_PARAM_DISPLAY_NAMES",
+				},
+				{
 					Name:     "groupSections",
 					Path:     httpapi.RouteGroupSections,
 					EnumName: "GROUP_SECTIONS",
@@ -702,6 +717,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_COLUMN_WIDTH",
 				},
 				{
+					Name:     "togglePositionLocks",
+					Path:     httpapi.RouteTogglePositionLocks,
+					EnumName: "TOGGLE_POSITION_LOCKS",
+				},
+				{
+					Name:     "toggleMinimized",
+					Path:     httpapi.RouteToggleMinimized,
+					EnumName: "TOGGLE_MINIMIZED",
+				},
+				{
 					Name:     "setSectionEdgeInputs",
 					Path:     httpapi.RouteSetSectionEdgeInputs,
 					EnumName: "SET_SECTION_EDGE_INPUTS",
@@ -730,6 +755,16 @@ func CurrentRouteGroups() []RouteGroup {
 					Name:     "setGroupOverflowMode",
 					Path:     httpapi.RouteSetGroupOverflowMode,
 					EnumName: "SET_GROUP_OVERFLOW_MODE",
+				},
+				{
+					Name:     "setSectionTagColor",
+					Path:     httpapi.RouteSetSectionTagColor,
+					EnumName: "SET_SECTION_TAG_COLOR",
+				},
+				{
+					Name:     "setSectionStyleColor",
+					Path:     httpapi.RouteSetSectionStyleColor,
+					EnumName: "SET_SECTION_STYLE_COLOR",
 				},
 				{
 					Name:     "setBrowserColumnWidths",
@@ -2028,6 +2063,27 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetTopLevelSectionLayoutRequestInput{}),
 		},
 		{
+			FunctionName:    "route_toggle_section_visibility",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "toggleSectionVisibility",
+			RequestType:     reflect.TypeOf(ToggleSectionVisibilityRequestInput{}),
+		},
+		{
+			FunctionName:    "route_auto_layout_top_level_sections",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "autoLayoutTopLevelSections",
+			RequestType:     reflect.TypeOf(AutoLayoutTopLevelSectionsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_show_param_display_names",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setShowParamDisplayNames",
+			RequestType:     reflect.TypeOf(SetShowParamDisplayNamesRequestInput{}),
+		},
+		{
 			FunctionName:    "route_group_sections",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -2077,6 +2133,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RequestType:     reflect.TypeOf(SetSectionColumnWidthRequestInput{}),
 		},
 		{
+			FunctionName:    "route_toggle_position_locks",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "togglePositionLocks",
+			RequestType:     reflect.TypeOf(TogglePositionLocksRequestInput{}),
+		},
+		{
+			FunctionName:    "route_toggle_minimized",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "toggleMinimized",
+			RequestType:     reflect.TypeOf(ToggleMinimizedRequestInput{}),
+		},
+		{
 			FunctionName:    "route_set_section_edge_inputs",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -2117,6 +2187,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setGroupOverflowMode",
 			RequestType:     reflect.TypeOf(SetGroupOverflowModeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_tag_color",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionTagColor",
+			RequestType:     reflect.TypeOf(SetSectionTagColorRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_style_color",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionStyleColor",
+			RequestType:     reflect.TypeOf(SetSectionStyleColorRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_browser_column_widths",

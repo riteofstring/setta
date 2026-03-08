@@ -607,6 +607,21 @@ export async function route_set_top_level_section_layout(x: gt.SetTopLevelSectio
   return await post(GoHTTPRoutes.setTopLevelSectionLayout, x);
 
 }
+export async function route_toggle_section_visibility(x: gt.ToggleSectionVisibilityRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.toggleSectionVisibility, x);
+
+}
+export async function route_auto_layout_top_level_sections(x: gt.AutoLayoutTopLevelSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.autoLayoutTopLevelSections, x);
+
+}
+export async function route_set_show_param_display_names(x: gt.SetShowParamDisplayNamesRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setShowParamDisplayNames, x);
+
+}
 export async function route_group_sections(x: gt.GroupSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.groupSections, x);
@@ -642,6 +657,16 @@ export async function route_set_section_column_width(x: gt.SetSectionColumnWidth
   return await post(GoHTTPRoutes.setSectionColumnWidth, x);
 
 }
+export async function route_toggle_position_locks(x: gt.TogglePositionLocksRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.togglePositionLocks, x);
+
+}
+export async function route_toggle_minimized(x: gt.ToggleMinimizedRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.toggleMinimized, x);
+
+}
 export async function route_set_section_edge_inputs(x: gt.SetSectionEdgeInputsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setSectionEdgeInputs, x);
@@ -670,6 +695,16 @@ export async function route_toggle_group_orientation(x: gt.ToggleGroupOrientatio
 export async function route_set_group_overflow_mode(x: gt.SetGroupOverflowModeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setGroupOverflowMode, x);
+
+}
+export async function route_set_section_tag_color(x: gt.SetSectionTagColorRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionTagColor, x);
+
+}
+export async function route_set_section_style_color(x: gt.SetSectionStyleColorRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionStyleColor, x);
 
 }
 export async function route_set_browser_column_widths(x: gt.SetBrowserColumnWidthsRequestInput): Promise<ResponseDataAndStatus<null>> {

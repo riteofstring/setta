@@ -529,6 +529,50 @@ type SetSectionNameRequestInput struct {
 	Name            string  `json:"name"`
 }
 
+type ToggleSectionVisibilityRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionIDs      []string `json:"sectionIds"`
+}
+
+type AutoLayoutTopLevelSectionsRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	Margin          *int    `json:"margin,omitempty"`
+}
+
+type SetShowParamDisplayNamesRequestInput struct {
+	FrontendOpID          *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID       string  `json:"projectConfigId"`
+	ShowParamDisplayNames bool    `json:"showParamDisplayNames"`
+}
+
+type TogglePositionLocksRequestInput struct {
+	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
+	ProjectConfigID string   `json:"projectConfigId"`
+	SectionIDs      []string `json:"sectionIds"`
+}
+
+type ToggleMinimizedRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+}
+
+type SetSectionTagColorRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	TagColor        *string `json:"tagColor,omitempty"`
+}
+
+type SetSectionStyleColorRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	StyleColor      *string `json:"styleColor,omitempty"`
+}
+
 type GroupSectionsRequestInput struct {
 	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
 	ProjectConfigID string   `json:"projectConfigId"`

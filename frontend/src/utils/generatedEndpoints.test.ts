@@ -4,6 +4,7 @@ import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_add_kwarg,
+  route_auto_layout_top_level_sections,
   route_append_draw_area_layer_item,
   route_append_transcription_audio,
   route_binary_download,
@@ -119,9 +120,12 @@ import {
   route_set_section_name,
   route_set_section_param_filter,
   route_set_section_sizes,
+  route_set_section_style_color,
+  route_set_section_tag_color,
   route_set_section_variant,
   route_set_section_variant_name,
   route_set_section_variant_sort_order,
+  route_set_show_param_display_names,
   route_set_social_url,
   route_set_spreadsheet_file_path,
   route_set_spreadsheet_section_settings,
@@ -141,7 +145,10 @@ import {
   route_start_transcription_session,
   route_toggle_group_orientation,
   route_toggle_is_editing_view_mode,
+  route_toggle_minimized,
   route_toggle_param_selected,
+  route_toggle_position_locks,
+  route_toggle_section_visibility,
   route_toggle_variant_frozen,
   route_toggle_variant_json_source,
   route_toggle_view_mode_tab,
@@ -560,6 +567,61 @@ describe("generatedEndpoints project shell and layout", () => {
             h: 250,
           },
         },
+      }),
+    });
+  });
+
+  it("posts section-visibility toggles with the current section id list", async () => {
+    await route_toggle_section_visibility({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a", "section-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleSectionVisibility`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts auto-layout requests through the backend origin", async () => {
+    await route_auto_layout_top_level_sections({
+      projectConfigId: "project-alpha",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/autoLayoutTopLevelSections`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+      }),
+    });
+  });
+
+  it("posts display-name toggles with the current boolean payload", async () => {
+    await route_set_show_param_display_names({
+      projectConfigId: "project-alpha",
+      showParamDisplayNames: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setShowParamDisplayNames`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        showParamDisplayNames: true,
       }),
     });
   });
@@ -1408,6 +1470,44 @@ describe("generatedEndpoints project shell and layout", () => {
             height: 180,
           },
         },
+      }),
+    });
+  });
+
+  it("posts position-lock toggles with the current section id list", async () => {
+    await route_toggle_position_locks({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a", "section-b"],
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/togglePositionLocks`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+      }),
+    });
+  });
+
+  it("posts minimize toggles with the current section id", async () => {
+    await route_toggle_minimized({
+      projectConfigId: "project-alpha",
+      sectionId: "section-a",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/toggleMinimized`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-a",
       }),
     });
   });
@@ -2298,6 +2398,48 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "group-section",
         overflowMode: true,
         frontendOpId: "frontend-op-group-overflow",
+      }),
+    });
+  });
+
+  it("posts section tag-color writes", async () => {
+    await route_set_section_tag_color({
+      projectConfigId: "project-alpha",
+      sectionId: "section-a",
+      tagColor: "#ef4444",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionTagColor`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-a",
+        tagColor: "#ef4444",
+      }),
+    });
+  });
+
+  it("posts section style-color writes", async () => {
+    await route_set_section_style_color({
+      projectConfigId: "project-alpha",
+      sectionId: "section-a",
+      styleColor: "#3b82f6",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionStyleColor`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "section-a",
+        styleColor: "#3b82f6",
       }),
     });
   });

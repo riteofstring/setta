@@ -229,16 +229,23 @@ Current landed wedge:
     - current layout/selection/viewport mutation payloads
       - `TopLevelSectionLayoutInput`
       - `SetTopLevelSectionLayoutRequestInput`
+      - `ToggleSectionVisibilityRequestInput`
+      - `AutoLayoutTopLevelSectionsRequestInput`
+      - `SetShowParamDisplayNamesRequestInput`
       - `SetSectionSizesRequestInput`
       - `SetActiveIDsRequestInput`
       - `ViewportInput`
       - `SetViewportRequestInput`
+      - `TogglePositionLocksRequestInput`
+      - `ToggleMinimizedRequestInput`
       - `SetSectionParamFilterRequestInput`
       - `SetMetaControlShowSectionTitleRequestInput`
       - `SetSectionColumnWidthRequestInput`
       - `SetParentDefaultChildSectionTypeRequestInput`
       - `SetListRootViewModeRequestInput`
       - `SetGroupOverflowModeRequestInput`
+      - `SetSectionTagColorRequestInput`
+      - `SetSectionStyleColorRequestInput`
       - `ToggleGroupOrientationRequestInput`
       - `SetSpreadsheetFilePathRequestInput`
       - `SetSpreadsheetSectionSettingsRequestInput`
@@ -651,12 +658,19 @@ Current landed wedge:
     - `route_delete_view_mode`
     - `route_set_section_name`
     - `route_set_top_level_section_layout`
+    - `route_toggle_section_visibility`
+    - `route_auto_layout_top_level_sections`
+    - `route_set_show_param_display_names`
     - `route_group_sections`
     - `route_ungroup_groups`
     - `route_set_active_ids`
+    - `route_toggle_position_locks`
+    - `route_toggle_minimized`
     - `route_toggle_param_selected`
     - `route_unselect_all_params`
     - `route_set_viewport`
+    - `route_set_section_tag_color`
+    - `route_set_section_style_color`
   - workspace-launch endpoint wrappers
     - `route_create_workspace_launch_intent`
     - `route_launch`
@@ -905,6 +919,13 @@ Current landed wedge:
   - the current project create/load flow plus the layout/selection/viewport
     publishers in `sectionInfos` now consume canonical Go-generated
     project-shell and current project-state bindings
+  - the current layout/presentation caller cluster in
+    `state/actions/sections/sectionPositions`, `DeleteOrHideButton`,
+    `SelectionContextMenu`, `LockPositionButton`,
+    `AttachedTerminalControls`, `MinimizeButton`,
+    `TextBlockMetaControlMenuButton`, `QuickInfoConfig`,
+    `SectionTagColorSettings`, and `SectionStyleColorSettings` now consumes
+    canonical Go-generated layout/presentation bindings
   - `state/actions/project/saveProject`, `DeleteProjectWarningModal`,
     `ProjectName`, `HomePage`, and `NotificationsArea` now consume canonical
     Go-generated project-shell bindings for save/save-as-new, delete, rename,
