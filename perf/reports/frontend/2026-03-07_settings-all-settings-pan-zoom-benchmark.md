@@ -3311,3 +3311,60 @@ New benchmark stages:
   - `28.85ms` for click to active
   - `28.77ms` for click to visual settle
 - So the next remaining floor is the shared section-shell / store-update path, not another obvious full-stage widget fan-out.
+
+## Addendum: `setZIndices` becomes a small but real activation bucket once the larger fan-out issues are gone
+
+- Date: `2026-03-08`
+- Goal: revisit `setZIndices` after the later activation optimizations, because the earlier `full-no-zindex` addendum was taken before the dropdown, shell, outline, and `ParamFilter` fixes moved the activation floor down.
+- Change:
+  - kept the existing full normalization path for drag/version updates
+  - added a fast path in `frontend/src/state/actions/sections/sectionPositions.ts` for ordinary activation clicks:
+    - compute the current max z-index
+    - clone only the targeted node entries into a new `Map(nodeInternals)`
+    - raise just the activated sections above the current max
+    - only fall back to full normalization when z-indices grow too far apart
+
+### Method
+
+- Reran the live headed browser on the default `full` benchmark stage with normal overlays restored:
+  - agentic edges: on
+  - arg edges: on
+  - minimap: on
+- Used the benchmark-only `full-no-zindex` stage as the matched browser-side control.
+- Measured warmed section activation with the same browser harness used in the recent activation addenda:
+  - click to `data-section-active="true"`
+  - click to visual settle using stable computed-style sampling on the activated section shell
+
+### Visual validation
+
+- default `full` with overlays restored:
+  - `perf/artifacts/frontend/settings-all-settings/activation-zindex-fast-path-2026-03-08/full-default-overlays-restored.png`
+  - `perf/artifacts/frontend/settings-all-settings/activation-zindex-fast-path-2026-03-08/full-default-overlays-restored-rerun.png`
+- matched `full-no-zindex` control:
+  - `perf/artifacts/frontend/settings-all-settings/activation-zindex-fast-path-2026-03-08/full-no-zindex-default-overlays.png`
+
+### Results
+
+- `full` first same-session run:
+  - average click to active: `50.53ms`
+  - average click to visual settle: `71.29ms`
+  - average extra time after active: `20.76ms`
+
+- `full-no-zindex` matched control:
+  - average click to active: `48.56ms`
+  - average click to visual settle: `67.67ms`
+  - average extra time after active: `19.11ms`
+
+- `full` rerun after the control:
+  - average click to active: `52.61ms`
+  - average click to visual settle: `71.23ms`
+  - average extra time after active: `18.61ms`
+
+### Conclusion
+
+- `setZIndices` is no longer a large activation bucket, but it is also not pure noise anymore once the bigger rerender and animation costs are removed.
+- With the new fast path in place, the remaining gap to the `full-no-zindex` control is only about:
+  - `~2.0ms` to `~4.1ms` for click to active
+  - `~3.6ms` for click to visual settle
+- So this change is worth keeping, but it does not explain the whole remaining `frame-only -> full` gap by itself.
+- The next remaining work is not overlay chrome or bulk z-index normalization. It is the shared activation floor in the section/store path.
