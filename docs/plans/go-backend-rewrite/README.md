@@ -49,6 +49,8 @@ Use the docs in this order:
    - focused current-work plan for generated-entry run support and temporary-terminal fallback
 - `phase-4-terminal-command-dispatch-prompt-readiness-and-echo-stability.md`
   - focused completed-slice doc for prompt-ready terminal dispatch and long-command echo handling in the Go terminal runtime
+- `phase-4-creack-pty-unix-backend-migration.md`
+  - focused implementation-plan doc for the bounded Unix PTY backend move from `go-pty` to `creack/pty`
 13. `phase-4-deployment-run-code-policy-and-session-overlays.md`
    - focused current-work plan for deployment/share run-code policy and session runtime foundations
 14. `phase-4-deployment-session-transport-and-cleanup.md`
