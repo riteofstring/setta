@@ -3,9 +3,10 @@
 ## Purpose
 
 This doc inventories the remaining Python-owned MCP surface after the completed
-Go parity work for `BaseProjectManager.@project_state_tool`.
+Go parity work for `BaseProjectManager.@project_state_tool` and the completed
+general utility/read cluster.
 
-The project-state overlap is now closed. What remains is the broader Python MCP
+The project-state overlap is closed. What remains is the broader Python MCP
 tool set implemented in `backend/setta/mcp/tools/*.py`.
 
 ## Status
@@ -17,17 +18,24 @@ Current repo status as of 2026-03-08:
   `BaseProjectManager.@project_state_tool` surface
 - Python currently exposes 25 non-project-state MCP tools in
   `backend/setta/mcp/tools/*.py`
-- 3 of those already have Go parity:
+- 10 of those now have Go parity:
   - `set_agentic_context`
   - `list_mcp_tools`
   - `read_file_range`
-- the remaining 22 tools fall into a small read-only utility cluster plus
-  several larger runtime-foundation gaps
+  - `search_mcp_tools`
+  - `get_mcp_server_runtime_status`
+  - `getProjectConfigNamesAndIds`
+  - `getTerminalOutput`
+  - `get_app_catalog`
+  - `list_app_components`
+  - `get_setta_docs`
+- the remaining 15 tools now fall into one small completion-report slice plus
+  several larger missing runtime foundations
 
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/phase-6-app-definition-read-and-validation-tool-parity.md`
-- `docs/plans/go-backend-rewrite/phase-6-remaining-mcp-mutation-gap-inventory.md`
+- `docs/plans/go-backend-rewrite/phase-6-general-mcp-utility-read-tools-parity.md`
 - `docs/reference/mcp-system-overview.md`
 - `backend/setta/mcp/tool_registry.py`
 - `backend/setta/mcp/tool_setup.py`
@@ -61,37 +69,25 @@ Go already owns the following Python MCP tools that do not come from
 - `set_agentic_context`
 - `list_mcp_tools`
 - `read_file_range`
+- `search_mcp_tools`
+- `get_mcp_server_runtime_status`
+- `getProjectConfigNamesAndIds`
+- `getTerminalOutput`
+- `get_app_catalog`
+- `list_app_components`
+- `get_setta_docs`
 
 ## Remaining Python-Owned MCP Surface
 
-### 1. Bounded Utility And Read Tools
+### 1. Bounded Completion-Report Tool
 
-These tools look like the highest-leverage follow-on because they are read-only
-or init-oriented and mostly sit on top of owners that already exist in Go:
-
-- `search_mcp_tools`
-  - Go already normalizes search tags/categories in `internal/tools`, but does
-    not yet expose a ranked search owner over the registered tool set.
-- `get_mcp_server_runtime_status`
-  - Go already exposes `/api/mcpServerRuntimeStatus` over
-    `internal/mcpx.Client.RuntimeStatuses`.
-- `getProjectConfigNamesAndIds`
-  - Go already owns document/project metadata in `internal/projectstate`, but
-    does not yet expose a small read owner for MCP bootstrap.
-- `getTerminalOutput`
-  - terminal history already exists in `internal/terminals.Service`, but there
-    is no dedicated read-only accessor above the attachment path.
-- `get_app_catalog`
-  - `internal/appspec.DefaultCatalog` is already the source of truth.
-- `list_app_components`
-  - the same catalog owner can provide the allowed component set.
-- `get_setta_docs`
-  - bounded docs-root filesystem read; no large runtime dependency.
+- `report_completion_status`
+  - Python behavior is small and local: validate the structured report payload,
+    normalize optional text fields, and derive `verificationStatus`.
+  - Go does not yet own that completion-report schema or derivation logic.
 
 ### 2. Agentic Utility And Agent-Run Gaps
 
-- `report_completion_status`
-  - bounded utility, but no Go owner exists yet.
 - `list_agent_profiles`
 - `get_agent_profile`
 - `run_agent_profile`
@@ -136,37 +132,30 @@ Python exposes through `setta.app.spec_patch_stream`.
 
 This should not be implemented until Go has an explicit source of truth for
 which Python environment the tool is supposed to inspect. Shelling out to an
-arbitrary interpreter would violate the rewrite requirement to avoid heuristics.
+arbitrary interpreter would violate the rewrite requirement to avoid
+heuristics.
 
 ## Working Decisions
 
 - treat the Python project-state MCP overlap as complete and closed
-- keep the follow-on work focused on bounded MCP utility/read tools before the
-  larger UI-setting, plugin, and agent-runtime foundations
+- treat the general utility/read cluster as complete and closed
+- keep the next step focused on the small completion-report tool before the
+  much larger agent-profile, UI-setting, plugin, and streaming foundations
 - do not route missing MCP tools back through Python
 - keep transport thin and add explicit Go owners where the current runtime
   boundary is still implicit
 
 ## Recommended Next Step
 
-Execute the bounded utility/read cluster in
-`phase-6-general-mcp-utility-read-tools-parity.md`.
+Execute the bounded `report_completion_status` slice in
+`phase-6-report-completion-status-tool-parity.md`.
 
-That slice should cover:
+This is now the highest-leverage next slice because:
 
-- `search_mcp_tools`
-- `get_mcp_server_runtime_status`
-- `getProjectConfigNamesAndIds`
-- `getTerminalOutput`
-- `get_app_catalog`
-- `list_app_components`
-- `get_setta_docs`
-
-This cluster has the best leverage-to-scope ratio:
-
-- it improves external MCP usability immediately
-- most dependencies already exist in Go or are local to the MCP/runtime layer
-- it avoids broadening into UI-setting, plugin, and agent-runner foundations
+- it is the smallest remaining Python-owned MCP gap
+- it is independent of the larger agent-profile and plugin foundations
+- it supports the existing completion-guard contract without broadening into
+  agent-run execution work
 
 ## Open Questions
 
@@ -175,7 +164,10 @@ This cluster has the best leverage-to-scope ratio:
 
 ## Verification
 
-- doc-only inventory update; no tests run
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/tools ./internal/projectstate ./internal/terminals ./internal/appspec ./internal/settadocs -run 'Test(SearchIndex|DocumentProjectConfigMetadata|ServiceHistory|DefaultCatalog|Loader)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SearchMCPToolsUsesDiscoverableToolsAndServerFilters|GetMCPServerRuntimeStatusReturnsClientStatuses|GetProjectConfigNamesAndIDsReturnsSortedMetadata|GetTerminalOutputReturnsBufferedHistory|GetAppCatalogAndListAppComponentsReturnDefaultCatalog|GetSettaDocsLoadsDefaultBundleAndRejectsEscapes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUtilityReadInitTools|SupportsAppCatalogReadTools|SupportsGetTerminalOutput|GetSettaDocsRejectsPathEscapes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUtilityReadToolsOverAuthenticatedSSE|ServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE|ServerSupportsGetTerminalOutputOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticatedSSE|ToolCallRouteSupportsUtilityReadInitTools|ToolCallRouteSupportsGetMCPServerRuntimeStatus|ToolCallRouteSupportsAppCatalogReadTools|ToolCallRouteSupportsGetTerminalOutput|ToolCallRouteGetSettaDocsRejectsPathEscapes|RuntimeStatusRouteReportsConnectedSelfClient)' -count=1 -timeout 420s`
 
 ## Progress Notes
 
@@ -184,3 +176,8 @@ This cluster has the best leverage-to-scope ratio:
 - 2026-03-08: identified the bounded utility/read tool cluster as the highest
   leverage next slice and split the larger missing foundations into separate
   categories instead of mixing them into one oversized plan.
+- 2026-03-08: completed Go parity for `search_mcp_tools`,
+  `get_mcp_server_runtime_status`, `getProjectConfigNamesAndIds`,
+  `getTerminalOutput`, `get_app_catalog`, `list_app_components`, and
+  `get_setta_docs`, reducing the remaining non-project-state Python MCP gap
+  count from 22 to 15.

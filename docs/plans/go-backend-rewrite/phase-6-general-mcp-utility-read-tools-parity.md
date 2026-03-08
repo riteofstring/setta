@@ -2,26 +2,24 @@
 
 ## Purpose
 
-This doc scopes the next bounded Phase 6 slice after the completed
-project-state MCP closeout and the broader post-project-state inventory.
+This doc records the completed Phase 6 slice that landed the first bounded
+post-project-state Python MCP overlap outside
+`BaseProjectManager.@project_state_tool`.
 
-The goal is to land the highest-leverage remaining Python-owned MCP tools that
-are read-only, init-oriented, or otherwise close to existing Go owners.
+The goal of this slice was to move the highest-leverage remaining read-only and
+init-oriented Python MCP tools onto explicit Go owners without routing anything
+back through Python.
 
 ## Status
 
-Current repo status as of 2026-03-08:
+Completed on 2026-03-08.
 
-- Phase 6 MCP parity remains the active rewrite phase
-- Go already owns the full Python `BaseProjectManager.@project_state_tool`
-  overlap
-- the remaining Python-owned MCP surface is now tracked in
-  `phase-6-post-project-state-mcp-surface-inventory.md`
-- the best next bounded slice is the general utility/read tool cluster
+Phase 6 MCP parity remains the active rewrite phase, and this bounded utility
+cluster is now complete end-to-end.
 
-## Scope
+## Scope Completed
 
-This slice should cover:
+This slice landed Go parity for:
 
 - `search_mcp_tools`
 - `get_mcp_server_runtime_status`
@@ -31,22 +29,13 @@ This slice should cover:
 - `list_app_components`
 - `get_setta_docs`
 
-It should include:
+It included:
 
-- any small Go owners needed below the MCP transport
+- small owner additions below the MCP transport
 - MCP parity in `internal/mcpx`
-- focused HTTP tool-route and authenticated SSE coverage where applicable
+- focused HTTP tool-route coverage
+- focused authenticated SSE coverage
 - focused tests for runtime owners and tool-call behavior
-
-## Non-Goals
-
-- `getInstalledPythonPackages`
-- `report_completion_status`
-- agent-profile or agent-run execution tools
-- generic UI-setting search/read/write/reveal tools
-- plugin install/update/rollback tools
-- `stream_app_definition`
-- frontend UI changes outside the existing MCP transport surfaces
 
 ## Inputs
 
@@ -56,98 +45,78 @@ It should include:
 - `backend/setta/mcp/tools/tool_search.py`
 - `backend/setta/mcp/tools/listener_docs.py`
 - `backend/setta/mcp/tools/app_tools.py`
+- `backend/setta/mcp/tools/agentic_tools.py`
+- `backend/setta/app/catalog.py`
+- `backend/setta/project_state/base_project_manager.py`
+- `backend/setta/terminals/terminals.py`
 - `tests/mcp/test_base_tools.py`
 - `tests/mcp/test_mcp_server_registration.py`
+- `tests/mcp/test_mcp_agentic_project_state_summary_filtering.py`
 - `internal/mcpx/server.go`
-- `internal/tools/registry.go`
-- `internal/tools/metadata.go`
-- `internal/mcpx/client.go`
 - `internal/httpapi/mcp_routes.go`
 - `internal/terminals/service.go`
 - `internal/appspec/catalog.go`
 - `internal/projectstate/document.go`
-- `internal/projectstate/runtime.go`
 
-## Current Python Behavior
+## Completed Work
 
-1. `search_mcp_tools`
-   - searches discoverable tool names, descriptions, parameter docs, and
-     search tags/categories
-   - rejects empty queries
-   - can filter by server ID
+### Runtime/Owner Layer
 
-2. `get_mcp_server_runtime_status`
-   - returns current runtime connection state for configured MCP servers
+- added a discoverable-tool search owner in `internal/tools/search.go`
+- added explicit project metadata reads in
+  `internal/projectstate/project_metadata_reads.go`
+- added a read-only terminal history accessor on `internal/terminals.Service`
+- expanded the app catalog owner in `internal/appspec/catalog.go` to expose
+  deterministic component order, prop defaults, and action metadata
+- added explicit docs-root loading and path validation in
+  `internal/settadocs/loader.go`
 
-3. `getProjectConfigNamesAndIds`
-   - returns bootstrap metadata for all known project configs
+### MCP Transport Layer
 
-4. `getTerminalOutput`
-   - returns terminal history for the requested terminal section
+- added server handlers in `internal/mcpx/utility_read_tools.go`
+- wired the new tools into `internal/mcpx/server.go`
+- injected the app MCP server with runtime-status, terminal, and docs-root
+  dependencies from `internal/app/app.go`
+- kept the transport thin by delegating behavior to the new explicit owners
 
-5. `get_app_catalog`
-   - returns the app-render catalog JSON used for app generation
+### Verification Coverage
 
-6. `list_app_components`
-   - returns the allowed component type names from the catalog
+- added focused server tests in `internal/mcpx/server_test.go`
+- added focused MCP HTTP route tests in
+  `internal/httpapi/mcp_tool_routes_test.go`
+- added authenticated SSE and app tool-route tests in
+  `internal/app/mcp_test.go`
 
-7. `get_setta_docs`
-   - returns bundled docs content from `docs/`, with a default listener-focused
-     subset when no IDs are supplied
+## Decisions Made
 
-## Working Decisions
+- `search_mcp_tools` stays server-local in Go over registered discoverable
+  tools instead of bouncing through the internal MCP client
+- `get_mcp_server_runtime_status` reads from the existing Go MCP client runtime
+  snapshots
+- project bootstrap metadata now has an explicit document/read owner instead of
+  being synthesized inside the transport layer
+- terminal output reads use buffered history directly instead of websocket
+  attachment side effects
+- `get_setta_docs` is bounded to the workspace `docs/` tree with explicit
+  aliasing and path validation
+- `getTerminalOutput` still returns raw string structured content even though
+  the current `go-sdk/mcp` tool registration path requires an object-shaped
+  output schema declaration
 
-- keep `search_mcp_tools` server-local in Go over the registered tool set; do
-  not bounce search through the internal MCP client
-- use the existing `internal/mcpx.Client.RuntimeStatuses` owner for
-  `get_mcp_server_runtime_status`
-- add an explicit read owner for project config metadata instead of reading
-  random transport DTOs
-- add a read-only terminal history accessor instead of reusing websocket
-  attachment side effects for MCP reads
-- use `internal/appspec.DefaultCatalog()` as the app catalog source of truth
-- keep docs loading bounded to the repo `docs/` tree with explicit path
-  validation
+## Verification
 
-## Dependency Status
-
-Existing Go owners already available:
-
-- MCP client runtime status snapshots
-- tool registry metadata normalization
-- terminal history buffering
-- app catalog source of truth
-- repo-local docs tree
-
-Small new owners still needed:
-
-- a discoverable-tool search owner/ranker over the Go registry
-- a project metadata read owner for project IDs and names
-- a read-only terminal history accessor above `internal/terminals.Service`
-
-## Verification Targets
-
-- `internal/mcpx`
-  - tool registration/listing
-  - search result behavior
-  - runtime-status tool behavior
-  - bootstrap/read tool call behavior
-- `internal/httpapi`
-  - MCP tool-route coverage for each new tool
-- `internal/app`
-  - authenticated SSE and MCP tool-route coverage
-- any new local owner packages
-  - project metadata read behavior
-  - terminal history accessor behavior
-  - docs path validation behavior
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/tools ./internal/projectstate ./internal/terminals ./internal/appspec ./internal/settadocs -run 'Test(SearchIndex|DocumentProjectConfigMetadata|ServiceHistory|DefaultCatalog|Loader)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SearchMCPToolsUsesDiscoverableToolsAndServerFilters|GetMCPServerRuntimeStatusReturnsClientStatuses|GetProjectConfigNamesAndIDsReturnsSortedMetadata|GetTerminalOutputReturnsBufferedHistory|GetAppCatalogAndListAppComponentsReturnDefaultCatalog|GetSettaDocsLoadsDefaultBundleAndRejectsEscapes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsUtilityReadInitTools|SupportsAppCatalogReadTools|SupportsGetTerminalOutput|GetSettaDocsRejectsPathEscapes)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsAuthenticatedSSECalls|ServerSupportsUtilityReadToolsOverAuthenticatedSSE|ServerSupportsGetMCPServerRuntimeStatusOverAuthenticatedSSE|ServerSupportsGetTerminalOutputOverAuthenticatedSSE|ServerSupportsTemporaryIDsForGetTerminalOutputOverAuthenticatedSSE|ToolCallRouteSupportsUtilityReadInitTools|ToolCallRouteSupportsGetMCPServerRuntimeStatus|ToolCallRouteSupportsAppCatalogReadTools|ToolCallRouteSupportsGetTerminalOutput|ToolCallRouteGetSettaDocsRejectsPathEscapes|RuntimeStatusRouteReportsConnectedSelfClient)' -count=1 -timeout 420s`
 
 ## Open Questions
 
-- whether `search_mcp_tools` should stay in this slice if its ranking owner
-  turns out materially larger than expected; current recommendation is yes
-  because the registry metadata work is already in place
+- none for this completed slice
 
 ## Next Recommended Step
 
-- implement this utility/read cluster end-to-end before moving to UI-setting,
-  plugin, or agent-profile MCP gaps
+Implement the bounded `report_completion_status` slice in
+`phase-6-report-completion-status-tool-parity.md` before moving into the much
+larger agent-profile, UI-setting registry, plugin-management, or app-definition
+streaming gaps.

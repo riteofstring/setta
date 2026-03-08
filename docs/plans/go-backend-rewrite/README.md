@@ -226,13 +226,17 @@ Use the docs in this order:
   - focused Phase 6 closeout inventory for the remaining Python-owned MCP
     surface outside `BaseProjectManager.@project_state_tool`
 83. `phase-6-general-mcp-utility-read-tools-parity.md`
-  - focused implementation-plan doc for the next bounded Go MCP utility/read
-    tool cluster outside project-state parity
-84. `spike-mcp.md`
+  - completed slice doc for the bounded Go MCP utility/read tool cluster
+    outside project-state parity
+84. `phase-6-report-completion-status-tool-parity.md`
+  - focused implementation-plan doc for Go-owned
+    `report_completion_status` parity over the completed post-project-state
+    utility/read transport foundations
+85. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-85. `spike-pty.md`
+86. `spike-pty.md`
    - PTY uncertainty-reduction plan
-86. `spike-lsp.md`
+87. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
