@@ -35,6 +35,7 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/runs"
 	"setta/internal/runtime"
+	"setta/internal/sshx"
 	"setta/internal/terminals"
 	"setta/internal/uisettings"
 	"setta/internal/watchcode"
@@ -120,6 +121,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		launchIntentService   *workspacelaunch.IntentService
 		localLaunchService    *workspacelaunch.LocalLaunchService
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
+		sshRuntime            *sshx.Service
 	)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
@@ -145,12 +147,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		if err != nil {
 			return nil, err
 		}
+		sshRuntime, err = sshx.NewService(sshx.ServiceOptions{
+			RuntimeRoot: cfg.Paths.RuntimeRoot,
+		})
+		if err != nil {
+			return nil, err
+		}
 		localLaunchService, err = workspacelaunch.NewLocalLaunchService(workspacelaunch.LocalLaunchServiceOptions{
 			DefaultSettaHome:         cfg.Paths.SettaHome,
 			DefaultProfileLookupHome: cfg.Paths.ProfileLookupHome,
 			Intents:                  launchIntentService,
 			TrustedOrigins:           trustedOrigins,
 			Sessions:                 localSessionLauncher,
+			SSH:                      sshRuntime,
 			ResolveLauncherSessionAuthExpiry: func(now time.Time) (int64, error) {
 				_, payload, err := authService.MintAuthCookie(now)
 				if err != nil {

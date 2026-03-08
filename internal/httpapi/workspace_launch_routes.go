@@ -203,7 +203,7 @@ func launchWorkspaceHandler(authService *auth.Service, launchService *workspacel
 				PID:                    result.Session.PID,
 				StartedAt:              result.Session.StartedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 			},
-			RemoteCmdResolved: nil,
+			RemoteCmdResolved: result.RemoteCmdResolved,
 			Error:             nil,
 		})
 	}

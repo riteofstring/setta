@@ -14,6 +14,7 @@ import (
 	"setta/internal/frontendorigins"
 	"setta/internal/launcher"
 	"setta/internal/modes"
+	"setta/internal/sshx"
 	"setta/internal/workspacelaunch"
 )
 
@@ -31,17 +32,47 @@ func (s *httpTestSessionLauncher) EnsureSession(input launcher.IDELaunchInput) (
 	return s.result, nil
 }
 
+type httpTestSSHRuntime struct {
+	connectInputs  []sshx.ConnectWorkspaceInput
+	connectResult  sshx.RemoteConnectResult
+	connectErr     error
+	rollbackInputs []sshx.RollbackRemoteWorkspaceInput
+	rollbackErr    error
+}
+
+func (s *httpTestSSHRuntime) ConnectWorkspaceSession(input sshx.ConnectWorkspaceInput) (sshx.RemoteConnectResult, error) {
+	s.connectInputs = append(s.connectInputs, input)
+	if s.connectErr != nil {
+		return sshx.RemoteConnectResult{}, s.connectErr
+	}
+	return s.connectResult, nil
+}
+
+func (s *httpTestSSHRuntime) RollbackRemoteWorkspaceLaunch(input sshx.RollbackRemoteWorkspaceInput) error {
+	s.rollbackInputs = append(s.rollbackInputs, input)
+	return s.rollbackErr
+}
+
+type workspaceLaunchTestServices struct {
+	authService    *auth.Service
+	trustedOrigins *frontendorigins.Service
+	intentService  *workspacelaunch.IntentService
+	launchService  *workspacelaunch.LocalLaunchService
+	sessions       *httpTestSessionLauncher
+	ssh            *httpTestSSHRuntime
+}
+
 func TestRegisterWorkspaceLaunchRoutesCreatesIntent(t *testing.T) {
 	t.Parallel()
 
-	authService, _, intentService, launchService := newWorkspaceLaunchTestServices(t)
+	services := newWorkspaceLaunchTestServices(t)
 
 	router := chi.NewRouter()
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Auth:       authService,
-		Intents:    intentService,
-		Launch:     launchService,
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
@@ -75,14 +106,14 @@ func TestRegisterWorkspaceLaunchRoutesCreatesIntent(t *testing.T) {
 func TestRegisterWorkspaceLaunchRoutesRejectsNestedIntentToken(t *testing.T) {
 	t.Parallel()
 
-	authService, _, intentService, launchService := newWorkspaceLaunchTestServices(t)
+	services := newWorkspaceLaunchTestServices(t)
 
 	router := chi.NewRouter()
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Auth:       authService,
-		Intents:    intentService,
-		Launch:     launchService,
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
@@ -116,14 +147,14 @@ func TestRegisterWorkspaceLaunchRoutesRejectsNestedIntentToken(t *testing.T) {
 func TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent(t *testing.T) {
 	t.Parallel()
 
-	authService, trustedOrigins, intentService, launchService := newWorkspaceLaunchTestServices(t)
+	services := newWorkspaceLaunchTestServices(t)
 
 	router := chi.NewRouter()
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Auth:       authService,
-		Intents:    intentService,
-		Launch:     launchService,
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
@@ -175,22 +206,113 @@ func TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent(t *testing.T) 
 	if payload.Session == nil || payload.Session.ID != "workspace-session" {
 		t.Fatalf("expected session payload, got %#v", payload.Session)
 	}
-	if !trustedOrigins.IsTrustedOrigin("http://127.0.0.1:61234", "abc123") {
+	if !services.trustedOrigins.IsTrustedOrigin("http://127.0.0.1:61234", "abc123") {
 		t.Fatal("expected launched workspace origin to be trusted for current session")
+	}
+}
+
+func TestRegisterWorkspaceLaunchRoutesLaunchesRemoteWorkspaceFromIntent(t *testing.T) {
+	t.Parallel()
+
+	services := newWorkspaceLaunchTestServices(t)
+	services.ssh.connectResult = sshx.RemoteConnectResult{
+		BootstrapURLFragment: "http://127.0.0.1:61000/__setta__/bootstrap#token=remote-tok",
+		Session: sshx.RemoteSessionSummary{
+			ID:                     "remote-session-id",
+			WorkspacePath:          "/remote/workspace",
+			WorkspacePathCanonical: "/remote/workspace",
+			Host:                   "127.0.0.1",
+			Port:                   61234,
+			PID:                    12345,
+			StartedAt:              time.Unix(1_710_000_000, 0).UTC(),
+			ServerMode:             sshx.RemoteServerModeIDE,
+		},
+		StartedNew:          false,
+		RemoteCommand:       "setta",
+		SettaFilesLocation:  "global",
+		SettaFilesRoot:      "/remote/state",
+		RuntimeRoot:         "/remote/runtime",
+		SettaHome:           "/remote/home/.setta",
+		Profile:             "dev",
+		LauncherOriginProof: "proof",
+	}
+
+	router := chi.NewRouter()
+	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
+	}); err != nil {
+		t.Fatalf("register workspace launch routes: %v", err)
+	}
+
+	intentRequest := httptest.NewRequest(
+		http.MethodPost,
+		RouteCreateWorkspaceLaunchIntent,
+		strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace","sshTarget":"user@host","localPort":61000},"returnUrl":"http://launcher.example:7999/home"}`),
+	)
+	intentRequest.Header.Set("Content-Type", "application/json")
+	intentRequest.Header.Set("Origin", "http://launcher.example:7999")
+	intentResponse := httptest.NewRecorder()
+	router.ServeHTTP(intentResponse, intentRequest)
+	if intentResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", intentResponse.Code, intentResponse.Body.String())
+	}
+
+	var intentPayload createWorkspaceLaunchIntentResponse
+	if err := json.Unmarshal(intentResponse.Body.Bytes(), &intentPayload); err != nil {
+		t.Fatalf("decode intent response: %v", err)
+	}
+	if !intentPayload.Ok || intentPayload.LaunchIntentToken == nil {
+		t.Fatalf("expected launch intent token, got %#v", intentPayload)
+	}
+
+	launchRequest := httptest.NewRequest(
+		http.MethodPost,
+		RouteLaunch,
+		strings.NewReader(`{"launchIntentToken":"`+*intentPayload.LaunchIntentToken+`"}`),
+	)
+	launchRequest.Header.Set("Content-Type", "application/json")
+	launchRequest.Header.Set("Origin", "http://launcher.example:7999")
+	launchResponseRecorder := httptest.NewRecorder()
+	router.ServeHTTP(launchResponseRecorder, launchRequest)
+	if launchResponseRecorder.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", launchResponseRecorder.Code, launchResponseRecorder.Body.String())
+	}
+
+	var payload launchResponse
+	if err := json.Unmarshal(launchResponseRecorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode launch response: %v", err)
+	}
+	if !payload.Ok || payload.BootstrapURLFragment == nil {
+		t.Fatalf("expected successful launch payload, got %#v", payload)
+	}
+	if payload.RemoteCmdResolved == nil || *payload.RemoteCmdResolved != "setta" {
+		t.Fatalf("expected resolved remote command, got %#v", payload.RemoteCmdResolved)
+	}
+	if payload.WorkspaceRoot == nil || *payload.WorkspaceRoot != "/remote/workspace" {
+		t.Fatalf("expected remote workspace root, got %#v", payload.WorkspaceRoot)
+	}
+	if len(services.sessions.captured) != 0 {
+		t.Fatalf("expected no local session launches, got %d", len(services.sessions.captured))
+	}
+	if !services.trustedOrigins.IsTrustedOrigin("http://127.0.0.1:61000", "abc123") {
+		t.Fatal("expected launched remote origin to be trusted for current session")
 	}
 }
 
 func TestRegisterWorkspaceLaunchRoutesRequiresIntentToken(t *testing.T) {
 	t.Parallel()
 
-	authService, _, intentService, launchService := newWorkspaceLaunchTestServices(t)
+	services := newWorkspaceLaunchTestServices(t)
 
 	router := chi.NewRouter()
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Auth:       authService,
-		Intents:    intentService,
-		Launch:     launchService,
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
@@ -227,14 +349,14 @@ func TestRegisterWorkspaceLaunchRoutesRequiresIntentToken(t *testing.T) {
 func TestRegisterWorkspaceLaunchRoutesRejectsInlineOverrides(t *testing.T) {
 	t.Parallel()
 
-	authService, _, intentService, launchService := newWorkspaceLaunchTestServices(t)
+	services := newWorkspaceLaunchTestServices(t)
 
 	router := chi.NewRouter()
 	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
 		ModePolicy: modes.NewPolicy(config.ModeIDE),
-		Auth:       authService,
-		Intents:    intentService,
-		Launch:     launchService,
+		Auth:       services.authService,
+		Intents:    services.intentService,
+		Launch:     services.launchService,
 	}); err != nil {
 		t.Fatalf("register workspace launch routes: %v", err)
 	}
@@ -285,7 +407,7 @@ func TestRegisterWorkspaceLaunchRoutesSkipsDeploymentMode(t *testing.T) {
 	}
 }
 
-func newWorkspaceLaunchTestServices(t *testing.T) (*auth.Service, *frontendorigins.Service, *workspacelaunch.IntentService, *workspacelaunch.LocalLaunchService) {
+func newWorkspaceLaunchTestServices(t *testing.T) workspaceLaunchTestServices {
 	t.Helper()
 
 	authService := newTestAuthService(t)
@@ -332,11 +454,13 @@ func newWorkspaceLaunchTestServices(t *testing.T) (*auth.Service, *frontendorigi
 			StartedNew: true,
 		},
 	}
+	ssh := &httpTestSSHRuntime{}
 	launchService, err := workspacelaunch.NewLocalLaunchService(workspacelaunch.LocalLaunchServiceOptions{
 		DefaultSettaHome: "/tmp/.setta",
 		Intents:          intentService,
 		TrustedOrigins:   trustedOrigins,
 		Sessions:         sessions,
+		SSH:              ssh,
 		Now:              func() time.Time { return now },
 		MintBootstrapToken: func(sessionID string, secret []byte, issuedAt time.Time) (string, error) {
 			if sessionID == "" || len(secret) == 0 || issuedAt.IsZero() {
@@ -356,5 +480,12 @@ func newWorkspaceLaunchTestServices(t *testing.T) (*auth.Service, *frontendorigi
 		t.Fatalf("new local launch service: %v", err)
 	}
 
-	return authService, trustedOrigins, intentService, launchService
+	return workspaceLaunchTestServices{
+		authService:    authService,
+		trustedOrigins: trustedOrigins,
+		intentService:  intentService,
+		launchService:  launchService,
+		sessions:       sessions,
+		ssh:            ssh,
+	}
 }

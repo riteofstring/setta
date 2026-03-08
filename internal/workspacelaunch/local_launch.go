@@ -14,6 +14,7 @@ import (
 	"setta/internal/frontendorigins"
 	"setta/internal/launcher"
 	"setta/internal/localsessions"
+	"setta/internal/sshx"
 )
 
 const (
@@ -52,9 +53,15 @@ type LocalLaunchResult struct {
 	RuntimeRoot          string
 	SettaHome            string
 	Profile              *string
+	RemoteCmdResolved    *string
 	SessionID            string
 	StartedNew           bool
 	Session              auth.SessionMetadata
+}
+
+type SSHWorkspaceRuntime interface {
+	ConnectWorkspaceSession(sshx.ConnectWorkspaceInput) (sshx.RemoteConnectResult, error)
+	RollbackRemoteWorkspaceLaunch(sshx.RollbackRemoteWorkspaceInput) error
 }
 
 type LocalLaunchServiceOptions struct {
@@ -63,6 +70,7 @@ type LocalLaunchServiceOptions struct {
 	Intents                          *IntentService
 	TrustedOrigins                   *frontendorigins.Service
 	Sessions                         launcher.IDEWorkspaceSessionLauncher
+	SSH                              SSHWorkspaceRuntime
 	Now                              func() time.Time
 	MintBootstrapToken               launcher.BootstrapTokenMintFunc
 	ResolveLauncherSessionAuthExpiry func(time.Time) (int64, error)
@@ -75,6 +83,7 @@ type LocalLaunchService struct {
 	intents                          *IntentService
 	trustedOrigins                   *frontendorigins.Service
 	sessions                         launcher.IDEWorkspaceSessionLauncher
+	ssh                              SSHWorkspaceRuntime
 	now                              func() time.Time
 	mintBootstrapToken               launcher.BootstrapTokenMintFunc
 	resolveLauncherSessionAuthExpiry func(time.Time) (int64, error)
@@ -99,6 +108,9 @@ func NewLocalLaunchService(options LocalLaunchServiceOptions) (*LocalLaunchServi
 	if options.Sessions == nil {
 		return nil, fmt.Errorf("local IDE session launcher is required")
 	}
+	if options.SSH == nil {
+		return nil, fmt.Errorf("ssh workspace runtime is required")
+	}
 	now := options.Now
 	if now == nil {
 		now = time.Now
@@ -122,6 +134,7 @@ func NewLocalLaunchService(options LocalLaunchServiceOptions) (*LocalLaunchServi
 		intents:                          options.Intents,
 		trustedOrigins:                   options.TrustedOrigins,
 		sessions:                         options.Sessions,
+		ssh:                              options.SSH,
 		now:                              now,
 		mintBootstrapToken:               mintBootstrapToken,
 		resolveLauncherSessionAuthExpiry: options.ResolveLauncherSessionAuthExpiry,
@@ -173,32 +186,39 @@ func (s *LocalLaunchService) Launch(input LocalLaunchInput) (LocalLaunchResult, 
 	}
 	returnURL = storedReturnURL
 
-	if trimmedStringPointer(launchRequest.SSHTarget) != "" {
-		return LocalLaunchResult{}, &LaunchError{
-			Code:      "SSHLaunchUnavailable",
-			Message:   "SSH and remote workspace launches are not implemented in the Go runtime yet.",
-			ReturnURL: returnURL,
-		}
-	}
-
 	normalizedProfile := trimmedStringPointer(launchRequest.Profile)
-	explicitSettaHome := trimmedStringPointer(launchRequest.SettaHome)
-	normalizedSettaHome := strings.TrimSpace(s.defaultSettaHome)
-	if explicitSettaHome != "" {
-		normalizedSettaHome = explicitSettaHome
-	}
 	normalizedSettaFilesRoot := trimmedStringPointer(launchRequest.SettaFilesRoot)
 	normalizedRuntimeRoot := trimmedStringPointer(launchRequest.RuntimeRoot)
-	profileLookupHome := ""
-	if normalizedProfile != "" && explicitSettaHome == "" {
-		profileLookupHome = s.defaultProfileLookupHome
-	}
 	normalizedSettaFilesLocation := launcher.NormalizeSettaFilesLocationForLaunch(
 		launchRequest.SettaFilesLocation,
 		launchRequest.FieldProvided("settaFilesLocation"),
 		normalizedSettaFilesRoot,
 		normalizedProfile,
 	)
+	normalizedSettaHome := trimmedStringPointer(launchRequest.SettaHome)
+	if trimmedStringPointer(launchRequest.SSHTarget) != "" {
+		return s.launchRemoteWorkspace(
+			launchRequest,
+			returnURL,
+			input.RequestOrigin,
+			input.CurrentSession,
+			normalizedProfile,
+			normalizedSettaHome,
+			normalizedSettaFilesRoot,
+			normalizedSettaFilesLocation,
+			normalizedRuntimeRoot,
+		)
+	}
+
+	explicitSettaHome := normalizedSettaHome
+	normalizedSettaHome = strings.TrimSpace(s.defaultSettaHome)
+	if explicitSettaHome != "" {
+		normalizedSettaHome = explicitSettaHome
+	}
+	profileLookupHome := ""
+	if normalizedProfile != "" && explicitSettaHome == "" {
+		profileLookupHome = s.defaultProfileLookupHome
+	}
 
 	launchResult, err := s.sessions.EnsureSession(launcher.IDELaunchInput{
 		WorkspaceRoot:      trimmedStringPointer(launchRequest.WorkspaceRoot),
@@ -301,6 +321,7 @@ func (s *LocalLaunchService) Launch(input LocalLaunchInput) (LocalLaunchResult, 
 		RuntimeRoot:          launchResult.Paths.RuntimeRoot,
 		SettaHome:            launchResult.Paths.SettaHome,
 		Profile:              optionalStringPointer(launchResult.Paths.ProfileName),
+		RemoteCmdResolved:    nil,
 		SessionID:            launchResult.Session.ID,
 		StartedNew:           launchResult.StartedNew,
 		Session:              launchResult.Session,
