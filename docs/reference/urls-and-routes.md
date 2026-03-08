@@ -14,16 +14,6 @@ Routes are defined in `frontend/src/components/Pages/router.tsx`.
   - Home page.
 - `/:projectConfigName`
   - Primary project config view.
-- `/:projectConfigName/chat`
-  - Dedicated standalone project chat surface for that project.
-- `/:projectConfigName/chat/:chatId`
-  - Dedicated standalone project chat surface for a specific thread id.
-- `/:projectConfigName/windowspace/:windowSpaceSlug`
-  - Dedicated standalone floating-window surface resolved from a saved window
-    space name slug.
-- `/:projectConfigName/section/:sectionSlug`
-  - Dedicated standalone section surface resolved from the section's canonical
-    full-path slug.
 - `/:projectConfigName/view/:viewModeName`
   - Deep link into a named view mode for that project.
 
@@ -34,28 +24,6 @@ The same paths are used in IDE and share modes; the router wraps them with
 
 The project and view mode names are URL-encoded with `encodeURIComponent` when
 building paths. Matching is exact (case-sensitive) against the stored names.
-
-For standalone section routes, `sectionSlug` is derived from the existing
-canonical full-path slug logic:
-
-- backend: `sanitize_slug(get_section_path_full_name(...))`
-- frontend: `sanitizeNameForSlug(resolveSectionFullPathName(...))`
-
-Standalone project thread routes use the existing thread `chatId` identifier:
-
-- `/:projectConfigName/chat/:chatId`
-
-Standalone window-space routes are namespaced under `/windowspace` and resolve
-against `projectConfig.windowSpaces` by sanitized name slug:
-
-- `/:projectConfigName/windowspace/:windowSpaceSlug`
-
-Section routes are namespaced under `/section`, so section slugs no longer need
-to reserve `chat` or `windowspace`.
-
-Window-space names also use explicit namespacing under `/windowspace`, so names
-such as `home`, `settings`, `chat`, or `windowspace` are not reserved at the
-window-space level.
 
 If `/:projectConfigName/view/:viewModeName` does not match an existing view mode,
 the app keeps the current active view mode and replaces the URL with that active
@@ -85,7 +53,6 @@ use the `Route` enum (`backend/setta/types/routes.py`) and are called via
 ### Chat dictation session routes
 
 Chat dictation uses session-based JSON routes:
-
 - `/api/startTranscriptionSession`
   - Method: `POST`
   - Content type: `application/json`
@@ -110,7 +77,6 @@ Generated endpoint helpers expose these routes as JSON helpers (for example
 ### Transcription profile management routes
 
 Transcription profile CRUD is separate from chat engine config:
-
 - `/api/getTranscriptionProfiles`
   - Method: `GET`
   - Returns: list of transcription profiles.
@@ -154,34 +120,6 @@ Transcription profile CRUD is separate from chat engine config:
     - `stoppedRunId` (nullable)
     - `stoppedMessageId` (nullable)
 
-### Project chat windowing + window-space routes
-
-- `/api/setProjectChatWindowingState`
-  - Method: `POST`
-  - Request fields: `projectConfigId`, `state`
-  - Persists layout-only project-chat window state.
-  - Thread-bound `chatId` changes are rejected here; use the dedicated
-    chat-binding route instead.
-- `/api/setProjectChatWindowChatId`
-  - Method: `POST`
-  - Request fields: `projectConfigId`, `instanceId`, `chatId`
-  - Persists the managed-chat thread binding for an existing
-    `project_ai_mode` window.
-- `/api/createWindowSpace`
-  - Method: `POST`
-  - Request fields: `projectConfigId`, `state`, optional `name`
-  - Persists a saved floating-window snapshot under `projectConfig.windowSpaces`.
-- `/api/setWindowSpaceName`
-  - Method: `POST`
-  - Request fields: `projectConfigId`, `windowSpaceId`, `name`
-- `/api/setWindowSpaceSortOrder`
-  - Method: `POST`
-  - Request fields: `projectConfigId`, `orderedWindowSpaceIds`
-  - Requires a full, deduplicated order list.
-- `/api/deleteWindowSpace`
-  - Method: `POST`
-  - Request fields: `projectConfigId`, `windowSpaceId`
-
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
@@ -221,7 +159,10 @@ The app-generation/skills viewer flow adds these backend routes:
     - refreshed `skill` metadata
     - refreshed `skillContent`
 - `/api/streamAppSpec`
-  - Streams JSONL patch ops for in-pane app-spec generation.
+  - Legacy Python app-spec patch stream route.
+  - The current app-config pane generation flow no longer depends on this
+    route; it now uses `/api/getLLMResponse` plus `/ws/frontend` tool-preview
+    updates and Go-owned `stream_app_definition` persistence.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode`, `appSpecStreamingEnabled`,
     `appGenerationReferenceImageUrl`, and `appGenerationReferenceImageNotes`
@@ -233,8 +174,6 @@ The app-generation/skills viewer flow adds these backend routes:
     `activeSettaFilesLocation` (`local|global|custom`).
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
-For project-chat/window-space behavior, see
-`docs/reference/project-chat-windowing.md`.
 
 ## View Mode + File Browser Route Notes
 

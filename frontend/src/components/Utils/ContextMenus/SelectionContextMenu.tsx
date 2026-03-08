@@ -25,26 +25,8 @@ export function SelectionContextMenu() {
     (x) => x.selection,
     _.isEqual,
   );
-
-  if (!isOpen) {
-    return null;
-  }
-
-  return <SelectionContextMenuOpen x={x} y={y} nodeIds={nodeIds} />;
-}
-
-type SelectionContextMenuOpenProps = {
-  x: number;
-  y: number;
-  nodeIds: Array<string>;
-};
-
-function SelectionContextMenuOpen({
-  x,
-  y,
-  nodeIds,
-}: SelectionContextMenuOpenProps) {
   const { canEditLayout, canEditStructure } = useShareCapabilities();
+
   const { allVisible, allLocked, isEditingViewMode, isUserView } =
     useProjectState((state) => {
       const viewMode = getActiveViewModeConfig(state);
@@ -165,7 +147,7 @@ function SelectionContextMenuOpen({
     <ContextMenuCore
       x={x}
       y={y}
-      isOpen={true}
+      isOpen={isOpen}
       closeContextMenu={closeContextMenu}
     >
       <Item onClick={onClickCreate} disabled={!canEditStructure}>

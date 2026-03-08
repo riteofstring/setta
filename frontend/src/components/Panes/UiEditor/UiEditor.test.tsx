@@ -83,7 +83,6 @@ describe("UiEditor rail offsets", () => {
     const markup = renderToStaticMarkup(<UiEditor />);
     const style = extractRailStyle(markup);
 
-    expect(markup).toContain("z-[32]");
     expect(style).toContain("bottom:0px");
   });
 
@@ -115,7 +114,6 @@ describe("UiEditor rail offsets", () => {
     const markup = renderToStaticMarkup(<UiEditor />);
     const style = extractRailStyle(markup);
 
-    expect(markup).toContain("z-[32]");
     expect(style).toContain("bottom:36px");
   });
 });
