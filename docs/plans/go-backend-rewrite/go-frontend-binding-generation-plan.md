@@ -176,6 +176,10 @@ Current landed wedge:
     - `GetAttachmentDownloadURLsRequestInput`
     - `AttachmentDownloadURLEntry`
     - `GetAttachmentDownloadURLsResponse`
+  - listener force-refresh endpoint wrapper
+    - `route_force_refresh_listener`
+  - listener force-refresh contract type
+    - `ForceRefreshListenerRequestInput`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -199,6 +203,8 @@ Current landed wedge:
     now covered by the canonical Go-generated password-value helper binding
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
+  - `triggerListenerForceRefresh` now consumes the canonical Go-generated
+    listener force-refresh binding
 
 ## Cutover Rule
 

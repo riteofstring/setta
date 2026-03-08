@@ -191,6 +191,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_ATTACHMENT_DOWNLOAD_URLS",
 				},
 				{
+					Name:     "forceRefreshListener",
+					Path:     httpapi.RouteForceRefreshListener,
+					EnumName: "FORCE_REFRESH_LISTENER",
+				},
+				{
 					Name:     "getAppDefinition",
 					Path:     httpapi.RouteGetAppDefinition,
 					EnumName: "GET_APP_DEFINITION",
@@ -457,6 +462,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getAttachmentDownloadUrls",
 			RequestType:     reflect.TypeOf(GetAttachmentDownloadURLsRequestInput{}),
 			ResponseType:    reflect.TypeOf(GetAttachmentDownloadURLsResponse{}),
+		},
+		{
+			FunctionName:    "route_force_refresh_listener",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "forceRefreshListener",
+			RequestType:     reflect.TypeOf(ForceRefreshListenerRequestInput{}),
 		},
 		{
 			FunctionName:    "route_get_app_catalog",

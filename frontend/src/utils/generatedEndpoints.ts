@@ -132,6 +132,11 @@ export async function route_get_attachment_download_urls(
 ): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLsResponse>> {
   return await post(GoHTTPRoutes.getAttachmentDownloadUrls, x);
 }
+export async function route_force_refresh_listener(
+  x: gt.ForceRefreshListenerRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRoutes.forceRefreshListener, x);
+}
 export async function route_get_app_catalog(): Promise<
   ResponseDataAndStatus<gt.AppCatalogResponse>
 > {

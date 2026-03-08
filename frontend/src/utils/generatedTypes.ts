@@ -615,6 +615,15 @@ export function createAttachmentDownloadURLEntry(
 export type GetAttachmentDownloadURLsResponse =
   Array<AttachmentDownloadURLEntry>;
 
+export type ForceRefreshListenerRequestInput = {
+  projectConfigId: string;
+};
+export function createForceRefreshListenerRequestInput(
+  options: Partial<ForceRefreshListenerRequestInput> = {},
+): ForceRefreshListenerRequestInput {
+  return options as ForceRefreshListenerRequestInput;
+}
+
 export type AppCatalogPropType = "string" | "number" | "dimension" | "boolean";
 
 export type AppCatalogProp = {

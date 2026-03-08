@@ -597,3 +597,7 @@ type AttachmentDownloadURLEntry struct {
 }
 
 type GetAttachmentDownloadURLsResponse []AttachmentDownloadURLEntry
+
+type ForceRefreshListenerRequestInput struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}

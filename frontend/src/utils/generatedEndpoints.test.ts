@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
+  route_force_refresh_listener,
   route_get_app_catalog,
   route_get_app_definition,
   route_get_app_gen_skill_content,
@@ -509,6 +510,45 @@ describe("generatedEndpoints attachment download helpers", () => {
       method: "POST",
       body: JSON.stringify({
         artifactIds: ["artifacts/notes.txt", "artifacts/diagram.png"],
+        projectConfigId: "project-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints listener helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts listener force-refresh requests with the active project id", async () => {
+    await route_force_refresh_listener({
+      projectConfigId: "project-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/forceRefreshListener`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
         projectConfigId: "project-1",
       }),
     });
