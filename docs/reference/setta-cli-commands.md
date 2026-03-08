@@ -1,17 +1,12 @@
 # Setta CLI Commands
 
-This doc covers the commands exposed by the shipped `setta` CLI. The published
-entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
-Go-owned commands are handed off to packaged Go binaries, while the remaining
-Python-owned local commands still route through `backend/setta/start.py`
-(`app`, `backups`, `plugins`, and `export-db`).
-Local commands operate on a workspace root (code operations) and a
-`setta_files` root (state/runtime). By default both roots follow the current
-working directory and the default Setta home, but you can override runtime
-identity and roots with:
-`--workspace`, `--profile`, `--profile-lookup-home`, `--setta-home`,
-`--setta-files-root`, `--setta-files-location`, and `--runtime-root`
-(or matching env vars).
+This doc covers the commands exposed by the `setta` CLI (implemented in
+`backend/setta/start.py`). Local commands operate on a workspace root (code
+operations) and a `setta_files` root (state/runtime). By default both roots
+follow the current working directory and the default Setta home, but you can
+override runtime identity and roots with:
+`--workspace`, `--profile`, `--setta-home`, `--setta-files-root`,
+`--setta-files-location`, and `--runtime-root` (or matching env vars).
 `setta_files` resolution still follows local/global rules from
 `docs/reference/setta-files.md`.
 
@@ -54,7 +49,6 @@ These options can be passed before subcommands (for example,
 
 - `--workspace PATH` selects the workspace root.
 - `--profile NAME` selects `<setta_home>/profiles/<NAME>.json`.
-- `--profile-lookup-home PATH` overrides where runtime profiles are resolved.
 - `--setta-home PATH` overrides runtime Setta home.
 - `--setta-files-root PATH` forces a specific state root.
 - `--setta-files-location {auto,local,global}` requests local/global resolution mode.
@@ -69,7 +63,6 @@ Env equivalents:
 
 - `SETTA_WORKSPACE_ROOT`
 - `SETTA_PROFILE`
-- `SETTA_PROFILE_LOOKUP_HOME`
 - `SETTA_HOME`
 - `SETTA_FILES_ROOT`
 - `SETTA_FILES_LOCATION`
@@ -81,23 +74,21 @@ Starts the backend server in the current workspace, creates a session entry,
 prints a bootstrap URL + token, and (when possible) auto-opens the browser.
 
 Options:
+- `--reload` enables live-reload (Uvicorn).
 - `--host` sets the bind host (default: `127.0.0.1`).
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
 - `--workspace PATH` sets the workspace root.
 - `--profile NAME` selects a runtime profile.
-- `--profile-lookup-home PATH` overrides profile lookup home.
 - `--setta-home PATH` overrides Setta home.
 - `--setta-files-root PATH` forces an explicit `setta_files` root.
 - `--setta-files-location {auto,local,global}` controls local/global resolution
   mode when no explicit root is set.
 - `--runtime-root PATH` overrides runtime root.
-- `--reload` is not supported by the shipped Go CLI.
 Env equivalents:
-`SETTA_WORKSPACE_ROOT`, `SETTA_PROFILE`, `SETTA_PROFILE_LOOKUP_HOME`,
-`SETTA_HOME`, `SETTA_FILES_ROOT`, `SETTA_FILES_LOCATION`, and
-`SETTA_RUNTIME_ROOT`.
+`SETTA_WORKSPACE_ROOT`, `SETTA_PROFILE`, `SETTA_HOME`, `SETTA_FILES_ROOT`,
+`SETTA_FILES_LOCATION`, and `SETTA_RUNTIME_ROOT`.
 
 Examples:
 ```sh
@@ -117,15 +108,11 @@ Options:
 - `--deployment-name NAME` selects a deployment under `setta_files/deployments/`.
   Pair this with:
   - `--version vN` or `--latest`.
-- omitted `--host` / `--port` values default to `127.0.0.1` and an OS-assigned
-  port.
-- binding to a non-loopback host prints a warning because share mode disables
-  auth.
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
   `--no-open`, plus runtime path flags (`--workspace`, `--profile`,
-  `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
-  `--setta-files-location`, `--runtime-root`).
+  `--setta-home`, `--setta-files-root`, `--setta-files-location`,
+  `--runtime-root`).
 
 Examples:
 ```sh
@@ -148,8 +135,8 @@ Options:
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
   `--no-open`, plus runtime path flags (`--workspace`, `--profile`,
-  `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
-  `--setta-files-location`, `--runtime-root`).
+  `--setta-home`, `--setta-files-root`, `--setta-files-location`,
+  `--runtime-root`).
 
 Examples:
 ```sh
@@ -377,7 +364,6 @@ frontend can consume. This command requires `--json`.
 Options:
 - `--workspace PATH` sets the workspace root (required for detached workspaces).
 - `--profile NAME` selects a runtime profile.
-- `--profile-lookup-home PATH` overrides where named profiles are resolved.
 - `--setta-home PATH` overrides Setta home.
 - `--setta-files-root PATH` forces an explicit `setta_files` root.
 - `--setta-files-location {auto,local,global}` requests local/global resolution
@@ -618,9 +604,9 @@ Remote stop:
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
 - To control remote runtime roots/identity, pass global path flags before
-  `stop` (for example: `--profile`, `--profile-lookup-home`, `--setta-home`,
-  `--setta-files-root`, `--setta-files-location`, `--runtime-root`). These are
-  forwarded to remote `setta` calls.
+  `stop` (for example: `--profile`, `--setta-home`, `--setta-files-root`,
+  `--setta-files-location`, `--runtime-root`). These are forwarded to remote
+  `setta` calls.
 
 Examples:
 ```sh
@@ -648,9 +634,8 @@ Options:
 - `--ssh-args` passes extra SSH options.
 - `--remote-cmd` overrides the remote Setta command.
 - Remote root/identity options are passed globally before the subcommand:
-  `--profile`, `--profile-lookup-home`, `--setta-home`, `--setta-files-root`,
-  `--setta-files-location`, `--runtime-root` (all forwarded to remote `setta`
-  calls).
+  `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`,
+  `--runtime-root` (all forwarded to remote `setta` calls).
 - `--local-port` pins the local tunnel port.
 - `--detach` backgrounds the tunnel process.
 - `--print-only` prints the tunnel command and URLs without running them.

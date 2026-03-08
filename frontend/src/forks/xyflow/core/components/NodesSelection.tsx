@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmarkRenderCounter } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import cc from "classcat";
 import { useDndMode } from "forks/dnd-kit/dndState";
 import {
@@ -15,7 +16,7 @@ import React, {
 } from "react";
 import { openSelectionContextMenu } from "state/actions/contextMenus";
 import { getNodes } from "state/actions/nodeInternals";
-import { useProjectState } from "state/definitions";
+import { getActiveSectionUIIds, useActiveSectionUI } from "state/activeSectionUI";
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { updatePositions } from "../hooks/useUpdateNodePositions";
 import type { Rect } from "../types";
@@ -27,9 +28,10 @@ function _NodesSelection({ x, y, width, height }: Rect) {
       `translate(${s.transform[0]}px,${s.transform[1]}px) scale(${s.transform[2]})`,
   );
   const { isSorting, isMovingFree } = useDndMode();
-  const activeIds = useProjectState(
-    (state) => state.projectConfig.activeIds,
-    _.isEqual,
+  const activeIds = useActiveSectionUI((state) => state.activeIds, _.isEqual);
+  useSettingsAllSettingsBenchmarkRenderCounter(
+    "nodes-selection",
+    activeIds.join(",") || "none",
   );
   const nodeRef = useRef<HTMLDivElement>(null);
   const primarySelectionId =
@@ -56,7 +58,7 @@ function _NodesSelection({ x, y, width, height }: Rect) {
   });
 
   const onContextMenu = (event: MouseEvent<HTMLDivElement>) => {
-    const activeSectionIds = useProjectState.getState().projectConfig.activeIds;
+    const activeSectionIds = getActiveSectionUIIds();
     const selectedNodeIds = getNodes()
       .filter((n) => activeSectionIds.includes(n.id))
       .map((n) => n.id);
