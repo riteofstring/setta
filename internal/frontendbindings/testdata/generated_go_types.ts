@@ -978,3 +978,408 @@ export type SetTypeErrorIgnoreRequestInput = {
 export function createSetTypeErrorIgnoreRequestInput(options: Partial<SetTypeErrorIgnoreRequestInput> = {}): SetTypeErrorIgnoreRequestInput {
   return options as SetTypeErrorIgnoreRequestInput;
 }
+
+
+export const PluginRestartCapabilityModeEnum = {
+  Manual: "manual",
+  Programmatic: "programmatic",
+} as const;
+export type PluginRestartCapabilityMode = ObjectValues<typeof PluginRestartCapabilityModeEnum>;
+
+
+export type PluginRestartCapability = {
+  mode: PluginRestartCapabilityMode;
+  command: string | null;
+  reason: string | null;
+};
+export function createPluginRestartCapability(options: Partial<PluginRestartCapability> = {}): PluginRestartCapability {
+  return options as PluginRestartCapability;
+}
+
+
+export const PluginScopeEnum = {
+  Workspace: "workspace",
+  SettaFiles: "setta_files",
+  Global: "global",
+} as const;
+export type PluginScope = ObjectValues<typeof PluginScopeEnum>;
+
+
+export const PluginSourceManagerEnum = {
+  Setta: "setta",
+  PackageManager: "package_manager",
+} as const;
+export type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
+
+
+export type PluginFrontendDescriptor = {
+  entrypointUrl: string | null;
+  styleUrl: string | null;
+};
+export function createPluginFrontendDescriptor(options: Partial<PluginFrontendDescriptor> = {}): PluginFrontendDescriptor {
+  return options as PluginFrontendDescriptor;
+}
+
+
+export type PluginContentDescriptor = {
+  hasBlueprints: boolean;
+  hasProjectTemplates: boolean;
+  hasPrompts: boolean;
+};
+export function createPluginContentDescriptor(options: Partial<PluginContentDescriptor> = {}): PluginContentDescriptor {
+  return options as PluginContentDescriptor;
+}
+
+
+export type PluginConfigDescriptor = {
+  hasSchema: boolean;
+  schemaJson: Record<string, unknown>;
+  schemaJsonDigestSha256: string | null;
+  currentConfig: Record<string, unknown>;
+  currentConfigDigestSha256: string | null;
+};
+export function createPluginConfigDescriptor(options: Partial<PluginConfigDescriptor> = {}): PluginConfigDescriptor {
+  return options as PluginConfigDescriptor;
+}
+
+
+export const PluginEnablementSourceEnum = {
+  WorkspaceDisabled: "workspace_disabled",
+  WorkspaceEnabled: "workspace_enabled",
+  GlobalAutoEnabled: "global_auto_enabled",
+  ManifestDefault: "manifest_default",
+} as const;
+export type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
+
+
+export type PluginListEntry = {
+  pluginId: string;
+  name: string;
+  version: string;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourceManager: PluginSourceManager;
+  sourceManagerHint: string | null;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  frontend: PluginFrontendDescriptor;
+  content: PluginContentDescriptor;
+  config: PluginConfigDescriptor;
+  effectiveCapabilities: Array<string>;
+  enablementSource: PluginEnablementSource | null;
+  restartRequired: boolean;
+};
+export function createPluginListEntry(options: Partial<PluginListEntry> = {}): PluginListEntry {
+  return options as PluginListEntry;
+}
+
+
+export type PluginListResponse = {
+  schemaVersion: number;
+  serverMode: ServerMode;
+  restartCapability: PluginRestartCapability;
+  plugins: Array<PluginListEntry>;
+};
+export function createPluginListResponse(options: Partial<PluginListResponse> = {}): PluginListResponse {
+  return options as PluginListResponse;
+}
+
+
+export const PluginRuntimeStateEnum = {
+  Active: "active",
+  Disabled: "disabled",
+  Invalid: "invalid",
+  Shadowed: "shadowed",
+  PendingRestart: "pending_restart",
+} as const;
+export type PluginRuntimeState = ObjectValues<typeof PluginRuntimeStateEnum>;
+
+
+export const PluginBlockedCapabilityReasonEnum = {
+  ModePolicy: "mode_policy",
+  HostPolicy: "host_policy",
+  ManifestInvalid: "manifest_invalid",
+} as const;
+export type PluginBlockedCapabilityReason = ObjectValues<typeof PluginBlockedCapabilityReasonEnum>;
+
+
+export type PluginBlockedCapability = {
+  capability: string;
+  reason: PluginBlockedCapabilityReason;
+};
+export function createPluginBlockedCapability(options: Partial<PluginBlockedCapability> = {}): PluginBlockedCapability {
+  return options as PluginBlockedCapability;
+}
+
+
+export type PluginRegisteredLanguageServer = {
+  name: string;
+  language: string;
+  command: string;
+  args: Array<string>;
+  settingsKey: string | null;
+};
+export function createPluginRegisteredLanguageServer(options: Partial<PluginRegisteredLanguageServer> = {}): PluginRegisteredLanguageServer {
+  return options as PluginRegisteredLanguageServer;
+}
+
+
+export type PluginRegisteredExternalAgentAdapter = {
+  adapterId: string;
+  pluginId: string;
+  name: string;
+  runModes: Array<string>;
+  command: string;
+  args: Array<string>;
+  envVarWhitelist: Array<string>;
+  defaultModel: string | null;
+};
+export function createPluginRegisteredExternalAgentAdapter(options: Partial<PluginRegisteredExternalAgentAdapter> = {}): PluginRegisteredExternalAgentAdapter {
+  return options as PluginRegisteredExternalAgentAdapter;
+}
+
+
+export type PluginRegisteredCodegenTarget = {
+  targetId: string;
+  pluginId: string;
+  language: string;
+  name: string;
+  defaultFileName: string;
+};
+export function createPluginRegisteredCodegenTarget(options: Partial<PluginRegisteredCodegenTarget> = {}): PluginRegisteredCodegenTarget {
+  return options as PluginRegisteredCodegenTarget;
+}
+
+
+export type PluginErrorInfo = {
+  code: string;
+  message: string;
+};
+export function createPluginErrorInfo(options: Partial<PluginErrorInfo> = {}): PluginErrorInfo {
+  return options as PluginErrorInfo;
+}
+
+
+export type PluginStatusEntry = {
+  pluginId: string;
+  name: string;
+  version: string;
+  state: PluginRuntimeState;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourceManager: PluginSourceManager;
+  sourceManagerHint: string | null;
+  sourcePath: string;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  shadowedBySourcePath: string | null;
+  requestedCapabilities: Array<string>;
+  effectiveCapabilities: Array<string>;
+  blockedCapabilities: Array<PluginBlockedCapability>;
+  registeredLanguageServers: Array<PluginRegisteredLanguageServer>;
+  registeredExternalAgentAdapters: Array<PluginRegisteredExternalAgentAdapter>;
+  registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
+  enablementSource: PluginEnablementSource | null;
+  restartRequired: boolean;
+  runtimePayloadDigestSha256: string;
+  errors: Array<PluginErrorInfo>;
+};
+export function createPluginStatusEntry(options: Partial<PluginStatusEntry> = {}): PluginStatusEntry {
+  return options as PluginStatusEntry;
+}
+
+
+export type PluginStatusResponse = {
+  schemaVersion: number;
+  serverMode: ServerMode;
+  restartCapability: PluginRestartCapability;
+  plugins: Array<PluginStatusEntry>;
+};
+export function createPluginStatusResponse(options: Partial<PluginStatusResponse> = {}): PluginStatusResponse {
+  return options as PluginStatusResponse;
+}
+
+
+export type PluginRuntimeResponse = {
+  schemaVersion: number;
+  list: PluginListResponse;
+  status: PluginStatusResponse;
+};
+export function createPluginRuntimeResponse(options: Partial<PluginRuntimeResponse> = {}): PluginRuntimeResponse {
+  return options as PluginRuntimeResponse;
+}
+
+
+export type PluginRescanResponse = {
+  schemaVersion: number;
+  serverMode: ServerMode;
+  installedPlugins: number;
+  activePlugins: number;
+};
+export function createPluginRescanResponse(options: Partial<PluginRescanResponse> = {}): PluginRescanResponse {
+  return options as PluginRescanResponse;
+}
+
+
+export const PluginInstallerBackendEnum = {
+  Auto: "auto",
+  Pip: "pip",
+  UV: "uv",
+} as const;
+export type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
+
+
+export type PluginInstallRequestInput = {
+  sourceSpec: string;
+  scope: PluginScope | null;
+  installer: PluginInstallerBackend | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+export function createPluginInstallRequestInput(options: Partial<PluginInstallRequestInput> = {}): PluginInstallRequestInput {
+  return options as PluginInstallRequestInput;
+}
+
+
+export const PluginSourceTrustStatusEnum = {
+  Unverified: "unverified",
+} as const;
+export type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
+
+
+export type PluginInstallResponse = {
+  pluginId: string;
+  version: string;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourcePath: string;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  requestedCapabilities: Array<string>;
+  trustStatus: PluginSourceTrustStatus;
+  trustWarning: string;
+  components: Array<string>;
+  state: PluginRuntimeState;
+  restartRequired: boolean;
+};
+export function createPluginInstallResponse(options: Partial<PluginInstallResponse> = {}): PluginInstallResponse {
+  return options as PluginInstallResponse;
+}
+
+
+export type PluginUninstallRequestInput = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+export function createPluginUninstallRequestInput(options: Partial<PluginUninstallRequestInput> = {}): PluginUninstallRequestInput {
+  return options as PluginUninstallRequestInput;
+}
+
+
+export type PluginUninstallResponse = {
+  pluginId: string;
+  removedFromScope: PluginScope;
+  restartRequired: boolean;
+};
+export function createPluginUninstallResponse(options: Partial<PluginUninstallResponse> = {}): PluginUninstallResponse {
+  return options as PluginUninstallResponse;
+}
+
+
+export type PluginUpdateRequestInput = {
+  pluginId: string;
+  scope: PluginScope | null;
+  to: string | null;
+};
+export function createPluginUpdateRequestInput(options: Partial<PluginUpdateRequestInput> = {}): PluginUpdateRequestInput {
+  return options as PluginUpdateRequestInput;
+}
+
+
+export type PluginUpdateResponse = {
+  pluginId: string;
+  fromVersion: string;
+  toVersion: string;
+  sourceDigestSha256: string | null;
+  restartRequired: boolean;
+};
+export function createPluginUpdateResponse(options: Partial<PluginUpdateResponse> = {}): PluginUpdateResponse {
+  return options as PluginUpdateResponse;
+}
+
+
+export type PluginRollbackRequestInput = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+export function createPluginRollbackRequestInput(options: Partial<PluginRollbackRequestInput> = {}): PluginRollbackRequestInput {
+  return options as PluginRollbackRequestInput;
+}
+
+
+export type PluginRollbackResponse = {
+  pluginId: string;
+  restoredVersion: string;
+  sourceDigestSha256: string | null;
+  restartRequired: boolean;
+};
+export function createPluginRollbackResponse(options: Partial<PluginRollbackResponse> = {}): PluginRollbackResponse {
+  return options as PluginRollbackResponse;
+}
+
+
+export type PluginEnableDisableRequestInput = {
+  pluginId: string;
+};
+export function createPluginEnableDisableRequestInput(options: Partial<PluginEnableDisableRequestInput> = {}): PluginEnableDisableRequestInput {
+  return options as PluginEnableDisableRequestInput;
+}
+
+
+export type PluginEnableDisableResponse = {
+  pluginId: string;
+  state: PluginRuntimeState;
+  restartRequired: boolean;
+};
+export function createPluginEnableDisableResponse(options: Partial<PluginEnableDisableResponse> = {}): PluginEnableDisableResponse {
+  return options as PluginEnableDisableResponse;
+}
+
+
+export type PluginConfigWriteRequestInput = {
+  pluginId: string;
+  config: Record<string, unknown>;
+};
+export function createPluginConfigWriteRequestInput(options: Partial<PluginConfigWriteRequestInput> = {}): PluginConfigWriteRequestInput {
+  return options as PluginConfigWriteRequestInput;
+}
+
+
+export type PluginConfigValidationResult = {
+  ok: boolean;
+};
+export function createPluginConfigValidationResult(options: Partial<PluginConfigValidationResult> = {}): PluginConfigValidationResult {
+  return options as PluginConfigValidationResult;
+}
+
+
+export type PluginConfigWriteResponse = {
+  pluginId: string;
+  config: Record<string, unknown>;
+  validation: PluginConfigValidationResult;
+};
+export function createPluginConfigWriteResponse(options: Partial<PluginConfigWriteResponse> = {}): PluginConfigWriteResponse {
+  return options as PluginConfigWriteResponse;
+}
+
+
+export type PluginRestartResponse = {
+  accepted: boolean;
+  mode: PluginRestartCapabilityMode;
+  command: string | null;
+  reason: string | null;
+};
+export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
+  return options as PluginRestartResponse;
+}
+

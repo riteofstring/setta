@@ -82,6 +82,7 @@ Current landed wedge:
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
+  - current plugin-management route constants
 - `frontend/src/utils/generatedTypes.ts`
   - current status/meta request/response contract types
   - explicit workspace-launch boundary contract types
@@ -114,6 +115,46 @@ Current landed wedge:
       `projectstate.AppDefinition`, because the runtime metadata uses
       `json.RawMessage` while the frontend boundary needs structured JSON
       values
+  - plugin-management contract types
+    - runtime/status payloads
+      - `PluginRuntimeResponse`
+      - `PluginListResponse`
+      - `PluginStatusResponse`
+      - `PluginListEntry`
+      - `PluginStatusEntry`
+      - `PluginRestartCapability`
+    - mutation payloads
+      - `PluginInstallRequestInput`
+      - `PluginInstallResponse`
+      - `PluginEnableDisableRequestInput`
+      - `PluginEnableDisableResponse`
+      - `PluginUninstallRequestInput`
+      - `PluginUninstallResponse`
+      - `PluginUpdateRequestInput`
+      - `PluginUpdateResponse`
+      - `PluginRollbackRequestInput`
+      - `PluginRollbackResponse`
+      - `PluginConfigWriteRequestInput`
+      - `PluginConfigWriteResponse`
+      - `PluginRestartResponse`
+      - `PluginRescanResponse`
+    - runtime enums and nested registration/config payloads
+      - `PluginScope`
+      - `PluginRuntimeState`
+      - `PluginEnablementSource`
+      - `PluginSourceManager`
+      - `PluginInstallerBackend`
+      - `PluginSourceTrustStatus`
+      - `PluginBlockedCapabilityReason`
+      - `PluginRestartCapabilityMode`
+      - `PluginBlockedCapability`
+      - `PluginErrorInfo`
+      - `PluginFrontendDescriptor`
+      - `PluginContentDescriptor`
+      - `PluginConfigDescriptor`
+      - `PluginRegisteredLanguageServer`
+      - `PluginRegisteredExternalAgentAdapter`
+      - `PluginRegisteredCodegenTarget`
 - `frontend/src/utils/generatedEndpoints.ts`
   - current status/meta endpoint wrappers
   - workspace-launch endpoint wrappers
@@ -196,6 +237,17 @@ Current landed wedge:
     - `DependencyEvent`
   - listener force-refresh contract type
     - `ForceRefreshListenerRequestInput`
+  - plugin-management endpoint wrappers
+    - `route_plugins_runtime`
+    - `route_plugins_rescan`
+    - `route_plugins_install`
+    - `route_plugins_uninstall`
+    - `route_plugins_update`
+    - `route_plugins_rollback`
+    - `route_plugins_enable`
+    - `route_plugins_disable`
+    - `route_plugins_config`
+    - `route_plugins_restart`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -222,6 +274,10 @@ Current landed wedge:
   - `triggerListenerForceRefresh`, `fetchListenerCoverageSnapshot`, and the
     current listener-coverage dependency-key helpers now consume canonical
     Go-generated listener bindings and dependency contracts
+  - `plugins/runtime`, `plugins/restart`, and the current `PluginsPane`
+    plugin runtime/mutation callers now consume canonical Go-generated plugin
+    bindings for plugin runtime/status/config/restart/install/update/rollback
+    and enable/disable operations
 
 ## Cutover Rule
 

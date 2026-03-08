@@ -182,3 +182,53 @@ export async function route_set_type_error_ignore(x: gt.SetTypeErrorIgnoreReques
   return await post(GoHTTPRoutes.setTypeErrorIgnore, x);
 
 }
+export async function route_plugins_runtime(): Promise<ResponseDataAndStatus<gt.PluginRuntimeResponse>> {
+
+  return await get(GoHTTPRoutes.pluginsRuntime);
+
+}
+export async function route_plugins_rescan(): Promise<ResponseDataAndStatus<gt.PluginRescanResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsRescan, null);
+
+}
+export async function route_plugins_install(x: gt.PluginInstallRequestInput): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsInstall, x);
+
+}
+export async function route_plugins_uninstall(x: gt.PluginUninstallRequestInput): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsUninstall, x);
+
+}
+export async function route_plugins_update(x: gt.PluginUpdateRequestInput): Promise<ResponseDataAndStatus<gt.PluginUpdateResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsUpdate, x);
+
+}
+export async function route_plugins_rollback(x: gt.PluginRollbackRequestInput): Promise<ResponseDataAndStatus<gt.PluginRollbackResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsRollback, x);
+
+}
+export async function route_plugins_enable(x: gt.PluginEnableDisableRequestInput): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsEnable, x);
+
+}
+export async function route_plugins_disable(x: gt.PluginEnableDisableRequestInput): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsDisable, x);
+
+}
+export async function route_plugins_config(x: gt.PluginConfigWriteRequestInput): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsConfig, x);
+
+}
+export async function route_plugins_restart(): Promise<ResponseDataAndStatus<gt.PluginRestartResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsRestart, null);
+
+}

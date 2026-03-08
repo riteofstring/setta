@@ -16,6 +16,10 @@ import {
   route_get_listener_coverage,
   route_get_mcp_server_runtime_status,
   route_get_password_param_value,
+  route_plugins_config,
+  route_plugins_install,
+  route_plugins_restart,
+  route_plugins_runtime,
   route_restart_language_server,
   route_set_app_definition,
   route_set_type_error_ignore,
@@ -569,6 +573,104 @@ describe("generatedEndpoints listener helpers", () => {
       body: JSON.stringify({
         projectConfigId: "project-1",
       }),
+    });
+  });
+});
+
+describe("generatedEndpoints plugin helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("loads plugin runtime state from the backend origin", async () => {
+    await route_plugins_runtime();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/runtime`,
+    );
+  });
+
+  it("posts plugin install payloads with the current mutation shape", async () => {
+    await route_plugins_install({
+      sourceSpec: "pypi:setta-plugin==1.2.3",
+      scope: "workspace",
+      installer: "uv",
+      enable: true,
+      force: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/install`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        sourceSpec: "pypi:setta-plugin==1.2.3",
+        scope: "workspace",
+        installer: "uv",
+        enable: true,
+        force: false,
+      }),
+    });
+  });
+
+  it("posts plugin-config writes with nested JSON objects intact", async () => {
+    await route_plugins_config({
+      pluginId: "setta-plugin",
+      config: {
+        enabled: true,
+        limits: {
+          maxWorkers: 4,
+        },
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/config`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        pluginId: "setta-plugin",
+        config: {
+          enabled: true,
+          limits: {
+            maxWorkers: 4,
+          },
+        },
+      }),
+    });
+  });
+
+  it("posts plugin restart requests without a payload", async () => {
+    await route_plugins_restart();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/plugins/restart`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
     });
   });
 });

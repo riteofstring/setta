@@ -653,3 +653,291 @@ type ListenerCoverageSnapshot struct {
 	Dependencies        []BaseDependencyKeyUnion `json:"dependencies"`
 	HasRealtimeWildcard bool                     `json:"hasRealtimeWildcard"`
 }
+
+type PluginScope string
+
+const (
+	PluginScopeWorkspace  PluginScope = "workspace"
+	PluginScopeSettaFiles PluginScope = "setta_files"
+	PluginScopeGlobal     PluginScope = "global"
+)
+
+type PluginRuntimeState string
+
+const (
+	PluginRuntimeStateActive         PluginRuntimeState = "active"
+	PluginRuntimeStateDisabled       PluginRuntimeState = "disabled"
+	PluginRuntimeStateInvalid        PluginRuntimeState = "invalid"
+	PluginRuntimeStateShadowed       PluginRuntimeState = "shadowed"
+	PluginRuntimeStatePendingRestart PluginRuntimeState = "pending_restart"
+)
+
+type PluginEnablementSource string
+
+const (
+	PluginEnablementSourceWorkspaceDisabled PluginEnablementSource = "workspace_disabled"
+	PluginEnablementSourceWorkspaceEnabled  PluginEnablementSource = "workspace_enabled"
+	PluginEnablementSourceGlobalAutoEnabled PluginEnablementSource = "global_auto_enabled"
+	PluginEnablementSourceManifestDefault   PluginEnablementSource = "manifest_default"
+)
+
+type PluginSourceManager string
+
+const (
+	PluginSourceManagerSetta          PluginSourceManager = "setta"
+	PluginSourceManagerPackageManager PluginSourceManager = "package_manager"
+)
+
+type PluginInstallerBackend string
+
+const (
+	PluginInstallerBackendAuto PluginInstallerBackend = "auto"
+	PluginInstallerBackendPip  PluginInstallerBackend = "pip"
+	PluginInstallerBackendUV   PluginInstallerBackend = "uv"
+)
+
+type PluginSourceTrustStatus string
+
+const (
+	PluginSourceTrustStatusUnverified PluginSourceTrustStatus = "unverified"
+)
+
+type PluginBlockedCapabilityReason string
+
+const (
+	PluginBlockedCapabilityReasonModePolicy      PluginBlockedCapabilityReason = "mode_policy"
+	PluginBlockedCapabilityReasonHostPolicy      PluginBlockedCapabilityReason = "host_policy"
+	PluginBlockedCapabilityReasonManifestInvalid PluginBlockedCapabilityReason = "manifest_invalid"
+)
+
+type PluginRestartCapabilityMode string
+
+const (
+	PluginRestartCapabilityModeManual       PluginRestartCapabilityMode = "manual"
+	PluginRestartCapabilityModeProgrammatic PluginRestartCapabilityMode = "programmatic"
+)
+
+type PluginErrorInfo struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type PluginBlockedCapability struct {
+	Capability string                        `json:"capability"`
+	Reason     PluginBlockedCapabilityReason `json:"reason"`
+}
+
+type PluginFrontendDescriptor struct {
+	EntrypointURL *string `json:"entrypointUrl"`
+	StyleURL      *string `json:"styleUrl"`
+}
+
+type PluginContentDescriptor struct {
+	HasBlueprints       bool `json:"hasBlueprints"`
+	HasProjectTemplates bool `json:"hasProjectTemplates"`
+	HasPrompts          bool `json:"hasPrompts"`
+}
+
+type PluginConfigDescriptor struct {
+	HasSchema                 bool           `json:"hasSchema"`
+	SchemaJSON                map[string]any `json:"schemaJson"`
+	SchemaJSONDigestSHA256    *string        `json:"schemaJsonDigestSha256"`
+	CurrentConfig             map[string]any `json:"currentConfig"`
+	CurrentConfigDigestSHA256 *string        `json:"currentConfigDigestSha256"`
+}
+
+type PluginRegisteredLanguageServer struct {
+	Name        string   `json:"name"`
+	Language    string   `json:"language"`
+	Command     string   `json:"command"`
+	Args        []string `json:"args"`
+	SettingsKey *string  `json:"settingsKey"`
+}
+
+type PluginRegisteredExternalAgentAdapter struct {
+	AdapterID       string   `json:"adapterId"`
+	PluginID        string   `json:"pluginId"`
+	Name            string   `json:"name"`
+	RunModes        []string `json:"runModes"`
+	Command         string   `json:"command"`
+	Args            []string `json:"args"`
+	EnvVarWhitelist []string `json:"envVarWhitelist"`
+	DefaultModel    *string  `json:"defaultModel"`
+}
+
+type PluginRegisteredCodegenTarget struct {
+	TargetID        string `json:"targetId"`
+	PluginID        string `json:"pluginId"`
+	Language        string `json:"language"`
+	Name            string `json:"name"`
+	DefaultFileName string `json:"defaultFileName"`
+}
+
+type PluginRestartCapability struct {
+	Mode    PluginRestartCapabilityMode `json:"mode"`
+	Command *string                     `json:"command"`
+	Reason  *string                     `json:"reason"`
+}
+
+type PluginListEntry struct {
+	PluginID              string                   `json:"pluginId"`
+	Name                  string                   `json:"name"`
+	Version               string                   `json:"version"`
+	SourceScope           PluginScope              `json:"sourceScope"`
+	SourceScopeLabel      string                   `json:"sourceScopeLabel"`
+	SourceManager         PluginSourceManager      `json:"sourceManager"`
+	SourceManagerHint     *string                  `json:"sourceManagerHint"`
+	CanonicalSourceKey    string                   `json:"canonicalSourceKey"`
+	SourceDigestSHA256    *string                  `json:"sourceDigestSha256"`
+	Frontend              PluginFrontendDescriptor `json:"frontend"`
+	Content               PluginContentDescriptor  `json:"content"`
+	Config                PluginConfigDescriptor   `json:"config"`
+	EffectiveCapabilities []string                 `json:"effectiveCapabilities"`
+	EnablementSource      *PluginEnablementSource  `json:"enablementSource"`
+	RestartRequired       bool                     `json:"restartRequired"`
+}
+
+type PluginListResponse struct {
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ServerMode        ServerMode              `json:"serverMode"`
+	RestartCapability PluginRestartCapability `json:"restartCapability"`
+	Plugins           []PluginListEntry       `json:"plugins"`
+}
+
+type PluginStatusEntry struct {
+	PluginID                        string                                 `json:"pluginId"`
+	Name                            string                                 `json:"name"`
+	Version                         string                                 `json:"version"`
+	State                           PluginRuntimeState                     `json:"state"`
+	SourceScope                     PluginScope                            `json:"sourceScope"`
+	SourceScopeLabel                string                                 `json:"sourceScopeLabel"`
+	SourceManager                   PluginSourceManager                    `json:"sourceManager"`
+	SourceManagerHint               *string                                `json:"sourceManagerHint"`
+	SourcePath                      string                                 `json:"sourcePath"`
+	CanonicalSourceKey              string                                 `json:"canonicalSourceKey"`
+	SourceDigestSHA256              *string                                `json:"sourceDigestSha256"`
+	ShadowedBySourcePath            *string                                `json:"shadowedBySourcePath"`
+	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
+	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
+	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
+	RegisteredLanguageServers       []PluginRegisteredLanguageServer       `json:"registeredLanguageServers"`
+	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
+	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
+	EnablementSource                *PluginEnablementSource                `json:"enablementSource"`
+	RestartRequired                 bool                                   `json:"restartRequired"`
+	RuntimePayloadDigestSHA256      string                                 `json:"runtimePayloadDigestSha256"`
+	Errors                          []PluginErrorInfo                      `json:"errors"`
+}
+
+type PluginStatusResponse struct {
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ServerMode        ServerMode              `json:"serverMode"`
+	RestartCapability PluginRestartCapability `json:"restartCapability"`
+	Plugins           []PluginStatusEntry     `json:"plugins"`
+}
+
+type PluginRuntimeResponse struct {
+	SchemaVersion int                  `json:"schemaVersion"`
+	List          PluginListResponse   `json:"list"`
+	Status        PluginStatusResponse `json:"status"`
+}
+
+type PluginRescanResponse struct {
+	SchemaVersion    int        `json:"schemaVersion"`
+	ServerMode       ServerMode `json:"serverMode"`
+	InstalledPlugins int        `json:"installedPlugins"`
+	ActivePlugins    int        `json:"activePlugins"`
+}
+
+type PluginEnableDisableRequestInput struct {
+	PluginID string `json:"pluginId"`
+}
+
+type PluginInstallRequestInput struct {
+	SourceSpec string                  `json:"sourceSpec"`
+	Scope      *PluginScope            `json:"scope"`
+	Installer  *PluginInstallerBackend `json:"installer"`
+	Enable     *bool                   `json:"enable"`
+	Force      *bool                   `json:"force"`
+}
+
+type PluginInstallResponse struct {
+	PluginID              string                  `json:"pluginId"`
+	Version               string                  `json:"version"`
+	SourceScope           PluginScope             `json:"sourceScope"`
+	SourceScopeLabel      string                  `json:"sourceScopeLabel"`
+	SourcePath            string                  `json:"sourcePath"`
+	CanonicalSourceKey    string                  `json:"canonicalSourceKey"`
+	SourceDigestSHA256    *string                 `json:"sourceDigestSha256"`
+	RequestedCapabilities []string                `json:"requestedCapabilities"`
+	TrustStatus           PluginSourceTrustStatus `json:"trustStatus"`
+	TrustWarning          string                  `json:"trustWarning"`
+	Components            []string                `json:"components"`
+	State                 PluginRuntimeState      `json:"state"`
+	RestartRequired       bool                    `json:"restartRequired"`
+}
+
+type PluginEnableDisableResponse struct {
+	PluginID        string             `json:"pluginId"`
+	State           PluginRuntimeState `json:"state"`
+	RestartRequired bool               `json:"restartRequired"`
+}
+
+type PluginUninstallRequestInput struct {
+	PluginID string       `json:"pluginId"`
+	Scope    *PluginScope `json:"scope"`
+}
+
+type PluginUninstallResponse struct {
+	PluginID         string      `json:"pluginId"`
+	RemovedFromScope PluginScope `json:"removedFromScope"`
+	RestartRequired  bool        `json:"restartRequired"`
+}
+
+type PluginUpdateRequestInput struct {
+	PluginID string       `json:"pluginId"`
+	Scope    *PluginScope `json:"scope"`
+	To       *string      `json:"to"`
+}
+
+type PluginUpdateResponse struct {
+	PluginID           string  `json:"pluginId"`
+	FromVersion        string  `json:"fromVersion"`
+	ToVersion          string  `json:"toVersion"`
+	SourceDigestSHA256 *string `json:"sourceDigestSha256"`
+	RestartRequired    bool    `json:"restartRequired"`
+}
+
+type PluginRollbackRequestInput struct {
+	PluginID string       `json:"pluginId"`
+	Scope    *PluginScope `json:"scope"`
+}
+
+type PluginRollbackResponse struct {
+	PluginID           string  `json:"pluginId"`
+	RestoredVersion    string  `json:"restoredVersion"`
+	SourceDigestSHA256 *string `json:"sourceDigestSha256"`
+	RestartRequired    bool    `json:"restartRequired"`
+}
+
+type PluginConfigValidationResult struct {
+	OK bool `json:"ok"`
+}
+
+type PluginConfigWriteRequestInput struct {
+	PluginID string         `json:"pluginId"`
+	Config   map[string]any `json:"config"`
+}
+
+type PluginConfigWriteResponse struct {
+	PluginID   string                       `json:"pluginId"`
+	Config     map[string]any               `json:"config"`
+	Validation PluginConfigValidationResult `json:"validation"`
+}
+
+type PluginRestartResponse struct {
+	Accepted bool                        `json:"accepted"`
+	Mode     PluginRestartCapabilityMode `json:"mode"`
+	Command  *string                     `json:"command"`
+	Reason   *string                     `json:"reason"`
+}

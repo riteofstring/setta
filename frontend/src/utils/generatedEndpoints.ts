@@ -2,183 +2,233 @@
 import { get, post, type ResponseDataAndStatus } from "./endpointUtils";
 import { GoHTTPRoutes } from "./generatedRoutes";
 import * as gt from "./generatedTypes";
-export async function route_get_backend_init_status(): Promise<
-  ResponseDataAndStatus<gt.BackendInitStatusResponse>
-> {
+export async function route_get_backend_init_status(): Promise<ResponseDataAndStatus<gt.BackendInitStatusResponse>> {
+
   return await get(GoHTTPRoutes.getBackendInitStatus);
+
 }
-export async function route_get_auth_refresh_status(): Promise<
-  ResponseDataAndStatus<gt.AuthRefreshStatusResponse>
-> {
+export async function route_get_auth_refresh_status(): Promise<ResponseDataAndStatus<gt.AuthRefreshStatusResponse>> {
+
   return await get(GoHTTPRoutes.getAuthRefreshStatus);
+
 }
-export async function route_get_server_mode(): Promise<
-  ResponseDataAndStatus<gt.ServerModeResponse>
-> {
+export async function route_get_server_mode(): Promise<ResponseDataAndStatus<gt.ServerModeResponse>> {
+
   return await get(GoHTTPRoutes.getServerMode);
+
 }
-export async function route_get_setta_home_info(): Promise<
-  ResponseDataAndStatus<gt.SettaHomeInfoResponse>
-> {
+export async function route_get_setta_home_info(): Promise<ResponseDataAndStatus<gt.SettaHomeInfoResponse>> {
+
   return await get(GoHTTPRoutes.getSettaHomeInfo);
+
 }
-export async function route_create_workspace_launch_intent(
-  x: gt.CreateWorkspaceLaunchIntentRequestInput,
-): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
+export async function route_create_workspace_launch_intent(x: gt.CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
+
   return await post(GoHTTPRoutes.createWorkspaceLaunchIntent, x);
+
 }
-export async function route_launch(
-  x: gt.LaunchRequestInput,
-): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
+export async function route_launch(x: gt.LaunchRequestInput): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
+
   return await post(GoHTTPRoutes.launch, x);
+
 }
-export async function route_get_launcher_recent_workspaces(
-  x: gt.GetLauncherRecentWorkspacesRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+export async function route_get_launcher_recent_workspaces(x: gt.GetLauncherRecentWorkspacesRequestInput): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+
   return await get(GoHTTPRoutes.getLauncherRecentWorkspaces, x);
+
 }
-export async function route_add_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+export async function route_add_launcher_recent_workspace(x: gt.LauncherRecentWorkspaceRequestInput): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+
   return await post(GoHTTPRoutes.addLauncherRecentWorkspace, x);
+
 }
-export async function route_remove_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+export async function route_remove_launcher_recent_workspace(x: gt.LauncherRecentWorkspaceRequestInput): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+
   return await post(GoHTTPRoutes.removeLauncherRecentWorkspace, x);
+
 }
-export async function route_pin_launcher_recent_workspace(
-  x: gt.PinLauncherRecentWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+export async function route_pin_launcher_recent_workspace(x: gt.PinLauncherRecentWorkspaceRequestInput): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+
   return await post(GoHTTPRoutes.pinLauncherRecentWorkspace, x);
+
 }
-export async function route_get_launcher_filesystem_roots(): Promise<
-  ResponseDataAndStatus<gt.LauncherFilesystemRootsResponse>
-> {
+export async function route_get_launcher_filesystem_roots(): Promise<ResponseDataAndStatus<gt.LauncherFilesystemRootsResponse>> {
+
   return await get(GoHTTPRoutes.getLauncherFilesystemRoots);
+
 }
-export async function route_list_launcher_directory(
-  x: gt.LauncherListDirectoryRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
+export async function route_list_launcher_directory(x: gt.LauncherListDirectoryRequestInput): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
+
   return await post(GoHTTPRoutes.listLauncherDirectory, x);
+
 }
-export async function route_open_launcher_workspace(
-  x: gt.LauncherOpenWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
+export async function route_open_launcher_workspace(x: gt.LauncherOpenWorkspaceRequestInput): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
+
   return await post(GoHTTPRoutes.openLauncherWorkspace, x);
+
 }
-export async function route_get_launcher_status(
-  x: gt.GetLauncherStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+export async function route_get_launcher_status(x: gt.GetLauncherStatusRequestInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
   return await get(GoHTTPRoutes.getLauncherStatus, x);
+
 }
-export async function route_setup_launcher(
-  x: gt.SetupLauncherRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+export async function route_setup_launcher(x: gt.SetupLauncherRequestInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
   return await post(GoHTTPRoutes.setupLauncher, x);
+
 }
-export async function route_repair_launcher(
-  x: gt.LauncherRequestBaseInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+export async function route_repair_launcher(x: gt.LauncherRequestBaseInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
   return await post(GoHTTPRoutes.repairLauncher, x);
+
 }
-export async function route_remove_launcher(
-  x: gt.LauncherRequestBaseInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+export async function route_remove_launcher(x: gt.LauncherRequestBaseInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
   return await post(GoHTTPRoutes.removeLauncher, x);
+
 }
-export async function route_update_launcher(
-  x: gt.UpdateLauncherRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
+export async function route_update_launcher(x: gt.UpdateLauncherRequestInput): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
+
   return await post(GoHTTPRoutes.updateLauncher, x);
+
 }
-export async function route_reveal_path_in_os_file_explorer(
-  x: gt.RevealPathInOSFileExplorerRequest,
-): Promise<ResponseDataAndStatus<null>> {
+export async function route_reveal_path_in_os_file_explorer(x: gt.RevealPathInOSFileExplorerRequest): Promise<ResponseDataAndStatus<null>> {
+
   return await post(GoHTTPRoutes.revealPathInOsFileExplorer, x);
+
 }
-export async function route_get_app_gen_skills(): Promise<
-  ResponseDataAndStatus<gt.GetAppGenSkillsResponse>
-> {
+export async function route_get_app_gen_skills(): Promise<ResponseDataAndStatus<gt.GetAppGenSkillsResponse>> {
+
   return await get(GoHTTPRoutes.getAppGenSkills);
+
 }
-export async function route_get_app_gen_skill_content(
-  x: gt.GetAppGenSkillContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+export async function route_get_app_gen_skill_content(x: gt.GetAppGenSkillContentRequestInput): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+
   return await post(GoHTTPRoutes.getAppGenSkillContent, x);
+
 }
-export async function route_upsert_app_gen_custom_skill(
-  x: gt.UpsertAppGenCustomSkillRequestInput,
-): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
+export async function route_upsert_app_gen_custom_skill(x: gt.UpsertAppGenCustomSkillRequestInput): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
+
   return await post(GoHTTPRoutes.upsertAppGenCustomSkill, x);
+
 }
-export async function route_get_mcp_server_runtime_status(
-  x: gt.MCPRuntimeStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.MCPRuntimeStatusResponse>> {
+export async function route_get_mcp_server_runtime_status(x: gt.MCPRuntimeStatusRequestInput): Promise<ResponseDataAndStatus<gt.MCPRuntimeStatusResponse>> {
+
   return await post(GoHTTPRoutes.getMCPServerRuntimeStatus, x);
+
 }
-export async function route_get_password_param_value(
-  x: gt.GetPasswordParamValueRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
+export async function route_get_password_param_value(x: gt.GetPasswordParamValueRequestInput): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
+
   return await post(GoHTTPRoutes.getPasswordParamValue, x);
+
 }
-export async function route_get_attachment_download_url(
-  x: gt.GetAttachmentDownloadURLRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
+export async function route_get_attachment_download_url(x: gt.GetAttachmentDownloadURLRequestInput): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
+
   return await post(GoHTTPRoutes.getAttachmentDownloadUrl, x);
+
 }
-export async function route_get_attachment_download_urls(
-  x: gt.GetAttachmentDownloadURLsRequestInput,
-): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLsResponse>> {
+export async function route_get_attachment_download_urls(x: gt.GetAttachmentDownloadURLsRequestInput): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLsResponse>> {
+
   return await post(GoHTTPRoutes.getAttachmentDownloadUrls, x);
+
 }
-export async function route_force_refresh_listener(
-  x: gt.ForceRefreshListenerRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+export async function route_force_refresh_listener(x: gt.ForceRefreshListenerRequestInput): Promise<ResponseDataAndStatus<null>> {
+
   return await post(GoHTTPRoutes.forceRefreshListener, x);
+
 }
-export async function route_get_listener_coverage(
-  x: gt.ListenerCoverageRequestInput,
-): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
+export async function route_get_listener_coverage(x: gt.ListenerCoverageRequestInput): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
+
   return await post(GoHTTPRoutes.getListenerCoverage, x);
+
 }
-export async function route_get_app_catalog(): Promise<
-  ResponseDataAndStatus<gt.AppCatalogResponse>
-> {
+export async function route_get_app_catalog(): Promise<ResponseDataAndStatus<gt.AppCatalogResponse>> {
+
   return await get(GoHTTPRoutes.getAppCatalog);
+
 }
-export async function route_get_app_definition(
-  x: gt.GetAppDefinitionRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppDefinitionReadResponse>> {
+export async function route_get_app_definition(x: gt.GetAppDefinitionRequestInput): Promise<ResponseDataAndStatus<gt.AppDefinitionReadResponse>> {
+
   return await post(GoHTTPRoutes.getAppDefinition, x);
+
 }
-export async function route_set_app_definition(
-  x: gt.SetAppDefinitionRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppDefinitionMutationResponse>> {
+export async function route_set_app_definition(x: gt.SetAppDefinitionRequestInput): Promise<ResponseDataAndStatus<gt.AppDefinitionMutationResponse>> {
+
   return await post(GoHTTPRoutes.setAppDefinition, x);
+
 }
-export async function route_validate_app_definition(
-  x: gt.ValidateAppDefinitionRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppDefinitionValidationResponse>> {
+export async function route_validate_app_definition(x: gt.ValidateAppDefinitionRequestInput): Promise<ResponseDataAndStatus<gt.AppDefinitionValidationResponse>> {
+
   return await post(GoHTTPRoutes.validateAppDefinition, x);
+
 }
-export async function route_restart_language_server(): Promise<
-  ResponseDataAndStatus<null>
-> {
+export async function route_restart_language_server(): Promise<ResponseDataAndStatus<null>> {
+
   return await post(GoHTTPRoutes.restartLanguageServer, null);
+
 }
-export async function route_type_check(
-  x: gt.TypeCheckRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+export async function route_type_check(x: gt.TypeCheckRequestInput): Promise<ResponseDataAndStatus<null>> {
+
   return await post(GoHTTPRoutes.typeCheck, x);
+
 }
-export async function route_get_latest_lsp_diagnostics(
-  x: gt.GetLatestLspDiagnosticsRequestInput,
-): Promise<ResponseDataAndStatus<gt.SettaLspDiagnosticsPayload>> {
+export async function route_get_latest_lsp_diagnostics(x: gt.GetLatestLspDiagnosticsRequestInput): Promise<ResponseDataAndStatus<gt.SettaLspDiagnosticsPayload>> {
+
   return await post(GoHTTPRoutes.getLatestLspDiagnostics, x);
+
 }
-export async function route_set_type_error_ignore(
-  x: gt.SetTypeErrorIgnoreRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+export async function route_set_type_error_ignore(x: gt.SetTypeErrorIgnoreRequestInput): Promise<ResponseDataAndStatus<null>> {
+
   return await post(GoHTTPRoutes.setTypeErrorIgnore, x);
+
+}
+export async function route_plugins_runtime(): Promise<ResponseDataAndStatus<gt.PluginRuntimeResponse>> {
+
+  return await get(GoHTTPRoutes.pluginsRuntime);
+
+}
+export async function route_plugins_rescan(): Promise<ResponseDataAndStatus<gt.PluginRescanResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsRescan, null);
+
+}
+export async function route_plugins_install(x: gt.PluginInstallRequestInput): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsInstall, x);
+
+}
+export async function route_plugins_uninstall(x: gt.PluginUninstallRequestInput): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsUninstall, x);
+
+}
+export async function route_plugins_update(x: gt.PluginUpdateRequestInput): Promise<ResponseDataAndStatus<gt.PluginUpdateResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsUpdate, x);
+
+}
+export async function route_plugins_rollback(x: gt.PluginRollbackRequestInput): Promise<ResponseDataAndStatus<gt.PluginRollbackResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsRollback, x);
+
+}
+export async function route_plugins_enable(x: gt.PluginEnableDisableRequestInput): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsEnable, x);
+
+}
+export async function route_plugins_disable(x: gt.PluginEnableDisableRequestInput): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsDisable, x);
+
+}
+export async function route_plugins_config(x: gt.PluginConfigWriteRequestInput): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsConfig, x);
+
+}
+export async function route_plugins_restart(): Promise<ResponseDataAndStatus<gt.PluginRestartResponse>> {
+
+  return await post(GoHTTPRoutes.pluginsRestart, null);
+
 }

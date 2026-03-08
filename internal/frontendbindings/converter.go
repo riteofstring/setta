@@ -91,6 +91,45 @@ func newTypeConverter() *typeConverter {
 				{Name: "Dimension", Value: "dimension"},
 				{Name: "Boolean", Value: "boolean"},
 			},
+			reflect.TypeOf(PluginScope("")): {
+				{Name: "Workspace", Value: "workspace"},
+				{Name: "SettaFiles", Value: "setta_files"},
+				{Name: "Global", Value: "global"},
+			},
+			reflect.TypeOf(PluginRuntimeState("")): {
+				{Name: "Active", Value: "active"},
+				{Name: "Disabled", Value: "disabled"},
+				{Name: "Invalid", Value: "invalid"},
+				{Name: "Shadowed", Value: "shadowed"},
+				{Name: "PendingRestart", Value: "pending_restart"},
+			},
+			reflect.TypeOf(PluginEnablementSource("")): {
+				{Name: "WorkspaceDisabled", Value: "workspace_disabled"},
+				{Name: "WorkspaceEnabled", Value: "workspace_enabled"},
+				{Name: "GlobalAutoEnabled", Value: "global_auto_enabled"},
+				{Name: "ManifestDefault", Value: "manifest_default"},
+			},
+			reflect.TypeOf(PluginSourceManager("")): {
+				{Name: "Setta", Value: "setta"},
+				{Name: "PackageManager", Value: "package_manager"},
+			},
+			reflect.TypeOf(PluginInstallerBackend("")): {
+				{Name: "Auto", Value: "auto"},
+				{Name: "Pip", Value: "pip"},
+				{Name: "UV", Value: "uv"},
+			},
+			reflect.TypeOf(PluginSourceTrustStatus("")): {
+				{Name: "Unverified", Value: "unverified"},
+			},
+			reflect.TypeOf(PluginBlockedCapabilityReason("")): {
+				{Name: "ModePolicy", Value: "mode_policy"},
+				{Name: "HostPolicy", Value: "host_policy"},
+				{Name: "ManifestInvalid", Value: "manifest_invalid"},
+			},
+			reflect.TypeOf(PluginRestartCapabilityMode("")): {
+				{Name: "Manual", Value: "manual"},
+				{Name: "Programmatic", Value: "programmatic"},
+			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
 			reflect.TypeOf(SectionDependencyKey{}): {
