@@ -7,6 +7,8 @@ import {
   route_get_app_definition,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
+  route_get_attachment_download_url,
+  route_get_attachment_download_urls,
   route_get_latest_lsp_diagnostics,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
@@ -448,6 +450,66 @@ describe("generatedEndpoints password reveal helper", () => {
         projectConfigId: "project-1",
         sectionId: "section-1",
         paramInfoId: "param-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints attachment download helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts single attachment-url reads with the artifact and project ids", async () => {
+    await route_get_attachment_download_url({
+      artifactId: "artifacts/notes.txt",
+      projectConfigId: "project-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAttachmentDownloadUrl`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        artifactId: "artifacts/notes.txt",
+        projectConfigId: "project-1",
+      }),
+    });
+  });
+
+  it("posts bulk attachment-url reads with the current payload shape", async () => {
+    await route_get_attachment_download_urls({
+      artifactIds: ["artifacts/notes.txt", "artifacts/diagram.png"],
+      projectConfigId: "project-1",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getAttachmentDownloadUrls`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        artifactIds: ["artifacts/notes.txt", "artifacts/diagram.png"],
+        projectConfigId: "project-1",
       }),
     });
   });

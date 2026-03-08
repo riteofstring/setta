@@ -574,3 +574,26 @@ type GetPasswordParamValueRequestInput struct {
 type GetPasswordParamValueResponse struct {
 	Value string `json:"value"`
 }
+
+type GetAttachmentDownloadURLRequestInput struct {
+	ArtifactID      string  `json:"artifactId"`
+	ProjectConfigID *string `json:"projectConfigId"`
+}
+
+type GetAttachmentDownloadURLResponse struct {
+	URL       string `json:"url"`
+	ExpiresAt int64  `json:"expiresAt"`
+}
+
+type GetAttachmentDownloadURLsRequestInput struct {
+	ArtifactIDs     []string `json:"artifactIds"`
+	ProjectConfigID *string  `json:"projectConfigId"`
+}
+
+type AttachmentDownloadURLEntry struct {
+	ArtifactID string `json:"artifactId"`
+	URL        string `json:"url"`
+	ExpiresAt  int64  `json:"expiresAt"`
+}
+
+type GetAttachmentDownloadURLsResponse []AttachmentDownloadURLEntry

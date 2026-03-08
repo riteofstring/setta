@@ -531,6 +531,43 @@ export function createGetPasswordParamValueResponse(options: Partial<GetPassword
 }
 
 
+export type GetAttachmentDownloadURLRequestInput = {
+  artifactId: string;
+  projectConfigId: string | null;
+};
+export function createGetAttachmentDownloadURLRequestInput(options: Partial<GetAttachmentDownloadURLRequestInput> = {}): GetAttachmentDownloadURLRequestInput {
+  return options as GetAttachmentDownloadURLRequestInput;
+}
+
+
+export type GetAttachmentDownloadURLResponse = {
+  url: string;
+  expiresAt: number;
+};
+export function createGetAttachmentDownloadURLResponse(options: Partial<GetAttachmentDownloadURLResponse> = {}): GetAttachmentDownloadURLResponse {
+  return options as GetAttachmentDownloadURLResponse;
+}
+
+
+export type GetAttachmentDownloadURLsRequestInput = {
+  artifactIds: Array<string>;
+  projectConfigId: string | null;
+};
+export function createGetAttachmentDownloadURLsRequestInput(options: Partial<GetAttachmentDownloadURLsRequestInput> = {}): GetAttachmentDownloadURLsRequestInput {
+  return options as GetAttachmentDownloadURLsRequestInput;
+}
+
+
+export type AttachmentDownloadURLEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
+export function createAttachmentDownloadURLEntry(options: Partial<AttachmentDownloadURLEntry> = {}): AttachmentDownloadURLEntry {
+  return options as AttachmentDownloadURLEntry;
+}
+
+
 export type AppCatalogPropType = "string" | "number" | "dimension" | "boolean";
 
 

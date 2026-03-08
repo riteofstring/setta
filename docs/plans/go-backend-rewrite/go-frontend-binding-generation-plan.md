@@ -167,6 +167,15 @@ Current landed wedge:
   - password reveal helper contract types
     - `GetPasswordParamValueRequestInput`
     - `GetPasswordParamValueResponse`
+  - attachment download helper endpoint wrappers
+    - `route_get_attachment_download_url`
+    - `route_get_attachment_download_urls`
+  - attachment download helper contract types
+    - `GetAttachmentDownloadURLRequestInput`
+    - `GetAttachmentDownloadURLResponse`
+    - `GetAttachmentDownloadURLsRequestInput`
+    - `AttachmentDownloadURLEntry`
+    - `GetAttachmentDownloadURLsResponse`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -188,6 +197,8 @@ Current landed wedge:
     app-gen-skill and MCP-runtime bindings
   - `ParamInput` and the app-mode password reveal path in `appRegistry` are
     now covered by the canonical Go-generated password-value helper binding
+  - `AppRenderer` and `ChatMessages` are now covered by canonical
+    Go-generated attachment download helper bindings
 
 ## Cutover Rule
 

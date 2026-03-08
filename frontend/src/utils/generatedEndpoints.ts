@@ -122,6 +122,16 @@ export async function route_get_password_param_value(
 ): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
   return await post(GoHTTPRoutes.getPasswordParamValue, x);
 }
+export async function route_get_attachment_download_url(
+  x: gt.GetAttachmentDownloadURLRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
+  return await post(GoHTTPRoutes.getAttachmentDownloadUrl, x);
+}
+export async function route_get_attachment_download_urls(
+  x: gt.GetAttachmentDownloadURLsRequestInput,
+): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLsResponse>> {
+  return await post(GoHTTPRoutes.getAttachmentDownloadUrls, x);
+}
 export async function route_get_app_catalog(): Promise<
   ResponseDataAndStatus<gt.AppCatalogResponse>
 > {

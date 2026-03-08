@@ -181,6 +181,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_PASSWORD_PARAM_VALUE",
 				},
 				{
+					Name:     "getAttachmentDownloadUrl",
+					Path:     httpapi.RouteGetAttachmentDownloadURL,
+					EnumName: "GET_ATTACHMENT_DOWNLOAD_URL",
+				},
+				{
+					Name:     "getAttachmentDownloadUrls",
+					Path:     httpapi.RouteGetAttachmentDownloadURLs,
+					EnumName: "GET_ATTACHMENT_DOWNLOAD_URLS",
+				},
+				{
 					Name:     "getAppDefinition",
 					Path:     httpapi.RouteGetAppDefinition,
 					EnumName: "GET_APP_DEFINITION",
@@ -431,6 +441,22 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getPasswordParamValue",
 			RequestType:     reflect.TypeOf(GetPasswordParamValueRequestInput{}),
 			ResponseType:    reflect.TypeOf(GetPasswordParamValueResponse{}),
+		},
+		{
+			FunctionName:    "route_get_attachment_download_url",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAttachmentDownloadUrl",
+			RequestType:     reflect.TypeOf(GetAttachmentDownloadURLRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetAttachmentDownloadURLResponse{}),
+		},
+		{
+			FunctionName:    "route_get_attachment_download_urls",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getAttachmentDownloadUrls",
+			RequestType:     reflect.TypeOf(GetAttachmentDownloadURLsRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetAttachmentDownloadURLsResponse{}),
 		},
 		{
 			FunctionName:    "route_get_app_catalog",
