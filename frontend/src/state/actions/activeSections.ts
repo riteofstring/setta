@@ -19,6 +19,13 @@ import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 let pendingProjectActiveIdsAnimationFrame: number | null = null;
 let pendingProjectActiveIds: Array<string> | null = null;
 
+export type SetActiveSectionIdsSyncMode = "auto" | "ui-only" | "immediate";
+
+export type SetActiveSectionIdsOptions = {
+  syncMode?: SetActiveSectionIdsSyncMode;
+  forceDurableSync?: boolean;
+};
+
 function optimisticActiveIdsUpdate(
   apply: (state: ZustandProjectState) => void,
 ) {
@@ -73,6 +80,17 @@ function shouldDeferProjectActiveSectionIdsSync() {
   );
 }
 
+function cancelPendingProjectActiveIdsSync() {
+  if (
+    pendingProjectActiveIdsAnimationFrame !== null &&
+    typeof window !== "undefined"
+  ) {
+    window.cancelAnimationFrame(pendingProjectActiveIdsAnimationFrame);
+  }
+  pendingProjectActiveIdsAnimationFrame = null;
+  pendingProjectActiveIds = null;
+}
+
 function flushPendingProjectActiveIdsSync() {
   if (pendingProjectActiveIds === null) {
     return;
@@ -97,13 +115,44 @@ function scheduleProjectActiveSectionIdsSync(ids: Array<string>) {
   });
 }
 
-export function setActiveSectionIds(ids: Array<string>) {
-  const currentActiveIds = getActiveSectionUIIds();
-  if (_.isEqual(currentActiveIds, ids)) {
+export function setActiveSectionIds(
+  ids: Array<string>,
+  options: SetActiveSectionIdsOptions = {},
+) {
+  const { syncMode = "auto", forceDurableSync = false } = options;
+  const currentUIActiveIds = getActiveSectionUIIds();
+  const currentDurableActiveIds =
+    useProjectState.getState().projectConfig.activeIds;
+  const uiChanged = !_.isEqual(currentUIActiveIds, ids);
+  const durableChanged = !_.isEqual(currentDurableActiveIds, ids);
+
+  if (!uiChanged && !(forceDurableSync && durableChanged)) {
     return;
   }
-  setActiveSectionUIIds(ids);
-  if (!shouldDeferProjectActiveSectionIdsSync()) {
+
+  if (uiChanged) {
+    setActiveSectionUIIds(ids);
+  }
+
+  if (syncMode === "ui-only") {
+    cancelPendingProjectActiveIdsSync();
+    return;
+  }
+
+  if (!durableChanged) {
+    cancelPendingProjectActiveIdsSync();
+    return;
+  }
+
+  const resolvedSyncMode =
+    syncMode === "immediate"
+      ? "immediate"
+      : shouldDeferProjectActiveSectionIdsSync()
+        ? "deferred"
+        : "immediate";
+
+  if (resolvedSyncMode === "immediate") {
+    cancelPendingProjectActiveIdsSync();
     applyProjectActiveSectionIds(ids);
     return;
   }

@@ -9,7 +9,10 @@ import {
   ActiveSectionPolicyResult,
   resolveActiveSectionChange,
 } from "./activeSectionPolicy";
-import { setActiveSectionIds } from "./activeSections";
+import {
+  type SetActiveSectionIdsOptions,
+  setActiveSectionIds,
+} from "./activeSections";
 import {
   getCurrEffectiveSectionImpl,
   getHighestAncestor,
@@ -134,6 +137,7 @@ function buildPolicyContext(
 
 export function applyActiveSectionChange(
   intent: ActiveSectionIntent,
+  options?: SetActiveSectionIdsOptions,
 ): ActiveSectionControllerResult {
   const activeIds = getActiveSectionUIIds();
   const isSelectingParams = useMisc.getState().isSelectingParams;
@@ -149,7 +153,7 @@ export function applyActiveSectionChange(
   const activeIdsChanged = !_.isEqual(activeIds, decision.nextActiveIds);
 
   if (activeIdsChanged) {
-    setActiveSectionIds(decision.nextActiveIds);
+    setActiveSectionIds(decision.nextActiveIds, options);
   }
 
   const skipBenchmarkZIndexReorder =

@@ -3508,3 +3508,90 @@ New benchmark stages:
 - So the split is worth keeping:
   - immediate active-shell/UI behavior belongs in the lightweight active-section UI store
   - durable `projectConfig.activeIds` sync can stay on the deferred project-state/backend path
+
+## Addendum: marquee selection hitch was mostly repeated durable active-id sync during drag, and deferring that sync cuts the per-section stalls
+
+- Date: `2026-03-08`
+- Goal: reduce the hitch while holding `Shift` and dragging a selection rectangle across sections in `All Settings`.
+- Hypothesis:
+  - the drag path was not just doing local shell updates
+  - it was repeatedly flushing `setActiveIds` through the durable project/backend path while the marquee was still in progress
+
+### Before change
+
+- Live headed-browser synthetic marquee drag on normal `full`:
+  - `5` `/api/setActiveIds` requests during one short drag
+  - step durations stayed around a frame when the selected count did not change, but spiked hard when it did:
+    - `102.30ms` on the initial drag step
+    - `92.80ms` when the active count changed from `1 -> 2`
+    - `103.90ms` when the active count changed from `2 -> 4`
+    - `93.10ms` when the active count changed from `4 -> 6`
+- Render counters during that drag showed the body was not the issue:
+  - `section-shell`: `6` commits across `6` entities
+  - `section-title-active`: `6` commits across `6` entities
+  - `kwargs-controls`, `param-switch`, `param-container`: `0`
+- The hit-test loop still ran every step:
+  - `762` section `getBoundingClientRect()` calls across `18` drag steps
+
+### Change
+
+- Added explicit sync modes to `setActiveSectionIds(...)`:
+  - `ui-only`
+  - `auto`
+  - `immediate`
+- Updated marquee selection in `Pane.tsx`:
+  - `mousedown` / `mousemove` selection-rect updates now use `syncMode: "ui-only"`
+  - `mouseup` / `mouseleave` commit the final UI-selected ids once through the durable sync path
+- This preserves live shell selection during drag, but stops the project-state/backend churn until the drag is done.
+
+### Method
+
+- Reran the same live synthetic marquee drag on `http://127.0.0.1:3009/settings?settingsBenchmarkStage=full`.
+- Kept the same viewport and same drag path across the visible Settings sections.
+- Instrumented:
+  - per-step drag duration
+  - `/api/setActiveIds` call count
+  - benchmark render counters
+  - section `getBoundingClientRect()` call counts
+
+### Visual validation
+
+- `full` before rerun:
+  - `perf/artifacts/frontend/settings-all-settings/selection-rect-sync-2026-03-08/full-visible-after-selection-sync.png`
+- `full` after marquee drag:
+  - `perf/artifacts/frontend/settings-all-settings/selection-rect-sync-2026-03-08/full-selection-rect-after-drag-visible.png`
+- `full` before click rerun:
+  - `perf/artifacts/frontend/settings-all-settings/selection-rect-sync-2026-03-08/full-visible-before-click-rerun.png`
+
+### Results
+
+- After the change, the same marquee drag produced:
+  - `1` `/api/setActiveIds` request total
+  - no more `~90ms` to `~100ms` per-section cliffs
+  - selection-count change steps now landed in the `16ms` to `25ms` band:
+    - `24.60ms` when the active count changed from `1 -> 2`
+    - `24.20ms` when the active count changed from `2 -> 4`
+    - `16.00ms` when the active count changed from `4 -> 6`
+    - `25.00ms` when the active count changed from `6 -> 9`
+- Render counters after the change:
+  - `section-shell`: `15` commits across `9` entities
+  - `section-title-active`: `15` commits across `9` entities
+  - `kwargs-controls`, `param-switch`, `param-container`: `0`
+- The hit-test work itself was basically unchanged:
+  - `765` section `getBoundingClientRect()` calls across the same `18` drag steps
+
+### Activation sanity check
+
+- This change targeted marquee selection, not ordinary click activation, but I reran the click harness on `full` afterward as a sanity check:
+  - average click to active: `73.02ms`
+  - average click to visual settle: `88.50ms`
+  - average extra time after active: `15.48ms`
+
+### Conclusion
+
+- The marquee hitch was mostly the repeated durable active-id sync path, not section-body rerenders.
+- Deferring the project/backend sync until `mouseup` cut the per-section drag stalls from roughly `93ms` to `104ms` down to roughly `16ms` to `25ms`, while preserving live shell selection during the drag.
+- The remaining marquee floor is now clearer:
+  - the expensive part left is the hit-test loop itself, especially `getNodesInside(...)` walking all sections and reading geometry on every drag step
+- So the next best target for selection-rectangle performance is:
+  - replace the DOM-rect hit testing in `getNodesInside(...)` with cached node geometry from the flow store / node internals

@@ -127,4 +127,43 @@ describe("activeSections", () => {
     ]);
     expect(endpointSpy).toHaveBeenCalledOnce();
   });
+
+  it("keeps marquee-style UI-only active-id updates out of the durable project/backend path until forced to sync", () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
+    });
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
+
+    let scheduledFrame: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduledFrame = callback;
+      return 1;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+
+    setActiveSectionIds(["section-a"], { syncMode: "ui-only" });
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
+    expect(endpointSpy).not.toHaveBeenCalled();
+    expect(scheduledFrame).toBeNull();
+
+    setActiveSectionIds(["section-a"], { forceDurableSync: true });
+
+    expect(scheduledFrame).not.toBeNull();
+    expect(endpointSpy).not.toHaveBeenCalled();
+
+    scheduledFrame?.(16);
+
+    expect(useProjectState.getState().projectConfig.activeIds).toEqual([
+      "section-a",
+    ]);
+    expect(endpointSpy).toHaveBeenCalledOnce();
+  });
 });
