@@ -278,6 +278,9 @@ Use the docs in this order:
   - completed slice doc for the Go-owned managed agent-run persistence,
     engine-config resolution, `llm_config` ownership, and non-streaming
     runtime foundation required before `run_agent_profile`
+- `phase-6-llm-env-parser-dependency-cleanup.md`
+  - focused completed-slice doc for the bounded `internal/llmconfig` `.env`
+    parser owner and removal of the previous `godotenv` dependency
 87. `phase-6-run-agent-profile-tool-parity.md`
   - focused implementation-plan doc for Go-owned `run_agent_profile` parity
     over the completed agent-profile store/read foundation and the completed

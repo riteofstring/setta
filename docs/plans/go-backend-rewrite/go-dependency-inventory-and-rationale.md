@@ -19,8 +19,8 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 
 ## Snapshot Context
 
-- captured at: `2026-03-09 10:36 PDT`
-- module totals: `13` direct, `17` indirect, `30` total
+- captured at: `2026-03-09 10:41 PDT`
+- module totals: `12` direct, `17` indirect, `29` total
 - source of truth:
   - `go.mod`
   - current import sites under `internal/` and `cmd/`
@@ -46,7 +46,6 @@ recommendation docs. If this file disagrees with planning notes, `go.mod` wins.
 | `github.com/coder/websocket` | `v1.8.14` | WebSocket transport for realtime frontend/listener connections. | `internal/realtime`, `internal/wsapi` |
 | `github.com/creack/pty` | `v1.1.21` | Unix PTY backend for terminal sessions. | `internal/terminals/pty_backend_unix.go` |
 | `github.com/gofrs/flock` | `v0.12.1` | Cross-process file locking for launcher state, trusted frontend origins, and workspace-launch intent coordination. | `internal/launcher/home.go`, `internal/frontendorigins/service.go`, `internal/workspacelaunch/intents.go` |
-| `github.com/joho/godotenv` | `v1.5.1` | `.env` loading for LLM and MCP-related config resolution. | `internal/llmconfig/config.go` |
 | `github.com/modelcontextprotocol/go-sdk` | `v1.4.0` | MCP protocol types plus server/client transport support. | `internal/mcpx` |
 | `github.com/pelletier/go-toml/v2` | `v2.2.4` | TOML decoding/encoding for external-agent configs, Codex config files, deploy publish outputs, and plugin `pyproject.toml` metadata. | `internal/externalagentconfigs`, `internal/externalagents/codex_executor.go`, `internal/deployments/share_publish.go`, `internal/plugins/authoring.go` |
 | `github.com/shirou/gopsutil/v4` | `v4.26.2` | Process inspection for session registry, SSH tunnel ownership, and local-launch process status. | `internal/localsessions`, `internal/sshx`, `internal/workspacelaunch` |
@@ -96,6 +95,14 @@ SSH argument parsing now uses the bounded internal splitter in
 That cleanup removed the previous direct `google/shlex` dependency instead of
 keeping a module around for a single shell-style tokenization helper.
 
+### Why llmconfig dotenv parsing is no longer a module dependency
+
+The managed-run `.env` read path now uses the bounded internal parser in
+`internal/llmconfig/env_parser.go`.
+
+That cleanup removed the previous direct `godotenv` dependency instead of
+keeping a module around for one bounded llmconfig read helper.
+
 ## Indirect Dependencies
 
 These modules are present in `go.mod` but are not part of the deliberate public
@@ -132,6 +139,8 @@ shape of the rewrite. They mostly come from four roots:
   should start from the current direct list instead of stale notes about that
   removed module
 - the previous `google/shlex` SSH-helper exception is also gone for the same
+  reason
+- the previous `godotenv` llmconfig-helper exception is also gone for the same
   reason
 - The indirect list is mostly explanatory. We should avoid importing those
   packages directly unless we intentionally promote them to first-class

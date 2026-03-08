@@ -286,3 +286,69 @@ func TestReadEnvFileAndRuntimeFiltersConfiguredKeysOnly(t *testing.T) {
 		t.Fatalf("unexpected runtime api keys %#v", runtime.APIKeys())
 	}
 }
+
+func TestReadEnvFileParsesSupportedDotEnvForms(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	envPath := filepath.Join(root, ".env")
+	// Cover the dotenv forms this managed-run API-key path intentionally
+	// supports without pulling in a broader parser dependency.
+	payload := strings.Join([]string{
+		"# ignored comment",
+		"export OPENAI_API_KEY=openai-secret",
+		`ANTHROPIC_API_KEY="anthropic secret"`,
+		`MODEL_CONTEXT='claude sonnet'`,
+		`TRAILING_COMMENT=value # trailing`,
+		`BLANK_VALUE=`,
+		`ESCAPED_NEWLINE="line1\nline2"`,
+		`LITERAL_DOLLAR=${HOME}`,
+		`ESCAPED_SPACE=hello\ world`,
+		"",
+	}, "\n")
+	if err := os.WriteFile(envPath, []byte(payload), 0o644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	envVars, err := ReadEnvFile(envPath)
+	if err != nil {
+		t.Fatalf("read env file: %v", err)
+	}
+
+	// The parser preserves the bounded Python-aligned behavior this path uses:
+	// quoting, blank assignments, escaped newlines, literal ${...}, and comment
+	// trimming on unquoted values.
+	want := map[string]string{
+		"OPENAI_API_KEY":    "openai-secret",
+		"ANTHROPIC_API_KEY": "anthropic secret",
+		"MODEL_CONTEXT":     "claude sonnet",
+		"TRAILING_COMMENT":  "value",
+		"BLANK_VALUE":       "",
+		"ESCAPED_NEWLINE":   "line1\nline2",
+		"LITERAL_DOLLAR":    "${HOME}",
+		"ESCAPED_SPACE":     `hello\ world`,
+	}
+	if !reflect.DeepEqual(envVars, want) {
+		t.Fatalf("unexpected parsed env vars:\n got: %#v\nwant: %#v", envVars, want)
+	}
+}
+
+func TestReadEnvFileRejectsInvalidDotEnvSyntax(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	envPath := filepath.Join(root, ".env")
+	// Malformed quoted values should fail deterministically instead of being
+	// partially accepted.
+	if err := os.WriteFile(envPath, []byte(`OPENAI_API_KEY="unterminated`+"\n"), 0o644); err != nil {
+		t.Fatalf("write env file: %v", err)
+	}
+
+	_, err := ReadEnvFile(envPath)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if !strings.Contains(err.Error(), "parse env file") {
+		t.Fatalf("unexpected error %v", err)
+	}
+}

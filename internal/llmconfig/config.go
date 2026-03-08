@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/joho/godotenv"
 	"setta/internal/statefs"
 )
 
@@ -357,7 +356,7 @@ func ReadEnvFile(path string) (map[string]string, error) {
 	if len(bytes.TrimSpace(content)) == 0 {
 		return map[string]string{}, nil
 	}
-	parsed, err := godotenv.Unmarshal(string(content))
+	parsed, err := parseEnvContent(string(content))
 	if err != nil {
 		return nil, fmt.Errorf("parse env file: %w", err)
 	}

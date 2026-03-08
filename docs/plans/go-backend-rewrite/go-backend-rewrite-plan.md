@@ -491,6 +491,16 @@ The bounded SSH dependency cleanup tracked in
 - the module graph no longer carries a direct dependency solely for that
   SSH foundation helper
 
+The bounded llmconfig dependency cleanup tracked in
+`phase-6-llm-env-parser-dependency-cleanup.md` is now also landed:
+
+- Go no longer depends on `github.com/joho/godotenv` for the managed-run
+  `.env` read path
+- `internal/llmconfig` now owns the bounded `.env` parser used by
+  `ReadEnvFile(...)`
+- the module graph no longer carries a direct dependency solely for that
+  llmconfig helper
+
 ## Current Reality
 
 The backend seams that matter most for planning are:

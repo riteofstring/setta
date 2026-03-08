@@ -11,7 +11,6 @@ require (
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.21
 	github.com/gofrs/flock v0.12.1
-	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.4.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/shirou/gopsutil/v4 v4.26.2
