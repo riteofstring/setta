@@ -10,10 +10,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import {
-  getSectionSlugIndex,
-  resolveStandaloneSectionSlug,
-} from "./sectionSlugPaths";
+import { resolveStandaloneSectionSlug } from "./sectionSlugPaths";
 
 function createSectionState(input: {
   sections: Record<string, { name: string }>;
@@ -143,28 +140,7 @@ describe("sectionSlugPaths", () => {
     });
   });
 
-  it("reuses the cached slug index when relevant state refs are unchanged", () => {
-    const state = createSectionState({
-      sections: {
-        parent: { name: "Parent" },
-        child: { name: "Blue Star" },
-      },
-      parentSectionMap: {
-        parent: null,
-        child: "parent",
-      },
-      groupChildrenById: {
-        parent: ["child"],
-      },
-    });
-
-    const first = getSectionSlugIndex(state);
-    const second = getSectionSlugIndex(state);
-
-    expect(second).toBe(first);
-  });
-
-  it("rebuilds the slug index after a production-shaped section rename", () => {
+  it("reflects production-shaped in-place section renames immediately", () => {
     const state = createSectionState({
       sections: {
         parent: { name: "Parent" },
@@ -186,38 +162,70 @@ describe("sectionSlugPaths", () => {
       sectionType: SectionTypeEnum.Code,
     });
 
-    const childSection = state.sections.child;
-    if (!childSection) {
-      throw new Error("Expected a child section to rename.");
-    }
-    const renamedState = {
-      ...state,
-      sections: {
-        ...state.sections,
-        child: createCore({
-          ...childSection,
-          name: "Green Star",
-        }),
-      },
-    };
+    state.sections.child.name = "Green Star";
 
-    expect(getSectionSlugIndex(renamedState)).not.toBe(
-      getSectionSlugIndex(state),
-    );
-
-    expect(
-      resolveStandaloneSectionSlug(renamedState, "parent_green_star"),
-    ).toEqual({
+    expect(resolveStandaloneSectionSlug(state, "parent_green_star")).toEqual({
       kind: "found",
       sectionId: "child",
       sectionName: "Green Star",
       sectionType: SectionTypeEnum.Code,
     });
-    expect(
-      resolveStandaloneSectionSlug(renamedState, "parent_blue_star"),
-    ).toEqual({
+    expect(resolveStandaloneSectionSlug(state, "parent_blue_star")).toEqual({
       kind: "not_found",
       sectionSlug: "parent_blue_star",
+    });
+  });
+
+  it("reflects production-shaped in-place reparenting immediately", () => {
+    const state = createSectionState({
+      sections: {
+        parentA: { name: "Parent A" },
+        parentB: { name: "Parent B" },
+        child: { name: "Blue Star" },
+      },
+      parentSectionMap: {
+        parentA: null,
+        parentB: null,
+        child: "parentA",
+      },
+      groupChildrenById: {
+        parentA: ["child"],
+        parentB: [],
+      },
+    });
+
+    expect(resolveStandaloneSectionSlug(state, "parent_a_blue_star")).toEqual({
+      kind: "found",
+      sectionId: "child",
+      sectionName: "Blue Star",
+      sectionType: SectionTypeEnum.Code,
+    });
+
+    state.parentSectionMap.child = "parentB";
+    state.sectionImpls["impl-parentA"] = createGroupSectionImpl(
+      createUserDefaultGroupSectionImpl(),
+      {
+        id: "impl-parentA",
+        children: [],
+      },
+    );
+    state.sectionImpls["impl-parentB"] = createGroupSectionImpl(
+      createUserDefaultGroupSectionImpl(),
+      {
+        id: "impl-parentB",
+        children: ["child"],
+      },
+    );
+
+    expect(resolveStandaloneSectionSlug(state, "parent_a_blue_star")).toEqual({
+      kind: "not_found",
+      sectionSlug: "parent_a_blue_star",
+    });
+    expect(resolveStandaloneSectionSlug(state, "parent_b_blue_star")).toEqual({
+      kind: "found",
+      sectionId: "child",
+      sectionName: "Blue Star",
+      sectionType: SectionTypeEnum.Code,
     });
   });
 });

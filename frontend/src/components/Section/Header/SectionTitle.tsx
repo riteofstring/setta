@@ -24,7 +24,7 @@ import {
 } from "utils/nameValidation";
 import {
   collectDescendantSectionIds,
-  getSectionSlugIndex as getCachedSectionSlugIndex,
+  getSectionSlugIndex,
   resolveSectionFullPathName,
 } from "utils/sectionSlugPaths";
 
@@ -277,7 +277,7 @@ function getSectionSlugConflictError(sectionId: string, value: string) {
     return null;
   }
   const nameOverrides = { [sectionId]: normalized };
-  const { slugToIds, childrenByParent } = getCachedSectionSlugIndex(state);
+  const { slugToIds, childrenByParent } = getSectionSlugIndex(state);
   const affectedIds = collectDescendantSectionIds(childrenByParent, sectionId);
   const affectedSlugToIds: Record<string, Array<string>> = {};
   for (const id of affectedIds) {

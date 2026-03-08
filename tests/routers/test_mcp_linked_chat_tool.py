@@ -98,6 +98,7 @@ class _DummyLinkedChatProjectManager:
             tuple[ID, ID], _DummyLinkedChatSectionReservation
         ] = {}
         self.persist_binding_exception: Exception | None = None
+        self.mark_run_started_exception: Exception | None = None
         self.before_admission_hook: (
             Callable[["_DummyLinkedChatProjectManager"], None] | None
         ) = None
@@ -275,6 +276,10 @@ class _DummyLinkedChatProjectManager:
             raise KeyError("Linked chat run start reported for the wrong chat id.")
         if reservation.has_started_run:
             raise ValueError("Linked chat run start reported more than once.")
+        if self.mark_run_started_exception is not None:
+            exc = self.mark_run_started_exception
+            self.mark_run_started_exception = None
+            raise exc
         reservation.has_started_run = True
 
     async def release_linked_chat_section_start_failure(
@@ -2371,6 +2376,69 @@ async def test_tools_call_invoke_linked_chat_cleans_up_binding_when_managed_star
         ).chatId
         is None
     )
+    assert manager._linked_chat_section_reservations == {}
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_releases_reservation_when_mark_started_fails(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+    )
+    manager.mark_run_started_exception = ValueError(
+        "synthetic run-start bookkeeping failure"
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(canonical_to_temporary[ID("caller-chat-1")]),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_response = await client.post(
+            "/__setta__/tools/call", json=request_payload
+        )
+        second_response = await client.post(
+            "/__setta__/tools/call",
+            json=request_payload,
+        )
+
+    assert first_response.status_code == 200
+    first_payload = first_response.json()
+    assert first_payload["isError"] is True
+    assert first_payload["structuredContent"]["reason"] == "run_start_failed"
+    assert (
+        first_payload["structuredContent"]["message"]
+        == "synthetic run-start bookkeeping failure"
+    )
+
+    assert second_response.status_code == 200
+    second_payload = second_response.json()
+    assert second_payload["isError"] is False
+
+    assert len(agent_runner.calls) == 2
     assert manager._linked_chat_section_reservations == {}
 
 

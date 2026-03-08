@@ -1190,3 +1190,38 @@ Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "restoring a saved window space keeps the saved thread after the user refocuses a restored window before layout sync completes"` passed: 1 test.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "saved window spaces preserve distinct project chat threads per window in both workspace and standalone views"` passed: 1 test.
 - CDP verification was intentionally not run for this restore flow because the live headed app instance did not have a disposable project loaded, and exercising the scenario there would have mutated the active workspace state.
+
+## 2026-03-11 12:58:57 PDT
+
+Implemented the remaining fixes from the transient top-level review docs, then collapsed the solutions toward the simplest enforceable contracts instead of layering more cache invalidation and failure-path branching on top.
+
+What changed:
+- Removed the WeakMap-based slug index cache from `frontend/src/utils/sectionSlugPaths.ts`. Standalone section slug resolution and rename conflict checks now rebuild directly from live state each time, which matches the store's in-place mutation model instead of pretending those containers are immutable.
+- Updated `frontend/src/components/Section/Header/SectionTitle.tsx` to use the uncached slug index path, so optimistic rename validation reads the same current topology and section names that routing reads.
+- Centralized the window-space layout permission guard in `frontend/src/state/actions/windowSpaces.ts`. Save, rename, delete, reorder, and restore now all fail closed from the action layer when deployment policy disables layout changes, even if a stale UI callback or programmatic caller still fires.
+- Added a restore preflight in `frontend/src/state/actions/windowSpaces.ts` for saved project-chat thread bindings. If a restore would need `/setProjectChatWindowChatId` calls but the current deployment policy has `allowLLM=false`, the restore now stops before any workspace layout mutation and surfaces one explicit denial notification.
+- Refactored `backend/setta/agentic/linked_chat_invocation.py` so linked-chat run-start promotion goes through one helper. The helper owns `start_run -> commit pending authorization -> mark started -> wait -> cleanup`, and it always releases the linked-chat reservation if `mark_linked_chat_section_run_started(...)` fails after the run has been started.
+- Added focused regressions:
+  - `frontend/src/utils/sectionSlugPaths.test.ts` now covers production-shaped in-place rename and in-place reparent mutations on the same state object.
+  - `frontend/src/state/actions/windowSpaces.test.ts` now covers action-layer no-op behavior for save/rename/delete/reorder under `allowLayoutChanges=false`, plus blocked restore under `allowLayoutChanges=true` and `allowLLM=false`.
+  - `frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` now proves the blocked-restore flow at the browser layer.
+  - `tests/routers/test_mcp_linked_chat_tool.py` now proves a `mark_linked_chat_section_run_started(...)` failure leaves no stranded reservation and allows immediate retry.
+- One review suggestion was intentionally not kept: `toggleMiniMapSide()` remains in `frontend/src/state/actions/localStorage.ts` because `frontend/src/forks/xyflow/controls/Controls.tsx` still calls it in the live app boot path. That review item was a false positive.
+
+UX before vs after:
+- Before: standalone section routes and slug-conflict validation could stay stale after a rename or move until some unrelated state replacement happened. After: standalone slugs and rename validation reflect the current tree immediately.
+- Before: a shared/deployment session could click restore, mutate the workspace layout, and only then learn that saved chat-thread rebinding was disallowed. After: the restore is blocked up front with one explicit message and the workspace stays unchanged.
+- Before: one post-start linked-chat bookkeeping failure could strand a target behind a synthetic `target_busy` state until reset. After: the failed attempt fully releases the reservation and a retry can start immediately.
+- Before: read-only window-space affordances were mostly enforced at the UI layer. After: the action layer is also authoritative, so bypassed or stale callbacks become clean no-ops instead of rejected writes.
+
+DX before vs after:
+- Before: slug correctness depended on a cache keyed by mutable container identity, which made invalidation logic implicit and brittle. After: the code follows the store model directly and is easier to read because there is no hidden cache state to reason about.
+- Before: window-space mutation policy was split across UI affordances and individual callsites. After: one shared guard covers the exported mutation entrypoints, so the behavior is simpler to audit and test.
+- Before: linked-chat start cleanup lived in two duplicated engine branches and still missed one exception window. After: one small helper owns the promotion lifecycle and the reservation cleanup semantics are explicit.
+- Before: the transient reviews suggested one dead-code deletion that looked plausible from a narrow grep but was still live in a forked runtime path. After: the cumulative record captures that false positive so the same mistake is less likely to repeat.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/utils/sectionSlugPaths.test.ts src/state/actions/windowSpaces.test.ts src/components/Panes/Overview/WindowSpacesPane.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` passed: 61 tests.
+- `source activate.sh && pytest tests/routers/test_mcp_linked_chat_tool.py -q -k 'cleans_up_binding_when_managed_start_fails or releases_reservation_when_mark_started_fails or blocks_overlapping_runs_for_fresh_targets or blocks_overlapping_runs_for_existing_targets'` passed: 4 tests selected, 32 deselected.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/layout/window-space-layout-permissions.spec.ts` passed: 4 tests.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/peak_wise?__setta_backend_origin=http://127.0.0.1:8098` seeded a disposable project in sharing mode, clicked `Restore Research Board`, observed the explicit denial notification, and confirmed the workspace still contained only the pre-existing `live-window`.

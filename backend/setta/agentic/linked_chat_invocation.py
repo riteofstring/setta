@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
@@ -81,6 +81,56 @@ async def _complete_linked_chat_section_invocation(
         section_id,
         chat_id,
     )
+
+
+async def _start_linked_chat_run(
+    *,
+    ctx: Context,
+    manager: Any,
+    project_config_id: ID,
+    target_section_id: ID,
+    chat_id: ID,
+    start_run: Callable[[], AgentRun],
+    wait_for_run: Callable[[ID], Awaitable[AgentRun]],
+) -> AgentRun:
+    try:
+        run = start_run()
+    except (KeyError, ValueError):
+        await _release_linked_chat_section_start_failure(
+            manager,
+            project_config_id,
+            target_section_id,
+            chat_id,
+        )
+        await rollback_pending_mcp_run_start(ctx)
+        raise
+
+    try:
+        commit_pending_mcp_run_start(ctx)
+        await _mark_linked_chat_section_run_started(
+            manager,
+            project_config_id,
+            target_section_id,
+            chat_id,
+        )
+    except (KeyError, ValueError):
+        await _release_linked_chat_section_start_failure(
+            manager,
+            project_config_id,
+            target_section_id,
+            chat_id,
+        )
+        raise
+
+    try:
+        return await wait_for_run(run.id)
+    finally:
+        await _complete_linked_chat_section_invocation(
+            manager,
+            project_config_id,
+            target_section_id,
+            chat_id,
+        )
 
 
 async def invoke_linked_chat(
@@ -339,40 +389,25 @@ async def invoke_linked_chat(
         )
         linked_chat_inputs["runType"] = LLM_CHAT_RUN_TYPE
         try:
-            run = runner.start_run(
-                linked_profile,
-                linked_chat_inputs,
-                emit_stream=False,
-                emit_ai_follow=False,
+            completed_run = await _start_linked_chat_run(
+                ctx=ctx,
+                manager=manager,
+                project_config_id=agentic_context.project_config_id,
+                target_section_id=target_section_id,
+                chat_id=chat_id,
+                start_run=lambda: runner.start_run(
+                    linked_profile,
+                    linked_chat_inputs,
+                    emit_stream=False,
+                    emit_ai_follow=False,
+                ),
+                wait_for_run=runner.wait_for_run,
             )
         except (KeyError, ValueError) as exc:
-            await _release_linked_chat_section_start_failure(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-            await rollback_pending_mcp_run_start(ctx)
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
                 message=str(exc),
-            )
-        commit_pending_mcp_run_start(ctx)
-        await _mark_linked_chat_section_run_started(
-            manager,
-            agentic_context.project_config_id,
-            target_section_id,
-            chat_id,
-        )
-        try:
-            completed_run = await runner.wait_for_run(run.id)
-        finally:
-            await _complete_linked_chat_section_invocation(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
             )
     elif resolved_engine.engine_config.engineType == EngineType.external_agent:
         _apply_external_reasoning_defaults(
@@ -397,40 +432,25 @@ async def invoke_linked_chat(
             _REQUIRED_ERROR_CHECK_PROMPT,
         )
         try:
-            run = runner.start_run(
-                admission.effective_engine_config_id,
-                external_config,
-                admission.selected_profile,
-                linked_chat_inputs,
+            completed_run = await _start_linked_chat_run(
+                ctx=ctx,
+                manager=manager,
+                project_config_id=agentic_context.project_config_id,
+                target_section_id=target_section_id,
+                chat_id=chat_id,
+                start_run=lambda: runner.start_run(
+                    admission.effective_engine_config_id,
+                    external_config,
+                    admission.selected_profile,
+                    linked_chat_inputs,
+                ),
+                wait_for_run=runner.wait_for_run,
             )
         except (KeyError, ValueError) as exc:
-            await _release_linked_chat_section_start_failure(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-            await rollback_pending_mcp_run_start(ctx)
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
                 message=str(exc),
-            )
-        commit_pending_mcp_run_start(ctx)
-        await _mark_linked_chat_section_run_started(
-            manager,
-            agentic_context.project_config_id,
-            target_section_id,
-            chat_id,
-        )
-        try:
-            completed_run = await runner.wait_for_run(run.id)
-        finally:
-            await _complete_linked_chat_section_invocation(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
             )
     return _build_success_result(
         target_label=target_label,

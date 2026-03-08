@@ -117,6 +117,14 @@ function cloneWindowSpaces(
   );
 }
 
+function canMutateWindowSpaceLayout(): boolean {
+  const shareSession = useShareSession.getState();
+  return (
+    !shareSession.isDeploymentMode ||
+    shareSession.sharePolicy?.allowLayoutChanges !== false
+  );
+}
+
 function dispatchOptimisticWindowSpaceMutation({
   apply,
   projectConfigId,
@@ -129,6 +137,9 @@ function dispatchOptimisticWindowSpaceMutation({
     projectConfigId: string;
   }) => void | Promise<unknown>;
 }) {
+  if (!canMutateWindowSpaceLayout()) {
+    return;
+  }
   const previousWindowSpaces = cloneWindowSpaces(
     getProjectWindowSpaces(useProjectState.getState().projectConfig),
   );
@@ -909,12 +920,20 @@ type RestoredProjectChatThreadBinding = {
   sectionIdOrNull: string | null;
 };
 
-function canRestoreWindowSpaceInWorkspace(): boolean {
+function getBlockedWindowSpaceRestoreMessage(
+  threadBindings: Array<RestoredProjectChatThreadBinding>,
+): string | null {
+  if (threadBindings.length === 0) {
+    return null;
+  }
   const shareSession = useShareSession.getState();
-  return (
+  if (
     !shareSession.isDeploymentMode ||
-    shareSession.sharePolicy?.allowLayoutChanges !== false
-  );
+    shareSession.sharePolicy?.allowLLM !== false
+  ) {
+    return null;
+  }
+  return "Cannot restore this window space because deployment policy disallows restoring saved chat threads.";
 }
 
 function resolveProjectChatThreadBindingChatId(
@@ -1035,7 +1054,7 @@ async function restoreWorkspaceProjectChatThreadBindings(
 export async function restoreWindowSpaceInWorkspace(
   windowSpaceId: string,
 ): Promise<void> {
-  if (!canRestoreWindowSpaceInWorkspace()) {
+  if (!canMutateWindowSpaceLayout()) {
     return;
   }
   const state = useProjectState.getState();
@@ -1150,6 +1169,15 @@ export async function restoreWindowSpaceInWorkspace(
     currentWindowing,
     nextWindowing,
   );
+  const blockedRestoreMessage =
+    getBlockedWindowSpaceRestoreMessage(threadBindings);
+  if (blockedRestoreMessage) {
+    addTemporaryNotification(
+      blockedRestoreMessage,
+      SettaNotificationTypeEnum.error,
+    );
+    return;
+  }
   replaceProjectChatWindowingState(layoutWindowing, {
     nextGitPaneVisibleInstanceIds,
   });
@@ -1197,6 +1225,9 @@ function publishSyncedProjectChatWindowingState(
 export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   string | null
 > {
+  if (!canMutateWindowSpaceLayout()) {
+    return null;
+  }
   await flushPendingProjectChatWindowingWrites();
   const state = useProjectState.getState();
   const projectConfigId = getCurrProjectConfigId();
