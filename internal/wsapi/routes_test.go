@@ -54,6 +54,38 @@ func TestDecodeFrontendTextMessageParsesCurrentAddressUpdate(t *testing.T) {
 	}
 }
 
+func TestDecodeFrontendTextMessageParsesUISettingRevealResult(t *testing.T) {
+	t.Parallel()
+
+	message, err := decodeFrontendTextMessage([]byte(`{
+		"messageType":"UISettingRevealResult",
+		"content":{
+			"projectConfigId":"project-a",
+			"requestId":"request-1",
+			"statuses":[
+				{
+					"settingId":"core.project.show_param_display_names",
+					"status":"revealed",
+					"errorCode":null,
+					"errorMessage":null
+				}
+			]
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("decode reveal result frontend message: %v", err)
+	}
+	if message.MessageType != realtime.MessageTypeUISettingRevealResult {
+		t.Fatalf("expected reveal result message type, got %q", message.MessageType)
+	}
+	if message.UISettingRevealResult == nil {
+		t.Fatal("expected reveal result payload")
+	}
+	if message.UISettingRevealResult.RequestID != "request-1" {
+		t.Fatalf("expected request-1 request id, got %q", message.UISettingRevealResult.RequestID)
+	}
+}
+
 func TestDecodeFrontendBinaryMessageParsesDependencyEvent(t *testing.T) {
 	t.Parallel()
 
@@ -273,6 +305,113 @@ func TestRegisterRoutesFrontendRealtimeUIChangeBroadcastsToMatchingListener(t *t
 
 	realtimeEvent := readNextMessage(t, listener)
 	assertRouteListenerRealtimeEvent(t, realtimeEvent, "project-a", "", 1, `{"type":"Literal","payload":"value-1"}`)
+}
+
+func TestRegisterRoutesFrontendResolvesUISettingRevealResult(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	revealResults := realtime.NewUISettingRevealResultHub()
+	if err := revealResults.RegisterRequest("request-1", realtime.RegisterUISettingRevealRequestParams{
+		ExpectedWebsocketID:     "frontend-test",
+		ExpectedProjectConfigID: "project-a",
+		ExpectedSettingIDs:      []string{"core.project.show_param_display_names"},
+	}); err != nil {
+		t.Fatalf("register reveal request: %v", err)
+	}
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:           hub,
+		UISettingRevealResults: revealResults,
+		ListenerBroadcaster:    broadcaster,
+		FrontendIDSource: func() (string, error) {
+			return "frontend-test", nil
+		},
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	defer conn.CloseNow()
+	_ = readNextMessages(t, conn, 2)
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{
+		"messageType":"UISettingRevealResult",
+		"content":{
+			"projectConfigId":"project-a",
+			"requestId":"request-1",
+			"statuses":[
+				{
+					"settingId":"core.project.show_param_display_names",
+					"status":"revealed",
+					"errorCode":null,
+					"errorMessage":null
+				}
+			]
+		}
+	}`)); err != nil {
+		t.Fatalf("write reveal result: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	result, err := revealResults.Wait(ctx, "request-1")
+	if err != nil {
+		t.Fatalf("wait for reveal result: %v", err)
+	}
+	if result.RequestID != "request-1" {
+		t.Fatalf("expected request-1 request id, got %q", result.RequestID)
+	}
+}
+
+func TestRegisterRoutesFrontendDisconnectCancelsUISettingRevealRequests(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	revealResults := realtime.NewUISettingRevealResultHub()
+	if err := revealResults.RegisterRequest("request-1", realtime.RegisterUISettingRevealRequestParams{
+		ExpectedWebsocketID: "frontend-test",
+	}); err != nil {
+		t.Fatalf("register reveal request: %v", err)
+	}
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:           hub,
+		UISettingRevealResults: revealResults,
+		ListenerBroadcaster:    broadcaster,
+		FrontendIDSource: func() (string, error) {
+			return "frontend-test", nil
+		},
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteFrontend, authHeaderForCookie(t, authService))
+	_ = readNextMessages(t, conn, 2)
+	conn.CloseNow()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	_, err := revealResults.Wait(ctx, "request-1")
+	if err == nil {
+		t.Fatal("expected disconnect to cancel pending reveal request")
+	}
+	var disconnected *realtime.RevealResultTransportDisconnectedError
+	if !errors.As(err, &disconnected) {
+		t.Fatalf("expected RevealResultTransportDisconnectedError, got %T", err)
+	}
 }
 
 func TestRegisterRoutesFrontendRealtimeUIChangeClosesOnUnknownProject(t *testing.T) {
@@ -1231,22 +1370,36 @@ func assertRouteListenerDependencyEvent(t *testing.T, message routeMessageEnvelo
 	if len(content.DependencyEvents) != 1 {
 		t.Fatalf("expected 1 dependency event, got %d", len(content.DependencyEvents))
 	}
-	if compactJSON(t, content.DependencyEvents[0].Payload) != compactJSONString(t, expectedPayload) {
+	if canonicalJSON(t, content.DependencyEvents[0].Payload) != canonicalJSONString(t, expectedPayload) {
 		t.Fatalf("expected dependency payload %s, got %s", expectedPayload, string(content.DependencyEvents[0].Payload))
 	}
 }
 
+func canonicalJSONString(t *testing.T, value string) string {
+	t.Helper()
+	return canonicalJSON(t, []byte(value))
+}
+
 func compactJSONString(t *testing.T, value string) string {
 	t.Helper()
-	return compactJSON(t, []byte(value))
+	return canonicalJSONString(t, value)
+}
+
+func canonicalJSON(t *testing.T, value []byte) string {
+	t.Helper()
+
+	var decoded any
+	if err := json.Unmarshal(value, &decoded); err != nil {
+		t.Fatalf("decode json %q: %v", string(value), err)
+	}
+	encoded, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("re-encode json %q: %v", string(value), err)
+	}
+	return string(encoded)
 }
 
 func compactJSON(t *testing.T, value []byte) string {
 	t.Helper()
-
-	var compacted bytes.Buffer
-	if err := json.Compact(&compacted, value); err != nil {
-		t.Fatalf("compact json %q: %v", string(value), err)
-	}
-	return compacted.String()
+	return canonicalJSON(t, value)
 }

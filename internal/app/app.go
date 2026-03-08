@@ -440,6 +440,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: websocketHub,
 	})
+	uiSettingRevealResults := realtime.NewUISettingRevealResultHub()
 	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
 		Broadcaster:  listenerBroadcaster,
 		ProjectState: projectRuntime,
@@ -512,10 +513,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					ModePolicy:    modePolicy,
 					ShareSessions: shareSessions,
 				},
-				WebsocketHub:        websocketHub,
-				ListenerBroadcaster: listenerBroadcaster,
-				ListenerProducer:    listenerProducer,
-				Terminals:           terminalService,
+				WebsocketHub:           websocketHub,
+				UISettingRevealResults: uiSettingRevealResults,
+				ListenerBroadcaster:    listenerBroadcaster,
+				ListenerProducer:       listenerProducer,
+				Terminals:              terminalService,
 			}); err != nil {
 				panic(err)
 			}

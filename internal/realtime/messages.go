@@ -11,6 +11,8 @@ const (
 	MessageTypeNotification                = "Notification"
 	MessageTypeAllConnections              = "AllConnections"
 	MessageTypeFrontendIdentity            = "FrontendIdentity"
+	MessageTypeUISettingReveal             = "UISettingReveal"
+	MessageTypeUISettingRevealResult       = "UISettingRevealResult"
 	MessageTypeLSPDiagnostics              = "LSPDiagnostics"
 	MessageTypeUpdateFrontendProjectState  = "UpdateFrontendProjectState"
 	MessageTypeReturnRenameRefactorResults = "ReturnRenameRefactorResults"
@@ -29,6 +31,52 @@ const (
 
 type FrontendIdentityContent struct {
 	FrontendAffinityToken string `json:"frontendAffinityToken"`
+}
+
+type UISettingRevealActivationStep struct {
+	Type      string `json:"type"`
+	ItemValue string `json:"itemValue"`
+}
+
+type UISettingRevealTarget struct {
+	SettingID             string                          `json:"settingId"`
+	Side                  string                          `json:"side"`
+	OverviewTabKey        *string                         `json:"overviewTabKey,omitempty"`
+	UIEditorTabName       *string                         `json:"uiEditorTabName,omitempty"`
+	PluginID              *string                         `json:"pluginId,omitempty"`
+	PaneID                *string                         `json:"paneId,omitempty"`
+	Strategy              string                          `json:"strategy"`
+	AnchorID              *string                         `json:"anchorId,omitempty"`
+	PluginRevealKey       *string                         `json:"pluginRevealKey,omitempty"`
+	RevealActivationSteps []UISettingRevealActivationStep `json:"revealActivationSteps,omitempty"`
+}
+
+type UISettingRevealContent struct {
+	ProjectConfigID string                  `json:"projectConfigId"`
+	ChatID          *string                 `json:"chatId,omitempty"`
+	ActiveSectionID *string                 `json:"activeSectionId,omitempty"`
+	Reveals         []UISettingRevealTarget `json:"reveals"`
+	DurationMS      int                     `json:"durationMs"`
+	RequestID       string                  `json:"requestId"`
+}
+
+type UISettingRevealMessage struct {
+	ID          *string                `json:"id"`
+	MessageType string                 `json:"messageType"`
+	Content     UISettingRevealContent `json:"content"`
+}
+
+type UISettingRevealResultStatus struct {
+	SettingID    string  `json:"settingId"`
+	Status       string  `json:"status"`
+	ErrorCode    *string `json:"errorCode"`
+	ErrorMessage *string `json:"errorMessage"`
+}
+
+type UISettingRevealResultContent struct {
+	ProjectConfigID string                        `json:"projectConfigId"`
+	RequestID       string                        `json:"requestId"`
+	Statuses        []UISettingRevealResultStatus `json:"statuses"`
 }
 
 type NotificationContent struct {
@@ -51,6 +99,12 @@ type NotificationMessage struct {
 type FrontendIdentityMessage struct {
 	MessageType string                  `json:"messageType"`
 	Content     FrontendIdentityContent `json:"content"`
+}
+
+type UISettingRevealResultMessage struct {
+	ID          *string                      `json:"id"`
+	MessageType string                       `json:"messageType"`
+	Content     UISettingRevealResultContent `json:"content"`
 }
 
 type AllConnectionsMessage struct {
@@ -105,6 +159,20 @@ func NewFrontendIdentityMessage(frontendAffinityToken string) FrontendIdentityMe
 		Content: FrontendIdentityContent{
 			FrontendAffinityToken: frontendAffinityToken,
 		},
+	}
+}
+
+func NewUISettingRevealMessage(content UISettingRevealContent) UISettingRevealMessage {
+	return UISettingRevealMessage{
+		MessageType: MessageTypeUISettingReveal,
+		Content:     content,
+	}
+}
+
+func NewUISettingRevealResultMessage(content UISettingRevealResultContent) UISettingRevealResultMessage {
+	return UISettingRevealResultMessage{
+		MessageType: MessageTypeUISettingRevealResult,
+		Content:     content,
 	}
 }
 

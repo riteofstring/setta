@@ -33,12 +33,13 @@ const (
 )
 
 type RouteDependencies struct {
-	Transport           Dependencies
-	WebsocketHub        *realtime.WebsocketHub
-	ListenerBroadcaster *realtime.ListenerBroadcaster
-	ListenerProducer    *realtime.ListenerProducer
-	Terminals           *terminals.Service
-	FrontendIDSource    func() (string, error)
+	Transport              Dependencies
+	WebsocketHub           *realtime.WebsocketHub
+	UISettingRevealResults *realtime.UISettingRevealResultHub
+	ListenerBroadcaster    *realtime.ListenerBroadcaster
+	ListenerProducer       *realtime.ListenerProducer
+	Terminals              *terminals.Service
+	FrontendIDSource       func() (string, error)
 }
 
 type frontendEnvelope struct {
@@ -76,6 +77,7 @@ type frontendRealtimeDependencyEventPayload struct {
 type frontendInboundMessage struct {
 	MessageType             string
 	CurrentAddress          *frontendCurrentAddressUpdate
+	UISettingRevealResult   *realtime.UISettingRevealResultContent
 	RealtimeUIChange        *frontendRealtimeUIChangeContent
 	RealtimeDependencyEvent *frontendRealtimeDependencyEventContent
 	BinaryPayload           []byte
@@ -151,6 +153,11 @@ func serveFrontendConnection(
 		return err
 	}
 	defer deps.WebsocketHub.Disconnect(context.Background(), connection.ID, broadcastConnections)
+	defer func() {
+		if deps.UISettingRevealResults != nil {
+			deps.UISettingRevealResults.CancelRequestsForWebsocketID(connection.ID)
+		}
+	}()
 
 	if err := deps.WebsocketHub.SendFrontendIdentity(ctx, connection.ID); err != nil {
 		return err
@@ -179,6 +186,13 @@ func serveFrontendConnection(
 			}
 			if err := deps.WebsocketHub.UpdateCurrentAddress(ctx, connection.ID, message.CurrentAddress.Content, broadcastConnections); err != nil {
 				return err
+			}
+		case realtime.MessageTypeUISettingRevealResult:
+			if message.UISettingRevealResult == nil {
+				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
+			}
+			if deps.UISettingRevealResults != nil {
+				deps.UISettingRevealResults.Resolve(*message.UISettingRevealResult, connection.ID)
 			}
 		case realtime.MessageTypeRealtimeUIChange:
 			if message.RealtimeUIChange == nil {
@@ -262,6 +276,19 @@ func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (fro
 				MessageType: envelope.MessageType,
 				Content:     content,
 			},
+		}, nil
+	case realtime.MessageTypeUISettingRevealResult:
+		if binaryPayload != nil {
+			return frontendInboundMessage{}, fmt.Errorf("UI setting reveal results do not support binary payloads")
+		}
+
+		var content realtime.UISettingRevealResultContent
+		if err := json.Unmarshal(envelope.Content, &content); err != nil {
+			return frontendInboundMessage{}, err
+		}
+		return frontendInboundMessage{
+			MessageType:           realtime.MessageTypeUISettingRevealResult,
+			UISettingRevealResult: &content,
 		}, nil
 	case realtime.MessageTypeRealtimeUIChange:
 		var content frontendRealtimeUIChangeContent

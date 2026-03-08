@@ -87,6 +87,75 @@ func TestListenerProducerEmitSectionBinaryDeltasScopesToShareSession(t *testing.
 	}
 }
 
+func TestListenerProducerEmitDependencyEventSendsBinaryFrame(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-a",
+		Projects: map[string]projectstate.Project{
+			"project-a": {
+				ID:   "project-a",
+				Name: "Project A",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	hub := NewWebsocketHub(WebsocketHubOptions{})
+	broadcaster := NewListenerBroadcaster(ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	producer := NewListenerProducer(ListenerProducerOptions{
+		Broadcaster:  broadcaster,
+		ProjectState: projectRuntime,
+	})
+	server := newWebsocketHubTestServer(t, hub)
+	defer server.Close()
+
+	listener := connectListenerSocket(t, server.URL, hub, "listener-a", "")
+	defer listener.CloseNow()
+	recordBootstrapAndRegistration(t, broadcaster, "listener-a", "project-a", "", map[string]ListenerCallback{
+		"cb-a": {
+			Dependencies:   []string{"section-action"},
+			DependencyMode: ListenerDependencyModeRealtimeOnly,
+		},
+	})
+
+	sequence, delivered, err := producer.EmitDependencyEvent(context.Background(), EmitDependencyEventParams{
+		ProjectID: "project-a",
+		DependencyKey: json.RawMessage(`{
+			"type":"Section",
+			"sectionId":"section-action"
+		}`),
+		Payload: json.RawMessage(`{
+			"type":"Binary",
+			"payload":{"contentId":"bin-2"}
+		}`),
+		TimestampMS:   123,
+		BinaryPayload: []byte("binary-action"),
+	})
+	if err != nil {
+		t.Fatalf("emit dependency event: %v", err)
+	}
+	if sequence != 1 || delivered != 1 {
+		t.Fatalf("expected binary dependency delivery (sequence=1 delivered=1), got sequence=%d delivered=%d", sequence, delivered)
+	}
+
+	envelope, payload := readBinaryEnvelope(t, listener)
+	assertListenerDependencyEventMessage(t, envelope, "project-a", "", 1, `{"type":"Binary","payload":{"contentId":"bin-2"}}`)
+	if string(payload) != "binary-action" {
+		t.Fatalf("expected binary-action payload, got %q", string(payload))
+	}
+}
+
 func newListenerProducerDeploymentRuntime(t *testing.T) *deployments.Runtime {
 	t.Helper()
 

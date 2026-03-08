@@ -580,7 +580,21 @@ func assertListenerDependencyEventMessage(
 	if content.DependencyEvents[0].DependencyKey != "section-action" {
 		t.Fatalf("expected dependency key section-action, got %q", content.DependencyEvents[0].DependencyKey)
 	}
-	if string(content.DependencyEvents[0].Payload) != expectedPayload {
+	if canonicalJSONPayload(t, content.DependencyEvents[0].Payload) != canonicalJSONPayload(t, json.RawMessage(expectedPayload)) {
 		t.Fatalf("expected dependency payload %s, got %s", expectedPayload, string(content.DependencyEvents[0].Payload))
 	}
+}
+
+func canonicalJSONPayload(t *testing.T, payload json.RawMessage) string {
+	t.Helper()
+
+	var decoded any
+	if err := json.Unmarshal(payload, &decoded); err != nil {
+		t.Fatalf("decode json payload %q: %v", string(payload), err)
+	}
+	encoded, err := json.Marshal(decoded)
+	if err != nil {
+		t.Fatalf("re-encode json payload %q: %v", string(payload), err)
+	}
+	return string(encoded)
 }

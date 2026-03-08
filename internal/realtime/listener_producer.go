@@ -137,9 +137,14 @@ func (p *ListenerProducer) EmitDependencyEvents(ctx context.Context, params Prod
 	}
 
 	events := make([]ListenerDependencyEvent, 0, len(params.DependencyEvents))
+	var binaryPayload []byte
 	for _, rawEvent := range params.DependencyEvents {
 		if rawEvent.BinaryPayload != nil {
-			return 0, 0, fmt.Errorf("realtime: batched binary dependency events are not supported")
+			if binaryPayload == nil {
+				binaryPayload = cloneBytes(rawEvent.BinaryPayload)
+			} else if !bytes.Equal(binaryPayload, rawEvent.BinaryPayload) {
+				return 0, 0, fmt.Errorf("realtime: conflicting binary payload for dependency events")
+			}
 		}
 
 		dependency, err := CanonicalDependencyKey(rawEvent.DependencyKey)
@@ -150,6 +155,15 @@ func (p *ListenerProducer) EmitDependencyEvents(ctx context.Context, params Prod
 			DependencyKey: dependency,
 			Payload:       cloneRawMessage(rawEvent.Payload),
 			TimestampMS:   rawEvent.TimestampMS,
+		})
+	}
+
+	if binaryPayload != nil {
+		return p.broadcaster.EmitDependencyEventsBinary(ctx, EmitDependencyEventsBinaryParams{
+			ProjectID:        projectID,
+			ShareSessionID:   strings.TrimSpace(params.ShareSessionID),
+			DependencyEvents: events,
+			BinaryPayload:    binaryPayload,
 		})
 	}
 
