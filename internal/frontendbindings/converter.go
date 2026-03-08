@@ -419,6 +419,11 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setAgenticEdgesRequestInputRawTS,
 			},
+			reflect.TypeOf(MoveSectionsRequestInput{}): {
+				Name: "MoveSectionsRequestInput",
+				Kind: "raw",
+				Raw:  moveSectionsRequestInputRawTS,
+			},
 			reflect.TypeOf(SetSectionParamFilterRequestInput{}): {
 				Name: "SetSectionParamFilterRequestInput",
 				Kind: "raw",

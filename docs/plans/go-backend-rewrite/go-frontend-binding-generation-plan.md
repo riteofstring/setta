@@ -771,10 +771,10 @@ Current landed wedge:
     `setGenCodePrefix` and `setGenCodeSuffix` bindings for the current
     python-codegen helper writes instead of the legacy Python-generated route
     surface
-  - the attached-terminal move branch in `moveSectionsWithBackend` now
-    consumes the canonical Go-generated `setCodeSectionAttachedTerminal`
-    binding while the broader `moveSections` route remains in the separate
-    Python-backed project-graph tail
+  - `moveSectionsWithBackend` now consumes the canonical Go-generated
+    `moveSections` binding for the current pane/reparent flow, while the
+    attached-terminal branch continues consuming the canonical
+    `setCodeSectionAttachedTerminal` binding
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
   - `runOrImportCode`, `RunButton`, and `AppRenderer` now consume canonical

@@ -147,6 +147,11 @@ export async function route_set_agentic_edges(x: gt.SetAgenticEdgesRequestInput)
   return await post(GoHTTPRoutes.setAgenticEdges, x);
 
 }
+export async function route_move_sections(x: gt.MoveSectionsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.moveSections, x);
+
+}
 export async function route_move_params(x: gt.MoveParamsRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.moveParams, x);

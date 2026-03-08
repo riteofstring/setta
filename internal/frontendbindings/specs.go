@@ -207,6 +207,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_AGENTIC_EDGES",
 				},
 				{
+					Name:     "moveSections",
+					Path:     httpapi.RouteMoveSections,
+					EnumName: "MOVE_SECTIONS",
+				},
+				{
 					Name:     "moveParams",
 					Path:     httpapi.RouteMoveParams,
 					EnumName: "MOVE_PARAMS",
@@ -1266,6 +1271,13 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setAgenticEdges",
 			RequestType:     reflect.TypeOf(SetAgenticEdgesRequestInput{}),
+		},
+		{
+			FunctionName:    "route_move_sections",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "moveSections",
+			RequestType:     reflect.TypeOf(MoveSectionsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_move_params",

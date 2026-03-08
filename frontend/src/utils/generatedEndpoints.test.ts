@@ -67,6 +67,7 @@ import {
   route_load_project_config,
   route_move_param_groups,
   route_move_params,
+  route_move_sections,
   route_plugins_config,
   route_plugins_install,
   route_plugins_restart,
@@ -560,6 +561,58 @@ describe("generatedEndpoints project shell and layout", () => {
         projectConfigId: "project-alpha",
         sectionId: "dict-section",
         paramIds: ["param-b"],
+      }),
+    });
+  });
+
+  it("posts section move writes with the canonical request shape", async () => {
+    await route_move_sections({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a", "section-b"],
+      newParentId: "group-parent",
+      newIndex: 1,
+      positionsById: null,
+    });
+
+    await route_move_sections({
+      projectConfigId: "project-alpha",
+      sectionIds: ["section-a"],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        "section-a": { x: 120, y: 80 },
+      },
+      frontendOpId: "frontend-op-move-sections",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/moveSections`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a", "section-b"],
+        newParentId: "group-parent",
+        newIndex: 1,
+        positionsById: null,
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/moveSections`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionIds: ["section-a"],
+        newParentId: null,
+        newIndex: null,
+        positionsById: {
+          "section-a": { x: 120, y: 80 },
+        },
+        frontendOpId: "frontend-op-move-sections",
       }),
     });
   });

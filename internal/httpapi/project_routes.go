@@ -45,6 +45,7 @@ const (
 	RouteUpdateAgenticEdge                 = "/updateAgenticEdge"
 	RouteDeleteAgenticEdges                = "/deleteAgenticEdges"
 	RouteSetAgenticEdges                   = "/setAgenticEdges"
+	RouteMoveSections                      = "/moveSections"
 	RouteMoveParams                        = "/moveParams"
 	RouteMoveParamGroups                   = "/moveParamGroups"
 	RouteIndentParams                      = "/indentParams"
@@ -369,6 +370,15 @@ type SetAgenticEdgesRequest struct {
 	FrontendOpID *string                    `json:"frontendOpId"`
 	ProjectID    string                     `json:"projectConfigId"`
 	Edges        []projectstate.AgenticEdge `json:"edges"`
+}
+
+type MoveSectionsRequest struct {
+	FrontendOpID  *string                          `json:"frontendOpId"`
+	ProjectID     string                           `json:"projectConfigId"`
+	SectionIDs    []string                         `json:"sectionIds"`
+	NewParentID   *string                          `json:"newParentId"`
+	NewIndex      *int                             `json:"newIndex"`
+	PositionsByID map[string]projectstate.Position `json:"positionsById"`
 }
 
 type MoveParamsRequest struct {
@@ -1072,6 +1082,7 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteUpdateAgenticEdge, updateAgenticEdgeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteAgenticEdges, deleteAgenticEdgesHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetAgenticEdges, setAgenticEdgesHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteMoveSections, moveSectionsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteMoveParams, moveParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteMoveParamGroups, moveParamGroupsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteIndentParams, indentParamsHandler(deps))
@@ -2263,6 +2274,47 @@ func setAgenticEdgesHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			payload.Edges,
 		); err != nil {
 			writeGraphEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func moveSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[MoveSectionsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		if deps.ProjectState == nil || deps.SettingsState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		settings, err := resolveStructuralMutationSettingsFromRuntime(deps.SettingsState)
+		if err != nil {
+			writeMoveSectionsError(w, r, err)
+			return
+		}
+		if _, err := deps.ProjectState.MoveSections(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			projectstate.MoveSectionsInput{
+				SectionIDs:    payload.SectionIDs,
+				NewParentID:   payload.NewParentID,
+				NewIndex:      payload.NewIndex,
+				PositionsByID: payload.PositionsByID,
+			},
+			settings,
+		); err != nil {
+			writeMoveSectionsError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -5250,6 +5302,43 @@ func writeGroupSectionsError(w http.ResponseWriter, r *http.Request, err error) 
 		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid),
 		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild):
 		writeError(w, r, http.StatusUnprocessableEntity, "group_sections_invalid", err.Error())
+	default:
+		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeMoveSectionsError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrProjectIDRequired):
+		writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+	case errors.Is(err, projectstate.ErrChildSectionParentIDRequired):
+		writeError(w, r, http.StatusBadRequest, "parent_id_required", "Parent id is required.")
+	case errors.Is(err, projectstate.ErrMoveSectionsSectionIDBlank):
+		writeError(w, r, http.StatusBadRequest, "section_ids_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrMoveSectionsPositionsRequired),
+		errors.Is(err, projectstate.ErrMoveSectionsPositionMissing),
+		errors.Is(err, projectstate.ErrMoveSectionsPositionInvalid):
+		writeError(w, r, http.StatusBadRequest, "positions_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrMoveSectionsNewIndexRequired),
+		errors.Is(err, projectstate.ErrMoveSectionsNewIndexNegative):
+		writeError(w, r, http.StatusBadRequest, "new_index_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrProjectNotFound):
+		writeError(w, r, http.StatusNotFound, "project_config_not_found", "Project config not found.")
+	case errors.Is(err, projectstate.ErrSectionNotFound):
+		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
+	case errors.Is(err, projectstate.ErrMoveSectionsAncestorSelection),
+		errors.Is(err, projectstate.ErrMoveSectionsNewIndexOutOfRange),
+		errors.Is(err, projectstate.ErrMoveSectionsNewParentSelected),
+		errors.Is(err, projectstate.ErrMoveSectionsNewParentDescendant),
+		errors.Is(err, projectstate.ErrChildSectionParentUnsupported),
+		errors.Is(err, projectstate.ErrCodeSectionChildTypeInvalid),
+		errors.Is(err, projectstate.ErrCodeSectionChildCountInvalid),
+		errors.Is(err, projectstate.ErrCodeSectionAlreadyHasChild):
+		writeError(w, r, http.StatusUnprocessableEntity, "move_sections_invalid", err.Error())
+	case projectstate.IsInvalidAutoLayoutError(err),
+		errors.Is(err, projectstate.ErrSettingsValueInvalid),
+		errors.Is(err, settingsstate.ErrSettingsValueInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "invalid_auto_layout", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 	}

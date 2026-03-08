@@ -126,6 +126,8 @@ type DeleteAgenticEdgesRequestInput struct{}
 
 type SetAgenticEdgesRequestInput struct{}
 
+type MoveSectionsRequestInput struct{}
+
 type MoveParamGroup struct {
 	ParamIDs    []string `json:"paramIds"`
 	NewParentID string   `json:"newParentId"`
@@ -546,6 +548,17 @@ export type SetAgenticEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edges: Array<AgenticEdge>;
+};
+`
+
+const moveSectionsRequestInputRawTS = `
+export type MoveSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+  newParentId: string | null;
+  newIndex: number | null;
+  positionsById: Record<string, Position> | null;
 };
 `
 

@@ -5686,6 +5686,18 @@ export type SetAgenticEdgesRequestInput = {
 
 
 
+
+export type MoveSectionsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionIds: Array<string>;
+  newParentId: string | null;
+  newIndex: number | null;
+  positionsById: Record<string, Position> | null;
+};
+
+
+
 export type MoveParamsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
