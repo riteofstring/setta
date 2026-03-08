@@ -685,12 +685,16 @@ Use the docs in this order:
   - focused Phase 18 follow-on doc for the bounded managed
     `AIFollowToolResultUpdate` parity slice over result-path metadata and the
     landed managed MCP execution/runtime boundary
-188. `spike-mcp.md`
+188. `phase-18-transcription-session-runtime-plan.md`
+  - focused Phase 18 follow-on doc for the bounded Go-owned transcription
+    session runtime slice, starting with file-mode ownership and thin route
+    transport
+189. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-189. `spike-pty.md`
+190. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-190. `spike-lsp.md`
+191. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
