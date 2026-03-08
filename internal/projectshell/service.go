@@ -13,10 +13,16 @@ import (
 var ErrProjectStateRequired = errors.New("project shell service requires a project runtime")
 
 type AfterProjectRenameHook func(context.Context, projectstate.Snapshot, string) error
+type AfterProjectSaveHook func(context.Context, projectstate.Snapshot, string) error
+type AfterProjectMetadataMutationHook func(context.Context, projectstate.Snapshot) error
+type AfterProjectsDeleteHook func(context.Context, projectstate.Snapshot, []string) error
 
 type ServiceOptions struct {
-	ProjectState       *projectstate.Runtime
-	AfterProjectRename AfterProjectRenameHook
+	ProjectState                 *projectstate.Runtime
+	AfterProjectRename           AfterProjectRenameHook
+	AfterProjectSave             AfterProjectSaveHook
+	AfterProjectMetadataMutation AfterProjectMetadataMutationHook
+	AfterProjectsDelete          AfterProjectsDeleteHook
 }
 
 type AllProjectMetadata struct {
@@ -25,8 +31,11 @@ type AllProjectMetadata struct {
 }
 
 type Service struct {
-	projectState       *projectstate.Runtime
-	afterProjectRename AfterProjectRenameHook
+	projectState                 *projectstate.Runtime
+	afterProjectRename           AfterProjectRenameHook
+	afterProjectSave             AfterProjectSaveHook
+	afterProjectMetadataMutation AfterProjectMetadataMutationHook
+	afterProjectsDelete          AfterProjectsDeleteHook
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -34,8 +43,11 @@ func NewService(options ServiceOptions) (*Service, error) {
 		return nil, ErrProjectStateRequired
 	}
 	return &Service{
-		projectState:       options.ProjectState,
-		afterProjectRename: options.AfterProjectRename,
+		projectState:                 options.ProjectState,
+		afterProjectRename:           options.AfterProjectRename,
+		afterProjectSave:             options.AfterProjectSave,
+		afterProjectMetadataMutation: options.AfterProjectMetadataMutation,
+		afterProjectsDelete:          options.AfterProjectsDelete,
 	}, nil
 }
 
@@ -95,6 +107,80 @@ func (s *Service) SetProjectConfigName(ctx context.Context, projectConfigID stri
 	}
 	if s.afterProjectRename != nil {
 		return s.afterProjectRename(ctx, snapshot, projectConfigID)
+	}
+	return nil
+}
+
+func (s *Service) SaveProject(ctx context.Context, projectConfigID string) error {
+	if s == nil || s.projectState == nil {
+		return ErrProjectStateRequired
+	}
+
+	if _, err := s.projectState.Snapshot().Document.ProjectByID(projectConfigID); err != nil {
+		return err
+	}
+
+	snapshot, err := s.projectState.Save(ctx)
+	if err != nil {
+		return err
+	}
+	if s.afterProjectSave != nil {
+		return s.afterProjectSave(ctx, snapshot, projectConfigID)
+	}
+	return nil
+}
+
+func (s *Service) CreateProjectConfig(ctx context.Context, previewImgColor string) (string, error) {
+	if s == nil || s.projectState == nil {
+		return "", ErrProjectStateRequired
+	}
+
+	snapshot, _, createdName, err := s.projectState.CreateProject(ctx, previewImgColor)
+	if err != nil {
+		return "", err
+	}
+	if s.afterProjectMetadataMutation != nil {
+		if err := s.afterProjectMetadataMutation(ctx, snapshot); err != nil {
+			return "", err
+		}
+	}
+	return createdName, nil
+}
+
+func (s *Service) SaveAsNewProjectConfig(ctx context.Context, projectConfigID string, newConfigName string, _ bool) error {
+	if s == nil || s.projectState == nil {
+		return ErrProjectStateRequired
+	}
+
+	snapshot, _, _, err := s.projectState.CloneProject(ctx, projectConfigID, newConfigName)
+	if err != nil {
+		return err
+	}
+	if s.afterProjectMetadataMutation != nil {
+		return s.afterProjectMetadataMutation(ctx, snapshot)
+	}
+	return nil
+}
+
+func (s *Service) DeleteProjectConfigs(ctx context.Context, projectConfigIDs []string) error {
+	if s == nil || s.projectState == nil {
+		return ErrProjectStateRequired
+	}
+
+	snapshot, deletedIDs, err := s.projectState.DeleteProjects(ctx, projectConfigIDs)
+	if err != nil {
+		return err
+	}
+	if len(deletedIDs) == 0 {
+		return nil
+	}
+	if s.afterProjectsDelete != nil {
+		if err := s.afterProjectsDelete(ctx, snapshot, deletedIDs); err != nil {
+			return err
+		}
+	}
+	if s.afterProjectMetadataMutation != nil {
+		return s.afterProjectMetadataMutation(ctx, snapshot)
 	}
 	return nil
 }

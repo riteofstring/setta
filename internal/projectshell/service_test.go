@@ -276,3 +276,342 @@ func TestServiceSetProjectConfigNameNoopSkipsHook(t *testing.T) {
 		t.Fatalf("expected no hook calls for rename no-op, got %d", hookCalls)
 	}
 }
+
+func TestServiceSaveProjectPersistsCurrentRuntimeAndRunsHook(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		if err := document.SetProjectName("project-alpha", "Unsaved Alpha"); err != nil {
+			return projectstate.Document{}, err
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate project runtime: %v", err)
+	}
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectSave: func(_ context.Context, snapshot projectstate.Snapshot, projectID string) error {
+			hookCalls++
+			if projectID != "project-alpha" {
+				t.Fatalf("expected project-alpha save hook, got %q", projectID)
+			}
+			if got := snapshot.Document.Projects["project-alpha"].Name; got != "Unsaved Alpha" {
+				t.Fatalf("expected saved snapshot name Unsaved Alpha, got %q", got)
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SaveProject(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("SaveProject returned error: %v", err)
+	}
+	if hookCalls != 1 {
+		t.Fatalf("expected save hook once, got %d", hookCalls)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	if got := reloaded.Projects["project-alpha"].Name; got != "Unsaved Alpha" {
+		t.Fatalf("expected persisted Unsaved Alpha, got %q", got)
+	}
+}
+
+func TestServiceCreateProjectConfigPersistsSingleViewModeAndRunsMetadataHook(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectMetadataMutation: func(_ context.Context, snapshot projectstate.Snapshot) error {
+			hookCalls++
+			if len(snapshot.Document.Projects) != 1 {
+				t.Fatalf("expected one created project, got %#v", snapshot.Document.Projects)
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	createdName, err := service.CreateProjectConfig(context.Background(), "bg-orange-500/60 dark:bg-orange-600/30")
+	if err != nil {
+		t.Fatalf("CreateProjectConfig returned error: %v", err)
+	}
+	if createdName != "Project" {
+		t.Fatalf("expected created name Project, got %q", createdName)
+	}
+	if hookCalls != 1 {
+		t.Fatalf("expected metadata hook once, got %d", hookCalls)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	if len(reloaded.Projects) != 1 {
+		t.Fatalf("expected one persisted project, got %#v", reloaded.Projects)
+	}
+	project := reloaded.Projects[reloaded.DefaultProjectID]
+	if len(project.ViewModes) != 1 {
+		t.Fatalf("expected one initial view mode, got %#v", project.ViewModes)
+	}
+}
+
+func TestServiceSaveAsNewProjectConfigAlwaysCreatesIndependentClone(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:                      "project-alpha",
+				Name:                    "Alpha",
+				AllowJSONSourceKeyEdits: true,
+				ViewModes: map[string]projectstate.ViewMode{
+					"focus": {
+						ID:   "focus",
+						Name: "Focus",
+					},
+				},
+				ActiveViewModeID: "focus",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectMetadataMutation: func(context.Context, projectstate.Snapshot) error {
+			hookCalls++
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SaveAsNewProjectConfig(context.Background(), "project-alpha", "Cloned Alpha", true); err != nil {
+		t.Fatalf("SaveAsNewProjectConfig returned error: %v", err)
+	}
+	if hookCalls != 1 {
+		t.Fatalf("expected metadata hook once, got %d", hookCalls)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	if len(reloaded.Projects) != 2 {
+		t.Fatalf("expected two persisted projects, got %#v", reloaded.Projects)
+	}
+
+	var clonedProject projectstate.Project
+	foundClone := false
+	for projectID, project := range reloaded.Projects {
+		if projectID == "project-alpha" {
+			continue
+		}
+		if project.Name == "Cloned Alpha" {
+			clonedProject = project
+			foundClone = true
+		}
+	}
+	if !foundClone {
+		t.Fatalf("expected cloned project in %#v", reloaded.Projects)
+	}
+	if clonedProject.ID == "project-alpha" {
+		t.Fatalf("expected cloned project id to differ, got %#v", clonedProject)
+	}
+	if len(clonedProject.ViewModes) != 1 || clonedProject.ActiveViewModeID != "focus" {
+		t.Fatalf("expected cloned project graph to be copied, got %#v", clonedProject)
+	}
+}
+
+func TestServiceSaveAsNewProjectConfigRejectsInvalidName(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := NewService(ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	err = service.SaveAsNewProjectConfig(context.Background(), "project-alpha", "home", false)
+	if err == nil {
+		t.Fatal("expected invalid name error")
+	}
+	if !projectstate.IsInvalidProjectNameError(err) {
+		t.Fatalf("expected invalid project name error, got %v", err)
+	}
+}
+
+func TestServiceDeleteProjectConfigsDeletesProjectsRunsHooksAndReconcilesDefault(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-beta",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Beta",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	deleteHookCalls := 0
+	metadataHookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectsDelete: func(_ context.Context, snapshot projectstate.Snapshot, deletedIDs []string) error {
+			deleteHookCalls++
+			if len(deletedIDs) != 1 || deletedIDs[0] != "project-beta" {
+				t.Fatalf("unexpected deleted ids %#v", deletedIDs)
+			}
+			if _, ok := snapshot.Document.Projects["project-beta"]; ok {
+				t.Fatalf("expected project-beta removed from snapshot, got %#v", snapshot.Document.Projects)
+			}
+			return nil
+		},
+		AfterProjectMetadataMutation: func(_ context.Context, snapshot projectstate.Snapshot) error {
+			metadataHookCalls++
+			if snapshot.Document.DefaultProjectID != "project-alpha" {
+				t.Fatalf("expected default project-alpha, got %q", snapshot.Document.DefaultProjectID)
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.DeleteProjectConfigs(context.Background(), []string{"project-beta"}); err != nil {
+		t.Fatalf("DeleteProjectConfigs returned error: %v", err)
+	}
+	if deleteHookCalls != 1 {
+		t.Fatalf("expected delete hook once, got %d", deleteHookCalls)
+	}
+	if metadataHookCalls != 1 {
+		t.Fatalf("expected metadata hook once, got %d", metadataHookCalls)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	if _, ok := reloaded.Projects["project-beta"]; ok {
+		t.Fatalf("expected project-beta removed from store, got %#v", reloaded.Projects)
+	}
+	if reloaded.DefaultProjectID != "project-alpha" {
+		t.Fatalf("expected default project-alpha, got %q", reloaded.DefaultProjectID)
+	}
+}
