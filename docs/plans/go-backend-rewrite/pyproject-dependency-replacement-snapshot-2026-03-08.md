@@ -11,9 +11,9 @@ that every Python import is already gone.
 
 ## Snapshot Context
 
-- captured at: `2026-03-08 21:49:45 PDT`
-- repo commit: `d564cbb13cc3d6aeb456c425126ebaf8a2081194`
-- worktree status when captured: dirty (`Phase 12` planning docs updated, pending commit)
+- captured at: `2026-03-09 09:55:40 PDT`
+- repo commit: `dfa94fd46ad80a67c8e8da6155787b6a10d0ba29`
+- worktree status when captured: clean
 
 ## Classification Rule
 
@@ -38,9 +38,9 @@ those cases, the bucket below reflects the dominant rewrite story.
 ## Bucket 1: Replaced With Go Library
 
 - `PyYAML`
-  - Go-owned paths use `gopkg.in/yaml.v3`
+  - Go-owned YAML flows use `gopkg.in/yaml.v3`
 - `toml`
-  - Go-owned paths use `github.com/pelletier/go-toml/v2`
+  - Go-owned config and publish flows use `github.com/pelletier/go-toml/v2`
 - `websockets`
   - Go realtime uses `github.com/coder/websocket`
 - `fastapi`
@@ -48,11 +48,11 @@ those cases, the bucket below reflects the dominant rewrite story.
 - `uvicorn`
   - Go server startup uses `http.Server`
 - `pywinpty`
-  - Go terminal support uses `github.com/aymanbagabas/go-pty`
+  - Go Windows terminal support uses `github.com/aymanbagabas/go-pty`
 - `ptyprocess`
-  - same Go PTY layer for non-Windows
+  - Go Unix terminal support uses `github.com/creack/pty`
 - `psutil`
-  - Go session/process inspection uses `github.com/shirou/gopsutil/v4`
+  - Go session and process inspection uses `github.com/shirou/gopsutil/v4`
 - `python-dotenv`
   - Go config loading uses `github.com/joho/godotenv`
 - `mcp`
@@ -68,34 +68,37 @@ those cases, the bucket below reflects the dominant rewrite story.
   - rewritten Go surfaces use Go structs plus explicit normalization and
     validation
 - `jsonschema`
-  - rewritten Go surfaces use app-specific validation code rather than a
-    generic JSON Schema runtime
+  - rewritten Go surfaces currently use app-specific validation code rather
+    than a generic JSON Schema runtime
 - `lsprotocol`
   - Go LSP ownership uses a custom session and transport layer
 - `bm25s`
   - tool search was rewritten as custom lexical scoring
 - `rectangle-packer`
   - auto-layout packing was rewritten as custom Setta logic
+- `packaging`
+  - plugin compatibility and version-range handling currently use
+    `github.com/aquasecurity/go-pep440-version` plus explicit Setta manifest
+    parsing and validation code; the library choice should be treated as
+    transitional because the rewrite prefers non-obscure Go dependencies
+- `docstring_parser`
+  - Go now uses explicit MCP tool metadata plus LSP-derived callable signature
+    payloads instead of parsing Python docstrings on rewritten surfaces
 
 ## Bucket 3: Still Python
 
 - `requests`
-  - remaining Python CLI and helper paths still use it
+  - remaining Python startup and helper paths still use it
 - `basedpyright`
   - Go still launches the Python language server process
 - `ruff`
   - Go still shells out to the Python formatter and linter executable
-- `packaging`
-  - remaining Python plugin-manager code still uses it
+- `claude-agent-sdk`
+  - the Go external-agent runtime now exists, but the Claude edge still runs
+    through the bounded Python sidecar around the official SDK
 
 ## Bucket 4: Not Replaced Yet Because That Feature Area Is Not In Go Yet
 
-- `claude-agent-sdk`
-  - external-agent Claude integration is still outside the current Go-owned
-    backend slice
-- `docstring_parser`
-  - remaining docstring-driven signature and MCP metadata behavior is still
-    Python-owned
 - `Jinja2`
   - prompt rendering is still Python-owned
 - `docstring-to-markdown`
@@ -116,18 +119,20 @@ This snapshot accounts for all `27`.
 
 ## Mixed Cases To Remember
 
-- `PyYAML`, `toml`, and `psutil` still appear in Python code, but Go already
-  owns analogous behavior for rewritten surfaces.
-- `pywinpty` and `ptyprocess` map to the current Go `go-pty` runtime, but the
-  rewrite planning docs now treat the PTY library choice as a bounded follow-up
-  and prefer `creack/pty` for the Unix path rather than treating `go-pty` as a
-  permanently settled dependency.
-- `watchdog`, `pydantic`, and `jsonschema` also still exist in Python, but
-  rewritten Go paths use custom Setta-owned replacements rather than a direct
-  Go twin.
-- `requests` overlaps with Go `net/http` in some rewritten areas, but the
-  remaining Python owner is still substantial enough to keep it in `still
-  Python`.
+- `packaging` and `docstring_parser` still exist in Python code, but the active
+  Go rewrite no longer depends on them for the rewritten plugin, MCP, and
+  callable-signature surfaces.
+- `packaging` currently maps to `go-pep440-version` plus custom Go logic, but
+  that specific library is not the desired long-term dependency choice.
+- `pywinpty` and `ptyprocess` now split cleanly in Go by platform:
+  `go-pty` on Windows and `creack/pty` on Unix.
+- `requests` overlaps with Go `net/http` in rewritten areas, but the remaining
+  Python owner is still large enough to keep it in `still Python`.
+- `claude-agent-sdk` is no longer outside the Go rewrite boundary. The Go
+  runtime owns the Claude executor, but it intentionally keeps the official SDK
+  behind a narrow Python sidecar.
+- `litellm` still appears in the legacy Python runtime, but the rewrite plan
+  no longer treats managed `setta_llm` as a Go target.
 
 ## Evidence Anchors
 
@@ -139,28 +144,38 @@ This snapshot accounts for all `27`.
   - Go HTTP router ownership
 - `internal/realtime/websocket_hub.go`
   - Go websocket ownership
-- `internal/llmconfig/config.go`
-  - Go dotenv ownership
+- `internal/terminals/pty_backend_unix.go`
+  - Unix PTY ownership via `creack/pty`
+- `internal/terminals/pty_backend_windows.go`
+  - Windows PTY ownership via `go-pty`
 - `internal/localsessions/registry.go`
   - Go process/session inspection ownership
+- `internal/llmconfig/config.go`
+  - Go dotenv ownership
+- `internal/plugins/authoring.go`
+  - Go plugin version/specifier handling and TOML parsing
+- `internal/lspsignature/service.go`
+  - Go callable signature synthesis
+- `internal/mcpx/server.go`
+  - explicit Go MCP tool metadata and descriptions
+- `internal/watchcode/service.go`
+  - custom Go Watch Code runtime
 - `internal/tools/search.go`
   - custom Go replacement for tool search
 - `internal/projectstate/auto_layout.go`
   - custom Go replacement for rectangle packing
-- `internal/watchcode/service.go`
-  - custom Go Watch Code runtime
 - `internal/codeformat/python.go`
   - `ruff` still external and Python-backed
+- `internal/externalagents/claude_executor.go`
+  - Go-owned Claude runtime using a Python sidecar
 - `internal/lsp/current_process.go`
   - `basedpyright` still external and Python-backed
-- `internal/pythonenv/runtime.go`
-  - Python runtime still used for package and plugin inspection
-- `backend/setta/api/hot_reload.py`
-  - `watchfiles` still Python-owned
 - `backend/setta/llm/prompt_renderer.py`
   - `Jinja2` still Python-owned
 - `backend/setta/routers/code_info.py`
   - `docstring-to-markdown` route still Python-owned
+- `backend/setta/api/hot_reload.py`
+  - `watchfiles` still Python-owned
 - `docs/plans/go-backend-rewrite/phase-12-managed-chat-runtime-and-ai-route-foundation.md`
   - records the rewrite decision to de-scope managed `setta_llm` in favor of
     external agents

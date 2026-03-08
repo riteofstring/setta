@@ -2,6 +2,19 @@
 
 This folder contains the working plan set for the Go backend rewrite.
 
+## Library Selection Guardrail
+
+For this rewrite, prefer the Go stdlib or well established Go libraries.
+
+- do not add obscure Go libraries by default
+- if a non-obvious library is proposed, the relevant phase doc should justify
+  why a stdlib or more established option is not good enough
+- if an obscure library already appears in `go.mod`, treat that as current
+  technical debt, not as precedent for future choices
+- specifically, `github.com/aquasecurity/go-pep440-version` is not the desired
+  long-term bar for dependency selection and should be treated as a replacement
+  candidate
+
 ## Go Toolchain Shortcut
 
 Use the repo-pinned wrapper instead of searching for a system Go install:

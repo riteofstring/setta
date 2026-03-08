@@ -12,6 +12,18 @@ The current backend is a large stateful runtime with:
 
 This rewrite is a clean break. We can reuse good ideas from the current backend, but we do not need backward compatibility, legacy route preservation, storage migrations, or Python-shaped internal structure.
 
+## Dependency Bar
+
+Prefer the Go stdlib or well established Go libraries for this rewrite.
+
+- obscure Go libraries are not acceptable by default
+- when a library choice is not obviously well established, the phase doc should
+  justify why a stdlib or more established option is insufficient
+- if the current repo already contains an obscure library, treat it as current
+  technical debt rather than as a signal to add more of them
+- specifically, `github.com/aquasecurity/go-pep440-version` should be treated
+  as a replacement candidate, not as the preferred bar for future work
+
 ## Current Status
 
 As of 2026-03-09, the phase docs through Phase 11 and the recorded spike
