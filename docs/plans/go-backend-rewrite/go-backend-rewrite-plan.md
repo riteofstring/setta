@@ -323,8 +323,20 @@ deployment/share artifact overlay behavior:
 With that third slice landed, the caller-backed Phase 22 artifact/file-browser
 cluster is now Go-owned for the current surface.
 
-The next recommended step is now a broader rerank outside this closed cluster
-instead of another artifact/file-browser transport slice.
+The post-Phase-22 rerank is now also recorded in
+`phase-23-post-artifact-direct-frontend-route-inventory-and-rerank.md`.
+That rerun confirmed that there is no new caller-backed direct frontend route
+cluster to open after the landed Phase 22 closeout:
+
+- the suspicious live frontend route families found in the rerun already map
+  to landed Go ownership from earlier phases, especially terminal/deployment
+  run transport, deployment publish/list transport, launcher/workspace-launch
+  transport, plugin transport, and status/meta reads
+- the remaining obvious gaps are now capability-level or broader runtime
+  inventory questions, not another thin direct-frontend route-cluster phase
+
+The next recommended step is therefore a broader rerank outside the now-closed
+direct frontend route-cluster track.
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
@@ -1735,7 +1747,7 @@ Do not weaken this rule during the rewrite.
    - do not reopen a broad LiteLLM-equivalent managed runtime
    - do reuse the landed Phase 14 managed-run foundations for the now-reranked
      direct frontend managed chat slice
-6. The post-Phase-18 rerank is now complete.
+6. The post-Phase-22 rerank is now complete.
    - the inventory outcome is recorded in
      `phase-19-remaining-direct-frontend-route-inventory-and-rerank.md`
    - the completed project-shell phase is recorded in
@@ -1746,20 +1758,26 @@ Do not weaken this rule during the rewrite.
      `phase-20-git-read-route-cluster-plan.md`
    - the corrected post-git rerank is recorded in
      `phase-21-post-git-direct-frontend-route-inventory-and-rerank.md`
-   - the current artifact/file-browser direct-frontend phase plan is recorded
-     in `phase-22-artifact-and-file-browser-route-cluster-plan.md`
-   - the focused current-work artifact slice is recorded in
+   - the completed artifact/file-browser direct-frontend phase plan is
+     recorded in `phase-22-artifact-and-file-browser-route-cluster-plan.md`
+   - the focused landed IDE artifact slice is recorded in
      `phase-22-ide-artifact-owner-plan.md`
+   - the focused landed deployment/share artifact overlay slice is recorded in
+     `phase-22-share-artifact-session-overlay-plan.md`
+   - the post-Phase-22 rerank is recorded in
+     `phase-23-post-artifact-direct-frontend-route-inventory-and-rerank.md`
    - Phase 20 is now complete for:
      - `POST /git/status`
      - `POST /git/diff`
      - `POST /git/log`
      - `POST /git/commitDetails`
      - `POST /git/commitFileDiff`
-   - the next caller-backed direct frontend route cluster is now:
-     - workspace file-browser reads, writes, transfers, and downloads
-     - binary download for preview/editor payloads
-     - artifact import/update/delete and cached-artifact reads
+   - the direct frontend route-cluster track is now closed for the current
+     caller-backed surface after the landed Phase 22 closeout
+   - the next planning step is now broader than route transport:
+     - rerank caller-backed capability gaps and remaining runtime ownership
+     - do not reopen completed route clusters without a concrete new caller or
+       runtime gap
    - dormant listener-chat, detached-run, and non-caller-backed
      default-project routes should remain out of scope until a concrete caller
      proves otherwise

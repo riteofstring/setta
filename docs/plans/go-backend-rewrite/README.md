@@ -713,23 +713,27 @@ Use the docs in this order:
   - focused corrected post-git rerank doc showing the artifact/file-browser
     route cluster is still caller-backed and should become the next phase
 195. `phase-22-artifact-and-file-browser-route-cluster-plan.md`
-  - focused current-work plan for Go-owned workspace file-browser, artifact,
-    and binary-download transport over explicit file-browser and artifact
+  - focused closeout doc for the landed workspace file-browser, artifact, and
+    binary-download route cluster over explicit file-browser and artifact
     owners
 196. `phase-22-ide-artifact-owner-plan.md`
   - focused landed slice doc for the bounded IDE-only artifact owner: file
     import, cached artifact reads, active caller-backed artifact writes, and
     file deletes over state-relative artifact ids
 197. `phase-22-share-artifact-session-overlay-plan.md`
-  - focused active slice doc for the remaining deployment/share artifact
-    overlay behavior over explicit per-session ownership and scoped websocket
-    updates
-198. `spike-mcp.md`
+  - focused landed slice doc for the deployment/share artifact overlay
+    behavior over explicit per-session ownership and scoped websocket updates
+198. `phase-23-post-artifact-direct-frontend-route-inventory-and-rerank.md`
+  - focused closeout rerank doc showing that no new caller-backed direct
+    frontend route cluster remains after the landed Phase 22 closeout and that
+    the next planning boundary should shift to broader capability/runtime
+    inventory
+199. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-199. `spike-pty.md`
+200. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-200. `spike-lsp.md`
+201. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
