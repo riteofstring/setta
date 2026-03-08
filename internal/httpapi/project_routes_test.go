@@ -228,6 +228,157 @@ func TestRegisterProjectRoutesGetPasswordParamValueRejectsNonPasswordParam(t *te
 	}
 }
 
+func TestRegisterProjectRoutesParamValueAndConfigMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	passwordSecrets := projectstate.NewMemoryPasswordSecretStore()
+	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	}, projectstate.RuntimeOptions{
+		PasswordSecrets: passwordSecrets,
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetParamEnteredValue,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child","value":"updated","frontendOpId":"frontend-op-param"}`,
+		},
+		{
+			route: RouteSetParamEnteredValue,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-secret","value":"topsecret"}`,
+		},
+		{
+			route: RouteUpdateParamImplConfig,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child","newConfig":{"description":"Updated description"}}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	sharedChildPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-child"].SharedModifier)
+	if got := sharedChildPayload["value"]; got != "updated" {
+		t.Fatalf("expected shared-child value updated, got %#v", got)
+	}
+	if got := sharedChildPayload["description"]; got != "Updated description" {
+		t.Fatalf("expected shared-child description Updated description, got %#v", got)
+	}
+
+	sharedSecretPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-secret"].SharedModifier)
+	if got := sharedSecretPayload["value"]; got != "" {
+		t.Fatalf("expected shared-secret value to stay redacted, got %#v", got)
+	}
+	if got := sharedSecretPayload["hasSecret"]; got != true {
+		t.Fatalf("expected shared-secret hasSecret=true, got %#v", got)
+	}
+
+	passwordResponse := post(RouteGetPasswordParamValue, `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-secret"}`)
+	if passwordResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 password response, got %d with body %q", passwordResponse.Code, passwordResponse.Body.String())
+	}
+	var passwordPayload GetPasswordParamValueResponse
+	if err := json.Unmarshal(passwordResponse.Body.Bytes(), &passwordPayload); err != nil {
+		t.Fatalf("decode password payload: %v", err)
+	}
+	if passwordPayload.Value != "topsecret" {
+		t.Fatalf("expected topsecret password value, got %q", passwordPayload.Value)
+	}
+}
+
+func TestRegisterProjectRoutesParamValueAndConfigMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetParamEnteredValue,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-root","value":"noop"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"param_value_mutation_unsupported"`,
+		},
+		{
+			route:        RouteUpdateParamImplConfig,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-child","newConfig":{"mode":"STATELESS"}}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"param_impl_config_invalid"`,
+		},
+		{
+			route:        RouteUpdateParamImplConfig,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-a","paramInfoId":"shared-root","newConfig":{"mode":"STATELESS"}}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"param_impl_config_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/api"+requestSpec.route, strings.NewReader(requestSpec.body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesDeleteSectionVariantOrAskReturnsWorkspacePathForJSONSourceVariant(t *testing.T) {
 	t.Parallel()
 

@@ -267,6 +267,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_PASSWORD_PARAM_VALUE",
 				},
 				{
+					Name:     "setParamEnteredValue",
+					Path:     httpapi.RouteSetParamEnteredValue,
+					EnumName: "SET_PARAM_ENTERED_VALUE",
+				},
+				{
+					Name:     "updateParamImplConfig",
+					Path:     httpapi.RouteUpdateParamImplConfig,
+					EnumName: "UPDATE_PARAM_IMPL_CONFIG",
+				},
+				{
 					Name:     "killSubprocesses",
 					Path:     httpapi.RouteKillSubprocesses,
 					EnumName: "KILL_SUBPROCESSES",
@@ -1130,6 +1140,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "getPasswordParamValue",
 			RequestType:     reflect.TypeOf(GetPasswordParamValueRequestInput{}),
 			ResponseType:    reflect.TypeOf(GetPasswordParamValueResponse{}),
+		},
+		{
+			FunctionName:    "route_set_param_entered_value",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setParamEnteredValue",
+			RequestType:     reflect.TypeOf(SetParamEnteredValueRequestInput{}),
+		},
+		{
+			FunctionName:    "route_update_param_impl_config",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "updateParamImplConfig",
+			RequestType:     reflect.TypeOf(UpdateParamImplConfigRequestInput{}),
 		},
 		{
 			FunctionName:    "route_kill_subprocesses",

@@ -5945,6 +5945,30 @@ export function createGetPasswordParamValueResponse(options: Partial<GetPassword
 }
 
 
+export type SetParamEnteredValueRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+};
+export function createSetParamEnteredValueRequestInput(options: Partial<SetParamEnteredValueRequestInput> = {}): SetParamEnteredValueRequestInput {
+  return options as SetParamEnteredValueRequestInput;
+}
+
+
+export type UpdateParamImplConfigRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+  newConfig: Record<string, unknown>;
+};
+export function createUpdateParamImplConfigRequestInput(options: Partial<UpdateParamImplConfigRequestInput> = {}): UpdateParamImplConfigRequestInput {
+  return options as UpdateParamImplConfigRequestInput;
+}
+
+
 export type KillSubprocessesRequestInput = {
   projectConfigId: string;
 };

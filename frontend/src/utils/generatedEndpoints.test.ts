@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { C_ADDRESSES } from "./c_addresses";
 import { resolveEndpointOrigin } from "./endpointUtils";
 import {
+  route_add_kwarg,
   route_append_transcription_audio,
   route_binary_download,
   route_binary_upload,
-  route_add_kwarg,
   route_check_if_file_exists,
   route_check_workspace_initialized,
   route_create_file,
@@ -71,13 +71,14 @@ import {
   route_set_chat_section_state,
   route_set_code_file_binding,
   route_set_group_overflow_mode,
-  route_set_section_edge_inputs,
-  route_set_section_edge_outputs,
   route_set_list_root_view_mode,
   route_set_llm_api_keys,
   route_set_meta_control_show_section_title,
+  route_set_param_entered_value,
   route_set_parent_default_child_section_type,
   route_set_section_column_width,
+  route_set_section_edge_inputs,
+  route_set_section_edge_outputs,
   route_set_section_name,
   route_set_section_param_filter,
   route_set_section_sizes,
@@ -96,6 +97,7 @@ import {
   route_ungroup_groups,
   route_unselect_all_params,
   route_update_artifacts,
+  route_update_param_impl_config,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
   route_write_file_browser_file_content,
@@ -380,7 +382,9 @@ describe("generatedEndpoints project shell and layout", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/addKwarg`);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/addKwarg`,
+    );
     expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
       method: "POST",
       body: JSON.stringify({
@@ -919,6 +923,62 @@ describe("generatedEndpoints project shell and layout", () => {
         sectionId: "meta-section",
         showSectionTitle: true,
         frontendOpId: "frontend-op-meta-title",
+      }),
+    });
+  });
+
+  it("posts param entered-value writes", async () => {
+    await route_set_param_entered_value({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      paramInfoId: "param-a",
+      value: "updated",
+      frontendOpId: "frontend-op-param-value",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setParamEnteredValue`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        paramInfoId: "param-a",
+        value: "updated",
+        frontendOpId: "frontend-op-param-value",
+      }),
+    });
+  });
+
+  it("posts param implementation-config writes", async () => {
+    await route_update_param_impl_config({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      paramInfoId: "param-a",
+      newConfig: {
+        description: "Updated description",
+        dateSelectionMode: "multiple",
+      },
+      frontendOpId: "frontend-op-param-config",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/updateParamImplConfig`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        paramInfoId: "param-a",
+        newConfig: {
+          description: "Updated description",
+          dateSelectionMode: "multiple",
+        },
+        frontendOpId: "frontend-op-param-config",
       }),
     });
   });

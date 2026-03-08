@@ -45,6 +45,22 @@ type DeleteKwargRequestInput struct {
 	SectionID       string `json:"sectionId"`
 }
 
+type SetParamEnteredValueRequestInput struct {
+	FrontendOpID    *string `json:"frontendOpId,omitempty"`
+	ProjectConfigID string  `json:"projectConfigId"`
+	SectionID       string  `json:"sectionId"`
+	ParamInfoID     string  `json:"paramInfoId"`
+	Value           string  `json:"value"`
+}
+
+type UpdateParamImplConfigRequestInput struct {
+	FrontendOpID    *string        `json:"frontendOpId,omitempty"`
+	ProjectConfigID string         `json:"projectConfigId"`
+	SectionID       string         `json:"sectionId"`
+	ParamInfoID     string         `json:"paramInfoId"`
+	NewConfig       map[string]any `json:"newConfig"`
+}
+
 type Position struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`

@@ -207,6 +207,16 @@ export async function route_get_password_param_value(x: gt.GetPasswordParamValue
   return await post(GoHTTPRoutes.getPasswordParamValue, x);
 
 }
+export async function route_set_param_entered_value(x: gt.SetParamEnteredValueRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setParamEnteredValue, x);
+
+}
+export async function route_update_param_impl_config(x: gt.UpdateParamImplConfigRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.updateParamImplConfig, x);
+
+}
 export async function route_kill_subprocesses(x: gt.KillSubprocessesRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.killSubprocesses, x);

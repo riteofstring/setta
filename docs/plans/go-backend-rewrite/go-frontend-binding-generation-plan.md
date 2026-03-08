@@ -683,6 +683,12 @@ Current landed wedge:
     persistence
   - `ParamInput` and the app-mode password reveal path in `appRegistry` are
     now covered by the canonical Go-generated password-value helper binding
+  - `ParamInput`, `MetaControlArea`, the app-mode param-input path in
+    `appRegistry`, `TextParamInput`, `DropzoneInput`, `ButtonInput`,
+    `SliderInput`, `DropdownInput`, `ColorPickerInput`, `QuickInfoConfig`,
+    `createSectionsHelper`, and `applyUiTypeComboboxSelection` now consume
+    canonical Go-generated param value/config route bindings for
+    `setParamEnteredValue` and `updateParamImplConfig`
   - `AppRenderer` and `ChatMessages` are now covered by canonical
     Go-generated attachment download helper bindings
   - `runOrImportCode`, `RunButton`, and `AppRenderer` now consume canonical
