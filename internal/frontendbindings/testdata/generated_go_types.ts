@@ -2420,6 +2420,199 @@ export function createProjectCodegenPluginTarget(options: Partial<ProjectCodegen
 export type ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget;
 
 
+export const SectionTypeEnum = {
+  Callable: "Callable",
+  Dict: "Dict",
+  ListRoot: "ListRoot",
+  Group: "Group",
+  Image: "Image",
+  Chart: "Chart",
+  Draw: "Draw",
+  TextBlock: "TextBlock",
+  Prompt: "Prompt",
+  MetaControl: "MetaControl",
+  Social: "Social",
+  GlobalVariables: "GlobalVariables",
+  Code: "Code",
+  GenPythonCode: "GenPythonCode",
+  GenPythonMetadata: "GenPythonMetadata",
+  Terminal: "Terminal",
+  IFrame: "IFrame",
+  Chat: "Chat",
+  Browser: "Browser",
+  Plugin: "Plugin",
+  TaskBoard: "TaskBoard",
+  Spreadsheet: "Spreadsheet",
+} as const;
+export type SectionType = ObjectValues<typeof SectionTypeEnum>;
+
+
+export const CodeObjTypeEnum = {
+  CodeCallable: "CodeCallable",
+  CodeParam: "CodeParam",
+  TextParam: "TextParam",
+  DateParam: "DateParam",
+  TimeParam: "TimeParam",
+  ButtonParam: "ButtonParam",
+  SliderParam: "SliderParam",
+  RotaryParam: "RotaryParam",
+  SwitchParam: "SwitchParam",
+  ColorPickerParam: "ColorPickerParam",
+  DropdownParam: "DropdownParam",
+  PasswordParam: "PasswordParam",
+  TextAreaParam: "TextAreaParam",
+  DropzoneParam: "DropzoneParam",
+  NestedParam: "NestedParam",
+} as const;
+export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
+
+
+export const CodeLanguageEnum = {
+  python: "python",
+  bash: "bash",
+  javascript: "javascript",
+  typescript: "typescript",
+  json: "json",
+  yaml: "yaml",
+  toml: "toml",
+  markdown: "markdown",
+  plaintext: "plaintext",
+} as const;
+export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
+
+
+export type BuiltinCodeLanguage = CodeLanguage;
+
+
+export const ConfigLanguageEnum = {
+  python: "python",
+  json: "json",
+} as const;
+export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
+
+
+export const ParameterPassingStyleEnum = {
+  DEFAULT: "DEFAULT",
+  ARGS: "ARGS",
+  KWARGS: "KWARGS",
+  POSITIONAL_ONLY: "POSITIONAL_ONLY",
+  KEYWORD_ONLY: "KEYWORD_ONLY",
+} as const;
+export type ParameterPassingStyle = ObjectValues<typeof ParameterPassingStyleEnum>;
+
+
+export const ParamNameTypeEnum = {
+  CODE: "CODE",
+  TEXT: "TEXT",
+} as const;
+export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
+
+
+export const ButtonActionModeEnum = {
+  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
+  HTTP_REQUEST: "HTTP_REQUEST",
+  SETTA_API: "SETTA_API",
+} as const;
+export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
+
+
+export const HttpRequestMethodEnum = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  PATCH: "PATCH",
+  DELETE: "DELETE",
+  HEAD: "HEAD",
+  OPTIONS: "OPTIONS",
+} as const;
+export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
+
+
+export const DropzoneModeEnum = {
+  STATEFUL: "STATEFUL",
+  STATELESS: "STATELESS",
+} as const;
+export type DropzoneMode = ObjectValues<typeof DropzoneModeEnum>;
+
+
+export const TextParamInputUITypeEnum = {
+  plain: "plain",
+  time: "time",
+  date: "date",
+} as const;
+export type TextParamInputUIType = ObjectValues<typeof TextParamInputUITypeEnum>;
+
+
+export const TimeDisplayFormatEnum = {
+  twenty_four_hour: "twenty_four_hour",
+  twelve_hour: "twelve_hour",
+} as const;
+export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
+
+
+export const TimeControlModeEnum = {
+  input: "input",
+  display: "display",
+} as const;
+export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
+
+
+export const TimeDisplayFontEnum = {
+  clock: "clock",
+  monospace: "monospace",
+  system: "system",
+} as const;
+export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
+
+
+export const DateDisplayFormatEnum = {
+  iso: "iso",
+  us: "us",
+  eu: "eu",
+  long: "long",
+} as const;
+export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
+
+
+export const DateControlModeEnum = {
+  input: "input",
+  calendar: "calendar",
+} as const;
+export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
+
+
+export const DateSelectionModeEnum = {
+  single: "single",
+  multiple: "multiple",
+} as const;
+export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
+
+
+export const DateCalendarWeekStartEnum = {
+  sunday: "sunday",
+  monday: "monday",
+} as const;
+export type DateCalendarWeekStart = ObjectValues<typeof DateCalendarWeekStartEnum>;
+
+
+export type EdgePort = {
+  id: string;
+  accessor: string;
+};
+export function createEdgePort(options: Partial<EdgePort> = {}): EdgePort {
+  return options as EdgePort;
+}
+
+
+export type TypeErrorIgnoreState = {
+  callable: boolean;
+  params: Record<string, boolean>;
+};
+export function createTypeErrorIgnoreState(options: Partial<TypeErrorIgnoreState> = {}): TypeErrorIgnoreState {
+  return options as TypeErrorIgnoreState;
+}
+
+
 export const AgenticEdgeKindEnum = {
   chat_chat: "chat_chat",
   section_chat: "section_chat",
@@ -2752,167 +2945,6 @@ export function createShownParamIds(options: Partial<ShownParamIds> = {}): Shown
 
 
 
-export const SectionTypeEnum = {
-  Callable: "Callable",
-  Dict: "Dict",
-  ListRoot: "ListRoot",
-  Group: "Group",
-  Image: "Image",
-  Chart: "Chart",
-  Draw: "Draw",
-  TextBlock: "TextBlock",
-  Prompt: "Prompt",
-  MetaControl: "MetaControl",
-  Social: "Social",
-  GlobalVariables: "GlobalVariables",
-  Code: "Code",
-  GenPythonCode: "GenPythonCode",
-  GenPythonMetadata: "GenPythonMetadata",
-  Terminal: "Terminal",
-  IFrame: "IFrame",
-  Chat: "Chat",
-  Browser: "Browser",
-  Plugin: "Plugin",
-  TaskBoard: "TaskBoard",
-  Spreadsheet: "Spreadsheet",
-} as const;
-export type SectionType = ObjectValues<typeof SectionTypeEnum>;
-
-export const CodeObjTypeEnum = {
-  CodeCallable: "CodeCallable",
-  CodeParam: "CodeParam",
-  TextParam: "TextParam",
-  DateParam: "DateParam",
-  TimeParam: "TimeParam",
-  ButtonParam: "ButtonParam",
-  SliderParam: "SliderParam",
-  RotaryParam: "RotaryParam",
-  SwitchParam: "SwitchParam",
-  ColorPickerParam: "ColorPickerParam",
-  DropdownParam: "DropdownParam",
-  PasswordParam: "PasswordParam",
-  TextAreaParam: "TextAreaParam",
-  DropzoneParam: "DropzoneParam",
-  NestedParam: "NestedParam",
-} as const;
-export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
-
-export const CodeLanguageEnum = {
-  python: "python",
-  bash: "bash",
-  javascript: "javascript",
-  typescript: "typescript",
-  json: "json",
-  yaml: "yaml",
-  toml: "toml",
-  markdown: "markdown",
-  plaintext: "plaintext",
-} as const;
-export type BuiltinCodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
-
-export const ConfigLanguageEnum = {
-  python: "python",
-  json: "json",
-} as const;
-export type ConfigLanguage = ObjectValues<typeof ConfigLanguageEnum>;
-
-export const ParameterPassingStyleEnum = {
-  DEFAULT: "DEFAULT",
-  ARGS: "ARGS",
-  KWARGS: "KWARGS",
-  POSITIONAL_ONLY: "POSITIONAL_ONLY",
-  KEYWORD_ONLY: "KEYWORD_ONLY",
-} as const;
-export type ParameterPassingStyle = ObjectValues<
-  typeof ParameterPassingStyleEnum
->;
-
-export const ParamNameTypeEnum = {
-  CODE: "CODE",
-  TEXT: "TEXT",
-} as const;
-export type ParamNameType = ObjectValues<typeof ParamNameTypeEnum>;
-
-export const ButtonActionModeEnum = {
-  WEBSOCKET_LISTENER: "WEBSOCKET_LISTENER",
-  HTTP_REQUEST: "HTTP_REQUEST",
-  SETTA_API: "SETTA_API",
-} as const;
-export type ButtonActionMode = ObjectValues<typeof ButtonActionModeEnum>;
-
-export const HttpRequestMethodEnum = {
-  GET: "GET",
-  POST: "POST",
-  PUT: "PUT",
-  PATCH: "PATCH",
-  DELETE: "DELETE",
-  HEAD: "HEAD",
-  OPTIONS: "OPTIONS",
-} as const;
-export type HttpRequestMethod = ObjectValues<typeof HttpRequestMethodEnum>;
-
-export const DropzoneModeEnum = {
-  STATEFUL: "STATEFUL",
-  STATELESS: "STATELESS",
-} as const;
-export type DropzoneMode = ObjectValues<typeof DropzoneModeEnum>;
-
-export const TextParamInputUITypeEnum = {
-  plain: "plain",
-  time: "time",
-  date: "date",
-} as const;
-export type TextParamInputUIType = ObjectValues<
-  typeof TextParamInputUITypeEnum
->;
-
-export const TimeDisplayFormatEnum = {
-  twenty_four_hour: "twenty_four_hour",
-  twelve_hour: "twelve_hour",
-} as const;
-export type TimeDisplayFormat = ObjectValues<typeof TimeDisplayFormatEnum>;
-
-export const TimeControlModeEnum = {
-  input: "input",
-  display: "display",
-} as const;
-export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
-
-export const TimeDisplayFontEnum = {
-  clock: "clock",
-  monospace: "monospace",
-  system: "system",
-} as const;
-export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
-
-export const DateDisplayFormatEnum = {
-  iso: "iso",
-  us: "us",
-  eu: "eu",
-  long: "long",
-} as const;
-export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
-
-export const DateControlModeEnum = {
-  input: "input",
-  calendar: "calendar",
-} as const;
-export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
-
-export const DateSelectionModeEnum = {
-  single: "single",
-  multiple: "multiple",
-} as const;
-export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
-
-export const DateCalendarWeekStartEnum = {
-  sunday: "sunday",
-  monday: "monday",
-} as const;
-export type DateCalendarWeekStart = ObjectValues<
-  typeof DateCalendarWeekStartEnum
->;
-
 type GeneratedMutableValue =
   | null
   | boolean
@@ -2946,16 +2978,6 @@ function mergeGeneratedOptions<T extends object>(
     ...cloneGeneratedValue(options),
   } as T;
 }
-
-export type EdgePort = {
-  id: string;
-  accessor: string;
-};
-
-export type TypeErrorIgnoreState = {
-  callable: boolean;
-  params: Record<string, boolean>;
-};
 
 type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
   {
@@ -3004,10 +3026,6 @@ function resolveGeneratedFactoryInputs<
     overrides: {},
   };
 }
-
-export type ChartData = ChartDataValue;
-
-export type ChartDataType = ChartDataValue;
 
 function createGeneratedBaseSectionDefaults(): {
   isFrozen: boolean;
@@ -3374,6 +3392,12 @@ export function createProjectStateSingleConfigWithCompletedOpIds(options: Partia
     options,
   );
 }
+
+
+export type ChartData = ChartDataValue;
+
+
+export type ChartDataType = ChartDataValue;
 
 
 export const ChatRoleEnum = {

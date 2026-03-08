@@ -1207,6 +1207,195 @@ func TestProjectStateSectionSupportEnumsUseConverterDeclarations(t *testing.T) {
 		values []EnumValue
 	}{
 		{
+			name: "SectionType",
+			root: reflect.TypeOf(SectionType("")),
+			values: []EnumValue{
+				{Name: "Callable", Value: "Callable"},
+				{Name: "Dict", Value: "Dict"},
+				{Name: "ListRoot", Value: "ListRoot"},
+				{Name: "Group", Value: "Group"},
+				{Name: "Image", Value: "Image"},
+				{Name: "Chart", Value: "Chart"},
+				{Name: "Draw", Value: "Draw"},
+				{Name: "TextBlock", Value: "TextBlock"},
+				{Name: "Prompt", Value: "Prompt"},
+				{Name: "MetaControl", Value: "MetaControl"},
+				{Name: "Social", Value: "Social"},
+				{Name: "GlobalVariables", Value: "GlobalVariables"},
+				{Name: "Code", Value: "Code"},
+				{Name: "GenPythonCode", Value: "GenPythonCode"},
+				{Name: "GenPythonMetadata", Value: "GenPythonMetadata"},
+				{Name: "Terminal", Value: "Terminal"},
+				{Name: "IFrame", Value: "IFrame"},
+				{Name: "Chat", Value: "Chat"},
+				{Name: "Browser", Value: "Browser"},
+				{Name: "Plugin", Value: "Plugin"},
+				{Name: "TaskBoard", Value: "TaskBoard"},
+				{Name: "Spreadsheet", Value: "Spreadsheet"},
+			},
+		},
+		{
+			name: "CodeObjType",
+			root: reflect.TypeOf(CodeObjType("")),
+			values: []EnumValue{
+				{Name: "CodeCallable", Value: "CodeCallable"},
+				{Name: "CodeParam", Value: "CodeParam"},
+				{Name: "TextParam", Value: "TextParam"},
+				{Name: "DateParam", Value: "DateParam"},
+				{Name: "TimeParam", Value: "TimeParam"},
+				{Name: "ButtonParam", Value: "ButtonParam"},
+				{Name: "SliderParam", Value: "SliderParam"},
+				{Name: "RotaryParam", Value: "RotaryParam"},
+				{Name: "SwitchParam", Value: "SwitchParam"},
+				{Name: "ColorPickerParam", Value: "ColorPickerParam"},
+				{Name: "DropdownParam", Value: "DropdownParam"},
+				{Name: "PasswordParam", Value: "PasswordParam"},
+				{Name: "TextAreaParam", Value: "TextAreaParam"},
+				{Name: "DropzoneParam", Value: "DropzoneParam"},
+				{Name: "NestedParam", Value: "NestedParam"},
+			},
+		},
+		{
+			name: "CodeLanguage",
+			root: reflect.TypeOf(CodeLanguage("")),
+			values: []EnumValue{
+				{Name: "python", Value: "python"},
+				{Name: "bash", Value: "bash"},
+				{Name: "javascript", Value: "javascript"},
+				{Name: "typescript", Value: "typescript"},
+				{Name: "json", Value: "json"},
+				{Name: "yaml", Value: "yaml"},
+				{Name: "toml", Value: "toml"},
+				{Name: "markdown", Value: "markdown"},
+				{Name: "plaintext", Value: "plaintext"},
+			},
+		},
+		{
+			name: "ConfigLanguage",
+			root: reflect.TypeOf(ConfigLanguage("")),
+			values: []EnumValue{
+				{Name: "python", Value: "python"},
+				{Name: "json", Value: "json"},
+			},
+		},
+		{
+			name: "ParameterPassingStyle",
+			root: reflect.TypeOf(ParameterPassingStyle("")),
+			values: []EnumValue{
+				{Name: "DEFAULT", Value: "DEFAULT"},
+				{Name: "ARGS", Value: "ARGS"},
+				{Name: "KWARGS", Value: "KWARGS"},
+				{Name: "POSITIONAL_ONLY", Value: "POSITIONAL_ONLY"},
+				{Name: "KEYWORD_ONLY", Value: "KEYWORD_ONLY"},
+			},
+		},
+		{
+			name: "ParamNameType",
+			root: reflect.TypeOf(ParamNameType("")),
+			values: []EnumValue{
+				{Name: "CODE", Value: "CODE"},
+				{Name: "TEXT", Value: "TEXT"},
+			},
+		},
+		{
+			name: "ButtonActionMode",
+			root: reflect.TypeOf(ButtonActionMode("")),
+			values: []EnumValue{
+				{Name: "WEBSOCKET_LISTENER", Value: "WEBSOCKET_LISTENER"},
+				{Name: "HTTP_REQUEST", Value: "HTTP_REQUEST"},
+				{Name: "SETTA_API", Value: "SETTA_API"},
+			},
+		},
+		{
+			name: "HttpRequestMethod",
+			root: reflect.TypeOf(HttpRequestMethod("")),
+			values: []EnumValue{
+				{Name: "GET", Value: "GET"},
+				{Name: "POST", Value: "POST"},
+				{Name: "PUT", Value: "PUT"},
+				{Name: "PATCH", Value: "PATCH"},
+				{Name: "DELETE", Value: "DELETE"},
+				{Name: "HEAD", Value: "HEAD"},
+				{Name: "OPTIONS", Value: "OPTIONS"},
+			},
+		},
+		{
+			name: "DropzoneMode",
+			root: reflect.TypeOf(DropzoneMode("")),
+			values: []EnumValue{
+				{Name: "STATEFUL", Value: "STATEFUL"},
+				{Name: "STATELESS", Value: "STATELESS"},
+			},
+		},
+		{
+			name: "TextParamInputUIType",
+			root: reflect.TypeOf(TextParamInputUIType("")),
+			values: []EnumValue{
+				{Name: "plain", Value: "plain"},
+				{Name: "time", Value: "time"},
+				{Name: "date", Value: "date"},
+			},
+		},
+		{
+			name: "TimeDisplayFormat",
+			root: reflect.TypeOf(TimeDisplayFormat("")),
+			values: []EnumValue{
+				{Name: "twenty_four_hour", Value: "twenty_four_hour"},
+				{Name: "twelve_hour", Value: "twelve_hour"},
+			},
+		},
+		{
+			name: "TimeControlMode",
+			root: reflect.TypeOf(TimeControlMode("")),
+			values: []EnumValue{
+				{Name: "input", Value: "input"},
+				{Name: "display", Value: "display"},
+			},
+		},
+		{
+			name: "TimeDisplayFont",
+			root: reflect.TypeOf(TimeDisplayFont("")),
+			values: []EnumValue{
+				{Name: "clock", Value: "clock"},
+				{Name: "monospace", Value: "monospace"},
+				{Name: "system", Value: "system"},
+			},
+		},
+		{
+			name: "DateDisplayFormat",
+			root: reflect.TypeOf(DateDisplayFormat("")),
+			values: []EnumValue{
+				{Name: "iso", Value: "iso"},
+				{Name: "us", Value: "us"},
+				{Name: "eu", Value: "eu"},
+				{Name: "long", Value: "long"},
+			},
+		},
+		{
+			name: "DateControlMode",
+			root: reflect.TypeOf(DateControlMode("")),
+			values: []EnumValue{
+				{Name: "input", Value: "input"},
+				{Name: "calendar", Value: "calendar"},
+			},
+		},
+		{
+			name: "DateSelectionMode",
+			root: reflect.TypeOf(DateSelectionMode("")),
+			values: []EnumValue{
+				{Name: "single", Value: "single"},
+				{Name: "multiple", Value: "multiple"},
+			},
+		},
+		{
+			name: "DateCalendarWeekStart",
+			root: reflect.TypeOf(DateCalendarWeekStart("")),
+			values: []EnumValue{
+				{Name: "sunday", Value: "sunday"},
+				{Name: "monday", Value: "monday"},
+			},
+		},
+		{
 			name: "ListRootViewMode",
 			root: reflect.TypeOf(ListRootViewMode("")),
 			values: []EnumValue{
@@ -1246,6 +1435,79 @@ func TestProjectStateSectionSupportEnumsUseConverterDeclarations(t *testing.T) {
 			}
 			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
 				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestProjectStateSectionSupportPrimitiveContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		kind       string
+		alias      string
+		properties []TypeProperty
+	}{
+		{
+			name:  "BuiltinCodeLanguage",
+			root:  reflect.TypeOf(BuiltinCodeLanguage{}),
+			kind:  "alias",
+			alias: "CodeLanguage",
+		},
+		{
+			name: "EdgePort",
+			root: reflect.TypeOf(EdgePort{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "accessor", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "TypeErrorIgnoreState",
+			root: reflect.TypeOf(TypeErrorIgnoreState{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "callable", TypeExpr: "boolean", Optional: false},
+				{Name: "params", TypeExpr: "Record<string, boolean>", Optional: false},
+			},
+		},
+		{
+			name:  "ChartData",
+			root:  reflect.TypeOf(ChartData{}),
+			kind:  "alias",
+			alias: "ChartDataValue",
+		},
+		{
+			name:  "ChartDataType",
+			root:  reflect.TypeOf(ChartDataType{}),
+			kind:  "alias",
+			alias: "ChartDataValue",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if declaration.CreateExpr != "" {
+				t.Fatalf("%s CreateExpr should be empty, got %q", tt.name, declaration.CreateExpr)
+			}
+			if declaration.FactoryTS != "" {
+				t.Fatalf("%s FactoryTS should be empty, got %q", tt.name, declaration.FactoryTS)
 			}
 		})
 	}
