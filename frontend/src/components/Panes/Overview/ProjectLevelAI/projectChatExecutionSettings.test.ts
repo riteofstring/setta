@@ -1011,7 +1011,7 @@ describe("resolveProjectChatRuntimeActivityDetails count derivation", () => {
             createToolCall({
               id: "tool-custom-subagent",
               function: createToolCallFunction({
-                name: "custom_namespace__run_sub_agent",
+                name: "custom_namespace__run_agent_profile",
                 arguments: {},
               }),
             }),
@@ -1087,7 +1087,7 @@ describe("resolveProjectChatRuntimeActivityDetails", () => {
             createToolCall({
               id: "tool-subagent",
               function: createToolCallFunction({
-                name: "run_sub_agent",
+                name: "run_agent_profile",
                 arguments: {},
               }),
             }),
@@ -1107,11 +1107,33 @@ describe("resolveProjectChatRuntimeActivityDetails", () => {
       activeSubagents: [
         {
           id: "tool-subagent",
-          label: "run_sub_agent (tool-subagent)",
-          toolName: "run_sub_agent",
+          label: "run_agent_profile (tool-subagent)",
+          toolName: "run_agent_profile",
         },
       ],
     });
+  });
+
+  it("ignores removed subagent tool aliases", () => {
+    const details = resolveProjectChatRuntimeActivityDetails({
+      waitingForResponse: true,
+      messages: [
+        createAssistantChatMessage({
+          id: "assistant-streaming",
+          tool_calls: [
+            createToolCall({
+              id: "tool-subagent",
+              function: createToolCallFunction({
+                name: "run_sub_agent",
+                arguments: { profileId: "legacy_profile" },
+              }),
+            }),
+          ],
+        }),
+      ],
+    });
+
+    expect(details.activeSubagents).toEqual([]);
   });
 });
 

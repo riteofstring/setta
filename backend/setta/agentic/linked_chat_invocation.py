@@ -1,6 +1,5 @@
 from typing import Any
 
-from fastapi import HTTPException
 from mcp.server.fastmcp.server import Context
 from mcp.types import CallToolResult, TextContent
 
@@ -12,10 +11,8 @@ from setta.agentic.chat_view import (
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.store import require_engine_config
 from setta.mcp.run_start_authorization import (
-    authorize_mcp_run_start,
-    commit_mcp_run_start,
-    enforce_mcp_llm_allowed,
-    rollback_mcp_run_start,
+    commit_pending_mcp_run_start,
+    rollback_pending_mcp_run_start,
 )
 from setta.project_state.linked_chat_admission import LinkedChatAdmissionError
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, EngineType
@@ -130,10 +127,10 @@ async def invoke_linked_chat(
             ),
         )
 
-    run_start_authorization = await authorize_mcp_run_start(ctx)
+    share_session_id = ctx.fastmcp._resolve_share_session_id(ctx)
     manager = ctx.fastmcp.state.project_manager_switcher.get(
         agentic_context.project_config_id,
-        share_session_id=run_start_authorization.share_session_id,
+        share_session_id=share_session_id,
     )
     try:
         admission = await manager.admit_linked_chat_section_invocation(
@@ -142,14 +139,14 @@ async def invoke_linked_chat(
             target_section_id,
         )
     except LinkedChatAdmissionError as exc:
-        await rollback_mcp_run_start(ctx, run_start_authorization)
+        await rollback_pending_mcp_run_start(ctx)
         return _build_error_result(
             target_section_id=target_section_id,
             reason=exc.reason,
             message=exc.message,
         )
     except KeyError as exc:
-        await rollback_mcp_run_start(ctx, run_start_authorization)
+        await rollback_pending_mcp_run_start(ctx)
         return _build_error_result(
             target_section_id=target_section_id,
             reason="missing_agent_profile",
@@ -169,7 +166,7 @@ async def invoke_linked_chat(
             target_section_id,
             chat_id,
         )
-        await rollback_mcp_run_start(ctx, run_start_authorization)
+        await rollback_pending_mcp_run_start(ctx)
         return _build_error_result(
             target_section_id=target_section_id,
             reason=reason,
@@ -221,24 +218,6 @@ async def invoke_linked_chat(
             reason="invalid_engine_config",
             message=str(exc),
         )
-    if resolved_engine.engine_config.engineType in (
-        EngineType.setta_llm,
-        EngineType.external_agent,
-    ):
-        try:
-            await enforce_mcp_llm_allowed(
-                ctx,
-                share_session_id=run_start_authorization.share_session_id,
-            )
-        except HTTPException:
-            await _release_linked_chat_section_start_failure(
-                manager,
-                agentic_context.project_config_id,
-                target_section_id,
-                chat_id,
-            )
-            await rollback_mcp_run_start(ctx, run_start_authorization)
-            raise
     if resolved_engine.engine_config.engineType == EngineType.setta_llm:
         runner = ctx.fastmcp.state.agent_runner
         if runner.disabled:
@@ -287,7 +266,7 @@ async def invoke_linked_chat(
             target_section_id,
             chat_id,
         )
-        await rollback_mcp_run_start(ctx, run_start_authorization)
+        await rollback_pending_mcp_run_start(ctx)
         return _build_error_result(
             target_section_id=target_section_id,
             reason="chat_history_conflict",
@@ -330,7 +309,7 @@ async def invoke_linked_chat(
             target_section_id,
             chat_id,
         )
-        await rollback_mcp_run_start(ctx, run_start_authorization)
+        await rollback_pending_mcp_run_start(ctx)
         return _build_error_result(
             target_section_id=target_section_id,
             reason="binding_start_failed",
@@ -367,19 +346,19 @@ async def invoke_linked_chat(
                 emit_ai_follow=False,
             )
         except (KeyError, ValueError) as exc:
-            await rollback_mcp_run_start(ctx, run_start_authorization)
             await _release_linked_chat_section_start_failure(
                 manager,
                 agentic_context.project_config_id,
                 target_section_id,
                 chat_id,
             )
+            await rollback_pending_mcp_run_start(ctx)
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
                 message=str(exc),
             )
-        commit_mcp_run_start(ctx, run_start_authorization)
+        commit_pending_mcp_run_start(ctx)
         await _mark_linked_chat_section_run_started(
             manager,
             agentic_context.project_config_id,
@@ -425,19 +404,19 @@ async def invoke_linked_chat(
                 linked_chat_inputs,
             )
         except (KeyError, ValueError) as exc:
-            await rollback_mcp_run_start(ctx, run_start_authorization)
             await _release_linked_chat_section_start_failure(
                 manager,
                 agentic_context.project_config_id,
                 target_section_id,
                 chat_id,
             )
+            await rollback_pending_mcp_run_start(ctx)
             return _build_error_result(
                 target_section_id=target_section_id,
                 reason="run_start_failed",
                 message=str(exc),
             )
-        commit_mcp_run_start(ctx, run_start_authorization)
+        commit_pending_mcp_run_start(ctx)
         await _mark_linked_chat_section_run_started(
             manager,
             agentic_context.project_config_id,

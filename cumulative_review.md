@@ -1,3 +1,41 @@
+## 2026-03-11 00:37:13 PDT
+
+Implemented the remaining top-level review fixes for standalone managed-chat scoping, project-scoped project-chat stop/hydration, restore collision ownership, and MCP linked-chat runtime-policy centralization, then verified the changed paths with frontend unit/integration tests, backend pytest, Playwright, and CDP.
+
+Standalone route authority and managed-chat gating:
+- Standalone `llm_disallowed` state is now keyed by the full owning surface identity instead of a loose route bucket. The standalone project chat route, thread route, section route, and window-space route each derive a concrete owner key from `projectConfigId` plus the exact surface owner (`project-chat`, `chatId`, `sectionId`, or `windowSpaceId`).
+- Same-tab navigation across projects no longer carries a stale blocked state into another project that happens to reuse the same thread id or route shape. The stale block clears automatically when the owner key changes, and reopens correctly when policy or hydration state allows it.
+- Standalone `/windowspace/:slug` no longer applies managed-chat denial as an all-or-nothing page gate. Mixed window spaces now filter blocked managed windows individually while keeping scriptable section windows and git graph windows visible. The full-page `Managed Chat Unavailable` surface only appears when the saved window space contains windows but none remain renderable under the active managed-chat policy.
+
+Project-chat stop/hydration scoping and restore ownership:
+- External project-chat stop now resolves the active `projectConfigId` and threads that through run lookup and fallback hydration, instead of widening the lookup with `projectConfigId: null`. Reused project-chat ids in another project can no longer be stopped or rehydrated accidentally from the wrong project boundary.
+- Floating window-space restore now treats restore collisions as logical-owner conflicts rather than raw `instanceId` conflicts. Restore supersession only happens when the restored floating window and an existing floating window represent the same owner, such as the same project-chat thread or the same section binding. If two layouts reuse an `instanceId` but point at different owners, the restored window is remapped to a fresh id instead of evicting the live one.
+- Removed the dead `showProjectChatWindowForModeInState(...)` helper rather than keeping a second unused windowing API surface alive.
+
+MCP runtime-policy cleanup and contract alignment:
+- `invoke_linked_chat` now publishes `ToolRuntimePolicyMetadata(requiresLLM=True, startsRun=True)` so the tool definition is the source of truth for both LLM access and run-start requirements.
+- Linked-chat execution now relies on the central pending MCP run-start contract that `/__setta__/tools/call` applies before dispatch. Tool-local admission code for `allowLLM`, `allowRun`, and rollback/commit timing was removed, and the tool now only commits or rolls back the centrally reserved run slot.
+- Removed dead frontend `run_sub_agent` aliases from active tool classification and tests so the frontend runtime taxonomy matches the live backend contract instead of advertising a deleted tool path.
+
+UX before vs after:
+- Before: a standalone thread or project-chat route could keep showing `Managed Chat Unavailable` after same-tab navigation into another project that reused the same thread id, because the blocked state was stored too loosely. After: the blocked state belongs to the exact owning project/surface pair, so navigating to another project or owner clears the stale denial and rehydrates the new surface independently.
+- Before: one managed project-chat window inside a standalone saved layout could collapse the entire standalone window-space page under `allowLLM=false`, hiding unrelated scriptable section chat and git graph content. After: only the blocked managed windows disappear; the remaining allowed windows stay visible and interactive.
+- Before: stopping a project chat or resolving fallback hydration could cross project boundaries when two projects reused the same project-chat id. After: stop and hydration stay fail-closed to the active project.
+- Before: restoring a saved floating layout could evict an unrelated live floating window just because both layouts reused the same `instanceId`. After: only true owner collisions supersede; unrelated live floating windows survive and the restored window gets a fresh instance id when needed.
+- Before: MCP linked chat split policy knowledge between route metadata and tool-local checks, which made policy widening or refactors easy to get wrong. After: runtime policy is declared once on the tool and enforced centrally before dispatch.
+
+DX before vs after:
+- Before: standalone route correctness depended on a page-level blocked flag that did not encode enough ownership information to be trustworthy across route transitions. After: owner keys are explicit and local, which makes state reset behavior directly testable.
+- Before: restore semantics mixed raw ids and logical ownership, so reasoning about whether a window should supersede or remap required following incidental `instanceId` reuse. After: restore collision behavior is expressed in owner-key terms that match the product model.
+- Before: linked-chat policy enforcement lived partly in the route and partly in the tool body, and the frontend still carried dead sub-agent identifiers. After: the policy boundary is centralized and the frontend runtime labels only live tool ids, which makes future policy changes and debugging materially simpler.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/components/Chat/sharePolicyChatAccess.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/StandaloneWindowSpaceSurface.test.tsx src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/state/actions/aiStopProjectChat.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/windowSpaces.test.ts` passed: 7 files, 190 tests.
+- `source activate.sh && pytest tests/routers/test_mcp_linked_chat_tool.py -k 'denies_deployment_runs_when_allow_run_is_false or denies_second_deployment_run_when_multiple_runs_are_disabled or rolls_back_reserved_deployment_run_when_binding_persistence_fails or denies_managed_runs_when_llm_is_disallowed or denies_external_agent_managed_runs_when_llm_is_disallowed'` passed: 5 tests.
+- `source activate.sh && pytest tests/mcp/test_tool_runtime_policy_metadata.py` passed: 1 test.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g 'same-tab standalone project chat navigation keeps llm_disallowed state scoped to the owning project config|deployment allowLLM=false keeps scriptable section and git graph surfaces available while blocking managed project chat windows'` passed: 2 tests.
+- CDP verification created a disposable project on the live dev instance, seeded a mixed standalone window space under deployment mode with `allowLLM=false`, and confirmed the managed project-chat window was absent while the scriptable section window and git graph window remained visible with no full-page blocked fallback.
+
 ## 2026-03-10 23:39:37 PDT
 
 Implemented the remaining consolidated review fixes for MCP HTTP tool runtime-policy enforcement, removed the superseded sub-agent wrapper path, and locked the policy boundary down with focused metadata and router coverage.

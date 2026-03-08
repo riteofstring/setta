@@ -904,6 +904,127 @@ describe("StandaloneProjectSurfacePage", () => {
     ).toBeNull();
   });
 
+  it("keeps mixed standalone window spaces available when at least one window remains allowed", async () => {
+    const managedChat = createChatSectionFixture({
+      sectionId: "section-managed",
+      sectionName: "managed_chat",
+      managed: true,
+    });
+    const scriptableChat = createChatSectionFixture({
+      sectionId: "section-scriptable",
+      sectionName: "scriptable_chat",
+      managed: false,
+    });
+    hoisted.state.shareSessionState = {
+      isDeploymentMode: true,
+      sharePolicy: {
+        allowLLM: false,
+      },
+    };
+    hoisted.state.projectState = {
+      projectConfig: {
+        id: "project-config-1",
+        windowSpaces: {
+          "space-1": createWindowSpaceConfig({
+            id: "space-1",
+            name: "Mixed Space",
+            windowsById: {
+              "managed-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                sectionIdOrNull: null,
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Managed Chat",
+                chatId: "managed-thread",
+                embeddedGitPaneVisible: false,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0,
+                  y: 0,
+                  width: 0.33,
+                  height: 0.5,
+                },
+              },
+              "scriptable-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                sectionIdOrNull: scriptableChat.sectionId,
+                mode: ChatWindowModeEnum.section_mode,
+                title: "Scriptable Chat",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 2,
+                normalizedBounds: {
+                  x: 0.33,
+                  y: 0,
+                  width: 0.34,
+                  height: 0.5,
+                },
+              },
+              "managed-section-window": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.section,
+                sectionIdOrNull: managedChat.sectionId,
+                mode: ChatWindowModeEnum.section_mode,
+                title: "Managed Section Chat",
+                chatId: null,
+                embeddedGitPaneVisible: false,
+                zIndex: 3,
+                normalizedBounds: {
+                  x: 0.67,
+                  y: 0,
+                  width: 0.33,
+                  height: 0.5,
+                },
+              },
+            },
+            order: [
+              "managed-window",
+              "scriptable-window",
+              "managed-section-window",
+            ],
+          }),
+        },
+        sectionVariantMap: {
+          [managedChat.sectionId]: managedChat.variantId,
+          [scriptableChat.sectionId]: scriptableChat.variantId,
+        },
+      },
+      sections: {
+        [managedChat.sectionId]: managedChat.core,
+        [scriptableChat.sectionId]: scriptableChat.core,
+      },
+      sectionVariants: {
+        [managedChat.variantId]: managedChat.variant,
+        [scriptableChat.variantId]: scriptableChat.variant,
+      },
+      sectionImpls: {
+        [managedChat.implId]: managedChat.impl,
+        [scriptableChat.implId]: scriptableChat.impl,
+      },
+      parentSectionMap: {},
+    };
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/windowspace/mixed_space"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/windowspace/:windowSpaceSlug"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="mock-standalone-window-space-surface"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).toBeNull();
+  });
+
   it("keeps standalone window spaces with only scriptable chat and git graph windows available when deployment policy disallows managed chat", async () => {
     const scriptableChat = createChatSectionFixture({
       sectionId: "section-scriptable",
@@ -1031,6 +1152,49 @@ describe("StandaloneProjectSurfacePage", () => {
     ).toBeNull();
   });
 
+  it("clears a stale llm_disallowed block when navigating to the same thread in a different project config", async () => {
+    hoisted.state.projectChatBlockedErrorCode = "llm_disallowed";
+    hoisted.state.projectState.projectConfig.id = "project-config-1";
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo-a/chat/shared-thread"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+          <NavigateButton to="/demo-b/chat/shared-thread" />
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).not.toBeNull();
+
+    hoisted.state.projectState.projectConfig.id = "project-config-2";
+    hoisted.state.projectChatBlockedErrorCode = null;
+
+    await act(async () => {
+      click(
+        host.querySelector(
+          '[data-testid="mock-navigate-/demo-b/chat/shared-thread"]',
+        ),
+      );
+    });
+
+    const surface = host.querySelector(
+      '[data-testid="standalone-project-chat-thread-surface"]',
+    );
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-project-chat-id")).toBe("shared-thread");
+    expect(
+      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+    ).toBeNull();
+  });
+
   it("reopens a standalone project chat route when deployment policy allows LLM again on the same mounted page", async () => {
     hoisted.state.shareSessionState = {
       isDeploymentMode: true,
@@ -1112,14 +1276,13 @@ describe("StandaloneProjectSurfacePage", () => {
     expect(surface?.getAttribute("data-project-chat-id")).toBe("chat-alpha");
   });
 
-  it("reopens a standalone window-space route when deployment policy allows LLM again", async () => {
+  it("reopens a managed standalone window-space route when deployment policy allows LLM again", async () => {
     hoisted.state.shareSessionState = {
       isDeploymentMode: true,
       sharePolicy: {
         allowLLM: true,
       },
     };
-    hoisted.state.projectChatBlockedErrorCode = "llm_disallowed";
     hoisted.state.projectState = {
       projectConfig: {
         id: "project-config-1",
@@ -1169,13 +1332,10 @@ describe("StandaloneProjectSurfacePage", () => {
     });
 
     expect(
-      host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
-    ).not.toBeNull();
-    expect(
       host.querySelector(
         '[data-testid="mock-standalone-window-space-surface"]',
       ),
-    ).toBeNull();
+    ).not.toBeNull();
 
     hoisted.state.shareSessionState = {
       isDeploymentMode: true,
@@ -1183,7 +1343,6 @@ describe("StandaloneProjectSurfacePage", () => {
         allowLLM: false,
       },
     };
-    hoisted.state.projectChatBlockedErrorCode = null;
 
     await act(async () => {
       root.render(

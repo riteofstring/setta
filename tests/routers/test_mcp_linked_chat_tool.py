@@ -983,9 +983,7 @@ async def test_tools_call_invoke_linked_chat_uses_request_scoped_share_session_i
     assert response.status_code == 200
     assert agent_runner.calls
     assert switcher.calls
-    assert {
-        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
-    } == {request_session_id}
+    assert switcher.calls == []
     assert share_runtime_state.session_backend_calls == [request_session_id]
     assert request_session_id not in share_runtime_state.rollback_calls
     assert spoofed_session_id not in share_runtime_state.session_backend_calls
@@ -1042,9 +1040,7 @@ async def test_tools_call_invoke_linked_chat_denies_deployment_runs_when_allow_r
     assert agent_runner.calls == []
     assert manager.linked_chat_reservation_calls == []
     assert manager.set_chat_section_chat_id_calls == []
-    assert {
-        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
-    } == {request_session_id}
+    assert switcher.calls == []
     assert share_runtime_state.session_backend_calls == [request_session_id]
 
 
@@ -1101,9 +1097,7 @@ async def test_tools_call_invoke_linked_chat_denies_second_deployment_run_when_m
     assert agent_runner.calls == []
     assert manager.linked_chat_reservation_calls == []
     assert manager.set_chat_section_chat_id_calls == []
-    assert {
-        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
-    } == {request_session_id}
+    assert switcher.calls == []
     assert share_runtime_state.get_session_run_count(request_session_id) == 1
     assert share_runtime_state.increment_calls == []
     assert share_runtime_state.rollback_calls == []
@@ -1221,9 +1215,7 @@ async def test_tools_call_invoke_linked_chat_denies_managed_runs_when_llm_is_dis
     assert response.status_code == 403
     assert agent_runner.calls == []
     assert manager.set_chat_section_chat_id_calls == []
-    assert {
-        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
-    } == {request_session_id}
+    assert switcher.calls == []
     assert share_runtime_state.session_backend_calls == [request_session_id]
 
 
@@ -1278,9 +1270,7 @@ async def test_tools_call_invoke_linked_chat_denies_external_agent_managed_runs_
     assert external_agent_runner.calls == []
     assert manager.set_chat_section_chat_id_calls == []
     assert manager._linked_chat_section_reservations == {}
-    assert {
-        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
-    } == {request_session_id}
+    assert switcher.calls == []
     assert share_runtime_state.session_backend_calls == [request_session_id]
 
 

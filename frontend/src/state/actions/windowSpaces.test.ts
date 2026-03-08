@@ -1663,7 +1663,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(4);
   });
 
-  it("restores saved floating windows in place when they replace existing floating workspace windows", () => {
+  it("restores saved floating windows in place when they own the same project chat thread", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1700,7 +1700,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
             instanceId: "project-chat-window-2",
             placement: ChatWindowPlacementEnum.floating,
             title: "Moved Chat",
-            chatId: "chat-live",
+            chatId: "chat-saved",
             zIndex: 1,
             bounds: {
               x: 500,
@@ -1739,6 +1739,88 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
     expect(nextState.instancesById["project-chat-window-3"]).toBeUndefined();
     expect(nextState.nextInstanceNumber).toBe(3);
+  });
+
+  it("remaps restored floating windows when the same instance id belongs to a different live owner", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Saved Chat",
+                chatId: "chat-saved",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-2"],
+        instancesById: {
+          "project-chat-window-2": {
+            instanceId: "project-chat-window-2",
+            placement: ChatWindowPlacementEnum.floating,
+            title: "Live Chat",
+            chatId: "chat-live",
+            zIndex: 1,
+            bounds: {
+              x: 500,
+              y: 400,
+              width: 240,
+              height: 180,
+            },
+          },
+        },
+        nextInstanceNumber: 3,
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.order).toEqual([
+      "project-chat-window-2",
+      "project-chat-window-3",
+    ]);
+    expect(nextState.instancesById["project-chat-window-2"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Live Chat",
+      chatId: "chat-live",
+      bounds: {
+        x: 500,
+        y: 400,
+        width: 240,
+        height: 180,
+      },
+    });
+    expect(nextState.instancesById["project-chat-window-3"]).toMatchObject({
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Saved Chat",
+      chatId: "chat-saved",
+    });
+    expect(nextState.nextInstanceNumber).toBe(4);
   });
 
   it("replaces an existing floating section host when the restored layout owns the same section", () => {

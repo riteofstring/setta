@@ -588,9 +588,7 @@ const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
 ]);
 const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
   "setta__run_agent_profile",
-  "setta__run_sub_agent",
   "run_agent_profile",
-  "run_sub_agent",
 ]);
 
 function resolveToolRuntimeCategory(

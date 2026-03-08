@@ -1,12 +1,17 @@
 /* @vitest-environment jsdom */
 
-import { act, type ReactNode } from "react";
+import { act, useEffect, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import "testUtils/reactRefreshPreamble";
 import {
   ChatWindowModeEnum,
   WindowSpaceSurfaceKindEnum,
+  createChatSectionImpl,
+  createCore,
+  createProjectConfig,
+  createUserDefaultChatSectionImpl,
+  createVariant,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,6 +34,85 @@ let mockProjectState: MockProjectState = {
   },
   sections: {},
 };
+
+const hoisted = vi.hoisted(() => ({
+  blockedErrorCode: null as string | null,
+}));
+
+const EMPTY_MANAGED_CHAT_AUTHORITY_STATE = {
+  projectConfig: createProjectConfig({
+    sectionVariantMap: {},
+  }),
+  sections: {},
+  sectionVariants: {},
+  sectionImpls: {},
+};
+
+function createManagedChatAuthorityState() {
+  const managedSectionId = "section-managed";
+  const scriptableSectionId = "section-scriptable";
+  const managedVariantId = "variant-managed";
+  const scriptableVariantId = "variant-scriptable";
+  const managedImplId = "impl-managed";
+  const scriptableImplId = "impl-scriptable";
+
+  return {
+    state: {
+      projectConfig: createProjectConfig({
+        sectionVariantMap: {
+          [managedSectionId]: managedVariantId,
+          [scriptableSectionId]: scriptableVariantId,
+        },
+      }),
+      sections: {
+        [managedSectionId]: createCore({
+          id: managedSectionId,
+          name: "Managed Chat",
+          variants: [managedVariantId],
+          defaultVariant: managedVariantId,
+        }),
+        [scriptableSectionId]: createCore({
+          id: scriptableSectionId,
+          name: "Scriptable Chat",
+          variants: [scriptableVariantId],
+          defaultVariant: scriptableVariantId,
+        }),
+      },
+      sectionVariants: {
+        [managedVariantId]: createVariant({
+          id: managedVariantId,
+          name: "Managed Variant",
+          impl: managedImplId,
+          nonPresetImpls: [],
+        }),
+        [scriptableVariantId]: createVariant({
+          id: scriptableVariantId,
+          name: "Scriptable Variant",
+          impl: scriptableImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      sectionImpls: {
+        [managedImplId]: createChatSectionImpl(
+          createUserDefaultChatSectionImpl(),
+          {
+            id: managedImplId,
+            managed: true,
+          },
+        ),
+        [scriptableImplId]: createChatSectionImpl(
+          createUserDefaultChatSectionImpl(),
+          {
+            id: scriptableImplId,
+            managed: false,
+          },
+        ),
+      },
+    },
+    managedSectionId,
+    scriptableSectionId,
+  };
+}
 
 vi.mock("state/definitions", () => ({
   useProjectState: (
@@ -58,32 +142,40 @@ vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
     mode,
     surfaceId,
     setProjectChatId,
+    onProjectChatBlockedErrorCodeChange,
   }: {
     projectChatId?: string | null;
     mode?: string;
     surfaceId?: string;
     setProjectChatId?: (next: string | null) => void;
-  }) => (
-    <div
-      data-testid="mock-unified-chat-surface"
-      data-project-chat-id={projectChatId ?? ""}
-      data-project-chat-surface-id={surfaceId ?? ""}
-      data-chat-surface-mode={mode ?? ""}
-    >
-      project chat:{projectChatId ?? "global"}
-      {setProjectChatId ? (
-        <button
-          type="button"
-          data-testid="mock-set-project-chat-id"
-          onClick={() => {
-            setProjectChatId("chat-local-override");
-          }}
-        >
-          Set local chat
-        </button>
-      ) : null}
-    </div>
-  ),
+    onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+  }) => {
+    useEffect(() => {
+      onProjectChatBlockedErrorCodeChange?.(hoisted.blockedErrorCode);
+    }, [onProjectChatBlockedErrorCodeChange]);
+
+    return (
+      <div
+        data-testid="mock-unified-chat-surface"
+        data-project-chat-id={projectChatId ?? ""}
+        data-project-chat-surface-id={surfaceId ?? ""}
+        data-chat-surface-mode={mode ?? ""}
+      >
+        project chat:{projectChatId ?? "global"}
+        {setProjectChatId ? (
+          <button
+            type="button"
+            data-testid="mock-set-project-chat-id"
+            onClick={() => {
+              setProjectChatId("chat-local-override");
+            }}
+          >
+            Set local chat
+          </button>
+        ) : null}
+      </div>
+    );
+  },
 }));
 
 vi.mock("components/Git/GitGraphWindowContent", () => ({
@@ -138,6 +230,7 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
 
 describe("StandaloneWindowSpaceSurface", () => {
   beforeEach(() => {
+    hoisted.blockedErrorCode = null;
     mockProjectState = {
       projectConfig: {
         id: "project-1",
@@ -151,6 +244,8 @@ describe("StandaloneWindowSpaceSurface", () => {
   it("renders saved project chat, git graph, and section windows", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
         windowSpace={createWindowSpaceConfig({
           id: "space-id",
           name: "Research Board",
@@ -221,6 +316,8 @@ describe("StandaloneWindowSpaceSurface", () => {
   it("passes saved mode and chat identity into standalone section windows", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
         windowSpace={createWindowSpaceConfig({
           id: "space-id",
           name: "Research Board",
@@ -257,6 +354,8 @@ describe("StandaloneWindowSpaceSurface", () => {
   it("keeps saved chat ownership for standalone section windows in section mode", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
         windowSpace={createWindowSpaceConfig({
           id: "space-id",
           name: "Research Board",
@@ -290,6 +389,8 @@ describe("StandaloneWindowSpaceSurface", () => {
   it("renders only one standalone section host when saved data duplicates a section binding", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
         windowSpace={createWindowSpaceConfig({
           id: "space-id",
           name: "Research Board",
@@ -338,6 +439,8 @@ describe("StandaloneWindowSpaceSurface", () => {
   it("renders shared resize handles for snapped window-space layouts", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
         windowSpace={createWindowSpaceConfig({
           id: "space-id",
           name: "Research Board",
@@ -386,6 +489,8 @@ describe("StandaloneWindowSpaceSurface", () => {
   it("shows an empty-state message when the saved space has no windows", () => {
     const markup = renderToStaticMarkup(
       <StandaloneWindowSpaceSurface
+        canUseManagedChat={true}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
         windowSpace={createWindowSpaceConfig({
           id: "space-id",
           name: "Research Board",
@@ -398,6 +503,195 @@ describe("StandaloneWindowSpaceSurface", () => {
     expect(markup).toContain(
       "This window space does not have any saved floating windows.",
     );
+  });
+
+  it("keeps scriptable and git windows visible while filtering managed windows", () => {
+    const { state, managedSectionId, scriptableSectionId } =
+      createManagedChatAuthorityState();
+    mockProjectState = {
+      projectConfig: {
+        id: "project-1",
+      },
+      sections: {
+        [managedSectionId]: { name: "Managed Chat" },
+        [scriptableSectionId]: { name: "Scriptable Chat" },
+      },
+    };
+
+    const markup = renderToStaticMarkup(
+      <StandaloneWindowSpaceSurface
+        canUseManagedChat={false}
+        managedChatAuthorityState={state}
+        windowSpace={createWindowSpaceConfig({
+          id: "space-id",
+          name: "Research Board",
+          windowsById: {
+            "managed-window": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
+              mode: ChatWindowModeEnum.project_ai_mode,
+              title: "Managed Project Chat",
+              chatId: "managed-chat-id",
+              zIndex: 1,
+              normalizedBounds: {
+                x: 0,
+                y: 0,
+                width: 0.33,
+                height: 0.5,
+              },
+            },
+            "scriptable-window": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.section,
+              sectionIdOrNull: scriptableSectionId,
+              mode: ChatWindowModeEnum.section_mode,
+              title: "Scriptable Section Chat",
+              chatId: null,
+              zIndex: 2,
+              normalizedBounds: {
+                x: 0.33,
+                y: 0,
+                width: 0.33,
+                height: 0.5,
+              },
+            },
+            "git-window": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
+              mode: ChatWindowModeEnum.git_graph_mode,
+              title: "Git Graph",
+              chatId: null,
+              zIndex: 3,
+              normalizedBounds: {
+                x: 0.66,
+                y: 0,
+                width: 0.34,
+                height: 0.5,
+              },
+            },
+          },
+          order: ["managed-window", "scriptable-window", "git-window"],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="standalone-window-space-surface"');
+    expect(markup).toContain('data-testid="mock-section-window-surface"');
+    expect(markup).toContain('data-testid="mock-git-graph-window-content"');
+    expect(markup).not.toContain("Managed Project Chat");
+    expect(markup).not.toContain(
+      'data-testid="standalone-managed-chat-blocked"',
+    );
+  });
+
+  it("shows the managed-chat block when every saved window is filtered out", () => {
+    const markup = renderToStaticMarkup(
+      <StandaloneWindowSpaceSurface
+        canUseManagedChat={false}
+        managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+        windowSpace={createWindowSpaceConfig({
+          id: "space-id",
+          name: "Research Board",
+          windowsById: {
+            "managed-window": {
+              surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+              sectionIdOrNull: null,
+              mode: ChatWindowModeEnum.project_ai_mode,
+              title: "Managed Project Chat",
+              chatId: "managed-chat-id",
+              zIndex: 1,
+              normalizedBounds: {
+                x: 0,
+                y: 0,
+                width: 1,
+                height: 1,
+              },
+            },
+          },
+          order: ["managed-window"],
+        })}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="standalone-managed-chat-blocked"');
+    expect(markup).toContain("Managed Chat Unavailable");
+    expect(markup).not.toContain(
+      'data-testid="standalone-window-space-window"',
+    );
+  });
+
+  it("clears window-local managed-chat denial state when the owning project changes", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const root = createRoot(host);
+    hoisted.blockedErrorCode = "llm_disallowed";
+    const sourceWindowSpace = createWindowSpaceConfig({
+      id: "space-id",
+      name: "Research Board",
+      windowsById: {
+        win: {
+          surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+          sectionIdOrNull: null,
+          mode: ChatWindowModeEnum.project_ai_mode,
+          title: "Workspace Chat",
+          chatId: "shared-thread",
+          zIndex: 1,
+          normalizedBounds: {
+            x: 0,
+            y: 0,
+            width: 0.5,
+            height: 0.5,
+          },
+        },
+      },
+      order: ["win"],
+    });
+
+    try {
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            windowSpace={sourceWindowSpace}
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+          />,
+        );
+      });
+
+      expect(
+        host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+      ).not.toBeNull();
+
+      hoisted.blockedErrorCode = null;
+      mockProjectState = {
+        projectConfig: {
+          id: "project-2",
+        },
+        sections: {},
+      };
+
+      act(() => {
+        root.render(
+          <StandaloneWindowSpaceSurface
+            windowSpace={sourceWindowSpace}
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+          />,
+        );
+      });
+
+      expect(
+        host.querySelector('[data-testid="standalone-managed-chat-blocked"]'),
+      ).toBeNull();
+      expect(
+        host.querySelector('[data-testid="mock-unified-chat-surface"]'),
+      ).not.toBeNull();
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      host.remove();
+      hoisted.blockedErrorCode = null;
+    }
   });
 
   it("resets standalone git-pane visibility when a different saved space reuses the same window id", () => {
@@ -624,7 +918,11 @@ describe("StandaloneWindowSpaceSurface", () => {
     try {
       act(() => {
         root.render(
-          <StandaloneWindowSpaceSurface windowSpace={initialWindowSpace} />,
+          <StandaloneWindowSpaceSurface
+            windowSpace={initialWindowSpace}
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+          />,
         );
       });
 
@@ -647,7 +945,11 @@ describe("StandaloneWindowSpaceSurface", () => {
 
       act(() => {
         root.render(
-          <StandaloneWindowSpaceSurface windowSpace={reboundWindowSpace} />,
+          <StandaloneWindowSpaceSurface
+            windowSpace={reboundWindowSpace}
+            canUseManagedChat={true}
+            managedChatAuthorityState={EMPTY_MANAGED_CHAT_AUTHORITY_STATE}
+          />,
         );
       });
 

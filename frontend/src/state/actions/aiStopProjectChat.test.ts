@@ -107,6 +107,12 @@ describe("stopProjectChatResponse", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-a",
+        name: "demo",
+      }),
+    });
     useAIStore.persist.setOptions({
       storage: {
         getItem: memoryStorage.getItem.bind(memoryStorage),
@@ -562,7 +568,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
@@ -570,6 +576,65 @@ describe("stopProjectChatResponse", () => {
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
+  });
+
+  it("keeps external project chat stop scoped to the current project when chat ids overlap", async () => {
+    const chatId = "chat-stop-external-shared";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [
+        createAgentRun({
+          id: "run-project-a",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2026-03-01T00:00:00Z",
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: "project-a",
+          },
+        }),
+        createAgentRun({
+          id: "run-project-b",
+          status: AgentRunStatusEnum.running,
+          startedAt: "2026-03-02T00:00:00Z",
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: "project-b",
+          },
+        }),
+      ],
+    });
+    mockedRouteStopExternalAgentRun.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "hydrate failed" },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
+      runId: "run-project-a",
+    });
+    expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalledWith({
+      runId: "run-project-b",
+    });
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: "project-a",
+    });
   });
 
   it("restores local external project chat state when stop and hydrate both fail", async () => {
@@ -592,7 +657,7 @@ describe("stopProjectChatResponse", () => {
           inputs: {
             runType: "external_agent",
             chatId,
-            projectConfigId: null,
+            projectConfigId: "project-a",
           },
         }),
       ],
@@ -616,7 +681,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
@@ -652,7 +717,7 @@ describe("stopProjectChatResponse", () => {
           inputs: {
             runType: "external_agent",
             chatId,
-            projectConfigId: null,
+            projectConfigId: "project-a",
           },
         }),
       ],
@@ -691,7 +756,7 @@ describe("stopProjectChatResponse", () => {
     expect(stopped).toBe(true);
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(
       useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
@@ -721,7 +786,7 @@ describe("stopProjectChatResponse", () => {
           inputs: {
             runType: "external_agent",
             chatId,
-            projectConfigId: null,
+            projectConfigId: "project-a",
           },
         }),
       ],
@@ -780,7 +845,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
       "Failed to stop project chat.",
@@ -825,7 +890,7 @@ describe("stopProjectChatResponse", () => {
     expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
     expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: null,
+      projectConfigId: "project-a",
     });
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
     const details = useAIStore.getState().chatDetails[chatId];

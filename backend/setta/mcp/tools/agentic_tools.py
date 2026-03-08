@@ -225,3 +225,7 @@ attach_tool_access(
         idPathsByType={"section": ["targetSectionId"]},
     ),
 )
+attach_tool_runtime_policy(
+    invoke_linked_chat,
+    ToolRuntimePolicyMetadata(requiresLLM=True, startsRun=True),
+)

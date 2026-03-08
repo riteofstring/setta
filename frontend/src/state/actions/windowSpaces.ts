@@ -30,6 +30,7 @@ import {
   createProjectChatWindowingState,
   createWindowSpaceState,
   createWindowSpaceWindow,
+  type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
   type WindowSpaceConfig,
   type WindowSpaceState,
@@ -788,14 +789,32 @@ function dropRestoredSectionWindowsOwnedByNonFloatingWorkspaceHosts(
   });
 }
 
+function resolveFloatingWindowRestoreOwnerKey(
+  instance: ProjectChatWindowInstance,
+): string | null {
+  if (instance.sectionIdOrNull !== null) {
+    return `section:${instance.sectionIdOrNull}`;
+  }
+  if (instance.mode === ChatWindowModeEnum.git_graph_mode) {
+    return "git-graph";
+  }
+  if (
+    instance.mode === ChatWindowModeEnum.project_ai_mode &&
+    instance.chatId !== null
+  ) {
+    return `project-chat:${instance.chatId}`;
+  }
+  return null;
+}
+
 function resolveWorkspaceFloatingWindowsSupersededByRestore(
   restoredFloatingWindowing: ProjectChatWindowingState,
   currentWindowing: ProjectChatWindowingState,
 ): Set<string> {
-  const restoredSectionIds = new Set(
+  const restoredOwnerKeys = new Set(
     Object.values(restoredFloatingWindowing.instancesById)
-      .map((instance) => instance.sectionIdOrNull)
-      .filter((sectionId): sectionId is string => sectionId !== null),
+      .map((instance) => resolveFloatingWindowRestoreOwnerKey(instance))
+      .filter((ownerKey): ownerKey is string => ownerKey !== null),
   );
   const supersededFloatingInstanceIds = new Set<string>();
 
@@ -805,14 +824,8 @@ function resolveWorkspaceFloatingWindowsSupersededByRestore(
     if (instance.placement !== ChatWindowPlacementEnum.floating) {
       continue;
     }
-    if (restoredFloatingWindowing.instancesById[instanceId]) {
-      supersededFloatingInstanceIds.add(instanceId);
-      continue;
-    }
-    if (
-      instance.sectionIdOrNull !== null &&
-      restoredSectionIds.has(instance.sectionIdOrNull)
-    ) {
+    const ownerKey = resolveFloatingWindowRestoreOwnerKey(instance);
+    if (ownerKey !== null && restoredOwnerKeys.has(ownerKey)) {
       supersededFloatingInstanceIds.add(instanceId);
     }
   }

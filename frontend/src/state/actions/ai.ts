@@ -1867,9 +1867,10 @@ export async function stopProjectChatResponse(
   }
 
   if (isExternalEngine) {
+    const projectConfigId = getCurrProjectConfigId();
     return stopExternalChatResponse({
       chatId,
-      projectConfigId: null,
+      projectConfigId,
       failureMessage: "Failed to stop project chat.",
       localSnapshot,
     });

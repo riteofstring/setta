@@ -2567,6 +2567,133 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("same-tab standalone project chat navigation keeps llm_disallowed state scoped to the owning project config", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    let copiedProjectContext: {
+      projectConfigId: string;
+      defaultProjectConfigId: string | null;
+    } | null = null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+      const sharedThreadChatId = "shared-thread";
+      const copiedProjectName = `${projectConfigName}-copy-thread`;
+      const copiedProject = await saveProjectConfigCopyWithRefs(
+        page,
+        projectContext.projectConfigId,
+        copiedProjectName,
+      );
+      copiedProjectContext = {
+        projectConfigId: copiedProject.id,
+        defaultProjectConfigId: projectContext.defaultProjectConfigId,
+      };
+      allowExpectedApiError(page, {
+        path: "/api/getLLMChat",
+        statuses: [403],
+        method: "POST",
+        count: 4,
+      });
+
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string; projectConfigId?: string }
+          | undefined;
+        if (payload?.chatId !== sharedThreadChatId) {
+          await route.continue();
+          return;
+        }
+        if (payload.projectConfigId === projectContext.projectConfigId) {
+          await route.fulfill({
+            status: 403,
+            contentType: "application/json",
+            body: JSON.stringify({
+              detail: "LLM access disabled for this standalone thread.",
+            }),
+          });
+          return;
+        }
+        if (payload.projectConfigId === copiedProject.id) {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              messages: [
+                {
+                  id: "assistant-copied-shared-thread",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Copied project thread hydrated successfully.",
+                    },
+                  ],
+                  attachments: [],
+                  tool_calls: null,
+                },
+              ],
+              waitingForResponse: false,
+              llmConfig: {
+                id: "copied-thread-config",
+                model: "gpt-4o-mini",
+                provider: "openai",
+                base_url: null,
+                api_key_env: null,
+                other_params: null,
+                mcpServerIds: [],
+                temporary: false,
+              },
+              contextUsage: null,
+            }),
+          });
+          return;
+        }
+        await route.continue();
+      });
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/${encodeURIComponent(sharedThreadChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        page.getByTestId("standalone-managed-chat-blocked"),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("standalone-project-chat-thread-surface"),
+      ).toHaveCount(0);
+
+      const copiedThreadPath = `/${encodeURIComponent(copiedProjectName)}/chat/${encodeURIComponent(sharedThreadChatId)}`;
+      await page.evaluate(async (nextPath) => {
+        const { router } = await import("/src/components/Pages/router.tsx");
+        await router.navigate(nextPath);
+      }, copiedThreadPath);
+      await expect
+        .poll(() => new URL(page.url()).pathname)
+        .toBe(copiedThreadPath);
+
+      await expect(
+        page.getByTestId("standalone-managed-chat-blocked"),
+      ).toHaveCount(0);
+      await expect(
+        page.getByTestId("standalone-project-chat-thread-surface"),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Copied project thread hydrated successfully."),
+      ).toBeVisible();
+    } finally {
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, copiedProjectContext);
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone section windows keep their saved project-ai thread even without a live workspace binding", async ({
     page,
   }) => {
@@ -3685,17 +3812,31 @@ test.describe.serial("standalone project surface routes", () => {
           }),
           windowSpaceState: createWindowSpaceState({
             windowsById: {
+              "blocked-project-chat": {
+                surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
+                sectionIdOrNull: null,
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Blocked Project Chat",
+                chatId: null,
+                zIndex: 1,
+                normalizedBounds: {
+                  x: 0.05,
+                  y: 0.08,
+                  width: 0.28,
+                  height: 0.44,
+                },
+              },
               "scriptable-section-window": {
                 surfaceKind: WindowSpaceSurfaceKindEnum.section,
                 sectionIdOrNull: sectionId,
                 mode: ChatWindowModeEnum.section_mode,
                 title: "Scriptable Section Chat",
                 chatId: null,
-                zIndex: 1,
+                zIndex: 2,
                 normalizedBounds: {
-                  x: 0.05,
+                  x: 0.35,
                   y: 0.08,
-                  width: 0.42,
+                  width: 0.28,
                   height: 0.44,
                 },
               },
@@ -3705,16 +3846,20 @@ test.describe.serial("standalone project surface routes", () => {
                 mode: ChatWindowModeEnum.git_graph_mode,
                 title: "Git Graph",
                 chatId: null,
-                zIndex: 2,
+                zIndex: 3,
                 normalizedBounds: {
-                  x: 0.52,
+                  x: 0.66,
                   y: 0.08,
-                  width: 0.43,
+                  width: 0.29,
                   height: 0.44,
                 },
               },
             },
-            order: ["scriptable-section-window", "git-graph-window"],
+            order: [
+              "blocked-project-chat",
+              "scriptable-section-window",
+              "git-graph-window",
+            ],
           }),
         };
       }, scriptableSectionId);
@@ -3792,6 +3937,21 @@ test.describe.serial("standalone project surface routes", () => {
       await expect(
         standalonePage.getByTestId("standalone-managed-chat-blocked"),
       ).toHaveCount(0);
+      await expect(
+        standalonePage.locator(
+          '[data-testid="standalone-window-space-window"][data-chat-window-instance-id="blocked-project-chat"]',
+        ),
+      ).toHaveCount(0);
+      await expect(
+        standalonePage.locator(
+          '[data-testid="standalone-window-space-window"][data-chat-window-instance-id="scriptable-section-window"]',
+        ),
+      ).toBeVisible();
+      await expect(
+        standalonePage.locator(
+          '[data-testid="standalone-window-space-window"][data-chat-window-instance-id="git-graph-window"]',
+        ),
+      ).toBeVisible();
     } finally {
       await standalonePage.close();
       await cleanupGitOverlayFixture(gitFixture);

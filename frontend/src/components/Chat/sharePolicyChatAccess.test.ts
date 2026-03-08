@@ -18,7 +18,7 @@ import {
   filterManagedChatThreadSlashCommands,
   standaloneSectionRequiresManagedChat,
   standaloneWindowRequiresManagedChat,
-  standaloneWindowSpaceRequiresManagedChat,
+  standaloneWindowSpaceHasAllowedWindows,
   windowSurfaceRequiresManagedChat,
   type ManagedChatSurfaceAuthorityState,
 } from "./sharePolicyChatAccess";
@@ -303,12 +303,12 @@ describe("sharePolicyChatAccess", () => {
     ).toBe(false);
   });
 
-  it("blocks standalone window spaces only when one of their windows needs managed chat", () => {
+  it("keeps standalone window spaces available when at least one window stays allowed", () => {
     const { state, managedSectionId, scriptableSectionId, textSectionId } =
       createManagedChatAuthorityState();
 
     expect(
-      standaloneWindowSpaceRequiresManagedChat(
+      standaloneWindowSpaceHasAllowedWindows(
         createWindowSpaceConfig({
           id: "space-blocked",
           name: "Blocked Space",
@@ -331,10 +331,11 @@ describe("sharePolicyChatAccess", () => {
           order: ["managed-window"],
         }),
         state,
+        false,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      standaloneWindowSpaceRequiresManagedChat(
+      standaloneWindowSpaceHasAllowedWindows(
         createWindowSpaceConfig({
           id: "space-allowed",
           name: "Allowed Space",
@@ -384,7 +385,35 @@ describe("sharePolicyChatAccess", () => {
           order: ["graph-window", "scriptable-window", "text-window"],
         }),
         state,
+        false,
       ),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      standaloneWindowSpaceHasAllowedWindows(
+        createWindowSpaceConfig({
+          id: "space-managed",
+          name: "Managed Space",
+          windowsById: {
+            "managed-window": createWindowSpaceWindow({
+              surfaceKind: WindowSpaceSurfaceKindEnum.section,
+              sectionIdOrNull: managedSectionId,
+              mode: ChatWindowModeEnum.section_mode,
+              title: "Managed Chat",
+              chatId: null,
+              zIndex: 1,
+              normalizedBounds: {
+                x: 0,
+                y: 0,
+                width: 0.5,
+                height: 0.5,
+              },
+            }),
+          },
+          order: ["managed-window"],
+        }),
+        state,
+        true,
+      ),
+    ).toBe(true);
   });
 });

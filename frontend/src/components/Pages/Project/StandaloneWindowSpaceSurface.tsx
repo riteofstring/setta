@@ -1,4 +1,8 @@
 import {
+  windowSurfaceRequiresManagedChat,
+  type ManagedChatSurfaceAuthorityState,
+} from "components/Chat/sharePolicyChatAccess";
+import {
   buildFloatingSnapResizeBounds,
   buildFloatingSnapResizeHandles,
   denormalizeFloatingBounds,
@@ -24,6 +28,7 @@ import {
   type WindowSpaceConfig,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { NotFound } from "../NotFound/NotFound";
 
 type StandaloneWindowSpaceWindow = {
   instanceId: string;
@@ -356,10 +361,12 @@ export function applyStandaloneWindowSpaceHydration({
 
 export function StandaloneWindowSpaceSurface({
   windowSpace,
-  onProjectChatBlockedErrorCodeChange,
+  canUseManagedChat,
+  managedChatAuthorityState,
 }: {
   windowSpace: WindowSpaceConfig;
-  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+  canUseManagedChat: boolean;
+  managedChatAuthorityState: ManagedChatSurfaceAuthorityState;
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
@@ -421,10 +428,14 @@ export function StandaloneWindowSpaceSurface({
     [sectionNamesById, viewportSize.height, viewportSize.width, windowSpace],
   );
   const [localWindowsById, setLocalWindowsById] = useState(hydratedWindowsById);
+  const [blockedManagedWindowIds, setBlockedManagedWindowIds] = useState<
+    Record<string, true>
+  >({});
   const activeSnapResizeRef = useRef<ActiveStandaloneSnapResize | null>(null);
   const previousHydratedWindowsByIdRef = useRef(hydratedWindowsById);
   const hydrationKey = `${projectConfigId}:${windowSpace.id}`;
   const previousHydrationKeyRef = useRef(hydrationKey);
+  const previousCanUseManagedChatRef = useRef(canUseManagedChat);
 
   useEffect(() => {
     setLocalWindowsById((current) => {
@@ -445,14 +456,105 @@ export function StandaloneWindowSpaceSurface({
     });
   }, [hydratedWindowsById, hydrationKey]);
 
-  const visibleWindows = useMemo(() => {
-    return Object.values(localWindowsById).sort((a, b) => {
-      if (a.zIndex !== b.zIndex) {
-        return a.zIndex - b.zIndex;
+  useEffect(() => {
+    setBlockedManagedWindowIds((current) => {
+      if (Object.keys(current).length === 0) {
+        return current;
       }
-      return a.instanceId.localeCompare(b.instanceId);
+      return {};
     });
-  }, [localWindowsById]);
+  }, [hydrationKey]);
+
+  useEffect(() => {
+    setBlockedManagedWindowIds((current) => {
+      const next: Record<string, true> = {};
+      let changed = false;
+      for (const instanceId of Object.keys(current)) {
+        const window = localWindowsById[instanceId];
+        if (
+          window &&
+          windowSurfaceRequiresManagedChat(window, managedChatAuthorityState)
+        ) {
+          next[instanceId] = true;
+          continue;
+        }
+        changed = true;
+      }
+      if (
+        !changed &&
+        Object.keys(current).length === Object.keys(next).length
+      ) {
+        return current;
+      }
+      return next;
+    });
+  }, [localWindowsById, managedChatAuthorityState]);
+
+  useEffect(() => {
+    if (!previousCanUseManagedChatRef.current && canUseManagedChat) {
+      setBlockedManagedWindowIds((current) => {
+        if (Object.keys(current).length === 0) {
+          return current;
+        }
+        return {};
+      });
+    }
+    previousCanUseManagedChatRef.current = canUseManagedChat;
+  }, [canUseManagedChat]);
+
+  const visibleWindows = useMemo(() => {
+    return Object.values(localWindowsById)
+      .filter((window) => {
+        if (
+          !canUseManagedChat &&
+          windowSurfaceRequiresManagedChat(window, managedChatAuthorityState)
+        ) {
+          return false;
+        }
+        return !blockedManagedWindowIds[window.instanceId];
+      })
+      .sort((a, b) => {
+        if (a.zIndex !== b.zIndex) {
+          return a.zIndex - b.zIndex;
+        }
+        return a.instanceId.localeCompare(b.instanceId);
+      });
+  }, [
+    blockedManagedWindowIds,
+    canUseManagedChat,
+    localWindowsById,
+    managedChatAuthorityState,
+  ]);
+  const hasManagedWindows = useMemo(() => {
+    return Object.values(localWindowsById).some((window) =>
+      windowSurfaceRequiresManagedChat(window, managedChatAuthorityState),
+    );
+  }, [localWindowsById, managedChatAuthorityState]);
+  const shouldShowManagedChatBlockedSurface =
+    visibleWindows.length === 0 && hasManagedWindows;
+  const setWindowBlockedErrorCode = (
+    instanceId: string,
+    errorCode: string | null,
+  ) => {
+    setBlockedManagedWindowIds((current) => {
+      const shouldBlock = errorCode === "llm_disallowed";
+      if (shouldBlock) {
+        if (current[instanceId]) {
+          return current;
+        }
+        return {
+          ...current,
+          [instanceId]: true,
+        };
+      }
+      if (!current[instanceId]) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[instanceId];
+      return next;
+    });
+  };
   const snappedWindows = useMemo(() => {
     return visibleWindows.flatMap((window) => {
       const snapPreset = resolveFloatingSnapPresetFromBounds(
@@ -618,7 +720,18 @@ export function StandaloneWindowSpaceSurface({
       className="relative flex min-h-0 flex-1 overflow-hidden bg-setta-100/80 dark:bg-setta-950"
       data-testid="standalone-window-space-surface"
     >
-      {visibleWindows.length === 0 ? (
+      {shouldShowManagedChatBlockedSurface ? (
+        <div
+          className="relative min-h-0 flex-1"
+          data-testid="standalone-managed-chat-blocked"
+        >
+          <NotFound
+            title="Managed Chat Unavailable"
+            description="This deployment does not allow LLM access for standalone managed chat surfaces."
+          />
+        </div>
+      ) : null}
+      {visibleWindows.length === 0 && !shouldShowManagedChatBlockedSurface ? (
         <div className="m-auto rounded-lg border border-dashed border-setta-300 bg-white/80 px-4 py-3 text-sm text-setta-600 dark:border-setta-800 dark:bg-setta-900/80 dark:text-setta-300">
           This window space does not have any saved floating windows.
         </div>
@@ -677,9 +790,9 @@ export function StandaloneWindowSpaceSurface({
                   );
                 },
               }}
-              onProjectChatBlockedErrorCodeChange={
-                onProjectChatBlockedErrorCodeChange
-              }
+              onProjectChatBlockedErrorCodeChange={(errorCode) => {
+                setWindowBlockedErrorCode(window.instanceId, errorCode);
+              }}
             />
           ) : (
             <ProjectChatWindowSurface
@@ -732,9 +845,9 @@ export function StandaloneWindowSpaceSurface({
                       ),
                     );
                   }}
-                  onProjectChatBlockedErrorCodeChange={
-                    onProjectChatBlockedErrorCodeChange
-                  }
+                  onProjectChatBlockedErrorCodeChange={(errorCode) => {
+                    setWindowBlockedErrorCode(window.instanceId, errorCode);
+                  }}
                 />
               )}
             </ProjectChatWindowSurface>

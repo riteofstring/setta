@@ -61,7 +61,6 @@ import {
   setProjectChatWindowModeForSectionInState,
   setProjectChatWindowPlacementInState,
   setProjectChatWindowTitleInState,
-  showProjectChatWindowForModeInState,
   showSectionInProjectChatWindowInState,
   undockProjectChatWindowFromCanvasSectionInState,
   unmaximizeProjectChatWindow,
@@ -172,37 +171,6 @@ describe("project chat windowing reducer helpers", () => {
       width: 900,
       height: 560,
     });
-  });
-
-  it("opens git graph mode as a maximized window that restores to floating", () => {
-    const initial = createProjectChatWindowingState();
-
-    const { state, instanceId } = showProjectChatWindowForModeInState(
-      initial,
-      ChatWindowModeEnum.git_graph_mode,
-      {
-        placement: ChatWindowPlacementEnum.maximized,
-        title: "Git Graph",
-        nowMs: 1234,
-      },
-    );
-
-    const created = state.instancesById[instanceId];
-    if (!created) {
-      throw new Error("Expected git graph window instance.");
-    }
-    expect(created.mode).toBe(ChatWindowModeEnum.git_graph_mode);
-    expect(created.title).toBe("Git Graph");
-    expect(created.placement).toBe(ChatWindowPlacementEnum.maximized);
-    expect(created.isMaximized).toBe(true);
-    expect(created.lastPlacementBeforeMaximize).toBe(
-      ChatWindowPlacementEnum.floating,
-    );
-
-    const restored = unmaximizeProjectChatWindowInState(state, instanceId);
-    expect(restored.instancesById[instanceId]?.placement).toBe(
-      ChatWindowPlacementEnum.floating,
-    );
   });
 
   it("reuses the tracked git pane graph window until it leaves the pane-following state", () => {

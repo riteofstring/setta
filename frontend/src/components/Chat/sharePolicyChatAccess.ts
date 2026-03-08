@@ -75,12 +75,16 @@ export function standaloneWindowRequiresManagedChat(
   return windowSurfaceRequiresManagedChat(window, state);
 }
 
-export function standaloneWindowSpaceRequiresManagedChat(
+export function standaloneWindowSpaceHasAllowedWindows(
   windowSpace: Pick<WindowSpaceConfig, "windowsById">,
   state: ManagedChatSurfaceAuthorityState,
+  canUseManagedChat: boolean,
 ): boolean {
   for (const window of Object.values(windowSpace.windowsById)) {
-    if (standaloneWindowRequiresManagedChat(window, state)) {
+    if (
+      canUseManagedChat ||
+      !standaloneWindowRequiresManagedChat(window, state)
+    ) {
       return true;
     }
   }
