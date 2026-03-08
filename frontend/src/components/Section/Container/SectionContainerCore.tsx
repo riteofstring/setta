@@ -1,11 +1,9 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
 } from "state/actions/sectionInfos";
-import { useIsSectionUIActive } from "state/activeSectionUI";
 import {
   useAgenticScopeHighlights,
   useLocalStorage,
@@ -20,12 +18,9 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
+import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
-import {
-  getOnSectionClick,
-  getOutlineColor,
-  useAiSectionHighlight,
-} from "./utils";
+import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -45,6 +40,7 @@ function _SectionContainerCore({
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
   const {
+    isActiveSection,
     sectionTypeName,
     // jsonSourceMissing,
     isInOtherProjectConfigs,
@@ -62,6 +58,7 @@ function _SectionContainerCore({
       getEmbeddedAttachedTerminalParentIdForTerminalSection(x, sectionId) !==
         null && !impl.isMinimized;
     return {
+      isActiveSection: x.projectConfig.activeIds.includes(sectionId),
       sectionTypeName: impl.type,
       // jsonSourceMissing: x.sections[sectionId].jsonSourceMissing,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
@@ -74,7 +71,6 @@ function _SectionContainerCore({
       isJoinedAttachedTerminalChild,
     };
   }, shallow);
-  const isActiveSection = useIsSectionUIActive(sectionId);
   const showAiHighlight = useAiSectionHighlight(sectionId, projectConfigId);
   const aiHighlightClassName = showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
@@ -111,10 +107,6 @@ function _SectionContainerCore({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null;
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
-  const shouldPromoteSectionShellLayer = viewportInteractionActive;
   const sectionStyleVars = sectionStyleTheme
     ? ({
         "--setta-section-style-bg": sectionStyleTheme.bg,
@@ -129,66 +121,20 @@ function _SectionContainerCore({
         "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
       } as React.CSSProperties)
     : undefined;
-  const sectionShellStyle = shouldPromoteSectionShellLayer
-    ? ({
-        ...sectionStyleVars,
-        willChange: "transform",
-        transform: "translateZ(0)",
-        backfaceVisibility: "hidden",
-        isolation: "isolate",
-      } as React.CSSProperties)
-    : sectionStyleVars;
-  const sectionStyleChromeClassName = hasSectionStyleTheme
-    ? "!border-[color:var(--setta-section-style-border)] !bg-[color:var(--setta-section-style-bg)]"
-    : "";
-
-  // const boxShadow = !positionAndSizeLocked
-  //   ? isActiveSection
-  //     ? "shadow-2xl dark:shadow-setta-925"
-  //     : "shadow-md dark:shadow-setta-900/30 [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:shadow-2xl dark:[&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:shadow-[0_35px_60px_-15px_rgba(0,0,0,0.7)]"
-  //   : "";
-
-  const boxShadow = !positionAndSizeLocked
-    ? "shadow-md dark:shadow-setta-900/30"
-    : "";
-
-  const outlineColor = getOutlineColor({
+  const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
     isInOtherProjectConfigs,
-    // jsonSourceMissing,
+    useMetaControlStyle,
+    hasSectionStyleTheme,
+    positionAndSizeLocked,
+    forceHideOutline,
+    joinedCorners,
+    isJoinedAttachedTerminalChild,
+    omitAgenticHandleScopeClass,
+    aiHighlightClassName,
+    scopeHighlightClassName,
   });
-  const sectionStyleOutlineClassName = hasSectionStyleTheme
-    ? isActiveSection
-      ? "outline-[color:var(--setta-section-style-outline)]"
-      : "outline-transparent [&:active:not(:has(button:active,:active.setta-prevent-section-active-css))]:outline-[color:var(--setta-section-style-outline)]"
-    : outlineColor;
-  const containerBgClass = useMetaControlStyle
-    ? "bg-transparent dark:bg-transparent"
-    : "bg-white dark:bg-setta-925";
-  const containerBorderClass = useMetaControlStyle
-    ? "!border-transparent dark:!border-transparent"
-    : "";
-  const outlineClassName = useMetaControlStyle
-    ? "outline-transparent group-hover/card-section:outline-setta-400/60 dark:group-hover/card-section:outline-setta-700/60"
-    : sectionStyleOutlineClassName;
-  const shouldHideOutline = forceHideOutline || isJoinedAttachedTerminalChild;
-  let outlineSizeClassName = useMetaControlStyle ? "outline-2" : "outline-4";
-  if (shouldHideOutline) {
-    outlineSizeClassName = "outline-0";
-  }
-  const themedHandleScopeClassName = hasSectionStyleTheme
-    ? "agentic-handle-scope--themed"
-    : "";
-  let joinedCornerClassName = "";
-  if (joinedCorners === "code-terminal-parent") {
-    joinedCornerClassName = "rounded-b-none";
-  } else if (isJoinedAttachedTerminalChild) {
-    joinedCornerClassName = "rounded-t-none";
-  }
-  const handleScopeClassName = omitAgenticHandleScopeClass
-    ? ""
-    : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
 
@@ -196,13 +142,12 @@ function _SectionContainerCore({
   // {boxShadow}
   return (
     <section
-      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${isActiveSection ? "z-[150]" : "z-10"} ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
+      className={sectionShellClassName}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
-      data-section-active={isActiveSection ? "true" : "false"}
-      style={sectionShellStyle}
+      style={sectionStyleVars}
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
@@ -211,6 +156,7 @@ function _SectionContainerCore({
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
+        isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}

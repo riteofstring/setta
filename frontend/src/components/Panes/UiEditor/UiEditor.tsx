@@ -1,5 +1,6 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
+import _ from "lodash";
 import { useRef } from "react";
 import { BiHelpCircle } from "react-icons/bi";
 import { BsCardChecklist } from "react-icons/bs";
@@ -7,11 +8,11 @@ import { FiEdit3 } from "react-icons/fi";
 import { MdOutlineSettingsApplications } from "react-icons/md";
 import { PiCursorTextFill } from "react-icons/pi";
 import { TbEdit, TbVersions } from "react-icons/tb";
-import { useSolelyActiveSectionUIId } from "state/activeSectionUI";
-import { useLocalStorage } from "state/definitions";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import { useUIEditorTab } from "state/hooks/uiTypes";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  APP_CHROME_Z_INDEX_CLASS_NAME,
   PaneNameEnum,
   UIEditorTabName,
   UIEditorTabNameEnum,
@@ -39,14 +40,20 @@ export function UiEditor() {
     rootRef: uiEditorRef,
   });
   const hasViewModeTabs = useHasViewModeTabs();
-  const activeSectionId = useSolelyActiveSectionUIId();
-
-  const { selectedTabName, requiredTabs, sectionType } =
-    useUIEditorTab(activeSectionId);
+  const sectionIds = useProjectState(
+    (x) => x.projectConfig.activeIds,
+    _.isEqual,
+  );
+  const { selectedTabName, requiredTabs, sectionType } = useUIEditorTab(
+    sectionIds[0] ?? null,
+  );
   const { vis, width } = useLocalStorage(
     (x) => ({ vis: x.uiEditorVis, width: x.uiEditorWidth }),
     shallow,
   );
+  // const infoTabTooltip = renderMarkdown ? "Markdown Editor" : "Text Editor";
+  // const inputTitle =
+  // selectedTabName === UIEditorTabNameEnum.InfoConfig ? infoTabTooltip : null;
 
   const commonProps = {
     vis,
@@ -68,7 +75,7 @@ export function UiEditor() {
     >
       <div
         data-testid="ui-editor-icon-rail"
-        className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+        className={`fixed right-0 ${APP_CHROME_Z_INDEX_CLASS_NAME} flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900`}
         style={{
           top: "calc(var(--setta-titlebar-height) + 36px)",
           bottom: hasViewModeTabs ? "36px" : "0px",
@@ -125,9 +132,9 @@ export function UiEditor() {
         vis={vis}
         width={width}
       >
-        {activeSectionId && vis && selectedTabName ? (
+        {sectionIds.length === 1 && sectionIds[0] && vis && selectedTabName ? (
           <TabsVisible
-            sectionId={activeSectionId}
+            sectionId={sectionIds[0]}
             selectedTabName={selectedTabName}
             // inputTitle={inputTitle}
           />

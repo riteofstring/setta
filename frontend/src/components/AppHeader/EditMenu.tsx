@@ -26,7 +26,11 @@ import {
   useShareSession,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { PAGE_LOAD_TYPES, SETTINGS_ROUTER_PATH } from "utils/constants";
+import {
+  APP_MENU_Z_INDEX_CLASS_NAME,
+  PAGE_LOAD_TYPES,
+  SETTINGS_ROUTER_PATH,
+} from "utils/constants";
 import { shortcutPrettified } from "utils/utils";
 
 export function EditMenu() {
@@ -105,7 +109,7 @@ function Items() {
         <MenuSubTrigger>Color mode</MenuSubTrigger>
         <Menubar.Portal>
           <Menubar.SubContent
-            className="z-20 min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50  dark:bg-setta-850"
+            className={`${APP_MENU_Z_INDEX_CLASS_NAME} min-w-[200px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850`}
             alignOffset={-5}
             sideOffset={6}
           >

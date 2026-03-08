@@ -1,15 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { unstable_batchedUpdates } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
-  getHydratedActiveSectionUIState,
-  sanitizeProjectStateActiveIds,
-  useActiveSectionUI,
-} from "state/activeSectionUI";
-import {
-  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
   useNodeInternals,
@@ -28,26 +20,40 @@ import {
   route_load_all_project_metadata,
   route_load_project_config,
 } from "utils/generatedEndpoints";
-import { ProjectStateSingleConfig } from "utils/generatedTypes";
+import {
+  ProjectStateSingleConfigSchema,
+  type ProjectStateSingleConfig,
+  type ProjectStateSingleConfigInput,
+} from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
-import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
+import {
+  getPersistedProjectChatWindowingState,
+  setPersistedProjectChatWindowingState,
+} from "../projectChatWindowingPersistence";
+import {
+  createNodesMapFromProjectConfigChildren,
+  mergeProjectChatWindowingFromCurrentState,
+} from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res = await route_load_project_config({ projectConfigName });
   if (res200(res)) {
-    const loaded = await loadProjectState(res.data);
+    const normalizedProjectState = normalizeLoadedProjectState(res.data);
+    const loaded = await loadProjectState(normalizedProjectState);
     if (loaded) {
       const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: res.data.projectConfig.id,
+        projectConfigId: normalizedProjectState.projectConfig.id,
       });
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
-      await requestAIFollowSnapshot(res.data.projectConfig.id);
-      await fetchListenerCoverageSnapshot(res.data.projectConfig.id);
+      await requestAIFollowSnapshot(normalizedProjectState.projectConfig.id);
+      await fetchListenerCoverageSnapshot(
+        normalizedProjectState.projectConfig.id,
+      );
     }
     return loaded;
   } else {
@@ -55,9 +61,26 @@ export async function loadProjectConfig({ projectConfigName }) {
   }
 }
 
-export async function loadProjectState(p: ProjectStateSingleConfig) {
-  const { viewport, viewportInitialized } = p.projectConfig;
-  cancelPendingActiveSectionIdsSync();
+function normalizeLoadedProjectState(
+  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
+): ProjectStateSingleConfig {
+  return ProjectStateSingleConfigSchema.parse(projectState);
+}
+
+export async function loadProjectState(
+  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
+) {
+  const normalizedProjectState = normalizeLoadedProjectState(projectState);
+  const persistedProjectChatWindowing = getPersistedProjectChatWindowingState(
+    normalizedProjectState.projectConfig.id,
+  );
+  if (persistedProjectChatWindowing) {
+    mergeProjectChatWindowingFromCurrentState(normalizedProjectState, {
+      projectChatWindowing: persistedProjectChatWindowing,
+    });
+  }
+  const { viewport, viewportInitialized } =
+    normalizedProjectState.projectConfig;
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -68,34 +91,21 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  const nextProjectState = {
-    ...sanitizeProjectStateActiveIds(p),
+  useProjectState.setState({
+    ...normalizedProjectState,
     previewSectionVariantMap: {},
-  };
-  const nextActiveSectionUIState = getHydratedActiveSectionUIState(
-    p.projectConfig.activeIds,
+  });
+  setPersistedProjectChatWindowingState(
+    normalizedProjectState.projectConfig.id,
+    normalizedProjectState.projectChatWindowing,
   );
-  const nextNodesMap = createNodesMapFromProjectConfigChildren(
-    nextProjectState,
-    useNodeInternals.getState().x,
-  );
-  runWithAtomicallyPublishedProjectStores(
-    {
-      projectState: nextProjectState,
-      nodeInternals: { x: nextNodesMap },
-      activeSectionUI: nextActiveSectionUIState,
-    },
-    () => {
-      unstable_batchedUpdates(() => {
-        useProjectState.setState(nextProjectState);
-        useNodeInternals.setState({ x: nextNodesMap });
-        if (nextActiveSectionUIState !== null) {
-          useActiveSectionUI.setState(nextActiveSectionUIState);
-        }
-      });
-    },
-  );
-  applyPendingNameValidationErrors(p.projectConfig.id);
+  applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
+  useNodeInternals.setState((state) => ({
+    x: createNodesMapFromProjectConfigChildren(
+      useProjectState.getState(),
+      state.x,
+    ),
+  }));
   return true;
 }
 

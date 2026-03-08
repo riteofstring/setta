@@ -8,23 +8,16 @@ import {
   getMessageCompletenessScore,
   mergeChatMessages,
 } from "state/actions/chatMergeUtils";
+import { setPersistedProjectChatWindowingState } from "state/actions/projectChatWindowingPersistence";
 import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
-import {
-  getActiveSectionUIIds,
-  getReconciledActiveSectionUIStateFromBackend,
-  sanitizeProjectStateActiveIds,
-  useActiveSectionUI,
-} from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
-  runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
-  useLocalStorage,
   useMisc,
   useNodeInternals,
   usePendingOperations,
@@ -52,6 +45,7 @@ import {
   BaseSectionImplUnion,
   CodeObjType,
   Core,
+  createProjectChatWindowingState,
   ImplArgsBundleMap,
   isBaseChildlessCodeObjImpl,
   isBaseParamCodeObjImpl,
@@ -66,7 +60,6 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
 
 const effectiveImplCacheByImpl = new WeakMap<
@@ -223,6 +216,70 @@ function mergeStreamingChatSections(
   }
 
   return mergedSectionIds;
+}
+
+function mergeProjectChatWindowOrder(
+  currentOrder: string[],
+  incomingOrder: string[],
+  mergedInstancesById: ProjectStateSingleConfig["projectChatWindowing"]["instancesById"],
+): string[] {
+  const nextOrder: string[] = [];
+  const seen = new Set<string>();
+  const appendIfPresent = (instanceId: string) => {
+    if (!mergedInstancesById[instanceId] || seen.has(instanceId)) {
+      return;
+    }
+    seen.add(instanceId);
+    nextOrder.push(instanceId);
+  };
+  for (const instanceId of currentOrder) {
+    appendIfPresent(instanceId);
+  }
+  for (const instanceId of incomingOrder) {
+    appendIfPresent(instanceId);
+  }
+  for (const instanceId of Object.keys(mergedInstancesById)) {
+    appendIfPresent(instanceId);
+  }
+  return nextOrder;
+}
+
+export function mergeProjectChatWindowingFromCurrentState(
+  projectState: ProjectStateSingleConfig,
+  currentState: {
+    projectChatWindowing?: ProjectStateSingleConfig["projectChatWindowing"];
+  },
+): void {
+  const incomingWindowing =
+    projectState.projectChatWindowing ?? createProjectChatWindowingState();
+  const currentWindowing =
+    currentState.projectChatWindowing ?? createProjectChatWindowingState();
+
+  if (
+    currentWindowing.order.length === 0 &&
+    Object.keys(currentWindowing.instancesById).length === 0
+  ) {
+    projectState.projectChatWindowing = incomingWindowing;
+    return;
+  }
+
+  const mergedInstancesById = {
+    ...incomingWindowing.instancesById,
+    ...currentWindowing.instancesById,
+  };
+  projectState.projectChatWindowing = createProjectChatWindowingState({
+    ...incomingWindowing,
+    instancesById: mergedInstancesById,
+    order: mergeProjectChatWindowOrder(
+      currentWindowing.order,
+      incomingWindowing.order,
+      mergedInstancesById,
+    ),
+    nextInstanceNumber: Math.max(
+      incomingWindowing.nextInstanceNumber,
+      currentWindowing.nextInstanceNumber,
+    ),
+  });
 }
 
 function hasMoreCompleteChatMessages(
@@ -975,26 +1032,6 @@ export function manualDndChildrenReset() {
   );
 }
 
-function getComparableProjectState(
-  state: ProjectStateSingleConfig | ZustandProjectState,
-): ProjectStateSingleConfig {
-  return sanitizeProjectStateActiveIds({
-    sections: state.sections,
-    sectionImpls: state.sectionImpls,
-    sectionVariants: state.sectionVariants,
-    codeObjs: state.codeObjs,
-    codeObjImpls: state.codeObjImpls,
-    codeObjVariants: state.codeObjVariants,
-    artifactGroups: state.artifactGroups,
-    projectConfig: state.projectConfig,
-    singletonSections: state.singletonSections,
-    parentSectionMap: state.parentSectionMap,
-    shownParamIds: state.shownParamIds,
-    requiredDecodedImages: state.requiredDecodedImages,
-    genCodeBinding: state.genCodeBinding ?? null,
-  });
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1004,6 +1041,7 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  mergeProjectChatWindowingFromCurrentState(x.projectState, currentState);
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -1026,52 +1064,19 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
-    x.projectState.projectConfig.activeIds,
-    x.completedOpIds,
-    x.projectState.projectConfig.id,
-    Object.keys(x.projectState.sections),
-  );
-  const sanitizedProjectState = getComparableProjectState(x.projectState);
-  const projectStateChanged = !_.isEqual(
-    getComparableProjectState(currentState),
-    sanitizedProjectState,
-  );
-
-  if (!projectStateChanged) {
-    unstable_batchedUpdates(() => {
-      usePendingOperations.setState({ pending: nextPending });
-      if (nextActiveSectionUIState !== null) {
-        useActiveSectionUI.setState(nextActiveSectionUIState);
-      }
-    });
-    markRenameBroadcastsReady(completedIds);
-    maybeOpenNextRenamePrompt();
-    clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
-    return;
-  }
-
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
   );
-  runWithAtomicallyPublishedProjectStores(
-    {
-      projectState: sanitizedProjectState,
-      nodeInternals: { x: nextNodesMap },
-      activeSectionUI: nextActiveSectionUIState,
-    },
-    () => {
-      unstable_batchedUpdates(() => {
-        usePendingOperations.setState({ pending: nextPending });
-        useNodeInternals.setState({ x: nextNodesMap });
-        useProjectState.setState(() => sanitizedProjectState);
-        if (nextActiveSectionUIState !== null) {
-          useActiveSectionUI.setState(nextActiveSectionUIState);
-        }
-      });
-    },
+  unstable_batchedUpdates(() => {
+    usePendingOperations.setState({ pending: nextPending });
+    useNodeInternals.setState({ x: nextNodesMap });
+    useProjectState.setState(() => x.projectState);
+  });
+  setPersistedProjectChatWindowingState(
+    x.projectState.projectConfig.id,
+    x.projectState.projectChatWindowing,
   );
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
@@ -1254,7 +1259,6 @@ export function createNodesMapFromProjectConfigChildren(
   nodes: ZustandNodeInternalsState["x"],
 ) {
   const nodesMap: Map<string, Node> = new Map();
-  const darkMode = useLocalStorage.getState().darkMode;
   const { activeViewModeId, viewModes } = p.projectConfig;
   const topLevelSections = getActiveViewModeTopLevelSections(p);
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
@@ -1284,13 +1288,6 @@ export function createNodesMapFromProjectConfigChildren(
         continue;
       }
     }
-    const sectionImpl = getEffectiveSectionImplIfPresent(p, sectionId);
-    const sectionTheme =
-      sectionImpl?.styleColor !== null &&
-      sectionImpl?.styleColor !== undefined &&
-      sectionImpl.styleColor.trim() !== ""
-        ? deriveSectionStyleTheme(sectionImpl.styleColor, darkMode)
-        : null;
     nodesMap.set(sectionId, {
       id: sectionId,
       position: { x: layout.x, y: layout.y },
@@ -1298,8 +1295,6 @@ export function createNodesMapFromProjectConfigChildren(
       height: nodes.get(sectionId)?.height ?? layout.h,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
-      type: sectionImpl?.type,
-      style: sectionTheme ? { background: sectionTheme.bg } : undefined,
     });
   }
 
@@ -1510,7 +1505,7 @@ export function deleteAllActiveSections() {
   }
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
-    sectionIds: getActiveSectionUIIds(),
+    sectionIds: useProjectState.getState().projectConfig.activeIds,
   });
 }
 
@@ -1724,7 +1719,7 @@ export async function groupActiveSections() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const sectionIds = getActiveSectionUIIds();
+  const sectionIds = useProjectState.getState().projectConfig.activeIds;
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
@@ -1737,7 +1732,7 @@ export async function ungroupActiveGroups() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const groupIds = getActiveSectionUIIds();
+  const groupIds = useProjectState.getState().projectConfig.activeIds;
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 

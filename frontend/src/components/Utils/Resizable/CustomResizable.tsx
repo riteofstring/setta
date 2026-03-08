@@ -31,6 +31,7 @@ import {
 } from "utils/constants";
 import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
+import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   getChangedSize,
@@ -45,6 +46,7 @@ export function CustomResizable({
   sectionId,
   bgColor,
   isYouTube,
+  isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
   hasSectionStyleTheme = false,
@@ -61,6 +63,7 @@ export function CustomResizable({
       sectionId={sectionId}
       bgColor={bgColor}
       isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
@@ -83,6 +86,7 @@ function CustomResizableCore({
   sectionId,
   bgColor,
   isYouTube,
+  isActiveSection,
   isMetaControl,
   positionAndSizeLocked,
   hasSectionStyleTheme,
@@ -387,6 +391,7 @@ function CustomResizableCore({
       as={as}
       bgColor={bgColor}
       isYouTube={isYouTube}
+      isActiveSection={isActiveSection}
       isMetaControl={isMetaControl}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
@@ -420,6 +425,7 @@ function CustomResizableSuperCore({
   as,
   bgColor,
   isYouTube,
+  isActiveSection,
   isMetaControl,
   hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
@@ -473,18 +479,24 @@ function CustomResizableSuperCore({
   const layoutClassNameToUse =
     layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
 
+  const zIndexClass = isActiveSection ? "z-[150]" : "z-10";
   // MetaControl sections render outboard controls near the agentic handles.
   // On hover, raise the resizable stacking context above the handles so menus
   // remain clickable.
   const metaHoverZIndexClass = isMetaControl
     ? "group-hover/card-section:z-[170]"
     : "";
-  const sectionStyleChromeClassName = hasSectionStyleTheme
-    ? "!bg-[color:var(--setta-section-style-bg)] before:!border-[color:var(--setta-section-style-border)]"
-    : "";
-  const inputClasses = `${
-    shouldDisablePointerEvents ? "pointer-events-none select-none" : ""
-  } ${bgColor} ${layoutClassNameToUse} relative grid h-full transition-radius ${!positionAndSizeLocked ? "rounded-lg" : "rounded-sm"}   before:content-none before:block before:absolute before:top-0 before:right-0 before:bottom-0 before:left-0 before:border ${isYouTube ? "overflow-clip" : ""} z-10 ${metaHoverZIndexClass} ${frameClassName} ${sectionStyleChromeClassName}`;
+  const inputClasses = getSectionSurfaceClassName({
+    bgColor,
+    hasSectionStyleTheme,
+    positionAndSizeLocked,
+    shouldDisablePointerEvents,
+    isYouTube,
+    frameClassName,
+    layoutClassName: layoutClassNameToUse,
+    zIndexClassName: zIndexClass,
+    metaHoverZIndexClassName: metaHoverZIndexClass,
+  });
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
   const handleBaseClasses = {
