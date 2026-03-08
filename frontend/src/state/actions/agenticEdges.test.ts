@@ -1,7 +1,11 @@
 import {
+  AGENTIC_EDGE_HANDLE_IDS,
+  createAgenticEdgeFromConnection,
   createAgenticEdgeFromSections,
+  isValidAgenticEdgeConnection,
   updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
+import { SHARED_CHAT_EDGE_HANDLE_IDS } from "state/actions/chatSharedHandleIds";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
@@ -9,10 +13,12 @@ import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
   createChatSectionImpl,
+  createCodeSectionImpl,
   createCore,
   createProjectConfig,
   createUserDefaultChatSectionImpl,
   createVariant,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,10 +36,13 @@ vi.mock("utils/generatedEndpoints", async () => {
 const projectConfigId = "project-1";
 const sectionA = "section-a";
 const sectionB = "section-b";
+const sectionCode = "section-code";
 const variantA = "variant-a";
 const variantB = "variant-b";
+const variantCode = "variant-code";
 const implA = "impl-a";
 const implB = "impl-b";
+const implCode = "impl-code";
 
 function seedChatSections() {
   const coreA = createCore({
@@ -48,6 +57,12 @@ function seedChatSections() {
     variants: [variantB],
     defaultVariant: variantB,
   });
+  const coreCode = createCore({
+    id: sectionCode,
+    name: "Code",
+    variants: [variantCode],
+    defaultVariant: variantCode,
+  });
   const variantEntryA = createVariant({
     id: variantA,
     name: "Chat A Variant",
@@ -58,6 +73,12 @@ function seedChatSections() {
     id: variantB,
     name: "Chat B Variant",
     impl: implB,
+    nonPresetImpls: [],
+  });
+  const variantEntryCode = createVariant({
+    id: variantCode,
+    name: "Code Variant",
+    impl: implCode,
     nonPresetImpls: [],
   });
   const implEntryA = createChatSectionImpl(
@@ -80,18 +101,38 @@ function seedChatSections() {
       thinking: false,
     },
   );
+  const implEntryCode = createCodeSectionImpl(
+    {
+      id: implCode,
+      type: SectionTypeEnum.Code,
+    },
+    {
+      id: implCode,
+      type: SectionTypeEnum.Code,
+    },
+  );
 
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
-    state.sections = { [sectionA]: coreA, [sectionB]: coreB };
+    state.sections = {
+      [sectionA]: coreA,
+      [sectionB]: coreB,
+      [sectionCode]: coreCode,
+    };
     state.sectionVariants = {
       [variantA]: variantEntryA,
       [variantB]: variantEntryB,
+      [variantCode]: variantEntryCode,
     };
-    state.sectionImpls = { [implA]: implEntryA, [implB]: implEntryB };
+    state.sectionImpls = {
+      [implA]: implEntryA,
+      [implB]: implEntryB,
+      [implCode]: implEntryCode,
+    };
     state.projectConfig.sectionVariantMap = {
       [sectionA]: variantA,
       [sectionB]: variantB,
+      [sectionCode]: variantCode,
     };
     state.previewSectionVariantMap = {};
   });
@@ -196,6 +237,50 @@ describe("agentic edge context mode updates", () => {
           contextMode: AgenticEdgeContextModeEnum.inline_text,
         }),
         frontendOpId: expect.any(String),
+      }),
+    );
+  });
+});
+
+describe("agentic edge connections", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    seedChatSections();
+    useShareSession.setState({ isDeploymentMode: false });
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("accepts shared chat handles when connecting code to chat", async () => {
+    const route_create_agentic_edge = (await import("utils/generatedEndpoints"))
+      .route_create_agentic_edge as unknown as vi.Mock;
+    route_create_agentic_edge.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const connection = {
+      source: sectionCode,
+      target: sectionA,
+      sourceHandle: AGENTIC_EDGE_HANDLE_IDS.source,
+      targetHandle: SHARED_CHAT_EDGE_HANDLE_IDS.target,
+    };
+
+    expect(isValidAgenticEdgeConnection(connection)).toBe(true);
+
+    createAgenticEdgeFromConnection(connection);
+
+    const edges = useProjectState.getState().projectConfig.agenticEdges;
+    expect(edges).toHaveLength(1);
+    expect(edges[0]).toEqual(
+      expect.objectContaining({
+        sourceSectionId: sectionCode,
+        targetSectionId: sectionA,
+        kind: AgenticEdgeKindEnum.section_chat,
       }),
     );
   });

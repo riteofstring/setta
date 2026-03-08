@@ -16,9 +16,11 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
+import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
 import {
   getOnSectionClick,
   getOutlineColor,
@@ -177,6 +179,8 @@ function _SectionContainerCore({
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
     !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+  const shouldRenderSharedChatHandles =
+    shouldRenderAgenticEdgeHandles && sectionTypeName === SectionTypeEnum.Chat;
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
@@ -189,8 +193,14 @@ function _SectionContainerCore({
       data-section-type={sectionTypeName}
       style={sectionStyleVars}
     >
-      {shouldRenderAgenticEdgeHandles && (
+      {shouldRenderSharedChatHandles ? (
+        <ChatSharedEdgeHandles isUserView={isUserView} />
+      ) : null}
+      {shouldRenderAgenticEdgeHandles && !shouldRenderSharedChatHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
+      )}
+      {shouldRenderAgenticEdgeHandles && !shouldRenderSharedChatHandles && (
+        <StateMachineEdgeHandles isUserView={isUserView} />
       )}
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
