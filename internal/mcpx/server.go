@@ -39,6 +39,7 @@ type Server struct {
 	registry             *tools.Registry
 	projectState         projectStateProvider
 	pluginMutations      pluginMutationProvider
+	pythonPackages       pythonPackageProvider
 	lspDiagnostics       lspDiagnosticsProvider
 	mcpStatuses          mcpStatusProvider
 	terminals            terminalHistoryProvider
@@ -66,6 +67,7 @@ type ServerOptions struct {
 	SectionNames                   sectionNameProvider
 	CallableSignatures             projectstate.CallableSignatureResolver
 	PluginMutations                pluginMutationProvider
+	PythonPackages                 pythonPackageProvider
 	LSPDiagnostics                 lspDiagnosticsProvider
 	MCPStatuses                    mcpStatusProvider
 	Terminals                      terminalHistoryProvider
@@ -183,6 +185,10 @@ type pluginMutationProvider interface {
 	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
 }
 
+type pythonPackageProvider interface {
+	InstalledPackages(ctx context.Context) ([]string, error)
+}
+
 type listMCPToolsResult struct {
 	Tools []string `json:"tools"`
 }
@@ -213,6 +219,7 @@ type toolError struct {
 }
 
 var unscopedToolNames = map[string]struct{}{
+	"getInstalledPythonPackages":    {},
 	"getProjectConfigNamesAndIds":   {},
 	"get_app_catalog":               {},
 	"get_mcp_server_runtime_status": {},
@@ -258,6 +265,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		registry:             registry,
 		projectState:         opts.ProjectState,
 		pluginMutations:      opts.PluginMutations,
+		pythonPackages:       opts.PythonPackages,
 		lspDiagnostics:       opts.LSPDiagnostics,
 		mcpStatuses:          opts.MCPStatuses,
 		terminals:            opts.Terminals,
@@ -2933,6 +2941,33 @@ func defaultToolDefinitions(
 					},
 				},
 				"required": []string{"projectConfigs"},
+			},
+		},
+		{
+			Spec: tools.Spec{
+				Name:        "getInstalledPythonPackages",
+				Description: "Return installed packages for the IDE Python interpreter as name=version strings.",
+				Metadata: tools.Metadata{
+					Kind:       tools.KindInit,
+					AccessType: tools.AccessTypeRead,
+				},
+				Handler: newGetInstalledPythonPackagesHandler(server),
+			},
+			InputSchema: map[string]any{
+				"type":       "object",
+				"properties": map[string]any{},
+			},
+			OutputSchema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"packages": map[string]any{
+						"type": "array",
+						"items": map[string]any{
+							"type": "string",
+						},
+					},
+				},
+				"required": []string{"packages"},
 			},
 		},
 		{

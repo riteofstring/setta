@@ -28,6 +28,26 @@ import (
 	"setta/internal/terminals"
 )
 
+func assertInstalledPythonPackages(t *testing.T, packages []string) {
+	t.Helper()
+
+	if len(packages) == 0 {
+		t.Fatal("expected at least one installed Python package")
+	}
+	for index, pkg := range packages {
+		if !strings.Contains(pkg, "=") {
+			t.Fatalf("expected name=version package entry, got %q", pkg)
+		}
+		parts := strings.SplitN(pkg, "=", 2)
+		if strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+			t.Fatalf("expected non-empty name and version, got %q", pkg)
+		}
+		if index > 0 && strings.ToLower(packages[index-1]) > strings.ToLower(pkg) {
+			t.Fatalf("expected case-insensitive sorted package list, got %#v", packages)
+		}
+	}
+}
+
 func TestAppIDEMCPServerRejectsUnauthorizedClients(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -99,8 +119,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 77 {
-		t.Fatalf("expected 77 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 78 {
+		t.Fatalf("expected 78 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -118,8 +138,11 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 77 {
-		t.Fatalf("expected 77 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 78 {
+		t.Fatalf("expected 78 registered tool names, got %d", len(rawNames))
+	}
+	if !containsStructuredStringValue(rawNames, "getInstalledPythonPackages") {
+		t.Fatalf("expected getInstalledPythonPackages in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -390,6 +413,20 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.
 	if len(projectConfigs) != 1 || mustStructuredMapValue(t, projectConfigs[0])["id"] != "project-alpha" {
 		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
 	}
+
+	packagesResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "getInstalledPythonPackages",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call getInstalledPythonPackages: %v", err)
+	}
+	if packagesResult.IsError {
+		t.Fatalf("expected getInstalledPythonPackages success, got %#v", packagesResult.StructuredContent)
+	}
+	packagesPayload := mustStructuredMapValue(t, packagesResult.StructuredContent)
+	packages := mustStringSliceValue(t, packagesPayload["packages"])
+	assertInstalledPythonPackages(t, packages)
 
 	catalogResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
 		Name:      "get_app_catalog",
@@ -7147,6 +7184,32 @@ func TestAppIDEMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	if len(projectConfigs) != 1 || mustStructuredMapValue(t, projectConfigs[0])["id"] != "project-alpha" {
 		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
 	}
+
+	packagesResponse, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"getInstalledPythonPackages",
+			"arguments":{}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post getInstalledPythonPackages tool call route: %v", err)
+	}
+	defer packagesResponse.Body.Close()
+
+	if packagesResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(packagesResponse.Body)
+		t.Fatalf("expected 200, got %d with body %q", packagesResponse.StatusCode, string(body))
+	}
+
+	packagesPayload := decodeAppToolCallRoutePayload(t, packagesResponse.Body)
+	if packagesPayload.IsError {
+		t.Fatalf("expected getInstalledPythonPackages success, got %#v", packagesPayload.StructuredContent)
+	}
+	packagesResult := mustStructuredMapValue(t, packagesPayload.StructuredContent)
+	packages := mustStringSliceValue(t, packagesResult["packages"])
+	assertInstalledPythonPackages(t, packages)
 
 	docsResponse, err := client.Post(
 		server.URL+httpapi.RouteMCPToolCall,

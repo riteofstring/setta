@@ -5,17 +5,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
+	"setta/internal/pythonenv"
 	"setta/internal/statefs"
 )
 
 const (
 	lspCommandEnv = "SETTA_LSP_COMMAND"
 	lspArgsEnv    = "SETTA_LSP_ARGS"
-	lspPythonEnv  = "SETTA_LSP_PYTHON"
-	virtualEnvEnv = "VIRTUAL_ENV"
 )
 
 const basedpyrightEntrypoint = "from basedpyright.langserver import main; main()"
@@ -66,38 +64,11 @@ func resolveCurrentProcessCommand(lookupEnv func(string) (string, bool)) (string
 		return command, args, nil
 	}
 
-	pythonBinary, err := resolvePythonBinary(lookupEnv)
+	pythonBinary, err := pythonenv.ResolveCurrentProcessInterpreter(lookupEnv)
 	if err != nil {
 		return "", nil, err
 	}
 	return pythonBinary, []string{"-c", basedpyrightEntrypoint, "--stdio"}, nil
-}
-
-func resolvePythonBinary(lookupEnv func(string) (string, bool)) (string, error) {
-	if explicit, ok := lookupEnv(lspPythonEnv); ok && strings.TrimSpace(explicit) != "" {
-		return resolveBinary(strings.TrimSpace(explicit))
-	}
-
-	if virtualEnv, ok := lookupEnv(virtualEnvEnv); ok && strings.TrimSpace(virtualEnv) != "" {
-		virtualEnvRoot, err := statefs.NormalizePath(strings.TrimSpace(virtualEnv), "")
-		if err != nil {
-			return "", fmt.Errorf("lsp: resolve virtualenv: %w", err)
-		}
-		pythonPath := filepath.Join(virtualEnvRoot, "bin", "python")
-		if runtime.GOOS == "windows" {
-			pythonPath = filepath.Join(virtualEnvRoot, "Scripts", "python.exe")
-		}
-		return resolveBinary(pythonPath)
-	}
-
-	for _, candidate := range []string{"python3", "python"} {
-		resolved, err := exec.LookPath(candidate)
-		if err == nil {
-			return resolved, nil
-		}
-	}
-
-	return "", fmt.Errorf("lsp: python runtime unavailable; set %s or activate a virtualenv", lspPythonEnv)
 }
 
 func resolveBinary(candidate string) (string, error) {

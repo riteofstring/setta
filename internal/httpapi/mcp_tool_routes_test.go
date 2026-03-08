@@ -28,6 +28,14 @@ import (
 	"setta/internal/terminals"
 )
 
+type routePythonPackageProvider struct {
+	packages []string
+}
+
+func (p routePythonPackageProvider) InstalledPackages(context.Context) ([]string, error) {
+	return append([]string(nil), p.packages...), nil
+}
+
 func TestMCPToolCallRouteScopesCallsFromAgenticContext(t *testing.T) {
 	t.Parallel()
 
@@ -819,6 +827,9 @@ func TestMCPToolCallRouteSupportsSetTopLevelSectionLayout(t *testing.T) {
 		ProjectState:   projectRuntime,
 		SectionNames:   routeSectionNameService{runtime: projectRuntime},
 		LSPDiagnostics: diagnostics,
+		PythonPackages: routePythonPackageProvider{
+			packages: []string{"Alpha=1.0.0", "beta=2.0.0"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -5298,6 +5309,9 @@ func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 		LSPDiagnostics: diagnostics,
 		MCPStatuses:    statusClient,
 		DocsRoot:       filepath.Join(workspaceRoot, "docs"),
+		PythonPackages: routePythonPackageProvider{
+			packages: []string{"Alpha=1.0.0", "beta=2.0.0"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("new mcp server: %v", err)
@@ -5369,6 +5383,23 @@ func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	projectConfigs := mustStructuredListForRoute(t, projectsResult["projectConfigs"])
 	if len(projectConfigs) != 1 || mustStructuredMapForRoute(t, projectConfigs[0])["id"] != "project-alpha" {
 		t.Fatalf("expected one project-alpha metadata entry, got %#v", projectConfigs)
+	}
+
+	packagesResponse := postMCPToolRoute(t, handler, `{
+		"tool":"getInstalledPythonPackages",
+		"arguments":{}
+	}`)
+	if packagesResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", packagesResponse.Code, packagesResponse.Body.String())
+	}
+	packagesPayload := decodeCallToolRouteResult(t, packagesResponse.Body.Bytes())
+	if packagesPayload.IsError {
+		t.Fatalf("expected getInstalledPythonPackages success, got %#v", packagesPayload.StructuredContent)
+	}
+	packagesResult := mustStructuredMapForRoute(t, packagesPayload.StructuredContent)
+	packages := mustStructuredListForRoute(t, packagesResult["packages"])
+	if !reflect.DeepEqual(packages, []any{"Alpha=1.0.0", "beta=2.0.0"}) {
+		t.Fatalf("expected installed python package list, got %#v", packages)
 	}
 
 	docsResponse := postMCPToolRoute(t, handler, `{

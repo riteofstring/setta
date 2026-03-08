@@ -144,8 +144,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 77 {
-		t.Fatalf("expected 77 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 78 {
+		t.Fatalf("expected 78 tools, got %d", len(toolsResult.Tools))
 	}
 
 	names := make([]string, 0, len(toolsResult.Tools))
@@ -166,6 +166,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	var setShowParamDisplayNamesTool *sdkmcp.Tool
 	var setWatchCodeEnabledTool *sdkmcp.Tool
 	var setWatchCodeInputsTool *sdkmcp.Tool
+	var getInstalledPythonPackagesTool *sdkmcp.Tool
 	var listAgentProfilesTool *sdkmcp.Tool
 	var getAgentProfileTool *sdkmcp.Tool
 	var runAgentProfileTool *sdkmcp.Tool
@@ -263,6 +264,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		}
 		if tool.Name == "set_watch_code_inputs" {
 			setWatchCodeInputsTool = tool
+		}
+		if tool.Name == "getInstalledPythonPackages" {
+			getInstalledPythonPackagesTool = tool
 		}
 		if tool.Name == "list_agent_profiles" {
 			listAgentProfilesTool = tool
@@ -418,6 +422,7 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 		"delete_sections",
 		"delete_selected_params",
 		"format_code",
+		"getInstalledPythonPackages",
 		"getProjectConfigNamesAndIds",
 		"getTerminalOutput",
 		"get_agent_profile",
@@ -536,6 +541,9 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	if setWatchCodeInputsTool == nil {
 		t.Fatal("expected set_watch_code_inputs tool")
+	}
+	if getInstalledPythonPackagesTool == nil {
+		t.Fatal("expected getInstalledPythonPackages tool")
 	}
 	if listAgentProfilesTool == nil {
 		t.Fatal("expected list_agent_profiles tool")
@@ -837,6 +845,13 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	setWatchCodeInputsMeta := mustStructuredMap(t, setWatchCodeInputsTool.Meta[toolMetaNamespace])
 	if setWatchCodeInputsMeta["accessType"] != string(tools.AccessTypeStructural) {
 		t.Fatalf("expected structural access type for set_watch_code_inputs, got %#v", setWatchCodeInputsMeta["accessType"])
+	}
+	getInstalledPythonPackagesMeta := mustStructuredMap(t, getInstalledPythonPackagesTool.Meta[toolMetaNamespace])
+	if getInstalledPythonPackagesMeta["accessType"] != string(tools.AccessTypeRead) {
+		t.Fatalf("expected read access type for getInstalledPythonPackages, got %#v", getInstalledPythonPackagesMeta["accessType"])
+	}
+	if paths, ok := getInstalledPythonPackagesMeta["idPathsByType"]; ok && len(mustStructuredMap(t, paths)) != 0 {
+		t.Fatalf("expected getInstalledPythonPackages to have no id target paths, got %#v", paths)
 	}
 	listAgentProfilesMeta := mustStructuredMap(t, listAgentProfilesTool.Meta[toolMetaNamespace])
 	if listAgentProfilesMeta["accessType"] != string(tools.AccessTypeRead) {
@@ -1140,8 +1155,8 @@ func TestServerListsToolsAndScopesToolCalls(t *testing.T) {
 	}
 	listPayload := mustStructuredMap(t, listResult.StructuredContent)
 	listNames := mustStringList(t, listPayload["tools"])
-	if len(listNames) != 77 {
-		t.Fatalf("expected 77 registered tool names, got %#v", listNames)
+	if len(listNames) != 78 {
+		t.Fatalf("expected 78 registered tool names, got %#v", listNames)
 	}
 
 	scopeResult, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -8608,6 +8623,18 @@ func newScopedTestServerSessionWithOptions(t *testing.T, workspaceRoot string, p
 	return server, clientSession
 }
 
+type stubPythonPackageProvider struct {
+	packages []string
+	err      error
+}
+
+func (s stubPythonPackageProvider) InstalledPackages(context.Context) ([]string, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	return append([]string(nil), s.packages...), nil
+}
+
 type stubCallableSignatureResolver struct {
 	result projectstate.CallableSignatureResult
 	ok     bool
@@ -8913,6 +8940,36 @@ func TestServerGetProjectConfigNamesAndIDsReturnsSortedMetadata(t *testing.T) {
 	third := mustStructuredMap(t, projectConfigs[2])
 	if first["name"] != "Alpha" || second["name"] != "beta" || third["name"] != "Zeta" {
 		t.Fatalf("expected sorted project metadata, got %#v", projectConfigs)
+	}
+}
+
+func TestServerGetInstalledPythonPackagesReturnsProviderPayload(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	_, clientSession := newScopedTestServerSessionWithOptions(t, t.TempDir(), projectRuntime, ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		LSPDiagnostics: openScopedTestLSPDiagnosticsRegistry(),
+		PythonPackages: stubPythonPackageProvider{packages: []string{"Alpha=1.0.0", "beta=2.0.0", "zeta=3.0.0"}},
+	})
+	defer clientSession.Close()
+
+	result, err := clientSession.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name:      "getInstalledPythonPackages",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call getInstalledPythonPackages: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected getInstalledPythonPackages success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMap(t, result.StructuredContent)
+	packages := mustStringList(t, payload["packages"])
+	if !reflect.DeepEqual(packages, []string{"Alpha=1.0.0", "beta=2.0.0", "zeta=3.0.0"}) {
+		t.Fatalf("expected forwarded package list, got %#v", packages)
 	}
 }
 

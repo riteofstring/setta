@@ -29,6 +29,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/pythonenv"
 	"setta/internal/realtime"
 	"setta/internal/runs"
 	"setta/internal/runtime"
@@ -376,6 +377,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	var agentRunService *agentruns.Service
 	var pluginMutationService *plugins.Service
+	var pythonPackages *pythonenv.Runtime
 	if modePolicy.IsIDE() && projectRuntime != nil {
 		engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
@@ -439,6 +441,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
+		if err != nil {
+			logger.Warn("python package inspection runtime unavailable", "error", err)
+		}
 	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
 		ProjectState:   projectRuntime,
@@ -501,6 +507,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			SectionNames:                   renameRefactors,
 			CallableSignatures:             lspSignature,
 			PluginMutations:                pluginMutationService,
+			PythonPackages:                 pythonPackages,
 			LSPDiagnostics:                 lspDiagnostics,
 			MCPStatuses:                    mcpClient,
 			Terminals:                      terminalService,

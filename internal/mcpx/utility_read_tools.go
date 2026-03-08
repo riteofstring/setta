@@ -21,6 +21,10 @@ type projectConfigNamesAndIDsResult struct {
 	ProjectConfigs []projectstate.ProjectConfigMetadata `json:"projectConfigs"`
 }
 
+type installedPythonPackagesResult struct {
+	Packages []string `json:"packages"`
+}
+
 type mcpServerRuntimeStatusEntry struct {
 	ServerID      string       `json:"serverId"`
 	State         RuntimeState `json:"state"`
@@ -110,6 +114,23 @@ func newGetProjectConfigNamesAndIDsHandler(projectState projectStateProvider) to
 		return projectConfigNamesAndIDsResult{
 			ProjectConfigs: projectState.Snapshot().Document.ProjectConfigMetadata(),
 		}, nil
+	}
+}
+
+func newGetInstalledPythonPackagesHandler(server *Server) tools.Handler {
+	return func(ctx context.Context, _ map[string]any) (any, error) {
+		if server == nil || server.pythonPackages == nil {
+			return nil, newToolError("internal_error", "Python package inspection runtime is unavailable.")
+		}
+
+		packages, err := server.pythonPackages.InstalledPackages(ctx)
+		if err != nil {
+			return nil, newToolError("internal_error", "Failed to inspect installed Python packages: %s", err.Error())
+		}
+		if packages == nil {
+			packages = []string{}
+		}
+		return installedPythonPackagesResult{Packages: packages}, nil
 	}
 }
 
