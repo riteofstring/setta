@@ -32,10 +32,14 @@ As of 2026-03-08:
   - default `setta` local IDE server start
   - `share`
   - `app`
-  - `launch`
   - `backups`
   - `plugins`
   - `export-db`
+- Go now owns the first local-runtime command in:
+  - `cmd/setta`
+  - `internal/settacmd`
+  - `backend/setta/entrypoint.py`
+  - Go-owned `setta launch` local session bootstrap dispatch
 
 ## Inputs
 
@@ -185,6 +189,15 @@ That slice should:
 - 2026-03-08: decision recorded.
   - the next bounded implementation slice should be Go-owned `setta launch`
   - `backups`, `plugins`, and `export-db` stay out of scope for now
+- 2026-03-08: completed the first bounded implementation slice.
+  - `setta launch` now routes through `cmd/setta` / `internal/settacmd`
+  - the thin Python wrapper now dispatches `launch` to the packaged Go binary
+  - Go now owns the local launch JSON/error contract for packaged installs
+
+## Open Questions
+
+- none for the completed `launch` slice; the remaining work is sequencing, not
+  architecture uncertainty
 
 ## Verification
 
@@ -193,9 +206,11 @@ That slice should:
 
 ## Recommended Next Step
 
-Implement the first bounded Phase 10 slice from this doc:
+Implement the next bounded Phase 10 slice from this doc:
 
-1. add Go-owned `setta launch` routing in `internal/settacmd`
-2. add focused `internal/settacmd` coverage for local launch behavior
-3. update the shipped entrypoint/module-entrypoint tests to reflect Go launch
-   dispatch
+1. port default `setta` local IDE start onto the Go-owned backend runtime
+2. keep transport thin by routing long-lived server startup through the sibling
+   `setta-server` executable instead of re-owning server internals in
+   `cmd/setta`
+3. after default `setta` lands, move `share` and `app` as the remaining
+   local-runtime cluster

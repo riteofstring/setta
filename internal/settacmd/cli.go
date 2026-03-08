@@ -111,7 +111,7 @@ func Run(args []string, options RunOptions) error {
 		return err
 	}
 	if len(remaining) == 0 {
-		return fmt.Errorf("missing command (supported: version, launcher, status, auth, tools, api, stop, connect)")
+		return fmt.Errorf("missing command (supported: version, launch, launcher, status, auth, tools, api, stop, connect)")
 	}
 
 	switch remaining[0] {
@@ -121,6 +121,8 @@ func Run(args []string, options RunOptions) error {
 		}
 		_, err := fmt.Fprintf(stdout, "setta version %s\n", buildinfo.Version())
 		return err
+	case "launch":
+		return runLaunch(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	case "status", "auth", "tools", "api", "stop", "connect", "c":
 		return settacli.Run(args, settacli.RunOptions{
 			Stdout:    stdout,

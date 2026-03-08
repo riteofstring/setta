@@ -6,6 +6,7 @@ from pathlib import Path
 _GO_OWNED_COMMANDS = frozenset(
     {
         "version",
+        "launch",
         "launcher",
         "status",
         "auth",
@@ -21,6 +22,7 @@ _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
         "-w",
         "--workspace",
         "--profile",
+        "--profile-lookup-home",
         "--setta-home",
         "--setta-files-root",
         "--setta-files-location",

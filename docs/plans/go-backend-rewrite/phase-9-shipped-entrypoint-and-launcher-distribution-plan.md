@@ -63,7 +63,6 @@ As of 2026-03-08:
   - default `setta` local server start
   - `share`
   - `app`
-  - `launch`
   - `backups`
   - `plugins`
   - `export-db`
@@ -116,7 +115,7 @@ routing, packaging, and script integration.
 ## Boundary Choice
 
 Do not combine this track with the unrelated Python local command groups
-(`backups`, `plugins`, default local `setta`, `share`, `app`, `launch`,
+(`backups`, `plugins`, default local `setta`, `share`, `app`,
 `export-db`) unless a concrete dependency forces it.
 
 The first bounded owner should be:
