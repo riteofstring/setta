@@ -1034,6 +1034,9 @@ Do not weaken this rule during the rewrite.
    Python-owned agentic follow-on.
    - the first example of that is now landed in
      `phase-14-executor-fixture-stability-and-regression-hardening.md`
+   - a second example is now landed in
+     `phase-4-terminal-command-dispatch-prompt-readiness-and-echo-stability.md`
+     for the completed terminal `runCode` runtime boundary
 5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.

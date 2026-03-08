@@ -249,6 +249,64 @@ func TestServiceRejectsWritesWhenInputDisabled(t *testing.T) {
 	}
 }
 
+func TestServiceRunCommandWaitsForDefaultShellPromptAndHandlesLongEcho(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-default-shell", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	// A long echoed command previously flaked when backend dispatch raced the
+	// fresh shell startup path.
+	command := "printf 'RUN_DEFAULT_SHELL_OK\\n' #" + strings.Repeat("x", 256)
+	if err := service.RunCommand(sessionID, []byte(command+"\n")); err != nil {
+		t.Fatalf("run long command in default-shell terminal: %v", err)
+	}
+
+	output := waitForHistoryContains(t, service, sessionID, "RUN_DEFAULT_SHELL_OK")
+	if !strings.Contains(output, "RUN_DEFAULT_SHELL_OK") {
+		t.Fatalf("expected backend-owned output from default-shell terminal, got %q", output)
+	}
+}
+
+func TestServiceRunCommandClearsPendingPromptInput(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-pending-input", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	if err := service.Write(sessionID, []byte("printf 'STALE_INPUT'")); err != nil {
+		t.Fatalf("write pending shell input: %v", err)
+	}
+	if err := service.RunCommand(sessionID, []byte("printf 'RUN_CLEAR_OK\\n'\n")); err != nil {
+		t.Fatalf("run command after pending shell input: %v", err)
+	}
+
+	output := waitForHistoryContains(t, service, sessionID, "RUN_CLEAR_OK")
+	if !strings.Contains(output, "RUN_CLEAR_OK") {
+		t.Fatalf("expected cleared-prompt run output, got %q", output)
+	}
+}
+
 func TestServiceDeleteShareSessionRemovesOnlyMatchingSessions(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
@@ -612,6 +670,30 @@ func waitForOutputContains(t *testing.T, attachment *Attachment, needle string) 
 			t.Fatalf("timed out waiting for %q; collected output: %q", needle, buffer.String())
 		}
 	}
+}
+
+func waitForHistoryContains(t *testing.T, service *Service, sessionID string, needle string) string {
+	t.Helper()
+
+	deadline := time.Now().Add(5 * time.Second)
+	lastHistory := ""
+	for time.Now().Before(deadline) {
+		history, err := service.History(sessionID)
+		if err == nil {
+			lastHistory = history
+			if strings.Contains(history, needle) {
+				return history
+			}
+		} else if errors.Is(err, ErrUnknownSession) {
+			t.Fatalf("terminal session %q closed before %q appeared; last history: %q", sessionID, needle, lastHistory)
+		} else {
+			t.Fatalf("read terminal history for %q: %v", sessionID, err)
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+
+	t.Fatalf("timed out waiting for %q in terminal history %q", needle, lastHistory)
+	return ""
 }
 
 func skipIfWindows(t *testing.T) {

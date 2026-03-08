@@ -79,6 +79,12 @@ Current repo status as of 2026-03-07:
   - manual code-section runs
   - generated-entry runs with explicit idle top-level terminal reuse plus
     top-level temporary-terminal fallback
+- the first bounded post-closeout terminal-runtime hardening slice is now
+  landed in:
+  - `docs/plans/go-backend-rewrite/phase-4-terminal-command-dispatch-prompt-readiness-and-echo-stability.md`
+  - backend-owned command dispatch into fresh default-shell sessions now waits
+    for a Go-owned prompt-ready barrier and uses deterministic rc-less built-in
+    shell resolution instead of depending on ambient user-shell startup
 - Go now includes deployment `runCode` groundwork under:
   - `internal/deployments`
   - deployment manifest/policy loading
@@ -620,6 +626,7 @@ Blocked On:
 
 - This focused `runCode` migration doc is complete for the current backend
   caller surface.
+- The bounded terminal-runtime hardening follow-on is also complete.
 - Keep `cliId` and any future detached-run transport in a later focused doc
   when there is a concrete Go consumer.
 - Return to the broader rewrite plan for the next uncovered subsystem outside

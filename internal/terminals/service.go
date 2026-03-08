@@ -1,6 +1,7 @@
 package terminals
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -25,6 +27,8 @@ const (
 	defaultReadBufferSize    = 4096
 	defaultColumns           = 80
 	defaultRows              = 24
+	defaultPromptReadyWait   = 5 * time.Second
+	runCommandEchoColumns    = 512
 )
 
 var (
@@ -120,6 +124,11 @@ type session struct {
 	rows        int
 	history     historyBuffer
 	attachments map[string]chan []byte
+
+	promptReadyOnce      sync.Once
+	promptReady          chan struct{}
+	promptReadyMarker    string
+	promptReadyDetection []byte
 }
 
 type historyBuffer struct {
@@ -192,6 +201,7 @@ func BuildTerminalID(sectionID string, shareSessionID string) string {
 }
 
 func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
+	usesDefaultCommand := len(options.Command) == 0
 	normalized, err := s.normalizeOpenOptions(options)
 	if err != nil {
 		return SessionInfo{}, false, err
@@ -234,6 +244,12 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 		return SessionInfo{}, false, fmt.Errorf("resize terminal: %w", err)
 	}
 
+	promptReady := make(chan struct{})
+	promptReadyMarker := ""
+	if usesDefaultCommand {
+		promptReadyMarker = buildPromptReadyMarker(atomic.AddUint64(&s.nextAttachmentID, 1))
+	}
+
 	session := &session{
 		id:             normalized.ID,
 		projectID:      normalized.ProjectID,
@@ -252,13 +268,20 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 		history: historyBuffer{
 			limit: s.historyLimit,
 		},
-		attachments: make(map[string]chan []byte),
+		attachments:       make(map[string]chan []byte),
+		promptReady:       promptReady,
+		promptReadyMarker: promptReadyMarker,
 	}
 
 	s.sessions[session.id] = session
 
 	go s.readLoop(session)
 	go s.waitLoop(session)
+	if session.promptReadyMarker != "" {
+		s.bootstrapPromptReady(session)
+	} else {
+		session.markPromptReady()
+	}
 
 	s.logger.Debug("terminal session opened",
 		slog.String("terminal_id", session.id),
@@ -372,7 +395,10 @@ func (s *Service) RunCommand(sessionID string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	return s.writeToSession(session, data, false)
+	if err := session.waitForPromptReady(); err != nil {
+		return err
+	}
+	return s.runCommand(session, data)
 }
 
 func (s *Service) writeToSession(session *session, data []byte, requireInput bool) error {
@@ -386,6 +412,25 @@ func (s *Service) writeToSession(session *session, data []byte, requireInput boo
 		return fmt.Errorf("write terminal input: %w", err)
 	}
 	return nil
+}
+
+func (s *Service) runCommand(session *session, data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+
+	restore, err := s.expandRunCommandEchoWidth(session, len(data))
+	if err != nil {
+		return err
+	}
+	if restore != nil {
+		defer restore()
+	}
+
+	command := make([]byte, 0, len(data)+1)
+	command = append(command, 0x15)
+	command = append(command, data...)
+	return s.writeToSession(session, command, false)
 }
 
 func (s *Service) Resize(sessionID string, columns int, rows int) error {
@@ -528,7 +573,11 @@ func (s *Service) readLoop(session *session) {
 	for {
 		n, err := session.pty.Read(buffer)
 		if n > 0 {
-			session.appendOutput(buffer[:n])
+			chunk := buffer[:n]
+			session.appendOutput(chunk)
+			if session.observePromptReady(chunk) {
+				session.markPromptReady()
+			}
 		}
 		if err == nil {
 			continue
@@ -560,6 +609,7 @@ func (s *Service) cleanupSession(session *session, terminate bool) {
 		if terminate {
 			session.cancel()
 		}
+		session.markPromptReady()
 
 		s.mu.Lock()
 		current, ok := s.sessions[session.id]
@@ -738,6 +788,113 @@ func (h *historyBuffer) Bytes() []byte {
 	return output
 }
 
+func buildPromptReadyMarker(id uint64) string {
+	return fmt.Sprintf("__SETTA_PROMPT_READY_%d__", id)
+}
+
+func buildPromptReadyCommand(marker string) []byte {
+	// Print the readiness marker via octal escapes so the shell's echoed input
+	// does not contain the marker literal. Only actual probe execution should
+	// satisfy prompt readiness.
+	return []byte(fmt.Sprintf(
+		"printf '%s'\\n",
+		shellPrintfOctal(marker+"\n\x1b[2J\x1b[H"),
+	))
+}
+
+func (s *Service) bootstrapPromptReady(session *session) {
+	if session == nil || session.promptReadyMarker == "" {
+		return
+	}
+	if err := s.writeToSession(session, buildPromptReadyCommand(session.promptReadyMarker), false); err != nil {
+		session.markPromptReady()
+		return
+	}
+
+	go func() {
+		timer := time.NewTimer(defaultPromptReadyWait)
+		defer timer.Stop()
+		<-timer.C
+		session.markPromptReady()
+	}()
+}
+
+func (s *Service) expandRunCommandEchoWidth(session *session, commandLen int) (func(), error) {
+	session.mu.RLock()
+	rows := session.rows
+	columns := session.columns
+	session.mu.RUnlock()
+
+	if rows < 1 || columns < 1 || columns >= runCommandEchoColumns || commandLen < columns {
+		return nil, nil
+	}
+
+	if err := session.pty.Resize(runCommandEchoColumns, rows); err != nil {
+		return nil, fmt.Errorf("resize terminal for command echo: %w", err)
+	}
+
+	return func() {
+		session.mu.RLock()
+		restoreRows := session.rows
+		restoreColumns := session.columns
+		session.mu.RUnlock()
+		if restoreRows < 1 || restoreColumns < 1 {
+			return
+		}
+		_ = session.pty.Resize(restoreColumns, restoreRows)
+	}, nil
+}
+
+func (session *session) observePromptReady(data []byte) bool {
+	if session == nil || len(data) == 0 {
+		return false
+	}
+
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	if session.promptReadyMarker == "" {
+		return false
+	}
+	session.promptReadyDetection = append(session.promptReadyDetection, data...)
+	if len(session.promptReadyDetection) > len(session.promptReadyMarker)*4 {
+		start := len(session.promptReadyDetection) - len(session.promptReadyMarker)*4
+		session.promptReadyDetection = append([]byte(nil), session.promptReadyDetection[start:]...)
+	}
+	if !bytes.Contains(session.promptReadyDetection, []byte(session.promptReadyMarker)) {
+		return false
+	}
+
+	session.promptReadyMarker = ""
+	session.promptReadyDetection = nil
+	return true
+}
+
+func (session *session) markPromptReady() {
+	if session == nil {
+		return
+	}
+	session.promptReadyOnce.Do(func() {
+		close(session.promptReady)
+	})
+}
+
+func (session *session) waitForPromptReady() error {
+	if session == nil || session.promptReady == nil {
+		return nil
+	}
+	<-session.promptReady
+	return nil
+}
+
+func shellPrintfOctal(value string) string {
+	var builder strings.Builder
+	for index := 0; index < len(value); index++ {
+		fmt.Fprintf(&builder, "\\%03o", value[index])
+	}
+	return builder.String()
+}
+
 func resolveDefaultCommand(envLookup func(string) (string, bool)) ([]string, error) {
 	var candidates []string
 	switch runtime.GOOS {
@@ -761,11 +918,25 @@ func resolveDefaultCommand(envLookup func(string) (string, bool)) ([]string, err
 	for _, candidate := range candidates {
 		resolved, err := exec.LookPath(strings.TrimSpace(candidate))
 		if err == nil {
-			return []string{resolved}, nil
+			return stableInteractiveShellCommand(resolved), nil
 		}
 	}
 
 	return nil, fmt.Errorf("resolve default terminal command: no supported shell found")
+}
+
+func stableInteractiveShellCommand(path string) []string {
+	base := strings.ToLower(filepath.Base(strings.TrimSpace(path)))
+	switch base {
+	case "bash":
+		return []string{path, "--noprofile", "--norc", "-i"}
+	case "zsh":
+		return []string{path, "-f", "-i"}
+	case "sh", "dash", "ash", "ksh":
+		return []string{path, "-i"}
+	default:
+		return []string{path}
+	}
 }
 
 func resolveCommand(command []string) ([]string, error) {

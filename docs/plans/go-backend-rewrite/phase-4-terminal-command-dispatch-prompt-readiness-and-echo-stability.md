@@ -26,17 +26,25 @@ Completed before this slice:
 - Phase 4 IDE and deployment `runCode` ownership
 - generated-entry temporary-terminal creation and idle top-level reuse
 
-Current Go gap before this slice:
+Current Go state after this slice:
 
-- `internal/terminals.Service` dispatches backend-owned `RunCommand(...)`
+- `internal/terminals.Service` now treats backend-owned `RunCommand(...)` as a
+  prompt-aware dispatch path instead of writing into fresh default shells
   immediately after `Open(...)`
-- default-shell sessions do not expose a prompt-ready barrier
-- long command dispatch does not clear pending prompt input or widen narrow
-  terminal widths before echo
-- full `./scripts/go.sh test ./internal/httpapi -count=3` still fails
-  intermittently in:
-  - `TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal`
-  - `TestRegisterTerminalRoutesRunsDeploymentCodeAgainstSessionOverlay`
+- auto-opened default-shell sessions now:
+  - use a prompt-ready probe plus bounded fallback before backend-owned command
+    dispatch
+  - prepend `Ctrl+U` before backend-owned command dispatch so stale prompt
+    input does not corrupt the launched command line
+  - widen narrow terminal widths temporarily for long echoed commands
+- default auto-opened shell resolution is now deterministic and rc-less for the
+  built-in fallback shell path:
+  - `bash --noprofile --norc -i`
+  - `zsh -f -i`
+  - `sh -i`
+- explicit custom/open-command sessions remain immediately ready and unchanged
+- repeated full-package verification now passes:
+  - `./scripts/go.sh test ./internal/httpapi -count=3`
 
 Relevant Python reference already covers this product behavior in
 `backend/setta/terminals/terminals.py`:
@@ -79,8 +87,9 @@ This slice covers:
 
 ## Working Decisions
 
-- keep shell resolution behavior bounded unless the prompt-ready port proves
-  insufficient
+- keep explicit custom shell commands untouched, but make the built-in
+  auto-opened default shell deterministic and rc-less after the ambient user
+  shell startup path proved unstable under repeated package load
 - treat prompt readiness as explicit terminal runtime state, not a sleep-based
   heuristic in `runs.Service`
 - keep the route layer thin
@@ -122,10 +131,12 @@ This slice covers:
 - 2026-03-09: opened the focused stabilization slice after repeated package
   verification exposed flaky backend-owned command dispatch into fresh default
   shell sessions.
+- 2026-03-09: landed prompt-ready backend dispatch, line-clear command writes,
+  temporary long-command echo widening, and deterministic rc-less built-in
+  default shell resolution in `internal/terminals`.
 
 ## Next Recommended Step
 
-- land the bounded prompt-ready and long-command dispatch hardening in
-  `internal/terminals`
-- rerun the full `internal/httpapi` package to confirm the remaining terminal
-  runtime regression blocker is actually closed
+- treat this as the new Phase 4 terminal-runtime stabilization baseline
+- keep future terminal follow-on work bounded to concrete caller needs like
+  `cliId`, detached-run transport, or a separately chosen PTY-library follow-up
