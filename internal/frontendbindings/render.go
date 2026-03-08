@@ -162,12 +162,25 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 }
 
 func validateTypeDeclarations(declarations []TypeDeclaration) error {
-	for _, declaration := range declarations {
+	seenNames := make(map[string]string, len(declarations))
+	for index, declaration := range declarations {
+		if declaration.Name == "" {
+			return fmt.Errorf("declaration at index %d has empty name", index)
+		}
 		switch declaration.Kind {
 		case "object", "enum", "alias", "local_alias", "set", "type_guard", "function", "const":
 		default:
 			return fmt.Errorf("declaration %s: unsupported kind %q", declaration.Name, declaration.Kind)
 		}
+		if previousKind, exists := seenNames[declaration.Name]; exists {
+			return fmt.Errorf(
+				"duplicate declaration %q for kinds %q and %q",
+				declaration.Name,
+				previousKind,
+				declaration.Kind,
+			)
+		}
+		seenNames[declaration.Name] = declaration.Kind
 	}
 
 	return nil

@@ -274,6 +274,30 @@ func TestCurrentBuildInputsContainNoRawDeclarations(t *testing.T) {
 	}
 }
 
+func TestCurrentBuildInputsUseUniqueDeclarationNames(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, extraType := range CurrentAdditionalTypeRoots() {
+		if err := converter.AddRootType(extraType); err != nil {
+			t.Fatalf("AddRootType(%s) error = %v", extraType.String(), err)
+		}
+	}
+	for _, spec := range CurrentEndpoints() {
+		if err := converter.AddRootType(spec.RequestType); err != nil {
+			t.Fatalf("AddRootType(request %s) error = %v", spec.FunctionName, err)
+		}
+		if err := converter.AddRootType(spec.ResponseType); err != nil {
+			t.Fatalf("AddRootType(response %s) error = %v", spec.FunctionName, err)
+		}
+	}
+
+	declarations := append(converter.Declarations(), CurrentAdditionalDeclarations()...)
+	if err := validateTypeDeclarations(declarations); err != nil {
+		t.Fatalf("validateTypeDeclarations(...) error = %v", err)
+	}
+}
+
 func TestBuildUsesStructuredDeclarationsForCurrentInputs(t *testing.T) {
 	t.Helper()
 
