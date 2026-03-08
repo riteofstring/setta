@@ -23,14 +23,14 @@ Current repo status as of 2026-03-08:
 - the non-app-definition mutation backlog is now complete
 - Go currently preserves `Document.AppDefinition` and can read a stored app
   spec through the deployment runtime
+- Go now owns the prerequisite app-spec validation/catalog/store boundary in
+  `internal/appspec`
 - Go does not yet own app-definition mutation on the IDE/MCP write path
-- direct repo inspection confirmed Go also does not yet own the prerequisite
-  app-spec validation/catalog boundary
-- this slice should not start until the validation/store prerequisite lands
+- this slice is now unblocked
 
 ## Scope
 
-Once the prerequisite lands, this focused slice should cover:
+This focused slice should cover:
 
 - a Go runtime owner for `set_app_definition`
 - a Go runtime owner for `update_app_definition`
@@ -59,6 +59,7 @@ Once the prerequisite lands, this focused slice should cover:
 - `docs/plans/go-backend-rewrite/phase-4-deployment-state-routes-and-projectstate-transport.md`
 - `internal/projectstate/frontend_source.go`
 - `internal/projectstate/document.go`
+- `internal/appspec`
 - `internal/deployments/runtime.go`
 - `internal/httpapi/deployment_routes.go`
 
@@ -94,32 +95,23 @@ Python keeps the two mutations document-scoped:
 
 ## Dependency Status
 
-This slice is blocked on the prerequisite documented in
-`phase-6-app-definition-validation-and-store-foundation.md`.
-
-Reason:
-
-- Python persisted writes validate theme, actions, and the app spec before any
-  file write
-- Go currently has no app-spec validator or catalog owner at all
-- landing this slice first would either weaken product semantics or re-route
-  validation through Python, which the rewrite should not do
+The prerequisite documented in
+`phase-6-app-definition-validation-and-store-foundation.md` is now complete.
 
 ## Implementation Outline
 
-1. Land the prerequisite validation/store foundation.
-   - `phase-6-app-definition-validation-and-store-foundation.md`
-
-2. Add the Go owner.
+1. Add the Go owner.
    - document/runtime mutation entry points
+   - app-spec path defaulting through the completed store helper
+   - metadata persistence on `Document.AppDefinition`
    - JSON merge patch application
 
-3. Add focused owner tests.
+2. Add focused owner tests.
    - set persists spec + metadata
    - update reads, patches, and rewrites existing spec
    - missing configured spec path or missing stored spec fails cleanly
 
-4. Add MCP parity for the mutation pair.
+3. Add MCP parity for the mutation pair.
    - structural/project-scoped tool definitions
    - thin handlers
    - HTTP tool-call route and authenticated SSE coverage
@@ -137,9 +129,9 @@ Reason:
 
 ## Next Recommended Step
 
-- implement
-  `phase-6-app-definition-validation-and-store-foundation.md` first
-- only start this slice after the validation/store boundary exists in Go
+- implement the document-level Go mutation owner first
+- do not start MCP transport until app-spec persistence and patch semantics are
+  owned in `internal/projectstate`
 
 ## Progress Notes
 
@@ -148,3 +140,6 @@ Reason:
 - 2026-03-08: repo inspection confirmed the slice is blocked on a missing Go
   app-spec validation/catalog owner, so the new prerequisite doc now sits in
   front of this plan.
+- 2026-03-08: the prerequisite app-spec validation/store foundation landed in
+  `internal/appspec`, so this slice is now the active next implementation step
+  again.

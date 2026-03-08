@@ -97,29 +97,25 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- app-definition validation/store foundation:
-  - prerequisite for `set_app_definition`
-  - prerequisite for `update_app_definition`
+- app-definition mutation parity:
+  - `set_app_definition`
+  - `update_app_definition`
 
 Why this is next:
 
 1. the completed section-filter slice cleared the non-app-definition mutation
    backlog, so the only mutation gap left is the deferred app-definition pair.
-2. direct repo inspection confirmed Go still has no app-spec validation or
-   catalog owner, so app-definition mutation parity is blocked on a real
-   prerequisite instead of on transport work.
+2. the prerequisite validation/store boundary is now complete in
+   `internal/appspec`, so the remaining gap is the document-level runtime owner
+   plus MCP transport for the mutation pair.
 3. Go already preserves document app-definition metadata and can read stored
-   app specs in deployment mode, which makes a shared validation/store owner
-   the clean missing boundary.
+   app specs in deployment mode through the new shared store helper.
 4. the next slice is scoped in:
-   `phase-6-app-definition-validation-and-store-foundation.md`
+   `phase-6-app-definition-mutation-tool-parity.md`
 
 ### 2. After The App-Definition Mutation Slice
 
-- land app-definition mutation parity:
-  - `set_app_definition`
-  - `update_app_definition`
-- then close the remaining app-definition read gap:
+- close the remaining app-definition read gap:
   - `get_app_definition`
   - `validate_app_definition`
 - keep those reads separate unless the mutation owner makes it trivial to land
@@ -127,8 +123,8 @@ Why this is next:
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
-These should not be turned into MCP work until the new validation/store owner
-lands:
+These should not be turned into MCP work until the new document-level mutation
+owner lands:
 
 - `set_app_definition`
 - `update_app_definition`
@@ -145,10 +141,9 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-app-definition-validation-and-store-foundation.md` as the next
-  bounded Phase 6 slice
-- do not start `set_app_definition` or `update_app_definition` transport work
-  until Go owns the app-spec validation/store boundary
+- use `phase-6-app-definition-mutation-tool-parity.md` as the next bounded
+  Phase 6 slice
+- implement the document-level mutation owner before MCP transport work
 
 ## Open Questions
 
@@ -156,10 +151,9 @@ priority:
 
 ## Verification
 
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'TestRuntime(SetSectionParamFilter|SetMetaControlShowSectionTitle)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetSectionParamFilter|SetMetaControlShowSectionTitle)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetSectionParamFilter|SetSectionParamFilterAcceptsTemporaryIDs|SupportsSetMetaControlShowSectionTitle|SetMetaControlShowSectionTitleAcceptsTemporaryIDs)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetSectionParamFilterOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetSectionParamFilterOverAuthenticatedSSE|ServerSupportsSetMetaControlShowSectionTitleOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetMetaControlShowSectionTitleOverAuthenticatedSSE|ToolCallRouteSupportsSetSectionParamFilter|ToolCallRouteSupportsSetMetaControlShowSectionTitle|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/appspec -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -run 'TestRuntimeLoadAppSpecReadsDeploymentRelativePath' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
 
 ## Progress Notes
 
@@ -262,3 +256,7 @@ priority:
   is blocked on missing Go app-spec validation/catalog ownership, so the next
   bounded step moved to
   `phase-6-app-definition-validation-and-store-foundation.md`.
+- 2026-03-08: the app-definition validation/store prerequisite slice completed
+  in `internal/appspec`, so the next bounded step moved back to the
+  app-definition mutation cluster in
+  `phase-6-app-definition-mutation-tool-parity.md`.

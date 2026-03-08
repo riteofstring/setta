@@ -21,17 +21,20 @@ Current repo status as of 2026-03-08:
 - Phase 6 MCP parity remains the active rewrite phase
 - the non-app-definition mutation backlog is complete
 - Go preserves document-level `AppDefinition` metadata
-- Go deployment reads can load a stored app spec from `appDefinition.appSpecPath`
-- Go does not yet own:
-  - app-spec path normalization and write helpers on the IDE runtime path
-  - app catalog/component validation
-  - action-definition validation
-  - theme validation
-  - document-level app-spec validation for persisted writes
+- Go deployment reads now load app specs through a shared `internal/appspec`
+  store helper
+- Go now owns:
+  - `app_specs/`-root path normalization and confinement
+  - JSON app-spec read/write helpers
+  - a first dedicated app catalog/component validation owner
+  - bounded action-definition validation
+  - bounded theme validation for persisted writes
+- the remaining gap is the document-level runtime owner for
+  `set_app_definition` and `update_app_definition`
 
 ## Scope
 
-This prerequisite slice should cover:
+This prerequisite slice covered:
 
 - a Go-owned app-spec store helper for:
   - default path resolution
@@ -82,13 +85,14 @@ checks:
 3. action-definition validation
 4. full app-spec validation against the catalog and payload rules
 
-Current Go code only covers:
+Before this slice, Go code only covered:
 
 - document-level `AppDefinition` normalization for stored metadata
 - deployment-time reading of a stored app spec by path
 
-Current Go code does not contain any validator or catalog owner for app specs.
-There is also no existing Go route or MCP handler for app-definition mutation.
+Before this slice, Go did not contain any validator or catalog owner for app
+specs. There was also no existing Go route or MCP handler for app-definition
+mutation.
 
 That makes the next choice architectural, not mechanical:
 
@@ -140,29 +144,43 @@ Rationale:
    - add the document-level runtime owner over the completed validation/store
      foundation
 
-## Open Questions
+## Decisions Made
 
-- do we need the full Python diagnostics/warnings surface before persisted
-  writes?
-  - recommended answer: no
-  - persisted writes only need deterministic rejection of invalid payloads;
-    the richer diagnostics surface can stay scoped to the later
-    `validate_app_definition` read/write-adjacent slice
+- keep the new owner in a dedicated `internal/appspec` package
+  - do not spread app-spec semantics across `projectstate`, `deployments`, and
+    transport layers
+- reuse the same store helper for deployment-time reads immediately
+  - this makes the app-spec path/store boundary real before mutation work lands
+- keep validation bounded to persisted-write requirements in this slice
+  - catalog id validation
+  - component recognition
+  - core root/elements/children shape checks
+  - required/unknown prop checks
+  - action-definition validation
+  - bounded theme mode/motion validation
+- defer richer warning/capability reporting to the later
+  `validate_app_definition` slice
 
 ## Verification
 
-When implementation starts, run:
+Completed verification:
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/appspec -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(Runtime(SetAppDefinition|UpdateAppDefinition)|Document.*AppDefinition)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -run 'TestRuntimeLoadAppSpecReadsDeploymentRelativePath' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/deployments -count=1 -timeout 300s`
 
 ## Next Recommended Step
 
-- implement the Go app-spec validation and store foundation before landing
-  `set_app_definition` or `update_app_definition`
+- return to `phase-6-app-definition-mutation-tool-parity.md`
+- implement the document-level runtime owner for `set_app_definition` and
+  `update_app_definition` over the completed `internal/appspec` boundary
 
 ## Progress Notes
 
 - 2026-03-08: doc created after direct repo inspection confirmed that Go has
   no app-spec validation/catalog owner yet, so the app-definition mutation
   slice is blocked on a real prerequisite instead of on MCP transport work.
+- 2026-03-08: slice completed with a new `internal/appspec` package covering
+  store-path normalization, JSON read/write helpers, catalog/component
+  validation, bounded action-definition validation, and bounded theme
+  validation; deployment-time reads now use the same store helper.
