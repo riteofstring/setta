@@ -198,6 +198,84 @@ func TestServiceRollbackRemoteWorkspaceLaunchDeletesRemoteSessionAndTunnel(t *te
 	waitForProcessExit(t, pid)
 }
 
+func TestServiceListRemoteWorkspaceSessionsForwardsProfileAndServerMode(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSessionWithMode(t, sessionsRoot, "/remote/workspace", string(RemoteServerModeLauncher))
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	sessions, err := service.ListRemoteWorkspaceSessions(ListRemoteWorkspaceSessionsInput{
+		SSHTarget:      "user@host",
+		Workspace:      "/remote/workspace",
+		Profile:        "missing",
+		ServerMode:     RemoteServerModeLauncher,
+		RemoteCommand:  "setta",
+		SettaHome:      "",
+		SettaFilesRoot: "",
+	})
+	if err != nil {
+		t.Fatalf("list remote workspace sessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("expected one remote session, got %#v", sessions)
+	}
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "--profile missing status --list-sessions --json --workspace /remote/workspace --server-mode launcher") {
+		t.Fatalf("expected profile and server-mode forwarding in command log, got %q", commandLog)
+	}
+}
+
+func TestServiceDeleteRemoteWorkspaceSessionDeletesSession(t *testing.T) {
+	repoRoot := testRepoRoot(t)
+	stubPath := filepath.Join(repoRoot, "scripts", "test", "ssh")
+	sessionsRoot := filepath.Join(t.TempDir(), "sessions")
+	session := createSSHStubSession(t, sessionsRoot, "/remote/workspace")
+	commandLogPath := filepath.Join(t.TempDir(), "ssh-command.log")
+
+	configureSSHStubEnv(t, repoRoot, sessionsRoot, session.ID)
+	t.Setenv("SETTA_SSH_STUB_COMMAND_LOG_FILE", commandLogPath)
+
+	service, err := NewService(ServiceOptions{
+		RuntimeRoot: t.TempDir(),
+		SSHBin:      stubPath,
+	})
+	if err != nil {
+		t.Fatalf("new sshx service: %v", err)
+	}
+
+	if err := service.DeleteRemoteWorkspaceSession(DeleteRemoteWorkspaceSessionInput{
+		SSHTarget:     "user@host",
+		Workspace:     "/remote/workspace",
+		SessionID:     session.ID,
+		RemoteCommand: "setta",
+		SSHArgs:       "-i ~/.ssh/id_ed25519",
+		Profile:       "dev",
+	}); err != nil {
+		t.Fatalf("delete remote workspace session: %v", err)
+	}
+
+	sessionDir := filepath.Join(sessionsRoot, session.ID)
+	if _, err := os.Stat(sessionDir); !os.IsNotExist(err) {
+		t.Fatalf("expected session dir %q to be removed, stat err=%v", sessionDir, err)
+	}
+	commandLog := readCommandLog(t, commandLogPath)
+	if !strings.Contains(commandLog, "--profile dev status --delete-session "+session.ID) {
+		t.Fatalf("expected delete command in command log, got %q", commandLog)
+	}
+}
+
 func TestBuildRemoteSettaPathArgsRejectsConflictingSettaFilesInputs(t *testing.T) {
 	_, err := buildRemoteSettaPathArgs("", "", "/tmp/state", "local", "")
 	requireSSHErrorCode(t, err, "InvalidSettaFilesConfig")
@@ -218,6 +296,11 @@ func TestServiceResolveRemoteWorkspaceRejectsInvalidTildePrefix(t *testing.T) {
 
 func createSSHStubSession(t *testing.T, sessionsRoot string, workspaceRoot string) auth.SessionMetadata {
 	t.Helper()
+	return createSSHStubSessionWithMode(t, sessionsRoot, workspaceRoot, string(RemoteServerModeIDE))
+}
+
+func createSSHStubSessionWithMode(t *testing.T, sessionsRoot string, workspaceRoot string, serverMode string) auth.SessionMetadata {
+	t.Helper()
 
 	registry, err := localsessions.NewRegistry(localsessions.RegistryOptions{
 		SessionsRoot: sessionsRoot,
@@ -232,7 +315,7 @@ func createSSHStubSession(t *testing.T, sessionsRoot string, workspaceRoot strin
 		PID:                os.Getpid(),
 		SettaFilesLocation: "local",
 		RuntimeRoot:        "/remote/runtime",
-		ServerMode:         string(RemoteServerModeIDE),
+		ServerMode:         serverMode,
 	})
 	if err != nil {
 		t.Fatalf("create ssh stub session: %v", err)
@@ -285,6 +368,16 @@ func readPIDFile(t *testing.T, path string) int {
 		t.Fatalf("expected positive pid in %q, got %d", path, pid)
 	}
 	return pid
+}
+
+func readCommandLog(t *testing.T, path string) string {
+	t.Helper()
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read command log %q: %v", path, err)
+	}
+	return string(content)
 }
 
 func waitForProcessExit(t *testing.T, pid int) {

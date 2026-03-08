@@ -38,6 +38,32 @@ type ConnectWorkspaceInput struct {
 	Timeout            time.Duration
 }
 
+type ListRemoteWorkspaceSessionsInput struct {
+	SSHTarget          string
+	Workspace          string
+	Profile            string
+	SettaHome          string
+	SettaFilesRoot     string
+	SettaFilesLocation string
+	RuntimeRoot        string
+	SSHArgs            string
+	RemoteCommand      string
+	ServerMode         RemoteServerMode
+}
+
+type DeleteRemoteWorkspaceSessionInput struct {
+	SSHTarget          string
+	Workspace          string
+	SessionID          string
+	Profile            string
+	SettaHome          string
+	SettaFilesRoot     string
+	SettaFilesLocation string
+	RuntimeRoot        string
+	SSHArgs            string
+	RemoteCommand      string
+}
+
 type RollbackRemoteWorkspaceInput struct {
 	SSHTarget          string
 	Workspace          string
@@ -112,6 +138,153 @@ func NewService(options ServiceOptions) (*Service, error) {
 		now:         now,
 		sleep:       sleep,
 	}, nil
+}
+
+func (s *Service) ListRemoteWorkspaceSessions(input ListRemoteWorkspaceSessionsInput) ([]RemoteSessionSummary, error) {
+	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
+	if sshTarget == "" {
+		return nil, &Error{
+			Code:    "InvalidSshTarget",
+			Message: "sshTarget must be a non-empty string.",
+		}
+	}
+	workspace := NormalizeOptionalArgument(input.Workspace)
+	if workspace == "" {
+		return nil, &Error{
+			Code:    "InvalidWorkspace",
+			Message: "--workspace is required for remote session listing.",
+		}
+	}
+
+	profile := NormalizeOptionalArgument(input.Profile)
+	settaHome := NormalizeOptionalArgument(input.SettaHome)
+	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
+	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
+	if err != nil {
+		return nil, err
+	}
+	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
+	sshArgsRaw := NormalizeOptionalArgument(input.SSHArgs)
+	remoteCommand := NormalizeOptionalArgument(input.RemoteCommand)
+	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
+		settaFilesLocation = "auto"
+	}
+
+	sshArgs, err := ParseSSHArgs(sshArgsRaw)
+	if err != nil {
+		return nil, err
+	}
+	sshArgs = ApplyControlSocketArgs(sshArgs)
+	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
+
+	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
+	if err != nil {
+		return nil, err
+	}
+	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
+	if err != nil {
+		return nil, err
+	}
+	resolvedRemoteCommand, err := s.resolveRemoteSettaCommand(sshTarget, sshArgs, shell, remoteWorkspace, remoteCommand, sshPrefix)
+	if err != nil {
+		return nil, err
+	}
+	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.fetchRemoteSessions(
+		sshTarget,
+		sshArgs,
+		shell,
+		remoteWorkspace,
+		resolvedRemoteCommand,
+		settaFilesArgs,
+		sshPrefix,
+		input.ServerMode,
+	)
+}
+
+func (s *Service) DeleteRemoteWorkspaceSession(input DeleteRemoteWorkspaceSessionInput) error {
+	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
+	if sshTarget == "" {
+		return &Error{Code: "RemoteRollback", Message: "Missing sshTarget for rollback."}
+	}
+	workspace := NormalizeOptionalArgument(input.Workspace)
+	if workspace == "" {
+		return &Error{Code: "RemoteRollback", Message: "Missing workspace for rollback."}
+	}
+	sessionID := NormalizeOptionalArgument(input.SessionID)
+	if sessionID == "" {
+		return &Error{Code: "RemoteRollback", Message: "Missing session id for rollback."}
+	}
+	remoteCommand := NormalizeOptionalArgument(input.RemoteCommand)
+
+	profile := NormalizeOptionalArgument(input.Profile)
+	settaHome := NormalizeOptionalArgument(input.SettaHome)
+	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
+	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
+	if err != nil {
+		return err
+	}
+	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
+	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
+		settaFilesLocation = "auto"
+	}
+
+	sshArgs, err := ParseSSHArgs(input.SSHArgs)
+	if err != nil {
+		return err
+	}
+	sshArgs = ApplyControlSocketArgs(sshArgs)
+	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
+
+	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
+	if err != nil {
+		return err
+	}
+	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
+	if err != nil {
+		return err
+	}
+	resolvedRemoteCommand, err := s.resolveRemoteSettaCommand(sshTarget, sshArgs, shell, remoteWorkspace, remoteCommand, sshPrefix)
+	if err != nil {
+		return err
+	}
+	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
+	if err != nil {
+		return err
+	}
+	rootPrefix := ""
+	if settaFilesArgs != "" {
+		rootPrefix = settaFilesArgs + " "
+	}
+	result, err := s.runRemoteSettaCommand(
+		sshTarget,
+		sshArgs,
+		shell,
+		remoteWorkspace,
+		resolvedRemoteCommand,
+		rootPrefix+"status --delete-session "+shellQuote(sessionID),
+		sshPrefix,
+		defaultRemoteCommandTimeout,
+	)
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		details := strings.TrimSpace(firstNonBlank(result.Stderr, result.Stdout))
+		message := fmt.Sprintf("Failed deleting remote session %s.", sessionID)
+		if details != "" {
+			message += " " + details
+		}
+		return &Error{
+			Code:    "RemoteRollback",
+			Message: message,
+		}
+	}
+	return nil
 }
 
 func (s *Service) ConnectWorkspaceSession(input ConnectWorkspaceInput) (RemoteConnectResult, error) {
@@ -314,83 +487,18 @@ func (s *Service) RollbackRemoteWorkspaceLaunch(input RollbackRemoteWorkspaceInp
 }
 
 func (s *Service) RollbackRemoteWorkspaceSession(input RollbackRemoteWorkspaceInput) error {
-	sshTarget := NormalizeOptionalArgument(input.SSHTarget)
-	if sshTarget == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing sshTarget for rollback."}
-	}
-	workspace := NormalizeOptionalArgument(input.Workspace)
-	if workspace == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing workspace for rollback."}
-	}
-	sessionID := NormalizeOptionalArgument(input.SessionID)
-	if sessionID == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing session id for rollback."}
-	}
-	remoteCommand := NormalizeOptionalArgument(input.RemoteCommand)
-	if remoteCommand == "" {
-		return &Error{Code: "RemoteRollback", Message: "Missing remote command for rollback."}
-	}
-
-	profile := NormalizeOptionalArgument(input.Profile)
-	settaHome := NormalizeOptionalArgument(input.SettaHome)
-	settaFilesRoot := NormalizeOptionalArgument(input.SettaFilesRoot)
-	settaFilesLocation, err := NormalizeSettaFilesLocation(input.SettaFilesLocation)
-	if err != nil {
-		return err
-	}
-	runtimeRoot := NormalizeOptionalArgument(input.RuntimeRoot)
-	if settaFilesRoot == "" && settaFilesLocation == "" && profile == "" {
-		settaFilesLocation = "auto"
-	}
-
-	sshArgs, err := ParseSSHArgs(input.SSHArgs)
-	if err != nil {
-		return err
-	}
-	sshArgs = ApplyControlSocketArgs(sshArgs)
-	sshPrefix := SSHCommandPrefix(true, s.resolvedSSHBin())
-
-	shell, err := s.resolveRemoteShell(sshTarget, sshArgs, sshPrefix)
-	if err != nil {
-		return err
-	}
-	remoteWorkspace, err := s.resolveRemoteWorkspace(sshTarget, sshArgs, shell, workspace, sshPrefix)
-	if err != nil {
-		return err
-	}
-	settaFilesArgs, err := buildRemoteSettaPathArgs(profile, settaHome, settaFilesRoot, settaFilesLocation, runtimeRoot)
-	if err != nil {
-		return err
-	}
-	rootPrefix := ""
-	if settaFilesArgs != "" {
-		rootPrefix = settaFilesArgs + " "
-	}
-	result, err := s.runRemoteSettaCommand(
-		sshTarget,
-		sshArgs,
-		shell,
-		remoteWorkspace,
-		remoteCommand,
-		rootPrefix+"status --delete-session "+shellQuote(sessionID),
-		sshPrefix,
-		defaultRemoteCommandTimeout,
-	)
-	if err != nil {
-		return err
-	}
-	if result.ExitCode != 0 {
-		details := strings.TrimSpace(firstNonBlank(result.Stderr, result.Stdout))
-		message := fmt.Sprintf("Failed deleting remote session %s.", sessionID)
-		if details != "" {
-			message += " " + details
-		}
-		return &Error{
-			Code:    "RemoteRollback",
-			Message: message,
-		}
-	}
-	return nil
+	return s.DeleteRemoteWorkspaceSession(DeleteRemoteWorkspaceSessionInput{
+		SSHTarget:          input.SSHTarget,
+		Workspace:          input.Workspace,
+		SessionID:          input.SessionID,
+		Profile:            input.Profile,
+		SettaHome:          input.SettaHome,
+		SettaFilesRoot:     input.SettaFilesRoot,
+		SettaFilesLocation: input.SettaFilesLocation,
+		RuntimeRoot:        input.RuntimeRoot,
+		SSHArgs:            input.SSHArgs,
+		RemoteCommand:      input.RemoteCommand,
+	})
 }
 
 func (s *Service) resolvedSSHBin() string {

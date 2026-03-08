@@ -21,11 +21,13 @@ As of 2026-03-08:
   - `cmd/setta-cli/main.go`
   - `internal/settacli/cli.go`
   - `internal/settacli/tool_api.go`
+- Go now owns the remote SSH `stop` path in:
+  - `internal/settacli/remote_stop.go`
+  - exported list/delete helpers in `internal/sshx/runtime.go`
 - Python still owns the user-facing SSH helper CLI orchestration in:
   - `backend/setta/start.py`
   - `backend/setta/ssh_connect.py`
 - the next bounded CLI gap is the remote helper cluster:
-  - remote `stop`
   - `connect`
 
 ## Inputs
@@ -134,13 +136,25 @@ Do not include in this stage:
 - 2026-03-08: created this doc after confirming that the next CLI gap is the
   SSH helper cluster above the already-completed `internal/sshx` runtime, and
   that remote `stop` is the best first Stage 1 landing before `connect`.
+- 2026-03-08: completed Stage 1. Go now exposes explicit remote session
+  list/delete helpers in `internal/sshx`, and `cmd/setta-cli` now supports the
+  remote `stop` branch with deterministic `--session` / `--latest` / `--all`
+  selection, remote-only path/profile forwarding, and default IDE vs optional
+  launcher server-mode filtering.
+- 2026-03-08: updated the SSH test stub to enumerate multiple remote sessions,
+  apply `--server-mode` filtering, and log normalized remote commands so the
+  Go tests assert real forwarding behavior instead of brittle shell-quoted
+  strings.
 
 ## Verification
 
-- pending Stage 1 implementation
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/sshx -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacli ./cmd/setta-cli -count=1 -timeout 300s`
 
 ## Recommended Next Step
 
-Implement Stage 1 from this doc: exported remote session list/delete helpers in
-`internal/sshx` plus remote `stop` in `cmd/setta-cli`, then take `connect` as a
-separate Stage 2 CLI slice on top of the same selection foundation.
+Take Stage 2 as a separate implementation doc and landing: `setta connect`
+above the now-completed remote session foundation. That follow-up should cover
+remote session selection vs remote start, local tunnel ownership, print-only vs
+browser-opening behavior, and the remaining SSH UX surface without reopening
+the completed `stop` path.
