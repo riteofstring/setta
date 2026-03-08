@@ -28,6 +28,7 @@ export const GoHTTPRoutes = {
   restartLanguageServer: "/restartLanguageServer",
   typeCheck: "/typeCheck",
   setTypeErrorIgnore: "/setTypeErrorIgnore",
+  getPasswordParamValue: "/getPasswordParamValue",
   getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
   addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
   removeLauncherRecentWorkspace: "/removeLauncherRecentWorkspace",

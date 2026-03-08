@@ -81,6 +81,16 @@ export type SetTypeErrorIgnoreRequestInput = {
   ignoreTypeErrors: boolean;
 };
 
+export type GetPasswordParamValueRequestInput = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+
+export type GetPasswordParamValueResponse = {
+  value: string;
+};
+
 export type LaunchRequestInput = {
   launchIntentToken?: string | null;
   workspaceRoot?: string | null;
@@ -472,6 +482,10 @@ export async function route_type_check(x: TypeCheckRequestInput): Promise<Respon
 
 export async function route_set_type_error_ignore(x: SetTypeErrorIgnoreRequestInput): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRoutes.setTypeErrorIgnore, x);
+}
+
+export async function route_get_password_param_value(x: GetPasswordParamValueRequestInput): Promise<ResponseDataAndStatus<GetPasswordParamValueResponse>> {
+  return await post(GoHTTPRoutes.getPasswordParamValue, x);
 }
 
 export async function route_create_workspace_launch_intent(x: CreateWorkspaceLaunchIntentRequestInput): Promise<ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>> {

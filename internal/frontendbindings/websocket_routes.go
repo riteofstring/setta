@@ -99,6 +99,10 @@ func CurrentHTTPRoutes() []HTTPRoute {
 			Path: httpapi.RouteSetTypeErrorIgnore,
 		},
 		{
+			Name: "getPasswordParamValue",
+			Path: httpapi.RouteGetPasswordParamValue,
+		},
+		{
 			Name: "getLauncherRecentWorkspaces",
 			Path: httpapi.RouteGetLauncherRecentWorkspaces,
 		},

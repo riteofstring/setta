@@ -61,6 +61,8 @@ Start with explicit route ownership wedges, not full schema reflection.
   - current landed wedge: active LSP helper endpoint wrappers plus
     request/response types for `restartLanguageServer`, `typeCheck`, and
     `setTypeErrorIgnore`
+  - current landed wedge: active password-reveal endpoint wrapper plus
+    request/response types for `getPasswordParamValue`
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals
