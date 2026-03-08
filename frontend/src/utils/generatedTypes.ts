@@ -92,6 +92,79 @@ function resolveGeneratedFactoryInputs<
   };
 }
 
+function createGeneratedBaseSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+} {
+  return {
+    isFrozen: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      width: 250,
+      height: 150,
+    },
+    aspectRatio: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+  };
+}
+
+function createGeneratedBaseSectionWithParamsDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: ConfigLanguageEnum.python,
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+  };
+}
+
+function createGeneratedBaseCodeSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  code: string;
+  codeFileBinding: CodeFileBinding | null;
+  attachedTerminalSectionId: string | null;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    code: "",
+    size: {
+      width: 500,
+      height: 150,
+    },
+    codeFileBinding: null,
+    attachedTerminalSectionId: null,
+  };
+}
+
 export const SettaNotificationTypeEnum = {
   error: "error",
   warning: "warning",
@@ -8251,82 +8324,6 @@ export type PluginRestartResponse = {
 export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
   return options as PluginRestartResponse;
 }
-
-
-
-function createGeneratedBaseSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-} {
-  return {
-    isFrozen: false,
-    tagColor: null,
-    styleColor: null,
-    size: {
-      width: 250,
-      height: 150,
-    },
-    aspectRatio: false,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-  };
-}
-
-function createGeneratedBaseSectionWithParamsDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    hideUnpinnedParams: false,
-    paramFilter: "",
-    columnWidth: null,
-    configLanguage: ConfigLanguageEnum.python,
-    edgeInputParams: [],
-    edgeOutputPorts: [],
-  };
-}
-
-function createGeneratedBaseCodeSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    code: "",
-    size: {
-      width: 500,
-      height: 150,
-    },
-    codeFileBinding: null,
-    attachedTerminalSectionId: null,
-  };
-}
-
 
 
 

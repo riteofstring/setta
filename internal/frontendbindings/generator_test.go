@@ -71,9 +71,9 @@ func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	t.Helper()
 
-	bindings, err := buildBindings(nil, nil, nil, nil)
+	bindings, err := Build()
 	if err != nil {
-		t.Fatalf("buildBindings(...) error = %v", err)
+		t.Fatalf("Build() error = %v", err)
 	}
 
 	if !strings.Contains(bindings.TypesTS, "function mergeGeneratedOptions<T extends object>(") {
@@ -81,6 +81,9 @@ func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	}
 	if !strings.Contains(bindings.TypesTS, "function resolveGeneratedFactoryInputs<") {
 		t.Fatalf("types output missing shared factory-resolution helper:\n%s", bindings.TypesTS)
+	}
+	if !strings.Contains(bindings.TypesTS, "function createGeneratedBaseSectionDefaults(): {") {
+		t.Fatalf("types output missing shared project-state base defaults helper:\n%s", bindings.TypesTS)
 	}
 }
 
