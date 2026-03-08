@@ -110,6 +110,7 @@ from setta.types.helpers_lvl1 import (
 )
 from setta.types.hierarchy_traversal import TraversalOptions, traverse_hierarchy
 from setta.types.id import ID
+from setta.types.project_chat_windowing import normalize_project_chat_windowing
 from setta.types.project_config import Position, TopLevelSectionLayout, ViewportBounds
 from setta.types.section_impls import (
     BaseCodeSectionImpl,
@@ -163,6 +164,7 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from setta.types.project_state import (
+        ProjectChatWindowingState,
         ProjectStateBackend,
         ProjectStateCore,
         ProjectStateSingleConfig,
@@ -1525,6 +1527,7 @@ def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
                     del p.sectionImpls[impl_id]
 
     _prune_unused_code_objs(p)
+    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
     p.validate_active_ids()
 
 
@@ -3194,6 +3197,14 @@ def set_prompt_section_format(
             renderError=result.render_error,
         ),
     )
+
+
+def set_project_chat_windowing_state(
+    p: "ProjectStateSingleConfig",
+    state: "ProjectChatWindowingState",
+):
+    p.projectChatWindowing = state
+    normalize_project_chat_windowing(p.projectChatWindowing, set(p.sections.keys()))
 
 
 def set_chat_section_settings(

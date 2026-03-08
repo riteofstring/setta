@@ -973,6 +973,107 @@ class TestAgentRunChatRoutes:
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
             assert prior_message_loader_called is False
 
+    async def test_managed_engine_rejects_external_history_on_reused_chat_id(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            chat_id = ID("chat-mixed-history")
+            project_config_id = ID("project-llm-1")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external first")],
+            )
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-external"),
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Next")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=project_config_id,
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat engine mismatch; start a new chat."
+
+    async def test_managed_engine_rejects_project_mismatch_on_reused_chat_id(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            chat_id = ID("chat-project-mismatch")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello")],
+            )
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=ID("project-llm-other"),
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=chat_id,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="Next")],
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-llm-1"),
+                            allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 409
+            assert exc.value.detail == "Chat project config mismatch; start a new chat."
+
     async def test_branch_edit_missing_message_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

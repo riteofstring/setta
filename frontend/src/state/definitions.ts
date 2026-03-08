@@ -32,6 +32,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -159,6 +160,7 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
+          projectChatWindowing: createProjectChatWindowingState(),
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
         })),
@@ -828,6 +830,11 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
+        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
+        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
+          string,
+          true
+        >,
       })),
     ),
   ),
@@ -1079,6 +1086,7 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
+export type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -1087,6 +1095,7 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
+  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -1162,6 +1171,7 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
+      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1317,7 +1327,6 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
-
         return merged;
       },
       partialize: (state) => ({
