@@ -30,6 +30,7 @@ from setta.utils.errors import (
     InvalidProjectName,
     InvalidSectionName,
     InvalidViewModeName,
+    InvalidWindowSpaceName,
 )
 
 if TYPE_CHECKING:
@@ -132,6 +133,24 @@ def _view_mode_name_format_error(normalized: str) -> str | None:
     return None
 
 
+def _window_space_name_format_error(normalized: str) -> str | None:
+    if not normalized:
+        return "Window space name cannot be empty."
+    if _contains_control_chars(normalized):
+        return "Window space name cannot include control characters."
+    if "/" in normalized or "\\" in normalized:
+        return "Window space name cannot include path separators."
+    if ".." in normalized:
+        return "Window space name cannot include '..' path segments."
+    for char in normalized:
+        if char not in ALLOWED_SIMPLE_NAME_CHARS:
+            return "Window space name can only contain letters, numbers, spaces, '_' and '-'."
+    slug = sanitize_slug(normalized)
+    if not slug:
+        return "Window space name is invalid after sanitization."
+    return None
+
+
 def get_project_name_format_error(
     name: str,
     *,
@@ -200,6 +219,38 @@ def validate_view_mode_name(
             _raise_invalid_name(
                 f"View mode name '{normalized}' conflicts with existing view mode '{view_mode.name}'.",
                 InvalidViewModeName,
+            )
+    return normalized
+
+
+def get_window_space_name_format_error(name: str) -> str | None:
+    normalized = _normalize_name(name)
+    return _window_space_name_format_error(normalized)
+
+
+def validate_window_space_name_format(name: str) -> str:
+    normalized = _normalize_name(name)
+    error = _window_space_name_format_error(normalized)
+    if error:
+        _raise_invalid_name(error, InvalidWindowSpaceName)
+    return normalized
+
+
+def validate_window_space_name(
+    project_state: "ProjectStateSingleConfig",
+    window_space_id: "ID | None",
+    name: str,
+) -> str:
+    normalized = validate_window_space_name_format(name)
+    slug = sanitize_slug(normalized)
+    for existing_id, window_space in project_state.projectConfig.windowSpaces.items():
+        if window_space_id is not None and existing_id == window_space_id:
+            continue
+        existing_slug = sanitize_slug(window_space.name)
+        if slug == existing_slug:
+            _raise_invalid_name(
+                f"Window space name '{normalized}' conflicts with existing window space '{window_space.name}'.",
+                InvalidWindowSpaceName,
             )
     return normalized
 
