@@ -2,12 +2,12 @@
 
 ## Purpose
 
-This doc scopes the first executable run-chain follow-on under the broader
-Phase 14 runtime-mutation plan.
+This doc records the landed run-chain follow-on under the broader Phase 14
+runtime-mutation plan.
 
-The goal is to land Go-owned `POST /startRunChain` and `POST /stopRunChain`
-for managed `setta_llm` child steps only, without widening scope into
-external-agent child-run orchestration.
+The goal of this slice was to land Go-owned `POST /startRunChain` and
+`POST /stopRunChain` for managed `setta_llm` child steps only, without
+widening scope into external-agent child-run orchestration.
 
 ## Current Status
 
@@ -19,36 +19,28 @@ Completed before this slice:
 - Phase 14 managed `POST /startAgentRun` and `POST /stopAgentRun` ownership in
   `phase-14-managed-agent-start-stop-runtime-and-transport.md`
 
-Current Go state before this slice:
+Current Go state after this slice:
 
-- `internal/agentruns`
-  - owns persisted run storage, managed executor preparation/execution, and an
-    active managed runtime with cancellation
+- `internal/runchains`
+  - now owns parent chain-run persistence, active chain task lifecycle,
+    managed child-step orchestration, snapshot/event recording, and stop
+    cancellation
 - `internal/httpapi/agent_run_routes.go`
-  - owns:
+  - now owns:
     - `GET /getAgentRuns`
     - `POST /getAgentRun`
     - `POST /startAgentRun`
     - `POST /stopAgentRun`
-- no Go-owned run-chain runtime exists yet
-
-Current Python behavior relevant to this slice:
-
-- `POST /startRunChain`
-  - creates and persists a parent chain run immediately
-  - records `chain_started` plus a `snapshot` event
-  - spawns a background task that runs each step in order
-  - writes `step_started`, `step_completed` / `step_failed`,
-    `chain_completed` / `chain_failed` / `chain_cancelled`
-  - can fan out child steps to either managed or external-agent execution
-- `POST /stopRunChain`
-  - cancels the active chain task
-  - stops the currently running child step
-  - persists cancelled terminal state on the parent run
+    - `POST /startRunChain`
+    - `POST /stopRunChain`
+- `internal/app.App`
+  - now wires the run-chain runtime in IDE mode
+  - keeps that runtime disabled in real app behavior until a managed executor
+    is wired
 
 ## Scope
 
-This slice will deliver:
+This slice delivered:
 
 - a dedicated Go run-chain runtime owner with:
   - parent chain run persistence
@@ -87,7 +79,7 @@ This slice will deliver:
 - `internal/agentprofiles/store.go`
 - `internal/httpapi/agent_run_routes.go`
 
-## Design
+## Implementation Notes
 
 1. Add a dedicated `internal/runchains` owner instead of burying orchestration
    inside `internal/agentruns`.
@@ -127,23 +119,20 @@ This slice will deliver:
    - `503` when the managed runtime is not available
    - `400` for invalid step payloads or unsupported external-agent step engines
 
-## Verification Targets
+5. The run-chain owner now validates known managed-step input shape
+   synchronously before persisting the parent chain run.
+   - child-step `engineConfigId` mismatch, unsupported engine type, missing
+     profile references, bad `allowUnscoped` / `thinking` / `messages` shape,
+     and project/section scope errors now fail directly from the route
+   - when a step has no `sectionId`, the owner sets `allowUnscoped = true`
+     before child managed execution so chain steps do not depend on an
+     ad hoc section binding
 
-- focused owner tests
-  - empty chain completes with persisted outputs and terminal events
-  - managed step completion persists child summary into parent outputs
-  - stop cancels both the active chain task and the current child managed run
-  - mismatched `engineConfigId` inside step inputs fails deterministically
-  - external-agent step engines fail explicitly
-- focused route tests
-  - start success
-  - stop success
-  - unavailable runtime mapping
-  - invalid input mapping
-  - share-mode gating
-- app wiring tests
-  - IDE mode constructs the run-chain runtime owner without reopening Python
-    state
+## Verification
+
+- `./scripts/go.sh test ./internal/runchains -count=1`
+- `./scripts/go.sh test ./internal/httpapi -run 'RunChain|AgentRun' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'ManagedAgentRun|RunChain' -count=1`
 
 ## Decisions Made
 
@@ -152,6 +141,8 @@ This slice will deliver:
 - use a dedicated `internal/runchains` owner instead of extending
   `internal/agentruns` into another orchestration singleton
 - reuse the landed managed runtime as the child-step execution boundary
+- validate known managed-step input shape before parent-run creation so invalid
+  chains fail synchronously instead of as background failures
 
 ## Open Questions
 
@@ -164,9 +155,11 @@ This slice will deliver:
 
 - 2026-03-09: opened the first focused executable Phase 14 run-chain slice for
   managed `start/stopRunChain` over the landed managed-run runtime.
+- 2026-03-09: landed the Go-owned managed-only run-chain runtime and thin
+  `start/stopRunChain` transport over `internal/runchains`.
 
 ## Next Recommended Step
 
-- implement the managed-only run-chain runtime owner and thin transport
-- keep external-agent child-step orchestration deferred until a separate owner
-  exists or a concrete caller requires it
+- treat the current bounded agentic runtime route surface as complete
+- only reopen this area if product work requires external-agent child-step
+  orchestration or richer chain-progress realtime behavior

@@ -18,6 +18,7 @@ import (
 	"setta/internal/llmconfig"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
+	"setta/internal/runchains"
 )
 
 func TestRegisterAgentRunRoutesListsRuns(t *testing.T) {
@@ -211,6 +212,124 @@ func TestRegisterAgentRunRoutesStopsManagedRun(t *testing.T) {
 	}
 }
 
+func TestRegisterAgentRunRoutesStartsManagedRunChain(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAgentRunRouteFixture(t, config.ModeIDE, &routeAgentRunExecutor{
+		result: agentruns.ExecutionResult{
+			Outputs: map[string]any{
+				"messages": []any{},
+				"result":   "ok",
+			},
+		},
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, strings.NewReader(`{
+		"spec":{
+			"id":"chain-alpha",
+			"name":"Chain Alpha",
+			"steps":[
+				{
+					"id":"step-alpha",
+					"name":"Step Alpha",
+					"engineConfigId":"engine-primary",
+					"prompt":"hello"
+				}
+			]
+		},
+		"inputs":{"allowUnscoped":true}
+	}`))
+	response := httptest.NewRecorder()
+
+	fixture.handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var started agentruns.Run
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode started run chain: %v", err)
+	}
+	if started.Status != agentruns.RunStatusRunning {
+		t.Fatalf("expected running run chain, got %#v", started)
+	}
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	completed, err := fixture.chains.WaitForRun(waitCtx, started.ID)
+	if err != nil {
+		t.Fatalf("wait for run chain: %v", err)
+	}
+	if completed.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed run chain, got %#v", completed)
+	}
+	steps, ok := completed.Outputs["steps"].([]any)
+	if !ok || len(steps) != 1 {
+		t.Fatalf("expected one step summary, got %#v", completed.Outputs["steps"])
+	}
+}
+
+func TestRegisterAgentRunRoutesStopsManagedRunChain(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAgentRunRouteFixture(t, config.ModeIDE, &blockingRouteAgentRunExecutor{
+		started: make(chan struct{}, 1),
+		release: make(chan struct{}),
+	})
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, strings.NewReader(`{
+		"spec":{
+			"id":"chain-alpha",
+			"name":"Chain Alpha",
+			"steps":[
+				{
+					"id":"step-alpha",
+					"name":"Step Alpha",
+					"engineConfigId":"engine-primary",
+					"prompt":"hello"
+				}
+			]
+		},
+		"inputs":{"allowUnscoped":true}
+	}`))
+	response := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var started agentruns.Run
+	if err := json.Unmarshal(response.Body.Bytes(), &started); err != nil {
+		t.Fatalf("decode started run chain: %v", err)
+	}
+	select {
+	case <-fixture.blocking.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for run-chain child execution start")
+	}
+
+	stopRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteStopRunChain, strings.NewReader(`{"runId":"`+started.ID+`"}`))
+	stopResponse := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(stopResponse, stopRequest)
+	if stopResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", stopResponse.Code, stopResponse.Body.String())
+	}
+	var stopped agentruns.Run
+	if err := json.Unmarshal(stopResponse.Body.Bytes(), &stopped); err != nil {
+		t.Fatalf("decode stopped run chain: %v", err)
+	}
+	if stopped.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected cancelled run chain, got %#v", stopped)
+	}
+	waitCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	waited, err := fixture.chains.WaitForRun(waitCtx, started.ID)
+	if err != nil {
+		t.Fatalf("wait for stopped run chain: %v", err)
+	}
+	if waited.Status != agentruns.RunStatusCancelled {
+		t.Fatalf("expected cancelled terminal run chain, got %#v", waited)
+	}
+}
+
 func TestRegisterAgentRunRoutesReturnsNotFoundForMissingRun(t *testing.T) {
 	t.Parallel()
 
@@ -296,6 +415,87 @@ func TestRegisterAgentRunRoutesRejectsExternalAgentProfileOnStart(t *testing.T) 
 	}
 }
 
+func TestRegisterAgentRunRoutesRejectsExternalAgentStepOnStart(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAgentRunRouteFixture(t, config.ModeIDE, &routeAgentRunExecutor{})
+	if err := fixture.engines.Write([]agentruns.EngineConfig{
+		{
+			ID:               "engine-primary",
+			Name:             "Primary",
+			EngineType:       agentruns.EngineTypeSettaLLM,
+			SettaLLMConfigID: routeAgentRunStringPointer("primary"),
+		},
+		{
+			ID:                    "engine-external",
+			Name:                  "External",
+			EngineType:            agentruns.EngineTypeExternalAgent,
+			ExternalAgentConfigID: routeAgentRunStringPointer("external-primary"),
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, strings.NewReader(`{
+		"spec":{
+			"id":"chain-alpha",
+			"name":"Chain Alpha",
+			"steps":[{"id":"step-alpha","name":"Step Alpha","engineConfigId":"engine-external"}]
+		},
+		"inputs":{"allowUnscoped":true}
+	}`))
+	response := httptest.NewRecorder()
+
+	fixture.handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "managed_run_chain_engine_required" {
+		t.Fatalf("expected managed_run_chain_engine_required, got %#v", payload)
+	}
+}
+
+func TestRegisterAgentRunRoutesRejectsInvalidRunChainInputsOnStart(t *testing.T) {
+	t.Parallel()
+
+	fixture := newAgentRunRouteFixture(t, config.ModeIDE, &routeAgentRunExecutor{})
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, strings.NewReader(`{
+		"spec":{
+			"id":"chain-alpha",
+			"name":"Chain Alpha",
+			"steps":[
+				{
+					"id":"step-alpha",
+					"name":"Step Alpha",
+					"engineConfigId":"engine-primary",
+					"prompt":"hello",
+					"inputs":{"allowUnscoped":"yes"}
+				}
+			]
+		},
+		"inputs":{}
+	}`))
+	response := httptest.NewRecorder()
+
+	fixture.handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "invalid_run_chain_inputs" {
+		t.Fatalf("expected invalid_run_chain_inputs, got %#v", payload)
+	}
+}
+
 func TestRegisterAgentRunRoutesRejectsMissingRunID(t *testing.T) {
 	t.Parallel()
 
@@ -355,6 +555,18 @@ func TestRegisterAgentRunRoutesReturnUnavailableWhenManagedRuntimeDisabled(t *te
 	if stopResponse.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected 503, got %d with body %q", stopResponse.Code, stopResponse.Body.String())
 	}
+	startChainRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteStartRunChain, strings.NewReader(`{"spec":{"id":"chain-a","name":"Chain A","steps":[]}}`))
+	startChainResponse := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(startChainResponse, startChainRequest)
+	if startChainResponse.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", startChainResponse.Code, startChainResponse.Body.String())
+	}
+	stopChainRequest := httptest.NewRequest(http.MethodPost, "/api"+RouteStopRunChain, strings.NewReader(`{"runId":"chain-a"}`))
+	stopChainResponse := httptest.NewRecorder()
+	fixture.handler.ServeHTTP(stopChainResponse, stopChainRequest)
+	if stopChainResponse.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d with body %q", stopChainResponse.Code, stopChainResponse.Body.String())
+	}
 }
 
 func TestRegisterAgentRunRoutesBlocksShareMode(t *testing.T) {
@@ -370,6 +582,8 @@ func TestRegisterAgentRunRoutesBlocksShareMode(t *testing.T) {
 		{method: http.MethodPost, path: RouteGetAgentRun, body: `{"runId":"run-a"}`},
 		{method: http.MethodPost, path: RouteStartAgentRun, body: `{"profileId":"profile-a","inputs":{"allowUnscoped":true}}`},
 		{method: http.MethodPost, path: RouteStopAgentRun, body: `{"runId":"run-a"}`},
+		{method: http.MethodPost, path: RouteStartRunChain, body: `{"spec":{"id":"chain-a","name":"Chain A","steps":[]}}`},
+		{method: http.MethodPost, path: RouteStopRunChain, body: `{"runId":"chain-a"}`},
 	}
 
 	for _, testCase := range testCases {
@@ -424,6 +638,7 @@ type agentRunRouteFixture struct {
 	runs     *agentruns.RunStore
 	service  *agentruns.Service
 	runtime  *agentruns.Runtime
+	chains   *runchains.Runtime
 	executor *routeAgentRunExecutor
 	blocking *blockingRouteAgentRunExecutor
 }
@@ -497,6 +712,20 @@ func newAgentRunRouteFixture(t *testing.T, mode config.Mode, executor agentruns.
 	if err != nil {
 		t.Fatalf("new managed runtime: %v", err)
 	}
+	chains, err := runchains.NewRuntime(runchains.RuntimeOptions{
+		Runs:         store,
+		Engines:      engines,
+		Profiles:     profiles,
+		ProjectState: projectRuntime,
+		Managed:      runtime,
+		TemporaryIDs: routeTemporaryIDs{},
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 9, 19, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new run-chain runtime: %v", err)
+	}
 
 	handler, err := NewHandler(Dependencies{
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -508,6 +737,7 @@ func newAgentRunRouteFixture(t *testing.T, mode config.Mode, executor agentruns.
 				Profiles:   profiles,
 				Runs:       store,
 				Managed:    runtime,
+				Chains:     chains,
 			}); err != nil {
 				t.Fatalf("register agent run routes: %v", err)
 			}
@@ -523,6 +753,7 @@ func newAgentRunRouteFixture(t *testing.T, mode config.Mode, executor agentruns.
 		runs:     store,
 		service:  service,
 		runtime:  runtime,
+		chains:   chains,
 	}
 	if typed, ok := executor.(*routeAgentRunExecutor); ok {
 		fixture.executor = typed
@@ -546,4 +777,14 @@ func newAgentRunRouteTestRun(runID string, chatID string, projectConfigID string
 		"toolType": "codex",
 	}
 	return run
+}
+
+type routeTemporaryIDs struct{}
+
+func (routeTemporaryIDs) EnsureTemporaryID(canonicalID string) (string, error) {
+	return canonicalID, nil
+}
+
+func (routeTemporaryIDs) Snapshot() (map[string]string, error) {
+	return map[string]string{}, nil
 }

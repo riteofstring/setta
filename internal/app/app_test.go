@@ -257,6 +257,12 @@ func TestAppWiresManagedAgentRunFoundationInIDEMode(t *testing.T) {
 	if !app.ManagedAgentRuntime().Disabled() {
 		t.Fatal("expected managed agent run runtime to be disabled before an executor is wired")
 	}
+	if app.RunChainRuntime() == nil {
+		t.Fatal("expected run-chain runtime")
+	}
+	if !app.RunChainRuntime().Disabled() {
+		t.Fatal("expected run-chain runtime to be disabled before a managed executor is wired")
+	}
 }
 
 func TestAppIDEStartupSyncsWatchCodeServiceFromSavedProjectState(t *testing.T) {

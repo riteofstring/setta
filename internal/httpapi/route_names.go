@@ -102,6 +102,8 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteGetAgentRuns):                            {},
 	bareRouteName(RouteStartAgentRun):                           {},
 	bareRouteName(RouteStopAgentRun):                            {},
+	bareRouteName(RouteStartRunChain):                           {},
+	bareRouteName(RouteStopRunChain):                            {},
 	bareRouteName(RouteGetExternalAgentChat):                    {},
 	bareRouteName(RouteGetAIFollowSnapshot):                     {},
 	bareRouteName(RouteStopExternalAgentRun):                    {},

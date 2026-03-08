@@ -38,6 +38,7 @@ import (
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonenv"
 	"setta/internal/realtime"
+	"setta/internal/runchains"
 	"setta/internal/runs"
 	"setta/internal/runtime"
 	"setta/internal/sshx"
@@ -62,6 +63,7 @@ type App struct {
 	runCode       *runs.Service
 	agentRuns     *agentruns.Service
 	agentRuntime  *agentruns.Runtime
+	runChains     *runchains.Runtime
 	websocketHub  *realtime.WebsocketHub
 	listeners     *realtime.ListenerBroadcaster
 	lspSync       *lsp.ProjectSynchronizer
@@ -139,6 +141,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		engineStore           *agentruns.EngineStore
 		agentRunStore         *agentruns.RunStore
 		agentRunRuntime       *agentruns.Runtime
+		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
 		externalConfigService *externalagentconfigs.Service
 		externalPreflight     externalagentconfigs.Checker
@@ -596,6 +599,18 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		runChainRuntime, err = runchains.NewRuntime(runchains.RuntimeOptions{
+			Runs:         agentRunStore,
+			Engines:      engineStore,
+			Profiles:     agentProfileStore,
+			ProjectState: projectRuntime,
+			Managed:      agentRunRuntime,
+			TemporaryIDs: temporaryIDs,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
 			Tools:        mcpClient,
 			TemporaryIDs: temporaryIDs,
@@ -984,6 +999,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				Profiles:   agentProfileStore,
 				Runs:       agentRunStore,
 				Managed:    agentRunRuntime,
+				Chains:     runChainRuntime,
 			}); err != nil {
 				panic(err)
 			}
@@ -1027,6 +1043,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		runCode:       runCodeService,
 		agentRuns:     agentRunService,
 		agentRuntime:  agentRunRuntime,
+		runChains:     runChainRuntime,
 		websocketHub:  websocketHub,
 		listeners:     listenerBroadcaster,
 		lspSync:       projectLSPSyncer,
@@ -1092,6 +1109,10 @@ func (a *App) AgentRuns() *agentruns.Service {
 
 func (a *App) ManagedAgentRuntime() *agentruns.Runtime {
 	return a.agentRuntime
+}
+
+func (a *App) RunChainRuntime() *runchains.Runtime {
+	return a.runChains
 }
 
 func (a *App) WebsocketHub() *realtime.WebsocketHub {

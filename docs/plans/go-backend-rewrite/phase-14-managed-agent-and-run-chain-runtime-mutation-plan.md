@@ -26,10 +26,12 @@ Completed before this plan:
 - Phase 13 direct hydration, settings mutation, dormant single-item read, and
   persisted agent-run read transport ownership
 
-Current Python-owned surface after the landed managed follow-on:
+Current Python-owned route surface after the landed run-chain follow-on:
 
-- `POST /startRunChain`
-- `POST /stopRunChain`
+- none for the current bounded clean-break scope
+- the deferred follow-on is no longer route transport
+- the only remaining question is whether product work still needs Python's
+  older external-agent child-step orchestration inside run-chain
 
 Current caller status relevant to scope:
 
@@ -52,12 +54,10 @@ Current Go foundations already landed:
   - Go-owned `GET /getAgentRuns`
   - Go-owned `POST /getAgentRun`
 
-What is still missing in Go:
+What is still deferred in Go after the landed follow-ons:
 
-- a run-chain runtime owner that composes child managed/external runs
-- transport for:
-  - `POST /startRunChain`
-  - `POST /stopRunChain`
+- external-agent child-step orchestration inside run-chain
+- any richer run-chain progress realtime surface beyond persisted run polling
 
 ## Inputs
 

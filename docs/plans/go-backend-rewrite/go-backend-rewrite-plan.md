@@ -401,6 +401,23 @@ The next bounded follow-on is now opened in
 - external-agent child-step orchestration is explicitly deferred instead of
   being silently reintroduced through this route
 
+That bounded follow-on tracked in
+`phase-14-run-chain-managed-runtime-and-transport.md` is now landed:
+
+- Go now owns:
+  - `POST /startRunChain`
+  - `POST /stopRunChain`
+- parent chain-run persistence, active task lifecycle, managed child-step
+  orchestration, and stop cancellation now live in Go under
+  `internal/runchains`
+- the route is intentionally managed-only in Go and rejects
+  external-agent-backed child steps instead of preserving Python's hybrid
+  chain-step dispatch
+- the current bounded agentic runtime route surface is now Go-owned
+- the only remaining follow-on here is whether product work still needs
+  external-agent child-step orchestration or richer chain-progress realtime
+  behavior
+
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
@@ -408,10 +425,11 @@ shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
 real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
-is no longer inventory or transport cleanup; those are now complete. That
-product/runtime decision has now been made, so the active bounded priority is
-the managed-only run-chain slice tracked in
-`phase-14-run-chain-managed-runtime-and-transport.md`.
+is no longer inventory or transport cleanup; those are now complete. The
+bounded agentic runtime route surface is also now complete for the current
+clean-break scope. New work here should now come only from a concrete caller
+or product decision to reopen deferred run-chain behavior such as
+external-agent child-step orchestration.
 
 ## Current Reality
 

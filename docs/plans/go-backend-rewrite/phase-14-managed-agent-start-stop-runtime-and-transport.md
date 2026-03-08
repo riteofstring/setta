@@ -149,5 +149,5 @@ This slice delivered:
 ## Next Recommended Step
 
 - treat managed `start/stopAgentRun` as complete for the current bounded scope
-- the later explicit runtime decision reopened run-chain in the focused
-  follow-on doc `phase-14-run-chain-managed-runtime-and-transport.md`
+- the later explicit runtime decision reopened run-chain and that follow-on is
+  now landed in `phase-14-run-chain-managed-runtime-and-transport.md`

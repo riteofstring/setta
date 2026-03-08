@@ -10,18 +10,22 @@ import (
 	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/modes"
+	"setta/internal/runchains"
 )
 
 const RouteGetAgentRuns = "/getAgentRuns"
 const RouteGetAgentRun = "/getAgentRun"
 const RouteStartAgentRun = "/startAgentRun"
 const RouteStopAgentRun = "/stopAgentRun"
+const RouteStartRunChain = "/startRunChain"
+const RouteStopRunChain = "/stopRunChain"
 
 type AgentRunRouteDependencies struct {
 	ModePolicy modes.Policy
 	Profiles   *agentprofiles.Store
 	Runs       *agentruns.RunStore
 	Managed    *agentruns.Runtime
+	Chains     *runchains.Runtime
 }
 
 type getAgentRunRequest struct {
@@ -34,6 +38,15 @@ type startAgentRunRequest struct {
 }
 
 type stopAgentRunRequest struct {
+	RunID string `json:"runId"`
+}
+
+type startRunChainRequest struct {
+	Spec   runchains.SpecInput `json:"spec"`
+	Inputs map[string]any      `json:"inputs"`
+}
+
+type stopRunChainRequest struct {
 	RunID string `json:"runId"`
 }
 
@@ -51,12 +64,17 @@ func RegisterAgentRunRoutes(router chi.Router, deps AgentRunRouteDependencies) e
 		if deps.Managed == nil {
 			return fmt.Errorf("managed agent runtime is required in ide mode")
 		}
+		if deps.Chains == nil {
+			return fmt.Errorf("run chain runtime is required in ide mode")
+		}
 	}
 
 	router.With(RequireIDEMode(deps.ModePolicy)).Get(RouteGetAgentRuns, getAgentRunsHandler(deps.Runs))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetAgentRun, getAgentRunHandler(deps.Runs))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStartAgentRun, startAgentRunHandler(deps.Profiles, deps.Managed))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopAgentRun, stopAgentRunHandler(deps.Managed))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStartRunChain, startRunChainHandler(deps.Chains))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteStopRunChain, stopRunChainHandler(deps.Chains))
 	return nil
 }
 
@@ -182,6 +200,68 @@ func stopAgentRunHandler(runtime *agentruns.Runtime) http.HandlerFunc {
 	}
 }
 
+func startRunChainHandler(runtime *runchains.Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if runtime == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if runtime.Disabled() {
+			writeError(w, r, http.StatusServiceUnavailable, "managed_run_chain_unavailable", "Managed run chains are not available.")
+			return
+		}
+
+		payload, err := decodeStrictJSONBody[startRunChainRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		run, err := runtime.StartRun(payload.Spec, payload.Inputs)
+		if err != nil {
+			if writeRunChainError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, run)
+	}
+}
+
+func stopRunChainHandler(runtime *runchains.Runtime) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if runtime == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		if runtime.Disabled() {
+			writeError(w, r, http.StatusServiceUnavailable, "managed_run_chain_unavailable", "Managed run chains are not available.")
+			return
+		}
+
+		payload, err := decodeStrictJSONBody[stopRunChainRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		runID := strings.TrimSpace(payload.RunID)
+		if runID == "" {
+			writeError(w, r, http.StatusBadRequest, "run_id_required", "Run id is required.")
+			return
+		}
+
+		run, err := runtime.StopRun(runID)
+		if err != nil {
+			if writeRunChainError(w, r, err) {
+				return
+			}
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, run)
+	}
+}
+
 func writeManagedAgentRunError(w http.ResponseWriter, r *http.Request, err error) bool {
 	switch {
 	case errors.Is(err, agentruns.ErrManagedExecutorUnavailable), errors.Is(err, agentruns.ErrRuntimeServiceRequired):
@@ -202,6 +282,35 @@ func writeManagedAgentRunError(w http.ResponseWriter, r *http.Request, err error
 		return true
 	case errors.Is(err, agentruns.ErrRunNotFound):
 		writeError(w, r, http.StatusNotFound, "agent_run_not_found", "Agent run not found.")
+		return true
+	default:
+		return false
+	}
+}
+
+func writeRunChainError(w http.ResponseWriter, r *http.Request, err error) bool {
+	switch {
+	case errors.Is(err, runchains.ErrManagedRuntimeUnavailable), errors.Is(err, runchains.ErrManagedRuntimeRequired):
+		writeError(w, r, http.StatusServiceUnavailable, "managed_run_chain_unavailable", "Managed run chains are not available.")
+		return true
+	case errors.Is(err, runchains.ErrManagedStepEngineRequired):
+		writeError(w, r, http.StatusBadRequest, "managed_run_chain_engine_required", "Run chain steps must use a Setta LLM engine config.")
+		return true
+	case errors.Is(err, runchains.ErrInvalidRunChainInput):
+		message := strings.TrimPrefix(strings.TrimSpace(err.Error()), runchains.ErrInvalidRunChainInput.Error()+": ")
+		if message == "" {
+			message = "Invalid run chain inputs."
+		}
+		writeError(w, r, http.StatusBadRequest, "invalid_run_chain_inputs", message)
+		return true
+	case errors.Is(err, agentprofiles.ErrProfileNotFound):
+		writeError(w, r, http.StatusNotFound, "agent_profile_not_found", "Agent profile not found.")
+		return true
+	case errors.Is(err, agentruns.ErrEngineConfigNotFound):
+		writeError(w, r, http.StatusBadRequest, "engine_config_not_found", "Engine config not found.")
+		return true
+	case errors.Is(err, agentruns.ErrRunNotFound):
+		writeError(w, r, http.StatusNotFound, "run_chain_not_found", "Run chain not found.")
 		return true
 	default:
 		return false

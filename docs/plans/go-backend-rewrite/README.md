@@ -534,7 +534,7 @@ Use the docs in this order:
     landed managed-run service foundations, with external-agent dispatch and
     run-chain kept out of scope
 158. `phase-14-run-chain-managed-runtime-and-transport.md`
-  - focused implementation-plan doc for the next bounded Phase 14 follow-on:
+  - focused completed-slice doc for the next bounded Phase 14 follow-on:
     Go-owned managed-only `start/stopRunChain` over a dedicated run-chain
     owner above the landed managed runtime, with external-agent child-step
     orchestration explicitly deferred
