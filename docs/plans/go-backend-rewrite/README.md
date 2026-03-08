@@ -558,12 +558,15 @@ Use the docs in this order:
   - focused completed-slice doc for the real subprocess-backed external-agent
     executor regression suite stabilization after the landed Phase 14 runtime
     closeout
-162. `spike-mcp.md`
+162. `phase-14-agent-run-and-run-chain-app-middleware-regression-hardening.md`
+  - focused current-work plan for real app-handler coverage of the landed
+    agent-run and run-chain route surface
+163. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-163. `spike-pty.md`
+164. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-164. `spike-lsp.md`
+165. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
