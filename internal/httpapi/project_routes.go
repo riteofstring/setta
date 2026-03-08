@@ -20,61 +20,63 @@ import (
 )
 
 const (
-	RouteGetLatestProjectState          = "/getLatestProjectState"
-	RouteCreateTopLevelSection          = "/createTopLevelSection"
-	RouteDeleteSections                 = "/deleteSections"
-	RouteDeleteSelectedParams           = "/deleteSelectedParams"
-	RouteCreateViewMode                 = "/createViewMode"
-	RouteSetActiveViewMode              = "/setActiveViewMode"
-	RouteToggleIsEditingViewMode        = "/toggleIsEditingViewMode"
-	RouteToggleSectionVisibility        = "/toggleSectionVisibility"
-	RouteGroupSections                  = "/groupSections"
-	RouteUngroupGroups                  = "/ungroupGroups"
-	RouteToggleViewModeUserFacing       = "/toggleViewModeUserFacing"
-	RouteToggleViewModeTab              = "/toggleViewModeTab"
-	RouteSetViewModeName                = "/setViewModeName"
-	RouteSetViewModeSortOrder           = "/setViewModeSortOrder"
-	RouteDeleteViewMode                 = "/deleteViewMode"
-	RouteSetTopLevelSectionLayout       = "/setTopLevelSectionLayout"
-	RouteAutoLayoutTopLevelSections     = "/autoLayoutTopLevelSections"
-	RouteSetShowParamDisplayNames       = "/setShowParamDisplayNames"
-	RouteSetSectionName                 = "/setSectionName"
-	RouteAcceptRenameRefactor           = "/acceptRenameRefactor"
-	RouteDeclineRenameRefactor          = "/declineRenameRefactor"
-	RouteTogglePositionLocks            = "/togglePositionLocks"
-	RouteToggleMinimized                = "/toggleMinimized"
-	RouteSetGroupOverflowMode           = "/setGroupOverflowMode"
-	RouteSetSectionSizes                = "/setSectionSizes"
-	RouteSetCode                        = "/setCode"
-	RouteSetCodeFileBinding             = "/setCodeFileBinding"
-	RouteFormatCode                     = "/formatCode"
-	RouteSetActiveIDs                   = "/setActiveIds"
-	RouteSetViewport                    = "/setViewport"
-	RouteSetSectionTagColor             = "/setSectionTagColor"
-	RouteSetSectionStyleColor           = "/setSectionStyleColor"
-	RouteSetSectionParamFilter          = "/setSectionParamFilter"
-	RouteSetMetaControlShowSectionTitle = "/setMetaControlShowSectionTitle"
-	RouteSetSectionColumnWidth          = "/setSectionColumnWidth"
-	RouteSetCallableHideParams          = "/setCallableHideParams"
-	RouteSetSectionHideUnpinnedParams   = "/setSectionHideUnpinnedParams"
-	RouteSetSectionPinnedParams         = "/setSectionPinnedParams"
-	RouteSetBrowserColumnWidths         = "/setBrowserColumnWidths"
-	RouteSetBrowserAreaViewMode         = "/setBrowserAreaViewMode"
-	RouteSetBrowserHideColumn           = "/setBrowserHideColumn"
-	RouteSetBrowserSavedSearches        = "/setBrowserSavedSearches"
-	RouteToggleParamSelected            = "/toggleParamSelected"
-	RouteUnselectAllParams              = "/unselectAllParams"
-	RouteSetChatSectionSettings         = "/setChatSectionSettings"
-	RouteSetChatSectionState            = "/setChatSectionState"
-	RouteGetChatSectionChatID           = "/getChatSectionChatId"
-	RouteSetChatSectionChatID           = "/setChatSectionChatId"
-	RouteSetCallable                    = "/setCallable"
-	RouteSetProjectConfigCodegenTargets = "/setProjectConfigCodegenTargets"
-	RouteSetWatchCodeEnabled            = "/setWatchCodeEnabled"
-	RouteSetWatchCodeInputs             = "/setWatchCodeInputs"
-	RouteGetPasswordParamValue          = "/getPasswordParamValue"
-	RouteDeleteSectionVariantOrAsk      = "/deleteSectionVariantOrAsk"
-	RouteDeleteJSONSourceFileAndVariant = "/deleteJsonSourceFileAndVariant"
+	RouteGetLatestProjectState            = "/getLatestProjectState"
+	RouteCreateTopLevelSection            = "/createTopLevelSection"
+	RouteDeleteSections                   = "/deleteSections"
+	RouteDeleteSelectedParams             = "/deleteSelectedParams"
+	RouteCreateViewMode                   = "/createViewMode"
+	RouteSetActiveViewMode                = "/setActiveViewMode"
+	RouteToggleIsEditingViewMode          = "/toggleIsEditingViewMode"
+	RouteToggleSectionVisibility          = "/toggleSectionVisibility"
+	RouteGroupSections                    = "/groupSections"
+	RouteUngroupGroups                    = "/ungroupGroups"
+	RouteToggleViewModeUserFacing         = "/toggleViewModeUserFacing"
+	RouteToggleViewModeTab                = "/toggleViewModeTab"
+	RouteSetViewModeName                  = "/setViewModeName"
+	RouteSetViewModeSortOrder             = "/setViewModeSortOrder"
+	RouteDeleteViewMode                   = "/deleteViewMode"
+	RouteSetTopLevelSectionLayout         = "/setTopLevelSectionLayout"
+	RouteAutoLayoutTopLevelSections       = "/autoLayoutTopLevelSections"
+	RouteSetShowParamDisplayNames         = "/setShowParamDisplayNames"
+	RouteSetSectionName                   = "/setSectionName"
+	RouteAcceptRenameRefactor             = "/acceptRenameRefactor"
+	RouteDeclineRenameRefactor            = "/declineRenameRefactor"
+	RouteTogglePositionLocks              = "/togglePositionLocks"
+	RouteToggleMinimized                  = "/toggleMinimized"
+	RouteSetGroupOverflowMode             = "/setGroupOverflowMode"
+	RouteSetSectionSizes                  = "/setSectionSizes"
+	RouteSetCode                          = "/setCode"
+	RouteSetCodeFileBinding               = "/setCodeFileBinding"
+	RouteFormatCode                       = "/formatCode"
+	RouteSetActiveIDs                     = "/setActiveIds"
+	RouteSetViewport                      = "/setViewport"
+	RouteSetSectionTagColor               = "/setSectionTagColor"
+	RouteSetSectionStyleColor             = "/setSectionStyleColor"
+	RouteSetSectionParamFilter            = "/setSectionParamFilter"
+	RouteSetMetaControlShowSectionTitle   = "/setMetaControlShowSectionTitle"
+	RouteSetSectionColumnWidth            = "/setSectionColumnWidth"
+	RouteSetParentDefaultChildSectionType = "/setParentDefaultChildSectionType"
+	RouteSetListRootViewMode              = "/setListRootViewMode"
+	RouteSetCallableHideParams            = "/setCallableHideParams"
+	RouteSetSectionHideUnpinnedParams     = "/setSectionHideUnpinnedParams"
+	RouteSetSectionPinnedParams           = "/setSectionPinnedParams"
+	RouteSetBrowserColumnWidths           = "/setBrowserColumnWidths"
+	RouteSetBrowserAreaViewMode           = "/setBrowserAreaViewMode"
+	RouteSetBrowserHideColumn             = "/setBrowserHideColumn"
+	RouteSetBrowserSavedSearches          = "/setBrowserSavedSearches"
+	RouteToggleParamSelected              = "/toggleParamSelected"
+	RouteUnselectAllParams                = "/unselectAllParams"
+	RouteSetChatSectionSettings           = "/setChatSectionSettings"
+	RouteSetChatSectionState              = "/setChatSectionState"
+	RouteGetChatSectionChatID             = "/getChatSectionChatId"
+	RouteSetChatSectionChatID             = "/setChatSectionChatId"
+	RouteSetCallable                      = "/setCallable"
+	RouteSetProjectConfigCodegenTargets   = "/setProjectConfigCodegenTargets"
+	RouteSetWatchCodeEnabled              = "/setWatchCodeEnabled"
+	RouteSetWatchCodeInputs               = "/setWatchCodeInputs"
+	RouteGetPasswordParamValue            = "/getPasswordParamValue"
+	RouteDeleteSectionVariantOrAsk        = "/deleteSectionVariantOrAsk"
+	RouteDeleteJSONSourceFileAndVariant   = "/deleteJsonSourceFileAndVariant"
 )
 
 var (
@@ -424,6 +426,20 @@ type SetSectionColumnWidthRequest struct {
 	ColumnWidth  *float64 `json:"columnWidth"`
 }
 
+type SetParentDefaultChildSectionTypeRequest struct {
+	FrontendOpID            *string `json:"frontendOpId"`
+	ProjectID               string  `json:"projectConfigId"`
+	SectionID               string  `json:"sectionId"`
+	DefaultChildSectionType string  `json:"defaultChildSectionType"`
+}
+
+type SetListRootViewModeRequest struct {
+	FrontendOpID *string                       `json:"frontendOpId"`
+	ProjectID    string                        `json:"projectConfigId"`
+	SectionID    string                        `json:"sectionId"`
+	ViewMode     projectstate.ListRootViewMode `json:"viewMode"`
+}
+
 type SetGroupOverflowModeRequest struct {
 	FrontendOpID *string `json:"frontendOpId"`
 	ProjectID    string  `json:"projectConfigId"`
@@ -623,6 +639,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionParamFilter, setSectionParamFilterHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetMetaControlShowSectionTitle, setMetaControlShowSectionTitleHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionColumnWidth, setSectionColumnWidthHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParentDefaultChildSectionType, setParentDefaultChildSectionTypeHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetListRootViewMode, setListRootViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGroupOverflowMode, setGroupOverflowModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetCallableHideParams, setCallableHideParamsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionHideUnpinnedParams, setSectionHideUnpinnedParamsHandler(deps))
@@ -1940,6 +1958,78 @@ func setSectionColumnWidthHandler(deps ProjectRouteDependencies) http.HandlerFun
 	}
 }
 
+func setParentDefaultChildSectionTypeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetParentDefaultChildSectionTypeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetParentDefaultChildSectionType(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.DefaultChildSectionType,
+		); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setListRootViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetListRootViewModeRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetListRootViewMode(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.ViewMode,
+		); err != nil {
+			writeProjectLayoutMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setSectionHideUnpinnedParamsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetSectionHideUnpinnedParamsRequest](r)
@@ -2582,6 +2672,14 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusNotFound, "section_not_found", "Section not found.")
 	case errors.Is(err, projectstate.ErrGroupSectionRequired):
 		writeError(w, r, http.StatusUnprocessableEntity, "group_section_required", "Section must resolve to a group section.")
+	case errors.Is(err, projectstate.ErrDefaultChildSectionParentRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "default_child_section_parent_required", "Section must resolve to a list root or group section.")
+	case errors.Is(err, projectstate.ErrDefaultChildSectionTypeInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "default_child_section_type_invalid", err.Error())
+	case errors.Is(err, projectstate.ErrListRootSectionRequired):
+		writeError(w, r, http.StatusUnprocessableEntity, "list_root_section_required", "Section must resolve to a list root section.")
+	case errors.Is(err, projectstate.ErrListRootViewModeInvalid):
+		writeError(w, r, http.StatusUnprocessableEntity, "list_root_view_mode_invalid", err.Error())
 	case errors.Is(err, projectstate.ErrSectionParamFilterUnsupported):
 		writeError(w, r, http.StatusUnprocessableEntity, "section_param_filter_unsupported", err.Error())
 	case errors.Is(err, projectstate.ErrMetaControlSectionRequired):

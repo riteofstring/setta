@@ -379,6 +379,16 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setSectionColumnWidthRequestInputRawTS,
 			},
+			reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{}): {
+				Name: "SetParentDefaultChildSectionTypeRequestInput",
+				Kind: "raw",
+				Raw:  setParentDefaultChildSectionTypeRequestInputRawTS,
+			},
+			reflect.TypeOf(SetListRootViewModeRequestInput{}): {
+				Name: "SetListRootViewModeRequestInput",
+				Kind: "raw",
+				Raw:  setListRootViewModeRequestInputRawTS,
+			},
 			reflect.TypeOf(SetGroupOverflowModeRequestInput{}): {
 				Name: "SetGroupOverflowModeRequestInput",
 				Kind: "raw",

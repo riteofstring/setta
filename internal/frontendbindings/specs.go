@@ -442,6 +442,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_COLUMN_WIDTH",
 				},
 				{
+					Name:     "setParentDefaultChildSectionType",
+					Path:     httpapi.RouteSetParentDefaultChildSectionType,
+					EnumName: "SET_PARENT_DEFAULT_CHILD_SECTION_TYPE",
+				},
+				{
+					Name:     "setListRootViewMode",
+					Path:     httpapi.RouteSetListRootViewMode,
+					EnumName: "SET_LIST_ROOT_VIEW_MODE",
+				},
+				{
 					Name:     "setGroupOverflowMode",
 					Path:     httpapi.RouteSetGroupOverflowMode,
 					EnumName: "SET_GROUP_OVERFLOW_MODE",
@@ -1369,6 +1379,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSectionColumnWidth",
 			RequestType:     reflect.TypeOf(SetSectionColumnWidthRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_parent_default_child_section_type",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setParentDefaultChildSectionType",
+			RequestType:     reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_list_root_view_mode",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setListRootViewMode",
+			RequestType:     reflect.TypeOf(SetListRootViewModeRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_group_overflow_mode",

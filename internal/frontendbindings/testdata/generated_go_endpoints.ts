@@ -382,6 +382,16 @@ export async function route_set_section_column_width(x: gt.SetSectionColumnWidth
   return await post(GoHTTPRoutes.setSectionColumnWidth, x);
 
 }
+export async function route_set_parent_default_child_section_type(x: gt.SetParentDefaultChildSectionTypeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setParentDefaultChildSectionType, x);
+
+}
+export async function route_set_list_root_view_mode(x: gt.SetListRootViewModeRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setListRootViewMode, x);
+
+}
 export async function route_set_group_overflow_mode(x: gt.SetGroupOverflowModeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setGroupOverflowMode, x);

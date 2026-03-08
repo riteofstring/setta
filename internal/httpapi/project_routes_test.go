@@ -2294,6 +2294,156 @@ func TestRegisterProjectRoutesSetSectionSizesRejectsConflictingEmbeddedWidths(t 
 	}
 }
 
+func TestRegisterProjectRoutesChildDefaultsMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childDefaultsRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetParentDefaultChildSectionType,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"group-section","defaultChildSectionType":"Dict"}`,
+		},
+		{
+			route: RouteSetParentDefaultChildSectionType,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"list-root-section","defaultChildSectionType":"TextBlock"}`,
+		},
+		{
+			route: RouteSetListRootViewMode,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"list-root-section","viewMode":"task_list"}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	groupSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["group-section"].SharedModifier)
+	if got := groupSharedModifier["defaultChildSectionType"]; got != "Dict" {
+		t.Fatalf("expected group default child Dict, got %#v", got)
+	}
+
+	listRootSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["list-root-section"].SharedModifier)
+	if got := listRootSharedModifier["defaultChildSectionType"]; got != "TextBlock" {
+		t.Fatalf("expected list root default child TextBlock, got %#v", got)
+	}
+	if got := listRootSharedModifier["viewMode"]; got != "task_list" {
+		t.Fatalf("expected list root view mode task_list, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesChildDefaultsMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": childDefaultsRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetParentDefaultChildSectionType,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","defaultChildSectionType":"Dict"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"default_child_section_parent_required"`,
+		},
+		{
+			route:        RouteSetParentDefaultChildSectionType,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"group-section","defaultChildSectionType":"GlobalVariables"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"default_child_section_type_invalid"`,
+		},
+		{
+			route:        RouteSetListRootViewMode,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"group-section","viewMode":"kanban"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"list_root_section_required"`,
+		},
+		{
+			route:        RouteSetListRootViewMode,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"list-root-section","viewMode":"grid"}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"list_root_view_mode_invalid"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestRegisterProjectRoutesSectionFilterAndMetaControlMutationsPersistLatestState(t *testing.T) {
 	t.Parallel()
 
@@ -3631,6 +3781,78 @@ func sectionSizeRouteTestProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize section size route project: %v", err)
+	}
+	return project
+}
+
+func childDefaultsRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"group-section":     "group-variant",
+			"list-root-section": "list-root-variant",
+			"plain-section":     "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"group-section": {
+				ID:               "group-section",
+				Name:             "Group",
+				VariantIDs:       []string{"group-variant"},
+				DefaultVariantID: "group-variant",
+			},
+			"list-root-section": {
+				ID:               "list-root-section",
+				Name:             "ListRoot",
+				VariantIDs:       []string{"list-root-variant"},
+				DefaultVariantID: "list-root-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"group-variant":     {ID: "group-variant", ImplID: "group-impl"},
+			"list-root-variant": {ID: "list-root-variant", ImplID: "list-root-impl"},
+			"plain-variant":     {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"group-impl": {
+				ID:   "group-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                      "group-impl",
+					"type":                    "Group",
+					"defaultChildSectionType": "Callable",
+					"isHorizontalOrientation": false,
+					"overflowMode":            false,
+				}),
+			},
+			"list-root-impl": {
+				ID:   "list-root-impl",
+				Kind: projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":                      "list-root-impl",
+					"type":                    "ListRoot",
+					"children":                []string{},
+					"defaultChildSectionType": "Callable",
+					"viewMode":                "default",
+				}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize child defaults route project: %v", err)
 	}
 	return project
 }

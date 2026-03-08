@@ -143,6 +143,10 @@ type SetMetaControlShowSectionTitleRequestInput struct{}
 
 type SetSectionColumnWidthRequestInput struct{}
 
+type SetParentDefaultChildSectionTypeRequestInput struct{}
+
+type SetListRootViewModeRequestInput struct{}
+
 type SetGroupOverflowModeRequestInput struct{}
 
 type SetBrowserColumnWidthsRequestInput struct{}
@@ -219,6 +223,24 @@ export type SetSectionColumnWidthRequestInput = {
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
+};
+`
+
+const setParentDefaultChildSectionTypeRequestInputRawTS = `
+export type SetParentDefaultChildSectionTypeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  defaultChildSectionType: SectionType;
+};
+`
+
+const setListRootViewModeRequestInputRawTS = `
+export type SetListRootViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: ListRootViewMode;
 };
 `
 

@@ -68,13 +68,15 @@ import {
   route_set_browser_saved_searches,
   route_set_chat_section_state,
   route_set_code_file_binding,
+  route_set_group_overflow_mode,
+  route_set_list_root_view_mode,
   route_set_llm_api_keys,
   route_set_meta_control_show_section_title,
-  route_set_group_overflow_mode,
-  route_set_section_param_filter,
-  route_set_section_sizes,
+  route_set_parent_default_child_section_type,
   route_set_section_column_width,
   route_set_section_name,
+  route_set_section_param_filter,
+  route_set_section_sizes,
   route_set_top_level_section_layout,
   route_set_type_error_ignore,
   route_set_view_mode_name,
@@ -689,6 +691,52 @@ describe("generatedEndpoints project shell and layout", () => {
             height: 180,
           },
         },
+      }),
+    });
+  });
+
+  it("posts parent default-child writes with the canonical request shape", async () => {
+    await route_set_parent_default_child_section_type({
+      projectConfigId: "project-alpha",
+      sectionId: "group-section",
+      defaultChildSectionType: "Dict",
+      frontendOpId: "frontend-op-child-default",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setParentDefaultChildSectionType`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "group-section",
+        defaultChildSectionType: "Dict",
+        frontendOpId: "frontend-op-child-default",
+      }),
+    });
+  });
+
+  it("posts list-root view-mode writes with the canonical request shape", async () => {
+    await route_set_list_root_view_mode({
+      projectConfigId: "project-alpha",
+      sectionId: "list-root-section",
+      viewMode: "kanban",
+      frontendOpId: "frontend-op-list-root-view",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setListRootViewMode`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "list-root-section",
+        viewMode: "kanban",
+        frontendOpId: "frontend-op-list-root-view",
       }),
     });
   });

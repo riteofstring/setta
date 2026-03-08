@@ -6569,6 +6569,26 @@ export type SetSectionColumnWidthRequestInput = {
 
 
 
+export type SetParentDefaultChildSectionTypeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  defaultChildSectionType: SectionType;
+};
+
+
+
+
+export type SetListRootViewModeRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  viewMode: ListRootViewMode;
+};
+
+
+
+
 export type SetGroupOverflowModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

@@ -135,6 +135,8 @@ Current landed wedge:
       - `SetSectionParamFilterRequestInput`
       - `SetMetaControlShowSectionTitleRequestInput`
       - `SetSectionColumnWidthRequestInput`
+      - `SetParentDefaultChildSectionTypeRequestInput`
+      - `SetListRootViewModeRequestInput`
       - `SetGroupOverflowModeRequestInput`
     - current structure/param-selection mutation payloads
       - `DeleteSectionsRequestInput`
