@@ -173,12 +173,10 @@ def _build_tool_annotations(
         get_tool_search_category(fn),
     )
     access_type = "structural"
-    retry_on_disconnect = True
     id_paths_by_type: dict[str, list[str]] = {}
     default_target_singleton_section: str | None = None
     if tool_access is not None:
         access_type = tool_access.accessType
-        retry_on_disconnect = tool_access.retryOnDisconnect
         id_paths_by_type = dict(tool_access.idPathsByType)
         default_target_singleton_section = tool_access.defaultTargetSingletonSection
     if not id_paths_by_type and ai_follow_tool_arguments is not None:
@@ -187,7 +185,6 @@ def _build_tool_annotations(
         SettaToolAnnotations(
             settaToolType=tool_type,
             accessType=access_type,
-            retryOnDisconnect=retry_on_disconnect,
             idPathsByType=id_paths_by_type,
             defaultTargetSingletonSection=default_target_singleton_section,
             resultFilter=result_filter,

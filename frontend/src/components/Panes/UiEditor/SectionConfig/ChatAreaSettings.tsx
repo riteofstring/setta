@@ -5,7 +5,6 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
-import { canUseManagedChatLLM } from "components/Chat/sharePolicyChatAccess";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
@@ -19,10 +18,6 @@ import {
   updateAgenticEdgeContextMode,
 } from "state/actions/agenticEdges";
 import { updateEngineConfig } from "state/actions/ai";
-import {
-  getProjectChatWindowModeForSectionInState,
-  setProjectChatWindowModeForSection,
-} from "state/actions/projectChatWindowing";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -46,7 +41,6 @@ import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
   AgenticSummaryCacheStatus,
-  ChatWindowModeEnum,
   EngineTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -71,14 +65,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateAgenticState();
   const projectConfigId = getCurrProjectConfigId();
   const { canEditParams, canEditStructure } = useShareCapabilities();
-  const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
-    isDeploymentMode: x.isDeploymentMode,
-    allowLLM: x.sharePolicy?.allowLLM ?? false,
-  }));
-  const canManageManagedChatThreads = canUseManagedChatLLM({
-    isDeploymentMode,
-    allowLLM,
-  });
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
 
   const {
     managed,
@@ -90,7 +77,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     searchEnabled,
     dictationMode,
     isFrozen,
-    sectionChatWindowMode,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
       state,
@@ -107,10 +93,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       searchEnabled: impl.searchEnabled,
       dictationMode: impl.dictationMode,
       isFrozen: impl.isFrozen,
-      sectionChatWindowMode: getProjectChatWindowModeForSectionInState(
-        state.projectChatWindowing,
-        sectionId,
-      ),
     };
   }, _.isEqual);
   const agenticEdges = useProjectState(
@@ -187,25 +169,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const noConfigsAvailable = countLLMConfigs(availableConfigGroups) === 0;
   const canEditSettings = !isDeploymentMode || canEditParams;
   const isDisabled = isFrozen || !canEditSettings;
-  const modeItems = useMemo<AllItemsType<string>>(
-    () => [
-      {
-        group: "Chat Modes",
-        items: [
-          {
-            id: ChatWindowModeEnum.section_mode,
-            name: "Section mode (edge scoped)",
-          },
-          {
-            id: ChatWindowModeEnum.project_ai_mode,
-            name: "Project AI mode (full project)",
-          },
-        ],
-      },
-    ],
-    [],
-  );
-  const isChatModeControlDisabled = isDisabled;
   const effectiveEngineConfigId =
     engineConfigId ?? selectedProfile?.engineConfigId ?? null;
   const selectedEngineConfig = useMemo(() => {
@@ -304,8 +267,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     () =>
       agenticEdges.filter(
         (edge) =>
-          edge.kind === AgenticEdgeKindEnum.chat_section &&
-          edge.sourceSectionId === sectionId,
+          edge.kind === AgenticEdgeKindEnum.section_chat &&
+          edge.targetSectionId === sectionId,
       ),
     [agenticEdges, sectionId],
   );
@@ -330,7 +293,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       agenticEdges.filter(
         (edge) =>
           edge.kind === AgenticEdgeKindEnum.chat_chat &&
-          edge.sourceSectionId === sectionId,
+          (edge.sourceSectionId === sectionId ||
+            edge.targetSectionId === sectionId),
       ),
     [agenticEdges, sectionId],
   );
@@ -476,25 +440,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     ],
   );
 
-  const handleChatModeChange = useCallback(
-    (value: string | null) => {
-      if (isChatModeControlDisabled) {
-        return;
-      }
-      if (!value) {
-        return;
-      }
-      if (
-        value !== ChatWindowModeEnum.section_mode &&
-        value !== ChatWindowModeEnum.project_ai_mode
-      ) {
-        return;
-      }
-      setProjectChatWindowModeForSection(sectionId, value);
-    },
-    [isChatModeControlDisabled, sectionId],
-  );
-
   const handleThinkingChange = useCallback(
     (value: boolean) => {
       updateSettings({
@@ -626,9 +571,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         return;
       }
       createAgenticEdgeFromSections({
-        sourceSectionId: sectionId,
-        targetSectionId: value,
-        kind: AgenticEdgeKindEnum.chat_section,
+        sourceSectionId: value,
+        targetSectionId: sectionId,
+        kind: AgenticEdgeKindEnum.section_chat,
       });
     },
     [canEditLinks, sectionId],
@@ -663,7 +608,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   );
 
   const handleNewChat = useCallback(() => {
-    if (isDisabled || !managed || !canManageManagedChatThreads) {
+    if (isDisabled || !managed) {
       return;
     }
     dispatchOptimisticProjectStateUpdate({
@@ -679,13 +624,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           chatId: null,
         }),
     });
-  }, [
-    canManageManagedChatThreads,
-    isDisabled,
-    managed,
-    projectConfigId,
-    sectionId,
-  ]);
+  }, [isDisabled, managed, projectConfigId, sectionId]);
 
   const handleEngineChange = useCallback(
     (value: string | null) => {
@@ -728,32 +667,11 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const contextOptionCount = contextItems[0]?.items.length ?? 0;
   const scopeOptionCount = scopeItems[0]?.items.length ?? 0;
   const agentOptionCount = agentItems[0]?.items.length ?? 0;
-  const hasAgenticScope =
-    agenticScope.readSectionIds.size > 0 ||
-    agenticScope.writeSectionIds.size > 0 ||
-    agenticScope.contextSectionIds.size > 0 ||
-    agenticScope.peerChatSectionIds.size > 0;
+  const hasAgenticEdges =
+    contextEdges.length + scopeEdges.length + linkedAgentEdges.length > 0;
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <div
-        className="flex w-full flex-col gap-2"
-        data-testid="chat-area-settings-chat-mode"
-      >
-        <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-          Chat Mode
-        </p>
-        <IdNameCombobox
-          allItems={modeItems}
-          value={sectionChatWindowMode}
-          small={false}
-          onSelectedItemChange={handleChatModeChange}
-          placeholder="Select chat mode"
-          outerDivClasses="justify-center"
-          isDisabled={isChatModeControlDisabled}
-        />
-      </div>
-
       <div className="flex w-full items-center justify-between gap-4">
         <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
           Managed Mode
@@ -869,7 +787,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           <div className="flex justify-end">
             <button
               type="button"
-              disabled={isDisabled || !canManageManagedChatThreads}
+              disabled={isDisabled}
               className="rounded-md bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
               onClick={handleNewChat}
             >
@@ -923,8 +841,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                     className="flex items-center gap-2 rounded-md border border-setta-200/80 bg-white/80 px-2 py-1 text-[11px] text-setta-700 dark:border-setta-700/60 dark:bg-setta-900/70 dark:text-setta-200"
                   >
                     <span className="min-w-0 flex-1 truncate">
-                      {sectionLabelsById[edge.targetSectionId] ??
-                        edge.targetSectionId}
+                      {sectionLabelsById[edge.sourceSectionId] ??
+                        edge.sourceSectionId}
                     </span>
                     <select
                       value={
@@ -1128,9 +1046,9 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         </div>
 
         <div className="mt-2 flex flex-col gap-1">
-          {!hasAgenticScope ? (
+          {!hasAgenticEdges ? (
             <p className="text-[11px] font-semibold text-amber-600 dark:text-amber-400">
-              No outgoing scope links = no access.
+              No edges = no access.
             </p>
           ) : null}
           <p className="text-[11px] text-setta-500 dark:text-setta-400">
