@@ -19,10 +19,12 @@ outcomes describe a repo state where the deployment/launcher runtime slices,
 the shipped CLI migration slices, and the MCP/tooling foundations are complete
 for their bounded scopes.
 
-That does not mean the full backend runtime is fully Go-owned. Managed
-Setta-LLM chat and the AI route cluster in `backend/setta/routers/ai.py` and
-`backend/setta/llm/agent_runner.py` remain Python-owned and are now tracked
-explicitly in
+That does not mean the full backend runtime is fully Go-owned. User-facing
+AI/chat routing still remains Python-owned, but the rewrite no longer plans to
+recreate managed `setta_llm` in Go. The current Phase 12 target is the
+external-agent AI path still owned in `backend/setta/routers/ai.py`,
+`backend/setta/routers/agentic.py`, and
+`backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
 
 The practical next step is still not "rerun the early spikes" or re-decide the
@@ -577,8 +579,8 @@ Do not weaken this rule during the rewrite.
 ## Immediate Next Actions
 
 1. Keep the roadmap and phase docs synchronized with the current shipped code
-   so closed phases do not look active again and the remaining AI/chat gap does
-   not disappear from planning context.
+   so closed phases do not look active again and the remaining external-agent
+   AI gap does not disappear from planning context.
 2. Treat MCP, PTY, LSP, and file-state choices as locked unless a concrete new
    requirement breaks them.
 3. Start the next runtime work from
@@ -586,8 +588,10 @@ Do not weaken this rule during the rewrite.
    reopening closed phases or early spikes.
 4. Prefer stabilization and reference-suite expansion where completed runtime
    owners still have thin regression protection, but do not use that as a
-   substitute for the remaining managed-chat migration.
-5. Limit future Python follow-up outside Phase 12 to explicitly chosen
+   substitute for the remaining external-agent migration.
+5. Treat Go-owned managed `setta_llm` as de-scoped unless a later product
+   decision explicitly reopens it.
+6. Limit future Python follow-up outside Phase 12 to explicitly chosen
    packaging, installer, or release-surface work rather than rediscovering
    backend-runtime scope.
 

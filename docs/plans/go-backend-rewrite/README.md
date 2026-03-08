@@ -2,6 +2,13 @@
 
 This folder contains the working plan set for the Go backend rewrite.
 
+## Additional Snapshots
+
+- `pyproject-dependency-replacement-snapshot-2026-03-08.md`
+  - point-in-time classification of every root `pyproject.toml` runtime
+    dependency into Go-library replacement, custom Go replacement, still
+    Python, not yet ported, or no-longer-needed buckets
+
 Use the docs in this order:
 
 1. `go-backend-rewrite-plan.md`
@@ -398,10 +405,10 @@ Use the docs in this order:
     CLI gap: Go-owned manual-only `setta plugins restart`, closing the shipped
     plugin CLI migration
 130. `phase-12-managed-chat-runtime-and-ai-route-foundation.md`
-  - focused implementation-plan doc for the next bounded backend-runtime gap:
-    Go-owned managed Setta-LLM chat send/hydrate/stop over the completed
-    `internal/llmconfig`, `internal/agentruns`, and `internal/mcpx`
-    foundations
+  - focused implementation-plan doc for the current bounded AI/runtime gap:
+    Go-owned external-agent chat send/hydrate/stop/approval over the completed
+    `internal/agentruns`, `internal/mcpx`, and realtime/http foundations;
+    managed `setta_llm` is intentionally de-scoped for now
 131. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 132. `spike-pty.md`

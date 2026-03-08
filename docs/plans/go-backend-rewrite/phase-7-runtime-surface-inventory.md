@@ -158,7 +158,7 @@ Current repo status as of 2026-03-08:
 ## Recommended Next Step
 
 Treat the deployment/launcher portion of Phase 7 as complete and keep the
-remaining AI/chat runtime on a separate track, now documented in
+remaining external-agent AI/runtime work on a separate track, now documented in
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
 
 That is now the highest-leverage next step because:
@@ -166,8 +166,9 @@ That is now the highest-leverage next step because:
 - the previously remaining `/launch` and rollback gap is complete in Go
 - the current launcher/deployment inventory no longer shows a bounded runtime
   owner left in that cluster
-- the still-Python-owned backend runtime that remains is the AI/chat stack, so
-  continuing from a fresh bounded plan is more honest than stretching Phase 7
+- the still-Python-owned backend runtime that remains is now tracked as the
+  external-agent AI stack, so continuing from a fresh bounded plan is more
+  honest than stretching Phase 7
 
 ## Progress Notes
 

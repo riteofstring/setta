@@ -30,9 +30,8 @@ As of 2026-03-08:
 - there is no confirmed Python-owned launcher/deployment runtime gap left
   inside Phase 7's scope
 - a later repo-wide review found that AI/chat runtime ownership still remains
-  Python-owned in `backend/setta/routers/ai.py` and
-  `backend/setta/llm/agent_runner.py`; that work is now tracked separately in
-  `phase-12-managed-chat-runtime-and-ai-route-foundation.md`
+  Python-owned, with the current rewrite target narrowed to the external-agent
+  path documented in `phase-12-managed-chat-runtime-and-ai-route-foundation.md`
 
 ## Inputs
 
@@ -99,7 +98,7 @@ The backend-to-product handoff is now explicit:
    active implementation plan if rewrite work continues beyond the completed
    helper-command migration.
 3. `phase-12-managed-chat-runtime-and-ai-route-foundation.md` now tracks the
-   separate still-Python-owned AI/chat backend runtime.
+   separate still-Python-owned external-agent AI backend runtime.
 
 Otherwise move the rewrite effort to stabilization, verification, and release
 readiness only for the completed Phase 7 launcher/deployment runtime owners.
@@ -120,8 +119,8 @@ readiness only for the completed Phase 7 launcher/deployment runtime owners.
   so this closeout doc does not carry active implementation scope.
 - 2026-03-08: later repo-wide review after the packaged CLI migration found
   that the remaining backend runtime gap was AI/chat ownership in
-  `backend/setta/routers/ai.py` and `backend/setta/llm/agent_runner.py`, not a
-  Phase 7 launcher issue. That follow-on now lives in
+  the Python AI runtime, not a Phase 7 launcher issue. The current follow-on
+  now lives in
   `phase-12-managed-chat-runtime-and-ai-route-foundation.md`.
 
 ## Verification
