@@ -95,9 +95,9 @@ def test_resolve_cached_agentic_summaries_for_chat_section_returns_summary_entri
             project_state,
             AgenticEdge(
                 id=create_new_id(),
-                sourceSectionId=chat_section_id,
-                targetSectionId=context_section_id,
-                kind=AgenticEdgeKind.chat_section,
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
                 contextMode=AgenticEdgeContextMode.summary,
             ),
         )
@@ -148,9 +148,9 @@ def test_resolve_cached_agentic_summaries_for_chat_section_skips_missing_section
             project_state,
             AgenticEdge(
                 id=create_new_id(),
-                sourceSectionId=chat_section_id,
-                targetSectionId=context_section_id,
-                kind=AgenticEdgeKind.chat_section,
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
                 contextMode=AgenticEdgeContextMode.summary,
             ),
         )
@@ -193,9 +193,9 @@ def test_resolve_cached_agentic_summaries_for_chat_section_raises_when_variant_m
             project_state,
             AgenticEdge(
                 id=create_new_id(),
-                sourceSectionId=chat_section_id,
-                targetSectionId=context_section_id,
-                kind=AgenticEdgeKind.chat_section,
+                sourceSectionId=context_section_id,
+                targetSectionId=chat_section_id,
+                kind=AgenticEdgeKind.section_chat,
                 contextMode=AgenticEdgeContextMode.summary,
             ),
         )

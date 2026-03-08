@@ -54,8 +54,6 @@ from setta.agentic.agentic_scope import (
     build_missing_edge_hints,
     build_scope_blocked_tool_result,
     check_agentic_scope_for_tool,
-    normalize_linked_chat_invocation_chain_section_ids,
-    normalize_linked_chat_invocation_depth,
     resolve_agentic_scope,
 )
 from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
@@ -66,8 +64,6 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER,
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_FRONTEND_AFFINITY_TOKEN_HEADER,
-    AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER,
-    AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -133,20 +129,6 @@ def _parse_meta_id(value: Any) -> ID | None:
             return None
         return ID(normalized)
     raise TypeError("Agentic context ids must be strings")
-
-
-def _parse_linked_chat_invocation_depth(value: Any) -> int:
-    try:
-        return normalize_linked_chat_invocation_depth(value)
-    except (TypeError, ValueError) as exc:
-        raise TypeError(str(exc)) from exc
-
-
-def _parse_linked_chat_invocation_chain(value: Any) -> tuple[ID, ...]:
-    try:
-        return normalize_linked_chat_invocation_chain_section_ids(value)
-    except (TypeError, ValueError) as exc:
-        raise TypeError(str(exc)) from exc
 
 
 def _move_catch_all_route_to_end(app: FastAPI) -> None:
@@ -824,23 +806,12 @@ class SettaFastMCP(FastMCP):
                         if not isinstance(raw_allow_unscoped, bool):
                             raise TypeError("allowUnscoped must be a boolean")
                         allow_unscoped = raw_allow_unscoped
-                    linked_chat_invocation_depth = _parse_linked_chat_invocation_depth(
-                        payload.get("linkedChatInvocationDepth")
-                    )
-                    linked_chat_invocation_chain_section_ids = tuple(
-                        _canonicalize(entry)
-                        for entry in _parse_linked_chat_invocation_chain(
-                            payload.get("linkedChatInvocationChainSectionIds")
-                        )
-                    )
                     return AgenticContext(
                         project_config_id=project_config_id,
                         chat_id=chat_id,
                         section_id=section_id,
                         frontend_affinity_token=frontend_affinity_token,
                         allow_unscoped=allow_unscoped,
-                        linked_chat_invocation_depth=linked_chat_invocation_depth,
-                        linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
                     )
             except (TypeError, ValueError) as exc:
                 raise InvalidToolArgumentsError(str(exc)) from exc
@@ -876,23 +847,12 @@ class SettaFastMCP(FastMCP):
                             raise TypeError(
                                 f"{AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER} must be a boolean"
                             )
-                    linked_chat_invocation_depth = _parse_linked_chat_invocation_depth(
-                        headers.get(AGENTIC_CONTEXT_LINKED_CHAT_DEPTH_HEADER)
-                    )
-                    linked_chat_invocation_chain_section_ids = tuple(
-                        _canonicalize(entry)
-                        for entry in _parse_linked_chat_invocation_chain(
-                            headers.get(AGENTIC_CONTEXT_LINKED_CHAT_CHAIN_HEADER)
-                        )
-                    )
                     return AgenticContext(
                         project_config_id=project_config_id,
                         chat_id=chat_id,
                         section_id=section_id,
                         frontend_affinity_token=frontend_affinity_token,
                         allow_unscoped=allow_unscoped,
-                        linked_chat_invocation_depth=linked_chat_invocation_depth,
-                        linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
                     )
             except (TypeError, ValueError) as exc:
                 raise InvalidToolArgumentsError(str(exc)) from exc
