@@ -3990,6 +3990,201 @@ export function createAttachmentDownloadURLEntry(options: Partial<AttachmentDown
 export type GetAttachmentDownloadURLsResponse = Array<AttachmentDownloadURLEntry>;
 
 
+export type CreateFileRequestInput = {
+  filepath: string;
+};
+export function createCreateFileRequestInput(options: Partial<CreateFileRequestInput> = {}): CreateFileRequestInput {
+  return options as CreateFileRequestInput;
+}
+
+
+export type CheckIfFileExistsRequestInput = {
+  filepath: string;
+};
+export function createCheckIfFileExistsRequestInput(options: Partial<CheckIfFileExistsRequestInput> = {}): CheckIfFileExistsRequestInput {
+  return options as CheckIfFileExistsRequestInput;
+}
+
+
+export type CheckIfFileExistsResponse = boolean;
+
+
+export type CheckWorkspaceInitializedRequestInput = {
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+};
+export function createCheckWorkspaceInitializedRequestInput(options: Partial<CheckWorkspaceInitializedRequestInput> = {}): CheckWorkspaceInitializedRequestInput {
+  return options as CheckWorkspaceInitializedRequestInput;
+}
+
+
+export type CheckWorkspaceInitializedResponse = boolean;
+
+
+export type FileBrowserRootResponse = {
+  rootPath: string;
+  pathSeparator: string;
+  ignorePatterns: Array<string>;
+};
+export function createFileBrowserRootResponse(options: Partial<FileBrowserRootResponse> = {}): FileBrowserRootResponse {
+  return options as FileBrowserRootResponse;
+}
+
+
+export const MissingFolderBehaviorEnum = {
+  error: "error",
+  empty: "empty",
+} as const;
+export type MissingFolderBehavior = ObjectValues<typeof MissingFolderBehaviorEnum>;
+
+
+export type GetFolderContentsRequestInput = {
+  folderPath: string;
+  allowOutsideWorkspaceRoot?: boolean | null;
+  includeMtime?: boolean | null;
+  includeSize?: boolean | null;
+  includeHidden?: boolean | null;
+  includeSettaInitialized?: boolean | null;
+  ignorePatterns?: Array<string> | null;
+  maxEntries?: number | null;
+  missingFolderBehavior?: MissingFolderBehavior | null;
+};
+export function createGetFolderContentsRequestInput(options: Partial<GetFolderContentsRequestInput> = {}): GetFolderContentsRequestInput {
+  return options as GetFolderContentsRequestInput;
+}
+
+
+export const FolderContentItemTypeEnum = {
+  folder: "folder",
+  file: "file",
+} as const;
+export type FolderContentItemType = ObjectValues<typeof FolderContentItemTypeEnum>;
+
+
+export type FolderContentItem = {
+  name: string;
+  type: FolderContentItemType;
+  fullPath: string;
+  mtime?: number | null;
+  size?: number | null;
+  isSettaInitialized?: boolean | null;
+};
+export function createFolderContentItem(options: Partial<FolderContentItem> = {}): FolderContentItem {
+  return options as FolderContentItem;
+}
+
+
+export type GetFolderContentsResponse = Array<FolderContentItem>;
+
+
+export type GetFileBrowserDownloadURLsRequestInput = {
+  paths: Array<string>;
+};
+export function createGetFileBrowserDownloadURLsRequestInput(options: Partial<GetFileBrowserDownloadURLsRequestInput> = {}): GetFileBrowserDownloadURLsRequestInput {
+  return options as GetFileBrowserDownloadURLsRequestInput;
+}
+
+
+export type FileBrowserDownloadURLEntry = {
+  path: string;
+  url: string;
+  expiresAt: number;
+};
+export function createFileBrowserDownloadURLEntry(options: Partial<FileBrowserDownloadURLEntry> = {}): FileBrowserDownloadURLEntry {
+  return options as FileBrowserDownloadURLEntry;
+}
+
+
+export type GetFileBrowserDownloadURLsResponse = Array<FileBrowserDownloadURLEntry>;
+
+
+export type GetFileBrowserFileContentRequestInput = {
+  path: string;
+  maxBytes?: number | null;
+};
+export function createGetFileBrowserFileContentRequestInput(options: Partial<GetFileBrowserFileContentRequestInput> = {}): GetFileBrowserFileContentRequestInput {
+  return options as GetFileBrowserFileContentRequestInput;
+}
+
+
+export type FileBrowserFileContentResponse = {
+  path: string;
+  mimeType: string;
+  contentId: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createFileBrowserFileContentResponse(options: Partial<FileBrowserFileContentResponse> = {}): FileBrowserFileContentResponse {
+  return options as FileBrowserFileContentResponse;
+}
+
+
+export type GetFileBrowserFileStatRequestInput = {
+  path: string;
+};
+export function createGetFileBrowserFileStatRequestInput(options: Partial<GetFileBrowserFileStatRequestInput> = {}): GetFileBrowserFileStatRequestInput {
+  return options as GetFileBrowserFileStatRequestInput;
+}
+
+
+export type FileBrowserFileStatResponse = {
+  path: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createFileBrowserFileStatResponse(options: Partial<FileBrowserFileStatResponse> = {}): FileBrowserFileStatResponse {
+  return options as FileBrowserFileStatResponse;
+}
+
+
+export type WriteFileBrowserFileContentRequestInput = {
+  path: string;
+  contentId: string;
+  expectedMtimeNs?: number | null;
+};
+export function createWriteFileBrowserFileContentRequestInput(options: Partial<WriteFileBrowserFileContentRequestInput> = {}): WriteFileBrowserFileContentRequestInput {
+  return options as WriteFileBrowserFileContentRequestInput;
+}
+
+
+export type WriteFileBrowserFileContentResponse = {
+  path: string;
+  mimeType: string;
+  mtimeNs: number;
+  size: number;
+};
+export function createWriteFileBrowserFileContentResponse(options: Partial<WriteFileBrowserFileContentResponse> = {}): WriteFileBrowserFileContentResponse {
+  return options as WriteFileBrowserFileContentResponse;
+}
+
+
+export const TransferOperationEnum = {
+  copy: "copy",
+  move: "move",
+} as const;
+export type TransferOperation = ObjectValues<typeof TransferOperationEnum>;
+
+
+export type TransferFileBrowserEntryRequestInput = {
+  sourcePath: string;
+  destinationFolderPath: string;
+  operation: TransferOperation;
+};
+export function createTransferFileBrowserEntryRequestInput(options: Partial<TransferFileBrowserEntryRequestInput> = {}): TransferFileBrowserEntryRequestInput {
+  return options as TransferFileBrowserEntryRequestInput;
+}
+
+
+export type TransferFileBrowserEntryResponse = {
+  sourcePath: string;
+  destinationPath: string;
+  operation: TransferOperation;
+};
+export function createTransferFileBrowserEntryResponse(options: Partial<TransferFileBrowserEntryResponse> = {}): TransferFileBrowserEntryResponse {
+  return options as TransferFileBrowserEntryResponse;
+}
+
+
 export type BinaryUploadRequestInput = FormData;
 
 
@@ -5219,3 +5414,4 @@ export type PluginRestartResponse = {
 export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
   return options as PluginRestartResponse;
 }
+

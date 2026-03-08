@@ -9,6 +9,8 @@ import {
   route_create_top_level_section,
   route_create_project_config,
   route_create_view_mode,
+  route_check_if_file_exists,
+  route_check_workspace_initialized,
   route_delete_artifacts,
   route_delete_view_mode,
   route_delete_sections,
@@ -22,6 +24,11 @@ import {
   route_get_app_gen_skills,
   route_get_attachment_download_url,
   route_get_attachment_download_urls,
+  route_get_file_browser_download_urls,
+  route_get_file_browser_file_content,
+  route_get_file_browser_file_stat,
+  route_get_file_browser_root,
+  route_get_folder_contents,
   route_get_latest_lsp_diagnostics,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
@@ -56,6 +63,8 @@ import {
   route_set_view_mode_sort_order,
   route_set_viewport,
   route_start_transcription_session,
+  route_create_file,
+  route_transfer_file_browser_entry,
   route_toggle_is_editing_view_mode,
   route_toggle_param_selected,
   route_toggle_view_mode_tab,
@@ -66,6 +75,7 @@ import {
   route_update_artifacts,
   route_upsert_app_gen_custom_skill,
   route_validate_app_definition,
+  route_write_file_browser_file_content,
 } from "./generatedEndpoints";
 
 vi.mock("state/definitions", () => ({
@@ -1263,6 +1273,174 @@ describe("generatedEndpoints attachment download helpers", () => {
       body: JSON.stringify({
         artifactIds: ["artifacts/notes.txt", "artifacts/diagram.png"],
         projectConfigId: "project-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints file-browser helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts file-browser root reads with the null body shape", async () => {
+    await route_get_file_browser_root();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getFileBrowserRoot`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("posts file-browser read and write payloads with the current request shapes", async () => {
+    await route_create_file({
+      filepath: "/workspace/new-file.txt",
+    });
+    await route_check_if_file_exists({
+      filepath: "/workspace/new-file.txt",
+    });
+    await route_check_workspace_initialized({
+      folderPath: "/workspace",
+      allowOutsideWorkspaceRoot: false,
+    });
+    await route_get_folder_contents({
+      folderPath: "/workspace",
+      ignorePatterns: null,
+      maxEntries: null,
+      missingFolderBehavior: "empty",
+      includeSize: true,
+    });
+    await route_get_file_browser_download_urls({
+      paths: ["/workspace/a.txt", "/workspace/b.txt"],
+    });
+    await route_get_file_browser_file_content({
+      path: "/workspace/a.txt",
+      maxBytes: 4096,
+    });
+    await route_get_file_browser_file_stat({
+      path: "/workspace/a.txt",
+    });
+    await route_write_file_browser_file_content({
+      path: "/workspace/a.txt",
+      contentId: "content-1",
+      expectedMtimeNs: null,
+    });
+    await route_transfer_file_browser_entry({
+      sourcePath: "/workspace/a.txt",
+      destinationFolderPath: "/workspace/archive",
+      operation: "move",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(9);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/createFile`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        filepath: "/workspace/new-file.txt",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/checkIfFileExists`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        filepath: "/workspace/new-file.txt",
+      }),
+    });
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/checkWorkspaceInitialized`,
+    );
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        folderPath: "/workspace",
+        allowOutsideWorkspaceRoot: false,
+      }),
+    });
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getFolderContents`,
+    );
+    expect(fetchMock.mock.calls[3]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        folderPath: "/workspace",
+        ignorePatterns: null,
+        maxEntries: null,
+        missingFolderBehavior: "empty",
+        includeSize: true,
+      }),
+    });
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getFileBrowserDownloadUrls`,
+    );
+    expect(fetchMock.mock.calls[4]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        paths: ["/workspace/a.txt", "/workspace/b.txt"],
+      }),
+    });
+    expect(fetchMock.mock.calls[5]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getFileBrowserFileContent`,
+    );
+    expect(fetchMock.mock.calls[5]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        path: "/workspace/a.txt",
+        maxBytes: 4096,
+      }),
+    });
+    expect(fetchMock.mock.calls[6]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/getFileBrowserFileStat`,
+    );
+    expect(fetchMock.mock.calls[6]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        path: "/workspace/a.txt",
+      }),
+    });
+    expect(fetchMock.mock.calls[7]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/writeFileBrowserFileContent`,
+    );
+    expect(fetchMock.mock.calls[7]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        path: "/workspace/a.txt",
+        contentId: "content-1",
+        expectedMtimeNs: null,
+      }),
+    });
+    expect(fetchMock.mock.calls[8]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/transferFileBrowserEntry`,
+    );
+    expect(fetchMock.mock.calls[8]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        sourcePath: "/workspace/a.txt",
+        destinationFolderPath: "/workspace/archive",
+        operation: "move",
       }),
     });
   });

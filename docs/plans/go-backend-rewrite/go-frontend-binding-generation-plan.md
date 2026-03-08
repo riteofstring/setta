@@ -83,6 +83,7 @@ Current landed wedge:
   - current project-state layout/presence/structure-selection route constants
   - current top-level section creation, view-mode lifecycle, and section-rename
     route constants
+  - current file-browser create/read/write/download/transfer route constants
   - current binary payload and bounded artifact route constants
   - current workspace-launch route constants
   - current launcher-home route constants
@@ -416,6 +417,17 @@ Current landed wedge:
   - attachment download helper endpoint wrappers
     - `route_get_attachment_download_url`
     - `route_get_attachment_download_urls`
+  - file-browser endpoint wrappers
+    - `route_create_file`
+    - `route_check_if_file_exists`
+    - `route_check_workspace_initialized`
+    - `route_get_file_browser_root`
+    - `route_get_folder_contents`
+    - `route_get_file_browser_download_urls`
+    - `route_get_file_browser_file_content`
+    - `route_get_file_browser_file_stat`
+    - `route_write_file_browser_file_content`
+    - `route_transfer_file_browser_entry`
   - binary payload and bounded artifact endpoint wrappers
     - `route_binary_upload`
     - `route_binary_download`
@@ -432,6 +444,30 @@ Current landed wedge:
     - `GetAttachmentDownloadURLsRequestInput`
     - `AttachmentDownloadURLEntry`
     - `GetAttachmentDownloadURLsResponse`
+  - file-browser contract types
+    - `CreateFileRequestInput`
+    - `CheckIfFileExistsRequestInput`
+    - `CheckIfFileExistsResponse`
+    - `CheckWorkspaceInitializedRequestInput`
+    - `CheckWorkspaceInitializedResponse`
+    - `FileBrowserRootResponse`
+    - `MissingFolderBehavior`
+    - `GetFolderContentsRequestInput`
+    - `FolderContentItemType`
+    - `FolderContentItem`
+    - `GetFolderContentsResponse`
+    - `GetFileBrowserDownloadURLsRequestInput`
+    - `FileBrowserDownloadURLEntry`
+    - `GetFileBrowserDownloadURLsResponse`
+    - `GetFileBrowserFileContentRequestInput`
+    - `FileBrowserFileContentResponse`
+    - `GetFileBrowserFileStatRequestInput`
+    - `FileBrowserFileStatResponse`
+    - `WriteFileBrowserFileContentRequestInput`
+    - `WriteFileBrowserFileContentResponse`
+    - `TransferOperation`
+    - `TransferFileBrowserEntryRequestInput`
+    - `TransferFileBrowserEntryResponse`
   - listener force-refresh endpoint wrapper
     - `route_force_refresh_listener`
   - listener coverage endpoint wrapper

@@ -207,6 +207,56 @@ export async function route_get_attachment_download_urls(x: gt.GetAttachmentDown
   return await post(GoHTTPRoutes.getAttachmentDownloadUrls, x);
 
 }
+export async function route_create_file(x: gt.CreateFileRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.createFile, x);
+
+}
+export async function route_check_if_file_exists(x: gt.CheckIfFileExistsRequestInput): Promise<ResponseDataAndStatus<gt.CheckIfFileExistsResponse>> {
+
+  return await post(GoHTTPRoutes.checkIfFileExists, x);
+
+}
+export async function route_check_workspace_initialized(x: gt.CheckWorkspaceInitializedRequestInput): Promise<ResponseDataAndStatus<gt.CheckWorkspaceInitializedResponse>> {
+
+  return await post(GoHTTPRoutes.checkWorkspaceInitialized, x);
+
+}
+export async function route_get_file_browser_root(): Promise<ResponseDataAndStatus<gt.FileBrowserRootResponse>> {
+
+  return await post(GoHTTPRoutes.getFileBrowserRoot, null);
+
+}
+export async function route_get_folder_contents(x: gt.GetFolderContentsRequestInput): Promise<ResponseDataAndStatus<gt.GetFolderContentsResponse>> {
+
+  return await post(GoHTTPRoutes.getFolderContents, x);
+
+}
+export async function route_get_file_browser_download_urls(x: gt.GetFileBrowserDownloadURLsRequestInput): Promise<ResponseDataAndStatus<gt.GetFileBrowserDownloadURLsResponse>> {
+
+  return await post(GoHTTPRoutes.getFileBrowserDownloadUrls, x);
+
+}
+export async function route_get_file_browser_file_content(x: gt.GetFileBrowserFileContentRequestInput): Promise<ResponseDataAndStatus<gt.FileBrowserFileContentResponse>> {
+
+  return await post(GoHTTPRoutes.getFileBrowserFileContent, x);
+
+}
+export async function route_get_file_browser_file_stat(x: gt.GetFileBrowserFileStatRequestInput): Promise<ResponseDataAndStatus<gt.FileBrowserFileStatResponse>> {
+
+  return await post(GoHTTPRoutes.getFileBrowserFileStat, x);
+
+}
+export async function route_write_file_browser_file_content(x: gt.WriteFileBrowserFileContentRequestInput): Promise<ResponseDataAndStatus<gt.WriteFileBrowserFileContentResponse>> {
+
+  return await post(GoHTTPRoutes.writeFileBrowserFileContent, x);
+
+}
+export async function route_transfer_file_browser_entry(x: gt.TransferFileBrowserEntryRequestInput): Promise<ResponseDataAndStatus<gt.TransferFileBrowserEntryResponse>> {
+
+  return await post(GoHTTPRoutes.transferFileBrowserEntry, x);
+
+}
 export async function route_binary_upload(x: gt.BinaryUploadRequestInput): Promise<ResponseDataAndStatus<gt.BinaryContentRef>> {
 
   return await post(GoHTTPRoutes.binaryUpload, x);

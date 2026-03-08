@@ -166,7 +166,7 @@ Primary sources used for this checklist:
 
 | Status | Feature | Notes |
 | --- | --- | --- |
-| Complete | Workspace file-browser reads/writes/transfers/downloads | Phase 22 marks the file-browser cluster as Go-owned. |
+| Complete | Workspace file-browser reads/writes/transfers/downloads | Phase 22 marks the file-browser cluster as Go-owned, and the current file-browser panes, browser-area folder listing/search flow, native-file import, code-mirror folder completion, workspace Python-signal scan path, and deployment/share publish file checks now consume the canonical Go-generated frontend bindings for that transport cluster. |
 | Complete | Binary payload upload/download | Go owns `binary/upload` and `binary/{contentId}` for the current preview/snapshot surface, and the current upload/preview/download callers now reach that surface through canonical generated frontend bindings plus route enums. |
 | Complete | Token-backed chat attachment download route | The current Go owner is `internal/chatattachments` plus `internal/httpapi/attachment_routes.go`. |
 | Complete | Git read surface | Phase 20 marks `git/status`, `git/diff`, `git/log`, `git/commitDetails`, and `git/commitFileDiff` as Go-owned. |

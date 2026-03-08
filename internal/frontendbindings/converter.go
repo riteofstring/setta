@@ -201,6 +201,18 @@ func newTypeConverter() *typeConverter {
 				{Name: "skipped", Value: "skipped"},
 				{Name: "conflict", Value: "conflict"},
 			},
+			reflect.TypeOf(MissingFolderBehavior("")): {
+				{Name: "error", Value: "error"},
+				{Name: "empty", Value: "empty"},
+			},
+			reflect.TypeOf(FolderContentItemType("")): {
+				{Name: "folder", Value: "folder"},
+				{Name: "file", Value: "file"},
+			},
+			reflect.TypeOf(TransferOperation("")): {
+				{Name: "copy", Value: "copy"},
+				{Name: "move", Value: "move"},
+			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
 			reflect.TypeOf(SectionDependencyKey{}): {
