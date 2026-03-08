@@ -109,7 +109,8 @@ Primary sources used for this checklist:
 | Go-owned | MCP server/client/tool registry/search | `internal/mcpx` and `internal/tools` are the active Go owners. |
 | Go-owned | UI-setting runtime and reveal routing | `internal/uisettings` plus `internal/realtime` own reveal/result behavior and routing. |
 | Go-owned | App-spec store/patch/diagnostics and app-gen skills | `internal/appspec` and `internal/appgenskills` are the active Go owners. |
-| Shared boundary | Legacy app-definition REST plus app-spec streaming/helper HTTP boundary | Go now serves the app-config pane's `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, and `getAppCatalog` HTTP routes over the existing `internal/projectstate` and `internal/appspec` owners. Python still serves the LLM-backed `streamAppSpec` generation stream, and older helpers like `updateAppDefinition` and `listAppComponents` also remain Python-owned without proven current non-test callers. |
+| Go-owned | App-config pane app-definition reads/writes and live generation workflow | The current app-config pane now runs on Go-owned `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, and `getAppCatalog` routes plus Go-managed chat app generation over `internal/managedchat`, `/ws/frontend` tool-preview streaming, `internal/mcpx` `stream_app_definition`, and `internal/projectstate` persistence. |
+| Python-owned | Dormant legacy app-definition helper HTTP routes | Python still carries the older `streamAppSpec`, `updateAppDefinition`, and `listAppComponents` helper routes, but the current worktree does not show a proven non-test frontend caller for them. |
 | Go-owned | LLM config and managed API-key storage | `internal/llmconfig` is Go-owned. |
 
 ## 8. AI, agentic runtime, and transcription
