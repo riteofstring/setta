@@ -782,9 +782,9 @@ Use the docs in this order:
     is no longer backend/runtime ownership; it is the shipped Python package
     surface and dependency boundary
 212. `phase-31-packaged-python-boundary-slimdown-plan.md`
-  - focused implementation-plan doc for the landed explicit wheel boundary and
-    the remaining dependency split between packaged-user and source/dev-only
-    Python baggage
+  - focused implementation-plan doc for the landed explicit wheel boundary,
+    the landed packaged-vs-source dependency split, and the remaining
+    source/dev distribution-story follow-on
 213. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 214. `spike-pty.md`

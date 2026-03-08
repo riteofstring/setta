@@ -121,6 +121,24 @@ Verification:
 - packaging smoke tests for wheel install
 - explicit tests for tool dependencies or sidecar imports that remain required
 
+Landed outcome:
+
+- default packaged dependencies are now narrowed to:
+  - `claude-agent-sdk`
+  - `basedpyright`
+  - `ruff`
+- the remaining source/dev-only Python backend runtime dependencies now live
+  under a dedicated `source` extra instead of the packaged-user default
+  install path
+- `uv.lock` now records that split explicitly, including `source`-scoped
+  markers for platform-specific dependencies such as `ptyprocess` and
+  `pywinpty`
+- focused wheel-metadata tests now prove that the default install path does
+  not pull in source/dev backend dependencies, while the `source` extra still
+  carries them
+- both the packaged build path and the install smoke path still pass with the
+  narrowed default dependency boundary
+
 ### Slice 3: Decide the source/dev distribution story
 
 Goal:
@@ -177,12 +195,15 @@ Control:
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_packaged_distribution.py tests/start/test_module_entrypoint.py`
 - `source activate.sh && ./scripts/run_backend_tests.sh tests/start/test_distribution_script_wiring.py`
 - `./build.sh`
+- `./verify_install.sh`
 
 ## Next Recommended Step
 
-Implement Slice 2:
+Implement Slice 3:
 
-- narrow packaged dependency ownership from the now-explicit wheel boundary
-- keep source/dev-only reload dependencies out of that first dependency slice
-- only reopen asset directories during Slice 2 if a concrete packaged runtime
-  callsite proves one of the preserved buckets is no longer needed
+- make the source/dev install story explicit now that the packaged default
+  dependency boundary is narrow
+- decide whether the new `source` extra needs any developer-facing wrapper or
+  doc changes beyond the current `uv sync --all-extras` workflow
+- only reopen asset directories or default packaged dependencies if a concrete
+  packaged runtime callsite proves one is still missing

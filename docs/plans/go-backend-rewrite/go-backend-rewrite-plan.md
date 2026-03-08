@@ -1979,8 +1979,19 @@ Do not weaken this rule during the rewrite.
      - the next honest work is packaged Python boundary/dependency slimming,
        not another backend route/runtime phase
    - the wheel-boundary half of that track is now complete
-   - the next selected Phase 31 work is packaged dependency slimming from the
-     explicit wheel boundary
+   - the second Phase 31 slice is now landed for packaged dependency slimming
+     from the explicit wheel boundary:
+     - default packaged dependencies are now narrowed to
+       `claude-agent-sdk`, `basedpyright`, and `ruff`
+     - source/dev-only Python backend runtime dependencies now live behind a
+       dedicated `source` extra instead of the packaged-user default install
+       path
+     - focused wheel-metadata tests plus `./build.sh` and
+       `./verify_install.sh` now prove that the packaged build/install path
+       still works with the narrower default dependency boundary
+   - the next selected Phase 31 work is the source/dev distribution story
+     above that landed wheel and dependency split, not more speculative
+     packaged dependency trimming
    - dormant listener-chat, detached-run, and non-caller-backed
       default-project routes should remain out of scope until a concrete caller
       proves otherwise
