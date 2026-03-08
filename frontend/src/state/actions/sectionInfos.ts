@@ -12,6 +12,11 @@ import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
+import {
+  getActiveSectionUIIds,
+  reconcileActiveSectionUIIdsFromBackend,
+  sanitizeProjectStateActiveIds,
+} from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
@@ -966,6 +971,25 @@ export function manualDndChildrenReset() {
   );
 }
 
+function getComparableProjectState(
+  state: ZustandProjectState,
+): ProjectStateSingleConfig {
+  return {
+    sections: state.sections,
+    sectionImpls: state.sectionImpls,
+    sectionVariants: state.sectionVariants,
+    codeObjs: state.codeObjs,
+    codeObjImpls: state.codeObjImpls,
+    codeObjVariants: state.codeObjVariants,
+    projectConfig: state.projectConfig,
+    singletonSections: state.singletonSections,
+    parentSectionMap: state.parentSectionMap,
+    shownParamIds: state.shownParamIds,
+    requiredDecodedImages: state.requiredDecodedImages,
+    genCodeBinding: state.genCodeBinding ?? null,
+  };
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -997,6 +1021,25 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
+  reconcileActiveSectionUIIdsFromBackend(
+    x.projectState.projectConfig.activeIds,
+    x.completedOpIds,
+    x.projectState.projectConfig.id,
+  );
+  const sanitizedProjectState = sanitizeProjectStateActiveIds(x.projectState);
+  const projectStateChanged = !_.isEqual(
+    getComparableProjectState(currentState),
+    sanitizedProjectState,
+  );
+
+  if (!projectStateChanged) {
+    usePendingOperations.setState({ pending: nextPending });
+    markRenameBroadcastsReady(completedIds);
+    maybeOpenNextRenamePrompt();
+    clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
+    return;
+  }
+
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
@@ -1005,7 +1048,7 @@ export function processProjectStateUpdateFromBackend(
   unstable_batchedUpdates(() => {
     usePendingOperations.setState({ pending: nextPending });
     useNodeInternals.setState({ x: nextNodesMap });
-    useProjectState.setState(() => x.projectState);
+    useProjectState.setState(() => sanitizedProjectState);
   });
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });
@@ -1434,7 +1477,7 @@ export function deleteAllActiveSections() {
   }
   route_delete_sections({
     projectConfigId: getCurrProjectConfigId(),
-    sectionIds: useProjectState.getState().projectConfig.activeIds,
+    sectionIds: getActiveSectionUIIds(),
   });
 }
 
@@ -1648,7 +1691,7 @@ export async function groupActiveSections() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const sectionIds = useProjectState.getState().projectConfig.activeIds;
+  const sectionIds = getActiveSectionUIIds();
   route_group_sections({
     projectConfigId: getCurrProjectConfigId(),
     sectionIds,
@@ -1661,7 +1704,7 @@ export async function ungroupActiveGroups() {
   if (shareSession.isDeploymentMode) {
     return;
   }
-  const groupIds = useProjectState.getState().projectConfig.activeIds;
+  const groupIds = getActiveSectionUIIds();
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 

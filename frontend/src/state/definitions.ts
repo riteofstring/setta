@@ -279,6 +279,27 @@ export const usePendingOperations = withProjectState(
   ),
 );
 
+type ActiveSectionUIState = {
+  activeIds: Array<string>;
+  pendingBackendSyncOpIds: Array<string>;
+  scheduledBackendSync: {
+    projectConfigId: string;
+    activeIds: Array<string>;
+  } | null;
+};
+
+export const useActiveSectionUI = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(
+      withResetFn<ActiveSectionUIState>(() => ({
+        activeIds: [],
+        pendingBackendSyncOpIds: [],
+        scheduledBackendSync: null,
+      })),
+    ),
+  ),
+);
+
 export type ListenerCoverageRecord = {
   hasRealtimeWildcard: ListenerCoverageSnapshot["hasRealtimeWildcard"];
   dependenciesByKey: Record<string, BaseDependencyKeyUnion>;

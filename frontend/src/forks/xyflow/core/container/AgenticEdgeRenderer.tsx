@@ -1,5 +1,7 @@
+import _ from "lodash";
 import { memo, useMemo, type CSSProperties } from "react";
 import { toggleAgenticEdgeSelection } from "state/actions/agenticEdges";
+import { useActiveSectionUI } from "state/activeSectionUI";
 import {
   getAllowedChatIdsForProject,
   getSectionIdsForProject,
@@ -23,6 +25,34 @@ import { HandlePosition, type Node } from "../types";
 
 type NodeCenter = { x: number; y: number };
 type NodeAnchorSide = "left" | "right";
+type FallbackSectionSize = { w?: number; h?: number };
+
+function areNodeGeometryMapsEqual(
+  left: Map<string, Node>,
+  right: Map<string, Node>,
+) {
+  if (left === right) {
+    return true;
+  }
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [sectionId, leftNode] of left) {
+    const rightNode = right.get(sectionId);
+    if (!rightNode) {
+      return false;
+    }
+    if (
+      leftNode.position.x !== rightNode.position.x ||
+      leftNode.position.y !== rightNode.position.y ||
+      leftNode.width !== rightNode.width ||
+      leftNode.height !== rightNode.height
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
 
 function buildEdgeKey(
   sourceSectionId: string,
@@ -41,7 +71,7 @@ function buildEdgeKey(
 
 function resolveNodeAnchor(
   node: Node | undefined,
-  fallbackLayout: TopLevelSectionLayout | undefined,
+  fallbackLayout: FallbackSectionSize | undefined,
   side: NodeAnchorSide,
 ): NodeCenter | null {
   if (!node) {
@@ -58,33 +88,93 @@ function resolveNodeAnchor(
   };
 }
 
-const AgenticEdgeRenderer = () => {
-  const { width, height, multiSelectionActive } = useReactFlow((state) => ({
-    width: state.width,
-    height: state.height,
-    multiSelectionActive: state.multiSelectionActive,
-  }));
+function getTopLevelSectionIds(
+  topLevelSections: Record<string, TopLevelSectionLayout>,
+): Array<string> {
+  return Object.keys(topLevelSections);
+}
+
+function getFallbackSectionSizes(
+  topLevelSections: Record<string, TopLevelSectionLayout>,
+): Record<string, FallbackSectionSize> {
+  return Object.fromEntries(
+    Object.entries(topLevelSections).map(([sectionId, layout]) => [
+      sectionId,
+      { w: layout.w, h: layout.h },
+    ]),
+  );
+}
+
+function AgenticScopeHighlightsUpdater() {
   const {
     agenticEdges,
-    topLevelSections,
+    topLevelSectionIds,
     sectionVariantMap,
     sectionVariants,
     sectionImpls,
     projectConfigId,
-    activeIds,
   } = useProjectState(
     (state) => ({
       agenticEdges: state.projectConfig.agenticEdges,
-      topLevelSections: state.projectConfig.topLevelSections,
+      topLevelSectionIds: getTopLevelSectionIds(
+        state.projectConfig.topLevelSections,
+      ),
       sectionVariantMap: state.projectConfig.sectionVariantMap,
       sectionVariants: state.sectionVariants,
       sectionImpls: state.sectionImpls,
       projectConfigId: state.projectConfig.id,
-      activeIds: state.projectConfig.activeIds,
+    }),
+    _.isEqual,
+  );
+  const activeIds = useActiveSectionUI((state) => state.activeIds);
+
+  useUpdateAgenticScopeHighlights({
+    projectConfigId,
+    agenticEdges,
+    activeIds,
+    topLevelSectionIds,
+    sectionVariantMap,
+    sectionVariants,
+    sectionImpls,
+  });
+
+  return null;
+}
+
+const _AgenticEdgeRenderer = () => {
+  const { width, height, multiSelectionActive } = useReactFlow(
+    (state) => ({
+      width: state.width,
+      height: state.height,
+      multiSelectionActive: state.multiSelectionActive,
     }),
     shallow,
   );
-  const nodes = useNodeInternals((state) => state.x);
+  const {
+    agenticEdges,
+    topLevelSectionIds,
+    fallbackSectionSizes,
+    sectionVariantMap,
+    sectionVariants,
+    sectionImpls,
+    projectConfigId,
+  } = useProjectState(
+    (state) => ({
+      agenticEdges: state.projectConfig.agenticEdges,
+      topLevelSectionIds: getTopLevelSectionIds(
+        state.projectConfig.topLevelSections,
+      ),
+      fallbackSectionSizes: getFallbackSectionSizes(
+        state.projectConfig.topLevelSections,
+      ),
+      sectionVariantMap: state.projectConfig.sectionVariantMap,
+      sectionVariants: state.sectionVariants,
+      sectionImpls: state.sectionImpls,
+      projectConfigId: state.projectConfig.id,
+    }),
+    _.isEqual,
+  );
+  const nodes = useNodeInternals((state) => state.x, areNodeGeometryMapsEqual);
   const { canEditStructure } = useShareCapabilities();
   const {
     toolArgumentsIdsByProjectConfigId,
@@ -108,19 +198,9 @@ const AgenticEdgeRenderer = () => {
     shallow,
   );
 
-  useUpdateAgenticScopeHighlights({
-    projectConfigId,
-    agenticEdges,
-    activeIds,
-    topLevelSections,
-    sectionVariantMap,
-    sectionVariants,
-    sectionImpls,
-  });
-
   const runningChatSectionIds = useMemo(() => {
     const running = new Set<string>();
-    for (const sectionId of Object.keys(topLevelSections)) {
+    for (const sectionId of topLevelSectionIds) {
       const variantId = sectionVariantMap[sectionId];
       if (!variantId) {
         continue;
@@ -138,7 +218,7 @@ const AgenticEdgeRenderer = () => {
       }
     }
     return running;
-  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSections]);
+  }, [sectionImpls, sectionVariantMap, sectionVariants, topLevelSectionIds]);
 
   const allowedChatIds = useMemo(
     () =>
@@ -237,12 +317,12 @@ const AgenticEdgeRenderer = () => {
           }
           const sourceCenter = resolveNodeAnchor(
             nodes.get(edge.sourceSectionId),
-            topLevelSections[edge.sourceSectionId],
+            fallbackSectionSizes[edge.sourceSectionId],
             "right",
           );
           const targetCenter = resolveNodeAnchor(
             nodes.get(edge.targetSectionId),
-            topLevelSections[edge.targetSectionId],
+            fallbackSectionSizes[edge.targetSectionId],
             "left",
           );
           if (!sourceCenter || !targetCenter) {
@@ -320,12 +400,12 @@ const AgenticEdgeRenderer = () => {
         {missingEdges.map((edge) => {
           const sourceCenter = resolveNodeAnchor(
             nodes.get(edge.sourceSectionId),
-            topLevelSections[edge.sourceSectionId],
+            fallbackSectionSizes[edge.sourceSectionId],
             "right",
           );
           const targetCenter = resolveNodeAnchor(
             nodes.get(edge.targetSectionId),
-            topLevelSections[edge.targetSectionId],
+            fallbackSectionSizes[edge.targetSectionId],
             "left",
           );
           if (!sourceCenter || !targetCenter) {
@@ -366,6 +446,24 @@ const AgenticEdgeRenderer = () => {
   );
 };
 
+const AgenticEdgeRenderer = memo(_AgenticEdgeRenderer);
+
 AgenticEdgeRenderer.displayName = "AgenticEdgeRenderer";
 
-export default memo(AgenticEdgeRenderer);
+function _AgenticEdgeRendererWithHighlights() {
+  return (
+    <>
+      <AgenticScopeHighlightsUpdater />
+      <AgenticEdgeRenderer />
+    </>
+  );
+}
+
+const AgenticEdgeRendererWithHighlights = memo(
+  _AgenticEdgeRendererWithHighlights,
+);
+
+AgenticEdgeRendererWithHighlights.displayName =
+  "AgenticEdgeRendererWithHighlights";
+
+export default AgenticEdgeRendererWithHighlights;
