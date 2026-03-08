@@ -16,10 +16,8 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import {
-  route_set_project_chat_window_chat_id,
-  route_set_project_chat_windowing_state,
-} from "utils/generatedEndpoints";
+import { res200 } from "utils/endpointUtils";
+import { route_set_project_chat_windowing_state } from "utils/generatedEndpoints";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
@@ -33,6 +31,10 @@ import {
   type ProjectChatWindowInstance,
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
+import {
+  getAuthoritativeProjectChatWindowingState,
+  recordAuthoritativeProjectChatWindowingState,
+} from "./projectChatWindowingAuthoritative";
 import {
   clearTrackedGitPaneGraphWindowIfMatches,
   getProjectChatGitGraphEmbeddedPaneVisibleInstanceIdsForProject,
@@ -123,6 +125,14 @@ const DEFAULT_FLOATING_CHAT_MIN_HEIGHT_PX = 240;
 const DEFAULT_DOCKED_CHAT_HEIGHT_VIEWPORT_FRACTION = 0.7;
 const DEFAULT_DOCKED_CHAT_MIN_HEIGHT_PX = 220;
 const pendingProjectChatWindowingWrites = new Set<Promise<unknown>>();
+const pendingProjectChatWindowingMutationsByProjectId = new Map<
+  string,
+  Array<PendingProjectChatWindowingMutation>
+>();
+const projectChatWindowingWriteBarrierByProjectId = new Map<
+  string,
+  Promise<void>
+>();
 
 function getProjectChatWindowingStateFromStore(
   state: ZustandProjectState,
@@ -550,36 +560,28 @@ export function ensureTrackedGitPaneGraphWindow({
   );
 
   if (trackedInstanceId) {
-    dispatchProjectChatWindowingMutation({
-      mutation: (latestWindowing) => {
-        let next = reopenProjectChatWindowInState(
-          latestWindowing,
-          trackedInstanceId,
-        );
-        next = withUpdatedWindow(next, trackedInstanceId, (current) => {
-          if (current.title === normalizedTitle) {
-            return current;
-          }
-          return {
-            ...current,
-            title: normalizedTitle,
-          };
-        });
-        next = maximizeProjectChatWindowInState(next, trackedInstanceId);
+    dispatchProjectChatWindowingMutation((latestWindowing) => {
+      let next = reopenProjectChatWindowInState(
+        latestWindowing,
+        trackedInstanceId,
+      );
+      next = withUpdatedWindow(next, trackedInstanceId, (current) => {
+        if (current.title === normalizedTitle) {
+          return current;
+        }
         return {
-          nextProjectChatWindowing: focusProjectChatWindowInState(
-            next,
-            trackedInstanceId,
-            nowMs,
-          ),
+          ...current,
+          title: normalizedTitle,
         };
-      },
-      send: ({ frontendOpId, projectConfigId, nextProjectChatWindowing }) =>
-        route_set_project_chat_windowing_state({
-          projectConfigId,
-          state: nextProjectChatWindowing,
-          frontendOpId,
-        }),
+      });
+      next = maximizeProjectChatWindowInState(next, trackedInstanceId);
+      return {
+        nextProjectChatWindowing: focusProjectChatWindowInState(
+          next,
+          trackedInstanceId,
+          nowMs,
+        ),
+      };
     });
     return trackedInstanceId;
   }
@@ -590,30 +592,22 @@ export function ensureTrackedGitPaneGraphWindow({
     title: normalizedTitle,
     nowMs,
   });
-  dispatchProjectChatWindowingMutation({
-    mutation: (latestWindowing) => {
-      const nextCreated = addProjectChatWindowInstanceInState(latestWindowing, {
-        instanceId: created.instanceId,
-        placement: ChatWindowPlacementEnum.floating,
-        mode: ChatWindowModeEnum.git_graph_mode,
-        title: normalizedTitle,
-        nowMs,
-      });
-      let next = maximizeProjectChatWindowInState(
-        nextCreated.state,
-        nextCreated.instanceId,
-      );
-      next = focusProjectChatWindowInState(next, nextCreated.instanceId, nowMs);
-      return {
-        nextProjectChatWindowing: next,
-      };
-    },
-    send: ({ frontendOpId, projectConfigId, nextProjectChatWindowing }) =>
-      route_set_project_chat_windowing_state({
-        projectConfigId,
-        state: nextProjectChatWindowing,
-        frontendOpId,
-      }),
+  dispatchProjectChatWindowingMutation((latestWindowing) => {
+    const nextCreated = addProjectChatWindowInstanceInState(latestWindowing, {
+      instanceId: created.instanceId,
+      placement: ChatWindowPlacementEnum.floating,
+      mode: ChatWindowModeEnum.git_graph_mode,
+      title: normalizedTitle,
+      nowMs,
+    });
+    let next = maximizeProjectChatWindowInState(
+      nextCreated.state,
+      nextCreated.instanceId,
+    );
+    next = focusProjectChatWindowInState(next, nextCreated.instanceId, nowMs);
+    return {
+      nextProjectChatWindowing: next,
+    };
   });
   setTrackedGitPaneGraphWindowInstanceId(projectConfigId, created.instanceId);
   return created.instanceId;
@@ -1395,11 +1389,32 @@ type ProjectChatWindowingMutation = (
   currentWindowing: ProjectChatWindowingState,
 ) => ProjectChatWindowingMutationResult;
 
-type ProjectChatWindowingSendArgs = {
-  frontendOpId: string;
-  projectConfigId: string;
-  nextProjectChatWindowing: ProjectChatWindowingState;
+type PendingProjectChatWindowingMutation = {
+  mutation: ProjectChatWindowingMutation;
+  opId: string;
 };
+
+type ProjectChatWindowingWriteResponse = Awaited<
+  ReturnType<typeof route_set_project_chat_windowing_state>
+>;
+
+type SyntheticProjectChatWindowingWriteResponse = {
+  data: ProjectChatWindowingState;
+  hasResponse: true;
+  status: 200;
+};
+
+type ProjectChatWindowingTrackedResponse =
+  | ProjectChatWindowingWriteResponse
+  | SyntheticProjectChatWindowingWriteResponse;
+
+function getPendingProjectChatWindowingMutations(
+  projectConfigId: string,
+): Array<PendingProjectChatWindowingMutation> {
+  return (
+    pendingProjectChatWindowingMutationsByProjectId.get(projectConfigId) ?? []
+  );
+}
 
 function applyProjectChatWindowingEphemeralState(
   projectConfigId: string,
@@ -1443,6 +1458,143 @@ function enqueueProjectChatWindowingWrite<T extends Promise<unknown>>(
   return request;
 }
 
+function primeAuthoritativeProjectChatWindowingState(
+  projectConfigId: string,
+  projectChatWindowing: ProjectChatWindowingState,
+): void {
+  if (getPendingProjectChatWindowingMutations(projectConfigId).length > 0) {
+    return;
+  }
+  recordAuthoritativeProjectChatWindowingState(
+    projectConfigId,
+    projectChatWindowing,
+  );
+}
+
+function addPendingProjectChatWindowingMutation(
+  projectConfigId: string,
+  pendingMutation: PendingProjectChatWindowingMutation,
+): void {
+  pendingProjectChatWindowingMutationsByProjectId.set(projectConfigId, [
+    ...getPendingProjectChatWindowingMutations(projectConfigId),
+    pendingMutation,
+  ]);
+}
+
+function removePendingProjectChatWindowingMutation(
+  projectConfigId: string,
+  opId: string,
+): void {
+  const remainingMutations = getPendingProjectChatWindowingMutations(
+    projectConfigId,
+  ).filter((pendingMutation) => pendingMutation.opId !== opId);
+  if (remainingMutations.length === 0) {
+    pendingProjectChatWindowingMutationsByProjectId.delete(projectConfigId);
+    projectChatWindowingWriteBarrierByProjectId.delete(projectConfigId);
+    return;
+  }
+  pendingProjectChatWindowingMutationsByProjectId.set(
+    projectConfigId,
+    remainingMutations,
+  );
+}
+
+function buildProjectChatWindowingSnapshotForMutation(
+  projectConfigId: string,
+  opId: string,
+): ProjectChatWindowingState | null {
+  const pendingMutations =
+    getPendingProjectChatWindowingMutations(projectConfigId);
+  const targetIndex = pendingMutations.findIndex(
+    (pendingMutation) => pendingMutation.opId === opId,
+  );
+  if (targetIndex < 0) {
+    return null;
+  }
+  const authoritativeWindowing =
+    getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+    useProjectState.getState().projectChatWindowing;
+  let nextProjectChatWindowing = authoritativeWindowing;
+  for (let index = 0; index <= targetIndex; index += 1) {
+    const pendingMutation = pendingMutations[index];
+    if (!pendingMutation) {
+      continue;
+    }
+    nextProjectChatWindowing = pendingMutation.mutation(
+      nextProjectChatWindowing,
+    ).nextProjectChatWindowing;
+  }
+  return nextProjectChatWindowing;
+}
+
+function buildSyntheticProjectChatWindowingWriteResponse(
+  projectConfigId: string,
+): SyntheticProjectChatWindowingWriteResponse {
+  return {
+    data:
+      getAuthoritativeProjectChatWindowingState(projectConfigId) ??
+      useProjectState.getState().projectChatWindowing,
+    status: 200,
+    hasResponse: true,
+  };
+}
+
+function createProjectChatWindowingWriteBarrier(
+  request: Promise<unknown>,
+): Promise<void> {
+  return request
+    .finally(
+      () =>
+        new Promise<void>((resolve) => {
+          queueMicrotask(resolve);
+        }),
+    )
+    .then(
+      () => undefined,
+      () => undefined,
+    );
+}
+
+function enqueueSerializedProjectChatWindowingWrite(
+  projectConfigId: string,
+  opId: string,
+  mutation: ProjectChatWindowingMutation,
+): Promise<ProjectChatWindowingTrackedResponse> {
+  addPendingProjectChatWindowingMutation(projectConfigId, {
+    opId,
+    mutation,
+  });
+  const previousBarrier =
+    projectChatWindowingWriteBarrierByProjectId.get(projectConfigId) ??
+    Promise.resolve();
+  const request = previousBarrier.then(async () => {
+    const nextProjectChatWindowing =
+      buildProjectChatWindowingSnapshotForMutation(projectConfigId, opId);
+    if (!nextProjectChatWindowing) {
+      return buildSyntheticProjectChatWindowingWriteResponse(projectConfigId);
+    }
+    const response = await route_set_project_chat_windowing_state({
+      projectConfigId,
+      state: nextProjectChatWindowing,
+      frontendOpId: opId,
+    });
+    if (res200(response)) {
+      recordAuthoritativeProjectChatWindowingState(
+        projectConfigId,
+        response.data,
+      );
+    }
+    return response;
+  });
+  const barrier = createProjectChatWindowingWriteBarrier(
+    request.finally(() => {
+      removePendingProjectChatWindowingMutation(projectConfigId, opId);
+    }),
+  );
+  projectChatWindowingWriteBarrierByProjectId.set(projectConfigId, barrier);
+  return enqueueProjectChatWindowingWrite(request);
+}
+
 function applyProjectChatWindowingMutation(
   currentWindowing: ProjectChatWindowingState,
   projectConfigId: string | null,
@@ -1483,6 +1635,9 @@ function applyProjectChatWindowingMutationToState(
   projectConfigId: string,
   mutation: ProjectChatWindowingMutation,
 ): void {
+  if (state.projectConfig.id !== projectConfigId) {
+    return;
+  }
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const { nextProjectChatWindowing, options } = mutation(currentWindowing);
   if (nextProjectChatWindowing === currentWindowing) {
@@ -1501,13 +1656,9 @@ function applyProjectChatWindowingMutationToState(
   }
 }
 
-function dispatchProjectChatWindowingMutation({
-  mutation,
-  send,
-}: {
-  mutation: ProjectChatWindowingMutation;
-  send: (args: ProjectChatWindowingSendArgs) => Promise<unknown>;
-}): void {
+function dispatchProjectChatWindowingMutation(
+  mutation: ProjectChatWindowingMutation,
+): void {
   const projectConfigId = getCurrProjectConfigId();
   const currentProjectState = useProjectState.getState();
   const previousProjectChatWindowing = currentProjectState.projectChatWindowing;
@@ -1532,8 +1683,13 @@ function dispatchProjectChatWindowingMutation({
     );
     return;
   }
+  primeAuthoritativeProjectChatWindowingState(
+    projectConfigId,
+    previousProjectChatWindowing,
+  );
 
   dispatchOptimisticProjectStateUpdate({
+    projectConfigId,
     apply: (state) =>
       applyProjectChatWindowingMutationToState(
         state,
@@ -1560,25 +1716,11 @@ function dispatchProjectChatWindowingMutation({
       }
     },
     send: (frontendOpId) =>
-      enqueueProjectChatWindowingWrite(
-        send({
-          frontendOpId,
-          projectConfigId,
-          nextProjectChatWindowing,
-        }),
+      enqueueSerializedProjectChatWindowingWrite(
+        projectConfigId,
+        frontendOpId,
+        mutation,
       ),
-  });
-}
-
-function sendProjectChatWindowingStateWrite({
-  frontendOpId,
-  projectConfigId,
-  nextProjectChatWindowing,
-}: ProjectChatWindowingSendArgs): Promise<unknown> {
-  return route_set_project_chat_windowing_state({
-    projectConfigId,
-    state: nextProjectChatWindowing,
-    frontendOpId,
   });
 }
 
@@ -1595,13 +1737,10 @@ export function replaceProjectChatWindowingState(
   if (!canMutateProjectChatWindowingLayout()) {
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: () => ({
-      nextProjectChatWindowing,
-      options,
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation(() => ({
+    nextProjectChatWindowing,
+    options,
+  }));
 }
 
 export function createProjectChatWindowInstance(
@@ -1613,18 +1752,15 @@ export function createProjectChatWindowInstance(
   const state = useProjectState.getState();
   const currentWindowing = getProjectChatWindowingStateFromStore(state);
   const next = addProjectChatWindowInstanceInState(currentWindowing, options);
-  dispatchProjectChatWindowingMutation({
-    mutation: (latestWindowing) => ({
-      nextProjectChatWindowing: addProjectChatWindowInstanceInState(
-        latestWindowing,
-        {
-          ...options,
-          instanceId: next.instanceId,
-        },
-      ).state,
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((latestWindowing) => ({
+    nextProjectChatWindowing: addProjectChatWindowInstanceInState(
+      latestWindowing,
+      {
+        ...options,
+        instanceId: next.instanceId,
+      },
+    ).state,
+  }));
   return next.instanceId;
 }
 
@@ -1639,31 +1775,25 @@ export function setProjectChatWindowPlacement(
   if (placement !== ChatWindowPlacementEnum.maximized) {
     clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: setProjectChatWindowPlacementInState(
-        currentWindowing,
-        instanceId,
-        placement,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: setProjectChatWindowPlacementInState(
+      currentWindowing,
+      instanceId,
+      placement,
+    ),
+  }));
 }
 
 export function maximizeProjectChatWindow(instanceId: string): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: maximizeProjectChatWindowInState(
-        currentWindowing,
-        instanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: maximizeProjectChatWindowInState(
+      currentWindowing,
+      instanceId,
+    ),
+  }));
 }
 
 export function unmaximizeProjectChatWindow(instanceId: string): void {
@@ -1671,15 +1801,12 @@ export function unmaximizeProjectChatWindow(instanceId: string): void {
     return;
   }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: unmaximizeProjectChatWindowInState(
-        currentWindowing,
-        instanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: unmaximizeProjectChatWindowInState(
+      currentWindowing,
+      instanceId,
+    ),
+  }));
 }
 
 export function closeProjectChatWindow(instanceId: string): void {
@@ -1687,15 +1814,12 @@ export function closeProjectChatWindow(instanceId: string): void {
     return;
   }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: closeProjectChatWindowInState(
-        currentWindowing,
-        instanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: closeProjectChatWindowInState(
+      currentWindowing,
+      instanceId,
+    ),
+  }));
 }
 
 export function minimizeProjectChatWindow(instanceId: string): void {
@@ -1703,30 +1827,24 @@ export function minimizeProjectChatWindow(instanceId: string): void {
     return;
   }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: minimizeProjectChatWindowInState(
-        currentWindowing,
-        instanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: minimizeProjectChatWindowInState(
+      currentWindowing,
+      instanceId,
+    ),
+  }));
 }
 
 export function reopenProjectChatWindow(instanceId: string): void {
   if (!canMutateProjectChatWindowingLayout()) {
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: reopenProjectChatWindowInState(
-        currentWindowing,
-        instanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: reopenProjectChatWindowInState(
+      currentWindowing,
+      instanceId,
+    ),
+  }));
 }
 
 export function focusProjectChatWindow(
@@ -1759,25 +1877,22 @@ export function focusProjectChatWindow(
     }
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (latestWindowing) => {
-      const nextProjectChatWindowing = focusProjectChatWindowInState(
-        latestWindowing,
-        instanceId,
-        nowMs,
-      );
-      const nextFocusedWindow =
-        nextProjectChatWindowing.instancesById[instanceId] ?? null;
-      return {
-        nextProjectChatWindowing,
-        options: shouldSyncActiveProjectChatId(nextFocusedWindow)
-          ? {
-              syncActiveChatId: nextFocusedWindow?.chatId ?? undefined,
-            }
-          : {},
-      };
-    },
-    send: sendProjectChatWindowingStateWrite,
+  dispatchProjectChatWindowingMutation((latestWindowing) => {
+    const nextProjectChatWindowing = focusProjectChatWindowInState(
+      latestWindowing,
+      instanceId,
+      nowMs,
+    );
+    const nextFocusedWindow =
+      nextProjectChatWindowing.instancesById[instanceId] ?? null;
+    return {
+      nextProjectChatWindowing,
+      options: shouldSyncActiveProjectChatId(nextFocusedWindow)
+        ? {
+            syncActiveChatId: nextFocusedWindow?.chatId ?? undefined,
+          }
+        : {},
+    };
   });
 }
 
@@ -1787,15 +1902,12 @@ export function setProjectChatWindowDockFractions(
   if (!canMutateProjectChatWindowingLayout()) {
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: setProjectChatWindowDockFractionsInState(
-        currentWindowing,
-        options,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: setProjectChatWindowDockFractionsInState(
+      currentWindowing,
+      options,
+    ),
+  }));
 }
 
 export function setProjectChatWindowBounds(
@@ -1806,16 +1918,13 @@ export function setProjectChatWindowBounds(
     return;
   }
   clearTrackedGitPaneGraphWindowIfMatches(getCurrProjectConfigId(), instanceId);
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: setProjectChatWindowBoundsInState(
-        currentWindowing,
-        instanceId,
-        bounds,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: setProjectChatWindowBoundsInState(
+      currentWindowing,
+      instanceId,
+      bounds,
+    ),
+  }));
 }
 
 export function setProjectChatWindowBoundsById(
@@ -1828,15 +1937,12 @@ export function setProjectChatWindowBoundsById(
   for (const instanceId of Object.keys(boundsByInstanceId)) {
     clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: setProjectChatWindowBoundsByIdInState(
-        currentWindowing,
-        boundsByInstanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: setProjectChatWindowBoundsByIdInState(
+      currentWindowing,
+      boundsByInstanceId,
+    ),
+  }));
 }
 
 export function setProjectChatWindowTitle(
@@ -1846,16 +1952,13 @@ export function setProjectChatWindowTitle(
   if (!canMutateProjectChatWindowingLayout()) {
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => ({
-      nextProjectChatWindowing: setProjectChatWindowTitleInState(
-        currentWindowing,
-        instanceId,
-        title,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((currentWindowing) => ({
+    nextProjectChatWindowing: setProjectChatWindowTitleInState(
+      currentWindowing,
+      instanceId,
+      title,
+    ),
+  }));
 }
 
 export function setProjectChatWindowChatId(
@@ -1863,31 +1966,22 @@ export function setProjectChatWindowChatId(
   chatId: string | null | undefined,
 ): void {
   const normalizedChatId = chatId?.trim() ? chatId.trim() : null;
-  dispatchProjectChatWindowingMutation({
-    mutation: (currentWindowing) => {
-      const nextProjectChatWindowing = setProjectChatWindowChatIdInState(
-        currentWindowing,
-        instanceId,
-        normalizedChatId,
-      );
-      const updatedWindow =
-        nextProjectChatWindowing.instancesById[instanceId] ?? null;
-      return {
-        nextProjectChatWindowing,
-        options: shouldSyncActiveProjectChatId(updatedWindow)
-          ? {
-              syncActiveChatId: updatedWindow?.chatId ?? undefined,
-            }
-          : {},
-      };
-    },
-    send: ({ frontendOpId, projectConfigId }) =>
-      route_set_project_chat_window_chat_id({
-        projectConfigId,
-        instanceId,
-        chatId: normalizedChatId,
-        frontendOpId,
-      }),
+  dispatchProjectChatWindowingMutation((currentWindowing) => {
+    const nextProjectChatWindowing = setProjectChatWindowChatIdInState(
+      currentWindowing,
+      instanceId,
+      normalizedChatId,
+    );
+    const updatedWindow =
+      nextProjectChatWindowing.instancesById[instanceId] ?? null;
+    return {
+      nextProjectChatWindowing,
+      options: shouldSyncActiveProjectChatId(updatedWindow)
+        ? {
+            syncActiveChatId: updatedWindow?.chatId ?? undefined,
+          }
+        : {},
+    };
   });
 }
 
@@ -1950,19 +2044,16 @@ export async function bootProjectChatWindowToCanvasSection(
     },
   );
   if (next !== latestWindowing) {
-    dispatchProjectChatWindowingMutation({
-      mutation: (currentWindowing) => ({
-        nextProjectChatWindowing: moveProjectChatWindowToCanvasSectionInState(
-          currentWindowing,
-          instanceId,
-          {
-            sectionId,
-            mode: latestInstance.mode,
-          },
-        ),
-      }),
-      send: sendProjectChatWindowingStateWrite,
-    });
+    dispatchProjectChatWindowingMutation((currentWindowing) => ({
+      nextProjectChatWindowing: moveProjectChatWindowToCanvasSectionInState(
+        currentWindowing,
+        instanceId,
+        {
+          sectionId,
+          mode: latestInstance.mode,
+        },
+      ),
+    }));
   }
   return sectionId;
 }
@@ -1987,19 +2078,16 @@ export function showSectionInProjectChatWindow(
       mode: ChatWindowModeEnum.section_mode,
       sectionIdOrNull: sectionId,
     }).instanceId;
-  dispatchProjectChatWindowingMutation({
-    mutation: (latestWindowing) => ({
-      nextProjectChatWindowing: showSectionInProjectChatWindowInState(
-        latestWindowing,
-        sectionId,
-        {
-          instanceId: createdInstanceId,
-          placement,
-        },
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((latestWindowing) => ({
+    nextProjectChatWindowing: showSectionInProjectChatWindowInState(
+      latestWindowing,
+      sectionId,
+      {
+        instanceId: createdInstanceId,
+        placement,
+      },
+    ),
+  }));
 }
 
 export function undockProjectChatWindowFromCanvasSection(
@@ -2024,15 +2112,12 @@ export function undockProjectChatWindowFromCanvasSection(
   if (next === currentWindowing) {
     return;
   }
-  dispatchProjectChatWindowingMutation({
-    mutation: (latestWindowing) => ({
-      nextProjectChatWindowing: undockProjectChatWindowFromCanvasSectionInState(
-        latestWindowing,
-        instanceId,
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((latestWindowing) => ({
+    nextProjectChatWindowing: undockProjectChatWindowFromCanvasSectionInState(
+      latestWindowing,
+      instanceId,
+    ),
+  }));
 }
 
 export function setProjectChatWindowModeForSection(
@@ -2057,17 +2142,14 @@ export function setProjectChatWindowModeForSection(
           mode,
           sectionIdOrNull: sectionId,
         }).instanceId);
-  dispatchProjectChatWindowingMutation({
-    mutation: (latestWindowing) => ({
-      nextProjectChatWindowing: setProjectChatWindowModeForSectionInState(
-        latestWindowing,
-        sectionId,
-        mode,
-        {
-          createInstanceId: createdInstanceId,
-        },
-      ),
-    }),
-    send: sendProjectChatWindowingStateWrite,
-  });
+  dispatchProjectChatWindowingMutation((latestWindowing) => ({
+    nextProjectChatWindowing: setProjectChatWindowModeForSectionInState(
+      latestWindowing,
+      sectionId,
+      mode,
+      {
+        createInstanceId: createdInstanceId,
+      },
+    ),
+  }));
 }

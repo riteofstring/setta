@@ -48,6 +48,9 @@ type StandaloneSurfaceTarget =
       chatId: string;
     }
   | {
+      kind: "project_chat_thread_not_found";
+    }
+  | {
       kind: "section";
       sectionId: string;
       sectionName: string;
@@ -99,6 +102,9 @@ function resolveStandaloneSurfaceTarget(
       chatId: normalizedChatId,
     };
   }
+  if (chatId !== undefined) {
+    return { kind: "project_chat_thread_not_found" };
+  }
   if (windowSpaceSlug) {
     const resolution = resolveStandaloneWindowSpaceSlug(state, windowSpaceSlug);
     if (resolution.kind !== "found") {
@@ -145,6 +151,9 @@ function resolveStandaloneDocumentTitle(
       return `${projectConfigName} · ${projectChatThreadTitle}`;
     }
     return `${projectConfigName} Chat`;
+  }
+  if (target.kind === "project_chat_thread_not_found") {
+    return `${projectConfigName} · Thread Not Found`;
   }
   if (target.kind === "section") {
     return `${projectConfigName} · ${target.sectionName}`;
@@ -332,6 +341,8 @@ export function StandaloneProjectSurfacePageWithLoadState({
   });
   const standaloneProjectChatId =
     target.kind === "project_chat_thread" ? target.chatId : null;
+  const standaloneProjectChatThreadRouteInvalid =
+    target.kind === "project_chat_thread_not_found";
   const standaloneProjectChatThreadMissing =
     target.kind === "project_chat_thread" &&
     standaloneProjectChatBlockedState.projectConfigId === projectConfigId &&
@@ -477,8 +488,15 @@ export function StandaloneProjectSurfacePageWithLoadState({
     return <StandaloneManagedChatBlockedSurface />;
   }
 
-  if (target.kind === "project_chat" || target.kind === "project_chat_thread") {
-    if (standaloneProjectChatThreadMissing) {
+  if (
+    target.kind === "project_chat" ||
+    target.kind === "project_chat_thread" ||
+    target.kind === "project_chat_thread_not_found"
+  ) {
+    if (
+      standaloneProjectChatThreadRouteInvalid ||
+      standaloneProjectChatThreadMissing
+    ) {
       return (
         <StandaloneSurfaceShell>
           <div
@@ -487,7 +505,11 @@ export function StandaloneProjectSurfacePageWithLoadState({
           >
             <NotFound
               title="Thread Not Found"
-              description="No project chat thread matches this standalone route."
+              description={
+                standaloneProjectChatThreadRouteInvalid
+                  ? "This standalone project chat route is invalid."
+                  : "No project chat thread matches this standalone route."
+              }
             />
           </div>
         </StandaloneSurfaceShell>

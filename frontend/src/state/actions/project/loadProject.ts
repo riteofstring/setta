@@ -35,6 +35,7 @@ import {
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
 import { processLspDiagnostics } from "../lspDiagnostics";
+import { recordAuthoritativeProjectChatWindowingState } from "../projectChatWindowingAuthoritative";
 import {
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects,
   reconcileProjectChatWindowingEphemeralState,
@@ -100,6 +101,10 @@ export async function loadProjectState(
   };
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects(
     nextProjectState.projectConfig.id,
+  );
+  recordAuthoritativeProjectChatWindowingState(
+    nextProjectState.projectConfig.id,
+    nextProjectState.projectChatWindowing,
   );
   reconcileProjectChatWindowingEphemeralState(
     nextProjectState.projectChatWindowing,

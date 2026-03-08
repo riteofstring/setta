@@ -7,6 +7,7 @@ import {
   flushPendingProjectChatWindowingWrites,
   replaceProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
+import { recordAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -111,6 +112,7 @@ function dispatchOptimisticWindowSpaceMutation({
     getProjectWindowSpaces(useProjectState.getState().projectConfig),
   );
   dispatchOptimisticProjectStateUpdate({
+    projectConfigId,
     apply,
     rollback: (state) => {
       state.projectConfig.windowSpaces =
@@ -962,11 +964,16 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
 > {
   await flushPendingProjectChatWindowingWrites();
   const state = useProjectState.getState();
+  const projectConfigId = getCurrProjectConfigId();
+  if (!projectConfigId) {
+    return null;
+  }
   const snapshot = normalizeWindowSpaceForPersistence(state);
   if (Object.keys(snapshot.windowsById).length === 0) {
     return null;
   }
-  const projectConfigId = getCurrProjectConfigId();
+  const projectConfigSnapshot = state.projectConfig;
+  const sectionSnapshot = state.sections;
   const syncResponse = await route_set_project_chat_windowing_state({
     projectConfigId,
     state: state.projectChatWindowing,
@@ -990,17 +997,20 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     );
     return null;
   }
-  const latestState = useProjectState.getState();
+  recordAuthoritativeProjectChatWindowingState(
+    projectConfigId,
+    syncResponse.data,
+  );
   const authoritativeSnapshot = snapshotFloatingWindowsForWindowSpace({
     projectChatWindowing: syncResponse.data,
-    projectConfig: latestState.projectConfig,
-    sections: latestState.sections,
+    projectConfig: projectConfigSnapshot,
+    sections: sectionSnapshot,
   });
   if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
     return null;
   }
   const nextWindowSpaceName = resolveNextWindowSpaceName(
-    getProjectWindowSpaces(latestState.projectConfig),
+    getProjectWindowSpaces(projectConfigSnapshot),
   );
   const response = await route_create_window_space({
     projectConfigId,
@@ -1025,6 +1035,9 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     return null;
   }
   useProjectState.setState((currentState) => {
+    if (currentState.projectConfig.id !== projectConfigId) {
+      return;
+    }
     const windowSpaces = currentState.projectConfig.windowSpaces;
     if (windowSpaces[response.data.id]) {
       return;

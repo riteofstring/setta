@@ -82,8 +82,12 @@ function buildCreatedWindowSpaceResponse(request: {
 }
 
 async function flushOptimisticMutation(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve();
+  }
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
 }
 
 describe("snapshotFloatingWindowsForWindowSpace", () => {
@@ -758,6 +762,55 @@ describe("window-space optimistic rollback", () => {
     expect(usePendingOperations.getState().pending).toEqual([]);
   });
 
+  it("does not roll back a rename into a different project after navigation", async () => {
+    const projectBWindowSpaces = {
+      "beta-id": createWindowSpaceConfig({
+        id: "beta-id",
+        name: "Beta",
+        sortIndex: 0,
+        windowsById: {},
+        order: [],
+      }),
+    };
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeSetWindowSpaceNameMock.mockResolvedValue({
+      data: { detail: "Forbidden" },
+      status: 403,
+      hasResponse: true,
+    });
+
+    setWindowSpaceName("project-id", "alpha-id", "Renamed Alpha");
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-b",
+        name: "demo-b",
+        windowSpaces: projectBWindowSpaces,
+      }),
+    });
+
+    await flushOptimisticMutation();
+
+    expect(useProjectState.getState().projectConfig.id).toBe("project-b");
+    expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
+      projectBWindowSpaces,
+    );
+    expect(usePendingOperations.getState().pending).toEqual([]);
+  });
+
   it("replays a later accepted delete after an earlier rename fails out of order", async () => {
     let resolveRenameWrite:
       | ((value: {
@@ -1039,6 +1092,121 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
       name: createRequest?.name,
       order: ["floating-section"],
     });
+  });
+
+  it("does not merge a created window space into a different project after navigation", async () => {
+    let resolveSync:
+      | ((value: {
+          data: ReturnType<typeof createProjectChatWindowingState>;
+          status: number;
+          hasResponse: boolean;
+        }) => void)
+      | null = null;
+    let resolveCreate:
+      | ((value: ReturnType<typeof buildCreatedWindowSpaceResponse>) => void)
+      | null = null;
+    const projectBWindowSpaces = {
+      "project-b-space": createWindowSpaceConfig({
+        id: "project-b-space",
+        name: "Project B Layout",
+        sortIndex: 0,
+        windowsById: {},
+        order: [],
+      }),
+    };
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+      }),
+      sections: {
+        "section-1": createCore({
+          id: "section-1",
+          name: "Research Notes",
+        }),
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["floating-section"],
+        instancesById: {
+          "floating-section": {
+            instanceId: "floating-section",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 500,
+              height: 360,
+            },
+          },
+        },
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSync = resolve;
+      }),
+    );
+    routeCreateWindowSpaceMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      }),
+    );
+
+    const savePromise = createWindowSpaceFromCurrentFloatingWindows();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-b",
+        name: "demo-b",
+        windowSpaces: projectBWindowSpaces,
+      }),
+      sections: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+
+    resolveSync?.({
+      data: createProjectChatWindowingState({
+        order: ["floating-section"],
+        instancesById: {
+          "floating-section": {
+            instanceId: "floating-section",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            bounds: {
+              x: 120,
+              y: 80,
+              width: 500,
+              height: 360,
+            },
+          },
+        },
+      }),
+      status: 200,
+      hasResponse: true,
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const createRequest = routeCreateWindowSpaceMock.mock.calls[0]?.[0];
+    expect(createRequest?.projectConfigId).toBe("project-id");
+
+    resolveCreate?.(
+      buildCreatedWindowSpaceResponse({
+        ...createRequest,
+        id: "window-space-1",
+      }),
+    );
+
+    await expect(savePromise).resolves.toBe("window-space-1");
+    expect(useProjectState.getState().projectConfig.id).toBe("project-b");
+    expect(useProjectState.getState().projectConfig.windowSpaces).toEqual(
+      projectBWindowSpaces,
+    );
   });
 
   it("shows an error notification when the backend rejects the save", async () => {
@@ -1335,7 +1503,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextWindowing.nextInstanceNumber).toBe(9);
   });
 
-  it("restores the saved floating layout while preserving unrelated live windows", () => {
+  it("restores the saved floating layout while preserving unrelated live windows", async () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
         id: "project-id",
@@ -1388,6 +1556,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
 
     restoreWindowSpaceInWorkspace("space-1");
+    await flushOptimisticMutation();
 
     expect(useProjectState.getState().projectChatWindowing.order).toEqual([
       "project-chat-window-99",

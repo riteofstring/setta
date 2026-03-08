@@ -844,3 +844,36 @@ Verification:
 - `source activate.sh && python -m pytest tests/project_state/test_project_chat_windowing_persistence.py -q` passed: 14 tests.
 - `source activate.sh && python -m pytest tests/routers/test_mcp_linked_chat_tool.py -q` passed: 30 tests.
 - No Playwright or CDP verification was added for this entry because the change is backend-only and does not alter user-visible UI rendering.
+
+## 2026-03-10 23:04:52 PDT
+
+Implemented the remaining frontend regressions from the transient review pass: project-scoped optimistic rollback, causally ordered project-chat windowing persistence, cross-project window-space save isolation, and fail-closed standalone thread routing for blank chat ids.
+
+What changed:
+- Reworked `frontend/src/state/actions/sectionInfos.ts` so `dispatchOptimisticProjectStateUpdate(...)` can be bound to a specific `projectConfigId`. Project-scoped optimistic ops now no-op on apply/replay/rollback when the loaded project has changed, and successful responses from a stale project remove their pending op instead of remaining replayable.
+- Added `frontend/src/state/actions/projectChatWindowingAuthoritative.ts` as the single in-memory source for the last authoritative `projectChatWindowing` snapshot per project. The cache is updated from both full project loads and backend websocket/state-sync updates, and reset together with other project stores.
+- Reworked `frontend/src/state/actions/projectChatWindowing.ts` so all layout/title/focus/chat-id changes use one serialized `route_set_project_chat_windowing_state(...)` persistence path. Each network write is derived from the last authoritative backend snapshot plus the pending mutations up to that operation, instead of posting a stale whole-state snapshot captured before earlier writes settled.
+- Removed the separate `route_set_project_chat_window_chat_id(...)` send path from the frontend windowing action flow. Chat-id changes now participate in the same serialized authoritative write queue as every other project-chat windowing mutation, which keeps reducer replay and persisted state aligned.
+- Updated `frontend/src/state/actions/windowSpaces.ts` so optimistic window-space rename/delete/sort mutations are explicitly project-scoped, and `createWindowSpaceFromCurrentFloatingWindows()` carries the originating project/section snapshot through the async save flow. The local `windowSpaces` merge now only happens if the originating project is still loaded.
+- Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx` so a present-but-blank `/:project/chat/:chatId` parameter resolves to an explicit invalid-thread target instead of falling through to root project chat. The same `Thread Not Found` surface is reused, with copy that distinguishes invalid routes from missing hydrated chats.
+- Added focused regression coverage:
+  - `frontend/src/state/actions/projectChatWindowing.rollback.test.ts` now covers cross-project rollback isolation, serialized out-of-order writes, and “failed earlier focus must not reappear in later persisted state.”
+  - `frontend/src/state/actions/windowSpaces.test.ts` now covers cross-project window-space rollback isolation and “save in project A must not merge into project B after navigation.”
+  - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx` now covers blank-thread fail-closed routing.
+  - `frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` now covers both the blank-thread route and the save-window-space/navigation race in a real browser.
+
+UX before/after:
+- Before: starting a windowing or window-space write in project A and switching to project B could roll back A’s layout or saved-space state into B, including `activeChatId` and saved window-space rows. After: pending project-A responses no longer mutate project B.
+- Before: a failed earlier windowing mutation could still be baked into a later accepted whole-state write, so rejected focus/title/layout changes could reappear after reload. After: later writes are derived from authoritative state plus still-live mutations only, so rejected changes stay rejected.
+- Before: saving a window space while navigating away could append the new saved space into the wrong project’s overview list. After: the save still succeeds for the originating project, but the live store is only updated when that same project is still active.
+- Before: malformed links like `/:project/chat/%20` opened the root standalone project chat, making an invalid route look valid. After: blank thread ids fail closed with `Thread Not Found`.
+
+DX before/after:
+- Before: optimistic correctness for windowing depended on ambient global store state after `await`, and full-state writes were computed too early to be causally trustworthy. After: project-scoped guards and a single authoritative serialized write path make the ordering model explicit and much easier to reason about.
+- Before: `setProjectChatWindowChatId(...)` had a special persistence path that behaved differently from the rest of project-chat windowing. After: every windowing mutation uses the same persistence mechanism and test surface.
+- Before: route resolution for standalone project chat had an implicit “blank means base route” downgrade that obscured malformed direct links. After: the target-resolution function distinguishes missing params from invalid params directly.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/windowSpaces.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/project/loadProject.test.ts` passed: 61 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "blank chat ids|saving a window space in one project"` passed: 2 tests.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/sharp_river/chat/%20` confirmed the invalid standalone route rendered `Thread Not Found` with no chat surface at both mobile and desktop viewport sizes.

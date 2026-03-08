@@ -1735,6 +1735,83 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("saving a window space in one project does not inject it into another project after same-tab navigation", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    await setOverviewTabInStore(page, "ViewModes");
+    await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+
+    let releaseCreateWindowSpaceRequest: (() => void) | null = null;
+    let createWindowSpaceRequestSeen: (() => void) | null = null;
+    const createWindowSpaceRequestStarted = new Promise<void>((resolve) => {
+      createWindowSpaceRequestSeen = resolve;
+    });
+
+    try {
+      const copiedProject = await saveProjectConfigCopyWithRefs(
+        page,
+        projectContext.projectConfigId,
+        "window-space-race-copy",
+      );
+      const raceWindowId = await createFloatingProjectChatWindow(
+        page,
+        "Race Window",
+      );
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return state.order.includes(raceWindowId);
+        })
+        .toBe(true);
+      await setProjectChatWindowBounds(page, raceWindowId, {
+        x: 80,
+        y: 60,
+        width: 520,
+        height: 320,
+      });
+
+      await page.route("**/api/createWindowSpace", async (route) => {
+        createWindowSpaceRequestSeen?.();
+        const response = await route.fetch();
+        const headers = response.headers();
+        const body = await response.body();
+        await new Promise<void>((resolve) => {
+          releaseCreateWindowSpaceRequest = resolve;
+        });
+        await route.fulfill({
+          status: response.status(),
+          headers,
+          body,
+        });
+      });
+
+      await page.getByTestId("window-space-save-current-layout").click();
+      await createWindowSpaceRequestStarted;
+
+      await navigateSameTabSpa(page, `/${copiedProject.name}`);
+      await expect
+        .poll(() => new URL(page.url()).pathname)
+        .toBe(`/${copiedProject.name}`);
+      await setOverviewTabInStore(page, "ViewModes");
+      await expect(page.getByTestId("window-spaces-pane")).toBeVisible();
+      await expect(page.getByTestId("window-space-open")).toHaveCount(0);
+
+      releaseCreateWindowSpaceRequest?.();
+
+      await expect
+        .poll(async () => page.getByTestId("window-space-open").count())
+        .toBe(0);
+    } finally {
+      releaseCreateWindowSpaceRequest?.();
+      if (!page.isClosed()) {
+        await page.unroute("**/api/createWindowSpace");
+      }
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("standalone thread routes recover from a stale not-found state after same-tab SPA navigation", async ({
     page,
   }) => {
@@ -1852,6 +1929,40 @@ test.describe.serial("standalone project surface routes", () => {
       await page.context().unroute("**/api/getAgentRuns");
       await page.context().unroute("**/api/getLLMChat");
       await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("standalone thread routes fail closed for blank chat ids", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const standalonePage = await page.context().newPage();
+
+    try {
+      const projectConfigName = getProjectConfigNameFromUrl(page.url());
+
+      await standalonePage.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(projectConfigName)}/chat/%20`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-not-found"),
+      ).toBeVisible();
+      await expect(standalonePage.getByText("Thread Not Found")).toBeVisible();
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-thread-surface"),
+      ).toHaveCount(0);
+      await expect(
+        standalonePage.getByTestId("standalone-project-chat-surface"),
+      ).toHaveCount(0);
+    } finally {
+      await standalonePage.close();
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -3883,9 +3994,9 @@ test.describe.serial("standalone project surface routes", () => {
       await expect(
         page.getByTestId("standalone-managed-chat-blocked"),
       ).toBeVisible();
-      await expect(page.getByTestId("standalone-project-chat-surface")).toHaveCount(
-        0,
-      );
+      await expect(
+        page.getByTestId("standalone-project-chat-surface"),
+      ).toHaveCount(0);
 
       await setDeploymentSharePolicy(page, {
         allowLLM: true,

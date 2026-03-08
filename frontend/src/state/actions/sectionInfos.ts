@@ -68,6 +68,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
@@ -1016,6 +1017,10 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  recordAuthoritativeProjectChatWindowingState(
+    x.projectState.projectConfig.id,
+    x.projectState.projectChatWindowing,
+  );
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -1820,6 +1825,20 @@ function rollbackOptimisticProjectStateUpdate(
   });
 }
 
+function applyOptimisticProjectStateUpdateIfProjectMatches(
+  state: ZustandProjectState,
+  projectConfigId: string | undefined,
+  update: (state: ZustandProjectState) => void,
+) {
+  if (
+    projectConfigId !== undefined &&
+    state.projectConfig.id !== projectConfigId
+  ) {
+    return;
+  }
+  update(state);
+}
+
 function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
@@ -1837,27 +1856,58 @@ export function dispatchOptimisticProjectStateUpdate({
   send,
   rollback,
   reapply,
+  projectConfigId,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
   reapply?: (state: ZustandProjectState) => void;
+  projectConfigId?: string;
 }) {
-  useProjectState.setState(apply);
-  const opId = addPendingOp(reapply ?? apply);
+  const applyWithProjectGuard = (state: ZustandProjectState) =>
+    applyOptimisticProjectStateUpdateIfProjectMatches(
+      state,
+      projectConfigId,
+      apply,
+    );
+  const reapplyWithProjectGuard = (state: ZustandProjectState) =>
+    applyOptimisticProjectStateUpdateIfProjectMatches(
+      state,
+      projectConfigId,
+      reapply ?? apply,
+    );
+  const rollbackWithProjectGuard =
+    rollback === undefined
+      ? undefined
+      : (state: ZustandProjectState) =>
+          applyOptimisticProjectStateUpdateIfProjectMatches(
+            state,
+            projectConfigId,
+            rollback,
+          );
+
+  useProjectState.setState(applyWithProjectGuard);
+  const opId = addPendingOp(reapplyWithProjectGuard);
   const result = send(opId);
   if (result instanceof Promise) {
     void result
       .then((res) => {
         // A 200 response means the backend accepted the op; don't keep reapplying it.
         if (isResponseDataAndStatus(res) && res200(res)) {
+          if (
+            projectConfigId !== undefined &&
+            useProjectState.getState().projectConfig.id !== projectConfigId
+          ) {
+            removePendingOp(opId);
+            return;
+          }
           acknowledgePendingOp(opId);
         } else if (isResponseDataAndStatus(res)) {
-          rollbackOptimisticProjectStateUpdate(opId, rollback);
+          rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
         }
       })
       .catch(() => {
-        rollbackOptimisticProjectStateUpdate(opId, rollback);
+        rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
       });
   }
   return opId;

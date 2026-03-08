@@ -556,6 +556,39 @@ describe("StandaloneProjectSurfacePage", () => {
     ).toBeNull();
   });
 
+  it("fails closed for blank standalone thread routes before hydration", async () => {
+    hoisted.state.chatHistoryEntries = [];
+    hoisted.state.projectChatBlockedErrorCode = null;
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo/chat/%20"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    expect(
+      host.querySelector(
+        '[data-testid="standalone-project-chat-thread-not-found"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      host.querySelector('[data-testid="standalone-project-chat-surface"]'),
+    ).toBeNull();
+    expect(
+      host.querySelector(
+        '[data-testid="standalone-project-chat-thread-surface"]',
+      ),
+    ).toBeNull();
+    expect(host.textContent).toContain("Thread Not Found");
+  });
+
   it("clears a stale thread-not-found block when navigating to a different thread in the same mounted tab", async () => {
     hoisted.state.chatHistoryEntries = [];
     hoisted.state.projectChatBlockedErrorCode = "chat_not_found";
