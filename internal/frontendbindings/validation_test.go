@@ -44,6 +44,16 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 				},
 			},
 		},
+		{
+			ConstName: "GoRootRoutes",
+			Routes: []NamedRoute{
+				{
+					Name:     "bootstrapPage",
+					Path:     "/",
+					EnumName: "BOOTSTRAP_PAGE",
+				},
+			},
+		},
 	}
 
 	tests := []struct {
@@ -87,6 +97,18 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 			want: "function name must be a valid TypeScript identifier",
 		},
 		{
+			name: "function name conflicts with generated import",
+			spec: EndpointSpec{
+				FunctionName:    "get",
+				Method:          "POST",
+				RouteCollection: "GoHTTPRoutes",
+				RouteName:       "saveThing",
+				RequestType:     reflect.TypeOf(BuildTestRequest{}),
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: `function name conflicts with generated endpoints import "get"`,
+		},
+		{
 			name: "empty route collection",
 			spec: EndpointSpec{
 				FunctionName: "route_save_thing",
@@ -107,6 +129,17 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
 			},
 			want: "route name is empty",
+		},
+		{
+			name: "unsupported route collection for generated endpoints",
+			spec: EndpointSpec{
+				FunctionName:    "route_bootstrap_page",
+				Method:          "GET",
+				RouteCollection: "GoRootRoutes",
+				RouteName:       "bootstrapPage",
+				ResponseType:    reflect.TypeOf(BuildTestResponse{}),
+			},
+			want: `route collection "GoRootRoutes" is not supported by generated endpoints template`,
 		},
 		{
 			name: "unnamed request type",

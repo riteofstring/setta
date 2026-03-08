@@ -42,12 +42,30 @@ type routeEnumEntry struct {
 	Path     string
 }
 
+type endpointImportContract struct {
+	SupportedRouteCollections map[string]struct{}
+	ReservedValueSymbols      map[string]string
+}
+
 type emittedSymbol struct {
 	Name   string
 	Origin string
 }
 
 var tsIdentifierPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`)
+
+var generatedEndpointsImportContract = endpointImportContract{
+	SupportedRouteCollections: map[string]struct{}{
+		"GoHTTPRoutes": {},
+	},
+	ReservedValueSymbols: map[string]string{
+		"get":          "generated endpoints import",
+		"getBinary":    "generated endpoints import",
+		"post":         "generated endpoints import",
+		"GoHTTPRoutes": "generated endpoints import",
+		"gt":           "generated endpoints import",
+	},
+}
 
 func Build() (GeneratedBindings, error) {
 	return buildBindings(
@@ -172,6 +190,21 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		}
 		if _, ok := routes[spec.RouteName]; !ok {
 			return fmt.Errorf("endpoint %s: route %s.%s is not defined", spec.FunctionName, spec.RouteCollection, spec.RouteName)
+		}
+		if _, ok := generatedEndpointsImportContract.SupportedRouteCollections[spec.RouteCollection]; !ok {
+			return fmt.Errorf(
+				"endpoint %s: route collection %q is not supported by generated endpoints template",
+				spec.FunctionName,
+				spec.RouteCollection,
+			)
+		}
+		if previousOrigin, exists := generatedEndpointsImportContract.ReservedValueSymbols[spec.FunctionName]; exists {
+			return fmt.Errorf(
+				"endpoint %s: function name conflicts with %s %q",
+				spec.FunctionName,
+				previousOrigin,
+				spec.FunctionName,
+			)
 		}
 
 		if spec.RequestType != nil && frontendTypeName(spec.RequestType) == "" {
