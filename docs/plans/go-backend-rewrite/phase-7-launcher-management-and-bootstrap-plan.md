@@ -19,6 +19,10 @@ As of 2026-03-08:
   publish/list/latest transport
 - Go owns the first launcher-mode home slice for recent workspaces and
   directory browsing
+- Go owns the launcher executable/bootstrap prerequisite:
+  - local IDE/launcher session registration and cleanup
+  - bootstrap HTML at `GET /__setta__/bootstrap`
+  - launcher-mode fallback startup without an explicit project workspace
 - Python still owns:
   - IDE launcher installation/status/update/remove routes in `status.py`
   - launcher-mode workspace-open handoff in `launcher_home.py`
@@ -212,3 +216,7 @@ Recommended landing order:
   `phase-7-launcher-open-workspace-and-bootstrap-contract.md`; the immediate
   landing target is now Stage 1 from that doc: executable/bootstrap contract
   ownership.
+- 2026-03-08: completed Stage 1 from
+  `phase-7-launcher-open-workspace-and-bootstrap-contract.md`; next
+  recommended step is Stage 2 from that doc: Go-owned
+  `POST /openLauncherWorkspace`.

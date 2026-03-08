@@ -17,13 +17,11 @@ porting the remaining launcher management routes:
 As of 2026-03-08:
 
 - Go owns launcher-mode recent-workspace and directory-browser routes
+- Go now owns Stage 1 from this doc:
+  - local IDE/launcher session registration and cleanup
+  - bootstrap HTML at `GET /__setta__/bootstrap`
+  - launcher-mode fallback runtime startup without an explicit project workspace
 - Go does not yet own `POST /openLauncherWorkspace`
-- the current Go entrypoint in `cmd/setta-server/main.go` is not a usable
-  launcher target for desktop artifacts because:
-  - it does not bootstrap local IDE/launcher sessions into the session registry
-  - it does not serve the bootstrap HTML page at `GET /__setta__/bootstrap`
-  - launcher mode still assumes a normal workspace-root runtime shape instead of
-    a launcher fallback runtime context
 - Python still owns the executable/session/bootstrap path through:
   - `backend/setta/start.py`
   - `backend/setta/launch.py`
@@ -109,9 +107,21 @@ Do not include:
 - 2026-03-08: created this focused doc after confirming that
   `openLauncherWorkspace` is blocked on missing Go bootstrap/session/runtime
   ownership, not just a missing transport handler.
+- 2026-03-08: completed Stage 1 by adding Go-owned local session registry
+  writes in `internal/localsessions/registry.go`, current-process session
+  bootstrap in `cmd/setta-server/local_session.go`, bootstrap HTML in
+  `internal/httpapi/bootstrap_page.go`, and launcher-mode fallback startup
+  defaults in `internal/config/config.go`.
 
 ## Recommended Next Step
 
-Implement Stage 1 from this doc: local session registration, Go bootstrap HTML,
-and a launcher-mode executable contract that can start without an explicit
-workspace project.
+Implement Stage 2 from this doc: `POST /openLauncherWorkspace` with Go-owned
+local IDE session spawn/reuse, bootstrap URL minting, and launcher-home state
+updates.
+
+## Verification
+
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/localsessions -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./cmd/setta-server -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/config -count=1 -timeout 300s`
+- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -count=1 -timeout 300s`

@@ -104,6 +104,7 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 	}
 
 	if deps.Auth != nil && deps.Auth.Enabled() {
+		router.Get(bootstrapPagePath, bootstrapPageHandler())
 		router.Post("/__setta__/bootstrap/consume", bootstrapConsumeHandler(deps.Auth))
 	}
 	if deps.RegisterAuthenticatedRoot != nil {

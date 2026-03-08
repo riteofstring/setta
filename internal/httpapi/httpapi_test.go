@@ -208,6 +208,57 @@ func TestHandlerProtectsIDEAPIUntilBootstrapConsume(t *testing.T) {
 	}
 }
 
+func TestHandlerServesBootstrapPageWhenAuthEnabled(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, bootstrapPagePath, nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if contentType := response.Header().Get("Content-Type"); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("expected html content type, got %q", contentType)
+	}
+	if !strings.Contains(response.Body.String(), bootstrapConsumePath) {
+		t.Fatalf("expected bootstrap page to reference consume path, got %q", response.Body.String())
+	}
+}
+
+func TestBootstrapPageUsesDevFrontendRedirectWhenConfigured(t *testing.T) {
+	t.Setenv(devFrontendPortEnv, "3000")
+	t.Setenv(devFrontendSchemeEnv, "http")
+
+	authService := newTestAuthService(t)
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Auth:   authService,
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8000"+bootstrapPagePath, nil)
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "http://127.0.0.1:3000/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8000") {
+		t.Fatalf("expected dev frontend redirect in bootstrap page, got %q", response.Body.String())
+	}
+}
+
 func TestHandlerRejectsReplayedBootstrapToken(t *testing.T) {
 	t.Parallel()
 

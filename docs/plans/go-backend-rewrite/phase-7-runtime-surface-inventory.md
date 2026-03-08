@@ -29,6 +29,11 @@ Current repo status as of 2026-03-08:
     `internal/httpapi/deployment_ide_routes.go`
   - launcher-mode recent-workspace and directory-browser routes in
     `internal/httpapi/launcher_home_routes.go`
+  - local IDE/launcher session registration in
+    `internal/localsessions/registry.go` and
+    `cmd/setta-server/local_session.go`
+  - bootstrap HTML at `GET /__setta__/bootstrap` in
+    `internal/httpapi/bootstrap_page.go`
 - Python still appears to own major non-MCP backend surface in:
   - launcher and launch/session bootstrap flows
   - launcher installation and status management
@@ -112,8 +117,9 @@ That is now the highest-leverage next step because:
 - the bounded deployment slice is complete end to end
 - the dedicated launcher/bootstrap Phase 7 plan now exists
 - the first launcher-mode route cluster is now complete in Go
+- the launcher executable/bootstrap prerequisite is now complete
 - the remaining launcher prerequisite is concentrated around workspace-open
-  handoff and launcher executable/bootstrap ownership
+  handoff
 
 ## Progress Notes
 
@@ -152,6 +158,11 @@ That is now the highest-leverage next step because:
   `phase-7-launcher-open-workspace-and-bootstrap-contract.md` to split that
   next slice into a first executable/bootstrap prerequisite stage and a later
   `openLauncherWorkspace` route stage.
+- 2026-03-08: completed that executable/bootstrap prerequisite stage in
+  `cmd/setta-server/local_session.go`,
+  `internal/localsessions/registry.go`,
+  `internal/httpapi/bootstrap_page.go`, and `internal/config/config.go`; next
+  recommended step is Stage 2: Go-owned `POST /openLauncherWorkspace`.
 
 ## Verification
 

@@ -23,7 +23,7 @@ func main() {
 	}
 }
 
-func run(args []string) error {
+func run(args []string) (err error) {
 	var cli config.CLIOptions
 	var noOpen bool
 
@@ -76,6 +76,20 @@ func run(args []string) error {
 		return fmt.Errorf("listen: %w", err)
 	}
 	defer listener.Close()
+
+	localSession, err := maybeBootstrapLocalSession(cfg, listener)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if localSession == nil {
+			return
+		}
+		cleanupErr := localSession.Cleanup()
+		if err == nil && cleanupErr != nil {
+			err = cleanupErr
+		}
+	}()
 
 	server := &http.Server{
 		Addr:    listener.Addr().String(),

@@ -195,7 +195,7 @@ func Load(opts LoadOptions) (Config, error) {
 		return Config{}, err
 	}
 
-	workspaceRoot, err := resolveWorkspaceRoot(trimmed(opts.CLI.WorkspaceRoot), profile.WorkspaceRoot, cwd, envLookup)
+	workspaceRoot, err := resolveWorkspaceRoot(server.Mode, trimmed(opts.CLI.WorkspaceRoot), profile.WorkspaceRoot, cwd, envLookup)
 	if err != nil {
 		return Config{}, err
 	}
@@ -209,6 +209,7 @@ func Load(opts LoadOptions) (Config, error) {
 	}
 
 	settaFilesRoot, resolvedLocation, usesExplicitFilesRoot, err := resolveSettaFilesRoot(
+		server.Mode,
 		workspaceRoot,
 		settaHome,
 		userConfig,
@@ -346,8 +347,8 @@ func parsePort(raw string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("invalid port %q", raw)
 	}
-	if value < 1 || value > 65535 {
-		return 0, fmt.Errorf("port must be between 1 and 65535")
+	if value < 0 || value > 65535 {
+		return 0, fmt.Errorf("port must be between 0 and 65535")
 	}
 	return value, nil
 }
@@ -419,7 +420,7 @@ func defaultSettaHome(envLookup func(string) (string, bool)) (string, error) {
 	return resolvePath(filepath.Join(home, ".setta"), "")
 }
 
-func resolveWorkspaceRoot(explicitWorkspaceRoot, profileWorkspaceRoot, cwd string, envLookup func(string) (string, bool)) (string, error) {
+func resolveWorkspaceRoot(mode Mode, explicitWorkspaceRoot, profileWorkspaceRoot, cwd string, envLookup func(string) (string, bool)) (string, error) {
 	switch {
 	case explicitWorkspaceRoot != "":
 		return resolvePath(explicitWorkspaceRoot, "")
@@ -427,12 +428,19 @@ func resolveWorkspaceRoot(explicitWorkspaceRoot, profileWorkspaceRoot, cwd strin
 		return resolvePath(profileWorkspaceRoot, "")
 	case lookupEnvTrimmed(envLookup, workspaceRootEnv) != "":
 		return resolvePath(lookupEnvTrimmed(envLookup, workspaceRootEnv), "")
+	case mode == ModeLauncher:
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve user home: %w", err)
+		}
+		return resolvePath(home, "")
 	default:
 		return resolvePath(cwd, "")
 	}
 }
 
 func resolveSettaFilesRoot(
+	mode Mode,
 	workspaceRoot string,
 	settaHome string,
 	userConfig UserConfig,
@@ -475,7 +483,11 @@ func resolveSettaFilesRoot(
 	case envLocationRaw != "":
 		selectedLocationRaw = envLocationRaw
 	default:
-		selectedLocationRaw = string(FilesLocationAuto)
+		if mode == ModeLauncher {
+			selectedLocationRaw = string(FilesLocationGlobal)
+		} else {
+			selectedLocationRaw = string(FilesLocationAuto)
+		}
 	}
 
 	if selectedRootRaw != "" {

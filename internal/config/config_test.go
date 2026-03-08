@@ -194,6 +194,59 @@ func TestLoadRejectsMissingWorkspace(t *testing.T) {
 	}
 }
 
+func TestLoadLauncherModeDefaultsWorkspaceToHomeAndUsesGlobalSettaFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+	homeDir := filepath.Join(tmpDir, "home")
+	settaHome := filepath.Join(tmpDir, ".setta")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	if err := os.MkdirAll(settaHome, 0o755); err != nil {
+		t.Fatalf("mkdir setta home: %v", err)
+	}
+
+	writeUserConfig(t, settaHome, map[string]any{
+		"globalSettaFilesBase": filepath.Join(settaHome, "setta_files"),
+		"autoMode":             "create_local",
+	})
+
+	t.Setenv("HOME", homeDir)
+	cfg, err := Load(LoadOptions{
+		CWD:       tmpDir,
+		EnvLookup: testEnv{}.lookup,
+		CLI: CLIOptions{
+			Mode:      "launcher",
+			SettaHome: settaHome,
+		},
+	})
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if cfg.Paths.WorkspaceRoot != homeDir {
+		t.Fatalf("expected launcher workspace root %q, got %q", homeDir, cfg.Paths.WorkspaceRoot)
+	}
+	expectedGlobalRoot := buildFilesRootFromBase(filepath.Join(settaHome, "setta_files"), homeDir)
+	if cfg.Paths.SettaFilesRoot != expectedGlobalRoot {
+		t.Fatalf("expected launcher setta files root %q, got %q", expectedGlobalRoot, cfg.Paths.SettaFilesRoot)
+	}
+	if cfg.Paths.ResolvedFilesLocation != ResolvedFilesLocationGlobal {
+		t.Fatalf("expected launcher files location global, got %q", cfg.Paths.ResolvedFilesLocation)
+	}
+}
+
+func TestParsePortAllowsZero(t *testing.T) {
+	t.Parallel()
+
+	value, err := parsePort("0")
+	if err != nil {
+		t.Fatalf("parse port: %v", err)
+	}
+	if value != 0 {
+		t.Fatalf("expected port 0, got %d", value)
+	}
+}
+
 func TestLoadDerivesDeploymentRuntimeRootInShareMode(t *testing.T) {
 	t.Parallel()
 
