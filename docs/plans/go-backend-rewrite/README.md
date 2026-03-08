@@ -594,12 +594,16 @@ Use the docs in this order:
 162. `phase-14-agent-run-and-run-chain-app-middleware-regression-hardening.md`
   - focused completed-slice doc for real app-handler coverage of the landed
     agent-run and run-chain route surface
-163. `spike-mcp.md`
+163. `phase-15-plugin-runtime-read-and-asset-transport.md`
+  - focused completed-slice doc for Go-owned direct frontend plugin runtime
+    hydration plus declared frontend asset serving over the existing Go plugin
+    discovery/mutation foundations
+164. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-164. `spike-pty.md`
+165. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-165. `spike-lsp.md`
+166. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

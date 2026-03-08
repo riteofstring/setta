@@ -307,7 +307,7 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 		return
 	}
 
-	requestedCapabilities, effectiveCapabilities, err := resolveFilesystemPluginCapabilities(entry.Manifest.Capabilities, serverMode)
+	requestedCapabilities, effectiveCapabilities, blockedCapabilities, err := resolveFilesystemPluginCapabilities(entry.Manifest.Capabilities, serverMode)
 	if err != nil {
 		entry.Errors = append(entry.Errors, PluginErrorInfo{
 			Code:    "PLUGIN_MANIFEST_INVALID",
@@ -318,6 +318,7 @@ func resolvePrimaryPluginState(entry *DiscoveredPlugin, pluginsState PluginsStat
 	}
 	entry.RequestedCapabilities = requestedCapabilities
 	entry.EffectiveCapabilities = effectiveCapabilities
+	entry.BlockedCapabilities = blockedCapabilities
 
 	if containsString(pluginsState.PendingRestartBackendPluginIDs, entry.PluginID) {
 		entry.State = PluginRuntimeStatePendingRestart

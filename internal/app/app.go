@@ -547,6 +547,21 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	var agentRunService *agentruns.Service
 	var pluginMutationService *plugins.Service
 	var pythonPackages *pythonenv.Runtime
+	pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
+	if err != nil {
+		logger.Warn("python package inspection runtime unavailable", "error", err)
+	}
+	pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
+		WorkspaceRoot:         cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
+		SettaHome:             cfg.Paths.SettaHome,
+		ServerMode:            cfg.Server.Mode,
+		PackageManagerRuntime: pythonPackages,
+	})
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
 	if modePolicy.IsIDE() && projectRuntime != nil {
 		engineStore, err = agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
@@ -757,20 +772,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			SettaHome:      cfg.Paths.SettaHome,
-			ServerMode:     cfg.Server.Mode,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
-		if err != nil {
-			logger.Warn("python package inspection runtime unavailable", "error", err)
-		}
 	}
 	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
 		ProjectState:   projectRuntime,
@@ -898,6 +899,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		TrustedOrigins: trustedOrigins,
 		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
 		RegisterRoot: func(r chi.Router) {
+			if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
+				Service: pluginMutationService,
+			}); err != nil {
+				panic(err)
+			}
 			if attachmentService != nil {
 				if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
 					Service: attachmentService,
@@ -950,6 +956,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ModePolicy:    modePolicy,
 				SettingsState: settingsStateRuntime,
 				WebsocketHub:  websocketHub,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
+				Service: pluginMutationService,
 			}); err != nil {
 				panic(err)
 			}

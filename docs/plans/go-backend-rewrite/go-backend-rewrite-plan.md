@@ -471,6 +471,20 @@ The first bounded post-closeout stabilization slice is now also landed in
   the package keeps real adapter coverage without the earlier package-load
   flake
 
+The next bounded post-Phase-14 frontend route slice tracked in
+`phase-15-plugin-runtime-read-and-asset-transport.md` is now landed:
+
+- Go now owns:
+  - `GET /plugins/runtime`
+  - `/plugins/{pluginId}/{assetPath:path}`
+- `internal/plugins` now owns the direct frontend plugin runtime list/status
+  payloads plus declared frontend asset resolution above the existing
+  discovery/store foundations
+- share/app source/config redaction for that direct frontend runtime payload is
+  now Go-owned
+- plugin mutation/config/restart HTTP routes and higher-level backend plugin
+  registration payloads remain deferred as separate follow-on boundaries
+
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also
 landed:

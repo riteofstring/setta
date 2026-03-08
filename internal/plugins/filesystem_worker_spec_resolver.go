@@ -202,7 +202,7 @@ func (r *FilesystemWorkerSpecResolver) ResolvePluginCodegenWorkerSpec(ctx contex
 			return BackendWorkerSpec{}, fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverPluginDisabled, pluginID)
 		}
 
-		requestedCapabilities, effectiveCapabilities, err := resolveFilesystemPluginCapabilities(manifest.Capabilities, r.serverMode)
+		requestedCapabilities, effectiveCapabilities, _, err := resolveFilesystemPluginCapabilities(manifest.Capabilities, r.serverMode)
 		if err != nil {
 			return BackendWorkerSpec{}, err
 		}
@@ -302,10 +302,10 @@ func normalizeFilesystemPluginID(raw string) (string, error) {
 	return NormalizePluginID(raw)
 }
 
-func resolveFilesystemPluginCapabilities(requested []string, serverMode config.Mode) ([]string, []string, error) {
+func resolveFilesystemPluginCapabilities(requested []string, serverMode config.Mode) ([]string, []string, []PluginBlockedCapability, error) {
 	allowed, ok := resolverModeAllowedCapabilities[serverMode]
 	if !ok {
-		return nil, nil, fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverServerModeInvalid, serverMode)
+		return nil, nil, nil, fmt.Errorf("%w: %s", ErrFilesystemWorkerSpecResolverServerModeInvalid, serverMode)
 	}
 
 	normalizedRequested := make([]string, 0, len(requested))
@@ -313,28 +313,38 @@ func resolveFilesystemPluginCapabilities(requested []string, serverMode config.M
 	for _, capability := range requested {
 		trimmedCapability := strings.TrimSpace(capability)
 		if trimmedCapability == "" {
-			return nil, nil, fmt.Errorf("%w: manifest capability must be non-empty", ErrFilesystemWorkerSpecResolverManifestInvalid)
+			return nil, nil, nil, fmt.Errorf("%w: manifest capability must be non-empty", ErrFilesystemWorkerSpecResolverManifestInvalid)
 		}
 		if _, ok := resolverKnownPluginCapabilities[trimmedCapability]; !ok {
-			return nil, nil, fmt.Errorf("%w: unknown capability %q", ErrFilesystemWorkerSpecResolverManifestInvalid, trimmedCapability)
+			return nil, nil, nil, fmt.Errorf("%w: unknown capability %q", ErrFilesystemWorkerSpecResolverManifestInvalid, trimmedCapability)
 		}
 		if _, exists := seen[trimmedCapability]; exists {
-			return nil, nil, fmt.Errorf("%w: duplicate capability %q", ErrFilesystemWorkerSpecResolverManifestInvalid, trimmedCapability)
+			return nil, nil, nil, fmt.Errorf("%w: duplicate capability %q", ErrFilesystemWorkerSpecResolverManifestInvalid, trimmedCapability)
 		}
 		seen[trimmedCapability] = struct{}{}
 		normalizedRequested = append(normalizedRequested, trimmedCapability)
 	}
 
 	effective := make([]string, 0, len(normalizedRequested))
+	blocked := make([]PluginBlockedCapability, 0)
 	for _, capability := range normalizedRequested {
-		if _, blocked := resolverHostBlockedCapabilities[capability]; blocked {
+		if _, hostBlocked := resolverHostBlockedCapabilities[capability]; hostBlocked {
+			blocked = append(blocked, PluginBlockedCapability{
+				Capability: capability,
+				Reason:     PluginBlockedCapabilityReasonHostPolicy,
+			})
 			continue
 		}
 		if _, ok := allowed[capability]; ok {
 			effective = append(effective, capability)
+			continue
 		}
+		blocked = append(blocked, PluginBlockedCapability{
+			Capability: capability,
+			Reason:     PluginBlockedCapabilityReasonModePolicy,
+		})
 	}
-	return normalizedRequested, effective, nil
+	return normalizedRequested, effective, blocked, nil
 }
 
 func resolveFilesystemPluginEnabled(
