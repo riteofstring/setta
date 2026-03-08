@@ -48,7 +48,7 @@ Homepage = "https://setta.dev"
 GitHub = "https://github.com/settadev/setta"
 
 [project.scripts]
-setta = "setta.start:cli"
+setta = "setta.entrypoint:main"
 
 [project.optional-dependencies]
 dev = [
@@ -68,6 +68,9 @@ path = "backend/setta/__init__.py"
 [tool.hatch.build.targets.wheel]
 packages = ["backend/setta"]
 
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
 [tool.hatch.build.targets.sdist]
 include = [
     "/backend/setta",
@@ -82,4 +85,5 @@ artifacts = [
     "backend/setta/vendor/node/**",
     "backend/setta/plugins/schemas/**",
     "backend/setta/launcher_artifacts/assets/**",
+    "backend/setta/go_bin/**",
 ]

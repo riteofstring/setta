@@ -56,9 +56,9 @@ def _add_summary_edge(
         project_state,
         AgenticEdge(
             id=create_new_id(),
-            sourceSectionId=chat_section_id,
-            targetSectionId=source_section_id,
-            kind=AgenticEdgeKind.chat_section,
+            sourceSectionId=source_section_id,
+            targetSectionId=chat_section_id,
+            kind=AgenticEdgeKind.section_chat,
             contextMode=AgenticEdgeContextMode.summary,
         ),
     )
