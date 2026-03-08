@@ -11,7 +11,7 @@ app-definition work instead of from section-local payload writes.
 
 ## Status
 
-Current repo status as of 2026-03-07:
+Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity is still the active phase
 - Go MCP now exposes 52 tools total
@@ -24,6 +24,7 @@ Current repo status as of 2026-03-07:
 ## Inputs
 
 - `docs/plans/go-backend-rewrite/phase-6-section-filter-and-meta-control-title-tools-parity.md`
+- `docs/plans/go-backend-rewrite/phase-6-app-definition-validation-and-store-foundation.md`
 - `docs/plans/go-backend-rewrite/phase-6-app-definition-mutation-tool-parity.md`
 - `backend/setta/project_state/base_project_manager.py`
 - `tests/project_state/test_app_definition.py`
@@ -96,26 +97,29 @@ MCP server:
 
 ### 1. Highest-Leverage Next Slice
 
-- app-definition mutation parity:
-  - `set_app_definition`
-  - `update_app_definition`
+- app-definition validation/store foundation:
+  - prerequisite for `set_app_definition`
+  - prerequisite for `update_app_definition`
 
 Why this is next:
 
 1. the completed section-filter slice cleared the non-app-definition mutation
    backlog, so the only mutation gap left is the deferred app-definition pair.
-2. these two tools share the same document-level storage and app-spec file
-   persistence boundary, so they should land together instead of as separate
-   transport-only patches.
+2. direct repo inspection confirmed Go still has no app-spec validation or
+   catalog owner, so app-definition mutation parity is blocked on a real
+   prerequisite instead of on transport work.
 3. Go already preserves document app-definition metadata and can read stored
-   app specs in deployment mode, but it still lacks a write owner for that
-   subsystem.
+   app specs in deployment mode, which makes a shared validation/store owner
+   the clean missing boundary.
 4. the next slice is scoped in:
-   `phase-6-app-definition-mutation-tool-parity.md`
+   `phase-6-app-definition-validation-and-store-foundation.md`
 
 ### 2. After The App-Definition Mutation Slice
 
-- close the remaining app-definition read gap:
+- land app-definition mutation parity:
+  - `set_app_definition`
+  - `update_app_definition`
+- then close the remaining app-definition read gap:
   - `get_app_definition`
   - `validate_app_definition`
 - keep those reads separate unless the mutation owner makes it trivial to land
@@ -123,8 +127,8 @@ Why this is next:
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
-These should not be turned into MCP work until their authoritative Go mutation
-owner is clearer:
+These should not be turned into MCP work until the new validation/store owner
+lands:
 
 - `set_app_definition`
 - `update_app_definition`
@@ -141,10 +145,10 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-app-definition-mutation-tool-parity.md` as the next bounded
-  Phase 6 slice
-- implement the document-level app-definition runtime owner before MCP
-  transport work
+- use `phase-6-app-definition-validation-and-store-foundation.md` as the next
+  bounded Phase 6 slice
+- do not start `set_app_definition` or `update_app_definition` transport work
+  until Go owns the app-spec validation/store boundary
 
 ## Open Questions
 
@@ -254,3 +258,7 @@ priority:
 - 2026-03-07: completion of the section filter and MetaControl title slice
   moved the next bounded Phase 6 step to the app-definition mutation cluster in
   `phase-6-app-definition-mutation-tool-parity.md`.
+- 2026-03-08: direct repo inspection showed the app-definition mutation cluster
+  is blocked on missing Go app-spec validation/catalog ownership, so the next
+  bounded step moved to
+  `phase-6-app-definition-validation-and-store-foundation.md`.
