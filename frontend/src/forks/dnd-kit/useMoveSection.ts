@@ -15,7 +15,6 @@ import {
   getSharedParentId,
   isDescendantOfSectionSelection,
 } from "state/actions/sections/sectionSelection";
-import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { Position } from "utils/generatedTypes";
 import { insertIntoArray } from "utils/utils";
@@ -402,7 +401,7 @@ function getSortingOverIdFromCollisions(
 }
 
 function scheduleSelectionBoundsUpdate() {
-  const activeIds = getActiveSectionUIIds();
+  const activeIds = useProjectState.getState().projectConfig.activeIds;
   if (activeIds.length === 0) {
     return;
   }
