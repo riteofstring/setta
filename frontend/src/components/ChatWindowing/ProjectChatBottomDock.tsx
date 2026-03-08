@@ -3805,10 +3805,6 @@ export function ProjectChatBottomDock() {
                             }
                             chatHost={ChatWindowPlacementEnum.bottom_docked}
                             chatModeOverride={pill.mode}
-                            projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
-                              projectConfigId,
-                              pill.instanceId,
-                            )}
                             headerActions={
                               <>
                                 {showDockHeaderCycleControls ? (
@@ -4251,10 +4247,6 @@ export function ProjectChatBottomDock() {
                       }
                       chatHost={ChatWindowPlacementEnum.floating}
                       chatModeOverride={pill.mode}
-                      projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
-                        projectConfigId,
-                        pill.instanceId,
-                      )}
                       headerActions={
                         canEditLayout ? (
                           <>
@@ -4543,10 +4535,6 @@ export function ProjectChatBottomDock() {
                 roundedClassName="rounded-none"
                 chatHost={ChatWindowPlacementEnum.maximized}
                 chatModeOverride={openMaximizedWindow.mode}
-                projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
-                  projectConfigId,
-                  openMaximizedWindow.instanceId,
-                )}
                 headerActions={
                   canEditLayout ? (
                     <>

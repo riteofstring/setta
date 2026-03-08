@@ -1280,6 +1280,9 @@ function setProjectChatWindowChatIdInState(
   chatId: string | null | undefined,
 ): ProjectChatWindowingState {
   return withUpdatedWindow(state, instanceId, (current) => {
+    if (current.mode === ChatWindowModeEnum.section_mode) {
+      return current;
+    }
     const normalizedChatId = chatId?.trim() ? chatId.trim() : null;
     if (current.chatId === normalizedChatId) {
       return current;

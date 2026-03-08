@@ -1056,3 +1056,35 @@ Verification:
 - `source activate.sh && pytest tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_chat_windowing.py tests/routers/test_share_policy_routes.py -k 'project_chat_windowing or invalid_window_owners'` passed: 28 selected tests.
 - `./scripts/run-playwright-e2e.sh tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep 'read-only deployments can reopen hidden project chat windows without layout writes|standalone section windows keep their saved section-mode thread when the workspace thread changes|standalone window-space owner rebinding resets stale local section thread state'` passed: 3 tests.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/kite_dreaming` confirmed that in share mode the Project AI manager exposed `Reopen` and `Focus` without `Canvas`/`Float`/`Hide`, and clicking `Reopen` restored the hidden floating chat window locally.
+
+## 2026-03-11 09:54:09 PDT
+
+Implemented the remaining workspace section-thread authority fix and the broken MCP regression coverage fix from the transient review docs, then locked both with narrower tests at the correct layers.
+
+What changed:
+- Removed the last workspace `section_mode` surface-id override from `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`. Docked, floating, and maximized section-backed workspace windows now fall through to `SectionWindowSurface` / `AreaSwitch`, which already resolve the canonical `buildWorkspaceSectionProjectChatSurfaceId(projectConfigId, sectionId)` ownership path.
+- Hardened `frontend/src/state/actions/projectChatWindowing.ts` so `setProjectChatWindowChatId(...)` is a no-op for `section_mode` windows. This makes the live frontend state match the backend authoritative normalization contract instead of relying on each caller to avoid window-owned thread writes.
+- Added frontend regression coverage in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx` proving workspace section hosts use the section-owned surface id while standalone/local section surfaces still preserve explicit local thread ownership overrides.
+- Added frontend state coverage in `frontend/src/state/actions/projectChatWindowing.test.ts` proving `section_mode` windows reject direct window chat-id writes and do not emit the `/setProjectChatWindowChatId` route.
+- Added a browser-level regression in `frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` that opens a managed chat section in a floating workspace window, switches threads through the in-window history UI, and proves the selected thread persists via the section binding across reload while the live window instance `chatId` remains `null`.
+- Fixed `tests/routers/test_mcp_linked_chat_tool.py` so the request-scoped share-session deployment test asserts the real invariant: all recorded switcher calls use the request header share session id, and the spoofed session id never appears.
+
+UX before/after:
+- Before: a workspace chat section could still appear to own its thread per floating/docked/maximized host. A thread change made from one host could temporarily diverge from the canvas/right-pane section state, then snap back or blank after backend normalization or reload.
+- After: every workspace host for the same section reads and writes the same canonical section thread immediately, and reload preserves that same section-owned thread without any window-local drift.
+- Before: CI could fail on the MCP linked-chat deployment regression test even when runtime behavior was correct, obscuring real failures behind a self-contradictory assertion.
+- After: the test now reflects the actual request-scoped routing contract and keeps the merge signal trustworthy.
+
+DX before/after:
+- Before: the workspace section-thread contract still depended on avoiding the wrong render path and avoiding the wrong action call. The invariant existed, but it was not enforced at every layer.
+- After: the render path and the state action now both encode the same invariant, so the code is simpler to follow and harder to regress accidentally.
+- Before: section surface ownership tests were spread across broader component tests, which made the exact workspace-vs-standalone distinction less explicit.
+- After: the new focused coverage documents the ownership split directly: workspace section surfaces are section-owned; standalone/local surfaces may intentionally carry a local override.
+- Before: the MCP linked-chat test encoded impossible expectations (`switcher.calls` and `switcher.calls == []` in the same success path).
+- After: the assertions are source-of-truth checks on the recorded share-session ids themselves.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/ChatWindowing/UnifiedChatSurface.test.tsx` passed: 60 tests.
+- `source activate.sh && pytest tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_state_window_spaces.py tests/routers/test_mcp_linked_chat_tool.py tests/routers/test_mcp_tools_call_runtime_policy.py tests/utils/test_name_validation.py -q` passed: 139 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "workspace floating section windows switch threads through the section binding and survive reload"` passed: 1 test.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/diving_bold` created a disposable managed chat section, opened it in a floating workspace window, verified the floating section surface rendered correctly at both smaller and larger bounds, and then removed the disposable section.

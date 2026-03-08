@@ -1029,7 +1029,9 @@ async def test_tools_call_invoke_linked_chat_uses_request_scoped_share_session_i
     assert response.status_code == 200
     assert agent_runner.calls
     assert switcher.calls
-    assert switcher.calls == []
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
     assert share_runtime_state.session_backend_calls == [request_session_id]
     assert request_session_id not in share_runtime_state.rollback_calls
     assert spoofed_session_id not in share_runtime_state.session_backend_calls

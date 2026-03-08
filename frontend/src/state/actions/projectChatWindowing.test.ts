@@ -50,6 +50,7 @@ import {
   closeProjectChatWindow,
   closeProjectChatWindowInState,
   ensureTrackedGitPaneGraphWindow,
+  flushPendingProjectChatWindowingWrites,
   focusProjectChatWindowInState,
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
@@ -976,6 +977,36 @@ describe("project chat windowing reducer helpers", () => {
       ]?.chatId,
     ).toBe("section-chat");
     expect(useAIStore.getState().activeChatId).toBe("global-chat");
+  });
+
+  it("ignores window chat-id writes for section-mode windows", async () => {
+    const sectionWindow = createProjectChatWindowInstance({
+      instanceId: "chat-window-section-mode",
+      mode: ChatWindowModeEnum.section_mode,
+      sectionIdOrNull: "section-1",
+      chatId: null,
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        instancesById: {
+          [sectionWindow.instanceId]: sectionWindow,
+        },
+        order: [sectionWindow.instanceId],
+        nextInstanceNumber: 2,
+      });
+    });
+
+    setProjectChatWindowChatId(sectionWindow.instanceId, "section-chat");
+    await flushPendingProjectChatWindowingWrites();
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        sectionWindow.instanceId
+      ]?.chatId,
+    ).toBeNull();
+    expect(
+      hoistedProjectChatWindowing.routeSetProjectChatWindowChatId,
+    ).not.toHaveBeenCalled();
   });
 
   it("updates the global active project chat for unscoped project-ai windows", () => {

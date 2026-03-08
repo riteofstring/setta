@@ -328,6 +328,26 @@ async function readActiveProjectChatId(
   });
 }
 
+async function readSectionChatId(
+  page: Page,
+  sectionId: string,
+): Promise<string | null> {
+  return page.evaluate(async (targetSectionId) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const { getCurrEffectiveSectionImplOfType } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    const { SectionTypeEnum } = await import("/src/utils/generatedTypes.ts");
+    return (
+      getCurrEffectiveSectionImplOfType(
+        useProjectState.getState(),
+        targetSectionId,
+        SectionTypeEnum.Chat,
+      ).chatId ?? null
+    );
+  }, sectionId);
+}
+
 async function seedProjectChatWindowThreads(
   page: Page,
   fixtures: ProjectChatThreadFixture[],
@@ -2836,6 +2856,246 @@ test.describe.serial("standalone project surface routes", () => {
       );
     } finally {
       await standalonePage.close();
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("workspace floating section windows switch threads through the section binding and survive reload", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+
+    try {
+      const { sectionId: chatSectionId } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "Workspace Floating Section Chat",
+      );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: chatSectionId,
+        managed: true,
+        engineConfigId: null,
+        transcriptionProfileId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+
+      await page.context().route("**/api/getAgentRuns", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify([
+            {
+              id: "run-thread-alpha",
+              profileId: null,
+              status: "completed",
+              startedAt: "2026-03-11T00:00:00Z",
+              finishedAt: "2026-03-11T00:00:01Z",
+              events: [],
+              inputs: {
+                runType: "llm_chat",
+                projectConfigId: projectContext.projectConfigId,
+                chatId: "section-thread-alpha",
+                sectionId: chatSectionId,
+                messages: [
+                  {
+                    id: "thread-alpha-user",
+                    role: "user",
+                    content: [
+                      {
+                        type: "text",
+                        text: "Alpha thread label",
+                      },
+                    ],
+                    attachments: [],
+                  },
+                ],
+              },
+              outputs: {},
+            },
+            {
+              id: "run-thread-beta",
+              profileId: null,
+              status: "completed",
+              startedAt: "2026-03-12T00:00:00Z",
+              finishedAt: "2026-03-12T00:00:01Z",
+              events: [],
+              inputs: {
+                runType: "llm_chat",
+                projectConfigId: projectContext.projectConfigId,
+                chatId: "section-thread-beta",
+                sectionId: chatSectionId,
+                messages: [
+                  {
+                    id: "thread-beta-user",
+                    role: "user",
+                    content: [
+                      {
+                        type: "text",
+                        text: "Beta thread label",
+                      },
+                    ],
+                    attachments: [],
+                  },
+                ],
+              },
+              outputs: {},
+            },
+          ]),
+        });
+      });
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string }
+          | undefined;
+        if (payload?.chatId === "section-thread-alpha") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              messages: [
+                {
+                  id: "section-thread-alpha-assistant",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Alpha thread marker",
+                    },
+                  ],
+                  attachments: [],
+                  tool_calls: null,
+                },
+              ],
+              waitingForResponse: false,
+              llmConfig: {
+                id: "section-history-config",
+                model: "gpt-4o-mini",
+                provider: "openai",
+                base_url: null,
+                api_key_env: null,
+                other_params: null,
+                mcpServerIds: [],
+                temporary: false,
+              },
+              contextUsage: null,
+            }),
+          });
+          return;
+        }
+        if (payload?.chatId === "section-thread-beta") {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              messages: [
+                {
+                  id: "section-thread-beta-assistant",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Beta thread marker",
+                    },
+                  ],
+                  attachments: [],
+                  tool_calls: null,
+                },
+              ],
+              waitingForResponse: false,
+              llmConfig: {
+                id: "section-history-config",
+                model: "gpt-4o-mini",
+                provider: "openai",
+                base_url: null,
+                api_key_env: null,
+                other_params: null,
+                mcpServerIds: [],
+                temporary: false,
+              },
+              contextUsage: null,
+            }),
+          });
+          return;
+        }
+        await route.continue();
+      });
+
+      await showSectionInProjectChatWindow(page, chatSectionId, "floating");
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return findProjectChatWindowIdForSection(state, chatSectionId) ?? "";
+        })
+        .not.toBe("");
+      const sectionWindowId =
+        findProjectChatWindowIdForSection(
+          await readProjectChatWindowingState(page),
+          chatSectionId,
+        ) ?? "";
+      if (!sectionWindowId) {
+        throw new Error("Expected a floating section window.");
+      }
+
+      const floatingSectionWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
+      );
+      await expect(floatingSectionWindow).toBeVisible();
+
+      await floatingSectionWindow
+        .getByRole("button", { name: "History" })
+        .click();
+      await expect(
+        floatingSectionWindow.getByRole("button", {
+          name: "Beta thread label",
+        }),
+      ).toBeVisible();
+      await floatingSectionWindow
+        .getByRole("button", { name: "Beta thread label" })
+        .click();
+
+      await expect(floatingSectionWindow).toContainText("Beta thread marker");
+      await expect(floatingSectionWindow).not.toContainText(
+        "Alpha thread marker",
+      );
+      await expect
+        .poll(async () => await readSectionChatId(page, chatSectionId))
+        .toBe("section-thread-beta");
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return state.instancesById[sectionWindowId]?.chatId ?? null;
+        })
+        .toBeNull();
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+
+      const reloadedFloatingSectionWindow = page.locator(
+        `[data-testid="project-chat-floating-window"][data-chat-window-instance-id="${sectionWindowId}"]`,
+      );
+      await expect(reloadedFloatingSectionWindow).toBeVisible();
+      await expect(reloadedFloatingSectionWindow).toContainText(
+        "Beta thread marker",
+      );
+      await expect
+        .poll(async () => await readSectionChatId(page, chatSectionId))
+        .toBe("section-thread-beta");
+      await expect
+        .poll(async () => {
+          const state = await readProjectChatWindowingState(page);
+          return state.instancesById[sectionWindowId]?.chatId ?? null;
+        })
+        .toBeNull();
+    } finally {
+      await page.context().unroute("**/api/getAgentRuns");
+      await page.context().unroute("**/api/getLLMChat");
       await cleanupManagedEngine();
       await cleanupIsolatedProject(page, projectContext);
     }

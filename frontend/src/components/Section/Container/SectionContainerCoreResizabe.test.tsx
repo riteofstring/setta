@@ -1,20 +1,59 @@
+import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   SectionTypeEnum,
   createProjectChatWindowingState,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
+import {
+  AreaSwitch,
+  SectionContainerCoreResizable,
+} from "./SectionContainerCoreResizabe";
 
 type MockProjectState = {
+  projectConfig: {
+    id: string;
+  };
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
 let mockProjectState: MockProjectState = {
+  projectConfig: {
+    id: "project-1",
+  },
   projectChatWindowing: createProjectChatWindowingState(),
 };
+
+vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
+  UnifiedChatSurface: ({
+    mode,
+    host,
+    sectionId,
+    surfaceId,
+    projectChatId,
+    setProjectChatId,
+  }: {
+    mode: string;
+    host: string;
+    sectionId?: string | null;
+    surfaceId?: string;
+    projectChatId?: string | null;
+    setProjectChatId?: unknown;
+  }) => (
+    <div
+      data-testid="mock-unified-chat-surface"
+      data-mode={mode}
+      data-host={host}
+      data-section-id={sectionId ?? ""}
+      data-surface-id={surfaceId ?? ""}
+      data-project-chat-id={projectChatId ?? ""}
+      data-project-chat-controlled={setProjectChatId ? "true" : "false"}
+    />
+  ),
+}));
 
 vi.mock("components/Utils/Resizable/CustomResizable", () => ({
   CustomResizable: ({ children }: { children: ReactNode }) => (
@@ -145,12 +184,18 @@ vi.mock("./TextBlockMetaControlMenuButton", () => ({
 describe("SectionContainerCoreResizable", () => {
   beforeEach(() => {
     mockProjectState = {
+      projectConfig: {
+        id: "project-1",
+      },
       projectChatWindowing: createProjectChatWindowingState(),
     };
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
     mockProjectState = {
+      projectConfig: {
+        id: "project-1",
+      },
       projectChatWindowing: createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {
@@ -179,5 +224,53 @@ describe("SectionContainerCoreResizable", () => {
     expect(markup).toContain('data-testid="section-canvas-window-placeholder"');
     expect(markup).toContain('data-instance-id="project-chat-window-1"');
     expect(markup).not.toContain('data-testid="mock-code-area"');
+  });
+
+  it("routes workspace section windows through the section-owned surface id", () => {
+    const markup = renderToStaticMarkup(
+      <AreaSwitch
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Chat}
+        bgColor="bg-setta-50"
+        isMinimized={false}
+        isUserView={false}
+        chatHost={ChatWindowPlacementEnum.floating}
+        chatModeOverride={ChatWindowModeEnum.section_mode}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-unified-chat-surface"');
+    expect(markup).toContain('data-mode="section_mode"');
+    expect(markup).toContain('data-host="floating"');
+    expect(markup).toContain('data-section-id="section-123"');
+    expect(markup).toContain(
+      `data-surface-id="${buildWorkspaceSectionProjectChatSurfaceId("project-1", "section-123")}"`,
+    );
+    expect(markup).toContain('data-project-chat-id=""');
+    expect(markup).toContain('data-project-chat-controlled="false"');
+  });
+
+  it("preserves explicit standalone thread ownership overrides", () => {
+    const markup = renderToStaticMarkup(
+      <AreaSwitch
+        sectionId="section-123"
+        sectionTypeName={SectionTypeEnum.Chat}
+        bgColor="bg-setta-50"
+        isMinimized={false}
+        isUserView={false}
+        chatHost="standalone_page"
+        chatModeOverride={ChatWindowModeEnum.section_mode}
+        projectChatSurfaceId="standalone-window-space:project-1:space-1:window-1"
+        projectChatId="saved-thread"
+        setProjectChatId={() => {}}
+      />,
+    );
+
+    expect(markup).toContain('data-host="standalone_page"');
+    expect(markup).toContain(
+      'data-surface-id="standalone-window-space:project-1:space-1:window-1"',
+    );
+    expect(markup).toContain('data-project-chat-id="saved-thread"');
+    expect(markup).toContain('data-project-chat-controlled="true"');
   });
 });
