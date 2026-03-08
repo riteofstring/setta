@@ -127,7 +127,7 @@ This slice delivered:
 
 ## Next Recommended Step
 
-- open the next bounded post-Phase-12 doc around prompt-template read
-  transport
-- keep summary-cache-status ownership separate unless the next inventory shows
-  it has become the higher-leverage frontend blocker
+- the follow-up prompt-template slice is now landed in
+  `phase-13-prompt-template-read-transport.md`
+- the next bounded dependency after that landing is now
+  summary-cache-status ownership

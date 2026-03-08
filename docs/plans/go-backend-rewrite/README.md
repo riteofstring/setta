@@ -465,7 +465,7 @@ Use the docs in this order:
     read transport: Go-owned `GET /getAgentProfiles` over the canonical
     agent-profile store
 142. `phase-13-prompt-template-read-transport.md`
-  - focused current-work doc for the next post-Phase-13 bounded agentic read
+  - focused completed-slice doc for the next post-Phase-13 bounded agentic read
     transport: a Go prompt-template file store plus thin
     `GET /getPromptTemplates`
 143. `spike-mcp.md`

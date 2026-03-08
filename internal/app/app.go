@@ -34,6 +34,7 @@ import (
 	"setta/internal/observability"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
+	"setta/internal/prompttemplates"
 	"setta/internal/pythonenv"
 	"setta/internal/realtime"
 	"setta/internal/runs"
@@ -132,6 +133,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
 		agentRunStore         *agentruns.RunStore
+		promptTemplateStore   *prompttemplates.Store
 	)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
@@ -470,6 +472,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		return nil, err
 	}
 	agentProfileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+		return nil, err
+	}
+	promptTemplateStore, err = prompttemplates.NewStore(cfg.Paths.SettaFilesRoot)
 	if err != nil {
 		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 		return nil, err
@@ -890,6 +897,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
 				ModePolicy: modePolicy,
 				Profiles:   agentProfileStore,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
+				ModePolicy: modePolicy,
+				Templates:  promptTemplateStore,
 			}); err != nil {
 				panic(err)
 			}

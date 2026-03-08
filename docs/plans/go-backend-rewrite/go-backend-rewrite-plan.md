@@ -159,14 +159,14 @@ The first post-Phase-12 bounded slice tracked in
 - prompt-template transport and agentic summary-cache status remain deferred to
   later bounded slices because they need different source-of-truth owners
 
-The next bounded post-Phase-13 slice is now tracked in
-`phase-13-prompt-template-read-transport.md`:
+The next bounded post-Phase-13 slice tracked in
+`phase-13-prompt-template-read-transport.md` is now landed:
 
-- the frontend still hydrates `GET /getPromptTemplates` through Python
-- that route now has a clear bounded Go owner shape because the underlying
-  product behavior is still file-backed prompt documents under `prompts/*.json`
-- `GET /getAgenticSummaryCacheStatus` remains deferred because it needs a
-  different runtime owner than the prompt-template file path
+- the frontend now hydrates `GET /getPromptTemplates` from Go
+- Go now owns the file-backed prompt-template read owner for
+  `setta_files/prompts/*.json`
+- `GET /getAgenticSummaryCacheStatus` remains the next bounded dependency
+  because it needs a different runtime owner than the prompt-template file path
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -176,7 +176,8 @@ follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
 post-Phase-12 priority, not by reopening the completed external-agent runtime
 choices. The current bounded priority is prompt-template read transport over a
 new Go file-backed store owner, not the already-landed agent-profile HTTP read
-route.
+route. After that landing, the next bounded priority is summary-cache-status
+transport and ownership.
 
 ## Current Reality
 

@@ -2,14 +2,14 @@
 
 ## Purpose
 
-This doc scopes the next bounded post-Phase-13 slice.
+This doc records the next bounded post-Phase-13 slice and its landing.
 
 The previous slice moved `GET /getAgentProfiles` to Go over the already-landed
 agent-profile store. The next highest-leverage hydration dependency is that the
 frontend still loads prompt templates from a Python-owned route even though the
 underlying product behavior is still a straightforward file-backed read path.
 
-This slice should close that dependency without broadening into prompt-template
+This slice closed that dependency without broadening into prompt-template
 CRUD, websocket broadcast parity, or the unrelated summary-cache-status route.
 
 ## Current Status
@@ -23,20 +23,44 @@ Completed before this slice:
   - list-by-directory scan sorted by filename
   - per-file `PromptTemplate` validation
 
-Concrete current dependency:
+Concrete dependency that triggered this slice:
 
 - `frontend/src/state/actions/ai.ts`
   - `loadPromptTemplates()` still calls `route_get_prompt_templates()`
 - `frontend/src/components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState.ts`
   - prompt-template hydration still depends on that route at app load
-- Python still owns the route in `backend/setta/routers/agentic.py`:
+- Python owned the route in `backend/setta/routers/agentic.py`:
   - `route_get_prompt_templates(...)`
-- Python still owns the file-backed store helpers in
+- Python owned the file-backed store helpers in
   `backend/setta/agentic/store.py`:
   - `list_prompt_templates(...)`
   - `load_prompt_template(...)`
   - `save_prompt_template(...)`
   - `delete_prompt_template(...)`
+
+Landed in this slice:
+
+- `internal/prompttemplates`
+  - bounded file-backed owner for `setta_files/prompts/*.json`
+  - strict per-file template validation with defaulted `format`,
+    `description`, `inputSchema`, and `metadata`
+- `internal/httpapi/prompt_template_routes.go`
+  - thin IDE-gated `GET /getPromptTemplates` transport
+- `internal/app/app.go`
+  - explicit prompt-template store wiring into route registration
+- `internal/httpapi/route_names.go`
+  - bare-route registration for `getPromptTemplates`
+- focused coverage in:
+  - `internal/prompttemplates/store_test.go`
+  - `internal/httpapi/prompt_template_routes_test.go`
+
+Closeout rerun after the landing:
+
+- the direct hydration dependency on prompt-template reads is now gone
+- the remaining Python-owned agentic read that still affects live frontend UI
+  is `POST /getAgenticSummaryCacheStatus`
+- prompt-template single-item and CRUD routes remain deferred because they are
+  not the current highest-leverage frontend dependency
 
 Remaining Python-owned agentic reads outside this slice:
 
@@ -44,7 +68,7 @@ Remaining Python-owned agentic reads outside this slice:
 
 ## Scope
 
-This slice should deliver:
+This slice delivered:
 
 - a bounded Go owner for prompt-template files under `setta_files/prompts`
 - thin Go transport for `GET /getPromptTemplates`
@@ -116,6 +140,7 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land the prompt-template file store and `GET /getPromptTemplates`
-- rerun the post-Phase-13 inventory after that landing before deciding whether
-  summary-cache-status is the next bounded route to move
+- open the next bounded post-Phase-13 doc around summary-cache-status
+  transport and ownership
+- keep prompt-template single-item and CRUD work deferred unless a concrete UI
+  dependency makes them higher leverage than summary-cache status
