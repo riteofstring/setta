@@ -141,6 +141,47 @@ func (s *EngineStore) Update(config EngineConfig) (EngineConfig, error) {
 	return EngineConfig{}, fmt.Errorf("%w: %q", ErrEngineConfigNotFound, normalized.ID)
 }
 
+func (s *EngineStore) Create(config EngineConfig) (EngineConfig, error) {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return EngineConfig{}, ErrRootRequired
+	}
+	normalized, err := NormalizeEngineConfig(config)
+	if err != nil {
+		return EngineConfig{}, err
+	}
+	configs, err := s.List()
+	if err != nil {
+		return EngineConfig{}, err
+	}
+	configs = append(configs, normalized)
+	if err := s.Write(configs); err != nil {
+		return EngineConfig{}, err
+	}
+	return normalized, nil
+}
+
+func (s *EngineStore) Delete(configID string) error {
+	if s == nil || strings.TrimSpace(s.path) == "" {
+		return ErrRootRequired
+	}
+	trimmedID := strings.TrimSpace(configID)
+	if trimmedID == "" {
+		return fmt.Errorf("%w: engine config id is required", ErrEngineConfigNotFound)
+	}
+	configs, err := s.List()
+	if err != nil {
+		return err
+	}
+	for index, config := range configs {
+		if config.ID != trimmedID {
+			continue
+		}
+		configs = append(configs[:index], configs[index+1:]...)
+		return s.Write(configs)
+	}
+	return fmt.Errorf("%w: %q", ErrEngineConfigNotFound, trimmedID)
+}
+
 func NewRunStore(root string) (*RunStore, error) {
 	resolvedRoot, err := statefs.NormalizePath(root, "")
 	if err != nil {

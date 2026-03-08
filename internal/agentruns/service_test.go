@@ -415,6 +415,77 @@ func TestEngineStoreUpdateReplacesPersistedConfig(t *testing.T) {
 	}
 }
 
+func TestEngineStoreCreatePersistsConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+
+	externalConfigID := "external-codex"
+	created, err := store.Create(EngineConfig{
+		ID:                    "engine-created",
+		Name:                  "Created",
+		EngineType:            EngineTypeExternalAgent,
+		ExternalAgentConfigID: &externalConfigID,
+	})
+	if err != nil {
+		t.Fatalf("create engine config: %v", err)
+	}
+	if created.ID != "engine-created" || created.Name != "Created" {
+		t.Fatalf("unexpected created config %#v", created)
+	}
+
+	loaded, err := store.Get("engine-created")
+	if err != nil {
+		t.Fatalf("load created engine config: %v", err)
+	}
+	if loaded.EngineType != EngineTypeExternalAgent {
+		t.Fatalf("expected persisted external-agent config, got %#v", loaded)
+	}
+	if loaded.ExternalAgentConfigID == nil || *loaded.ExternalAgentConfigID != externalConfigID {
+		t.Fatalf("expected persisted external agent id, got %#v", loaded)
+	}
+}
+
+func TestEngineStoreDeleteRemovesPersistedConfig(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := NewEngineStore(root)
+	if err != nil {
+		t.Fatalf("new engine store: %v", err)
+	}
+	if err := store.Write([]EngineConfig{
+		{
+			ID:         "engine-primary",
+			Name:       "Primary",
+			EngineType: EngineTypeSettaLLM,
+		},
+		{
+			ID:         "engine-secondary",
+			Name:       "Secondary",
+			EngineType: EngineTypeSettaLLM,
+		},
+	}); err != nil {
+		t.Fatalf("write engine configs: %v", err)
+	}
+
+	if err := store.Delete("engine-primary"); err != nil {
+		t.Fatalf("delete engine config: %v", err)
+	}
+
+	configs, err := store.List()
+	if err != nil {
+		t.Fatalf("list engine configs: %v", err)
+	}
+	if len(configs) != 1 || configs[0].ID != "engine-secondary" {
+		t.Fatalf("unexpected engine configs after delete %#v", configs)
+	}
+}
+
 func TestEngineStoreUpdateRejectsMissingAndInvalidConfig(t *testing.T) {
 	t.Parallel()
 
@@ -448,6 +519,18 @@ func TestEngineStoreUpdateRejectsMissingAndInvalidConfig(t *testing.T) {
 	})
 	if !errors.Is(err, ErrInvalidEngineConfig) {
 		t.Fatalf("expected invalid engine config error, got %v", err)
+	}
+
+	_, err = store.Create(EngineConfig{
+		ID:   "engine-invalid",
+		Name: "Missing type",
+	})
+	if !errors.Is(err, ErrInvalidEngineConfig) {
+		t.Fatalf("expected invalid create engine config error, got %v", err)
+	}
+
+	if err := store.Delete("engine-missing"); !errors.Is(err, ErrEngineConfigNotFound) {
+		t.Fatalf("expected missing engine config delete error, got %v", err)
 	}
 }
 

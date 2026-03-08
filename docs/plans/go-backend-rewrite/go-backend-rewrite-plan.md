@@ -319,12 +319,23 @@ The bounded closeout inventory tracked in
   longer hide another direct Phase 13 settings or hydration blocker
 - current leftover routes split into:
   - dormant single-item reads with no live frontend caller
-  - dormant engine-config create/delete transport with no live frontend caller
   - managed-agent / run-chain runtime routes tied to intentionally de-scoped
     managed `setta_llm` and Python runtime owners
 - the next rewrite slice should therefore come from a concrete new caller or
   an explicit product/runtime decision, not from assuming another automatic
   transport migration is still pending
+
+The bounded follow-on tracked in
+`phase-13-engine-config-create-delete-transport.md` is now landed:
+
+- Go now owns:
+  - `POST /createEngineConfig`
+  - `POST /deleteEngineConfig`
+- the dormant engine-config create/delete transport noted in the inventory is
+  now Go-owned over the landed `internal/agentruns.EngineStore`
+- websocket `EngineConfigsUpdated` parity and dormant single-item
+  `POST /getEngineConfig` transport remain intentionally deferred because there
+  is still no concrete caller that requires them
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
@@ -333,10 +344,10 @@ shape is also proven, but the PTY library choice still has a bounded Unix-path
 follow-up tracked in `spike-pty.md`. New work should start from the remaining
 real callers and product dependencies, not by reopening the completed
 external-agent runtime or Phase 13 settings surfaces. The next bounded priority
-is no longer that inventory work itself; that is now complete. The next
-bounded priority should only be chosen after a concrete caller or explicit
-product/runtime decision identifies which of the remaining Python-owned routes
-actually matters.
+is no longer the inventory or engine-config cleanup work; those are now
+complete. The next bounded priority should only be chosen after a concrete
+caller or explicit product/runtime decision identifies which of the remaining
+Python-owned routes actually matters.
 
 ## Current Reality
 

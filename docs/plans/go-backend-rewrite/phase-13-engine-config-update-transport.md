@@ -67,6 +67,13 @@ Current frontend behavior relevant to scoping:
 - no direct frontend caller in the current worktree uses create/delete engine
   config transport
 
+Later follow-on note:
+
+- the dormant `create/delete` transport mentioned as out of scope here was
+  later landed in `phase-13-engine-config-create-delete-transport.md`
+- `POST /getEngineConfig` and websocket `EngineConfigsUpdated` parity remain
+  deferred
+
 ## Scope
 
 This slice delivered:
@@ -152,15 +159,13 @@ This slice delivered:
 
 ## Open Questions
 
-- whether `create/delete/getEngineConfig` should move at all in Phase 13
-  - recommendation: only if a concrete caller appears, since the current
-    direct frontend usage only needed list plus update
+- whether dormant `POST /getEngineConfig` should move at all in the current
+  bounded rewrite scope
+  - recommendation: only if a concrete caller appears
 
 ## Next Recommended Step
 
-- the agent-profile CRUD follow-up is now landed in
-  `phase-13-agent-profile-crud-transport.md`
-- the transcription-profile CRUD follow-up is now landed in
-  `phase-13-transcription-profile-crud-transport.md`
-- the next bounded direct settings-write dependency is now external-agent-config
-  CRUD over the landed Go config store/checker boundary
+- treat this slice as complete and historical
+- use `phase-13-engine-config-create-delete-transport.md` for the later
+  engine-config follow-on and `phase-13-remaining-agentic-route-inventory-and-rerank.md`
+  for the post-Phase-13 rerank context

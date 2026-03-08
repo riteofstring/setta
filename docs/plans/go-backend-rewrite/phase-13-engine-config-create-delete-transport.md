@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This doc records the bounded follow-on slice for engine-config create/delete
-transport after the landed Phase 13 remaining-route inventory.
+This doc records the landed bounded follow-on slice for engine-config
+create/delete transport after the landed Phase 13 remaining-route inventory.
 
 The inventory concluded that there was no hidden direct frontend blocker left
 in the current agentic surface. The remaining route choices were:
@@ -46,15 +46,17 @@ Current Python behavior relevant to this slice:
 - both routes are IDE-only and currently live in `backend/setta/routers/agentic.py`
 - Python also broadcasts `EngineConfigsUpdated` after mutation
 
-Current Go behavior before this slice:
+Current Go behavior after this slice:
 
 - `internal/agentruns.EngineStore` already owns:
   - path resolution for `engine_configs.json`
-  - strict list/get/write/update behavior
+  - strict list/get/write/update/create/delete behavior
   - canonical engine-config normalization
 - Go already owns:
   - `GET /getEngineConfigs`
+  - `POST /createEngineConfig`
   - `POST /updateEngineConfig`
+  - `POST /deleteEngineConfig`
 - websocket `EngineConfigsUpdated` parity remains intentionally deferred
 
 Current caller status relevant to scoping:
@@ -66,7 +68,7 @@ Current caller status relevant to scoping:
 
 ## Scope
 
-This slice will deliver:
+This slice delivered:
 
 - thin Go transport for:
   - `POST /createEngineConfig`
@@ -139,6 +141,8 @@ This slice will deliver:
 - keep the work bounded to engine-config create/delete because it is the
   smallest remaining settings transport over an already-landed owner
 - continue to defer websocket parity and single-item engine-config reads
+- keep id generation in the route layer so `EngineStore` remains a persistence
+  and normalization owner instead of becoming a transport-aware factory
 
 ## Open Questions
 
@@ -148,6 +152,8 @@ This slice will deliver:
 
 ## Next Recommended Step
 
-- land the bounded Go create/delete transport over `internal/agentruns.EngineStore`
-- after landing, rerun the remaining-route docs so they reflect that engine
-  create/delete is no longer pending
+- treat the engine-config create/delete cleanup as complete for the current
+  bounded Phase 13 surface
+- if another agentic follow-on is needed, rerank only:
+  - dormant single-item reads with a concrete caller
+  - managed-agent or run-chain runtime work behind a new bounded design doc

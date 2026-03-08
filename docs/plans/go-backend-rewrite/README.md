@@ -514,8 +514,9 @@ Use the docs in this order:
     routes after the landed Phase 13 direct-surface work, including actual
     caller checks and reranked follow-on options
 153. `phase-13-engine-config-create-delete-transport.md`
-  - focused bounded follow-on doc for opportunistic Go ownership of dormant
-    `create/delete` engine-config transport over the landed engine store
+  - focused completed-slice doc for opportunistic Go ownership of dormant
+    `create/delete` engine-config transport over the landed engine store,
+    with websocket fan-out and single-item reads still deferred
 154. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 155. `spike-pty.md`

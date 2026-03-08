@@ -5,6 +5,15 @@
 This doc records the bounded inventory follow-on after the landed
 external-agent-config CRUD slice.
 
+Historical note:
+
+- this inventory later led to the bounded engine-config create/delete follow-on
+  now landed in `phase-13-engine-config-create-delete-transport.md`
+- the remaining still-Python-owned agentic surface is now only:
+  - dormant single-item reads with no live frontend caller
+  - managed-agent and run-chain runtime routes that remain intentionally
+    de-scoped
+
 Phase 13 moved the direct app-start hydration reads and the direct settings
 mutation surface that still had live frontend callers. The next recommended
 step after that landing was not another blind transport migration. It was a
@@ -106,7 +115,7 @@ Rerank:
 - do not open a transport slice for them unless a concrete frontend/runtime
   caller appears
 
-### 3. Engine-config create/delete remain Python-owned, but have no current UI caller
+### 3. At inventory time, engine-config create/delete remained Python-owned, but had no current UI caller
 
 These routes remain Python-owned:
 
@@ -120,7 +129,7 @@ Current status:
 - this inventory did not find a live caller for the create/delete route
   bindings in current frontend code
 
-Rerank:
+Rerank at inventory time:
 
 - medium-low priority
 - if a product change reintroduces engine create/delete into the live settings
@@ -165,7 +174,6 @@ Rerank:
    blocker in the current agentic surface.
 2. The remaining Python-owned agentic routes split into:
    - dormant single-item reads
-   - dormant engine create/delete transport
    - managed-agent/run-chain runtime routes tied to intentionally de-scoped
      `setta_llm` and Python runtime owners
 3. None of those route groups is the obvious next transport slice without an
@@ -182,6 +190,12 @@ Rerank:
 - treat managed `setta_llm` / run-chain routes as a separate runtime decision,
   not as a thin transport migration
 
+Later outcome:
+
+- the user explicitly requested continued execution after this inventory
+- that led to the bounded engine-config create/delete follow-on now landed in
+  `phase-13-engine-config-create-delete-transport.md`
+
 ## Verification
 
 - docs and inventory only; no automated tests were run
@@ -191,6 +205,6 @@ Rerank:
 - close the current Phase 13 direct-surface migration work as complete for the
   current bounded scope
 - if a new agentic follow-on is needed, require one of:
-  - a concrete caller for engine create/delete or single-item reads
+  - a concrete caller for single-item reads
   - an explicit product decision to reopen managed `setta_llm` / run-chain
     runtime work with a new bounded design doc first
