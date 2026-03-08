@@ -16,7 +16,7 @@ def generate_settings_state() -> str:
     Generate the SettingsState class with UserDefault attributes.
 
     The generated class will have:
-    - Core settings (shortcuts, gui, backend, languageServer)
+    - Core settings (shortcuts, gui, backend, chatWindowing, languageServer)
     - One attribute for each SectionType enum value (e.g., callableSectionDefault)
     - One attribute for each CodeObjType enum value (e.g., sliderParamDefault)
     """
@@ -50,6 +50,7 @@ def generate_settings_state() -> str:
 from pydantic import BaseModel, Field
 
 from setta.types.settings_state import (
+    ChatWindowingSettings,
     SectionSizingPolicy,
     SettingsBackend,
     SettingsGUI,
@@ -70,6 +71,9 @@ class SettingsState(BaseModel, extra="forbid"):
     shortcuts: SettingsShortcuts = Field(default_factory=SettingsShortcuts)
     gui: SettingsGUI = Field(default_factory=SettingsGUI)
     backend: SettingsBackend = Field(default_factory=SettingsBackend)
+    chatWindowing: ChatWindowingSettings = Field(
+        default_factory=ChatWindowingSettings
+    )
     sectionSizingPolicy: SectionSizingPolicy = Field(
         default_factory=SectionSizingPolicy
     )
