@@ -267,6 +267,31 @@ export async function route_binary_download(x: gt.BinaryDownloadRequestInput): P
   return await getBinary(GoHTTPRoutes.binaryDownload, x);
 
 }
+export async function route_get_git_status(): Promise<ResponseDataAndStatus<gt.GetGitStatusResponse>> {
+
+  return await post(GoHTTPRoutes.getGitStatus, null);
+
+}
+export async function route_get_git_diff(x: gt.GetGitDiffRequestInput): Promise<ResponseDataAndStatus<gt.GetGitDiffResponse>> {
+
+  return await post(GoHTTPRoutes.getGitDiff, x);
+
+}
+export async function route_get_git_log(x: gt.GetGitLogRequestInput): Promise<ResponseDataAndStatus<gt.GetGitLogResponse>> {
+
+  return await post(GoHTTPRoutes.getGitLog, x);
+
+}
+export async function route_get_git_commit_details(x: gt.GetGitCommitDetailsRequestInput): Promise<ResponseDataAndStatus<gt.GetGitCommitDetailsResponse>> {
+
+  return await post(GoHTTPRoutes.getGitCommitDetails, x);
+
+}
+export async function route_get_git_commit_file_diff(x: gt.GetGitCommitFileDiffRequestInput): Promise<ResponseDataAndStatus<gt.GetGitCommitFileDiffResponse>> {
+
+  return await post(GoHTTPRoutes.getGitCommitFileDiff, x);
+
+}
 export async function route_import_files_to_artifacts(x: gt.ImportFilesToArtifactsRequestInput): Promise<ResponseDataAndStatus<gt.ImportFilesToArtifactsResponse>> {
 
   return await post(GoHTTPRoutes.importFilesToArtifacts, x);

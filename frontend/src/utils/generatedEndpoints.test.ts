@@ -30,6 +30,11 @@ import {
   route_get_file_browser_file_stat,
   route_get_file_browser_root,
   route_get_folder_contents,
+  route_get_git_commit_details,
+  route_get_git_commit_file_diff,
+  route_get_git_diff,
+  route_get_git_log,
+  route_get_git_status,
   route_get_latest_lsp_diagnostics,
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
@@ -1823,6 +1828,111 @@ describe("generatedEndpoints listener helpers", () => {
       method: "POST",
       body: JSON.stringify({
         projectConfigId: "project-1",
+      }),
+    });
+  });
+});
+
+describe("generatedEndpoints git helpers", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("posts git status reads with a null payload", async () => {
+    await route_get_git_status();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/git/status`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: null,
+    });
+  });
+
+  it("posts git diff and log requests with the canonical payloads", async () => {
+    await route_get_git_diff({
+      path: "src/main.ts",
+      oldPath: null,
+      mode: "unstaged",
+    });
+    await route_get_git_log({
+      rev: "HEAD",
+      allRefs: true,
+      offset: 250,
+      pageSize: 100,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/git/diff`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        path: "src/main.ts",
+        oldPath: null,
+        mode: "unstaged",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`${C_ADDRESSES.BACKEND}/git/log`);
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        rev: "HEAD",
+        allRefs: true,
+        offset: 250,
+        pageSize: 100,
+      }),
+    });
+  });
+
+  it("posts git commit detail and file diff lookups", async () => {
+    await route_get_git_commit_details({
+      commitHash: "abc123",
+    });
+    await route_get_git_commit_file_diff({
+      commitHash: "abc123",
+      path: "src/main.ts",
+      oldPath: "src/old-main.ts",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/git/commitDetails`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        commitHash: "abc123",
+      }),
+    });
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/git/commitFileDiff`,
+    );
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        commitHash: "abc123",
+        path: "src/main.ts",
+        oldPath: "src/old-main.ts",
       }),
     });
   });

@@ -213,6 +213,10 @@ func newTypeConverter() *typeConverter {
 				{Name: "copy", Value: "copy"},
 				{Name: "move", Value: "move"},
 			},
+			reflect.TypeOf(GitDiffMode("")): {
+				{Name: "unstaged", Value: "unstaged"},
+				{Name: "staged", Value: "staged"},
+			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
 			reflect.TypeOf(SectionDependencyKey{}): {
@@ -470,6 +474,11 @@ func newTypeConverter() *typeConverter {
 				Name: "UpdateArtifactMsgContent",
 				Kind: "raw",
 				Raw:  updateArtifactMsgContentRawTS,
+			},
+			reflect.TypeOf(WebsocketFrontendSupport{}): {
+				Name: "WebsocketFrontendSupport",
+				Kind: "raw",
+				Raw:  websocketFrontendSupportRawTS,
 			},
 		},
 	}

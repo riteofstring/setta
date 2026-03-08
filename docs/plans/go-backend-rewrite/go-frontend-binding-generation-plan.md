@@ -87,6 +87,7 @@ Current landed wedge:
   - current browser section metadata route constants
   - current file-browser create/read/write/download/transfer route constants
   - current binary payload and bounded artifact route constants
+  - current git read route constants
   - current workspace-launch route constants
   - current launcher-home route constants
   - current launcher-management route constants
@@ -157,6 +158,21 @@ Current landed wedge:
     - current code file binding payloads
       - `CodeFileBindingUpdate`
       - `SetCodeFileBindingRequestInput`
+    - current git read payloads and responses
+      - `GitDiffMode`
+      - `GitRepoInfo`
+      - `GitStatusEntry`
+      - `GetGitStatusResponse`
+      - `GetGitDiffRequestInput`
+      - `GetGitDiffResponse`
+      - `GitCommit`
+      - `GetGitLogRequestInput`
+      - `GetGitLogResponse`
+      - `GitCommitChangedFile`
+      - `GetGitCommitDetailsRequestInput`
+      - `GetGitCommitDetailsResponse`
+      - `GetGitCommitFileDiffRequestInput`
+      - `GetGitCommitFileDiffResponse`
     - shared project-state/core types used by current callers
       - `SectionType`
       - `CodeObjType`
@@ -237,6 +253,21 @@ Current landed wedge:
         `TextParamInputUIType`, `TimeDisplayFormat`, `TimeControlMode`,
         `TimeDisplayFont`, `DateDisplayFormat`, `DateControlMode`,
         `DateSelectionMode`, and `DateCalendarWeekStart`
+    - current frontend websocket transport helper/types used by current callers
+      - `WebsocketConnectionType`
+      - `WebsocketConnectionInfo`
+      - `WebsocketMsgTypeForFrontend`
+      - `WebsocketMsgTypeForBackend`
+      - `WebsocketMsg`
+      - `FrontendWebsocketMsgUnion`
+      - `WebsocketMsgCurrentAddressUpdate`
+      - `WebsocketMsgRealtimeUIChange`
+      - `WebsocketMsgRealtimeDependencyEvent`
+      - `WebsocketMsgUISettingRevealResult`
+      - `createWebsocketConnectionInfo`
+      - `createWebsocketMsgCurrentAddressUpdate`
+      - `UISettingRevealContent`
+      - `UISettingRevealContentSchema`
     - current shared AI runtime/helper types used by current callers
       - `EngineType`
       - `EngineConfigDefaults`
@@ -633,6 +664,9 @@ Current landed wedge:
   - `triggerListenerForceRefresh`, `fetchListenerCoverageSnapshot`, and the
     current listener-coverage dependency-key helpers now consume canonical
     Go-generated listener bindings and dependency contracts
+  - `state/actions/git`, `state/git`, `GitDiffOverlay`, and
+    `GitGraphOverlay` now consume canonical Go-generated git route wrappers
+    and contract types
   - the current project create/load flow plus the layout/selection/viewport
     publishers in `sectionInfos` now consume canonical Go-generated
     project-shell and current project-state bindings
@@ -648,6 +682,10 @@ Current landed wedge:
     plugin runtime/mutation callers now consume canonical Go-generated plugin
     bindings for plugin runtime/status/config/restart/install/update/rollback
     and enable/disable operations, plus the shared project-state/core bindings
+  - `websocketReceive`, `realtimeDependencySend`, and
+    `WebsocketConnections` now consume canonical Go-generated frontend
+    websocket message enums/helpers and the bounded UI-setting reveal payload
+    validator needed by the active `/ws/frontend` caller
     they load during bootstrap/runtime mutation flows
 
 ## Cutover Rule

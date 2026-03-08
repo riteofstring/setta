@@ -860,6 +860,430 @@ export type UpdateArtifactMsgContent = {
 
 
 
+
+export const WebsocketConnectionTypeEnum = {
+  CLI: "CLI",
+  SERVER: "SERVER",
+  PYTHON_LOGGER: "PYTHON_LOGGER",
+  PYTHON_SCRIPT: "PYTHON_SCRIPT",
+  FRONTEND: "FRONTEND",
+} as const;
+export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
+
+export type WebsocketConnectionInfo = {
+  id: string;
+  connectionType: WebsocketConnectionType;
+  currentAddress: string | null;
+  shareSessionId: string | null;
+};
+export function createWebsocketConnectionInfo(
+  options: Partial<WebsocketConnectionInfo> = {},
+): WebsocketConnectionInfo {
+  return {
+    id: "",
+    connectionType: WebsocketConnectionTypeEnum.SERVER,
+    currentAddress: null,
+    shareSessionId: null,
+    ...options,
+  };
+}
+
+export const WebsocketMsgTypeForFrontendEnum = {
+  AllConnections: "AllConnections",
+  FrontendIdentity: "FrontendIdentity",
+  Notification: "Notification",
+  LLMStreamingResponse: "LLMStreamingResponse",
+  LSPDiagnostics: "LSPDiagnostics",
+  NameValidationErrors: "NameValidationErrors",
+  ReturnRenameRefactorResults: "ReturnRenameRefactorResults",
+  TerminalMetadata: "TerminalMetadata",
+  UpdateFrontendProjectState: "UpdateFrontendProjectState",
+  UpdateSettings: "UpdateSettings",
+  AllProjectMetadata: "AllProjectMetadata",
+  UpdateArtifacts: "UpdateArtifacts",
+  ListenerCoverageSnapshot: "ListenerCoverageSnapshot",
+  LLMConfigUpdated: "LLMConfigUpdated",
+  LLMApiKeysUpdated: "LLMApiKeysUpdated",
+  BackendLogEvent: "BackendLogEvent",
+  AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
+  AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
+  UISettingReveal: "UISettingReveal",
+  AgentProfilesUpdated: "AgentProfilesUpdated",
+  PromptTemplatesUpdated: "PromptTemplatesUpdated",
+  ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
+  EngineConfigsUpdated: "EngineConfigsUpdated",
+  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
+} as const;
+export type WebsocketMsgTypeForFrontend = ObjectValues<typeof WebsocketMsgTypeForFrontendEnum>;
+
+export const WebsocketMsgTypeForBackendEnum = {
+  CurrentAddressUpdate: "CurrentAddressUpdate",
+  UISettingRevealResult: "UISettingRevealResult",
+  RealtimeUIChange: "RealtimeUIChange",
+  RealtimeDependencyEvent: "RealtimeDependencyEvent",
+} as const;
+export type WebsocketMsgTypeForBackend = ObjectValues<typeof WebsocketMsgTypeForBackendEnum>;
+
+export type UISettingRevealActivationStep = {
+  type: string;
+  itemValue: string;
+};
+
+export type UISettingRevealTarget = {
+  settingId: string;
+  side: string;
+  overviewTabKey?: string | null;
+  uiEditorTabName?: string | null;
+  pluginId?: string | null;
+  paneId?: string | null;
+  strategy: string;
+  anchorId?: string | null;
+  pluginRevealKey?: string | null;
+  revealActivationSteps: Array<UISettingRevealActivationStep>;
+};
+
+export type UISettingRevealContent = {
+  projectConfigId: string;
+  chatId?: string | null;
+  activeSectionId?: string | null;
+  reveals: Array<UISettingRevealTarget>;
+  durationMs: number;
+  requestId: string;
+};
+
+export type UISettingRevealResultStatus = {
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode?: string | null;
+  errorMessage?: string | null;
+};
+
+export type UISettingRevealResultContent = {
+  projectConfigId: string;
+  requestId: string;
+  statuses: Array<UISettingRevealResultStatus>;
+};
+
+export type WebsocketMsgCurrentAddressUpdate = {
+  id?: string | null;
+  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
+  content: string;
+};
+export function createWebsocketMsgCurrentAddressUpdate(
+  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
+): WebsocketMsgCurrentAddressUpdate {
+  return {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
+    content: "",
+    ...options,
+  };
+}
+
+export type WebsocketMsgRealtimeUIChange = {
+  id?: string | null;
+  messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange;
+  content: {
+    projectConfigId: string;
+    dependencyKey: BaseDependencyKeyUnion;
+    value: BaseDependencyValueUnion;
+  };
+};
+
+export type WebsocketMsgRealtimeDependencyEvent = {
+  id?: string | null;
+  messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent;
+  content: {
+    projectConfigId: string;
+    dependencyEvent: DependencyEvent;
+  };
+};
+
+export type WebsocketMsgUISettingRevealResult = {
+  id?: string | null;
+  messageType: typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult;
+  content: UISettingRevealResultContent;
+};
+
+export type WebsocketMsg =
+  | WebsocketMsgCurrentAddressUpdate
+  | WebsocketMsgRealtimeUIChange
+  | WebsocketMsgRealtimeDependencyEvent
+  | WebsocketMsgUISettingRevealResult;
+
+export type FrontendWebsocketMsgUnion = {
+  id?: string | null;
+  messageType: WebsocketMsgTypeForFrontend;
+  content: any;
+};
+
+type SafeParseSuccess<T> = {
+  success: true;
+  data: T;
+};
+
+type SafeParseFailure = {
+  success: false;
+  error: {
+    issues: Array<string>;
+  };
+};
+
+type SafeParseResult<T> = SafeParseSuccess<T> | SafeParseFailure;
+
+function websocketSupportIsRecord(
+  value: unknown,
+): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function websocketSupportReadRequiredString(
+  value: unknown,
+  fieldName: string,
+  issues: Array<string>,
+): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  issues.push(fieldName + " must be a string.");
+  return "";
+}
+
+function websocketSupportReadOptionalString(
+  value: unknown,
+  fieldName: string,
+  issues: Array<string>,
+): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  issues.push(fieldName + " must be a string or null.");
+  return null;
+}
+
+function websocketSupportReadDurationMs(
+  value: unknown,
+  issues: Array<string>,
+): number {
+  if (value === undefined) {
+    return 3000;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  issues.push("durationMs must be a finite number.");
+  return 3000;
+}
+
+function websocketSupportReadActivationSteps(
+  value: unknown,
+  fieldName: string,
+  issues: Array<string>,
+): Array<UISettingRevealActivationStep> {
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    issues.push(fieldName + " must be an array.");
+    return [];
+  }
+  const steps: Array<UISettingRevealActivationStep> = [];
+  value.forEach((entry, index) => {
+    if (!websocketSupportIsRecord(entry)) {
+      issues.push(fieldName + "[" + index + "] must be an object.");
+      return;
+    }
+    steps.push({
+      type: websocketSupportReadRequiredString(
+        entry.type,
+        fieldName + "[" + index + "].type",
+        issues,
+      ),
+      itemValue: websocketSupportReadRequiredString(
+        entry.itemValue,
+        fieldName + "[" + index + "].itemValue",
+        issues,
+      ),
+    });
+  });
+  return steps;
+}
+
+function websocketSupportReadRevealTargets(
+  value: unknown,
+  issues: Array<string>,
+): Array<UISettingRevealTarget> {
+  if (!Array.isArray(value)) {
+    issues.push("reveals must be an array.");
+    return [];
+  }
+  const targets: Array<UISettingRevealTarget> = [];
+  value.forEach((entry, index) => {
+    if (!websocketSupportIsRecord(entry)) {
+      issues.push("reveals[" + index + "] must be an object.");
+      return;
+    }
+    targets.push({
+      settingId: websocketSupportReadRequiredString(
+        entry.settingId,
+        "reveals[" + index + "].settingId",
+        issues,
+      ),
+      side: websocketSupportReadRequiredString(
+        entry.side,
+        "reveals[" + index + "].side",
+        issues,
+      ),
+      overviewTabKey: websocketSupportReadOptionalString(
+        entry.overviewTabKey,
+        "reveals[" + index + "].overviewTabKey",
+        issues,
+      ),
+      uiEditorTabName: websocketSupportReadOptionalString(
+        entry.uiEditorTabName,
+        "reveals[" + index + "].uiEditorTabName",
+        issues,
+      ),
+      pluginId: websocketSupportReadOptionalString(
+        entry.pluginId,
+        "reveals[" + index + "].pluginId",
+        issues,
+      ),
+      paneId: websocketSupportReadOptionalString(
+        entry.paneId,
+        "reveals[" + index + "].paneId",
+        issues,
+      ),
+      strategy: websocketSupportReadRequiredString(
+        entry.strategy,
+        "reveals[" + index + "].strategy",
+        issues,
+      ),
+      anchorId: websocketSupportReadOptionalString(
+        entry.anchorId,
+        "reveals[" + index + "].anchorId",
+        issues,
+      ),
+      pluginRevealKey: websocketSupportReadOptionalString(
+        entry.pluginRevealKey,
+        "reveals[" + index + "].pluginRevealKey",
+        issues,
+      ),
+      revealActivationSteps: websocketSupportReadActivationSteps(
+        entry.revealActivationSteps,
+        "reveals[" + index + "].revealActivationSteps",
+        issues,
+      ),
+    });
+  });
+  return targets;
+}
+
+export const UISettingRevealContentSchema = {
+  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {
+    if (!websocketSupportIsRecord(value)) {
+      return {
+        success: false,
+        error: {
+          issues: ["Expected UISettingRevealContent object."],
+        },
+      };
+    }
+
+    const issues: Array<string> = [];
+    const parsed: UISettingRevealContent = {
+      projectConfigId: websocketSupportReadRequiredString(
+        value.projectConfigId,
+        "projectConfigId",
+        issues,
+      ),
+      chatId: websocketSupportReadOptionalString(value.chatId, "chatId", issues),
+      activeSectionId: websocketSupportReadOptionalString(
+        value.activeSectionId,
+        "activeSectionId",
+        issues,
+      ),
+      reveals: websocketSupportReadRevealTargets(value.reveals, issues),
+      durationMs: websocketSupportReadDurationMs(value.durationMs, issues),
+      requestId: websocketSupportReadRequiredString(
+        value.requestId,
+        "requestId",
+        issues,
+      ),
+    };
+
+    if (issues.length > 0) {
+      return {
+        success: false,
+        error: {
+          issues,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: parsed,
+    };
+  },
+};
+
+export const DependencyEventSchema = {
+  shape: {
+    dependencyKey: true,
+    payload: true,
+    timestampMs: true,
+  },
+  safeParse(value: unknown): SafeParseResult<DependencyEvent> {
+    if (!websocketSupportIsRecord(value)) {
+      return {
+        success: false,
+        error: {
+          issues: ["Expected DependencyEvent object."],
+        },
+      };
+    }
+
+    const issues: Array<string> = [];
+    if (!("dependencyKey" in value)) {
+      issues.push("dependencyKey is required.");
+    }
+    if (
+      !("timestampMs" in value) ||
+      typeof value.timestampMs !== "number" ||
+      !Number.isFinite(value.timestampMs)
+    ) {
+      issues.push("timestampMs must be a finite number.");
+    }
+
+    if (issues.length > 0) {
+      return {
+        success: false,
+        error: {
+          issues,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        dependencyKey: value.dependencyKey as BaseDependencyKeyUnion,
+        payload:
+          value.payload === undefined || value.payload === null
+            ? null
+            : (value.payload as BaseDependencyValueUnion),
+        timestampMs: value.timestampMs as number,
+      },
+    };
+  },
+};
+
+
+
 export type BackendInitEvent = {
   message: string;
   timestamp: string;
@@ -4721,6 +5145,170 @@ export function createBinaryDownloadRequestInput(options: Partial<BinaryDownload
 
 
 export type BinaryDownloadResponse = Uint8Array;
+
+
+export type GitRepoInfo = {
+  isGitRepo: boolean;
+  repoRoot: string | null;
+  headBranch: string | null;
+  headCommit: string | null;
+};
+export function createGitRepoInfo(options: Partial<GitRepoInfo> = {}): GitRepoInfo {
+  return options as GitRepoInfo;
+}
+
+
+export type GitStatusEntry = {
+  path: string;
+  oldPath: string | null;
+  indexStatus: string;
+  worktreeStatus: string;
+  kind: string;
+};
+export function createGitStatusEntry(options: Partial<GitStatusEntry> = {}): GitStatusEntry {
+  return options as GitStatusEntry;
+}
+
+
+export type GetGitStatusResponse = {
+  repo: GitRepoInfo;
+  entries: Array<GitStatusEntry>;
+  isTruncated: boolean;
+};
+export function createGetGitStatusResponse(options: Partial<GetGitStatusResponse> = {}): GetGitStatusResponse {
+  return options as GetGitStatusResponse;
+}
+
+
+export const GitDiffModeEnum = {
+  unstaged: "unstaged",
+  staged: "staged",
+} as const;
+export type GitDiffMode = ObjectValues<typeof GitDiffModeEnum>;
+
+
+export type GetGitDiffRequestInput = {
+  path: string;
+  oldPath: string | null;
+  mode: GitDiffMode;
+};
+export function createGetGitDiffRequestInput(options: Partial<GetGitDiffRequestInput> = {}): GetGitDiffRequestInput {
+  return options as GetGitDiffRequestInput;
+}
+
+
+export type GetGitDiffResponse = {
+  repoRoot: string;
+  path: string;
+  mode: GitDiffMode;
+  diff: string;
+  isTruncated: boolean;
+};
+export function createGetGitDiffResponse(options: Partial<GetGitDiffResponse> = {}): GetGitDiffResponse {
+  return options as GetGitDiffResponse;
+}
+
+
+export type GetGitLogRequestInput = {
+  rev: string;
+  allRefs: boolean;
+  offset: number;
+  pageSize: number;
+};
+export function createGetGitLogRequestInput(options: Partial<GetGitLogRequestInput> = {}): GetGitLogRequestInput {
+  return options as GetGitLogRequestInput;
+}
+
+
+export type GitCommit = {
+  hash: string;
+  parents: Array<string>;
+  authorName: string;
+  authorEmail: string;
+  authorTimeMs: number;
+  subject: string;
+  decorations: Array<string>;
+};
+export function createGitCommit(options: Partial<GitCommit> = {}): GitCommit {
+  return options as GitCommit;
+}
+
+
+export type GetGitLogResponse = {
+  repoRoot: string;
+  headBranch: string | null;
+  commits: Array<GitCommit>;
+  offset: number;
+  pageSize: number;
+  nextOffset: number | null;
+  hasMore: boolean;
+  isCapped: boolean;
+};
+export function createGetGitLogResponse(options: Partial<GetGitLogResponse> = {}): GetGitLogResponse {
+  return options as GetGitLogResponse;
+}
+
+
+export type GetGitCommitDetailsRequestInput = {
+  commitHash: string;
+};
+export function createGetGitCommitDetailsRequestInput(options: Partial<GetGitCommitDetailsRequestInput> = {}): GetGitCommitDetailsRequestInput {
+  return options as GetGitCommitDetailsRequestInput;
+}
+
+
+export type GitCommitChangedFile = {
+  path: string;
+  oldPath: string | null;
+  status: string;
+  additions: number | null;
+  deletions: number | null;
+};
+export function createGitCommitChangedFile(options: Partial<GitCommitChangedFile> = {}): GitCommitChangedFile {
+  return options as GitCommitChangedFile;
+}
+
+
+export type GetGitCommitDetailsResponse = {
+  repoRoot: string;
+  commitHash: string;
+  parents: Array<string>;
+  authorName: string;
+  authorEmail: string;
+  authorTimeMs: number;
+  committerName: string;
+  committerEmail: string;
+  committerTimeMs: number;
+  subject: string;
+  body: string;
+  files: Array<GitCommitChangedFile>;
+  isTruncated: boolean;
+};
+export function createGetGitCommitDetailsResponse(options: Partial<GetGitCommitDetailsResponse> = {}): GetGitCommitDetailsResponse {
+  return options as GetGitCommitDetailsResponse;
+}
+
+
+export type GetGitCommitFileDiffRequestInput = {
+  commitHash: string;
+  path: string;
+  oldPath: string | null;
+};
+export function createGetGitCommitFileDiffRequestInput(options: Partial<GetGitCommitFileDiffRequestInput> = {}): GetGitCommitFileDiffRequestInput {
+  return options as GetGitCommitFileDiffRequestInput;
+}
+
+
+export type GetGitCommitFileDiffResponse = {
+  repoRoot: string;
+  commitHash: string;
+  path: string;
+  diff: string;
+  isTruncated: boolean;
+};
+export function createGetGitCommitFileDiffResponse(options: Partial<GetGitCommitFileDiffResponse> = {}): GetGitCommitFileDiffResponse {
+  return options as GetGitCommitFileDiffResponse;
+}
 
 
 export type ImportFilesToArtifactsRequestInput = {

@@ -327,6 +327,31 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "BINARY_DOWNLOAD",
 				},
 				{
+					Name:     "getGitStatus",
+					Path:     httpapi.RouteGetGitStatus,
+					EnumName: "GET_GIT_STATUS",
+				},
+				{
+					Name:     "getGitDiff",
+					Path:     httpapi.RouteGetGitDiff,
+					EnumName: "GET_GIT_DIFF",
+				},
+				{
+					Name:     "getGitLog",
+					Path:     httpapi.RouteGetGitLog,
+					EnumName: "GET_GIT_LOG",
+				},
+				{
+					Name:     "getGitCommitDetails",
+					Path:     httpapi.RouteGetGitCommitDetails,
+					EnumName: "GET_GIT_COMMIT_DETAILS",
+				},
+				{
+					Name:     "getGitCommitFileDiff",
+					Path:     httpapi.RouteGetGitCommitFileDiff,
+					EnumName: "GET_GIT_COMMIT_FILE_DIFF",
+				},
+				{
 					Name:     "importFilesToArtifacts",
 					Path:     httpapi.RouteImportFilesToArtifacts,
 					EnumName: "IMPORT_FILES_TO_ARTIFACTS",
@@ -1139,6 +1164,45 @@ func CurrentEndpoints() []EndpointSpec {
 			BinaryResponse:  true,
 		},
 		{
+			FunctionName:    "route_get_git_status",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getGitStatus",
+			ResponseType:    reflect.TypeOf(GetGitStatusResponse{}),
+		},
+		{
+			FunctionName:    "route_get_git_diff",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getGitDiff",
+			RequestType:     reflect.TypeOf(GetGitDiffRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetGitDiffResponse{}),
+		},
+		{
+			FunctionName:    "route_get_git_log",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getGitLog",
+			RequestType:     reflect.TypeOf(GetGitLogRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetGitLogResponse{}),
+		},
+		{
+			FunctionName:    "route_get_git_commit_details",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getGitCommitDetails",
+			RequestType:     reflect.TypeOf(GetGitCommitDetailsRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetGitCommitDetailsResponse{}),
+		},
+		{
+			FunctionName:    "route_get_git_commit_file_diff",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getGitCommitFileDiff",
+			RequestType:     reflect.TypeOf(GetGitCommitFileDiffRequestInput{}),
+			ResponseType:    reflect.TypeOf(GetGitCommitFileDiffResponse{}),
+		},
+		{
 			FunctionName:    "route_import_files_to_artifacts",
 			Method:          "POST",
 			RouteCollection: "GoHTTPRoutes",
@@ -1755,5 +1819,6 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(ChartDataMapping{}),
 		reflect.TypeOf(FileMapping{}),
 		reflect.TypeOf(UpdateArtifactMsgContent{}),
+		reflect.TypeOf(WebsocketFrontendSupport{}),
 	}
 }
