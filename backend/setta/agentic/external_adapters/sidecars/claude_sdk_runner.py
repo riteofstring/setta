@@ -16,6 +16,7 @@ from claude_agent_sdk import (
     PermissionResultDeny,
     ResultMessage,
     StreamEvent,
+    SystemMessage,
     query,
 )
 
@@ -416,6 +417,18 @@ class ClaudeSidecar:
             payload = normalize_assistant_payload(payload)
             event = {"type": "assistant_message", "message": payload}
             session_id = payload.get("session_id") or payload.get("sessionId")
+            if isinstance(session_id, str) and session_id.strip():
+                event["sessionId"] = session_id.strip()
+            write_event(event)
+            return
+        if isinstance(message, SystemMessage):
+            payload = to_jsonable(message)
+            if not isinstance(payload, dict):
+                return
+            event = {"type": "system_message", "message": payload}
+            session_id = getattr(message, "session_id", None)
+            if not isinstance(session_id, str) or not session_id.strip():
+                session_id = payload.get("session_id") or payload.get("sessionId")
             if isinstance(session_id, str) and session_id.strip():
                 event["sessionId"] = session_id.strip()
             write_event(event)

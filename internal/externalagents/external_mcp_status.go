@@ -192,8 +192,55 @@ func buildCodexMCPStatuses(payload map[string]any, timeNow func() time.Time) []m
 	return buildExternalMCPStatusesFromPayload(payload, true, timeNow)
 }
 
+func buildClaudeMCPStatuses(payload any, timeNow func() time.Time) []mcpx.ServerRuntimeStatus {
+	return buildExternalMCPStatusesFromPayload(payload, false, timeNow)
+}
+
 func buildOpenCodeMCPStatuses(payload any, timeNow func() time.Time) []mcpx.ServerRuntimeStatus {
 	return buildExternalMCPStatusesFromPayload(payload, true, timeNow)
+}
+
+func buildUnknownClaudeMCPStatuses(configPath string) []mcpx.ServerRuntimeStatus {
+	trimmedPath := strings.TrimSpace(configPath)
+	if trimmedPath == "" {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	content, err := os.ReadFile(trimmedPath)
+	if err != nil || len(strings.TrimSpace(string(content))) == 0 {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	payload := map[string]any{}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	rawServers, ok := payload["mcpServers"].(map[string]any)
+	if !ok || len(rawServers) == 0 {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	serverIDs := make([]string, 0, len(rawServers))
+	for serverID := range rawServers {
+		if strings.TrimSpace(serverID) == "" {
+			continue
+		}
+		serverIDs = append(serverIDs, serverID)
+	}
+	sort.Strings(serverIDs)
+	statuses := make([]mcpx.ServerRuntimeStatus, 0, len(serverIDs))
+	for _, serverID := range serverIDs {
+		entry, _ := rawServers[serverID].(map[string]any)
+		if entry == nil {
+			entry = map[string]any{}
+		}
+		statuses = append(statuses, mcpx.ServerRuntimeStatus{
+			ServerID:  serverID,
+			Source:    externalMCPStatusSource,
+			Transport: resolveExternalTransport(entry),
+			Endpoint:  resolveExternalEndpoint(entry),
+			State:     mcpx.RuntimeStateUnknown,
+			ToolCount: resolveExternalToolCount(entry),
+		})
+	}
+	return statuses
 }
 
 func buildUnknownOpenCodeMCPStatuses(configPath string) []mcpx.ServerRuntimeStatus {

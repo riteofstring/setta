@@ -437,9 +437,9 @@ Use the docs in this order:
     completed Codex/runtime helpers: richer tool-result persistence plus
     OpenCode external MCP status ownership
 135. `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md`
-  - focused implementation-plan doc for the remaining large Phase 12 external
-    agent parity gap: Claude tool-result persistence plus Claude external MCP
-    runtime-status ownership over the completed runtime helpers
+  - focused completed-slice doc for the landed Claude follow-on over the
+    completed runtime helpers: Claude tool-result persistence plus Claude
+    external MCP runtime-status ownership
 136. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 137. `spike-pty.md`

@@ -169,6 +169,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land the bounded Claude follow-on tracked in
-  `phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md` on the same
-  runtime helpers now that both Codex and OpenCode parity slices are landed
+- after the now-landed Claude follow-on, inventory whether only residual
+  Codex non-`response_item` rich-item cleanup remains before calling Phase 12
+  effectively complete for the external-agent surface

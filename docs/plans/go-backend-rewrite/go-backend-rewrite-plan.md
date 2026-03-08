@@ -82,10 +82,19 @@ landed:
 - richer OpenCode tool-result persistence over the shared runtime helpers
 - OpenCode external MCP runtime-status seeding and persisted snapshot parity
 
-The current next step is now the remaining Claude rich item / MCP status
-follow-on tracked in
-`phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md`, plus any
-still-missing Codex non-`response_item` rich items that prove user-facing.
+The bounded Claude follow-on tracked in
+`phase-12-claude-rich-item-tool-result-and-mcp-status-parity.md` is now
+landed:
+
+- Claude streamed `tool_result` persistence plus persisted `tool_result` run
+  events
+- Claude external MCP runtime-status seeding from `mcpConfig`, runtime capture
+  from SDK `system_message`, and persisted snapshot parity
+
+The current next step is now the residual Codex non-`response_item` rich-item
+gap inventory and closeout, or a decision that Phase 12 is effectively
+complete for the external-agent surface if no concrete user-facing Codex gap
+remains.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

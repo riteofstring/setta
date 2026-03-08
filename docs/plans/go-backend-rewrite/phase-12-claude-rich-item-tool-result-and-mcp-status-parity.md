@@ -33,14 +33,30 @@ Completed before this slice:
 - OpenCode rich item/tool-result and external MCP status parity in
   `phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md`
 
-Still missing before this slice:
+Completed in this slice:
 
-- richer Claude `tool_result` handling from streamed content blocks
-- Go-owned Claude external MCP status ownership over Claude SDK
-  `system_message` payloads plus managed `mcpConfig` seeding
-- persisted Claude MCP status snapshots for completed-chat readback
+- `internal/externalagents/claude_rich_items.go` plus
+  `internal/externalagents/claude_executor.go`
+  - richer Claude streamed `tool_result` handling from `content_block_start`,
+    `content_block_delta`, `content_block_stop`, and full assistant-message
+    content
+  - persisted Claude `tool_result` run events over the existing run store path
+  - Claude external MCP status seeding from `mcpConfig`
+  - Claude runtime status capture from SDK `system_message`
+  - persisted MCP runtime-status snapshot closeout on completion/failure
+- `internal/externalagents/external_mcp_status.go`
+  - Claude-specific config-backed unknown-status seeding and raw payload
+    normalization over the existing shared runtime helpers
+- `backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
+  - narrow Claude SDK `SystemMessage` passthrough as `system_message`
+- focused tests in:
+  - `internal/externalagents/claude_executor_test.go`
+  - `tests/agentic/test_claude_sdk_adapter.py`
+
+Still missing after this slice:
+
 - any small residual Codex non-`response_item` rich items that still prove
-  user-facing after Claude lands
+  user-facing after all three richer parity slices are landed
 
 ## Scope
 
@@ -124,15 +140,15 @@ This slice should deliver:
 
 ## Landing Outcome
 
-1. Land a narrow Claude sidecar protocol extension that forwards SDK
+1. Landed a narrow Claude sidecar protocol extension that forwards SDK
    `SystemMessage` payloads.
-2. Add Go-owned Claude tool-result persistence and persisted `tool_result` run
+2. Added Go-owned Claude tool-result persistence and persisted `tool_result` run
    events.
-3. Reuse the shared runtime snapshot helpers for Claude config-backed and
+3. Reused the shared runtime snapshot helpers for Claude config-backed and
    runtime-reported external MCP statuses.
-4. Add focused Claude executor/runtime tests for tool-result persistence and
-   persisted MCP runtime-status readback.
-5. Narrow the remaining Phase 12 gap to any small residual Codex rich-item
+4. Added focused Claude executor/runtime tests plus a Python Claude adapter
+   reference check for tool-result and system-message behavior.
+5. Narrowed the remaining Phase 12 gap to any small residual Codex rich-item
    closeout instead of another executor or MCP-status architecture change.
 
 ## Verification
@@ -141,6 +157,7 @@ This slice should deliver:
 - `./scripts/go.sh test ./internal/httpapi -run 'MCPRuntimeStatus|ExternalAgent'`
 - `./scripts/go.sh test ./internal/app -run '^$'`
 - `source activate.sh && python -m py_compile backend/setta/agentic/external_adapters/sidecars/claude_sdk_runner.py`
+- `source activate.sh && python -m pytest tests/agentic/test_claude_sdk_adapter.py -k 'tool_result_emits_tool_result_event or stream_events_keeps_system_message_after_partial_stream'`
 
 ## Decisions Made
 
@@ -150,8 +167,7 @@ This slice should deliver:
   because the SDK payload is the robust status source of truth
 - reuse the landed shared runtime-status store/snapshot helpers rather than
   inventing a Claude-only status path
-- defer any residual Codex cleanup until after the remaining Claude gap is
-  closed
+- defer any residual Codex cleanup until after the Claude gap is fully closed
 
 ## Open Questions
 
@@ -162,6 +178,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land this bounded Claude parity slice, then reassess whether the only
-  remaining Phase 12 work is residual Codex cleanup or whether Phase 12 can be
-  considered effectively complete for the external-agent surface
+- inventory the remaining Codex non-`response_item` rich-item surface against
+  concrete user-visible behavior, and only open another Phase 12 slice if that
+  inventory finds a real gap

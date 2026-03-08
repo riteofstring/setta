@@ -165,6 +165,6 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- land the bounded OpenCode follow-on tracked in
-  `phase-12-opencode-rich-item-tool-result-and-mcp-status-parity.md` instead of
-  reopening transport or executor-boundary questions
+- after the now-landed OpenCode and Claude follow-ons, inventory the remaining
+  Codex non-`response_item` rich-item gap from concrete user-visible behavior
+  before broadening Phase 12 further

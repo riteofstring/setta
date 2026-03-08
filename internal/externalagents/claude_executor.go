@@ -231,6 +231,10 @@ func (e *ClaudeExecutor) runLoop(
 	if !controller.waitForRuntimeReady() {
 		return
 	}
+	if err := e.seedClaudeMCPStatuses(request.Run.ID, stringValue(request.Inputs["mcpConfig"])); err != nil && !errors.Is(err, ErrRunNotActive) {
+		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+		return
+	}
 
 	sessionID := strings.TrimSpace(stringValue(request.Inputs["sessionId"]))
 	state, err := e.loadCurrentChatState(request.Run)
@@ -325,14 +329,29 @@ func (e *ClaudeExecutor) handleEvent(
 			return false, nil, nil
 		}
 		changed, err := parser.handleStreamEvent(eventPayload, state)
-		return changed, nil, err
+		if err != nil {
+			return changed, nil, err
+		}
+		return e.persistClaudeToolResults(request.Run.ID, parser.takeToolResults(), changed)
 	case "assistant_message":
 		messagePayload, ok := mapValue(payload["message"])
 		if !ok {
 			return false, nil, nil
 		}
 		changed, err := parser.handleAssistantMessage(messagePayload, state)
-		return changed, nil, err
+		if err != nil {
+			return changed, nil, err
+		}
+		return e.persistClaudeToolResults(request.Run.ID, parser.takeToolResults(), changed)
+	case "system_message":
+		statuses := buildClaudeMCPStatuses(payload, e.timeNow)
+		if len(statuses) == 0 {
+			return false, nil, nil
+		}
+		if err := e.runtime.UpsertMCPStatuses(request.Run.ID, statuses); err != nil && !errors.Is(err, ErrRunNotActive) {
+			return false, nil, err
+		}
+		return false, nil, nil
 	case "result":
 		return false, extractClaudeResult(payload), nil
 	case "error":
@@ -390,6 +409,7 @@ func (e *ClaudeExecutor) finalizeRun(runID string, state ChatState, sessionID st
 	finishedAt := e.timeNow().UTC()
 	run.Status = agentruns.RunStatusCompleted
 	run.FinishedAt = &finishedAt
+	e.runtime.attachMCPStatusSnapshot(&run)
 	appendRunEvent(&run, "run_completed", map[string]any{}, finishedAt)
 	return e.runs.Save(run)
 }
@@ -411,6 +431,7 @@ func (e *ClaudeExecutor) markRunFailed(runID string, runErr error, stderrLines [
 	if len(stderrLines) > 0 {
 		payload["cliStderr"] = append([]string(nil), stderrLines...)
 	}
+	e.runtime.attachMCPStatusSnapshot(&run)
 	appendRunEvent(&run, "run_failed", payload, finishedAt)
 	return e.runs.Save(run)
 }
@@ -432,6 +453,36 @@ func (e *ClaudeExecutor) persistLiveState(runID string, state ChatState, session
 		run.Outputs["usage"] = deepCloneJSONValue(usage)
 	}
 	return e.runs.Save(run)
+}
+
+func (e *ClaudeExecutor) persistClaudeToolResults(
+	runID string,
+	toolResults []claudeToolResultMetadata,
+	changed bool,
+) (bool, *claudeResultPayload, error) {
+	if len(toolResults) == 0 {
+		return changed, nil, nil
+	}
+	run, err := e.runs.Load(runID)
+	if err != nil {
+		return changed, nil, err
+	}
+	for _, toolResult := range toolResults {
+		appendRunEvent(&run, "tool_result", map[string]any{
+			"toolCallId": toolResult.ToolCallID,
+			"toolName":   toolResult.ToolName,
+			"result":     deepCloneJSONValue(toolResult.Result),
+			"isError":    toolResult.IsError,
+		}, e.timeNow())
+	}
+	if err := e.runs.Save(run); err != nil {
+		return changed, nil, err
+	}
+	return changed, nil, nil
+}
+
+func (e *ClaudeExecutor) seedClaudeMCPStatuses(runID string, configPath string) error {
+	return e.runtime.UpsertMCPStatuses(runID, buildUnknownClaudeMCPStatuses(configPath))
 }
 
 func (e *ClaudeExecutor) loadCurrentChatState(run agentruns.Run) (ChatState, error) {
@@ -1086,9 +1137,12 @@ type claudeEventParser struct {
 	currentMessageID         string
 	blockTypesByIndex        map[int]string
 	toolUseIDsByIndex        map[int]string
+	toolResultIDsByIndex     map[int]string
 	toolCallArgumentsByID    map[string]string
 	toolCallSeededFromInput  map[string]bool
+	toolResultBuffersByID    map[string]*claudeToolResultBuffer
 	pendingQuestionApprovals []string
+	pendingToolResults       []claudeToolResultMetadata
 }
 
 func newClaudeEventParser(runtime *Runtime, request StartRequest) *claudeEventParser {
@@ -1097,8 +1151,10 @@ func newClaudeEventParser(runtime *Runtime, request StartRequest) *claudeEventPa
 		request:                 request,
 		blockTypesByIndex:       map[int]string{},
 		toolUseIDsByIndex:       map[int]string{},
+		toolResultIDsByIndex:    map[int]string{},
 		toolCallArgumentsByID:   map[string]string{},
 		toolCallSeededFromInput: map[string]bool{},
+		toolResultBuffersByID:   map[string]*claudeToolResultBuffer{},
 	}
 }
 
@@ -1118,6 +1174,15 @@ func (p *claudeEventParser) popQuestionApproval() *string {
 	return &approvalID
 }
 
+func (p *claudeEventParser) takeToolResults() []claudeToolResultMetadata {
+	if len(p.pendingToolResults) == 0 {
+		return []claudeToolResultMetadata{}
+	}
+	toolResults := append([]claudeToolResultMetadata(nil), p.pendingToolResults...)
+	p.pendingToolResults = nil
+	return toolResults
+}
+
 func (p *claudeEventParser) handleStreamEvent(eventPayload map[string]any, state *ChatState) (bool, error) {
 	switch strings.TrimSpace(stringValue(eventPayload["type"])) {
 	case "message_start":
@@ -1132,6 +1197,7 @@ func (p *claudeEventParser) handleStreamEvent(eventPayload map[string]any, state
 		p.currentMessageID = messageID
 		p.blockTypesByIndex = map[int]string{}
 		p.toolUseIDsByIndex = map[int]string{}
+		p.toolResultIDsByIndex = map[int]string{}
 		upsertAssistantMessage(state, messageID, "")
 		return true, nil
 	case "content_block_start":
@@ -1144,6 +1210,7 @@ func (p *claudeEventParser) handleStreamEvent(eventPayload map[string]any, state
 		p.currentMessageID = ""
 		p.blockTypesByIndex = map[int]string{}
 		p.toolUseIDsByIndex = map[int]string{}
+		p.toolResultIDsByIndex = map[int]string{}
 		return false, nil
 	default:
 		return false, nil
@@ -1187,6 +1254,12 @@ func (p *claudeEventParser) handleAssistantMessage(messagePayload map[string]any
 				if err := p.registerQuestion(toolCallID, toolName); err != nil {
 					return changed, err
 				}
+			case "tool_result":
+				metadata := buildClaudeToolResultFromContentBlock(state, entry)
+				if metadata == nil {
+					continue
+				}
+				p.pendingToolResults = append(p.pendingToolResults, *metadata)
 			}
 		}
 	}
@@ -1250,6 +1323,18 @@ func (p *claudeEventParser) handleContentBlockStart(eventPayload map[string]any,
 			return true, err
 		}
 		return true, nil
+	case "tool_result":
+		toolCallID := strings.TrimSpace(stringValue(contentBlock["tool_use_id"]))
+		if toolCallID == "" {
+			return false, nil
+		}
+		p.toolResultIDsByIndex[index] = toolCallID
+		appendClaudeToolResultChunk(
+			p.toolResultBuffersByID,
+			toolCallID,
+			contentBlock["content"],
+			boolValue(contentBlock["is_error"]),
+		)
 	}
 	return false, nil
 }
@@ -1309,6 +1394,13 @@ func (p *claudeEventParser) handleContentBlockDelta(eventPayload map[string]any,
 		setToolCallArguments(state, toolCallID, parsed)
 		upsertAssistantToolCall(state, messageID, toolCallID, "", parsed)
 		return true, nil
+	case blockType == "tool_result" && strings.TrimSpace(stringValue(delta["type"])) == "text_delta":
+		toolCallID := strings.TrimSpace(p.toolResultIDsByIndex[index])
+		if toolCallID == "" {
+			return false, nil
+		}
+		appendClaudeToolResultChunk(p.toolResultBuffersByID, toolCallID, delta["text"], false)
+		return false, nil
 	default:
 		return false, nil
 	}
@@ -1324,24 +1416,43 @@ func (p *claudeEventParser) handleContentBlockStop(eventPayload map[string]any, 
 		}
 	}
 	index := int(indexValue)
-	if p.blockTypesByIndex[index] != "tool_use" {
+	switch p.blockTypesByIndex[index] {
+	case "tool_use":
+		toolCallID := strings.TrimSpace(p.toolUseIDsByIndex[index])
+		if toolCallID == "" {
+			return false, nil
+		}
+		parsed, ok := decodeJSONObject(p.toolCallArgumentsByID[toolCallID])
+		if !ok {
+			return false, nil
+		}
+		messageID := strings.TrimSpace(p.currentMessageID)
+		if messageID == "" {
+			return false, nil
+		}
+		setToolCallArguments(state, toolCallID, parsed)
+		upsertAssistantToolCall(state, messageID, toolCallID, "", parsed)
+		return true, nil
+	case "tool_result":
+		toolCallID := strings.TrimSpace(p.toolResultIDsByIndex[index])
+		if toolCallID == "" {
+			return false, nil
+		}
+		buffer := p.toolResultBuffersByID[toolCallID]
+		delete(p.toolResultIDsByIndex, index)
+		delete(p.toolResultBuffersByID, toolCallID)
+		if buffer == nil {
+			return false, nil
+		}
+		metadata := applyClaudeToolResult(state, toolCallID, buffer.Text, buffer.IsError)
+		if metadata == nil {
+			return false, nil
+		}
+		p.pendingToolResults = append(p.pendingToolResults, *metadata)
+		return true, nil
+	default:
 		return false, nil
 	}
-	toolCallID := strings.TrimSpace(p.toolUseIDsByIndex[index])
-	if toolCallID == "" {
-		return false, nil
-	}
-	parsed, ok := decodeJSONObject(p.toolCallArgumentsByID[toolCallID])
-	if !ok {
-		return false, nil
-	}
-	messageID := strings.TrimSpace(p.currentMessageID)
-	if messageID == "" {
-		return false, nil
-	}
-	setToolCallArguments(state, toolCallID, parsed)
-	upsertAssistantToolCall(state, messageID, toolCallID, "", parsed)
-	return true, nil
 }
 
 func (p *claudeEventParser) registerQuestion(toolCallID string, toolName string) error {

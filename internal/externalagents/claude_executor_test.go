@@ -16,6 +16,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/llmconfig"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 )
 
@@ -216,9 +217,164 @@ func TestClaudeExecutorRoutesQuestionResponsesThroughRuntime(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestClaudeExecutorPersistsToolResultAndMCPStatusSnapshot(t *testing.T) {
+	t.Parallel()
+
+	// Verify Claude rich stream events now persist tool-result messages/events
+	// and keep MCP runtime status snapshots after live-run cleanup.
+	fixture := newClaudeExecutorFixture(t, "tool_result_and_mcp_status")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Run a command and report MCP status"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude rich run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	toolResultFound := false
+	assistantFound := false
+	for _, rawMessage := range messages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		role, _ := messageRole(message)
+		if role == "tool" && stringValue(message["tool_call_id"]) == "toolu-1" {
+			if got := stringValue(message["tool_name"]); got != "Bash" {
+				t.Fatalf("unexpected claude tool result name %q", got)
+			}
+			if got := stringValue(message["result"]); got != "ok" {
+				t.Fatalf("unexpected claude tool result payload %#v", message["result"])
+			}
+			toolResultFound = true
+		}
+		if role == "assistant" && extractMessageText(message) == "Tool completed." {
+			assistantFound = true
+		}
+	}
+	if !toolResultFound {
+		t.Fatalf("expected persisted claude tool result, got %#v", messages)
+	}
+	if !assistantFound {
+		t.Fatalf("expected persisted claude assistant follow-up, got %#v", messages)
+	}
+	eventFound := false
+	for _, event := range persisted.Events {
+		if event.Type == "tool_result" && stringValue(event.Payload["toolCallId"]) == "toolu-1" {
+			eventFound = true
+			break
+		}
+	}
+	if !eventFound {
+		t.Fatalf("expected persisted tool_result event, got %#v", persisted.Events)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(&result.ChatID, &fixture.engineID)
+	if err != nil {
+		t.Fatalf("read claude persisted external runtime statuses: %v", err)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("expected one claude runtime status row, got %#v", statuses)
+	}
+	if got := statuses[0].ServerID; got != "filesystem" {
+		t.Fatalf("unexpected claude status server id %q", got)
+	}
+	if statuses[0].State != mcpx.RuntimeStateError {
+		t.Fatalf("expected claude runtime error state, got %#v", statuses[0])
+	}
+	if statuses[0].LastError == nil || *statuses[0].LastError != "spawn failed" {
+		t.Fatalf("expected claude runtime last error, got %#v", statuses[0])
+	}
+}
+
+func TestClaudeExecutorSeededUnknownMCPStatusDoesNotOverridePayloadStatus(t *testing.T) {
+	t.Parallel()
+
+	// Verify config-backed unknown Claude MCP rows seed first and then yield to
+	// runtime-reported payload state for the same server.
+	fixture := newClaudeExecutorFixture(t, "complete")
+	run := agentruns.NewRun(nil, map[string]any{
+		"chatId":          "chat-mcp-status",
+		"engineConfigId":  fixture.engineID,
+		"projectConfigId": "project-alpha",
+		"runType":         RunTypeExternalAgent,
+	}, time.Date(2026, 3, 9, 13, 15, 0, 0, time.UTC))
+	if err := fixture.runs.Save(run); err != nil {
+		t.Fatalf("save claude status seed run: %v", err)
+	}
+	if err := fixture.runtime.ActivateRun(run.ID, &stubRunController{}); err != nil {
+		t.Fatalf("activate claude status seed run: %v", err)
+	}
+	defer fixture.runtime.DeactivateRun(run.ID)
+
+	configPath := filepath.Join(t.TempDir(), "claude-mcp.json")
+	if err := os.WriteFile(configPath, []byte(`{"mcpServers":{"filesystem":{"type":"stdio","command":"npx @modelcontextprotocol/server-filesystem ."}}}`), 0o644); err != nil {
+		t.Fatalf("write claude mcp config: %v", err)
+	}
+	if err := fixture.executor.seedClaudeMCPStatuses(run.ID, configPath); err != nil {
+		t.Fatalf("seed claude mcp statuses: %v", err)
+	}
+
+	statuses := fixture.runtime.MCPStatusesForRun(run.ID)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one seeded claude status row, got %#v", statuses)
+	}
+	if statuses[0].State != mcpx.RuntimeStateUnknown {
+		t.Fatalf("expected unknown seeded claude status, got %#v", statuses[0])
+	}
+
+	if err := fixture.runtime.UpsertMCPStatuses(run.ID, buildClaudeMCPStatuses(map[string]any{
+		"type": "system_message",
+		"message": map[string]any{
+			"mcp_servers": []any{
+				map[string]any{
+					"serverId":  "filesystem",
+					"connected": true,
+					"transport": "stdio",
+					"command":   "npx @modelcontextprotocol/server-filesystem .",
+					"toolCount": 4,
+				},
+			},
+		},
+	}, fixture.executor.timeNow)); err != nil {
+		t.Fatalf("upsert claude mcp payload statuses: %v", err)
+	}
+
+	statuses = fixture.runtime.MCPStatusesForRun(run.ID)
+	if len(statuses) != 1 {
+		t.Fatalf("expected one merged claude status row, got %#v", statuses)
+	}
+	if statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected payload status to override unknown seed, got %#v", statuses[0])
+	}
+	if statuses[0].ToolCount != 4 {
+		t.Fatalf("expected payload tool count to persist, got %#v", statuses[0])
+	}
+}
+
 type claudeExecutorFixture struct {
 	root     string
 	config   externalagentconfigs.Config
+	executor *ClaudeExecutor
 	send     *SendService
 	runtime  *Runtime
 	runs     *agentruns.RunStore
@@ -354,6 +510,7 @@ func newClaudeExecutorFixture(t *testing.T, scenario string) claudeExecutorFixtu
 	return claudeExecutorFixture{
 		root:     root,
 		config:   config,
+		executor: claudeExecutor,
 		send:     send,
 		runtime:  runtime,
 		runs:     runs,
@@ -585,6 +742,99 @@ func runClaudeFixtureProcess(scenario string) error {
 			"isError":   false,
 			"result":    "ok",
 			"usage":     map[string]any{"input_tokens": 7, "output_tokens": 5},
+		})
+	case "tool_result_and_mcp_status":
+		for _, payload := range []map[string]any{
+			{
+				"type":      "stream_event",
+				"sessionId": "session-tool-result",
+				"event": map[string]any{
+					"type":    "message_start",
+					"message": map[string]any{"id": "assistant-tool-1", "content": []any{}},
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-tool-result",
+				"event": map[string]any{
+					"type":  "content_block_start",
+					"index": 0,
+					"content_block": map[string]any{
+						"type": "tool_use",
+						"id":   "toolu-1",
+						"name": "Bash",
+						"input": map[string]any{
+							"command": "ls",
+						},
+					},
+				},
+			},
+			{
+				"type":      "system_message",
+				"sessionId": "session-tool-result",
+				"message": map[string]any{
+					"subtype": "mcp_status",
+					"mcp_servers": []any{
+						map[string]any{
+							"serverId":  "filesystem",
+							"status":    "failed",
+							"transport": "stdio",
+							"command":   "npx @modelcontextprotocol/server-filesystem .",
+							"error":     "spawn failed",
+						},
+					},
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-tool-result",
+				"event": map[string]any{
+					"type":  "content_block_stop",
+					"index": 0,
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-tool-result",
+				"event": map[string]any{
+					"type":  "content_block_start",
+					"index": 1,
+					"content_block": map[string]any{
+						"type":        "tool_result",
+						"tool_use_id": "toolu-1",
+						"content":     []any{map[string]any{"type": "text", "text": "ok"}},
+					},
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-tool-result",
+				"event": map[string]any{
+					"type":  "content_block_stop",
+					"index": 1,
+				},
+			},
+			{
+				"type":      "stream_event",
+				"sessionId": "session-tool-result",
+				"event": map[string]any{
+					"type": "message_stop",
+				},
+			},
+		} {
+			if err := emit(payload); err != nil {
+				return err
+			}
+		}
+		if err := emitClaudeAssistantTurn(emit, "session-tool-result", "assistant-tool-summary", "Tool completed."); err != nil {
+			return err
+		}
+		return emit(map[string]any{
+			"type":      "result",
+			"sessionId": "session-tool-result",
+			"isError":   false,
+			"result":    "ok",
+			"usage":     map[string]any{"input_tokens": 9, "output_tokens": 6},
 		})
 	default:
 		if err := emitClaudeAssistantTurn(emit, "session-complete", "assistant-1", "Hello from Claude"); err != nil {
