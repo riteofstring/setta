@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -42,6 +43,7 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     isActiveSection,
     sectionTypeName,
@@ -176,27 +178,32 @@ function _SectionContainerCore({
     ? ""
     : "agentic-handle-scope";
   const shouldRenderAgenticEdgeHandles =
-    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
+    !hideAgenticEdgeHandles &&
+    !isAttachedTerminalChild &&
+    benchmark.renderSectionHandles;
+  const zIndexClassName = isActiveSection ? "z-[150]" : "z-10";
 
   // [transition:_outline-color_200ms_ease] [transition:_box-shadow_500ms_ease]
   // {boxShadow}
   return (
     <section
-      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
+      className={`${handleScopeClassName} ${themedHandleScopeClassName} group/card-section transition-radius relative ${zIndexClassName} ${!positionAndSizeLocked ? "rounded-lg border-white dark:border-setta-700" : "rounded-sm border-setta-400/90 dark:border-setta-800"} ${joinedCornerClassName} dndline w-min border ${containerBgClass} ${containerBorderClass} outline ${outlineSizeClassName} ${aiHighlightClassName} ${scopeHighlightClassName} ${outlineClassName} ${sectionStyleChromeClassName}`}
       onClick={getOnSectionClick(sectionId)}
       ref={refForPosition}
       data-section-id={sectionId}
       data-section-type={sectionTypeName}
+      data-section-active={isActiveSection ? "true" : "false"}
       style={sectionStyleVars}
     >
       {shouldRenderAgenticEdgeHandles && (
         <AgenticEdgeHandles isUserView={isUserView} />
       )}
-      <MinimizedDataEdgeHandles sectionId={sectionId} />
+      {benchmark.renderSectionHandles && (
+        <MinimizedDataEdgeHandles sectionId={sectionId} />
+      )}
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
-        isActiveSection={isActiveSection}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
