@@ -1265,9 +1265,7 @@ export type MetaControlSizingPolicyByType = {
   DropzoneParam: MetaControlSizingPolicyTypeEntry;
   NestedParam: MetaControlSizingPolicyTypeEntry;
 };
-export function createMetaControlSizingPolicyByType(
-  options: Partial<MetaControlSizingPolicyByType> = {},
-): MetaControlSizingPolicyByType {
+export function createMetaControlSizingPolicyByType(options: Partial<MetaControlSizingPolicyByType> = {}): MetaControlSizingPolicyByType {
   return {
     ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(
       {
@@ -1550,9 +1548,7 @@ export type SectionSizingPolicyByType = {
   TaskBoard: SectionSizingPolicyTypeEntry;
   Spreadsheet: SectionSizingPolicyTypeEntry;
 };
-export function createSectionSizingPolicyByType(
-  options: Partial<SectionSizingPolicyByType> = {},
-): SectionSizingPolicyByType {
+export function createSectionSizingPolicyByType(options: Partial<SectionSizingPolicyByType> = {}): SectionSizingPolicyByType {
   return {
     ...mergeGeneratedOptions(
       {
@@ -1902,9 +1898,7 @@ export type SectionSizingPolicy = {
   metaControlByType: MetaControlSizingPolicyByType;
   globals: SectionSizingPolicyGlobals;
 };
-export function createSectionSizingPolicy(
-  options: Partial<SectionSizingPolicy> = {},
-): SectionSizingPolicy {
+export function createSectionSizingPolicy(options: Partial<SectionSizingPolicy> = {}): SectionSizingPolicy {
   const byType = createSectionSizingPolicyByType(options.byType ?? {});
   const metaControlByType = createMetaControlSizingPolicyByType(
     options.metaControlByType ?? {},

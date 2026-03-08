@@ -1521,6 +1521,7 @@ func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -1786,6 +1787,7 @@ func TestBrowserSupportContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -2207,6 +2209,7 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 		alias         string
 		properties    []TypeProperty
 		hasCreateExpr bool
+		hasCreateBody bool
 		hasFactoryTS  bool
 	}{
 		{
@@ -2274,7 +2277,7 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "DropzoneParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
 				{Name: "NestedParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 		{
 			name: "SectionSizingPolicyGlobals",
@@ -2318,7 +2321,7 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "TaskBoard", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
 				{Name: "Spreadsheet", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 		{
 			name: "SectionSizingPolicy",
@@ -2329,7 +2332,7 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "metaControlByType", TypeExpr: "MetaControlSizingPolicyByType", Optional: false},
 				{Name: "globals", TypeExpr: "SectionSizingPolicyGlobals", Optional: false},
 			},
-			hasFactoryTS: true,
+			hasCreateBody: true,
 		},
 	}
 
@@ -2352,6 +2355,9 @@ func TestSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 			}
 			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if (declaration.CreateBody != "") != tt.hasCreateBody {
+				t.Fatalf("%s CreateBody presence = %t, want %t", tt.name, declaration.CreateBody != "", tt.hasCreateBody)
 			}
 			if (declaration.FactoryTS != "") != tt.hasFactoryTS {
 				t.Fatalf("%s FactoryTS presence = %t, want %t", tt.name, declaration.FactoryTS != "", tt.hasFactoryTS)
