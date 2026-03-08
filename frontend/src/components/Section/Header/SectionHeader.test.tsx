@@ -154,6 +154,7 @@ describe("SectionHeader diagnostics badges", () => {
     return renderToStaticMarkup(
       <SectionHeader
         sectionId={sectionId}
+        isActiveSection={false}
         sectionTypeName={SectionTypeEnum.Code}
         isInOtherProjectConfigs={false}
         isUserView={true}
@@ -280,6 +281,7 @@ describe("SectionHeader follow button", () => {
     const markup = renderToStaticMarkup(
       <SectionHeader
         sectionId={sectionId}
+        isActiveSection={false}
         sectionTypeName={SectionTypeEnum.Chat}
         isInOtherProjectConfigs={false}
         isUserView={true}

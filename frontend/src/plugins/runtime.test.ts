@@ -22,7 +22,6 @@ import {
 import React from "react";
 import { renderToString } from "react-dom/server";
 import * as websocketReceive from "state/actions/websocketReceive";
-import { useActiveSectionUI } from "state/activeSectionUI";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import * as generatedEndpoints from "utils/generatedEndpoints";
@@ -351,10 +350,6 @@ describe("plugin runtime helpers", () => {
       state.sectionVariants = {};
       state.previewSectionVariantMap = {};
     });
-    useActiveSectionUI.setState({
-      activeIds: [],
-      pendingBackendSyncOpIds: [],
-    });
     useShareSession.setState({
       isDeploymentMode: false,
       shareSessionId: null,
@@ -381,10 +376,6 @@ describe("plugin runtime helpers", () => {
       state.sectionImpls = {};
       state.sectionVariants = {};
       state.previewSectionVariantMap = {};
-    });
-    useActiveSectionUI.setState({
-      activeIds: [],
-      pendingBackendSyncOpIds: [],
     });
     useShareSession.setState({
       isDeploymentMode: false,
@@ -1795,7 +1786,9 @@ describe("plugin runtime helpers", () => {
   it("supports readProjectState selectors and returns cloned snapshots", async () => {
     const sectionId = "section-runtime-plugin-read";
     seedRuntimePluginSectionState(sectionId);
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId];
+    });
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -1871,7 +1864,9 @@ describe("plugin runtime helpers", () => {
   it("supports subscribeProjectState updates and unsubscribes cleanly", async () => {
     const sectionId = "section-runtime-plugin-subscribe";
     seedRuntimePluginSectionState(sectionId);
-    useActiveSectionUI.setState({ activeIds: [] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [];
+    });
     const moduleUrl =
       "data:text/javascript," +
       encodeURIComponent(
@@ -1912,10 +1907,16 @@ describe("plugin runtime helpers", () => {
       },
     );
 
-    useActiveSectionUI.setState({ activeIds: [sectionId] });
-    useActiveSectionUI.setState({ activeIds: [sectionId, "section-next"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId];
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId, "section-next"];
+    });
     unsubscribe();
-    useActiveSectionUI.setState({ activeIds: ["section-after-unsubscribe"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-unsubscribe"];
+    });
 
     expect(updates).toHaveLength(2);
     expect(updates[0]).toEqual({
@@ -2289,13 +2290,17 @@ describe("plugin runtime helpers", () => {
     );
 
     await refreshPluginRuntime();
-    useActiveSectionUI.setState({ activeIds: ["section-after-first-load"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-first-load"];
+    });
     expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
 
     listPayload = buildPluginListResponse([]);
     statusPayload = buildPluginStatusResponse([]);
     await refreshPluginRuntime();
-    useActiveSectionUI.setState({ activeIds: ["section-after-cleanup"] });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-cleanup"];
+    });
     expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
   });
 

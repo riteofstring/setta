@@ -1,41 +1,30 @@
 import _ from "lodash";
 import {
-  clearPendingActiveSectionBackendSyncOp,
-  getActiveSectionUIIds,
-  markPendingActiveSectionBackendSyncOp,
-  setActiveSectionUIIds,
-} from "state/activeSectionUI";
-import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
   useServerMode,
+  ZustandProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
 import { route_set_active_ids } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { createNewId } from "utils/idNameCreation";
 import {
+  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   getTopLevelSectionIdsForDisplay,
 } from "./sectionInfos";
 import { getAllVisibleParamsInSection } from "./sections/sectionContents";
 
-let pendingProjectActiveIdsAnimationFrame: number | null = null;
-let pendingProjectActiveIds: Array<string> | null = null;
-
-type SetActiveSectionIdsSyncMode = "auto" | "ui-only" | "immediate";
-
-export type SetActiveSectionIdsOptions = {
-  syncMode?: SetActiveSectionIdsSyncMode;
-  forceDurableSync?: boolean;
-};
-
-function sendProjectActiveSectionIdsToBackend(ids: Array<string>) {
+function optimisticActiveIdsUpdate(
+  apply: (state: ZustandProjectState) => void,
+) {
   const projectConfigId = getCurrProjectConfigId();
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     const serverMode = useServerMode.getState();
     if (serverMode.modeResolved && serverMode.mode === "app") {
+      // App mode can render before the IDE project config is hydrated; active ids are
+      // irrelevant there, so keep this as a local-only update.
+      useProjectState.setState(apply);
       return;
     }
     console.warn(
@@ -43,107 +32,29 @@ function sendProjectActiveSectionIdsToBackend(ids: Array<string>) {
         projectConfigId,
       )}.`,
     );
+    useProjectState.setState(apply);
     return;
   }
-  const frontendOpId = createNewId();
-  markPendingActiveSectionBackendSyncOp(frontendOpId);
-  void route_set_active_ids({
-    projectConfigId,
-    activeIds: ids,
-    frontendOpId,
-  })
-    .then((res) => {
-      if (res200(res)) {
-        return;
-      }
-      clearPendingActiveSectionBackendSyncOp(frontendOpId);
-    })
-    .catch(() => {
-      clearPendingActiveSectionBackendSyncOp(frontendOpId);
-    });
-}
-
-function shouldDeferProjectActiveSectionIdsSync() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  const projectConfigId = getCurrProjectConfigId();
-  return (
-    projectConfigId !== null &&
-    projectConfigId !== undefined &&
-    projectConfigId !== NULL_PROJECT_CONFIG_ID
-  );
-}
-
-function cancelPendingProjectActiveIdsSync() {
-  if (
-    pendingProjectActiveIdsAnimationFrame !== null &&
-    typeof window !== "undefined"
-  ) {
-    window.cancelAnimationFrame(pendingProjectActiveIdsAnimationFrame);
-  }
-  pendingProjectActiveIdsAnimationFrame = null;
-  pendingProjectActiveIds = null;
-}
-
-function flushPendingProjectActiveIdsSync() {
-  if (pendingProjectActiveIds === null) {
-    return;
-  }
-  const nextActiveIds = pendingProjectActiveIds;
-  pendingProjectActiveIds = null;
-  pendingProjectActiveIdsAnimationFrame = null;
-  sendProjectActiveSectionIdsToBackend(nextActiveIds);
-}
-
-function scheduleProjectActiveSectionIdsSync(ids: Array<string>) {
-  pendingProjectActiveIds = [...ids];
-  if (typeof window === "undefined") {
-    flushPendingProjectActiveIdsSync();
-    return;
-  }
-  if (pendingProjectActiveIdsAnimationFrame !== null) {
-    window.cancelAnimationFrame(pendingProjectActiveIdsAnimationFrame);
-  }
-  pendingProjectActiveIdsAnimationFrame = window.requestAnimationFrame(() => {
-    flushPendingProjectActiveIdsSync();
+  return dispatchOptimisticProjectStateUpdate({
+    apply,
+    send: (frontendOpId) => {
+      return route_set_active_ids({
+        projectConfigId,
+        activeIds: useProjectState.getState().projectConfig.activeIds,
+        frontendOpId,
+      });
+    },
   });
 }
 
-export function setActiveSectionIds(
-  ids: Array<string>,
-  options: SetActiveSectionIdsOptions = {},
-) {
-  const { syncMode = "auto", forceDurableSync = false } = options;
-  const currentUIActiveIds = getActiveSectionUIIds();
-  const uiChanged = !_.isEqual(currentUIActiveIds, ids);
-
-  if (!uiChanged && !forceDurableSync) {
+export function setActiveSectionIds(ids: Array<string>) {
+  const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
+  if (_.isEqual(currentActiveIds, ids)) {
     return;
   }
-
-  if (uiChanged) {
-    setActiveSectionUIIds(ids);
-  }
-
-  if (syncMode === "ui-only") {
-    cancelPendingProjectActiveIdsSync();
-    return;
-  }
-
-  const resolvedSyncMode =
-    syncMode === "immediate"
-      ? "immediate"
-      : shouldDeferProjectActiveSectionIdsSync()
-        ? "deferred"
-        : "immediate";
-
-  if (resolvedSyncMode === "immediate") {
-    cancelPendingProjectActiveIdsSync();
-    sendProjectActiveSectionIdsToBackend(ids);
-    return;
-  }
-  scheduleProjectActiveSectionIdsSync(ids);
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = ids;
+  });
 }
 
 export function pruneActiveSectionIdsForViewMode(
@@ -162,7 +73,7 @@ export function pruneActiveSectionIdsForViewMode(
   if (!viewMode) {
     throw new Error(`Active view mode ${resolvedViewModeId} not found`);
   }
-  const nextIds = getActiveSectionUIIds().filter((sectionId) => {
+  const nextIds = state.projectConfig.activeIds.filter((sectionId) => {
     const visibility = viewMode.visibilityBySectionId[sectionId];
     if (visibility === undefined) {
       throw new Error(
@@ -175,14 +86,16 @@ export function pruneActiveSectionIdsForViewMode(
 }
 
 export function clearActiveSectionIds() {
-  if (getActiveSectionUIIds().length === 0) {
+  if (useProjectState.getState().projectConfig.activeIds.length === 0) {
     return;
   }
-  setActiveSectionIds([]);
+  optimisticActiveIdsUpdate((state) => {
+    state.projectConfig.activeIds = [];
+  });
 }
 
 export function selectAll() {
-  const currActiveSections = getActiveSectionUIIds();
+  const currActiveSections = useProjectState.getState().projectConfig.activeIds;
 
   // select all params within single active section
   if (currActiveSections.length === 1) {
