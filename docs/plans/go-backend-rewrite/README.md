@@ -546,12 +546,15 @@ Use the docs in this order:
   - focused closeout inventory doc confirming the landed Phase 14 runtime
     surface has no remaining caller-backed or realtime-parity gap under the
     current clean-break scope
-161. `spike-mcp.md`
+161. `phase-14-executor-fixture-stability-and-regression-hardening.md`
+  - focused stabilization doc for the real subprocess-backed external-agent
+    executor regression suite after the landed Phase 14 runtime closeout
+162. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-162. `spike-pty.md`
+163. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-163. `spike-lsp.md`
+164. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:
