@@ -99,9 +99,13 @@ Current repo status as of 2026-03-09:
     `phase-12-external-agent-ai-follow-snapshot-and-realtime-parity.md`:
     Go now owns external-agent AI-follow snapshot state plus
     `AIFollowToolArgumentsUpdate` websocket behavior
-  - the follow-up closeout inventory then found one more concrete dependency:
-    frontend external stop/history surfaces still load `GET /getAgentRuns`,
-    now scoped in `phase-12-agent-run-list-read-transport-closeout.md`
+  - the follow-up closeout slice in
+    `phase-12-agent-run-list-read-transport-closeout.md` is now complete:
+    frontend external stop/history surfaces now load `GET /getAgentRuns` from
+    Go over the canonical run store
+  - the closeout rerun after that landing did not find another concrete
+    external-agent dependency; remaining Python-owned `agentic.py` reads are
+    outside this phase's tracked boundary
 
 ## Scope
 
@@ -409,11 +413,10 @@ Missing Go owners:
   to a pure Go edge if a stable official interface exists
   - current recommendation: use the most stable official interface available at
     the adapter edge and avoid inventing a generic polyglot orchestration layer
-- whether the remaining Python-owned agent-run read transport should stay a
-  separate closeout dependency slice or be folded into a broader agentic route
-  migration
-  - current recommendation: keep it as the bounded read-only dependency slice
-    in `phase-12-agent-run-list-read-transport-closeout.md`
+- whether the remaining non-external-agent Python reads should become a new
+  bounded follow-up after Phase 12
+  - current recommendation: only if product work explicitly prioritizes agent
+    profiles, prompt-template transport, or summary-cache-status ownership
 
 ## Progress Notes
 
@@ -437,9 +440,9 @@ Missing Go owners:
 - 2026-03-09: landed the bounded external-agent AI-follow slice:
   `/getAIFollowSnapshot`, live `AIFollowToolArgumentsUpdate` broadcast, and
   runtime-owned follow-state clear behavior now live in Go.
-- 2026-03-09: final closeout inventory found one remaining dependency gap:
-  the frontend still requires Python-owned `GET /getAgentRuns` for external
-  stop/history/overview flows, so one more thin read-transport slice remains.
+- 2026-03-09: final closeout inventory found and closed one last concrete
+  external-agent dependency gap: Go now owns `GET /getAgentRuns` for external
+  stop/history/overview flows through the canonical run store.
 
 ## Verification
 
@@ -448,10 +451,8 @@ Missing Go owners:
 
 ## Recommended Next Step
 
-Implement the bounded dependency slice from
-`phase-12-agent-run-list-read-transport-closeout.md`.
+Treat the tracked Phase 12 external-agent scope as complete.
 
-- land thin Go `GET /getAgentRuns` transport over the existing run store
-- keep the slice read-only
-- rerun closeout inventory after that landing instead of broadening into
-  managed `setta_llm` or unrelated agentic routes
+- if more AI-route migration is needed, open a new bounded doc for the
+  remaining non-external-agent reads
+- do not reopen managed `setta_llm` or broaden this phase retroactively

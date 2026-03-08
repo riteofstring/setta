@@ -131,6 +131,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		localLaunchService    *workspacelaunch.LocalLaunchService
 		localSessionLauncher  *launcher.LocalIDESessionLauncher
 		sshRuntime            *sshx.Service
+		agentRunStore         *agentruns.RunStore
 	)
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
@@ -482,7 +483,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		runStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+		agentRunStore, err = agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
@@ -532,7 +533,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		agentRunService, err = agentruns.NewService(agentruns.ServiceOptions{
 			ProjectState:           projectRuntime,
 			Engines:                engineStore,
-			Runs:                   runStore,
+			Runs:                   agentRunStore,
 			LLM:                    llmRuntime,
 			TemporaryIDs:           temporaryIDs,
 			CompletionGuardEnabled: true,
@@ -551,7 +552,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
-			Runs:   runStore,
+			Runs:   agentRunStore,
 			Follow: externalAgentFollow,
 		})
 		if err != nil {
@@ -559,7 +560,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalAgentChats, err = externalagents.NewService(externalagents.ServiceOptions{
-			Runs: runStore,
+			Runs: agentRunStore,
 			Live: externalAgentRuntime,
 		})
 		if err != nil {
@@ -567,7 +568,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		codexExecutor, err := externalagents.NewCodexExecutor(externalagents.CodexExecutorOptions{
-			Runs:           runStore,
+			Runs:           agentRunStore,
 			Runtime:        externalAgentRuntime,
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
@@ -578,7 +579,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		claudeExecutor, err := externalagents.NewClaudeExecutor(externalagents.ClaudeExecutorOptions{
-			Runs:          runStore,
+			Runs:          agentRunStore,
 			Runtime:       externalAgentRuntime,
 			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 			ProcessEnv:    llmconfig.CurrentProcessEnv(),
@@ -588,7 +589,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		openCodeExecutor, err := externalagents.NewOpenCodeExecutor(externalagents.OpenCodeExecutorOptions{
-			Runs:           runStore,
+			Runs:           agentRunStore,
 			Runtime:        externalAgentRuntime,
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
@@ -617,7 +618,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState: projectRuntime,
 			Engines:      engineStore,
-			Runs:         runStore,
+			Runs:         agentRunStore,
 			Profiles:     agentProfileStore,
 			Configs:      externalConfigStore,
 			Runtime:      externalAgentRuntime,
@@ -883,6 +884,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ExternalAgentChats:  externalAgentChats,
 				ExternalAgentFollow: externalAgentFollow,
 				ExternalAgentRuns:   externalAgentRuntime,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterAgentRunRoutes(r, httpapi.AgentRunRouteDependencies{
+				ModePolicy: modePolicy,
+				Runs:       agentRunStore,
 			}); err != nil {
 				panic(err)
 			}

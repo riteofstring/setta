@@ -457,9 +457,9 @@ Use the docs in this order:
     Go-owned `/getAIFollowSnapshot` external-agent snapshot transport plus
     live `AIFollowToolArgumentsUpdate` ownership
 140. `phase-12-agent-run-list-read-transport-closeout.md`
-  - focused current-work doc for the remaining Phase 12 dependency gap:
-    Go-owned `GET /getAgentRuns` read transport required by external stop,
-    history, and agent-run-backed overview state
+  - focused completed-slice doc for the last concrete external-agent
+    closeout dependency: Go-owned `GET /getAgentRuns` read transport required
+    by external stop, history, and agent-run-backed overview state
 141. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
 142. `spike-pty.md`

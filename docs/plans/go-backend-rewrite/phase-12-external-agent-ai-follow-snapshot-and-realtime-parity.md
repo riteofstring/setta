@@ -192,6 +192,9 @@ This slice should deliver:
 
 ## Next Recommended Step
 
-- the follow-up closeout inventory found one more concrete dependency:
-  `GET /getAgentRuns`, now tracked in
-  `phase-12-agent-run-list-read-transport-closeout.md`
+- the follow-up closeout slice in
+  `phase-12-agent-run-list-read-transport-closeout.md` is now also landed:
+  Go owns `GET /getAgentRuns` over the canonical run store
+- no additional concrete external-agent dependency was identified after that
+  landing; any remaining Python-owned `agentic.py` reads are now a separate
+  scoping decision rather than a hidden Phase 12 blocker

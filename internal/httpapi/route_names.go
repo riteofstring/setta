@@ -72,6 +72,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteSetWatchCodeEnabled):                     {},
 	bareRouteName(RouteSetWatchCodeInputs):                      {},
 	bareRouteName(RouteGetLLMResponse):                          {},
+	bareRouteName(RouteGetAgentRuns):                            {},
 	bareRouteName(RouteGetExternalAgentChat):                    {},
 	bareRouteName(RouteGetAIFollowSnapshot):                     {},
 	bareRouteName(RouteStopExternalAgentRun):                    {},

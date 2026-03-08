@@ -132,25 +132,32 @@ also landed:
 - approval/question responses plus run stop/teardown now clear follow state
   through the same argument-update channel the frontend already consumes
 
-The subsequent closeout inventory then found one more concrete dependency,
-now tracked in `phase-12-agent-run-list-read-transport-closeout.md`:
+The subsequent closeout inventory then found and closed one last concrete
+external-agent dependency in
+`phase-12-agent-run-list-read-transport-closeout.md`:
 
-- the frontend still loads `GET /getAgentRuns` before external stop and for
-  agent-run-backed history/overview surfaces
-- that route is still Python-owned in `backend/setta/routers/agentic.py`
+- the frontend now reads `GET /getAgentRuns` from Go before external stop and
+  for agent-run-backed history/overview surfaces
+- that transport is thin and store-backed over `internal/agentruns.RunStore`
 
-Phase 12 is therefore not fully closed yet. The remaining bounded work is now
-that read-only agent-run list transport slice, after which the phase can
-return to a real closeout decision.
+Phase 12's tracked external-agent scope is therefore complete for the current
+rewrite boundary. A short rerun after the landing confirmed that the remaining
+frontend Python-owned agentic reads are now outside that boundary:
+
+- `GET /getAgentProfiles`
+- `GET /getPromptTemplates`
+- `GET /getAgenticSummaryCacheStatus`
+
+Those routes should only move under a separate bounded doc if product work
+prioritizes them. They are no longer a hidden external-agent blocker.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
 already locked in practice by the current Go implementation. The PTY runtime
 shape is also proven, but the PTY library choice still has a bounded Unix-path
-follow-up tracked in `spike-pty.md`. New work should start from the bounded
-agent-run list read-transport dependency slice above the completed hydration,
-runtime, executor, parity, prompt-composition, attachment, and AI-follow
-foundations, not by reopening completed foundation choices.
+follow-up tracked in `spike-pty.md`. New work should start from a newly scoped
+post-Phase-12 priority, not by reopening the completed external-agent runtime
+choices.
 
 ## Current Reality
 
