@@ -21,9 +21,6 @@ const { routeCreateWorkspaceLaunchIntentMock, routeGetSettaHomeInfoMock } =
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_create_workspace_launch_intent: routeCreateWorkspaceLaunchIntentMock,
-}));
-
-vi.mock("utils/generatedGoEndpoints", () => ({
   route_get_setta_home_info: routeGetSettaHomeInfoMock,
 }));
 
