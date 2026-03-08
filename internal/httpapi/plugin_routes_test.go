@@ -588,6 +588,65 @@ func TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback(t *testing.T) 
 	}
 }
 
+func TestRegisterPluginRoutesWritesAndAppliesLockfile(t *testing.T) {
+	t.Parallel()
+
+	_, service := newRoutePluginMutationService(t, map[string]routePluginFixtureSpec{
+		"pypi:setta-fixture-frontend==0.1.0": {
+			FixtureName: "frontend",
+			Version:     "0.1.0",
+		},
+	})
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	installResponse := httptest.NewRecorder()
+	installRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsInstall, strings.NewReader(`{"sourceSpec":"pypi:setta-fixture-frontend==0.1.0","scope":"workspace","installer":"pip","enable":true,"force":false}`))
+	handler.ServeHTTP(installResponse, installRequest)
+	if installResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.Code, installResponse.Body.String())
+	}
+
+	writeResponse := httptest.NewRecorder()
+	writeRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLockWrite, nil)
+	handler.ServeHTTP(writeResponse, writeRequest)
+	if writeResponse.Code != http.StatusOK {
+		t.Fatalf("expected lock write 200, got %d with body %q", writeResponse.Code, writeResponse.Body.String())
+	}
+
+	var writePayload plugins.PluginLockWriteResult
+	if err := json.Unmarshal(writeResponse.Body.Bytes(), &writePayload); err != nil {
+		t.Fatalf("decode lock write response: %v", err)
+	}
+	if writePayload.PluginCount != 1 || writePayload.LockfilePath == "" {
+		t.Fatalf("unexpected lock write payload %#v", writePayload)
+	}
+
+	uninstallResponse := httptest.NewRecorder()
+	uninstallRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsUninstall, strings.NewReader(`{"pluginId":"setta-fixture-frontend","scope":"workspace"}`))
+	handler.ServeHTTP(uninstallResponse, uninstallRequest)
+	if uninstallResponse.Code != http.StatusOK {
+		t.Fatalf("expected plugin uninstall 200, got %d with body %q", uninstallResponse.Code, uninstallResponse.Body.String())
+	}
+
+	applyResponse := httptest.NewRecorder()
+	applyRequest := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLockApply, strings.NewReader(`{"check":true}`))
+	handler.ServeHTTP(applyResponse, applyRequest)
+	if applyResponse.Code != http.StatusOK {
+		t.Fatalf("expected lock apply 200, got %d with body %q", applyResponse.Code, applyResponse.Body.String())
+	}
+
+	var applyPayload plugins.PluginLockApplyResult
+	if err := json.Unmarshal(applyResponse.Body.Bytes(), &applyPayload); err != nil {
+		t.Fatalf("decode lock apply response: %v", err)
+	}
+	if applyPayload.Applied {
+		t.Fatalf("expected check-only lock apply payload, got %#v", applyPayload)
+	}
+	if len(applyPayload.PlannedChanges) != 1 || !strings.Contains(applyPayload.PlannedChanges[0], "install setta-fixture-frontend in workspace") {
+		t.Fatalf("unexpected lock apply payload %#v", applyPayload)
+	}
+}
+
 func TestRegisterPluginRoutesRejectsInvalidPluginConfig(t *testing.T) {
 	t.Parallel()
 
@@ -619,6 +678,28 @@ func TestRegisterPluginRoutesRejectsInvalidJSONForConfigWrite(t *testing.T) {
 
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsConfig, strings.NewReader("{"))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid json 400, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode invalid json response: %v", err)
+	}
+	if payload.Error.Code != "invalid_json" {
+		t.Fatalf("expected invalid_json error code, got %q", payload.Error.Code)
+	}
+}
+
+func TestRegisterPluginRoutesRejectsInvalidJSONForLockApply(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLockApply, strings.NewReader("{"))
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected invalid json 400, got %d with body %q", response.Code, response.Body.String())
@@ -909,6 +990,28 @@ func TestRegisterPluginRoutesMapsProgrammaticRestartFailureTo503(t *testing.T) {
 	}
 }
 
+func TestRegisterPluginRoutesMapsMissingLockfileTo404(t *testing.T) {
+	t.Parallel()
+
+	service, _ := newPluginRouteTestService(t, config.ModeIDE)
+	handler := newPluginRouteTestHandler(t, config.ModeIDE, service)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api"+RoutePluginsLockApply, strings.NewReader(`{"check":false}`))
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("expected missing lockfile 404, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode missing lockfile response: %v", err)
+	}
+	if payload.Error.Code != string(plugins.ServiceErrorCodeLockfileNotFound) {
+		t.Fatalf("expected lockfile not found code, got %q", payload.Error.Code)
+	}
+}
+
 func TestRegisterPluginRoutesBlocksConfigWriteOutsideIDE(t *testing.T) {
 	t.Parallel()
 
@@ -947,6 +1050,8 @@ func TestRegisterPluginRoutesBlocksLifecycleSlicesOutsideIDE(t *testing.T) {
 		{name: "rollback", path: RoutePluginsRollback, body: `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`},
 		{name: "enable", path: RoutePluginsEnable, body: `{"pluginId":"setta-fixture-frontend"}`},
 		{name: "disable", path: RoutePluginsDisable, body: `{"pluginId":"setta-fixture-frontend"}`},
+		{name: "lock write", path: RoutePluginsLockWrite},
+		{name: "lock apply", path: RoutePluginsLockApply, body: `{"check":true}`},
 	}
 	for _, testCase := range testCases {
 		testCase := testCase

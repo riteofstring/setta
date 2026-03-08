@@ -23,6 +23,8 @@ const RoutePluginsRollback = "/plugins/rollback"
 const RoutePluginsEnable = "/plugins/enable"
 const RoutePluginsDisable = "/plugins/disable"
 const RoutePluginsConfig = "/plugins/config"
+const RoutePluginsLockWrite = "/plugins/lock/write"
+const RoutePluginsLockApply = "/plugins/lock/apply"
 const RoutePluginsRestart = "/plugins/restart"
 
 type PluginRouteDependencies struct {
@@ -52,6 +54,8 @@ func RegisterPluginRoutes(router chi.Router, deps PluginRouteDependencies) error
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsEnable, pluginEnableDisableHandler(deps.Service.Enable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsDisable, pluginEnableDisableHandler(deps.Service.Disable))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsConfig, pluginConfigHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsLockWrite, pluginLockWriteHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsLockApply, pluginLockApplyHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RoutePluginsRestart, pluginRestartHandler(deps))
 	return nil
 }
@@ -312,6 +316,38 @@ func pluginConfigHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	}
 }
 
+func pluginLockWriteHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response, err := deps.Service.WriteLockfile()
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
+func pluginLockApplyHandler(deps PluginRouteDependencies) http.HandlerFunc {
+	type pluginLockApplyRequest struct {
+		Check bool `json:"check"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[pluginLockApplyRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		response, err := deps.Service.ApplyLockfile(r.Context(), payload.Check)
+		if err != nil {
+			writePluginRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
+	}
+}
+
 func pluginRestartHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		response, err := deps.Service.Restart(r.Context())
@@ -387,7 +423,7 @@ func writePluginRouteError(w http.ResponseWriter, r *http.Request, err error) {
 	var serviceErr *plugins.ServiceError
 	if errors.As(err, &serviceErr) {
 		switch serviceErr.Code {
-		case plugins.ServiceErrorCodeNotFound, plugins.ServiceErrorCodeAssetNotFound:
+		case plugins.ServiceErrorCodeNotFound, plugins.ServiceErrorCodeAssetNotFound, plugins.ServiceErrorCodeLockfileNotFound:
 			writeError(w, r, http.StatusNotFound, string(serviceErr.Code), serviceErr.Message)
 			return
 		case plugins.ServiceErrorCodeRestartFailed:

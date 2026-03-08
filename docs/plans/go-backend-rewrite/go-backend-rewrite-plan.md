@@ -522,11 +522,14 @@ The caller-backed plugin lifecycle mutation cluster tracked in
   - `POST /plugins/rollback`
 - the current caller-backed direct frontend plugin lifecycle transport is now
   complete for the bounded Phase 15 scope
-- `POST /plugins/link` and `POST /plugins/lock/*` are not current direct
-  frontend callers and stay explicitly deferred
+- `POST /plugins/link` was not a current direct frontend caller, but it became
+  a concrete plugin E2E/manual-flow dependency and landed as a bounded
+  follow-on
+- `POST /plugins/lock/*` remained the only deferred thin plugin transport after
+  that closeout
 - the next plugin follow-on, if and when a caller or later phase requires it,
   should target either:
-  - the deferred non-caller `link` / `lock*` routes
+  - the deferred non-caller `lock*` routes
   - the higher-level backend plugin runtime registration boundary
 
 The first higher-level backend plugin runtime follow-on tracked in
@@ -552,7 +555,20 @@ The bounded plugin local-link transport follow-on tracked in
 - shared local-link results now include the install-style
   `sourceScopeLabel`, `trustStatus`, and `trustWarning` fields
 - the route is now available for the existing plugin E2E/manual flows that use
-  linked local fixtures, while `POST /plugins/lock/*` remains deferred
+  linked local fixtures
+
+The bounded plugin lockfile transport follow-on tracked in
+`phase-15-plugin-lock-transport.md` is now landed:
+
+- Go now owns:
+  - `POST /plugins/lock/write`
+  - `POST /plugins/lock/apply`
+- `internal/httpapi` now exposes thin IDE-only transport over the existing
+  shared `internal/plugins` lockfile service
+- missing-lockfile behavior now preserves the existing route contract by
+  mapping `PLUGIN_LOCKFILE_NOT_FOUND` to HTTP 404 in Go
+- the plugin HTTP transport surface tracked in Phase 15 is now complete for the
+  current clean-break rewrite scope
 
 The next higher-level backend plugin runtime follow-on tracked in
 `phase-15-plugin-backend-language-server-and-external-agent-registration-runtime.md`

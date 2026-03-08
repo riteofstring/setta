@@ -1281,6 +1281,152 @@ func TestAppUpdatesAndRollsBackPluginRoutes(t *testing.T) {
 	}
 }
 
+func TestAppWritesAndAppliesPluginLockRoutes(t *testing.T) {
+	// The real app should expose plugin lockfile write/apply routes over the shared Go plugin service.
+	sourceSpec := configureAppLocalPyPIFixture(t, "frontend", "setta-fixture-frontend", "0.1.0")
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	postPluginMutation := func(path string, body string) *http.Response {
+		t.Helper()
+
+		request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+path, strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("new %s request: %v", path, err)
+		}
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		request.AddCookie(authCookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post %s: %v", path, err)
+		}
+		return response
+	}
+
+	installResponse := postPluginMutation(httpapi.RoutePluginsInstall, `{"sourceSpec":"`+sourceSpec+`","scope":"workspace","installer":"pip","enable":true,"force":false}`)
+	defer installResponse.Body.Close()
+	if installResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(installResponse.Body)
+		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.StatusCode, string(body))
+	}
+
+	lockWriteResponse := postPluginMutation(httpapi.RoutePluginsLockWrite, "")
+	defer lockWriteResponse.Body.Close()
+	if lockWriteResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(lockWriteResponse.Body)
+		t.Fatalf("expected lock write 200, got %d with body %q", lockWriteResponse.StatusCode, string(body))
+	}
+
+	var lockWritePayload struct {
+		LockfilePath string `json:"lockfilePath"`
+		PluginCount  int    `json:"pluginCount"`
+	}
+	if err := json.NewDecoder(lockWriteResponse.Body).Decode(&lockWritePayload); err != nil {
+		t.Fatalf("decode lock write payload: %v", err)
+	}
+	if lockWritePayload.PluginCount != 1 || lockWritePayload.LockfilePath == "" {
+		t.Fatalf("unexpected lock write payload %#v", lockWritePayload)
+	}
+
+	uninstallResponse := postPluginMutation(httpapi.RoutePluginsUninstall, `{"pluginId":"setta-fixture-frontend","scope":"workspace"}`)
+	defer uninstallResponse.Body.Close()
+	if uninstallResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(uninstallResponse.Body)
+		t.Fatalf("expected plugin uninstall 200, got %d with body %q", uninstallResponse.StatusCode, string(body))
+	}
+
+	lockApplyCheckResponse := postPluginMutation(httpapi.RoutePluginsLockApply, `{"check":true}`)
+	defer lockApplyCheckResponse.Body.Close()
+	if lockApplyCheckResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(lockApplyCheckResponse.Body)
+		t.Fatalf("expected lock apply check 200, got %d with body %q", lockApplyCheckResponse.StatusCode, string(body))
+	}
+
+	var lockApplyCheckPayload struct {
+		PlannedChanges []string `json:"plannedChanges"`
+		Applied        bool     `json:"applied"`
+	}
+	if err := json.NewDecoder(lockApplyCheckResponse.Body).Decode(&lockApplyCheckPayload); err != nil {
+		t.Fatalf("decode lock apply check payload: %v", err)
+	}
+	if lockApplyCheckPayload.Applied {
+		t.Fatalf("expected check-only lock apply payload, got %#v", lockApplyCheckPayload)
+	}
+	if len(lockApplyCheckPayload.PlannedChanges) != 1 || !strings.Contains(lockApplyCheckPayload.PlannedChanges[0], "install setta-fixture-frontend in workspace") {
+		t.Fatalf("unexpected lock apply check payload %#v", lockApplyCheckPayload)
+	}
+
+	lockApplyResponse := postPluginMutation(httpapi.RoutePluginsLockApply, `{"check":false}`)
+	defer lockApplyResponse.Body.Close()
+	if lockApplyResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(lockApplyResponse.Body)
+		t.Fatalf("expected lock apply 200, got %d with body %q", lockApplyResponse.StatusCode, string(body))
+	}
+
+	var lockApplyPayload struct {
+		Applied bool `json:"applied"`
+	}
+	if err := json.NewDecoder(lockApplyResponse.Body).Decode(&lockApplyPayload); err != nil {
+		t.Fatalf("decode lock apply payload: %v", err)
+	}
+	if !lockApplyPayload.Applied {
+		t.Fatalf("expected applied lock payload, got %#v", lockApplyPayload)
+	}
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime after lock apply: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		Status struct {
+			Plugins []struct {
+				PluginID string `json:"pluginId"`
+				State    string `json:"state"`
+			} `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode runtime payload after lock apply: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 1 {
+		t.Fatalf("expected one plugin after lock apply, got %#v", runtimePayload.Status.Plugins)
+	}
+	if runtimePayload.Status.Plugins[0].PluginID != "setta-fixture-frontend" || runtimePayload.Status.Plugins[0].State != "active" {
+		t.Fatalf("unexpected runtime payload after lock apply %#v", runtimePayload.Status.Plugins[0])
+	}
+}
+
 func TestAppServesManualPluginRestartRoute(t *testing.T) {
 	// The real app should expose the plugin restart route and stay manual-only without a restart hook.
 	cfg := testConfig(t)

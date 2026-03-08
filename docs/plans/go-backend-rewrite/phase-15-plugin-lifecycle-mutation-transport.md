@@ -63,9 +63,12 @@ Current repo status as of 2026-03-09:
 - the bounded follow-on in `phase-15-plugin-link-transport.md` is now also
   landed:
   - `POST /plugins/link`
-- Python-only plugin HTTP routes now remaining outside this bounded phase are:
+- the later bounded follow-on in `phase-15-plugin-lock-transport.md` is now
+  also landed:
   - `POST /plugins/lock/write`
   - `POST /plugins/lock/apply`
+- the thin plugin HTTP transport surface is now Go-owned for the current
+  clean-break rewrite scope
 
 Inventory notes that matter for sequencing:
 
@@ -73,7 +76,9 @@ Inventory notes that matter for sequencing:
   `frontend/src`, but it became a concrete plugin E2E/manual-flow dependency
   and is now Go-owned through the separate bounded follow-on doc
 - `route_plugins_lock_write(...)` and `route_plugins_lock_apply(...)` likewise
-  have no current direct frontend caller
+  still have no current direct frontend caller, but they later moved through a
+  separate bounded follow-on because the shared Go service already owned the
+  source-of-truth semantics
 - `Update(...)` and `Rollback(...)` depend on the same install-metadata and
   source-spec pathways already exercised by `Install(...)` and `Uninstall(...)`
 
@@ -232,10 +237,10 @@ Status:
 - `POST /plugins/lock/write`
 - `POST /plugins/lock/apply`
 
-Recommendation:
+Outcome:
 
-- leave them Python-owned until they become caller-backed or needed by a
-  concrete follow-on boundary
+- these were later moved in the bounded follow-on doc
+  `phase-15-plugin-lock-transport.md`
 
 ## Decisions Made
 
@@ -338,8 +343,8 @@ Recommendation:
   `phase-15-plugin-backend-codegen-registration-runtime.md`
 - the bounded local-link transport follow-on is now also landed in
   `phase-15-plugin-link-transport.md`
-- keep `POST /plugins/lock/*` deferred until they become caller-backed or a
-  concrete follow-on phase requires them
+- the bounded lockfile transport follow-on is now also landed in
+  `phase-15-plugin-lock-transport.md`
 - if plugin rewrite work resumes beyond that bounded codegen slice, focus next
   on a concrete higher-level backend plugin runtime boundary only when a caller
   requires it
@@ -348,6 +353,6 @@ Recommendation:
 
 ## Open Questions
 
-- whether `POST /plugins/lock/*` should be pulled forward now that `link` is
-  landed
-  - recommendation: no; there is still no current caller or bounded dependency
+- no unresolved thin-transport question remains for this cluster
+- later plugin work should stay runtime-boundary-driven rather than reopening
+  already-landed route transport
