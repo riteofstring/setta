@@ -4,7 +4,6 @@ import type {
 } from "react";
 import type { StoreApi } from "zustand";
 
-import { canConnectHandleFamilies } from "state/actions/chatSharedHandleIds";
 import { recomputeEdgeHandlePositions } from "state/actions/edgeHandles";
 import { useEdgeHandleRegistry } from "state/definitions";
 import type { Connection, HandleType, ReactFlowState } from "../../types";
@@ -88,10 +87,15 @@ export function handlePointerDown({
     handlePositions,
     `${nodeId}-${handleId}-${handleType}`,
   );
+  const isAgenticStart = Boolean(handleId?.startsWith("agentic-edge-"));
   const shouldFilterByAgentic = handleId !== null;
   const allowHandle = shouldFilterByAgentic
     ? (handle: Pick<ConnectionHandle, "portId" | "type">) => {
-        return canConnectHandleFamilies(handleId, handle.portId);
+        if (!handle.portId) {
+          return !isAgenticStart;
+        }
+        const isAgenticHandle = handle.portId.startsWith("agentic-edge-");
+        return isAgenticStart ? isAgenticHandle : !isAgenticHandle;
       }
     : null;
 
