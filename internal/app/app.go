@@ -40,6 +40,7 @@ import (
 	"setta/internal/modes"
 	"setta/internal/observability"
 	"setta/internal/plugins"
+	"setta/internal/projectshell"
 	"setta/internal/projectstate"
 	"setta/internal/prompttemplates"
 	"setta/internal/pythonenv"
@@ -156,6 +157,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		managedLiveRuntime    *managedchat.LiveRuntime
 		managedChatService    *managedchat.Service
 		chatSectionChatIDs    *chatsections.Service
+		projectShellService   *projectshell.Service
 		appGenSkillService    *appgenskills.Service
 		runChainRuntime       *runchains.Runtime
 		externalConfigStore   *externalagentconfigs.Store
@@ -784,6 +786,13 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		projectShellService, err = projectshell.NewService(projectshell.ServiceOptions{
+			ProjectState: projectRuntime,
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
 		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
 			Tools:        mcpClient,
 			TemporaryIDs: temporaryIDs,
@@ -1216,6 +1225,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				ShareSessions: shareSessions,
 				Terminals:     terminalService,
 				RunCode:       runCodeService,
+			}); err != nil {
+				panic(err)
+			}
+			if err := httpapi.RegisterProjectShellRoutes(r, httpapi.ProjectShellRouteDependencies{
+				ModePolicy: modePolicy,
+				Shell:      projectShellService,
 			}); err != nil {
 				panic(err)
 			}
