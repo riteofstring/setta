@@ -300,3 +300,7 @@ Use these docs as the current source of truth:
 The focused Slice 4 implementation plan is now:
 
 - `phase-25-distribution-install-workflow-retargeting-plan.md`
+
+The post-Phase-25 rerank is now:
+
+- `phase-26-post-startup-and-distribution-ownership-rerank.md`

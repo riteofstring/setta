@@ -187,11 +187,11 @@ For Slice 4A:
 
 Slice 4A is now functionally closed for the repo-root wrapper surface.
 
-If rewrite work continues, do not invent more wrapper churn by inertia.
+The post-Slice-4 rerank is now recorded in:
 
-Choose explicitly between:
+- `phase-26-post-startup-and-distribution-ownership-rerank.md`
 
-1. a fresh rerank of whether any release/native-installer workflow still has a
-   concrete non-dormant ownership gap
-2. stopping this track here unless a real distribution/install failure mode
-   appears
+Use that rerank as the current source of truth:
+
+- do not invent more wrapper churn by inertia
+- only reopen this track if a concrete release/install failure mode appears

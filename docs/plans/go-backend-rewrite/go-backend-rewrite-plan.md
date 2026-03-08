@@ -453,12 +453,21 @@ The third Slice 4A sub-slice is now also landed:
 - `verify_install.sh` now also cleans on failure instead of only on success
 - focused wrapper integration coverage now guards those failure paths
 
-The next Phase 25 decision is no longer another obvious wrapper fix:
+That post-Phase-25 rerank is now recorded in
+`phase-26-post-startup-and-distribution-ownership-rerank.md`.
+The current evidence from the landed wrapper cleanup, release/native-installer
+scripts, and existing focused coverage does not select another implementation
+slice:
 
-- either rerank whether any broader release/native-installer workflow still has
-  a concrete ownership gap
-- or stop broadening Phase 25 distribution/install work until a real failure
-  mode appears
+- repo-root build/install/publish wrappers are now explicit and tested
+- native-installer build/smoke workflows already depend on the Go-owned
+  launcher command surface plus the shared packaged-distribution builder
+- the remaining shell/PowerShell and Python role is now mostly deliberate
+  packaging and OS-integration glue rather than hidden backend ownership debt
+
+The next honest outcome is therefore a closeout boundary, not another
+speculative phase. Reopen this area only when a concrete release/install
+failure mode or packaging-boundary decision changes that evidence.
 
 Dormant listener-chat routes, detached-run routes, and non-caller-backed
 default-project routes still remain out of scope until a concrete caller
