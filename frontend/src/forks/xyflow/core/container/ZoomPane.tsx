@@ -52,6 +52,11 @@ type ViewportInteractionRefs = {
   isZoomingOrPanning: { current: boolean };
 };
 
+type ViewportInteractionCleanupRefs = ViewportInteractionRefs & {
+  panScrollTimeout: { current: ReturnType<typeof setTimeout> | undefined };
+  wheelZoomTimeout: { current: ReturnType<typeof setTimeout> | undefined };
+};
+
 const isWrappedWithClass = (event: Event, className?: string): boolean => {
   if (!className) {
     return false;
@@ -85,6 +90,25 @@ function syncViewportInteractionActive({
       isWheelZooming: isWheelZooming.current,
       isZoomingOrPanning: isZoomingOrPanning.current,
     }),
+  });
+}
+
+export function resetViewportInteractionState({
+  isPanScrolling,
+  isWheelZooming,
+  isZoomingOrPanning,
+  panScrollTimeout,
+  wheelZoomTimeout,
+}: ViewportInteractionCleanupRefs) {
+  isPanScrolling.current = false;
+  isWheelZooming.current = false;
+  isZoomingOrPanning.current = false;
+  clearTimeout(panScrollTimeout.current);
+  clearTimeout(wheelZoomTimeout.current);
+  useMisc.setState({ isPanScrolling: false });
+  useReactFlow.setState({
+    paneDragging: false,
+    viewportInteractionActive: false,
   });
 }
 
@@ -127,9 +151,13 @@ const ZoomPane = ({
 
   useEffect(() => {
     return () => {
-      isWheelZooming.current = false;
-      clearTimeout(panScrollTimeout.current);
-      clearTimeout(wheelZoomTimeout.current);
+      resetViewportInteractionState({
+        isPanScrolling,
+        isWheelZooming,
+        isZoomingOrPanning,
+        panScrollTimeout,
+        wheelZoomTimeout,
+      });
     };
   }, []);
 

@@ -81,3 +81,43 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - In the running headed app via Chrome DevTools MCP, created and selected a callable section, confirmed the corresponding minimap node carried `selected`, then triggered `reveal_ui_setting` for Quick Info and verified the right pane opened with the reveal highlight active while the same section remained selected.
+
+## 2026-03-09 01:48:35 PDT
+
+Summary:
+- Closed the remaining blockers from the three top-level review passes: project-scoped selection publication is now atomic, stale durable selection completions no longer overwrite newer transient UI selection, and `ZoomPane` teardown now clears the global gesture flags it owns.
+- Added state, integration, and browser regression coverage around those invariants, then re-verified the affected project-selection and right-pane UI in the running app through Chrome DevTools MCP.
+
+Detailed findings addressed:
+- Project load and websocket reconciliation were publishing `useActiveSectionUI.activeIds` before the matching sanitized `useProjectState` snapshot. That let synchronous consumers observe impossible mixed-store state where an active section id did not exist in the currently installed project.
+- The active-section coordinator still treated “no pending op ids remain” as permission to hydrate from backend selection, even when the completing op belonged to an older durable selection that had already been superseded by a newer `ui-only` selection. Reveal and marquee flows could therefore snap back after the stale backend ack landed.
+- `ZoomPane` promoted global interaction flags during wheel-pan and zoom activity, but its cleanup path only cleared local timers/refs. Unmounting during an active timeout could leave `viewportInteractionActive`, `paneDragging`, and `useMisc.isPanScrolling` latched.
+
+Fixes implemented:
+- Extended `useActiveSectionUI` with explicit selection/backend generations plus per-op generation tracking. Durable selection ops are now stamped when sent, deferred sync state also carries the generation, and backend reconciliation only rehydrates `activeIds` when the current generation is still authoritative.
+- Reworked project load and backend project-state reconciliation to compute the next active-section UI patch first, then publish `useProjectState`, `useNodeInternals`, pending-op state, and active-section UI state inside the same batched transaction. This removes the intermediate mixed-project snapshot instead of weakening the fail-fast readers.
+- Added a shared `ZoomPane` teardown helper that clears timers, local gesture refs, `useMisc.isPanScrolling`, `useReactFlow().paneDragging`, and `useReactFlow().viewportInteractionActive`. The unmount cleanup now routes through that helper so gesture promotion always ends deterministically.
+- Removed the now-unused `hydrateActiveSectionUIIds(...)` wrapper after the atomic publication paths moved to the shared state-patch helper.
+
+Behavioral impact before vs after:
+- UX before: project switches and backend hydrations could briefly point the right pane or plugin listeners at a section that did not exist in the visible project; reveal/marquee selection could snap back to an older section after backend settlement; leaving the canvas mid-gesture could strand shell promotion and altered input behavior.
+- UX after: project-scoped UI only sees valid same-project selection ids, newer transient selection remains authoritative over stale durable echoes, and gesture-scoped shell promotion reliably clears on teardown.
+- DX before: the selection split had two timing-sensitive failure modes that were hard to reason about because store publication order and backend selection authority were implicit.
+- DX after: selection coordination has explicit generation-based ordering, project publication has one atomic rule, and gesture cleanup has one owner. The invariants are narrower and easier to test directly.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/actions/activeSections.test.ts src/state/actions/uiSettingReveal.test.ts src/forks/xyflow/core/container/ZoomPane.test.ts src/plugins/runtime.test.ts`
+- `pnpm -C frontend exec playwright test tests/e2e/overview/misc/right-pane-ui-settings-tools.spec.ts -g 'frontend selection keeps the newer ui-only target after a stale durable ack' --reporter=line`
+
+New/updated automated coverage:
+- `frontend/src/state/actions/activeSections.test.ts`
+  - covers atomic project-load publication, atomic backend reconciliation, and stale durable-op completion after a newer `ui-only` selection.
+- `frontend/src/state/actions/uiSettingReveal.test.ts`
+  - covers reveal selection surviving a stale backend completion from an older durable active-id op.
+- `frontend/src/forks/xyflow/core/container/ZoomPane.test.ts`
+  - covers teardown resetting both global gesture flags and pane-drag state.
+- `frontend/tests/e2e/overview/misc/right-pane-ui-settings-tools.spec.ts`
+  - adds a browser-context regression that seeds the live frontend stores, simulates a stale durable completion, and asserts the newer transient selection remains selected.
+
+Manual/CDP verification:
+- In the running app on `http://127.0.0.1:3009`, opened a real project through Chrome DevTools MCP and verified the selected section rendered normally with the Quick Info pane intact after the publication/order fixes. No new console errors appeared beyond pre-existing accessibility issues about unnamed form fields.

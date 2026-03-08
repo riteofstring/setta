@@ -14,8 +14,9 @@ import {
 } from "state/actions/renameRefactors";
 import {
   getActiveSectionUIIds,
-  reconcileActiveSectionUIIdsFromBackend,
+  getReconciledActiveSectionUIStateFromBackend,
   sanitizeProjectStateActiveIds,
+  useActiveSectionUI,
 } from "state/activeSectionUI";
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
@@ -1021,7 +1022,7 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  reconcileActiveSectionUIIdsFromBackend(
+  const nextActiveSectionUIState = getReconciledActiveSectionUIStateFromBackend(
     x.projectState.projectConfig.activeIds,
     x.completedOpIds,
     x.projectState.projectConfig.id,
@@ -1033,7 +1034,12 @@ export function processProjectStateUpdateFromBackend(
   );
 
   if (!projectStateChanged) {
-    usePendingOperations.setState({ pending: nextPending });
+    unstable_batchedUpdates(() => {
+      usePendingOperations.setState({ pending: nextPending });
+      if (nextActiveSectionUIState !== null) {
+        useActiveSectionUI.setState(nextActiveSectionUIState);
+      }
+    });
     markRenameBroadcastsReady(completedIds);
     maybeOpenNextRenamePrompt();
     clearToolArgumentPreviewForProjectState(projectConfigId, currentState);
@@ -1049,6 +1055,9 @@ export function processProjectStateUpdateFromBackend(
     usePendingOperations.setState({ pending: nextPending });
     useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => sanitizedProjectState);
+    if (nextActiveSectionUIState !== null) {
+      useActiveSectionUI.setState(nextActiveSectionUIState);
+    }
   });
   if (shouldRequestFitView) {
     useMisc.setState({ requestUpdateNodeDimensions: true });

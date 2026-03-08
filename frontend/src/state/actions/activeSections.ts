@@ -3,6 +3,7 @@ import {
   clearPendingActiveSectionBackendSyncOp,
   clearScheduledActiveSectionBackendSync,
   getActiveSectionUIIds,
+  getActiveSectionUISelectionGeneration,
   getScheduledActiveSectionBackendSync,
   markPendingActiveSectionBackendSyncOp,
   schedulePendingActiveSectionBackendSync,
@@ -36,6 +37,7 @@ export type SetActiveSectionIdsOptions = {
 function sendProjectActiveSectionIdsToBackend(
   projectConfigId: string | null | undefined,
   ids: Array<string>,
+  generation: number,
 ) {
   if (!projectConfigId || projectConfigId === NULL_PROJECT_CONFIG_ID) {
     const serverMode = useServerMode.getState();
@@ -50,7 +52,7 @@ function sendProjectActiveSectionIdsToBackend(
     return;
   }
   const frontendOpId = createNewId();
-  markPendingActiveSectionBackendSyncOp(frontendOpId);
+  markPendingActiveSectionBackendSyncOp(frontendOpId, generation);
   void route_set_active_ids({
     projectConfigId,
     activeIds: ids,
@@ -109,6 +111,7 @@ function flushPendingProjectActiveIdsSync() {
   sendProjectActiveSectionIdsToBackend(
     scheduledSync.projectConfigId,
     scheduledSync.activeIds,
+    scheduledSync.generation,
   );
 }
 
@@ -116,7 +119,11 @@ function scheduleProjectActiveSectionIdsSync(
   projectConfigId: string,
   ids: Array<string>,
 ) {
-  schedulePendingActiveSectionBackendSync(projectConfigId, ids);
+  schedulePendingActiveSectionBackendSync(
+    projectConfigId,
+    ids,
+    getActiveSectionUISelectionGeneration(),
+  );
   if (typeof window === "undefined") {
     flushPendingProjectActiveIdsSync();
     return;
@@ -160,7 +167,11 @@ export function setActiveSectionIds(
   if (resolvedSyncMode === "immediate") {
     const projectConfigId = getCurrProjectConfigId();
     cancelPendingProjectActiveIdsSync();
-    sendProjectActiveSectionIdsToBackend(projectConfigId, ids);
+    sendProjectActiveSectionIdsToBackend(
+      projectConfigId,
+      ids,
+      getActiveSectionUISelectionGeneration(),
+    );
     return;
   }
   const projectConfigId = getCurrProjectConfigId();

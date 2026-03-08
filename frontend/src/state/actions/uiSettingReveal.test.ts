@@ -15,6 +15,7 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setActiveSectionIds } from "./activeSections";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 
 const invokePluginSettingRevealHandlerMock = vi.hoisted(() =>
   vi.fn(async (args: { pluginId: string }) => ({
@@ -185,6 +186,41 @@ function configureCodeSections({
     }
   });
   useActiveSectionUI.setState({ activeIds: [...activeIds] });
+}
+
+function buildBackendProjectStateUpdate({
+  projectConfigId,
+  activeIds,
+  completedOpIds = [],
+}: {
+  projectConfigId: string;
+  activeIds: Array<string>;
+  completedOpIds?: Array<string>;
+}) {
+  const currentState = useProjectState.getState();
+  return {
+    projectState: {
+      projectConfig: {
+        ...currentState.projectConfig,
+        id: projectConfigId,
+        activeIds: [...activeIds],
+      },
+      sections: { ...currentState.sections },
+      sectionImpls: { ...currentState.sectionImpls },
+      sectionVariants: { ...currentState.sectionVariants },
+      codeObjs: { ...currentState.codeObjs },
+      codeObjImpls: { ...currentState.codeObjImpls },
+      codeObjVariants: { ...currentState.codeObjVariants },
+      artifactGroups: { ...currentState.artifactGroups },
+      singletonSections: currentState.singletonSections,
+      parentSectionMap: { ...currentState.parentSectionMap },
+      shownParamIds: { ...currentState.shownParamIds },
+      requiredDecodedImages: [...currentState.requiredDecodedImages],
+      genCodeBinding: currentState.genCodeBinding ?? null,
+    },
+    completedOpIds,
+    pendingOpIds: [],
+  };
 }
 
 describe("receiveUISettingReveal", () => {
@@ -426,6 +462,7 @@ describe("receiveUISettingReveal", () => {
     expect(useActiveSectionUI.getState().scheduledBackendSync).toEqual({
       projectConfigId: "project-1",
       activeIds: ["section-initial"],
+      generation: expect.any(Number),
     });
 
     const statuses = await receiveUISettingReveal(
@@ -450,6 +487,72 @@ describe("receiveUISettingReveal", () => {
     scheduledFrame?.(16);
 
     expect(endpointSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps the reveal target selected when an older durable selection ack arrives afterward", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target"],
+      activeIds: [],
+    });
+    const rightAnchorId = "core.code.section_variants";
+    const rightAnchor = createFakeAnchor(rightAnchorId);
+    const rightPaneRoot = createFakePaneRoot(rightAnchor, rightAnchorId);
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
+          return rightPaneRoot;
+        }
+        return null;
+      }),
+    };
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockImplementation(
+        () =>
+          new Promise(() => {
+            return undefined;
+          }),
+      );
+
+    setActiveSectionIds(["section-initial"], { syncMode: "immediate" });
+
+    const staleOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    if (typeof staleOpId !== "string") {
+      throw new Error("Expected a frontend op id for the durable selection.");
+    }
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            settingId: rightAnchorId,
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "SectionVariantsConfig",
+            anchorId: rightAnchorId,
+          }),
+        ],
+      }),
+    );
+
+    processProjectStateUpdateFromBackend(
+      buildBackendProjectStateUpdate({
+        projectConfigId: "project-1",
+        activeIds: ["section-initial"],
+        completedOpIds: [staleOpId],
+      }),
+    );
+
+    expect(statuses[0]?.status).toBe("revealed");
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-target"]);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
   });
 
   it("rolls back request-scoped activeSectionId and pane state when right-pane anchor lookup fails", async () => {

@@ -9,8 +9,12 @@ import {
 import { resetProjectStores } from "state/utils";
 import * as endpoints from "utils/generatedEndpoints";
 import {
+  createCodeSectionImpl,
+  createCore,
   createProjectConfig,
   createSingletonSections,
+  createUserDefaultCodeSectionImpl,
+  createVariant,
   type ProjectStateSingleConfig,
   type ProjectStateSingleConfigWithCompletedOpIds,
 } from "utils/generatedTypes";
@@ -20,7 +24,10 @@ import {
   setActiveSectionIds,
 } from "./activeSections";
 import { loadProjectState } from "./project/loadProject";
-import { processProjectStateUpdateFromBackend } from "./sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  processProjectStateUpdateFromBackend,
+} from "./sectionInfos";
 
 function createWindowStub() {
   const location = { search: "" };
@@ -296,6 +303,116 @@ describe("activeSections", () => {
     expect(endpointSpy).toHaveBeenCalledOnce();
   });
 
+  it("publishes the next project snapshot before loadProjectState exposes the next active id", async () => {
+    useProjectState.setState(
+      buildProjectState("project-a", ["section-a"], ["section-a"]).projectState,
+    );
+    useActiveSectionUI.setState({ activeIds: ["section-a"] });
+
+    const observedSelections: Array<string> = [];
+    const unsubscribe = useActiveSectionUI.subscribe(
+      (state) => state.activeIds,
+      (activeIds) => {
+        const activeId = activeIds[0];
+        if (!activeId) {
+          return;
+        }
+        const resolved = getCurrEffectiveSectionImpl(
+          useProjectState.getState(),
+          activeId,
+        );
+        observedSelections.push(
+          `${useProjectState.getState().projectConfig.id}:${activeId}:${resolved.type}`,
+        );
+      },
+    );
+
+    try {
+      await loadProjectState(
+        buildProjectStateData("project-b", ["section-b"], ["section-b"]),
+      );
+    } finally {
+      unsubscribe();
+    }
+
+    expect(useProjectState.getState().projectConfig.id).toBe("project-b");
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
+    expect(observedSelections).toEqual(["project-b:section-b:Code"]);
+  });
+
+  it("publishes backend project updates before exposing the reconciled active id", () => {
+    useProjectState.setState(
+      buildProjectState("project-a", ["section-a"], ["section-a"]).projectState,
+    );
+    useActiveSectionUI.setState({ activeIds: ["section-a"] });
+
+    const observedSelections: Array<string> = [];
+    const unsubscribe = useActiveSectionUI.subscribe(
+      (state) => state.activeIds,
+      (activeIds) => {
+        const activeId = activeIds[0];
+        if (!activeId) {
+          return;
+        }
+        const resolved = getCurrEffectiveSectionImpl(
+          useProjectState.getState(),
+          activeId,
+        );
+        observedSelections.push(
+          `${useProjectState.getState().projectConfig.id}:${activeId}:${resolved.type}`,
+        );
+      },
+    );
+
+    try {
+      processProjectStateUpdateFromBackend(
+        buildProjectState("project-a", ["section-b"], ["section-b"]),
+      );
+    } finally {
+      unsubscribe();
+    }
+
+    expect(useProjectState.getState().sections["section-b"]).toBeDefined();
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
+    expect(observedSelections).toEqual(["project-a:section-b:Code"]);
+  });
+
+  it("ignores a stale durable-selection completion after a newer ui-only selection", () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a", "section-b"])
+        .projectState,
+    );
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockImplementation(
+        () =>
+          new Promise(() => {
+            return undefined;
+          }),
+      );
+
+    setActiveSectionIds(["section-a"], { syncMode: "immediate" });
+
+    const staleOpId = endpointSpy.mock.calls[0]?.[0].frontendOpId;
+    if (typeof staleOpId !== "string") {
+      throw new Error("Expected a frontend op id for the durable selection.");
+    }
+
+    setActiveSectionIds(["section-b"], { syncMode: "ui-only" });
+    processProjectStateUpdateFromBackend({
+      projectState: buildProjectStateData(
+        "project-a",
+        ["section-a"],
+        ["section-a", "section-b"],
+      ),
+      completedOpIds: [staleOpId],
+      pendingOpIds: [],
+    });
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
+    expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
+
   it("cancels any queued deferred sync when a new project loads", async () => {
     useProjectState.setState(buildProjectState("project-a", []).projectState);
     const endpointSpy = vi
@@ -331,9 +448,10 @@ describe("activeSections", () => {
 function buildProjectState(
   projectConfigId: string,
   activeIds: Array<string>,
+  sectionIds: Array<string> = [],
 ): ProjectStateSingleConfigWithCompletedOpIds {
   return {
-    projectState: buildProjectStateData(projectConfigId, activeIds),
+    projectState: buildProjectStateData(projectConfigId, activeIds, sectionIds),
     completedOpIds: [],
     pendingOpIds: [],
   };
@@ -342,15 +460,40 @@ function buildProjectState(
 function buildProjectStateData(
   projectConfigId: string,
   activeIds: Array<string>,
+  sectionIds: Array<string> = [],
 ): ProjectStateSingleConfig {
+  const sectionVariantMap: Record<string, string> = {};
+  const sections: ProjectStateSingleConfig["sections"] = {};
+  const sectionImpls: ProjectStateSingleConfig["sectionImpls"] = {};
+  const sectionVariants: ProjectStateSingleConfig["sectionVariants"] = {};
+  const uniqueSectionIds = [...new Set([...sectionIds, ...activeIds])];
+  for (const sectionId of uniqueSectionIds) {
+    const variantId = `variant-${sectionId}`;
+    const implId = `impl-${sectionId}`;
+    sectionVariantMap[sectionId] = variantId;
+    sections[sectionId] = createCore({ id: sectionId });
+    sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+      name: `variant-${sectionId}`,
+    });
+    sectionImpls[implId] = createCodeSectionImpl(
+      createUserDefaultCodeSectionImpl(),
+      {
+        id: implId,
+      },
+    );
+  }
   return {
     projectConfig: createProjectConfig({
       id: projectConfigId,
       activeIds,
+      sectionVariantMap,
     }),
-    sections: {},
-    sectionImpls: {},
-    sectionVariants: {},
+    sections,
+    sectionImpls,
+    sectionVariants,
     codeObjs: {},
     codeObjImpls: {},
     codeObjVariants: {},

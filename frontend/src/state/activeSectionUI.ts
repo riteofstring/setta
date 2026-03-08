@@ -20,6 +20,18 @@ function areStringArraysEqual(left: Array<string>, right: Array<string>) {
 
 export { useActiveSectionUI } from "./definitions";
 
+type ActiveSectionUIStatePatch = Partial<
+  ReturnType<typeof useActiveSectionUI.getState>
+>;
+
+function getNextSelectionGeneration() {
+  return useActiveSectionUI.getState().selectionGeneration + 1;
+}
+
+export function getActiveSectionUISelectionGeneration() {
+  return useActiveSectionUI.getState().selectionGeneration;
+}
+
 export function getActiveSectionUIIds() {
   return useActiveSectionUI.getState().activeIds;
 }
@@ -29,55 +41,81 @@ export function setActiveSectionUIIds(nextActiveIds: Array<string>) {
   if (areStringArraysEqual(current, nextActiveIds)) {
     return;
   }
-  useActiveSectionUI.setState({ activeIds: [...nextActiveIds] });
-}
-
-export function hydrateActiveSectionUIIds(nextActiveIds: Array<string>) {
-  const state = useActiveSectionUI.getState();
-  if (
-    areStringArraysEqual(state.activeIds, nextActiveIds) &&
-    state.pendingBackendSyncOpIds.length === 0 &&
-    state.scheduledBackendSync === null
-  ) {
-    return;
-  }
   useActiveSectionUI.setState({
     activeIds: [...nextActiveIds],
-    pendingBackendSyncOpIds: [],
-    scheduledBackendSync: null,
+    selectionGeneration: getNextSelectionGeneration(),
   });
 }
 
-export function markPendingActiveSectionBackendSyncOp(opId: string) {
-  const pending = useActiveSectionUI.getState().pendingBackendSyncOpIds;
+export function getHydratedActiveSectionUIState(nextActiveIds: Array<string>) {
+  const state = useActiveSectionUI.getState();
+  const generationsAlreadyAuthoritative =
+    state.selectionGeneration === state.backendGeneration;
+  if (
+    areStringArraysEqual(state.activeIds, nextActiveIds) &&
+    generationsAlreadyAuthoritative &&
+    state.pendingBackendSyncOpIds.length === 0 &&
+    state.scheduledBackendSync === null
+  ) {
+    return null;
+  }
+  const nextGeneration = state.selectionGeneration + 1;
+  return {
+    activeIds: [...nextActiveIds],
+    selectionGeneration: nextGeneration,
+    backendGeneration: nextGeneration,
+    pendingBackendSyncOpIds: [],
+    pendingBackendSyncGenerationByOpId: {},
+    scheduledBackendSync: null,
+  } satisfies ActiveSectionUIStatePatch;
+}
+
+export function markPendingActiveSectionBackendSyncOp(
+  opId: string,
+  generation: number,
+) {
+  const state = useActiveSectionUI.getState();
+  const pending = state.pendingBackendSyncOpIds;
   if (pending.includes(opId)) {
     return;
   }
   useActiveSectionUI.setState({
     pendingBackendSyncOpIds: [...pending, opId],
+    pendingBackendSyncGenerationByOpId: {
+      ...state.pendingBackendSyncGenerationByOpId,
+      [opId]: generation,
+    },
   });
 }
 
 export function clearPendingActiveSectionBackendSyncOp(opId: string) {
-  const pending = useActiveSectionUI.getState().pendingBackendSyncOpIds;
+  const state = useActiveSectionUI.getState();
+  const pending = state.pendingBackendSyncOpIds;
   if (!pending.includes(opId)) {
     return;
   }
+  const nextPendingBackendSyncGenerationByOpId = {
+    ...state.pendingBackendSyncGenerationByOpId,
+  };
+  delete nextPendingBackendSyncGenerationByOpId[opId];
   useActiveSectionUI.setState({
     pendingBackendSyncOpIds: pending.filter(
       (pendingOpId) => pendingOpId !== opId,
     ),
+    pendingBackendSyncGenerationByOpId: nextPendingBackendSyncGenerationByOpId,
   });
 }
 
 export function schedulePendingActiveSectionBackendSync(
   projectConfigId: string,
   activeIds: Array<string>,
+  generation: number,
 ) {
   const scheduled = useActiveSectionUI.getState().scheduledBackendSync;
   if (
     scheduled !== null &&
     scheduled.projectConfigId === projectConfigId &&
+    scheduled.generation === generation &&
     areStringArraysEqual(scheduled.activeIds, activeIds)
   ) {
     return;
@@ -86,6 +124,7 @@ export function schedulePendingActiveSectionBackendSync(
     scheduledBackendSync: {
       projectConfigId,
       activeIds: [...activeIds],
+      generation,
     },
   });
 }
@@ -98,6 +137,7 @@ export function getScheduledActiveSectionBackendSync() {
   return {
     projectConfigId: scheduled.projectConfigId,
     activeIds: [...scheduled.activeIds],
+    generation: scheduled.generation,
   };
 }
 
@@ -117,43 +157,64 @@ export function clearScheduledActiveSectionBackendSync(
   useActiveSectionUI.setState({ scheduledBackendSync: null });
 }
 
-export function reconcileActiveSectionUIIdsFromBackend(
+export function getReconciledActiveSectionUIStateFromBackend(
   backendActiveIds: Array<string>,
   completedOpIds: Array<string>,
   projectConfigId: string,
 ) {
   const state = useActiveSectionUI.getState();
   const completedOpIdSet = new Set(completedOpIds);
-  const nextPendingBackendSyncOpIds = state.pendingBackendSyncOpIds.filter(
-    (pendingOpId) => !completedOpIdSet.has(pendingOpId),
-  );
+  const nextPendingBackendSyncOpIds: Array<string> = [];
+  const nextPendingBackendSyncGenerationByOpId: Record<string, number> = {};
+  let completedCurrentGeneration = false;
+  for (const pendingOpId of state.pendingBackendSyncOpIds) {
+    const generation = state.pendingBackendSyncGenerationByOpId[pendingOpId];
+    if (completedOpIdSet.has(pendingOpId)) {
+      if (generation === state.selectionGeneration) {
+        completedCurrentGeneration = true;
+      }
+      continue;
+    }
+    nextPendingBackendSyncOpIds.push(pendingOpId);
+    if (generation !== undefined) {
+      nextPendingBackendSyncGenerationByOpId[pendingOpId] = generation;
+    }
+  }
   const pendingChanged =
     nextPendingBackendSyncOpIds.length !== state.pendingBackendSyncOpIds.length;
   const hasScheduledBackendSync =
     state.scheduledBackendSync !== null &&
     state.scheduledBackendSync.projectConfigId === projectConfigId;
-  const shouldHydrateFromBackend =
-    nextPendingBackendSyncOpIds.length === 0 &&
+  const nextBackendGeneration = completedCurrentGeneration
+    ? state.selectionGeneration
+    : state.backendGeneration;
+  const canHydrateFromBackend =
     !hasScheduledBackendSync &&
-    !areStringArraysEqual(state.activeIds, backendActiveIds);
+    nextBackendGeneration === state.selectionGeneration;
 
-  if (!pendingChanged && !shouldHydrateFromBackend) {
-    return;
-  }
-
-  const nextState: {
-    activeIds?: Array<string>;
-    pendingBackendSyncOpIds?: Array<string>;
-  } = {};
+  const nextState: ActiveSectionUIStatePatch = {};
 
   if (pendingChanged) {
     nextState.pendingBackendSyncOpIds = nextPendingBackendSyncOpIds;
+    nextState.pendingBackendSyncGenerationByOpId =
+      nextPendingBackendSyncGenerationByOpId;
   }
-  if (shouldHydrateFromBackend) {
+  if (nextBackendGeneration !== state.backendGeneration) {
+    nextState.backendGeneration = nextBackendGeneration;
+  }
+  if (
+    canHydrateFromBackend &&
+    !areStringArraysEqual(state.activeIds, backendActiveIds)
+  ) {
+    const nextGeneration = state.selectionGeneration + 1;
     nextState.activeIds = [...backendActiveIds];
+    nextState.selectionGeneration = nextGeneration;
+    nextState.backendGeneration = nextGeneration;
   }
-
-  useActiveSectionUI.setState(nextState);
+  if (Object.keys(nextState).length === 0) {
+    return null;
+  }
+  return nextState;
 }
 
 export function sanitizeProjectStateActiveIds<
