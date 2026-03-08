@@ -951,6 +951,78 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(3);
   });
 
+  it("restores one authoritative section binding when a saved floating section chat collides with an existing workspace binding", () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "restored-section-window": {
+                surfaceKind: "section",
+                sectionIdOrNull: "section-1",
+                mode: ChatWindowModeEnum.section_mode,
+                title: "Saved Section Chat",
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["restored-section-window"],
+          },
+        },
+      }),
+      sections: {
+        "section-1": createCore({
+          id: "section-1",
+          name: "Research Notes",
+        }),
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["canvas-section-window"],
+        instancesById: {
+          "canvas-section-window": {
+            instanceId: "canvas-section-window",
+            placement: ChatWindowPlacementEnum.canvas_section,
+            mode: ChatWindowModeEnum.section_mode,
+            sectionIdOrNull: "section-1",
+            title: "Canvas Section Chat",
+          },
+        },
+        nextInstanceNumber: 2,
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    const sectionInstances = Object.values(nextState.instancesById).filter(
+      (instance) => instance.sectionIdOrNull === "section-1",
+    );
+
+    expect(sectionInstances).toHaveLength(1);
+    expect(sectionInstances[0]).toMatchObject({
+      instanceId: "restored-section-window",
+      placement: ChatWindowPlacementEnum.floating,
+      title: "Saved Section Chat",
+    });
+    expect(nextState.instancesById["canvas-section-window"]).toBeUndefined();
+    expect(nextState.order).toEqual(["restored-section-window"]);
+  });
+
   it("clears stale embedded git-pane visibility when restoring a saved workspace layout", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({

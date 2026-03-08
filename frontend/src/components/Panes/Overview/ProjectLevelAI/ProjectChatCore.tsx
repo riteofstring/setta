@@ -1938,11 +1938,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
+        pendingSurfaceId: surfaceId,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
         },
       });
+      if (nextChatId) {
+        setChatId(nextChatId);
+      }
       return Boolean(nextChatId);
     },
     [
@@ -1952,6 +1956,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       messages,
       requiresNewThreadContinuation,
+      setChatId,
+      surfaceId,
       thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
@@ -2007,11 +2013,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
+        pendingSurfaceId: surfaceId,
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
         },
       });
+      if (nextChatId) {
+        setChatId(nextChatId);
+      }
       return Boolean(nextChatId);
     },
     [
@@ -2024,6 +2034,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       messages,
       requiresNewThreadContinuation,
+      setChatId,
+      surfaceId,
       thinking,
       waitingForResponse,
     ],

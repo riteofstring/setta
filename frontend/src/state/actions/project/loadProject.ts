@@ -97,6 +97,7 @@ export async function loadProjectState(
   };
   reconcileProjectChatWindowingEphemeralState(
     nextProjectState.projectChatWindowing,
+    nextProjectState.projectConfig.id,
   );
   const nextActiveSectionUIState = getHydratedActiveSectionUIState(
     normalizedProjectState.projectConfig.activeIds,

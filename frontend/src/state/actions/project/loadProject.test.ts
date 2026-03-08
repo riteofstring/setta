@@ -1,4 +1,8 @@
 import {
+  buildProjectChatEphemeralWindowInstanceKey,
+  getTrackedGitPaneGraphWindowInstanceIdForProject,
+} from "state/actions/projectChatWindowingEphemeral";
+import {
   useAllProjectMetadata,
   useMisc,
   useProjectState,
@@ -173,10 +177,20 @@ describe("loadProjectState", () => {
     // Seed leftovers from an earlier project so the load path has to reconcile
     // them against the incoming authoritative window model.
     useMisc.setState({
-      projectChatTrackedGitPaneGraphWindowInstanceId: "project-chat-window-1",
+      projectChatTrackedGitPaneGraphWindowInstanceId:
+        buildProjectChatEphemeralWindowInstanceKey(
+          "stale-project",
+          "project-chat-window-1",
+        ),
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "project-chat-window-1": true,
-        "stale-window": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "stale-project",
+          "project-chat-window-1",
+        )]: true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "stale-project",
+          "stale-window",
+        )]: true,
       },
     });
 
@@ -189,7 +203,7 @@ describe("loadProjectState", () => {
     });
 
     expect(
-      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+      getTrackedGitPaneGraphWindowInstanceIdForProject("project-prune"),
     ).toBeNull();
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
@@ -200,10 +214,20 @@ describe("loadProjectState", () => {
     // A matching maximized git graph window should survive reconciliation while
     // unrelated embedded-pane visibility entries are still pruned.
     useMisc.setState({
-      projectChatTrackedGitPaneGraphWindowInstanceId: "project-chat-window-1",
+      projectChatTrackedGitPaneGraphWindowInstanceId:
+        buildProjectChatEphemeralWindowInstanceKey(
+          "project-keep",
+          "project-chat-window-1",
+        ),
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "project-chat-window-1": true,
-        "stale-window": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-keep",
+          "project-chat-window-1",
+        )]: true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-keep",
+          "stale-window",
+        )]: true,
       },
     });
 
@@ -228,12 +252,58 @@ describe("loadProjectState", () => {
     });
 
     expect(
-      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+      getTrackedGitPaneGraphWindowInstanceIdForProject("project-keep"),
     ).toBe("project-chat-window-1");
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     ).toEqual({
-      "project-chat-window-1": true,
+      [buildProjectChatEphemeralWindowInstanceKey(
+        "project-keep",
+        "project-chat-window-1",
+      )]: true,
     });
+  });
+
+  it("drops git graph ephemera when another project reuses the same window id", async () => {
+    useMisc.setState({
+      projectChatTrackedGitPaneGraphWindowInstanceId:
+        buildProjectChatEphemeralWindowInstanceKey(
+          "project-a",
+          "project-chat-window-1",
+        ),
+      projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-a",
+          "project-chat-window-1",
+        )]: true,
+      },
+    });
+
+    await loadProjectState({
+      projectConfig: createProjectConfig({
+        id: "project-b",
+        name: "Project B",
+      }),
+      projectChatWindowing: createProjectChatWindowingState({
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstance({
+            instanceId: "project-chat-window-1",
+            mode: ChatWindowModeEnum.git_graph_mode,
+            placement: ChatWindowPlacementEnum.maximized,
+            isClosed: false,
+            isMinimized: false,
+          }),
+        },
+        order: ["project-chat-window-1"],
+        nextInstanceNumber: 2,
+      }),
+    });
+
+    expect(
+      getTrackedGitPaneGraphWindowInstanceIdForProject("project-b"),
+    ).toBeNull();
+    expect(
+      useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
+    ).toEqual({});
   });
 });

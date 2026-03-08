@@ -254,7 +254,13 @@ function resolveManagedChatRunType(
   return null;
 }
 
-export function ChatArea({ sectionId }: { sectionId: string }) {
+export function ChatArea({
+  sectionId,
+  surfaceId,
+}: {
+  sectionId: string;
+  surfaceId?: string;
+}) {
   const {
     managed,
     engineConfigId,
@@ -300,6 +306,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     return (
       <ManagedChatArea
         sectionId={sectionId}
+        surfaceId={surfaceId}
         engineConfigId={engineConfigId}
         transcriptionProfileId={transcriptionProfileId}
         agentProfileId={agentProfileId}
@@ -1024,6 +1031,7 @@ function ManagedChatHistoryPanel({
 
 type ManagedChatAreaProps = {
   sectionId: string;
+  surfaceId?: string;
   engineConfigId: string | null;
   transcriptionProfileId: string | null;
   agentProfileId: string | null;
@@ -1035,6 +1043,7 @@ type ManagedChatAreaProps = {
 
 function ManagedChatArea({
   sectionId,
+  surfaceId,
   engineConfigId,
   transcriptionProfileId,
   agentProfileId,
@@ -1107,7 +1116,13 @@ function ManagedChatArea({
   const { messages, toolCallArguments, waitingForResponse, contextUsage } =
     useAIStore((state) => {
       if (chatId === null) {
-        return state.pendingChatDetails ?? getDefaultChatDetails();
+        if (!surfaceId) {
+          return getDefaultChatDetails();
+        }
+        return (
+          state.pendingChatDetailsBySurfaceId[surfaceId] ??
+          getDefaultChatDetails()
+        );
       }
       if (typeof chatId !== "string") {
         return getDefaultChatDetails();
@@ -1349,14 +1364,18 @@ function ManagedChatArea({
   );
 
   const handleNewChatStart = useCallback(() => {
-    initializePendingChatDetails();
+    if (surfaceId) {
+      initializePendingChatDetails(surfaceId);
+    }
     setChatId(null);
     setShowHistory(false);
-  }, [setChatId]);
+  }, [setChatId, surfaceId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
-      clearPendingChatDetails();
+      if (surfaceId) {
+        clearPendingChatDetails(surfaceId);
+      }
       setChatId((currentChatId) => {
         if (currentChatId !== null) {
           return currentChatId;
@@ -1367,7 +1386,7 @@ function ManagedChatArea({
         return newChatId;
       });
     },
-    [setChatId],
+    [setChatId, surfaceId],
   );
   const slashCommands = useMemo(
     () =>
@@ -1427,6 +1446,7 @@ function ManagedChatArea({
             messageId,
             agentProfileId,
             sectionId,
+            pendingSurfaceId: surfaceId,
             executionSettings: {
               permissionMode,
               searchEnabled,
@@ -1456,6 +1476,7 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      surfaceId,
       thinking,
     ],
   );
@@ -1471,8 +1492,9 @@ function ManagedChatArea({
       isExternalEngine,
       projectConfigId,
       sectionId,
+      surfaceId,
     );
-  }, [chatId, isExternalEngine, projectConfigId, sectionId]);
+  }, [chatId, isExternalEngine, projectConfigId, sectionId, surfaceId]);
 
   const handleEditMessage = useCallback(
     async (
@@ -1499,6 +1521,7 @@ function ManagedChatArea({
         isExternalEngine,
         agentProfileId,
         sectionId,
+        pendingSurfaceId: surfaceId,
         executionSettings: {
           permissionMode,
           searchEnabled,
@@ -1516,6 +1539,7 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
+      surfaceId,
       thinking,
     ],
   );

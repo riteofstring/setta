@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useMisc } from "state/definitions";
+import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
+import { useMisc, useProjectState } from "state/definitions";
+import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GitGraphWindowContent } from "./GitGraphWindowContent";
 
@@ -56,12 +58,16 @@ function renderGraphWindowContent(
   props: Partial<Parameters<typeof GitGraphWindowContent>[0]> = {},
 ): string {
   syncStoreInitialState(useMisc);
+  syncStoreInitialState(useProjectState);
   return renderToStaticMarkup(<GitGraphWindowContent {...props} />);
 }
 
 describe("GitGraphWindowContent", () => {
   beforeEach(() => {
     useMisc.getState().reset();
+    useProjectState.setState((state) => {
+      state.projectConfig = createProjectConfig({ id: "project-1" });
+    });
   });
 
   afterEach(() => {
@@ -86,7 +92,10 @@ describe("GitGraphWindowContent", () => {
   it("renders the embedded git pane when that window instance enables it", () => {
     useMisc.setState({
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "graph-window-1": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-1",
+          "graph-window-1",
+        )]: true,
       },
     });
 
@@ -117,7 +126,10 @@ describe("GitGraphWindowContent", () => {
   it("uses controlled embedded git-pane visibility instead of workspace misc state", () => {
     useMisc.setState({
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "graph-window-1": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-1",
+          "graph-window-1",
+        )]: true,
       },
     });
 

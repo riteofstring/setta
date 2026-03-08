@@ -31,6 +31,21 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
 )
 
 
+async def _persist_linked_chat_section_binding(
+    manager: Any,
+    project_config_id: ID,
+    section_id: ID,
+    chat_id: ID,
+) -> None:
+    await manager.set_chat_section_chat_id(
+        SetChatSectionChatIdRequest(
+            projectConfigId=project_config_id,
+            sectionId=section_id,
+            chatId=chat_id,
+        )
+    )
+
+
 async def invoke_linked_chat(
     *,
     target_section_id: ID,
@@ -200,6 +215,12 @@ async def invoke_linked_chat(
             str(section_id) for section_id in invocation_chain
         ],
     }
+    await _persist_linked_chat_section_binding(
+        manager,
+        agentic_context.project_config_id,
+        target_section_id,
+        chat_id,
+    )
 
     completed_run: AgentRun
     if resolved_engine.engine_config.engineType == EngineType.setta_llm:
@@ -293,13 +314,6 @@ async def invoke_linked_chat(
                 reason="run_start_failed",
                 message=str(exc),
             )
-        await manager.set_chat_section_chat_id(
-            SetChatSectionChatIdRequest(
-                projectConfigId=agentic_context.project_config_id,
-                sectionId=target_section_id,
-                chatId=chat_id,
-            )
-        )
         completed_run = await runner.wait_for_run(run.id)
     else:
         return _build_error_result(
@@ -309,15 +323,6 @@ async def invoke_linked_chat(
                 f"Linked chat '{target_label}' uses unsupported engine type "
                 f"{resolved_engine.engine_config.engineType}."
             ),
-        )
-
-    if resolved_engine.engine_config.engineType == EngineType.setta_llm:
-        await manager.set_chat_section_chat_id(
-            SetChatSectionChatIdRequest(
-                projectConfigId=agentic_context.project_config_id,
-                sectionId=target_section_id,
-                chatId=chat_id,
-            )
         )
     return _build_success_result(
         target_label=target_label,

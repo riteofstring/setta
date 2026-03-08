@@ -869,7 +869,6 @@ type ZustandAIStore = {
   activeChatId: string | null | undefined;
   projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
-  pendingChatDetails: ChatDetails | null;
   pendingChatDetailsBySurfaceId: Record<string, ChatDetails>;
   interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
   viewThreads: boolean;
@@ -930,7 +929,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         activeChatId: undefined,
         projectChatSelectedEngineId: null,
         chatDetails: {},
-        pendingChatDetails: null,
         pendingChatDetailsBySurfaceId: {},
         interruptedAssistantMessageIdsByChatId: {},
         viewThreads: false,

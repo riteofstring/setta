@@ -1060,6 +1060,7 @@ export function processProjectStateUpdateFromBackend(
   );
   reconcileProjectChatWindowingEphemeralState(
     sanitizedProjectState.projectChatWindowing,
+    sanitizedProjectState.projectConfig.id,
   );
   runWithAtomicallyPublishedProjectStores(
     {

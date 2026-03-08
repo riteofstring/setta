@@ -1,3 +1,4 @@
+import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
@@ -10,6 +11,7 @@ import {
   ChatWindowPlacementEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
+  createProjectConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -69,6 +71,9 @@ describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
     resetProjectStores();
     useAIStore.setState({ activeChatId: undefined });
+    useProjectState.setState((state) => {
+      state.projectConfig = createProjectConfig({ id: "project-1" });
+    });
     hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockReset();
   });
 
@@ -205,7 +210,9 @@ describe("project chat windowing reducer helpers", () => {
     expect(Object.keys(firstWindowing.instancesById)).toHaveLength(1);
     expect(
       useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
-    ).toBe(firstInstanceId);
+    ).toBe(
+      buildProjectChatEphemeralWindowInstanceKey("project-1", firstInstanceId),
+    );
     expect(firstWindowing.instancesById[firstInstanceId]?.placement).toBe(
       ChatWindowPlacementEnum.maximized,
     );
@@ -229,7 +236,9 @@ describe("project chat windowing reducer helpers", () => {
     );
     expect(
       useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
-    ).toBe(secondInstanceId);
+    ).toBe(
+      buildProjectChatEphemeralWindowInstanceKey("project-1", secondInstanceId),
+    );
   });
 
   it("treats close as a true close and allows reopen", () => {
@@ -280,7 +289,10 @@ describe("project chat windowing reducer helpers", () => {
     });
     useMisc.setState({
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "graph-window-1": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-1",
+          "graph-window-1",
+        )]: true,
       },
     });
 

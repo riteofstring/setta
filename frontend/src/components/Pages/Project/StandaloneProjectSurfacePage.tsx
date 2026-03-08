@@ -341,7 +341,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
         <UnifiedChatSurface
           mode="project_ai_mode"
           host="standalone_page"
-          surfaceId={buildStandalonePageProjectChatSurfaceId()}
+          surfaceId={buildStandalonePageProjectChatSurfaceId(projectConfigId)}
           projectChatId={standaloneProjectChatId}
           setProjectChatId={setStandaloneProjectChatId}
           onProjectChatBlockedErrorCodeChange={(errorCode) => {
@@ -435,6 +435,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
           roundedClassName="rounded-none"
           chatHost="standalone_page"
           projectChatSurfaceId={buildStandalonePageSectionProjectChatSurfaceId(
+            projectConfigId,
             target.sectionId,
           )}
           bodyOverride={

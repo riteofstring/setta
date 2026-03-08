@@ -300,6 +300,7 @@ function SharedWindowInstanceHarness() {
       <section data-testid="workspace-window-surface">
         <ProjectChat
           surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+            "project-1",
             "project-chat-window-1",
           )}
           chatId={workspaceChatId}
@@ -309,6 +310,7 @@ function SharedWindowInstanceHarness() {
       <section data-testid="standalone-window-surface">
         <ProjectChat
           surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
+            "project-1",
             "window-space-1",
             "project-chat-window-1",
           )}
@@ -317,6 +319,24 @@ function SharedWindowInstanceHarness() {
         />
       </section>
     </div>
+  );
+}
+
+function ProjectScopedDraftHarness() {
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const [chatId, setChatId] = useState<string | null | undefined>(null);
+
+  return (
+    <section data-testid="project-scoped-draft-surface">
+      <ProjectChat
+        surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+          projectConfigId,
+          "project-chat-window-1",
+        )}
+        chatId={chatId}
+        setChatId={setChatId}
+      />
+    </section>
   );
 }
 
@@ -425,7 +445,6 @@ describe("ProjectChat multi-surface state ownership", () => {
           contextUsage: null,
         },
       },
-      pendingChatDetails: null,
       pendingChatDetailsBySurfaceId: {},
     });
     (globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver =
@@ -627,9 +646,11 @@ describe("ProjectChat multi-surface state ownership", () => {
     });
 
     const workspaceSurfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-1",
       "project-chat-window-1",
     );
     const standaloneSurfaceId = buildStandaloneWindowSpaceProjectChatSurfaceId(
+      "project-1",
       "window-space-1",
       "project-chat-window-1",
     );
@@ -641,6 +662,58 @@ describe("ProjectChat multi-surface state ownership", () => {
     expect(
       useAIStore.getState().pendingChatDetailsBySurfaceId[standaloneSurfaceId],
     ).toBeUndefined();
+  });
+
+  it("keeps reused workspace surface ids isolated across project switches", async () => {
+    const projectOneSurfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-1",
+      "project-chat-window-1",
+    );
+    useAIStore.setState({
+      pendingChatDetailsBySurfaceId: {
+        [projectOneSurfaceId]: {
+          messages: [createUserMessage("Project one pending draft")],
+          toolCallArguments: {},
+          waitingForResponse: true,
+          llmConfig: null,
+          contextUsage: null,
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(<ProjectScopedDraftHarness />);
+    });
+
+    const projectOneCore = host.querySelector(
+      `[data-testid="mock-project-chat-core-${projectOneSurfaceId}"]`,
+    );
+    expect(projectOneCore?.textContent ?? "").toContain(
+      "Project one pending draft",
+    );
+
+    await act(async () => {
+      useProjectState.setState((state) => {
+        state.projectConfig = createProjectConfig({ id: "project-2" });
+      });
+    });
+
+    const projectTwoSurfaceId = buildWorkspaceProjectChatWindowSurfaceId(
+      "project-2",
+      "project-chat-window-1",
+    );
+    const projectTwoCore = host.querySelector(
+      `[data-testid="mock-project-chat-core-${projectTwoSurfaceId}"]`,
+    );
+    expect(projectTwoCore?.textContent ?? "").not.toContain(
+      "Project one pending draft",
+    );
+    expect(
+      useAIStore.getState().pendingChatDetailsBySurfaceId[projectTwoSurfaceId],
+    ).toBeUndefined();
+    expect(
+      useAIStore.getState().pendingChatDetailsBySurfaceId[projectOneSurfaceId],
+    ).toBeDefined();
   });
 
   it("keeps threads and aux views local to the surface that toggles them", async () => {

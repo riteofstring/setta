@@ -9,22 +9,39 @@ function normalizeProjectChatSurfaceSegment(
   return normalized;
 }
 
+function normalizeProjectConfigId(projectConfigId: string): string {
+  return normalizeProjectChatSurfaceSegment(
+    projectConfigId,
+    "project config id",
+  );
+}
+
+export function buildOverviewProjectChatSurfaceId(
+  projectConfigId: string,
+): string {
+  return `overview:${normalizeProjectConfigId(projectConfigId)}:project-chat`;
+}
+
 export function buildWorkspaceProjectChatWindowSurfaceId(
+  projectConfigId: string,
   instanceId: string,
 ): string {
-  return `workspace:${normalizeProjectChatSurfaceSegment(instanceId, "instance id")}`;
+  return `workspace:${normalizeProjectConfigId(projectConfigId)}:${normalizeProjectChatSurfaceSegment(instanceId, "instance id")}`;
 }
 
 export function buildWorkspaceSectionProjectChatSurfaceId(
+  projectConfigId: string,
   sectionId: string,
 ): string {
-  return `workspace-section:${normalizeProjectChatSurfaceSegment(sectionId, "section id")}`;
+  return `workspace-section:${normalizeProjectConfigId(projectConfigId)}:${normalizeProjectChatSurfaceSegment(sectionId, "section id")}`;
 }
 
 export function buildStandaloneWindowSpaceProjectChatSurfaceId(
+  projectConfigId: string,
   windowSpaceId: string,
   instanceId: string,
 ): string {
+  const normalizedProjectConfigId = normalizeProjectConfigId(projectConfigId);
   const normalizedWindowSpaceId = normalizeProjectChatSurfaceSegment(
     windowSpaceId,
     "window space id",
@@ -33,15 +50,18 @@ export function buildStandaloneWindowSpaceProjectChatSurfaceId(
     instanceId,
     "instance id",
   );
-  return `standalone-window-space:${normalizedWindowSpaceId}:${normalizedInstanceId}`;
+  return `standalone-window-space:${normalizedProjectConfigId}:${normalizedWindowSpaceId}:${normalizedInstanceId}`;
 }
 
-export function buildStandalonePageProjectChatSurfaceId(): string {
-  return "standalone-page:project-chat";
+export function buildStandalonePageProjectChatSurfaceId(
+  projectConfigId: string,
+): string {
+  return `standalone-page:${normalizeProjectConfigId(projectConfigId)}:project-chat`;
 }
 
 export function buildStandalonePageSectionProjectChatSurfaceId(
+  projectConfigId: string,
   sectionId: string,
 ): string {
-  return `standalone-page:section:${normalizeProjectChatSurfaceSegment(sectionId, "section id")}`;
+  return `standalone-page:${normalizeProjectConfigId(projectConfigId)}:section:${normalizeProjectChatSurfaceSegment(sectionId, "section id")}`;
 }

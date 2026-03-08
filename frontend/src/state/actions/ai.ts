@@ -1455,15 +1455,25 @@ function normalizePendingChatSurfaceId(
   return normalizedSurfaceId;
 }
 
+function requirePendingChatSurfaceId(
+  surfaceId: string | null | undefined,
+): string {
+  const normalizedSurfaceId = normalizePendingChatSurfaceId(surfaceId);
+  if (!normalizedSurfaceId) {
+    throw new Error("Pending chat surface id is required.");
+  }
+  return normalizedSurfaceId;
+}
+
 function getPendingChatDetailsForSurface(
   state: ReturnType<typeof useAIStore.getState>,
   surfaceId: string | null | undefined,
 ): ChatDetails | null {
-  const normalizedSurfaceId = normalizePendingChatSurfaceId(surfaceId);
-  if (!normalizedSurfaceId) {
-    return state.pendingChatDetails;
-  }
-  return state.pendingChatDetailsBySurfaceId[normalizedSurfaceId] ?? null;
+  return (
+    state.pendingChatDetailsBySurfaceId[
+      requirePendingChatSurfaceId(surfaceId)
+    ] ?? null
+  );
 }
 
 function setPendingChatDetailsForSurface(
@@ -1471,12 +1481,7 @@ function setPendingChatDetailsForSurface(
   surfaceId: string | null | undefined,
   nextDetails: ChatDetails | null,
 ): Partial<ReturnType<typeof useAIStore.getState>> {
-  const normalizedSurfaceId = normalizePendingChatSurfaceId(surfaceId);
-  if (!normalizedSurfaceId) {
-    return {
-      pendingChatDetails: nextDetails,
-    };
-  }
+  const normalizedSurfaceId = requirePendingChatSurfaceId(surfaceId);
   const currentDetails =
     state.pendingChatDetailsBySurfaceId[normalizedSurfaceId];
   if (currentDetails === nextDetails) {
@@ -1896,9 +1901,11 @@ export async function stopManagedSectionChatResponse(
   isExternalEngine: boolean,
   projectConfigId: string,
   sectionId: string,
+  pendingSurfaceId: string | null | undefined = null,
 ): Promise<boolean> {
   const localSnapshot = stopChatResponseLocally(chatId, {
     markInterruptedOptimistically: !isExternalEngine,
+    pendingSurfaceId,
   });
   if (typeof chatId !== "string") {
     return true;
@@ -1924,7 +1931,7 @@ export async function stopManagedSectionChatResponse(
   const hydrated = await getLLMChat(chatId, sectionId);
   restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
-    restoreStoppedChatResponseLocally(chatId, localSnapshot);
+    restoreStoppedChatResponseLocally(chatId, localSnapshot, pendingSurfaceId);
   }
   addTemporaryNotification(
     "Failed to stop section chat.",
@@ -2007,9 +2014,7 @@ function applyChatDetailsToSectionState({
   return nextState;
 }
 
-export function initializePendingChatDetails(
-  surfaceId: string | null | undefined = null,
-) {
+export function initializePendingChatDetails(surfaceId: string) {
   useAIStore.setState((state) =>
     setPendingChatDetailsForSurface(state, surfaceId, getDefaultChatDetails()),
   );
@@ -2018,7 +2023,7 @@ export function initializePendingChatDetails(
 function initializePendingChatDetailsWithMessages(
   messages: Array<BaseChatMessageUnion>,
   waitingForResponse: boolean = true,
-  surfaceId: string | null | undefined = null,
+  surfaceId: string | null | undefined,
 ) {
   useAIStore.setState((state) =>
     setPendingChatDetailsForSurface(state, surfaceId, {
@@ -2031,14 +2036,12 @@ function initializePendingChatDetailsWithMessages(
 
 export function seedPendingChatDetails(
   messages: Array<BaseChatMessageUnion>,
-  surfaceId: string | null | undefined = null,
+  surfaceId: string,
 ) {
   initializePendingChatDetailsWithMessages(messages, false, surfaceId);
 }
 
-export function clearPendingChatDetails(
-  surfaceId: string | null | undefined = null,
-) {
+export function clearPendingChatDetails(surfaceId: string) {
   useAIStore.setState((state) =>
     setPendingChatDetailsForSurface(state, surfaceId, null),
   );
@@ -2441,6 +2444,10 @@ export async function submitMessage(
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
+  const resolvedPendingSurfaceId =
+    chatId === null
+      ? requirePendingChatSurfaceId(options.pendingSurfaceId ?? null)
+      : options.pendingSurfaceId ?? null;
   const resolvedExecutionSettings =
     options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
   const appGeneration = options.appGeneration ?? null;
@@ -2458,11 +2465,7 @@ export async function submitMessage(
   };
   const userMessageId = userMessage.id;
 
-  applyOptimisticUserMessage(
-    chatId,
-    userMessage,
-    options.pendingSurfaceId ?? null,
-  );
+  applyOptimisticUserMessage(chatId, userMessage, resolvedPendingSurfaceId);
 
   try {
     const projectConfigId = getCurrProjectConfigId();
@@ -2522,7 +2525,7 @@ export async function submitMessage(
     rollbackOptimisticUserMessage(
       chatId,
       userMessageId,
-      options.pendingSurfaceId ?? null,
+      resolvedPendingSurfaceId,
     );
     throw err;
   }
@@ -2539,6 +2542,7 @@ export async function submitEditedMessage({
   isExternalEngine,
   agentProfileId,
   sectionId,
+  pendingSurfaceId,
   executionSettings,
 }: {
   parentChatId: string;
@@ -2551,6 +2555,7 @@ export async function submitEditedMessage({
   isExternalEngine: boolean;
   agentProfileId?: string | null;
   sectionId?: string | null;
+  pendingSurfaceId?: string | null;
   executionSettings?: ChatExecutionSettings | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
@@ -2574,6 +2579,9 @@ export async function submitEditedMessage({
   if (!nextMessages) {
     return null;
   }
+  const resolvedPendingSurfaceId = requirePendingChatSurfaceId(
+    pendingSurfaceId ?? null,
+  );
   const resolvedEngineConfigId = await resolveEngineConfigIdForChat(
     parentChatId,
     engineConfigId,
@@ -2581,7 +2589,11 @@ export async function submitEditedMessage({
   if (!resolvedEngineConfigId) {
     return null;
   }
-  initializePendingChatDetailsWithMessages(nextMessages);
+  initializePendingChatDetailsWithMessages(
+    nextMessages,
+    true,
+    resolvedPendingSurfaceId,
+  );
   const projectConfigId = getCurrProjectConfigId();
 
   const setSectionChatId = async (nextChatId: string | null) => {
@@ -2605,8 +2617,6 @@ export async function submitEditedMessage({
 
   if (sectionId) {
     await setSectionChatId(null);
-  } else {
-    useAIStore.setState({ activeChatId: null });
   }
 
   try {
@@ -2633,11 +2643,9 @@ export async function submitEditedMessage({
           ? `AI request failed (status ${res.status}).`
           : "AI request failed.");
       addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-      clearPendingChatDetails();
+      clearPendingChatDetails(resolvedPendingSurfaceId);
       if (sectionId) {
         await setSectionChatId(parentChatId);
-      } else {
-        useAIStore.setState({ activeChatId: parentChatId });
       }
       return null;
     }
@@ -2655,12 +2663,12 @@ export async function submitEditedMessage({
       }
       if (sectionId) {
         await setSectionChatId(returnedChatId);
-        commitPendingChatDetails(returnedChatId);
+        commitPendingChatDetails(returnedChatId, resolvedPendingSurfaceId);
       } else {
-        finalizePendingChatDetails(returnedChatId);
+        commitPendingChatDetails(returnedChatId, resolvedPendingSurfaceId);
       }
     } else {
-      clearPendingChatDetails();
+      clearPendingChatDetails(resolvedPendingSurfaceId);
     }
     return returnedChatId;
   } catch (err) {
@@ -2669,11 +2677,9 @@ export async function submitEditedMessage({
         ? err.message
         : "AI request failed.";
     addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    clearPendingChatDetails();
+    clearPendingChatDetails(resolvedPendingSurfaceId);
     if (sectionId) {
       await setSectionChatId(parentChatId);
-    } else {
-      useAIStore.setState({ activeChatId: parentChatId });
     }
     throw err;
   }
@@ -2828,9 +2834,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     applyStreamingChunkToSection(sectionId, chunk, projectConfigId);
   }
   if (shouldUpdateChatDetails) {
-    if (!sectionId) {
-      promotePendingChatDetailsIfNeeded(chatId);
-    }
     switch (chunk.type) {
       case StreamingEventTypeEnum.MESSAGE_START:
         handleMessageStart(chatId, chunk);
@@ -3643,7 +3646,7 @@ function updateChatDetails(
 
 function updatePendingChatDetails(
   updater: (details: ChatDetails) => ChatDetails | null,
-  surfaceId: string | null | undefined = null,
+  surfaceId: string | null | undefined,
 ) {
   useAIStore.setState((state) => {
     const baseDetails: ChatDetails =
@@ -3680,107 +3683,31 @@ function mergeChatDetails(
   };
 }
 
-function hasMaterializedChatDetails(details: ChatDetails | undefined): boolean {
-  if (!details) {
-    return false;
-  }
-  if (details.messages.length > 0) {
-    return true;
-  }
-  if (details.waitingForResponse) {
-    return true;
-  }
-  if (Object.keys(details.toolCallArguments).length > 0) {
-    return true;
-  }
-  if (details.llmConfig !== null) {
-    return true;
-  }
-  if (details.contextUsage !== null) {
-    return true;
-  }
-  return false;
-}
-
-function promotePendingChatDetailsIfNeeded(chatId: string) {
+export function finalizePendingChatDetails(chatId: string, surfaceId: string) {
   useAIStore.setState((state) => {
-    if (!chatId) {
-      return state;
-    }
-    const activeChatId = state.activeChatId;
-    if (activeChatId !== null && activeChatId !== undefined) {
-      return state;
-    }
-    if (!state.pendingChatDetails) {
-      return state;
-    }
-    if (hasMaterializedChatDetails(state.chatDetails[chatId])) {
+    const pendingDetails = getPendingChatDetailsForSurface(state, surfaceId);
+    if (!pendingDetails) {
       return state;
     }
     const existingDetails =
       state.chatDetails[chatId] ?? getDefaultChatDetails();
-    const pendingDetails = state.pendingChatDetails;
-    const preserveWaitingForResponse = isChatStreamActive(chatId);
-    const mergedDetails = mergeChatDetails(
-      existingDetails,
-      pendingDetails,
-      preserveWaitingForResponse,
-    );
     return {
-      activeChatId: chatId,
-      pendingChatDetails: null,
       chatDetails: {
-        ...state.chatDetails,
-        [chatId]: mergedDetails,
-      },
-    };
-  });
-}
-
-export function finalizePendingChatDetails(
-  chatId: string,
-  surfaceId: string | null | undefined = null,
-) {
-  useAIStore.setState((state) => {
-    const pendingDetails = getPendingChatDetailsForSurface(state, surfaceId);
-    const shouldSetActiveForGlobalSurface =
-      normalizePendingChatSurfaceId(surfaceId) === null;
-    const shouldSetActive =
-      shouldSetActiveForGlobalSurface &&
-      (state.activeChatId === null ||
-        state.activeChatId === undefined ||
-        state.activeChatId === chatId);
-    const needsActiveUpdate = shouldSetActive && state.activeChatId !== chatId;
-    if (!pendingDetails && !needsActiveUpdate) {
-      return state;
-    }
-    const nextState: Partial<ReturnType<typeof useAIStore.getState>> = {};
-    if (pendingDetails) {
-      const existingDetails =
-        state.chatDetails[chatId] ?? getDefaultChatDetails();
-      nextState.chatDetails = {
         ...state.chatDetails,
         [chatId]: mergeChatDetails(
           existingDetails,
           pendingDetails,
           isChatStreamActive(chatId),
         ),
-      };
-      Object.assign(
-        nextState,
-        setPendingChatDetailsForSurface(state, surfaceId, null),
-      );
-    }
-    if (shouldSetActive) {
-      nextState.activeChatId = chatId;
-    }
-    return nextState;
+      },
+      ...setPendingChatDetailsForSurface(state, surfaceId, null),
+    };
   });
 }
 
 function commitPendingChatDetails(
   chatId: string,
-  surfaceId: string | null | undefined = null,
+  surfaceId: string | null | undefined,
 ) {
   useAIStore.setState((state) => {
     const pendingDetails = getPendingChatDetailsForSurface(state, surfaceId);

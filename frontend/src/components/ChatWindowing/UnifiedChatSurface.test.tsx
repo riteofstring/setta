@@ -26,8 +26,16 @@ vi.mock("components/Panes/Overview/ProjectLevelAI/ProjectChat", () => ({
 }));
 
 vi.mock("components/Section/Layouts/ChatArea", () => ({
-  ChatArea: ({ sectionId }: { sectionId: string }) => (
-    <div data-testid="mock-section-chat">section chat:{sectionId}</div>
+  ChatArea: ({
+    sectionId,
+    surfaceId,
+  }: {
+    sectionId: string;
+    surfaceId?: string;
+  }) => (
+    <div data-testid="mock-section-chat" data-surface-id={surfaceId ?? ""}>
+      section chat:{sectionId}
+    </div>
   ),
 }));
 
@@ -187,6 +195,21 @@ describe("UnifiedChatSurface", () => {
     expect(markup).toContain('data-testid="mock-section-chat"');
     expect(markup).toContain("section chat:section-123");
     expect(markup).not.toContain('data-testid="mock-project-chat"');
+  });
+
+  it("forwards surface ownership to section-mode chat hosts", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.section_mode}
+        host="section_layout"
+        sectionId="section-123"
+        surfaceId="workspace-section:project-1:section-123"
+      />,
+    );
+
+    expect(markup).toContain(
+      'data-surface-id="workspace-section:project-1:section-123"',
+    );
   });
 
   it("shows a clear warning when git-graph mode is routed through the wrong surface", () => {

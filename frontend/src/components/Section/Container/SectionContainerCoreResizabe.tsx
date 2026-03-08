@@ -350,6 +350,7 @@ function ChatSectionArea({
         )
       : null,
   );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const mode = modeOverride ?? derivedMode ?? ChatWindowModeEnum.section_mode;
   return (
     <UnifiedChatSurface
@@ -357,7 +358,8 @@ function ChatSectionArea({
       host={host}
       sectionId={sectionId}
       surfaceId={
-        surfaceId ?? buildWorkspaceSectionProjectChatSurfaceId(sectionId)
+        surfaceId ??
+        buildWorkspaceSectionProjectChatSurfaceId(projectConfigId, sectionId)
       }
       projectChatId={projectChatId}
       setProjectChatId={setProjectChatId}

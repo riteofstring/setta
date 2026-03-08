@@ -321,6 +321,7 @@ export function StandaloneWindowSpaceSurface({
   windowSpace: WindowSpaceConfig;
 }) {
   const containerRef = useRef<HTMLElement | null>(null);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const sectionNamesById = useProjectState(
     (state) =>
       Object.fromEntries(
@@ -612,6 +613,7 @@ export function StandaloneWindowSpaceSurface({
               chatHost={ChatWindowPlacementEnum.floating}
               chatModeOverride={window.mode}
               projectChatSurfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
+                projectConfigId,
                 windowSpace.id,
                 window.instanceId,
               )}
@@ -670,6 +672,7 @@ export function StandaloneWindowSpaceSurface({
                   mode={window.mode}
                   host={ChatWindowPlacementEnum.floating}
                   surfaceId={buildStandaloneWindowSpaceProjectChatSurfaceId(
+                    projectConfigId,
                     windowSpace.id,
                     window.instanceId,
                   )}

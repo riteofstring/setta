@@ -193,7 +193,7 @@ export function UnifiedChatSurface({
       data-chat-surface-host={host}
       data-testid={dataTestId}
     >
-      <ChatArea sectionId={sectionId} />
+      <ChatArea sectionId={sectionId} surfaceId={surfaceId} />
     </div>
   );
 }

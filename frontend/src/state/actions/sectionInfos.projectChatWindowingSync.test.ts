@@ -1,5 +1,9 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import {
+  buildProjectChatEphemeralWindowInstanceKey,
+  getTrackedGitPaneGraphWindowInstanceIdForProject,
+} from "state/actions/projectChatWindowingEphemeral";
+import {
   useMisc,
   useNodeInternals,
   usePendingOperations,
@@ -155,9 +159,16 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
   it("prunes stale git-graph misc state when backend reconciliation repurposes an instance id", () => {
     setLocalProjectState();
     useMisc.setState({
-      projectChatTrackedGitPaneGraphWindowInstanceId: "graph-window-1",
+      projectChatTrackedGitPaneGraphWindowInstanceId:
+        buildProjectChatEphemeralWindowInstanceKey(
+          "project-config-1",
+          "graph-window-1",
+        ),
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "graph-window-1": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-config-1",
+          "graph-window-1",
+        )]: true,
       },
     });
 
@@ -179,7 +190,7 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
     });
 
     expect(
-      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+      getTrackedGitPaneGraphWindowInstanceIdForProject("project-config-1"),
     ).toBeNull();
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
@@ -189,9 +200,16 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
   it("preserves live git-graph misc state when backend reconciliation keeps the same maximized graph window", () => {
     setLocalProjectState();
     useMisc.setState({
-      projectChatTrackedGitPaneGraphWindowInstanceId: "graph-window-1",
+      projectChatTrackedGitPaneGraphWindowInstanceId:
+        buildProjectChatEphemeralWindowInstanceKey(
+          "project-config-1",
+          "graph-window-1",
+        ),
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {
-        "graph-window-1": true,
+        [buildProjectChatEphemeralWindowInstanceKey(
+          "project-config-1",
+          "graph-window-1",
+        )]: true,
       },
     });
 
@@ -214,12 +232,15 @@ describe("processProjectStateUpdateFromBackend project chat windowing sync", () 
     });
 
     expect(
-      useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId,
+      getTrackedGitPaneGraphWindowInstanceIdForProject("project-config-1"),
     ).toBe("graph-window-1");
     expect(
       useMisc.getState().projectChatGitGraphEmbeddedPaneVisibleByInstanceId,
     ).toEqual({
-      "graph-window-1": true,
+      [buildProjectChatEphemeralWindowInstanceKey(
+        "project-config-1",
+        "graph-window-1",
+      )]: true,
     });
   });
 });

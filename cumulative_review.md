@@ -1,3 +1,39 @@
+## 2026-03-10 00:09:16 PDT
+
+Implemented the remaining consolidated fixes from the top-level reviews for project-scoped surface ownership, section-binding restore authority, linked-chat concurrency, and copied-layout persistence, then verified the touched flows end to end.
+
+Surface ownership and chat lifecycle:
+- Project-chat surface ids now include `projectConfigId` everywhere they are constructed, including workspace windows, standalone `/chat` routes, standalone window-space windows, overview project chat, and workspace/standalone section-backed surfaces.
+- Removed the legacy global `pendingChatDetails` pathway from the AI store. Draft, stop, edit, and finalize flows now require an explicit owning `surfaceId`, so transient chat state cannot collide across projects or across two live hosts that happen to reuse the same local window id.
+- Section-mode `ChatArea` now receives the host `surfaceId`, and section-backed project-ai surfaces keep their own pending/edit state instead of falling back to a shared null-surface bucket.
+- Project-level edit flows now pass the owning `pendingSurfaceId` through redo/edit requests and set the initiating surface's `chatId` to the new branch result, so branch ownership stays with the surface that created it.
+
+Windowing, ephemera, and persistence:
+- Project-chat git-pane ephemera is now keyed by `{projectConfigId}::{instanceId}` and reconciled on both full project loads and websocket/backend authoritative updates. Reused instance ids from another project no longer keep stale embedded-pane or tracked-maximized-graph state alive.
+- Restoring a saved window space now dedupes same-section bindings before merging into workspace state, and restore collisions prefer one deterministic authoritative host instead of leaving two live bindings for the same section.
+- Backend `normalize_project_chat_windowing(...)` now enforces the same one-section-one-binding invariant for persisted state, so invalid duplicate section bindings are removed even outside the frontend restore path.
+- `save_as_new_project_config(..., withRefs=False)` now copies the authoritative `projectChatWindowing` model, remaps `sectionIdOrNull`, preserves layout/order/bounds, and clears copied `chatId`s instead of dropping the persisted chat/window layout entirely.
+
+Linked-chat concurrency:
+- `invoke_linked_chat(...)` now reserves and persists the target section `chatId` before agent execution begins, and both overlapping invocations reuse that already-reserved thread id instead of racing to create separate target chats.
+- Updated the linked-chat router test harness to track the real backend project-state merge path plus revision metadata, so the concurrency regression is covered under the same authoritative state contract as production MCP execution.
+
+UX before vs after:
+- Before: pending drafts, edited-message branches, and stop/retry state could leak between projects or between two hosts showing the same logical window id. After: each live surface owns only its own transient state.
+- Before: restoring a saved layout could leave two live windows bound to the same section, producing inconsistent focus, placeholder, and thread ownership behavior. After: restore collapses to one deterministic authoritative binding.
+- Before: `Save As` without refs discarded the saved project chat/window layout, and overlapping linked-chat runs could fork the target thread. After: copied configs preserve layout structure with fresh thread ids, and concurrent linked-chat runs converge on one thread.
+
+DX before vs after:
+- Before: chat isolation depended on callers remembering hidden context, the state model had a legacy global pending path, and restore semantics were split between frontend heuristics and backend tolerance. After: ownership is encoded in canonical surface ids, pending APIs require an explicit surface, and backend/frontend normalization enforce the same section-binding invariant.
+- Before: linked-chat correctness depended on execution timing. After: the target chat is reserved before runtime work starts, so both managed invocations follow the same single-thread contract under concurrency.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/components/ChatWindowing/projectChatSurfaceIds.test.ts src/components/ChatWindowing/UnifiedChatSurface.test.tsx src/components/Panes/Overview/ProjectLevelAI/ProjectChat.multiSurface.integration.test.tsx src/components/Git/GitGraphWindowContent.test.tsx src/state/actions/aiSubmitMessage.test.ts src/state/actions/aiEditedMessage.test.ts src/state/actions/aiChatPromotion.test.ts src/state/actions/aiAppSpecPatchPreview.test.ts src/state/actions/project/loadProject.test.ts src/state/actions/projectChatWindowing.test.ts src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/windowSpaces.test.ts` passed: 12 files, 104 tests.
+- `source activate.sh && ./scripts/run_backend_tests.sh tests/types/test_project_chat_windowing.py tests/project_state/test_project_chat_windowing_persistence.py tests/routers/test_mcp_linked_chat_tool.py` passed: 18 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/project-chat-routing-isolation.spec.ts frontend/tests/e2e/chat/project-chat-pending-promotion.spec.ts` passed: 2 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts -g "keeps standalone project chat draft state isolated across project configs"` passed: 1 test.
+- CDP verification confirmed the workspace project-chat window at `http://127.0.0.1:3098/wild_hot` and the standalone project-chat route at `http://127.0.0.1:3098/wild_hot/chat` both rendered the expected chat chrome and composer layout without cross-surface leakage.
+
 ## 2026-03-09 21:36:20 PDT
 
 Implemented the consolidated review fixes for deterministic chat hydration, per-surface project-chat state ownership, and async windowing rebasing.

@@ -67,6 +67,7 @@ import {
   showSectionInProjectChatWindow,
   unmaximizeProjectChatWindow,
 } from "state/actions/projectChatWindowing";
+import { getTrackedGitPaneGraphWindowInstanceIdForProject } from "state/actions/projectChatWindowingEphemeral";
 import {
   NULL_PROJECT_CONFIG_ID,
   useLocalStorage,
@@ -1234,8 +1235,12 @@ export function ProjectChatBottomDock() {
     }),
     _.isEqual,
   );
-  const trackedGitPaneGraphWindowInstanceId = useMisc(
+  const trackedGitPaneGraphWindowInstanceKey = useMisc(
     (state) => state.projectChatTrackedGitPaneGraphWindowInstanceId,
+  );
+  const trackedGitPaneGraphWindowInstanceId = useMemo(
+    () => getTrackedGitPaneGraphWindowInstanceIdForProject(projectConfigId),
+    [projectConfigId, trackedGitPaneGraphWindowInstanceKey],
   );
   const [pillDisplayMode, setPillDisplayMode] =
     useState<PillDisplayMode>("full");
@@ -2170,7 +2175,7 @@ export function ProjectChatBottomDock() {
       if (!instancesById[instanceId]) {
         return;
       }
-      clearTrackedGitPaneGraphWindowIfMatches(instanceId);
+      clearTrackedGitPaneGraphWindowIfMatches(projectConfigId, instanceId);
       clearWindowEnterAnimation(instanceId);
       setWindowExitAnimationsById((current) => {
         if (current[instanceId] === kind) {
@@ -3752,6 +3757,7 @@ export function ProjectChatBottomDock() {
                             chatHost={ChatWindowPlacementEnum.bottom_docked}
                             chatModeOverride={pill.mode}
                             projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                              projectConfigId,
                               pill.instanceId,
                             )}
                             projectChatId={pill.chatId}
@@ -3980,6 +3986,7 @@ export function ProjectChatBottomDock() {
                                 mode={pill.mode}
                                 host={ChatWindowPlacementEnum.bottom_docked}
                                 surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                                  projectConfigId,
                                   pill.instanceId,
                                 )}
                                 projectChatId={pill.chatId}
@@ -4187,6 +4194,7 @@ export function ProjectChatBottomDock() {
                       chatHost={ChatWindowPlacementEnum.floating}
                       chatModeOverride={pill.mode}
                       projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                        projectConfigId,
                         pill.instanceId,
                       )}
                       projectChatId={pill.chatId}
@@ -4374,6 +4382,7 @@ export function ProjectChatBottomDock() {
                           mode={pill.mode}
                           host={ChatWindowPlacementEnum.floating}
                           surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                            projectConfigId,
                             pill.instanceId,
                           )}
                           projectChatId={pill.chatId}
@@ -4473,6 +4482,7 @@ export function ProjectChatBottomDock() {
                 chatHost={ChatWindowPlacementEnum.maximized}
                 chatModeOverride={openMaximizedWindow.mode}
                 projectChatSurfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                  projectConfigId,
                   openMaximizedWindow.instanceId,
                 )}
                 projectChatId={openMaximizedWindow.chatId}
@@ -4652,6 +4662,7 @@ export function ProjectChatBottomDock() {
                     mode={openMaximizedWindow.mode}
                     host={ChatWindowPlacementEnum.maximized}
                     surfaceId={buildWorkspaceProjectChatWindowSurfaceId(
+                      projectConfigId,
                       openMaximizedWindow.instanceId,
                     )}
                     projectChatId={openMaximizedWindow.chatId}

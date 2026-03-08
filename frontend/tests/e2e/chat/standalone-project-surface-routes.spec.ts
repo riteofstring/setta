@@ -413,6 +413,118 @@ function findProjectChatWindowIdForSection(
 }
 
 test.describe.serial("standalone project surface routes", () => {
+  test("keeps standalone project chat draft state isolated across project configs", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    let firstProjectContext: Awaited<
+      ReturnType<typeof openIsolatedProject>
+    > | null = null;
+    let secondProjectContext: Awaited<
+      ReturnType<typeof openIsolatedProject>
+    > | null = null;
+
+    try {
+      firstProjectContext = await openIsolatedProject(page);
+      const firstProjectName = getProjectConfigNameFromUrl(page.url());
+      secondProjectContext = await openIsolatedProject(page);
+      const secondProjectName = getProjectConfigNameFromUrl(page.url());
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(firstProjectName)}/chat`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        page.getByTestId("standalone-project-chat-surface"),
+      ).toBeVisible();
+
+      await page.evaluate(
+        async ({ projectConfigId, draftText }) => {
+          const { useAIStore } = await import("/src/state/definitions.ts");
+          const { getDefaultChatDetails } = await import(
+            "/src/state/actions/ai.ts"
+          );
+          const { buildStandalonePageProjectChatSurfaceId } = await import(
+            "/src/components/ChatWindowing/projectChatSurfaceIds.ts"
+          );
+          const { createMessageTextContent, createUserChatMessage } =
+            await import("/src/utils/generatedTypes.ts");
+          const surfaceId =
+            buildStandalonePageProjectChatSurfaceId(projectConfigId);
+
+          useAIStore.setState((state) => ({
+            ...state,
+            pendingChatDetailsBySurfaceId: {
+              ...state.pendingChatDetailsBySurfaceId,
+              [surfaceId]: {
+                ...getDefaultChatDetails(),
+                messages: [
+                  createUserChatMessage({
+                    id: "standalone-project-a-draft",
+                    content: [createMessageTextContent({ text: draftText })],
+                    attachments: [],
+                  }),
+                ],
+                waitingForResponse: true,
+              },
+            },
+          }));
+        },
+        {
+          projectConfigId: firstProjectContext.projectConfigId,
+          draftText: "Standalone draft owned by project A",
+        },
+      );
+
+      await expect(
+        page.getByText("Standalone draft owned by project A"),
+      ).toBeVisible();
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(secondProjectName)}/chat`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        page.getByTestId("standalone-project-chat-surface"),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Standalone draft owned by project A"),
+      ).toHaveCount(0);
+      if (!secondProjectContext) {
+        throw new Error("Expected the second project context.");
+      }
+      await expect
+        .poll(async () => {
+          return await page.evaluate(
+            async ({ projectConfigId }) => {
+              const { useAIStore } = await import("/src/state/definitions.ts");
+              const { buildStandalonePageProjectChatSurfaceId } = await import(
+                "/src/components/ChatWindowing/projectChatSurfaceIds.ts"
+              );
+              const surfaceId =
+                buildStandalonePageProjectChatSurfaceId(projectConfigId);
+              return (
+                useAIStore.getState().pendingChatDetailsBySurfaceId[
+                  surfaceId
+                ] !== undefined
+              );
+            },
+            { projectConfigId: secondProjectContext.projectConfigId },
+          );
+        })
+        .toBe(false);
+    } finally {
+      await cleanupIsolatedProject(page, secondProjectContext);
+      await cleanupIsolatedProject(page, firstProjectContext);
+    }
+  });
+
   test("keeps standalone project surfaces isolated from workspace selection and windowing state", async ({
     page,
   }) => {

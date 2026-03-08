@@ -5,46 +5,109 @@ import {
   type ProjectChatWindowingState,
 } from "utils/generatedTypes";
 
-function getTrackedGitPaneGraphWindowInstanceIdFromMisc(): string | null {
+const PROJECT_CHAT_EPHEMERAL_INSTANCE_KEY_SEPARATOR = "::";
+
+export function buildProjectChatEphemeralWindowInstanceKey(
+  projectConfigId: string,
+  instanceId: string,
+): string {
+  const normalizedProjectConfigId = projectConfigId.trim();
+  const normalizedInstanceId = instanceId.trim();
+  if (!normalizedProjectConfigId) {
+    throw new Error("Project config id is required for project chat ephemera.");
+  }
+  if (!normalizedInstanceId) {
+    throw new Error("Instance id is required for project chat ephemera.");
+  }
+  return `${normalizedProjectConfigId}${PROJECT_CHAT_EPHEMERAL_INSTANCE_KEY_SEPARATOR}${normalizedInstanceId}`;
+}
+
+function parseProjectChatEphemeralWindowInstanceKey(
+  key: string | null | undefined,
+): { projectConfigId: string; instanceId: string } | null {
+  const normalizedKey = key?.trim() ?? "";
+  if (!normalizedKey) {
+    return null;
+  }
+  const separatorIndex = normalizedKey.indexOf(
+    PROJECT_CHAT_EPHEMERAL_INSTANCE_KEY_SEPARATOR,
+  );
+  if (separatorIndex === -1) {
+    return null;
+  }
+  const projectConfigId = normalizedKey.slice(0, separatorIndex);
+  const instanceId = normalizedKey.slice(
+    separatorIndex + PROJECT_CHAT_EPHEMERAL_INSTANCE_KEY_SEPARATOR.length,
+  );
+  if (!projectConfigId || !instanceId) {
+    return null;
+  }
+  return { projectConfigId, instanceId };
+}
+
+function getTrackedGitPaneGraphWindowKeyFromMisc(): string | null {
   return (
     useMisc.getState().projectChatTrackedGitPaneGraphWindowInstanceId ?? null
   );
 }
 
 export function setTrackedGitPaneGraphWindowInstanceId(
+  projectConfigId: string,
   instanceId: string | null,
 ): void {
   useMisc.setState({
-    projectChatTrackedGitPaneGraphWindowInstanceId: instanceId,
+    projectChatTrackedGitPaneGraphWindowInstanceId:
+      instanceId === null
+        ? null
+        : buildProjectChatEphemeralWindowInstanceKey(
+            projectConfigId,
+            instanceId,
+          ),
   });
 }
 
 function clearTrackedGitPaneGraphWindowInstanceIdIfMatches(
+  projectConfigId: string,
   instanceId: string,
 ): void {
-  if (getTrackedGitPaneGraphWindowInstanceIdFromMisc() !== instanceId) {
+  if (
+    getTrackedGitPaneGraphWindowKeyFromMisc() !==
+    buildProjectChatEphemeralWindowInstanceKey(projectConfigId, instanceId)
+  ) {
     return;
   }
-  setTrackedGitPaneGraphWindowInstanceId(null);
+  setTrackedGitPaneGraphWindowInstanceId(projectConfigId, null);
 }
 
 export function clearTrackedGitPaneGraphWindowIfMatches(
+  projectConfigId: string,
   instanceId: string,
 ): void {
-  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(instanceId);
+  clearTrackedGitPaneGraphWindowInstanceIdIfMatches(
+    projectConfigId,
+    instanceId,
+  );
 }
 
 function pruneProjectChatGitGraphEmbeddedPaneVisibility(
+  projectConfigId: string,
   nextProjectChatWindowing: ProjectChatWindowingState,
 ): void {
   useMisc.setState((state) => {
-    const visibilityByInstanceId =
+    const visibilityByEphemeralKey =
       state.projectChatGitGraphEmbeddedPaneVisibleByInstanceId;
-    const nextVisibilityByInstanceId: Record<string, true> = {};
+    const nextVisibilityByEphemeralKey: Record<string, true> = {};
     let changed = false;
 
-    for (const instanceId of Object.keys(visibilityByInstanceId)) {
-      const instance = nextProjectChatWindowing.instancesById[instanceId];
+    for (const ephemeralKey of Object.keys(visibilityByEphemeralKey)) {
+      const parsedKey =
+        parseProjectChatEphemeralWindowInstanceKey(ephemeralKey);
+      if (!parsedKey || parsedKey.projectConfigId !== projectConfigId) {
+        changed = true;
+        continue;
+      }
+      const instance =
+        nextProjectChatWindowing.instancesById[parsedKey.instanceId];
       if (
         !instance ||
         instance.mode !== ChatWindowModeEnum.git_graph_mode ||
@@ -53,13 +116,13 @@ function pruneProjectChatGitGraphEmbeddedPaneVisibility(
         changed = true;
         continue;
       }
-      nextVisibilityByInstanceId[instanceId] = true;
+      nextVisibilityByEphemeralKey[ephemeralKey] = true;
     }
 
     if (
       !changed &&
-      Object.keys(nextVisibilityByInstanceId).length ===
-        Object.keys(visibilityByInstanceId).length
+      Object.keys(nextVisibilityByEphemeralKey).length ===
+        Object.keys(visibilityByEphemeralKey).length
     ) {
       return state;
     }
@@ -67,7 +130,7 @@ function pruneProjectChatGitGraphEmbeddedPaneVisibility(
     return {
       ...state,
       projectChatGitGraphEmbeddedPaneVisibleByInstanceId:
-        nextVisibilityByInstanceId,
+        nextVisibilityByEphemeralKey,
     };
   });
 }
@@ -87,11 +150,28 @@ export function resetProjectChatGitGraphEmbeddedPaneVisibility(): void {
   });
 }
 
+export function getTrackedGitPaneGraphWindowInstanceIdForProject(
+  projectConfigId: string,
+): string | null {
+  const parsedKey = parseProjectChatEphemeralWindowInstanceKey(
+    getTrackedGitPaneGraphWindowKeyFromMisc(),
+  );
+  if (!parsedKey || parsedKey.projectConfigId !== projectConfigId) {
+    return null;
+  }
+  return parsedKey.instanceId;
+}
+
 export function resolveTrackedGitPaneGraphWindowInstanceId(
   state: ProjectChatWindowingState,
+  projectConfigId: string,
 ): string | null {
-  const trackedInstanceId = getTrackedGitPaneGraphWindowInstanceIdFromMisc();
+  const trackedInstanceId =
+    getTrackedGitPaneGraphWindowInstanceIdForProject(projectConfigId);
   if (!trackedInstanceId) {
+    if (getTrackedGitPaneGraphWindowKeyFromMisc() !== null) {
+      setTrackedGitPaneGraphWindowInstanceId(projectConfigId, null);
+    }
     return null;
   }
   const instance = state.instancesById[trackedInstanceId];
@@ -102,7 +182,7 @@ export function resolveTrackedGitPaneGraphWindowInstanceId(
     instance.isClosed ||
     instance.isMinimized
   ) {
-    setTrackedGitPaneGraphWindowInstanceId(null);
+    setTrackedGitPaneGraphWindowInstanceId(projectConfigId, null);
     return null;
   }
   return trackedInstanceId;
@@ -110,7 +190,14 @@ export function resolveTrackedGitPaneGraphWindowInstanceId(
 
 export function reconcileProjectChatWindowingEphemeralState(
   nextProjectChatWindowing: ProjectChatWindowingState,
+  projectConfigId: string,
 ): void {
-  resolveTrackedGitPaneGraphWindowInstanceId(nextProjectChatWindowing);
-  pruneProjectChatGitGraphEmbeddedPaneVisibility(nextProjectChatWindowing);
+  resolveTrackedGitPaneGraphWindowInstanceId(
+    nextProjectChatWindowing,
+    projectConfigId,
+  );
+  pruneProjectChatGitGraphEmbeddedPaneVisibility(
+    projectConfigId,
+    nextProjectChatWindowing,
+  );
 }

@@ -26,6 +26,7 @@ from setta.types.helpers_lvl1 import (
 from setta.types.helpers_lvl2 import get_meta_control_param_id, get_top_level_param_ids
 from setta.types.id import ID
 from setta.types.lsp import SettaLspDiagnosticsPayload
+from setta.types.project_chat_windowing import normalize_project_chat_windowing
 from setta.types.project_config import (
     Position,
     ProjectConfig,
@@ -36,6 +37,7 @@ from setta.types.project_config import (
 )
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
+    ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
@@ -824,6 +826,38 @@ def remap_window_spaces(
     return remapped_window_spaces
 
 
+def copy_project_chat_windowing(
+    project_chat_windowing: ProjectChatWindowingState,
+    section_id_map: dict[ID, ID] | None,
+) -> ProjectChatWindowingState:
+    copied_instances_by_id = {}
+    for instance_id, instance in project_chat_windowing.instancesById.items():
+        next_section_id = instance.sectionIdOrNull
+        if next_section_id is not None and section_id_map is not None:
+            if next_section_id not in section_id_map:
+                raise KeyError(
+                    f"Section {next_section_id} missing for project chat windowing remap."
+                )
+            next_section_id = section_id_map[next_section_id]
+        copied_instances_by_id[instance_id] = instance.model_copy(
+            update={
+                "sectionIdOrNull": next_section_id,
+                "chatId": None,
+            },
+            deep=True,
+        )
+    copied_windowing = project_chat_windowing.model_copy(
+        update={"instancesById": copied_instances_by_id},
+        deep=True,
+    )
+    normalize_project_chat_windowing(
+        copied_windowing,
+        {instance.sectionIdOrNull for instance in copied_instances_by_id.values()}
+        - {None},
+    )
+    return copied_windowing
+
+
 def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
@@ -1228,9 +1262,15 @@ def copy_project(
         sectionVariantIdMap,
         codeObjIdMap,
     )
+    newProjectChatWindowing = copy_project_chat_windowing(
+        p.projectChatWindowing,
+        sectionIdMap,
+    )
 
     return ProjectStateSingleConfig(
-        projectConfig=newProjectConfig, **newProjectCore.model_dump()
+        projectConfig=newProjectConfig,
+        projectChatWindowing=newProjectChatWindowing,
+        **newProjectCore.model_dump(),
     )
 
 

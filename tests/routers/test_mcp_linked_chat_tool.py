@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -10,13 +11,16 @@ from setta.database.db_objs import DBE
 from setta.mcp.server import SettaFastMCP
 from setta.mcp.tool_registry import ensure_setta_mcp_tools_loaded
 from setta.mcp.utils import convert_canonical_ids_to_temporary
-from setta.project_state.history import History
 from setta.routers.mcp_tools import router as mcp_tools_router
 from setta.types.agentic import AgentRun, AgentRunStatus, EngineConfig, EngineType
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
 from setta.types.generated.settings_state import SettingsState
-from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.helpers_lvl3 import (
+    convert_backend_to_single_config,
+    merge_single_config_into_backend,
+)
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl2 import (
     create_agentic_edge,
     create_top_level_section,
@@ -28,6 +32,7 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import Position, ProjectConfig
 from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 from setta.types.section_impls import (
+    ChatSectionImpl,
     ChatDictationMode,
     ChatPermissionMode,
     SectionType,
@@ -41,23 +46,34 @@ ensure_setta_mcp_tools_loaded()
 
 class _DummyLinkedChatProjectManager:
     def __init__(self, project_state_single: ProjectStateSingleConfig) -> None:
-        backend = merge_single_config_into_backend(
+        self._backend = merge_single_config_into_backend(
             ProjectStateBackend(
                 defaultProjectConfigId=project_state_single.projectConfig.id
             ),
             project_state_single,
         )
-        self.history = History(backend)
+        self.history = SimpleNamespace(revision=0)
         self.set_chat_section_chat_id_calls: list[tuple[ID, ID, ID | None]] = []
 
     @property
     def project_state_backend(self) -> ProjectStateBackend:
-        return self.history.get_current()
+        return self._backend
 
     async def set_chat_section_chat_id(self, payload) -> None:
         self.set_chat_section_chat_id_calls.append(
             (payload.projectConfigId, payload.sectionId, payload.chatId)
         )
+        project_state = convert_backend_to_single_config(
+            self._backend,
+            payload.projectConfigId,
+        )
+        set_chat_section_chat_id(
+            project_state,
+            payload.sectionId,
+            payload.chatId,
+        )
+        self._backend = merge_single_config_into_backend(self._backend, project_state)
+        self.history.revision += 1
 
 
 class _StrictProjectManagerSwitcher:
@@ -110,6 +126,34 @@ class _DummyAgentRunner:
         )
 
 
+class _BlockingDummyAgentRunner(_DummyAgentRunner):
+    def __init__(self) -> None:
+        super().__init__()
+        self.first_call_started = asyncio.Event()
+        self.second_call_started = asyncio.Event()
+        self.release_calls = asyncio.Event()
+
+    async def run_sub_agent(self, profile, inputs):
+        self.calls.append((profile, dict(inputs or {})))
+        if len(self.calls) == 1:
+            self.first_call_started.set()
+        if len(self.calls) == 2:
+            self.second_call_started.set()
+        await self.release_calls.wait()
+        return AgentRun(
+            id=ID(f"linked-run-{len(self.calls)}"),
+            status=AgentRunStatus.completed,
+            inputs=inputs,
+            outputs={
+                "messages": [
+                    AssistantChatMessage(
+                        content=[MessageTextContent(text="Linked planner reply")]
+                    ).model_dump(mode="json")
+                ]
+            },
+        )
+
+
 async def _noop_wait_until_ready(self) -> None:  # noqa: ARG001
     return None
 
@@ -131,7 +175,8 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID) -> None:
 def _build_project_state(
     *,
     managed_target: bool = True,
-) -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID]:
+    seed_target_chat_id: bool = True,
+) -> tuple[ProjectStateSingleConfig, ID, ID, ID, ID | None]:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(
         projectConfig=ProjectConfig(name="linked-chat-tool-test")
@@ -148,10 +193,15 @@ def _build_project_state(
         SectionType.Chat,
         Position(),
     )
-    existing_target_chat_id = ID("linked-thread-1")
     project_state.sections[caller_section_id].displayName = "Caller"
     project_state.sections[target_section_id].displayName = "Planner"
-    set_chat_section_chat_id(project_state, target_section_id, existing_target_chat_id)
+    existing_target_chat_id = ID("linked-thread-1") if seed_target_chat_id else None
+    if existing_target_chat_id is not None:
+        set_chat_section_chat_id(
+            project_state,
+            target_section_id,
+            existing_target_chat_id,
+        )
     set_chat_section_settings(
         project_state,
         target_section_id,
@@ -186,6 +236,8 @@ def _build_test_app(
     tmp_path,
     *,
     managed_target: bool = True,
+    seed_target_chat_id: bool = True,
+    agent_runner_override: _DummyAgentRunner | None = None,
 ) -> tuple[
     FastAPI,
     _DummyAgentRunner,
@@ -202,24 +254,29 @@ def _build_test_app(
         caller_section_id,
         target_section_id,
         target_chat_id,
-    ) = _build_project_state(managed_target=managed_target)
+    ) = _build_project_state(
+        managed_target=managed_target,
+        seed_target_chat_id=seed_target_chat_id,
+    )
     _seed_engine_config(dbe, ID("engine-linked"))
     manager = _DummyLinkedChatProjectManager(project_state)
     switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
     websocket_manager = WebsocketManager()
     frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    agent_runner = _DummyAgentRunner()
+    agent_runner = agent_runner_override or _DummyAgentRunner()
     external_agent_runner = SimpleNamespace(disabled=True)
 
     temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    ids_to_map = [
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        ID("caller-chat-1"),
+    ]
+    if target_chat_id is not None:
+        ids_to_map.append(target_chat_id)
     _ = convert_canonical_ids_to_temporary(
-        [
-            project_config_id,
-            caller_section_id,
-            target_section_id,
-            target_chat_id,
-            ID("caller-chat-1"),
-        ],
+        ids_to_map,
         canonical_to_temporary,
         temporary_to_canonical,
     )
@@ -632,3 +689,99 @@ async def test_tools_call_invoke_linked_chat_rejects_stale_non_chat_targets(
     assert payload["isError"] is True
     assert payload["structuredContent"]["reason"] == "unsupported_target_type"
     assert agent_runner.calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_reserves_the_target_chat_before_overlapping_runs(
+    tmp_path,
+) -> None:
+    blocking_runner = _BlockingDummyAgentRunner()
+    (
+        app,
+        agent_runner,
+        manager,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+    ) = _build_test_app(
+        tmp_path,
+        seed_target_chat_id=False,
+        agent_runner_override=blocking_runner,
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    request_payload = {
+        "tool": "invoke_linked_chat",
+        "arguments": {
+            "targetSectionId": str(tmp_target_section_id),
+            "prompt": "Plan the next implementation step.",
+        },
+        "agenticContext": {
+            "projectConfigId": str(tmp_project_id),
+            "chatId": str(tmp_caller_chat_id),
+            "sectionId": str(tmp_caller_section_id),
+        },
+    }
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        first_request = asyncio.create_task(
+            client.post("/__setta__/tools/call", json=request_payload)
+        )
+        await asyncio.wait_for(blocking_runner.first_call_started.wait(), timeout=1)
+
+        assert len(manager.set_chat_section_chat_id_calls) == 1
+        first_reserved_chat_id = manager.set_chat_section_chat_id_calls[0][2]
+        if first_reserved_chat_id is None:
+            raise AssertionError("Expected the first call to reserve a target chat id.")
+
+        second_request = asyncio.create_task(
+            client.post("/__setta__/tools/call", json=request_payload)
+        )
+        await asyncio.wait_for(blocking_runner.second_call_started.wait(), timeout=1)
+        blocking_runner.release_calls.set()
+
+        first_response, second_response = await asyncio.gather(
+            first_request,
+            second_request,
+        )
+
+    assert agent_runner is blocking_runner
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+
+    first_payload = first_response.json()
+    second_payload = second_response.json()
+    assert first_payload["isError"] is False
+    assert second_payload["isError"] is False
+    assert (
+        first_payload["structuredContent"]["chatId"]
+        == second_payload["structuredContent"]["chatId"]
+    )
+
+    assert len(manager.set_chat_section_chat_id_calls) == 2
+    assert manager.set_chat_section_chat_id_calls == [
+        (project_config_id, target_section_id, first_reserved_chat_id),
+        (project_config_id, target_section_id, first_reserved_chat_id),
+    ]
+    assert [captured_inputs["chatId"] for _, captured_inputs in agent_runner.calls] == [
+        str(first_reserved_chat_id),
+        str(first_reserved_chat_id),
+    ]
+
+    project_state = convert_backend_to_single_config(
+        manager.project_state_backend,
+        project_config_id,
+    )
+    assert (
+        get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            target_section_id,
+            ChatSectionImpl,
+        ).chatId
+        == first_reserved_chat_id
+    )

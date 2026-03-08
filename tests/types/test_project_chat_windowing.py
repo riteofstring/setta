@@ -81,3 +81,43 @@ def test_project_state_normalizes_project_chat_windowing_for_missing_sections() 
     }
     assert project_state.projectChatWindowing.order == [valid_window.instanceId]
     assert project_state.projectChatWindowing.nextInstanceNumber == 7
+
+
+def test_project_state_normalizes_duplicate_section_bindings_to_one_authoritative_window() -> (
+    None
+):
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    canvas_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.canvas_section,
+        sectionIdOrNull=section_id,
+        zIndex=1,
+    )
+    floating_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-2",
+        placement=ChatWindowPlacement.floating,
+        sectionIdOrNull=section_id,
+        zIndex=10,
+    )
+
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={
+            canvas_window.instanceId: canvas_window,
+            floating_window.instanceId: floating_window,
+        },
+        order=[floating_window.instanceId, canvas_window.instanceId],
+        nextInstanceNumber=3,
+    )
+    project_state.validate_project_chat_windowing()
+
+    assert project_state.projectChatWindowing.instancesById == {
+        canvas_window.instanceId: canvas_window
+    }
+    assert project_state.projectChatWindowing.order == [canvas_window.instanceId]
+    assert project_state.projectChatWindowing.nextInstanceNumber == 3

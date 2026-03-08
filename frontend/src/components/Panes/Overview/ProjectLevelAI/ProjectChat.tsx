@@ -16,6 +16,7 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { buildOverviewProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
@@ -448,10 +449,11 @@ export function ProjectChat({
   setChatId: controlledSetChatId,
   onBlockedErrorCodeChange,
 }: ProjectChatProps = {}) {
-  const resolvedSurfaceId = surfaceId ?? "project-chat-global-surface";
   const globalChatId = useAIStore((state) => state.activeChatId);
   const agentRuns = useAIStore((state) => state.agentRuns);
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const resolvedSurfaceId =
+    surfaceId ?? buildOverviewProjectChatSurfaceId(projectConfigId);
   const setGlobalChatId = useCallback(
     (next: SetStateAction<string | null | undefined>) => {
       useAIStore.setState((state) => {
