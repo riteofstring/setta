@@ -100,8 +100,8 @@ fi
 if [[ -n "${SETTA_BIN:-}" ]]; then
   SETTA_CMD=("${SETTA_BIN}")
 elif [[ "${CLI_RELOAD}" -eq 1 ]]; then
-  # Reload is still a deliberate dev-only legacy path until the Go CLI owns it.
-  SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta.legacy_start_entrypoint")
+  # Reload remains a deliberate dev-only Python path until the Go CLI owns it.
+  SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta.dev_start")
 else
   # Avoid the stale venv `setta` shim and route through the current entrypoint.
   SETTA_CMD=("${SETTA_PYTHON_BIN}" "-m" "setta")
