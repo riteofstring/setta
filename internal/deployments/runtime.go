@@ -1,20 +1,18 @@
 package deployments
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"setta/internal/appspec"
 	"setta/internal/projectstate"
 )
 
@@ -397,33 +395,7 @@ func (r *Runtime) LoadAppSpec(appDefinition *projectstate.AppDefinition) (any, e
 	if appSpecPath == "" {
 		return nil, nil
 	}
-
-	resolvedPath, err := r.paths.ResolveDeploymentPath(appSpecPath)
-	if err != nil {
-		return nil, err
-	}
-
-	content, err := os.ReadFile(resolvedPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read app spec: %w", err)
-	}
-
-	trimmedContent := bytes.TrimSpace(content)
-	if len(trimmedContent) == 0 {
-		return nil, nil
-	}
-
-	var payload any
-	if err := json.Unmarshal(trimmedContent, &payload); err != nil {
-		return nil, fmt.Errorf("decode app spec: %w", err)
-	}
-	if isEmptyJSONValue(payload) {
-		return nil, nil
-	}
-	return payload, nil
+	return appspec.Read(r.paths.DeploymentRoot, appSpecPath)
 }
 
 func (r *Runtime) SessionRunCount(sessionID string) (int, error) {
