@@ -1,6 +1,10 @@
 package launcher
 
-import "testing"
+import (
+	"testing"
+
+	"setta/internal/config"
+)
 
 func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.T) {
 	t.Parallel()
@@ -32,5 +36,32 @@ func TestLocalIDESessionLauncherBuildLaunchArgsIncludeExecutablePath(t *testing.
 	}
 	if !foundLookupHome {
 		t.Fatalf("expected launch args to include profile lookup home, got %#v", args)
+	}
+}
+
+func TestLocalIDESessionLauncherBuildLaunchArgsUseLauncherModeWhenRequested(t *testing.T) {
+	t.Parallel()
+
+	launcherRuntime, err := NewLocalIDESessionLauncher(LocalIDESessionLauncherOptions{
+		ExecutablePath: "/tmp/setta-server",
+	})
+	if err != nil {
+		t.Fatalf("new local IDE session launcher: %v", err)
+	}
+
+	args := launcherRuntime.buildLaunchArgs(IDELaunchInput{
+		WorkspaceRoot: "/tmp/workspace",
+		SettaHome:     "/tmp/.setta",
+		ServerMode:    config.ModeLauncher,
+	})
+
+	foundMode := false
+	for index := 0; index < len(args)-1; index++ {
+		if args[index] == "--mode" && args[index+1] == string(config.ModeLauncher) {
+			foundMode = true
+		}
+	}
+	if !foundMode {
+		t.Fatalf("expected launch args to include launcher mode, got %#v", args)
 	}
 }

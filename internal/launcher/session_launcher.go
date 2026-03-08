@@ -46,6 +46,7 @@ type IDELaunchInput struct {
 	SettaFilesRoot     string
 	SettaFilesLocation *string
 	RuntimeRoot        string
+	ServerMode         config.Mode
 }
 
 type IDELaunchResult struct {
@@ -155,6 +156,7 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 	if err != nil {
 		return IDELaunchResult{}, err
 	}
+	serverMode := effectiveLaunchMode(input.ServerMode)
 	registry, err := l.registryFactory(filepath.Join(targetConfig.Paths.RuntimeRoot, "sessions"))
 	if err != nil {
 		return IDELaunchResult{}, &SessionLaunchError{
@@ -163,7 +165,7 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 		}
 	}
 
-	matchingSessions, err := l.matchingSessions(registry, targetConfig.Paths)
+	matchingSessions, err := l.matchingSessions(registry, targetConfig.Paths, serverMode)
 	if err != nil {
 		return IDELaunchResult{}, err
 	}
@@ -220,7 +222,7 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 
 	deadline := l.now().Add(l.launchTimeout)
 	for {
-		latestMatchingSessions, err := l.matchingSessions(registry, targetConfig.Paths)
+		latestMatchingSessions, err := l.matchingSessions(registry, targetConfig.Paths, serverMode)
 		if err != nil {
 			_ = process.Kill()
 			return IDELaunchResult{}, err
@@ -259,8 +261,8 @@ func (l *LocalIDESessionLauncher) EnsureSession(input IDELaunchInput) (IDELaunch
 	}
 }
 
-func (l *LocalIDESessionLauncher) matchingSessions(registry *localsessions.Registry, paths config.Paths) ([]auth.SessionMetadata, error) {
-	sessions, err := registry.FindSessionsByWorkspaceAndMode(paths.WorkspaceRoot, string(config.ModeIDE))
+func (l *LocalIDESessionLauncher) matchingSessions(registry *localsessions.Registry, paths config.Paths, mode config.Mode) ([]auth.SessionMetadata, error) {
+	sessions, err := registry.FindSessionsByWorkspaceAndMode(paths.WorkspaceRoot, string(mode))
 	if err != nil {
 		return nil, &SessionLaunchError{
 			Code:    "LaunchFailed",
@@ -289,12 +291,13 @@ func (l *LocalIDESessionLauncher) firstConnectableSession(sessions []auth.Sessio
 }
 
 func (l *LocalIDESessionLauncher) buildLaunchArgs(input IDELaunchInput) []string {
+	mode := effectiveLaunchMode(input.ServerMode)
 	args := []string{
 		l.executablePath,
 		"--no-open",
 		"--host", defaultLaunchHost,
 		"--port", "0",
-		"--mode", string(config.ModeIDE),
+		"--mode", string(mode),
 		"--workspace", input.WorkspaceRoot,
 		"--setta-home", input.SettaHome,
 	}
@@ -347,6 +350,7 @@ func (l *LocalIDESessionLauncher) launchEnv() []string {
 }
 
 func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
+	mode := effectiveLaunchMode(input.ServerMode)
 	cli := config.CLIOptions{
 		WorkspaceRoot:     input.WorkspaceRoot,
 		SettaHome:         input.SettaHome,
@@ -355,7 +359,7 @@ func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
 		RuntimeRoot:       input.RuntimeRoot,
 		Host:              defaultLaunchHost,
 		Port:              "0",
-		Mode:              string(config.ModeIDE),
+		Mode:              string(mode),
 	}
 	if strings.TrimSpace(input.SettaFilesRoot) != "" {
 		cli.SettaFilesRoot = input.SettaFilesRoot
@@ -375,6 +379,13 @@ func loadIDELaunchConfig(input IDELaunchInput) (config.Config, error) {
 		}
 	}
 	return cfg, nil
+}
+
+func effectiveLaunchMode(mode config.Mode) config.Mode {
+	if mode == "" {
+		return config.ModeIDE
+	}
+	return mode
 }
 
 func sessionMatchesPaths(session auth.SessionMetadata, paths config.Paths) bool {

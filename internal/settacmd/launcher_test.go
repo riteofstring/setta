@@ -1,11 +1,17 @@
 package settacmd
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
+	"time"
 
+	"setta/internal/auth"
+	"setta/internal/config"
 	"setta/internal/launcher"
 )
 
@@ -220,4 +226,451 @@ func decodeJSONPayload(t *testing.T, raw string) map[string]any {
 		t.Fatalf("decode json payload: %v\nraw=%q", err, raw)
 	}
 	return payload
+}
+
+func TestRunLauncherRootUsesHomeFallbackWorkspaceAndRequestsSwitcher(t *testing.T) {
+	t.Parallel()
+
+	homeDir := t.TempDir()
+	captured := launcher.IDELaunchInput{}
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		resolveUserHome: func() (string, error) {
+			return homeDir, nil
+		},
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				captured = input
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		},
+	})
+
+	stdout, stderr, err := runLauncherRootWithDeps(t, []string{"--json"}, globalFlags{}, deps)
+	if err != nil {
+		t.Fatalf("run launcher root: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["ok"]; got != true {
+		t.Fatalf("expected ok payload, got %#v", payload)
+	}
+	if got := payload["openWorkspaceSwitcher"]; got != true {
+		t.Fatalf("expected openWorkspaceSwitcher true, got %#v", got)
+	}
+	if got := payload["sessionServerMode"]; got != "launcher" {
+		t.Fatalf("expected launcher session mode, got %#v", got)
+	}
+	if got := payload["openMode"]; got != "chrome-app" {
+		t.Fatalf("expected default chrome-app open mode, got %#v", got)
+	}
+	if got := payload["bootstrapUrl"]; got != "http://127.0.0.1:61234/__setta__/bootstrap#osw=1&token=tok" &&
+		got != "http://127.0.0.1:61234/__setta__/bootstrap#token=tok&osw=1" {
+		t.Fatalf("unexpected bootstrapUrl %#v", got)
+	}
+	if got := payload["workspaceRoot"]; got != homeDir {
+		t.Fatalf("expected home workspace %q, got %#v", homeDir, got)
+	}
+	if captured.ServerMode != config.ModeLauncher {
+		t.Fatalf("expected launcher server mode, got %q", captured.ServerMode)
+	}
+	if captured.SettaFilesLocation == nil || *captured.SettaFilesLocation != string(config.FilesLocationGlobal) {
+		t.Fatalf("expected global setta_files location, got %#v", captured.SettaFilesLocation)
+	}
+}
+
+func TestRunLauncherRootPrefersLastUsedWorkspaceFromMetadata(t *testing.T) {
+	t.Parallel()
+
+	lastUsedWorkspace := t.TempDir()
+	metadata := &launcher.LauncherInstallMetadata{
+		OpenMode:          string(launcher.LauncherOpenModeChromeApp),
+		WorkspaceBehavior: string(launcher.LauncherWorkspaceBehaviorDefault),
+		LastUsedWorkspace: stringPointer(lastUsedWorkspace),
+	}
+	captured := launcher.IDELaunchInput{}
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		metadata:  metadata,
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				captured = input
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		},
+	})
+
+	stdout, _, err := runLauncherRootWithDeps(t, []string{"--json"}, globalFlags{}, deps)
+	if err != nil {
+		t.Fatalf("run launcher root: %v", err)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["openWorkspaceSwitcher"]; got != false {
+		t.Fatalf("expected openWorkspaceSwitcher false, got %#v", got)
+	}
+	if got := payload["sessionServerMode"]; got != "ide" {
+		t.Fatalf("expected ide session mode, got %#v", got)
+	}
+	if got := payload["workspaceRoot"]; got != lastUsedWorkspace {
+		t.Fatalf("expected last used workspace %q, got %#v", lastUsedWorkspace, got)
+	}
+	if captured.ServerMode != config.ModeIDE {
+		t.Fatalf("expected ide server mode, got %q", captured.ServerMode)
+	}
+}
+
+func TestRunLauncherRootHonorsAlwaysPromptWorkspaceBehavior(t *testing.T) {
+	t.Parallel()
+
+	homeDir := t.TempDir()
+	lastUsedWorkspace := t.TempDir()
+	metadata := &launcher.LauncherInstallMetadata{
+		OpenMode:          string(launcher.LauncherOpenModeBrowser),
+		WorkspaceBehavior: string(launcher.LauncherWorkspaceBehaviorAlwaysPrompt),
+		LastUsedWorkspace: stringPointer(lastUsedWorkspace),
+	}
+	captured := launcher.IDELaunchInput{}
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		metadata:  metadata,
+		resolveUserHome: func() (string, error) {
+			return homeDir, nil
+		},
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				captured = input
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		},
+	})
+
+	stdout, _, err := runLauncherRootWithDeps(t, []string{"--json"}, globalFlags{}, deps)
+	if err != nil {
+		t.Fatalf("run launcher root: %v", err)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["workspaceBehavior"]; got != "always_prompt" {
+		t.Fatalf("expected always_prompt workspace behavior, got %#v", got)
+	}
+	if got := payload["openWorkspaceSwitcher"]; got != true {
+		t.Fatalf("expected workspace switcher to open, got %#v", got)
+	}
+	if got := payload["sessionServerMode"]; got != "launcher" {
+		t.Fatalf("expected launcher session mode, got %#v", got)
+	}
+	if got := payload["workspaceRoot"]; got != homeDir {
+		t.Fatalf("expected home directory workspace %q, got %#v", homeDir, got)
+	}
+	if captured.ServerMode != config.ModeLauncher {
+		t.Fatalf("expected launcher server mode, got %q", captured.ServerMode)
+	}
+}
+
+func TestRunLauncherRootReportsMissingBoundTarget(t *testing.T) {
+	t.Parallel()
+
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		metadata:  &launcher.LauncherInstallMetadata{},
+		validateMetadataTarget: func(launcher.LauncherInstallMetadata) string {
+			return "Configured launcher target is missing: /tmp/missing. Re-run `setta launcher setup`."
+		},
+	})
+
+	stdout, _, err := runLauncherRootWithDeps(t, []string{"--json"}, globalFlags{}, deps)
+	if err == nil {
+		t.Fatal("expected launcher target error")
+	}
+	if code := ExitCode(err); code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	errorPayload := payload["error"].(map[string]any)
+	if got := errorPayload["code"]; got != "LauncherTargetMissing" {
+		t.Fatalf("expected LauncherTargetMissing, got %#v", got)
+	}
+}
+
+func TestRunLauncherRootReportsInternalErrorForUnexpectedFailures(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		},
+		mintBootstrapToken: func(string, []byte, time.Time) (string, error) {
+			return "", assertiveError("boom")
+		},
+	})
+
+	stdout, _, err := runLauncherRootWithDeps(t, []string{"--json", "--workspace", workspaceRoot}, globalFlags{}, deps)
+	if err == nil {
+		t.Fatal("expected internal error")
+	}
+	if code := ExitCode(err); code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	errorPayload := payload["error"].(map[string]any)
+	if got := errorPayload["code"]; got != "InternalError" {
+		t.Fatalf("expected InternalError, got %#v", got)
+	}
+}
+
+func TestRunLauncherRootPassesTimeoutToSessionLauncher(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	var capturedTimeout time.Duration
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		newSessionLauncher: func(_ string, launchTimeout time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			capturedTimeout = launchTimeout
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		},
+	})
+
+	stdout, _, err := runLauncherRootWithDeps(t, []string{"--json", "--workspace", workspaceRoot, "--timeout", "12.5"}, globalFlags{}, deps)
+	if err != nil {
+		t.Fatalf("run launcher root: %v", err)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["ok"]; got != true {
+		t.Fatalf("expected ok payload, got %#v", payload)
+	}
+	if capturedTimeout != 12500*time.Millisecond {
+		t.Fatalf("expected launch timeout 12.5s, got %v", capturedTimeout)
+	}
+}
+
+func TestRunLauncherRootIgnoresMetadataPersistenceErrors(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	deps := testLauncherRootDependencies(t, launcherRootTestOptions{
+		settaHome: settaHomeForTest(t),
+		newSessionLauncher: func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		},
+		updateLastUsedWorkspace: func(string, string) error {
+			return assertiveError("disk full")
+		},
+	})
+
+	stdout, _, err := runLauncherRootWithDeps(t, []string{"--json", "--workspace", workspaceRoot}, globalFlags{}, deps)
+	if err != nil {
+		t.Fatalf("expected success despite metadata persistence error: %v", err)
+	}
+	payload := decodeJSONPayload(t, stdout)
+	if got := payload["ok"]; got != true {
+		t.Fatalf("expected ok payload, got %#v", payload)
+	}
+	if got := payload["workspaceRoot"]; got != workspaceRoot {
+		t.Fatalf("expected workspaceRoot %q, got %#v", workspaceRoot, got)
+	}
+}
+
+func TestResolveLauncherServerExecutablePrefersEnvOverride(t *testing.T) {
+	t.Parallel()
+
+	overridePath := writeExecutableForTest(t, filepath.Join(t.TempDir(), "custom", "setta-server"))
+	currentExecutable := writeExecutableForTest(t, filepath.Join(t.TempDir(), "bin", "setta"))
+
+	resolved, err := resolveLauncherServerExecutable(currentExecutable, func(key string) (string, bool) {
+		if key == "SETTA_SERVER_BIN" {
+			return overridePath, true
+		}
+		return "", false
+	})
+	if err != nil {
+		t.Fatalf("resolve server executable: %v", err)
+	}
+	if resolved != overridePath {
+		t.Fatalf("expected override path %q, got %q", overridePath, resolved)
+	}
+}
+
+func TestResolveLauncherServerExecutableUsesSiblingBinary(t *testing.T) {
+	t.Parallel()
+
+	binDir := filepath.Join(t.TempDir(), "bin")
+	currentExecutable := writeExecutableForTest(t, filepath.Join(binDir, "setta"))
+	expectedServer := writeExecutableForTest(t, filepath.Join(binDir, "setta-server"))
+
+	resolved, err := resolveLauncherServerExecutable(currentExecutable, func(string) (string, bool) {
+		return "", false
+	})
+	if err != nil {
+		t.Fatalf("resolve server executable: %v", err)
+	}
+	if resolved != expectedServer {
+		t.Fatalf("expected sibling server executable %q, got %q", expectedServer, resolved)
+	}
+}
+
+type launcherRootTestOptions struct {
+	settaHome                string
+	metadata                 *launcher.LauncherInstallMetadata
+	resolveUserHome          func() (string, error)
+	validateMetadataTarget   func(launcher.LauncherInstallMetadata) string
+	resolveCurrentExecutable func() (string, error)
+	resolveServerExecutable  func(string, func(string) (string, bool)) (string, error)
+	newSessionLauncher       func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error)
+	mintBootstrapToken       func(string, []byte, time.Time) (string, error)
+	updateLastUsedWorkspace  func(string, string) error
+	openURLWithMode          func(string, launcher.LauncherOpenMode, io.Writer) launcher.LauncherOpenMode
+}
+
+type launcherRootSessionLauncherFunc func(launcher.IDELaunchInput) (launcher.IDELaunchResult, error)
+
+func (f launcherRootSessionLauncherFunc) EnsureSession(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+	return f(input)
+}
+
+type assertiveError string
+
+func (e assertiveError) Error() string {
+	return string(e)
+}
+
+func testLauncherRootDependencies(t *testing.T, options launcherRootTestOptions) launcherRootDependencies {
+	t.Helper()
+
+	settaHome := options.settaHome
+	if settaHome == "" {
+		settaHome = settaHomeForTest(t)
+	}
+	resolveUserHome := options.resolveUserHome
+	if resolveUserHome == nil {
+		resolveUserHome = func() (string, error) {
+			return t.TempDir(), nil
+		}
+	}
+	validateMetadataTarget := options.validateMetadataTarget
+	if validateMetadataTarget == nil {
+		validateMetadataTarget = func(launcher.LauncherInstallMetadata) string {
+			return ""
+		}
+	}
+	resolveCurrentExecutable := options.resolveCurrentExecutable
+	if resolveCurrentExecutable == nil {
+		resolveCurrentExecutable = func() (string, error) {
+			return filepath.Join(t.TempDir(), "setta"), nil
+		}
+	}
+	resolveServerExecutable := options.resolveServerExecutable
+	if resolveServerExecutable == nil {
+		resolveServerExecutable = func(string, func(string) (string, bool)) (string, error) {
+			return filepath.Join(t.TempDir(), "setta-server"), nil
+		}
+	}
+	newSessionLauncher := options.newSessionLauncher
+	if newSessionLauncher == nil {
+		newSessionLauncher = func(string, time.Duration) (launcher.IDEWorkspaceSessionLauncher, error) {
+			return launcherRootSessionLauncherFunc(func(input launcher.IDELaunchInput) (launcher.IDELaunchResult, error) {
+				return launcherRootLaunchResult(input.WorkspaceRoot, input.SettaHome, nil), nil
+			}), nil
+		}
+	}
+	mintBootstrapToken := options.mintBootstrapToken
+	if mintBootstrapToken == nil {
+		mintBootstrapToken = func(string, []byte, time.Time) (string, error) {
+			return "tok", nil
+		}
+	}
+	updateLastUsedWorkspace := options.updateLastUsedWorkspace
+	if updateLastUsedWorkspace == nil {
+		updateLastUsedWorkspace = func(string, string) error { return nil }
+	}
+	openURLWithMode := options.openURLWithMode
+	if openURLWithMode == nil {
+		openURLWithMode = func(string, launcher.LauncherOpenMode, io.Writer) launcher.LauncherOpenMode {
+			return launcher.LauncherOpenModeBrowser
+		}
+	}
+
+	return launcherRootDependencies{
+		loadBaseConfig: func(global globalFlags, cwd string, envLookup func(string) (string, bool)) (config.Config, error) {
+			return config.Config{
+				Paths: config.Paths{
+					SettaHome:         settaHome,
+					ProfileLookupHome: settaHome,
+				},
+			}, nil
+		},
+		loadMetadata: func(string) (*launcher.LauncherInstallMetadata, error) {
+			return options.metadata, nil
+		},
+		resolveUserHome:          resolveUserHome,
+		validateMetadataTarget:   validateMetadataTarget,
+		resolveCurrentExecutable: resolveCurrentExecutable,
+		resolveServerExecutable:  resolveServerExecutable,
+		newSessionLauncher:       newSessionLauncher,
+		now: func() time.Time {
+			return time.Date(2026, time.March, 8, 12, 30, 0, 0, time.UTC)
+		},
+		mintBootstrapToken:      mintBootstrapToken,
+		updateLastUsedWorkspace: updateLastUsedWorkspace,
+		openURLWithMode:         openURLWithMode,
+	}
+}
+
+func runLauncherRootWithDeps(t *testing.T, args []string, global globalFlags, deps launcherRootDependencies) (string, string, error) {
+	t.Helper()
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err := runLauncherWithDeps(args, global, &stdout, &stderr, func(string) (string, bool) {
+		return "", false
+	}, t.TempDir(), deps)
+	return stdout.String(), stderr.String(), err
+}
+
+func launcherRootLaunchResult(workspaceRoot string, settaHome string, profile *string) launcher.IDELaunchResult {
+	return launcher.IDELaunchResult{
+		Session: auth.SessionMetadata{
+			ID:   "session-1",
+			Host: "127.0.0.1",
+			Port: 61234,
+		},
+		Secret:     []byte("secret"),
+		StartedNew: false,
+		Paths: config.Paths{
+			WorkspaceRoot: workspaceRoot,
+			SettaHome:     settaHome,
+			ProfileName:   stringPointerValue(profile),
+		},
+	}
+}
+
+func settaHomeForTest(t *testing.T) string {
+	t.Helper()
+	return filepath.Join(t.TempDir(), ".setta")
+}
+
+func writeExecutableForTest(t *testing.T, path string) string {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir executable dir: %v", err)
+	}
+	content := "#!/usr/bin/env bash\nexit 0\n"
+	if runtime.GOOS == "windows" {
+		content = "@echo off\r\nexit /b 0\r\n"
+		path += ".exe"
+	}
+	if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
+		t.Fatalf("write executable: %v", err)
+	}
+	return path
 }

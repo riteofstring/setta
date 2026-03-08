@@ -31,6 +31,7 @@ As of 2026-03-08:
   - `internal/settacmd`
   - direct `version` handling
   - direct routing for the already-completed Go helper-command cluster
+  - launcher run behavior at the `setta launcher` root
   - launcher management commands:
     - `launcher setup`
     - `launcher status`
@@ -40,9 +41,10 @@ As of 2026-03-08:
 - Python still owns the shipped user-facing `setta` entrypoint:
   - `pyproject.toml` publishes `setta = "setta.start:cli"`
   - `backend/setta/__main__.py` also enters through `setta.start`
-- Python still owns the launcher command tree in `backend/setta/start.py`:
+- Python still owns the shipped launcher entrypoint path in `backend/setta/start.py`,
+  but only as a legacy duplicate of the now-Go-owned command tree:
   - `launcher`
-  - plus legacy Python copies of `launcher setup|status|repair|remove|update`
+  - `launcher setup|status|repair|remove|update`
 - installer/release scripts still bind to that Python command tree:
   - `scripts/install_desktop_launcher.sh`
   - `scripts/install_desktop_launcher.ps1`
@@ -222,21 +224,25 @@ the actual Go command tree that installer scripts can target next.
   to Go, and launcher management (`setup|status|repair|remove|update`) is now
   Go-owned in `internal/settacmd` over the existing `internal/launcher`
   service layer.
-- 2026-03-08: kept `launcher` run itself out of this slice on purpose. The
-  remaining Stage 1 boundary is now launcher run plus packaging/module-entrypoint
-  and installer-script retargeting, not launcher management JSON/text behavior.
+- 2026-03-08: completed the next bounded Stage 1 slice. `setta launcher` root
+  run behavior is now Go-owned in `internal/settacmd`, reusing the explicit
+  `internal/launcher` session/bootstrap runtime while starting either IDE-mode
+  or launcher-mode backend sessions as needed.
+- 2026-03-08: the remaining Stage 1 boundary is now packaging/module-entrypoint
+  ownership plus installer-script retargeting. The open rewrite gap is
+  distribution wiring, not launcher runtime semantics.
 
 ## Verification
 
-- docs-only update; runtime tests not needed
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/settacmd ./internal/launcher ./cmd/setta -count=1 -timeout 300s`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement the next Stage 1 slice from this doc:
+Implement the remaining Stage 1 distribution slice from this doc:
 
-1. add Go-owned `setta launcher` run behavior on top of the completed launcher
-   runtime and `cmd/setta` router
-2. retarget launcher install/smoke scripts to the Go `cmd/setta` contract
-3. only after those land, decide whether to switch the shipped Python entrypoint
-   to exec the Go binary directly
+1. retarget launcher install/smoke scripts to the Go `cmd/setta` contract
+2. switch the shipped Python entrypoint/module-entrypoint path to exec the Go
+   binary or dispatch directly into the Go-owned router
+3. keep unrelated local Python command groups out of scope unless packaging
+   work proves they are a direct dependency
