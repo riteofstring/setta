@@ -35,19 +35,20 @@ type Executor interface {
 }
 
 type ExecutionRequest struct {
-	Profile         agentprofiles.Profile
-	Run             Run
-	EngineConfig    EngineConfig
-	LLMConfig       llmconfig.Config
-	MCPServerIDs    []string
-	RequestParams   map[string]any
-	APIKeys         map[string]string
-	SystemPrompt    string
-	ProjectConfigID string
-	ChatID          string
-	SectionID       *string
-	Thinking        bool
-	Inputs          map[string]any
+	Profile                agentprofiles.Profile
+	Run                    Run
+	EngineConfig           EngineConfig
+	LLMConfig              llmconfig.Config
+	MCPServerIDs           []string
+	CompletionGuardEnabled bool
+	RequestParams          map[string]any
+	APIKeys                map[string]string
+	SystemPrompt           string
+	ProjectConfigID        string
+	ChatID                 string
+	SectionID              *string
+	Thinking               bool
+	Inputs                 map[string]any
 }
 
 type ExecutionResult struct {
@@ -248,19 +249,20 @@ func (s *Service) buildExecutionRequest(runContext runContext) (ExecutionRequest
 		return ExecutionRequest{}, err
 	}
 	return ExecutionRequest{
-		Profile:         runContext.profile,
-		Run:             runContext.run.Clone(),
-		EngineConfig:    runContext.engine.EngineConfig,
-		LLMConfig:       runContext.engine.LLMConfig,
-		MCPServerIDs:    cloneStringSlice(mcpServerIDs),
-		RequestParams:   requestParams,
-		APIKeys:         apiKeys,
-		SystemPrompt:    runContext.systemPrompt,
-		ProjectConfigID: runContext.projectConfigID,
-		ChatID:          runContext.chatID,
-		SectionID:       cloneStringPtr(runContext.sectionID),
-		Thinking:        runContext.thinking,
-		Inputs:          cloneAnyMap(runContext.inputs),
+		Profile:                runContext.profile,
+		Run:                    runContext.run.Clone(),
+		EngineConfig:           runContext.engine.EngineConfig,
+		LLMConfig:              runContext.engine.LLMConfig,
+		MCPServerIDs:           cloneStringSlice(mcpServerIDs),
+		CompletionGuardEnabled: s.completionGuardEnabled,
+		RequestParams:          requestParams,
+		APIKeys:                apiKeys,
+		SystemPrompt:           runContext.systemPrompt,
+		ProjectConfigID:        runContext.projectConfigID,
+		ChatID:                 runContext.chatID,
+		SectionID:              cloneStringPtr(runContext.sectionID),
+		Thinking:               runContext.thinking,
+		Inputs:                 cloneAnyMap(runContext.inputs),
 	}, nil
 }
 

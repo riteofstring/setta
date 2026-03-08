@@ -25,7 +25,7 @@ type stubSession struct {
 	listTools []remoteTool
 	listErr   error
 	pingErr   error
-	call      func(context.Context, string, map[string]any) (ToolCallResult, error)
+	call      func(context.Context, string, map[string]any, map[string]any) (ToolCallResult, error)
 	closed    int
 }
 
@@ -36,9 +36,9 @@ func (s *stubSession) ListTools(context.Context) ([]remoteTool, error) {
 	return append([]remoteTool(nil), s.listTools...), nil
 }
 
-func (s *stubSession) CallTool(ctx context.Context, toolName string, arguments map[string]any) (ToolCallResult, error) {
+func (s *stubSession) CallTool(ctx context.Context, toolName string, arguments map[string]any, meta map[string]any) (ToolCallResult, error) {
 	if s.call != nil {
-		return s.call(ctx, toolName, arguments)
+		return s.call(ctx, toolName, arguments, meta)
 	}
 	return ToolCallResult{}, nil
 }
@@ -122,17 +122,20 @@ func TestClientCallToolRetriesReadOnlyAfterReconnect(t *testing.T) {
 	})
 
 	firstSession := &activeSession{session: &stubSession{
-		call: func(context.Context, string, map[string]any) (ToolCallResult, error) {
+		call: func(context.Context, string, map[string]any, map[string]any) (ToolCallResult, error) {
 			return ToolCallResult{}, sdkmcp.ErrConnectionClosed
 		},
 	}}
 	secondSession := &activeSession{session: &stubSession{
-		call: func(_ context.Context, toolName string, arguments map[string]any) (ToolCallResult, error) {
+		call: func(_ context.Context, toolName string, arguments map[string]any, meta map[string]any) (ToolCallResult, error) {
 			if toolName != "read_file_range" {
 				t.Fatalf("expected remote tool name read_file_range, got %q", toolName)
 			}
 			if arguments["path"] != "README.md" {
 				t.Fatalf("expected routed arguments, got %#v", arguments)
+			}
+			if meta != nil {
+				t.Fatalf("expected nil meta on retry call, got %#v", meta)
 			}
 			return ToolCallResult{StructuredContent: map[string]any{"ok": true}}, nil
 		},
@@ -346,7 +349,7 @@ func TestClientCallToolDoesNotRetryWriteTools(t *testing.T) {
 	})
 	client.mu.Lock()
 	client.sessions[DefaultServerID] = &activeSession{session: &stubSession{
-		call: func(context.Context, string, map[string]any) (ToolCallResult, error) {
+		call: func(context.Context, string, map[string]any, map[string]any) (ToolCallResult, error) {
 			return ToolCallResult{}, writeErr
 		},
 	}}
@@ -355,5 +358,66 @@ func TestClientCallToolDoesNotRetryWriteTools(t *testing.T) {
 	_, err = client.CallTool(context.Background(), BuildNamespacedToolName(DefaultServerID, "write_file"), map[string]any{})
 	if !errors.Is(err, writeErr) {
 		t.Fatalf("expected write call error, got %v", err)
+	}
+}
+
+func TestClientCallToolWithMetaPassesRequestMeta(t *testing.T) {
+	t.Parallel()
+
+	client, err := NewClient(ClientOptions{})
+	if err != nil {
+		t.Fatalf("new client: %v", err)
+	}
+	client.updateToolCacheForServer(DefaultServerID, []remoteTool{
+		{
+			Name:     "search_ui_settings",
+			Kind:     tools.KindDiscoverable,
+			ReadOnly: true,
+			Metadata: mustMetadata(t, "search_ui_settings", tools.Metadata{
+				Kind:       tools.KindDiscoverable,
+				AccessType: tools.AccessTypeRead,
+			}),
+		},
+	})
+
+	capturedMeta := map[string]any{}
+	client.mu.Lock()
+	client.sessions[DefaultServerID] = &activeSession{session: &stubSession{
+		call: func(_ context.Context, toolName string, arguments map[string]any, meta map[string]any) (ToolCallResult, error) {
+			if toolName != "search_ui_settings" {
+				t.Fatalf("unexpected tool name %q", toolName)
+			}
+			if arguments["query"] != "theme" {
+				t.Fatalf("unexpected tool arguments %#v", arguments)
+			}
+			for key, value := range meta {
+				capturedMeta[key] = value
+			}
+			return ToolCallResult{StructuredContent: map[string]any{"ok": true}}, nil
+		},
+	}}
+	client.mu.Unlock()
+
+	_, err = client.CallToolWithMeta(
+		context.Background(),
+		BuildNamespacedToolName(DefaultServerID, "search_ui_settings"),
+		map[string]any{"query": "theme"},
+		map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-alpha",
+			"allowUnscoped":   true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("call tool with meta: %v", err)
+	}
+	if capturedMeta["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected projectConfigId %#v", capturedMeta)
+	}
+	if capturedMeta["chatId"] != "chat-alpha" {
+		t.Fatalf("unexpected chatId %#v", capturedMeta)
+	}
+	if capturedMeta["allowUnscoped"] != true {
+		t.Fatalf("unexpected allowUnscoped %#v", capturedMeta)
 	}
 }

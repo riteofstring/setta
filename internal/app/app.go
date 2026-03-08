@@ -728,7 +728,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Engines:                engineStore,
 			Runs:                   agentRunStore,
 			LLM:                    llmRuntime,
-			Executor:               managedllm.NewExecutor(managedllm.ExecutorOptions{Live: managedLiveRuntime}),
+			Executor:               managedllm.NewExecutor(managedllm.ExecutorOptions{Live: managedLiveRuntime, Tools: mcpClient}),
 			TemporaryIDs:           temporaryIDs,
 			CompletionGuardEnabled: true,
 		})

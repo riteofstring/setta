@@ -16,6 +16,7 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/managedchat"
+	"setta/internal/mcpx"
 	"setta/internal/realtime"
 )
 
@@ -38,11 +39,13 @@ var (
 
 type ExecutorOptions struct {
 	Live       *managedchat.LiveRuntime
+	Tools      ToolClient
 	HTTPClient *http.Client
 }
 
 type Executor struct {
 	live       *managedchat.LiveRuntime
+	tools      ToolClient
 	httpClient *http.Client
 }
 
@@ -54,20 +57,34 @@ type preparedExecution struct {
 	chatID           string
 	runID            string
 	emitStream       bool
-	requestBody      map[string]any
+	requestOptions   map[string]any
 	transcript       []map[string]any
-	assistantMessage map[string]any
+	providerMessages []map[string]any
+	toolDefinitions  []map[string]any
+	availableTools   map[string]struct{}
+	toolAllowlist    *toolAllowlist
 }
 
 type openAIStreamChunk struct {
 	Choices []struct {
 		Index int `json:"index"`
 		Delta struct {
-			Content any `json:"content"`
+			Content   any                   `json:"content"`
+			ToolCalls []openAIToolCallDelta `json:"tool_calls"`
 		} `json:"delta"`
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage map[string]any `json:"usage"`
+}
+
+type openAIToolCallDelta struct {
+	Index    int    `json:"index"`
+	ID       string `json:"id"`
+	Type     string `json:"type"`
+	Function struct {
+		Name      string `json:"name"`
+		Arguments any    `json:"arguments"`
+	} `json:"function"`
 }
 
 func NewExecutor(options ExecutorOptions) *Executor {
@@ -77,6 +94,7 @@ func NewExecutor(options ExecutorOptions) *Executor {
 	}
 	return &Executor{
 		live:       options.Live,
+		tools:      options.Tools,
 		httpClient: httpClient,
 	}
 }
@@ -86,55 +104,7 @@ func (e *Executor) Execute(ctx context.Context, request agentruns.ExecutionReque
 	if err != nil {
 		return agentruns.ExecutionResult{}, err
 	}
-
-	if prepared.emitStream {
-		if err := e.applyChunk(ctx, prepared, realtime.MessageStartEvent{
-			Type:    realtime.StreamingEventTypeMessageStart,
-			Message: cloneMessage(prepared.assistantMessage),
-		}); err != nil {
-			return agentruns.ExecutionResult{}, err
-		}
-	}
-
-	result, execErr := e.executeStream(ctx, prepared)
-	if execErr == nil {
-		if prepared.emitStream {
-			if err := e.applyChunk(ctx, prepared, realtime.MessageStopEvent{
-				Type:      realtime.StreamingEventTypeMessageStop,
-				MessageID: stringValue(prepared.assistantMessage["id"]),
-			}); err != nil {
-				return agentruns.ExecutionResult{}, err
-			}
-			if err := e.applyChunk(ctx, prepared, realtime.MessageFinalizedEvent{
-				Type:    realtime.StreamingEventTypeMessageFinalized,
-				Message: cloneMessage(prepared.assistantMessage),
-			}); err != nil {
-				return agentruns.ExecutionResult{}, err
-			}
-		}
-		return result, nil
-	}
-
-	if errors.Is(execErr, context.Canceled) {
-		if prepared.emitStream {
-			if err := e.applyChunk(ctx, prepared, realtime.MessageStopEvent{
-				Type:      realtime.StreamingEventTypeMessageStop,
-				MessageID: stringValue(prepared.assistantMessage["id"]),
-			}); err != nil {
-				return result, err
-			}
-			if hasMessageText(prepared.assistantMessage) {
-				if err := e.applyChunk(ctx, prepared, realtime.MessageFinalizedEvent{
-					Type:    realtime.StreamingEventTypeMessageFinalized,
-					Message: cloneMessage(prepared.assistantMessage),
-				}); err != nil {
-					return result, err
-				}
-			}
-		}
-		return result, execErr
-	}
-	return result, execErr
+	return e.executeConversation(ctx, prepared, request)
 }
 
 func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (preparedExecution, error) {
@@ -144,9 +114,6 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	}
 	if strings.TrimSpace(request.LLMConfig.Model) == "" {
 		return preparedExecution{}, ErrModelRequired
-	}
-	if len(request.MCPServerIDs) > 0 {
-		return preparedExecution{}, fmt.Errorf("%w: %s", ErrToolsUnsupported, strings.Join(request.MCPServerIDs, ", "))
 	}
 	if request.Thinking && !hasExplicitReasoningConfig(request.RequestParams) {
 		return preparedExecution{}, ErrReasoningUnsupported
@@ -165,24 +132,24 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	if err != nil {
 		return preparedExecution{}, err
 	}
-	assistantMessage := newAssistantMessage()
+	toolDefinitions, availableTools, allowlist, err := buildToolDefinitions(request, e.tools)
+	if err != nil {
+		return preparedExecution{}, err
+	}
 
-	requestBody := map[string]any{
-		"model":    request.LLMConfig.Model,
-		"messages": providerMessages,
-		"stream":   true,
+	requestOptions := map[string]any{
+		"model":  request.LLMConfig.Model,
+		"stream": true,
 		"stream_options": map[string]any{
 			"include_usage": true,
 		},
 	}
 	for key, value := range request.RequestParams {
 		switch strings.TrimSpace(key) {
-		case "", "model", "messages", "stream", "stream_options", "api_key", "custom_llm_provider", "api_base":
+		case "", "model", "messages", "stream", "stream_options", "api_key", "custom_llm_provider", "api_base", "tools", "tool_choice", "functions", "function_call":
 			continue
-		case "tools", "tool_choice", "functions", "function_call":
-			return preparedExecution{}, fmt.Errorf("%w: request param %q", ErrToolsUnsupported, key)
 		default:
-			requestBody[key] = cloneJSONValue(value)
+			requestOptions[key] = cloneJSONValue(value)
 		}
 	}
 
@@ -194,20 +161,91 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		chatID:           strings.TrimSpace(request.ChatID),
 		runID:            strings.TrimSpace(request.Run.ID),
 		emitStream:       shouldEmitManagedChatStream(request),
-		requestBody:      requestBody,
+		requestOptions:   requestOptions,
 		transcript:       transcript,
-		assistantMessage: assistantMessage,
+		providerMessages: providerMessages,
+		toolDefinitions:  toolDefinitions,
+		availableTools:   availableTools,
+		toolAllowlist:    allowlist,
 	}, nil
 }
 
-func (e *Executor) executeStream(ctx context.Context, prepared preparedExecution) (agentruns.ExecutionResult, error) {
-	body, err := json.Marshal(prepared.requestBody)
+func (e *Executor) executeConversation(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest) (agentruns.ExecutionResult, error) {
+	transcript := cloneMessageSlice(prepared.transcript)
+	providerMessages := cloneMessageSlice(prepared.providerMessages)
+	toolCalls := []map[string]any{}
+	var usage map[string]any
+
+	for round := 0; round < maxToolCallRounds; round++ {
+		assistantMessage := newAssistantMessage()
+		turnUsage, err := e.executeTurn(ctx, prepared, assistantMessage, providerMessages)
+		if turnUsage != nil {
+			usage = turnUsage
+		}
+		if err != nil {
+			if shouldPersistMessage(assistantMessage) {
+				transcript = append(transcript, cloneMessage(assistantMessage))
+			}
+			result := e.buildResult(transcript, toolCalls, usage)
+			if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+				return result, context.Canceled
+			}
+			return result, err
+		}
+
+		if shouldPersistMessage(assistantMessage) {
+			transcript = append(transcript, cloneMessage(assistantMessage))
+			providerPayload, include, payloadErr := providerPayloadForMessage(assistantMessage)
+			if payloadErr != nil {
+				return e.buildResult(transcript, toolCalls, usage), payloadErr
+			}
+			if include {
+				providerMessages = append(providerMessages, providerPayload)
+			}
+		}
+
+		assistantTurnToolCalls := assistantToolCalls(assistantMessage)
+		if len(assistantTurnToolCalls) == 0 {
+			return e.buildResult(transcript, toolCalls, usage), nil
+		}
+		toolCalls = append(toolCalls, cloneToolCallMaps(assistantTurnToolCalls)...)
+
+		toolMessages, providerToolMessages, toolErr := e.executeToolCalls(ctx, prepared, request, assistantTurnToolCalls)
+		if toolErr != nil {
+			return e.buildResult(transcript, toolCalls, usage), toolErr
+		}
+		for _, toolMessage := range toolMessages {
+			transcript = append(transcript, cloneMessage(toolMessage))
+		}
+		providerMessages = append(providerMessages, providerToolMessages...)
+	}
+
+	return e.buildResult(transcript, toolCalls, usage), ErrToolLoopLimitExceeded
+}
+
+func (e *Executor) executeTurn(ctx context.Context, prepared preparedExecution, assistantMessage map[string]any, providerMessages []map[string]any) (map[string]any, error) {
+	requestBody := cloneAnyMap(prepared.requestOptions)
+	requestBody["messages"] = messagesToAnyList(providerMessages)
+	if len(prepared.toolDefinitions) > 0 {
+		requestBody["tools"] = messagesToAnyList(prepared.toolDefinitions)
+	}
+
+	if prepared.emitStream {
+		if err := e.applyChunk(ctx, prepared, realtime.MessageStartEvent{
+			Type:    realtime.StreamingEventTypeMessageStart,
+			Message: cloneMessage(assistantMessage),
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	body, err := json.Marshal(requestBody)
 	if err != nil {
-		return agentruns.ExecutionResult{}, fmt.Errorf("encode managed llm request: %w", err)
+		return nil, fmt.Errorf("encode managed llm request: %w", err)
 	}
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, prepared.endpoint, bytes.NewReader(body))
 	if err != nil {
-		return agentruns.ExecutionResult{}, fmt.Errorf("create managed llm request: %w", err)
+		return nil, fmt.Errorf("create managed llm request: %w", err)
 	}
 	httpRequest.Header.Set("Authorization", "Bearer "+prepared.apiKey)
 	httpRequest.Header.Set("Content-Type", "application/json")
@@ -215,9 +253,12 @@ func (e *Executor) executeStream(ctx context.Context, prepared preparedExecution
 	response, err := e.httpClient.Do(httpRequest)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return e.buildResult(prepared, nil), context.Canceled
+			if err := e.finishStream(ctx, prepared, assistantMessage, true); err != nil {
+				return nil, err
+			}
+			return nil, context.Canceled
 		}
-		return agentruns.ExecutionResult{}, fmt.Errorf("send managed llm request: %w", err)
+		return nil, fmt.Errorf("send managed llm request: %w", err)
 	}
 	defer response.Body.Close()
 
@@ -227,26 +268,36 @@ func (e *Executor) executeStream(ctx context.Context, prepared preparedExecution
 		if detail == "" {
 			detail = response.Status
 		}
-		return agentruns.ExecutionResult{}, fmt.Errorf("managed llm provider request failed: %s", detail)
+		return nil, fmt.Errorf("managed llm provider request failed: %s", detail)
 	}
 
-	usage, err := e.consumeSSE(ctx, response.Body, prepared)
+	usage, err := e.consumeSSE(ctx, response.Body, prepared, assistantMessage)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return e.buildResult(prepared, usage), context.Canceled
+			if finishErr := e.finishStream(ctx, prepared, assistantMessage, true); finishErr != nil {
+				return usage, finishErr
+			}
+			return usage, context.Canceled
 		}
-		return e.buildResult(prepared, usage), err
+		return usage, err
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
-		return e.buildResult(prepared, usage), context.Canceled
+		if err := e.finishStream(ctx, prepared, assistantMessage, true); err != nil {
+			return usage, err
+		}
+		return usage, context.Canceled
 	}
-	return e.buildResult(prepared, usage), nil
+	if err := e.finishStream(ctx, prepared, assistantMessage, false); err != nil {
+		return usage, err
+	}
+	return usage, nil
 }
 
-func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared preparedExecution) (map[string]any, error) {
+func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared preparedExecution, assistantMessage map[string]any) (map[string]any, error) {
 	buffered := bufio.NewReader(reader)
 	lines := []string{}
 	var usage map[string]any
+	accumulator := newToolCallAccumulator()
 
 	for {
 		select {
@@ -259,7 +310,7 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 		if len(line) > 0 {
 			trimmedLine := strings.TrimRight(line, "\r\n")
 			if trimmedLine == "" {
-				done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared)
+				done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator)
 				if nextUsage != nil {
 					usage = nextUsage
 				}
@@ -268,6 +319,9 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 				}
 				lines = lines[:0]
 				if done {
+					if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
+						return usage, finalizeErr
+					}
 					return usage, nil
 				}
 			} else {
@@ -280,9 +334,12 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 		}
 		if errors.Is(err, io.EOF) {
 			if len(lines) == 0 {
+				if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
+					return usage, finalizeErr
+				}
 				return usage, nil
 			}
-			done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared)
+			done, nextUsage, processErr := e.processSSEEvent(ctx, lines, prepared, assistantMessage, accumulator)
 			if nextUsage != nil {
 				usage = nextUsage
 			}
@@ -290,7 +347,13 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 				return usage, processErr
 			}
 			if done {
+				if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
+					return usage, finalizeErr
+				}
 				return usage, nil
+			}
+			if finalizeErr := finalizeAssistantToolCalls(assistantMessage, accumulator); finalizeErr != nil {
+				return usage, finalizeErr
 			}
 			return usage, nil
 		}
@@ -298,7 +361,7 @@ func (e *Executor) consumeSSE(ctx context.Context, reader io.Reader, prepared pr
 	}
 }
 
-func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared preparedExecution) (bool, map[string]any, error) {
+func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared preparedExecution, assistantMessage map[string]any, accumulator *toolCallAccumulator) (bool, map[string]any, error) {
 	if len(lines) == 0 {
 		return false, nil, nil
 	}
@@ -320,14 +383,13 @@ func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared
 	}
 	for _, choice := range chunk.Choices {
 		text := normalizeChunkText(choice.Delta.Content)
-		if text == "" {
-			continue
+		if text != "" {
+			appendAssistantText(assistantMessage, text)
 		}
-		appendAssistantText(prepared.assistantMessage, text)
-		if prepared.emitStream {
+		if prepared.emitStream && text != "" {
 			if err := e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
 				Type:      realtime.StreamingEventTypeDelta,
-				MessageID: stringValue(prepared.assistantMessage["id"]),
+				MessageID: stringValue(assistantMessage["id"]),
 				Content: []any{
 					realtime.MessageTextDelta{
 						Type:  realtime.MessageContentTypeTextDelta,
@@ -335,6 +397,26 @@ func (e *Executor) processSSEEvent(ctx context.Context, lines []string, prepared
 						Text:  text,
 					},
 				},
+			}); err != nil {
+				return false, nil, err
+			}
+		}
+		for _, toolCall := range choice.Delta.ToolCalls {
+			argumentsDelta := stringValue(toolCall.Function.Arguments)
+			state := accumulator.apply(toolCall.Index, toolCall.ID, toolCall.Function.Name, argumentsDelta)
+			if !prepared.emitStream || state == nil {
+				continue
+			}
+			var toolName *string
+			if strings.TrimSpace(state.name) != "" {
+				toolName = optionalStringPointer(state.name)
+			}
+			if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
+				Type:           realtime.StreamingEventTypeToolCallDelta,
+				MessageID:      stringValue(assistantMessage["id"]),
+				ToolCallID:     strings.TrimSpace(state.id),
+				ArgumentsDelta: argumentsDelta,
+				ToolName:       toolName,
 			}); err != nil {
 				return false, nil, err
 			}
@@ -356,20 +438,125 @@ func (e *Executor) applyChunk(ctx context.Context, prepared preparedExecution, c
 	})
 }
 
-func (e *Executor) buildResult(prepared preparedExecution, usage map[string]any) agentruns.ExecutionResult {
-	outputMessages := cloneMessageSlice(prepared.transcript)
-	if hasMessageText(prepared.assistantMessage) {
-		outputMessages = append(outputMessages, cloneMessage(prepared.assistantMessage))
-	}
+func (e *Executor) buildResult(transcript []map[string]any, toolCalls []map[string]any, usage map[string]any) agentruns.ExecutionResult {
 	outputs := map[string]any{
-		"messages": messagesToAnyList(outputMessages),
+		"messages": messagesToAnyList(transcript),
 	}
 	if usage != nil {
 		outputs["usage"] = cloneAnyMap(usage)
 	}
 	return agentruns.ExecutionResult{
-		Outputs: outputs,
+		Outputs:   outputs,
+		ToolCalls: cloneToolCallMaps(toolCalls),
 	}
+}
+
+func (e *Executor) finishStream(ctx context.Context, prepared preparedExecution, assistantMessage map[string]any, cancelled bool) error {
+	if !prepared.emitStream {
+		return nil
+	}
+	if err := e.applyChunk(ctx, prepared, realtime.MessageStopEvent{
+		Type:      realtime.StreamingEventTypeMessageStop,
+		MessageID: stringValue(assistantMessage["id"]),
+	}); err != nil {
+		return err
+	}
+	if cancelled && !shouldPersistMessage(assistantMessage) {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.MessageFinalizedEvent{
+		Type:    realtime.StreamingEventTypeMessageFinalized,
+		Message: cloneMessage(assistantMessage),
+	})
+}
+
+func finalizeAssistantToolCalls(message map[string]any, accumulator *toolCallAccumulator) error {
+	if message == nil || accumulator == nil {
+		return nil
+	}
+	toolCalls, err := accumulator.finalize()
+	if err != nil {
+		return err
+	}
+	if len(toolCalls) == 0 {
+		return nil
+	}
+	message["tool_calls"] = messagesToAnyList(toolCalls)
+	return nil
+}
+
+func (e *Executor) executeToolCalls(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest, toolCalls []map[string]any) ([]map[string]any, []map[string]any, error) {
+	toolMessages := make([]map[string]any, 0, len(toolCalls))
+	providerMessages := make([]map[string]any, 0, len(toolCalls))
+	for _, toolCall := range toolCalls {
+		toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
+		function, _ := toolCall["function"].(map[string]any)
+		toolName := strings.TrimSpace(stringValue(function["name"]))
+		arguments, _ := function["arguments"].(map[string]any)
+		if arguments == nil {
+			arguments = map[string]any{}
+		}
+
+		var result mcpx.ToolCallResult
+		if toolName == "" {
+			result = buildMissingToolResult(toolName)
+		} else if prepared.availableTools != nil {
+			if _, ok := prepared.availableTools[mcpx.NormalizeToolName(toolName)]; !ok {
+				result = buildMissingToolResult(toolName)
+			} else if !isToolAllowed(toolName, prepared.toolAllowlist, request.CompletionGuardEnabled) {
+				result = buildDisallowedToolResult(toolName)
+			} else {
+				if e.tools == nil {
+					return nil, nil, fmt.Errorf("%w: MCP tool client is unavailable", ErrToolsUnsupported)
+				}
+				resultValue, err := e.tools.CallToolWithMeta(ctx, toolName, cloneAnyMap(arguments), buildToolRequestMeta(request, toolName))
+				if err != nil {
+					return nil, nil, fmt.Errorf("execute managed MCP tool %q: %w", toolName, err)
+				}
+				result = resultValue
+			}
+		} else {
+			result = buildDisallowedToolResult(toolName)
+		}
+
+		toolMessage := buildToolResultMessage(toolCallID, toolName, arguments, result)
+		toolMessages = append(toolMessages, toolMessage)
+		if prepared.emitStream {
+			if err := e.applyChunk(ctx, prepared, realtime.ToolResultEvent{
+				Type:   realtime.StreamingEventTypeToolResult,
+				Result: cloneMessage(toolMessage),
+			}); err != nil {
+				return nil, nil, err
+			}
+		}
+
+		payload, include, err := providerPayloadForMessage(toolMessage)
+		if err != nil {
+			return nil, nil, err
+		}
+		if include {
+			providerMessages = append(providerMessages, payload)
+		}
+	}
+	return toolMessages, providerMessages, nil
+}
+
+func shouldPersistMessage(message map[string]any) bool {
+	if message == nil {
+		return false
+	}
+	if hasMessageText(message) {
+		return true
+	}
+	if hasNonEmptyToolCalls(message["tool_calls"]) {
+		return true
+	}
+	return strings.TrimSpace(stringValue(message["role"])) == "tool"
+}
+
+func providerPayloadForMessage(message map[string]any) (map[string]any, bool, error) {
+	_, payload, include, err := normalizeTranscriptMessage(message)
+	return payload, include, err
 }
 
 func buildMessages(request agentruns.ExecutionRequest) ([]map[string]any, []map[string]any, error) {
@@ -451,17 +638,22 @@ func normalizeTranscriptMessage(message map[string]any) (map[string]any, map[str
 	}
 	role := strings.TrimSpace(stringValue(normalized["role"]))
 	switch role {
-	case "system", "user", "assistant":
+	case "system", "user", "assistant", "tool":
 	default:
 		return nil, nil, false, fmt.Errorf("%w: role %q", ErrHistoryUnsupported, role)
 	}
 	if hasNonEmptyAttachments(normalized["attachments"]) {
 		return nil, nil, false, ErrAttachmentsUnsupported
 	}
-	if hasNonEmptyToolCalls(normalized["tool_calls"]) {
-		return nil, nil, false, ErrToolsUnsupported
+	toolCalls, hasToolCalls, err := normalizeProviderToolCalls(normalized["tool_calls"], role)
+	if err != nil {
+		return nil, nil, false, err
 	}
-	if strings.TrimSpace(stringValue(normalized["tool_call_id"])) != "" {
+	toolCallID := strings.TrimSpace(stringValue(normalized["tool_call_id"]))
+	if role == "tool" && toolCallID == "" {
+		return nil, nil, false, fmt.Errorf("%w: tool messages require tool_call_id", ErrToolsUnsupported)
+	}
+	if role != "tool" && toolCallID != "" {
 		return nil, nil, false, ErrToolsUnsupported
 	}
 	content, include, err := normalizeProviderMessageContent(normalized["content"])
@@ -471,11 +663,32 @@ func normalizeTranscriptMessage(message map[string]any) (map[string]any, map[str
 	if _, ok := normalized["attachments"]; !ok {
 		normalized["attachments"] = []any{}
 	}
-	payload := map[string]any{
-		"role":    role,
-		"content": content,
+	payload := map[string]any{"role": role}
+	switch role {
+	case "assistant":
+		payload["content"] = providerContentValue(content)
+		if hasToolCalls {
+			payload["tool_calls"] = messagesToAnyList(toolCalls)
+			return normalized, payload, true, nil
+		}
+		return normalized, payload, include, nil
+	case "tool":
+		providerContent := content
+		if !include {
+			fallback, fallbackErr := normalizeProviderToolResultContent(normalized["result"])
+			if fallbackErr != nil {
+				return nil, nil, false, fallbackErr
+			}
+			providerContent = fallback
+			include = strings.TrimSpace(providerContent) != ""
+		}
+		payload["content"] = providerContent
+		payload["tool_call_id"] = toolCallID
+		return normalized, payload, true, nil
+	default:
+		payload["content"] = content
+		return normalized, payload, include, nil
 	}
-	return normalized, payload, include, nil
 }
 
 func normalizeProviderMessageContent(raw any) (string, bool, error) {
@@ -508,6 +721,77 @@ func normalizeProviderMessageContent(raw any) (string, bool, error) {
 		return "", false, nil
 	}
 	return strings.Join(parts, "\n\n"), true, nil
+}
+
+func normalizeProviderToolCalls(raw any, role string) ([]map[string]any, bool, error) {
+	if !hasNonEmptyToolCalls(raw) {
+		return nil, false, nil
+	}
+	if role != "assistant" {
+		return nil, false, ErrToolsUnsupported
+	}
+	list, _ := raw.([]any)
+	toolCalls := make([]map[string]any, 0, len(list))
+	for index, entry := range list {
+		toolCall, ok := entry.(map[string]any)
+		if !ok {
+			return nil, false, fmt.Errorf("%w: tool call %d must be an object", ErrToolsUnsupported, index)
+		}
+		toolCallID := strings.TrimSpace(stringValue(toolCall["id"]))
+		if toolCallID == "" {
+			return nil, false, fmt.Errorf("%w: tool call id is required", ErrToolsUnsupported)
+		}
+		function, _ := toolCall["function"].(map[string]any)
+		toolName := strings.TrimSpace(stringValue(function["name"]))
+		if toolName == "" {
+			return nil, false, fmt.Errorf("%w: tool call name is required", ErrToolsUnsupported)
+		}
+		arguments, _ := function["arguments"].(map[string]any)
+		if arguments == nil {
+			arguments = map[string]any{}
+		}
+		encodedArguments, err := json.Marshal(arguments)
+		if err != nil {
+			return nil, false, fmt.Errorf("%w: encode tool call arguments: %v", ErrToolsUnsupported, err)
+		}
+		toolCalls = append(toolCalls, map[string]any{
+			"id":   toolCallID,
+			"type": "function",
+			"function": map[string]any{
+				"name":      toolName,
+				"arguments": string(encodedArguments),
+			},
+		})
+	}
+	return toolCalls, true, nil
+}
+
+func normalizeProviderToolResultContent(raw any) (string, error) {
+	if raw == nil {
+		return "", nil
+	}
+	switch value := raw.(type) {
+	case map[string]any:
+		if text := strings.TrimSpace(stringValue(value["text"])); text != "" {
+			return text, nil
+		}
+	case string:
+		if strings.TrimSpace(value) != "" {
+			return value, nil
+		}
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return "", fmt.Errorf("%w: encode tool result content: %v", ErrHistoryUnsupported, err)
+	}
+	return string(encoded), nil
+}
+
+func providerContentValue(content string) any {
+	if strings.TrimSpace(content) == "" {
+		return nil
+	}
+	return content
 }
 
 func resolveChatCompletionsEndpoint(request agentruns.ExecutionRequest) (string, error) {

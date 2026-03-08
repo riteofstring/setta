@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"setta/internal/agentprofiles"
 	"setta/internal/agentruns"
 	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
+	"setta/internal/mcpx"
 	"setta/internal/realtime"
 )
 
@@ -37,6 +39,27 @@ func (c *captureBroadcaster) Count() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return len(c.messages)
+}
+
+type stubToolClient struct {
+	initTools         map[string]mcpx.ToolDescriptor
+	discoverableTools map[string]mcpx.ToolDescriptor
+	call              func(context.Context, string, map[string]any, map[string]any) (mcpx.ToolCallResult, error)
+}
+
+func (s *stubToolClient) InitToolsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
+	return filterToolDescriptorsForServers(s.initTools, serverIDs)
+}
+
+func (s *stubToolClient) DiscoverableToolsForServers(serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
+	return filterToolDescriptorsForServers(s.discoverableTools, serverIDs)
+}
+
+func (s *stubToolClient) CallToolWithMeta(ctx context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+	if s.call != nil {
+		return s.call(ctx, namespacedToolName, arguments, meta)
+	}
+	return mcpx.ToolCallResult{}, nil
 }
 
 func TestExecutorExecuteStreamsManagedChatAndReturnsOutputs(t *testing.T) {
@@ -328,6 +351,187 @@ func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	}
 }
 
+func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *testing.T) {
+	t.Parallel()
+
+	requestBodies := make([]map[string]any, 0, 2)
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body := map[string]any{}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode provider request: %v", err)
+		}
+		requestBodies = append(requestBodies, body)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Fatal("expected flusher")
+		}
+
+		switch requestCount {
+		case 0:
+			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"tool-call-1\",\"type\":\"function\",\"function\":{\"name\":\"setta__report_completion_status\",\"arguments\":\"{\\\"completionIntent\\\":true}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n")
+			flusher.Flush()
+			fmt.Fprint(w, "data: [DONE]\n\n")
+		case 1:
+			fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Tool loop complete\"},\"finish_reason\":\"stop\"}]}\n\n")
+			flusher.Flush()
+			fmt.Fprint(w, "data: [DONE]\n\n")
+		default:
+			t.Fatalf("unexpected provider request count %d", requestCount)
+		}
+		requestCount++
+	}))
+	defer server.Close()
+
+	broadcaster := &captureBroadcaster{}
+	live := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{Broadcaster: broadcaster})
+	run := newManagedChatTestRun()
+	live.ActivateRun(run)
+
+	capturedCalls := make([]struct {
+		ToolName  string
+		Arguments map[string]any
+		Meta      map[string]any
+	}, 0, 1)
+	toolClient := &stubToolClient{
+		discoverableTools: map[string]mcpx.ToolDescriptor{
+			"setta__report_completion_status": {
+				ServerID:       mcpx.DefaultServerID,
+				NamespacedName: "setta__report_completion_status",
+				RemoteName:     "report_completion_status",
+				Description:    "Report completion status.",
+				InputSchema: map[string]any{
+					"type": "object",
+				},
+			},
+		},
+		call: func(_ context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (mcpx.ToolCallResult, error) {
+			capturedCalls = append(capturedCalls, struct {
+				ToolName  string
+				Arguments map[string]any
+				Meta      map[string]any
+			}{
+				ToolName:  namespacedToolName,
+				Arguments: arguments,
+				Meta:      meta,
+			})
+			return mcpx.ToolCallResult{
+				StructuredContent: map[string]any{"status": "ok"},
+				Text:              "{\"status\":\"ok\"}",
+			}, nil
+		},
+	}
+
+	executor := NewExecutor(ExecutorOptions{
+		Live:       live,
+		Tools:      toolClient,
+		HTTPClient: server.Client(),
+	})
+	result, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+		Profile: agentprofiles.Profile{
+			ID:   "profile-alpha",
+			Name: "Alpha",
+		},
+		Run: run,
+		LLMConfig: llmconfig.Config{
+			ID:        "primary",
+			Model:     "gpt-4o-mini",
+			Provider:  "openai",
+			BaseURL:   server.URL + "/v1",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		MCPServerIDs:           []string{mcpx.DefaultServerID},
+		CompletionGuardEnabled: true,
+		APIKeys: map[string]string{
+			"OPENAI_API_KEY": "secret",
+		},
+		SystemPrompt:    "System prompt",
+		ProjectConfigID: "project-alpha",
+		ChatID:          "chat-alpha",
+		Inputs: map[string]any{
+			"runType":       "llm_chat",
+			"allowUnscoped": true,
+			"messages": []any{
+				map[string]any{
+					"id":   "user-1",
+					"role": "user",
+					"content": []any{
+						map[string]any{"type": "text", "text": "Use the tool"},
+					},
+					"attachments": []any{},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("execute managed llm tool stream: %v", err)
+	}
+
+	if len(capturedCalls) != 1 {
+		t.Fatalf("expected one tool call, got %#v", capturedCalls)
+	}
+	if capturedCalls[0].ToolName != "setta__report_completion_status" {
+		t.Fatalf("unexpected tool name %#v", capturedCalls[0])
+	}
+	if capturedCalls[0].Arguments["completionIntent"] != true {
+		t.Fatalf("unexpected tool arguments %#v", capturedCalls[0].Arguments)
+	}
+	if capturedCalls[0].Meta["projectConfigId"] != "project-alpha" {
+		t.Fatalf("unexpected tool meta %#v", capturedCalls[0].Meta)
+	}
+	if capturedCalls[0].Meta["chatId"] != "chat-alpha" {
+		t.Fatalf("unexpected tool meta %#v", capturedCalls[0].Meta)
+	}
+	if capturedCalls[0].Meta["allowUnscoped"] != true {
+		t.Fatalf("unexpected tool meta %#v", capturedCalls[0].Meta)
+	}
+
+	if len(requestBodies) != 2 {
+		t.Fatalf("expected two provider requests, got %d", len(requestBodies))
+	}
+	firstTools, ok := requestBodies[0]["tools"].([]any)
+	if !ok || len(firstTools) != 1 {
+		t.Fatalf("expected one tool definition, got %#v", requestBodies[0]["tools"])
+	}
+	secondMessages, ok := requestBodies[1]["messages"].([]any)
+	if !ok || len(secondMessages) < 4 {
+		t.Fatalf("expected follow-up provider transcript, got %#v", requestBodies[1]["messages"])
+	}
+	foundToolMessage := false
+	for _, rawMessage := range secondMessages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		if message["role"] != "tool" {
+			continue
+		}
+		if message["tool_call_id"] != "tool-call-1" {
+			t.Fatalf("unexpected tool follow-up message %#v", message)
+		}
+		foundToolMessage = true
+	}
+	if !foundToolMessage {
+		t.Fatalf("expected provider follow-up to include tool result message, got %#v", secondMessages)
+	}
+
+	messages, ok := result.Outputs["messages"].([]any)
+	if !ok || len(messages) != 4 {
+		t.Fatalf("expected user, tool-call assistant, tool, final assistant messages, got %#v", result.Outputs["messages"])
+	}
+	if len(result.ToolCalls) != 1 {
+		t.Fatalf("expected one persisted tool call, got %#v", result.ToolCalls)
+	}
+	if assistantText(messages[3].(map[string]any)) != "Tool loop complete" {
+		t.Fatalf("unexpected final assistant text %#v", messages[3])
+	}
+	if broadcaster.Count() != 9 {
+		t.Fatalf("expected 9 managed stream broadcasts, got %d", broadcaster.Count())
+	}
+}
+
 func newManagedChatTestRun() agentruns.Run {
 	now := time.Date(2026, 3, 9, 22, 0, 0, 0, time.UTC)
 	run := agentruns.NewRun(nil, map[string]any{
@@ -378,4 +582,17 @@ func waitForCondition(t *testing.T, timeout time.Duration, check func() bool) {
 
 func testStringPtr(value string) *string {
 	return &value
+}
+
+func filterToolDescriptorsForServers(source map[string]mcpx.ToolDescriptor, serverIDs map[string]struct{}) map[string]mcpx.ToolDescriptor {
+	filtered := map[string]mcpx.ToolDescriptor{}
+	for name, descriptor := range source {
+		if len(serverIDs) > 0 {
+			if _, ok := serverIDs[descriptor.ServerID]; !ok {
+				continue
+			}
+		}
+		filtered[name] = descriptor
+	}
+	return filtered
 }

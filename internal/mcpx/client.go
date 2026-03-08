@@ -122,7 +122,7 @@ type connector interface {
 
 type sessionHandle interface {
 	ListTools(ctx context.Context) ([]remoteTool, error)
-	CallTool(ctx context.Context, toolName string, arguments map[string]any) (ToolCallResult, error)
+	CallTool(ctx context.Context, toolName string, arguments map[string]any, meta map[string]any) (ToolCallResult, error)
 	Ping(ctx context.Context) error
 	Close() error
 }
@@ -302,6 +302,10 @@ func (c *Client) ToolDescriptorsForServers(serverIDs map[string]struct{}) map[st
 }
 
 func (c *Client) CallTool(ctx context.Context, namespacedToolName string, arguments map[string]any) (ToolCallResult, error) {
+	return c.CallToolWithMeta(ctx, namespacedToolName, arguments, nil)
+}
+
+func (c *Client) CallToolWithMeta(ctx context.Context, namespacedToolName string, arguments map[string]any, meta map[string]any) (ToolCallResult, error) {
 	if c == nil {
 		return ToolCallResult{}, fmt.Errorf("mcpx: client is nil")
 	}
@@ -329,7 +333,7 @@ func (c *Client) CallTool(ctx context.Context, namespacedToolName string, argume
 		return ToolCallResult{}, fmt.Errorf("mcpx: server %q is not connected", route.serverID)
 	}
 
-	result, err := active.session.CallTool(ctx, route.toolName, arguments)
+	result, err := active.session.CallTool(ctx, route.toolName, arguments, meta)
 	if err == nil {
 		return result, nil
 	}
@@ -341,7 +345,7 @@ func (c *Client) CallTool(ctx context.Context, namespacedToolName string, argume
 	if reconnected == nil {
 		return ToolCallResult{}, err
 	}
-	return reconnected.session.CallTool(ctx, route.toolName, arguments)
+	return reconnected.session.CallTool(ctx, route.toolName, arguments, meta)
 }
 
 func (c *Client) runServerLoop(serverID string, config ServerConfig) {
@@ -792,11 +796,15 @@ func (s *sdkSession) ListTools(ctx context.Context) ([]remoteTool, error) {
 	return toolsForServer, nil
 }
 
-func (s *sdkSession) CallTool(ctx context.Context, toolName string, arguments map[string]any) (ToolCallResult, error) {
-	result, err := s.session.CallTool(ctx, &sdkmcp.CallToolParams{
+func (s *sdkSession) CallTool(ctx context.Context, toolName string, arguments map[string]any, meta map[string]any) (ToolCallResult, error) {
+	params := &sdkmcp.CallToolParams{
 		Name:      toolName,
 		Arguments: arguments,
-	})
+	}
+	if len(meta) > 0 {
+		params.Meta = copyMetaMap(meta)
+	}
+	result, err := s.session.CallTool(ctx, params)
 	if err != nil {
 		return ToolCallResult{}, err
 	}
