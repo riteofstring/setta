@@ -2551,6 +2551,216 @@ func TestProjectCodegenSupportContractsUseConverterDeclarations(t *testing.T) {
 	}
 }
 
+func TestProjectShellSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "AgenticEdgeKind",
+			root: reflect.TypeOf(AgenticEdgeKind("")),
+			values: []EnumValue{
+				{Name: "chat_chat", Value: "chat_chat"},
+				{Name: "section_chat", Value: "section_chat"},
+				{Name: "chat_section", Value: "chat_section"},
+			},
+		},
+		{
+			name: "AgenticEdgeContextMode",
+			root: reflect.TypeOf(AgenticEdgeContextMode("")),
+			values: []EnumValue{
+				{Name: "reference_only", Value: "reference_only"},
+				{Name: "inline_text", Value: "inline_text"},
+				{Name: "summary", Value: "summary"},
+			},
+		},
+		{
+			name: "CodeFileAccessMode",
+			root: reflect.TypeOf(CodeFileAccessMode("")),
+			values: []EnumValue{
+				{Name: "read_write", Value: "read_write"},
+				{Name: "read_only", Value: "read_only"},
+				{Name: "write_only", Value: "write_only"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestProjectShellSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name: "Viewport",
+			root: reflect.TypeOf(Viewport{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "x", TypeExpr: "number", Optional: false},
+				{Name: "y", TypeExpr: "number", Optional: false},
+				{Name: "zoom", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "TopLevelSectionLayout",
+			root: reflect.TypeOf(TopLevelSectionLayout{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "x", TypeExpr: "number", Optional: false},
+				{Name: "y", TypeExpr: "number", Optional: false},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "w", TypeExpr: "number | null", Optional: true},
+				{Name: "h", TypeExpr: "number | null", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ViewMode",
+			root: reflect.TypeOf(ViewMode{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: true},
+				{Name: "isUserFacing", TypeExpr: "boolean", Optional: true},
+				{Name: "isTab", TypeExpr: "boolean", Optional: true},
+				{Name: "visibilityBySectionId", TypeExpr: "Record<string, boolean>", Optional: true},
+				{Name: "viewport", TypeExpr: "Viewport | null", Optional: true},
+				{Name: "viewportInitialized", TypeExpr: "boolean", Optional: true},
+				{Name: "topLevelSections", TypeExpr: "Record<string, TopLevelSectionLayout>", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:          "ViewModeConfig",
+			root:          reflect.TypeOf(ViewModeConfig{}),
+			kind:          "alias",
+			alias:         "ViewMode",
+			hasCreateExpr: true,
+		},
+		{
+			name: "Edge",
+			root: reflect.TypeOf(Edge{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "sourceSectionId", TypeExpr: "string", Optional: false},
+				{Name: "sourceVariantId", TypeExpr: "string", Optional: false},
+				{Name: "sourcePortId", TypeExpr: "string", Optional: false},
+				{Name: "targetSectionId", TypeExpr: "string", Optional: false},
+				{Name: "targetVariantId", TypeExpr: "string", Optional: false},
+				{Name: "targetPortId", TypeExpr: "string", Optional: false},
+				{Name: "type", TypeExpr: "string", Optional: true},
+				{Name: "label", TypeExpr: "string | null", Optional: true},
+				{Name: "style", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "animated", TypeExpr: "boolean", Optional: true},
+				{Name: "hidden", TypeExpr: "boolean", Optional: true},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "selected", TypeExpr: "boolean", Optional: true},
+			},
+		},
+		{
+			name: "AgenticEdge",
+			root: reflect.TypeOf(AgenticEdge{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "sourceSectionId", TypeExpr: "string", Optional: false},
+				{Name: "targetSectionId", TypeExpr: "string", Optional: false},
+				{Name: "kind", TypeExpr: "AgenticEdgeKind", Optional: false},
+				{Name: "contextMode", TypeExpr: "AgenticEdgeContextMode | null", Optional: true},
+				{Name: "style", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "hidden", TypeExpr: "boolean", Optional: true},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "selected", TypeExpr: "boolean", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "WatchCodeFolder",
+			root: reflect.TypeOf(WatchCodeFolder{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "path", TypeExpr: "string", Optional: false},
+				{Name: "recursive", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "WatchCodeRegistryEntry",
+			root: reflect.TypeOf(WatchCodeRegistryEntry{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "callableName", TypeExpr: "string", Optional: false},
+				{Name: "kind", TypeExpr: "string", Optional: false},
+				{Name: "signatureHash", TypeExpr: "string", Optional: false},
+				{Name: "bodyHash", TypeExpr: "string", Optional: false},
+				{Name: "sourcePath", TypeExpr: "string", Optional: false},
+				{Name: "sectionIds", TypeExpr: "Array<string>", Optional: true},
+				{Name: "sectionsCount", TypeExpr: "number", Optional: true},
+			},
+		},
+		{
+			name: "CodeFileBinding",
+			root: reflect.TypeOf(CodeFileBinding{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "canonical_path", TypeExpr: "string", Optional: false},
+				{Name: "access_mode", TypeExpr: "CodeFileAccessMode", Optional: false},
+				{Name: "autoBinding", TypeExpr: "boolean", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+			if declaration.FactoryTS != "" {
+				t.Fatalf("%s FactoryTS should be empty, got %q", tt.name, declaration.FactoryTS)
+			}
+		})
+	}
+}
+
 func TestProjectConfigSupportContractsUseConverterDeclarations(t *testing.T) {
 	converter := newTypeConverter()
 	if err := converter.AddRootType(reflect.TypeOf(ProjectConfig{})); err != nil {

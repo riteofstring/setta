@@ -1,4 +1,6 @@
 import {
+  AgenticEdgeContextModeEnum,
+  AgenticEdgeKindEnum,
   BrowserAreaViewModeEnum,
   BrowserSearchScopeEnum,
   CodeFileAccessModeEnum,
@@ -10,9 +12,11 @@ import {
   createBrowserSavedSearchTypeFilters,
   createBrowserSectionImpl,
   createCallableSectionImpl,
+  createAgenticEdge,
   createCodeParamCodeObjImpl,
   createCodeSectionImpl,
   createListRootSectionImpl,
+  createTopLevelSectionLayout,
   createTerminalSectionImpl,
   createDictSectionImpl,
   createSectionSize,
@@ -315,5 +319,30 @@ describe("generated project state factories", () => {
     expect(viewMode.sortIndex).toBe(0);
     expect(viewMode.topLevelSections).toEqual({});
     expect(RouteEnum.CREATE_TOP_LEVEL_SECTION).toBe("/createTopLevelSection");
+  });
+
+  it("exports canonical project-shell helper defaults for layouts and agentic edges", () => {
+    const layout = createTopLevelSectionLayout({
+      x: 12,
+    });
+    const edge = createAgenticEdge({
+      sourceSectionId: "source",
+      targetSectionId: "target",
+      contextMode: AgenticEdgeContextModeEnum.summary,
+    });
+
+    expect(layout).toEqual({
+      x: 12,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    });
+    expect(edge.kind).toBe(AgenticEdgeKindEnum.section_chat);
+    expect(edge.contextMode).toBe(AgenticEdgeContextModeEnum.summary);
+    expect(edge.style).toEqual({});
+    expect(edge.hidden).toBe(false);
+    expect(edge.zIndex).toBe(0);
+    expect(edge.selected).toBe(false);
   });
 });

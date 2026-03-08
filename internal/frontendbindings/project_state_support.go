@@ -590,6 +590,20 @@ type Edge struct{}
 
 type AgenticEdge struct{}
 
+type Viewport struct{}
+
+type TopLevelSectionLayout struct{}
+
+type ViewMode struct{}
+
+type ViewModeConfig struct{}
+
+type WatchCodeFolder struct{}
+
+type WatchCodeRegistryEntry struct{}
+
+type CodeFileBinding struct{}
+
 type ChatRole string
 
 const (
@@ -1142,22 +1156,6 @@ export type DateCalendarWeekStart = ObjectValues<
   typeof DateCalendarWeekStartEnum
 >;
 
-export const AgenticEdgeKindEnum = {
-  chat_chat: "chat_chat",
-  section_chat: "section_chat",
-  chat_section: "chat_section",
-} as const;
-export type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
-
-export const AgenticEdgeContextModeEnum = {
-  reference_only: "reference_only",
-  inline_text: "inline_text",
-  summary: "summary",
-} as const;
-export type AgenticEdgeContextMode = ObjectValues<
-  typeof AgenticEdgeContextModeEnum
->;
-
 type GeneratedMutableValue =
   | null
   | boolean
@@ -1200,144 +1198,6 @@ export type EdgePort = {
 export type TypeErrorIgnoreState = {
   callable: boolean;
   params: Record<string, boolean>;
-};
-
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return mergeGeneratedOptions(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
-}
-
-export type ViewMode = {
-  id: string;
-  name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
-};
-export type ViewModeConfig = ViewMode;
-export function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
-}
-export function createViewModeConfig(
-  options: Partial<ViewModeConfig> = {},
-): ViewModeConfig {
-  return createViewMode(options);
-}
-
-export type Edge = {
-  id: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown>;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown>;
-  selected?: boolean;
-};
-
-export type AgenticEdge = {
-  id: string;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
-  style?: Record<string, unknown>;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-export function createAgenticEdge(
-  options: Partial<AgenticEdge> = {},
-): AgenticEdge {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      sourceSectionId: "",
-      targetSectionId: "",
-      kind: AgenticEdgeKindEnum.section_chat,
-      contextMode: null,
-      style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
-    },
-    options,
-  );
-}
-
-export type WatchCodeFolder = {
-  path: string;
-  recursive: boolean;
-};
-
-export type WatchCodeRegistryEntry = {
-  callableName: string;
-  kind: string;
-  signatureHash: string;
-  bodyHash: string;
-  sourcePath: string;
-  sectionIds?: Array<string>;
-  sectionsCount?: number;
-};
-
-export const CodeFileAccessModeEnum = {
-  read_write: "read_write",
-  read_only: "read_only",
-  write_only: "write_only",
-} as const;
-export type CodeFileAccessMode = ObjectValues<typeof CodeFileAccessModeEnum>;
-
-export type CodeFileBinding = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-  autoBinding: boolean;
 };
 
 export const ClipboardDataTypeEnum = {
