@@ -31,11 +31,14 @@ As of 2026-03-08:
   - `init`
   - `validate`
   - `link`
-- Python still owns the remaining plugin commands:
+- Go now also owns the completed lockfile-write slice in:
+  - `internal/plugins`
+  - `internal/settacmd/plugins.go`
+  - `backend/setta/entrypoint.py`
+- Python now owns the remaining plugin commands:
   - `install`
   - `update`
   - `pin`
-  - `lock write`
   - `lock apply`
   - `restart`
 
@@ -199,15 +202,30 @@ Do not include:
     production candidate-provider path
   - `plugins restart` remains separate until a later stage decides whether it
     stays manual-only or gains a real restart hook
+- 2026-03-08: completed the Stage 6 slice.
+  - `setta plugins lock write` now routes through the shipped Go CLI
+  - Go now owns shared plugin lockfile models, deterministic lockfile writing,
+    and nested entrypoint dispatch for `plugins lock write`
+  - package-manager-managed entries and shadowed entries are now excluded by
+    the Go-owned lockfile writer, matching the current Python behavior
+  - the remaining Python-owned plugin surface is now `install`, `update`,
+    `pin`, `lock apply`, and `restart`
 
 ## Verification
 
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement this bounded Stage 6 slice:
+Write a dedicated follow-on plan for the still-blocked plugin
+source-acquisition and convergence surface:
 
-1. add shared Go ownership for plugin lockfile writing
-2. route `setta plugins lock write` through the shipped Go CLI
-3. leave `install`, `update`, `pin`, `lock apply`, and `restart` on Python
+1. `install`
+2. `update`
+3. `pin`
+4. `lock apply`
+
+Keep `plugins restart` separate unless that stage also lands a real Go restart
+hook or explicitly scopes a manual-only CLI transport.

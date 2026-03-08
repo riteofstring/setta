@@ -251,6 +251,76 @@ func TestRunPluginsLinkJSONIncludesInstallPayload(t *testing.T) {
 	}
 }
 
+// Plugins lock write should emit the canonical lockfile path/count contract in both text and JSON modes.
+func TestRunPluginsLockWriteTextAndJSON(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	workspacePluginRoot := filepath.Join(cwd, ".setta_plugins", "setta-fixture-frontend")
+	settaFilesPluginRoot := filepath.Join(cwd, "setta_files", "plugins", "setta-fixture-backend")
+	writeFrontendPluginFixture(t, workspacePluginRoot, "setta-fixture-frontend", "Setta Fixture Frontend", "0.1.0")
+	writeBackendPluginFixture(t, settaFilesPluginRoot, "setta-fixture-backend", "Setta Fixture Backend", "0.1.0")
+	writeJSONFileForSettacmdTest(t, filepath.Join(cwd, "setta_files", "plugins_install_metadata.json"), map[string]any{
+		"entries": map[string]any{
+			"setta_files:setta-fixture-backend": map[string]any{
+				"pluginId":           "setta-fixture-backend",
+				"scope":              "setta_files",
+				"sourceSpec":         "pypi:setta-fixture-backend==0.1.0",
+				"installerBackend":   "pip",
+				"canonicalSourceKey": "pypi:setta-fixture-backend",
+				"sourceDigestSha256": "sha256:test-backend",
+				"version":            "0.1.0",
+				"history":            []any{},
+			},
+		},
+	})
+
+	stdout, stderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock", "write")
+	if err != nil {
+		t.Fatalf("run plugins lock write: %v", err)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+	lockfilePath := filepath.Join(cwd, ".setta_plugins", "plugins.lock.json")
+	if !strings.Contains(stdout, "Wrote lockfile "+lockfilePath+" with 2 plugin entries") {
+		t.Fatalf("unexpected text output %q", stdout)
+	}
+
+	jsonStdout, jsonStderr, err := runPluginsSettaCommand(t, cwd, "plugins", "lock", "write", "--json")
+	if err != nil {
+		t.Fatalf("run plugins lock write json: %v", err)
+	}
+	if jsonStderr != "" {
+		t.Fatalf("expected empty stderr, got %q", jsonStderr)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(jsonStdout), &payload); err != nil {
+		t.Fatalf("decode plugins lock write json: %v", err)
+	}
+	if got := payload["lockfilePath"]; got != lockfilePath {
+		t.Fatalf("unexpected lockfile path %#v", got)
+	}
+	if got := payload["pluginCount"]; got != float64(2) {
+		t.Fatalf("unexpected plugin count %#v", got)
+	}
+}
+
+// Plugins lock should fail fast when the nested subcommand is missing.
+func TestRunPluginsLockRequiresSubcommand(t *testing.T) {
+	t.Parallel()
+
+	cwd := t.TempDir()
+	_, _, err := runPluginsSettaCommand(t, cwd, "plugins", "lock")
+	if err == nil {
+		t.Fatal("expected plugins lock error")
+	}
+	if DisplayError(err) != "missing plugins lock subcommand (supported: write)" {
+		t.Fatalf("unexpected plugins lock error %q", DisplayError(err))
+	}
+}
+
 // Enable/disable JSON should expose the Go-owned lifecycle payload over real plugins_state transitions.
 func TestRunPluginsEnableDisableJSON(t *testing.T) {
 	t.Parallel()

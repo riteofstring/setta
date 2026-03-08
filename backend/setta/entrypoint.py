@@ -37,6 +37,11 @@ _GO_OWNED_SUBCOMMANDS = {
         }
     ),
 }
+_GO_OWNED_NESTED_SUBCOMMANDS = {
+    "plugins": {
+        "lock": frozenset({"write"}),
+    }
+}
 _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
     {
         "-w",
@@ -106,7 +111,36 @@ def _resolve_go_dispatch_subcommand(
     go_owned_subcommands = _GO_OWNED_SUBCOMMANDS.get(command)
     if go_owned_subcommands is None:
         return None
+    go_owned_nested_subcommands = _GO_OWNED_NESTED_SUBCOMMANDS.get(command, {})
 
+    for token in effective_argv:
+        if token == "--":
+            return None
+        if token in {"-h", "--help"}:
+            return None
+        if token.startswith("-"):
+            return None
+        if token in go_owned_subcommands:
+            return command
+        nested_subcommands = go_owned_nested_subcommands.get(token)
+        if nested_subcommands is None:
+            return None
+        return _resolve_go_dispatch_nested_subcommand(
+            command,
+            go_owned_subcommands=nested_subcommands,
+            effective_argv=effective_argv[1:],
+        )
+        return None
+
+    return None
+
+
+def _resolve_go_dispatch_nested_subcommand(
+    command: str,
+    *,
+    go_owned_subcommands: frozenset[str],
+    effective_argv: list[str],
+) -> str | None:
     for token in effective_argv:
         if token == "--":
             return None

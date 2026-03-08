@@ -6,8 +6,8 @@ Go-owned commands are handed off to packaged Go binaries, while the remaining
 Python-owned local commands still route through `backend/setta/start.py`.
 `setta plugins` is currently split:
 `init`, `validate`, `list`, `rescan`, `restart-required`, `link`, `enable`,
-`disable`, `uninstall`, and `rollback` are Go-owned; the remaining plugin
-subcommands still route through Python.
+`disable`, `uninstall`, `rollback`, and `lock write` are Go-owned; the
+remaining plugin subcommands still route through Python.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -40,7 +40,7 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Write a readable YAML export of the current project state. |
 | `setta backups` | yes | no | List and restore local project backups. |
-| `setta plugins` | yes | no | Split command cluster: Go owns authoring/local-link plus status/lifecycle; Python still owns install/update/pin, lockfile, and restart. |
+| `setta plugins` | yes | no | Split command cluster: Go owns authoring/local-link, status/lifecycle, and lockfile write; Python still owns install/update/pin, lock apply, and restart. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
@@ -309,6 +309,7 @@ Subcommands:
   - Ownership: Go.
 - `setta plugins lock write [--json]`
   - Write lockfile at `<workspace>/.setta_plugins/plugins.lock.json`.
+  - Ownership: Go.
 - `setta plugins lock apply [--check] [--json]`
   - Compare/apply lockfile desired state against current installs.
 - `setta plugins restart [--json]`

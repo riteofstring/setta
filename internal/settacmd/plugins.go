@@ -45,7 +45,7 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 	if len(args) == 0 {
 		return &ExitError{
 			Code: 2,
-			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, rescan, restart-required, link, enable, disable, uninstall, rollback)"),
+			Err:  fmt.Errorf("missing plugins subcommand (supported: init, validate, list, rescan, restart-required, link, enable, disable, uninstall, rollback, lock)"),
 		}
 	}
 
@@ -70,12 +70,54 @@ func runPlugins(args []string, global globalFlags, stdout io.Writer, stderr io.W
 		return runPluginsUninstall(args[1:], global, stdout, stderr, envLookup, cwd)
 	case "rollback":
 		return runPluginsRollback(args[1:], global, stdout, stderr, envLookup, cwd)
+	case "lock":
+		return runPluginsLock(args[1:], global, stdout, stderr, envLookup, cwd)
 	default:
 		return &ExitError{
 			Code: 2,
 			Err:  fmt.Errorf("unknown plugins subcommand %q", args[0]),
 		}
 	}
+}
+
+func runPluginsLock(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	if len(args) == 0 {
+		return &ExitError{
+			Code: 2,
+			Err:  fmt.Errorf("missing plugins lock subcommand (supported: write)"),
+		}
+	}
+
+	switch args[0] {
+	case "write":
+		return runPluginsLockWrite(args[1:], global, stdout, stderr, envLookup, cwd)
+	default:
+		return &ExitError{
+			Code: 2,
+			Err:  fmt.Errorf("unknown plugins lock subcommand %q", args[0]),
+		}
+	}
+}
+
+func runPluginsLockWrite(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
+	parsed, err := parsePluginsFlags("plugins lock write", args, stderr)
+	if err != nil {
+		return err
+	}
+
+	service, err := resolvePluginsService(global, envLookup, cwd)
+	if err != nil {
+		return &ExitError{Code: 2, Err: err}
+	}
+	result, err := service.WriteLockfile()
+	if err != nil {
+		return asPluginsCommandError(err)
+	}
+	if parsed.jsonOutput {
+		return writeJSONPayload(stdout, result)
+	}
+	_, err = fmt.Fprintf(stdout, "Wrote lockfile %s with %d plugin entries\n", result.LockfilePath, result.PluginCount)
+	return err
 }
 
 func runPluginsInit(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {

@@ -37,6 +37,7 @@ type Store struct {
 	workspacePluginsRoot   string
 	settaFilesPluginsRoot  string
 	globalPluginsRoot      string
+	lockfilePath           string
 	pluginsStatePath       string
 	pluginsGlobalStatePath string
 	installMetadataPath    string
@@ -72,6 +73,7 @@ func NewStore(options StoreOptions) (*Store, error) {
 		workspacePluginsRoot:   filepath.Join(workspaceRoot, ".setta_plugins"),
 		settaFilesPluginsRoot:  filepath.Join(settaFilesRoot, "plugins"),
 		globalPluginsRoot:      filepath.Join(settaHome, "plugins"),
+		lockfilePath:           filepath.Join(workspaceRoot, ".setta_plugins", "plugins.lock.json"),
 		pluginsStatePath:       filepath.Join(settaFilesRoot, "plugins_state.json"),
 		pluginsGlobalStatePath: filepath.Join(settaHome, "plugins_global_state.json"),
 		installMetadataPath:    filepath.Join(settaFilesRoot, "plugins_install_metadata.json"),
@@ -98,6 +100,13 @@ func (s *Store) GlobalPluginsRoot() string {
 		return ""
 	}
 	return s.globalPluginsRoot
+}
+
+func (s *Store) LockfilePath() string {
+	if s == nil {
+		return ""
+	}
+	return s.lockfilePath
 }
 
 func (s *Store) PluginsStatePath() string {

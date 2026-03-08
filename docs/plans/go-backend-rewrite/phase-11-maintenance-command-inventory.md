@@ -43,9 +43,16 @@ As of 2026-03-08:
   - `setta plugins init|validate|link` in `internal/settacmd`
   - partial Python-entrypoint dispatch for those completed authoring/local-link
     commands
+- Go now also owns the plugin lockfile-write slice:
+  - shared lockfile models and deterministic lockfile writing in
+    `internal/plugins`
+  - `setta plugins lock write` in `internal/settacmd`
+  - nested Python-entrypoint dispatch for that completed lockfile-write
+    subcommand
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
-  - the remaining `plugins` source-acquisition, lockfile, and restart commands
+  - the remaining `plugins` source-acquisition, lock-apply, and restart
+    commands
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
@@ -125,7 +132,7 @@ As of 2026-03-08:
      - `link`
    - Go does not yet own the remaining CLI-facing plugin behaviors:
      - install/update/pin source acquisition
-     - lockfile write/apply
+     - lockfile apply
      - programmatic restart acceptance/rejection
    - rewrite implication:
      - plugin CLI parity should be its own dedicated slice, not bundled with
@@ -171,10 +178,12 @@ Phase 11 Stage 5 is now complete in
 Phase 11 Stage 6 is now planned in
 `phase-11-plugin-lock-write-stage6.md`.
 
-The remaining plugin surface stays split across one unblocked lockfile slice
-and a still-blocked source-acquisition slice:
+Phase 11 Stage 6 is now complete in
+`phase-11-plugin-lock-write-stage6.md`.
 
-- `plugins lock write`
+The remaining plugin surface stays split across one blocked
+source-acquisition/convergence slice and the separate restart command:
+
 - `plugins install`
 - `plugins update`
 - `plugins pin`
@@ -234,6 +243,12 @@ and a still-blocked source-acquisition slice:
     production candidate-provider path
   - `plugins restart` still stays separate until a later stage scopes it
     intentionally
+- 2026-03-08: completed the plugin Stage 6 slice.
+  - `setta plugins lock write` is now Go-owned
+  - Go now owns shared plugin lockfile writing over discovered plugin state and
+    persisted install metadata
+  - the remaining Python-owned plugin surface is `install`, `update`, `pin`,
+    `lock apply`, and `restart`
 
 ## Verification
 
