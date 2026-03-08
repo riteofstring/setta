@@ -1,11 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useNavigate } from "react-router-dom";
-import { cancelPendingActiveSectionIdsSync } from "state/actions/activeSections";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
-import {
-  hydrateActiveSectionUIIds,
-  sanitizeProjectStateActiveIds,
-} from "state/activeSectionUI";
 import {
   useAllProjectMetadata,
   useLocalStorage,
@@ -54,7 +49,6 @@ export async function loadProjectConfig({ projectConfigName }) {
 
 export async function loadProjectState(p: ProjectStateSingleConfig) {
   const { viewport, viewportInitialized } = p.projectConfig;
-  cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
@@ -65,11 +59,7 @@ export async function loadProjectState(p: ProjectStateSingleConfig) {
       transform: [x, y, zoom],
     });
   }
-  hydrateActiveSectionUIIds(p.projectConfig.activeIds);
-  useProjectState.setState({
-    ...sanitizeProjectStateActiveIds(p),
-    previewSectionVariantMap: {},
-  });
+  useProjectState.setState({ ...p, previewSectionVariantMap: {} });
   applyPendingNameValidationErrors(p.projectConfig.id);
   useNodeInternals.setState((state) => ({
     x: createNodesMapFromProjectConfigChildren(
