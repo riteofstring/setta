@@ -35,6 +35,8 @@ How to read the statuses:
 - `Python-owned`: the active implementation still lives under `backend/setta`.
 - `Deferred`: the capability is intentionally outside the current rewrite
   scope.
+- `External`: the capability depends on non-Setta providers, processes, or OS
+  services rather than a Setta-owned implementation.
 
 Primary sources used for this checklist:
 
@@ -87,7 +89,7 @@ Primary sources used for this checklist:
 | Go-owned | Core project state and project shell | `internal/projectstate`, `internal/projectview`, `internal/projectshell`, `internal/settingsstate`, `internal/chatsections`, and `internal/notifications` own the main project/runtime state slice. |
 | Go-owned | Artifact, binary, attachment, file-browser, and git-read services | `internal/artifacts`, `internal/binary`, `internal/chatattachments`, `internal/filebrowser`, `internal/gitread`, and `internal/shareartifacts` are Go-owned. |
 | Go-owned | State filesystem and project backup helpers | `internal/statefs` and `internal/projectbackup` are Go-owned support capabilities. |
-| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct mutation/helper tails that were not re-created in Go. |
+| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including default-project helpers (`getDefaultConfigName`, `setAsDefaultProject`), attachment URL helpers, `loadAvailableArtifacts`, `createFile`, `deleteJsonSourceFileAndVariant`, `appendDrawAreaLayerItem`, `docstringToMarkdown`, and `revealPathInOsFileExplorer`. |
 
 ## 6. Code intelligence, formatting, and execution planning
 
@@ -105,7 +107,7 @@ Primary sources used for this checklist:
 | Go-owned | MCP server/client/tool registry/search | `internal/mcpx` and `internal/tools` are the active Go owners. |
 | Go-owned | UI-setting runtime and reveal routing | `internal/uisettings` plus `internal/realtime` own reveal/result behavior and routing. |
 | Go-owned | App-spec store/patch/diagnostics and app-gen skills | `internal/appspec` and `internal/appgenskills` are the active Go owners. |
-| Shared boundary | Legacy app-definition and app-spec HTTP surface | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST and `streamAppSpec` HTTP surface used by older callers. |
+| Shared boundary | Legacy app-definition and app-spec HTTP surface | Go owns the newer app-spec runtime, but Python still serves the legacy app-definition REST and `streamAppSpec` HTTP surface used by current callers that have not moved to the Go MCP boundary. |
 | Go-owned | LLM config and managed API-key storage | `internal/llmconfig` is Go-owned. |
 
 ## 8. AI, agentic runtime, and transcription

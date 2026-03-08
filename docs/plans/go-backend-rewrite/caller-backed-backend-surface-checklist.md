@@ -75,10 +75,8 @@ Primary sources used for this checklist:
 | Partial | Built-in listener endpoint parity beyond the active plugin caller surface | The plan still calls out built-in endpoint dispatch, listener temp-id negotiation, and related follow-ons as deferred. |
 | Partial | Terminal PTY runtime | `internal/terminals` owns the replacement PTY runtime, but the current frontend terminal attach flow still targets the Python-era websocket path `/{projectConfigId}/{sectionId}/{id}` rather than Go's `/ws/terminals/{projectID}/{sectionID}`. |
 | Missing | Terminal websocket attach/history replay/resize behavior | The Go terminal websocket surface is `/ws/terminals/{projectID}/{sectionID}`, but the current frontend still opens the Python-era `/api/{projectConfigId}/{sectionId}/{id}` websocket path. |
-| Complete | Terminal delete and interrupt HTTP routes | Go owns `deleteTerminals` and `interruptTerminalProcesses`. |
+| Partial | Terminal cleanup HTTP routes | Go registers `deleteTerminals` and `interruptTerminalProcesses`, but the repo does not currently contain a non-test frontend caller that proves those cleanup routes are part of the active caller-backed surface; `interruptTerminalProcesses` is also absent from the generated frontend route set. |
 | Partial | `runCode` execution path | Go owns the current IDE/share/app `runCode` surface, but `cliId` output transport is still explicitly unsupported and the current terminal attach caller still uses the Python-era websocket path. |
-| Missing | Detached-run transport | `runDetached`, `getRunStatus`, and `cancelRun` are still outside the current Go-owned scope. |
-| Missing | Legacy CLI and `pythonScript` websocket transports | Python-era `/cli`, `/cli/{id}`, and `/pythonScript/{id}` websocket routes do not have Go equivalents. |
 
 ## 4. Project state, project shell, code editing, LSP, and watch-code
 
@@ -87,6 +85,7 @@ Primary sources used for this checklist:
 | Complete | Project-state runtime and persistence | The main Go owners are `internal/projectstate`, `internal/projectview`, and `internal/app`. |
 | Complete | Project shell reads | Go owns `loadAllProjectMetadata` and `loadProjectConfig`. |
 | Complete | Project lifecycle mutations | Go owns `saveProject`, `createProjectConfig`, `saveAsNewProjectConfig`, `deleteProjectConfigs`, and `setProjectConfigName`. |
+| Missing | Default-project helper routes still used by the current frontend | `GlobalWrapper` still POSTs Python-owned `getDefaultConfigName`, and `HomePage` still POSTs Python-owned `setAsDefaultProject`; Go project shell metadata already carries the default-project id, but Go does not register these legacy helper endpoints. |
 | Complete | Notification reads and deletes | `internal/notifications` plus `internal/httpapi/project_shell_routes.go` own `getNotifications` and `deleteNotification`. |
 | Complete | Latest project-state hydration | Go owns `getLatestProjectState` and frontend-op completion/pending tracking. |
 | Complete | Top-level section creation and view-mode lifecycle | Go owns `createTopLevelSection`, `createViewMode`, `setActiveViewMode`, `toggleIsEditingViewMode`, `toggleViewModeUserFacing`, `toggleViewModeTab`, `setViewModeName`, `setViewModeSortOrder`, and `deleteViewMode`. |
@@ -102,8 +101,7 @@ Primary sources used for this checklist:
 | Missing | LSP/admin helper routes still used by the current frontend | Edit-menu and shortcut flows still call Python-owned `typeCheck` and `restartLanguageServer`; Go does not register those HTTP endpoints today. |
 | Missing | Type-error ignore HTTP route still used by the current frontend | The type-error context menu still POSTs Python-owned `setTypeErrorIgnore`; Go exposes the bounded write only as the MCP tool `set_type_error_ignore`, not as a legacy HTTP route. |
 | Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group-orientation/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/indent/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object naming/display/file-binding/attached-terminal helpers, section sizing/filter/meta-control-title/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, password/subprocess helpers such as `getPasswordParamValue` and `killSubprocesses`, and text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link mutations are still current-frontend callers but do not have direct Go HTTP routes. |
-| Missing | Default-project and JSON-source/file helpers still used by the current frontend | Home/global and input-area flows still call `getDefaultConfigName`, `setAsDefaultProject`, `createFile`, and `deleteJsonSourceFileAndVariant`; Go does not expose those HTTP routes today. |
-| Missing | Legacy settings-project HTTP routes | `loadSettingsProject` and `saveSettingsProject` do not have Go route equivalents. |
+| Missing | Input-area and JSON-source file helpers still used by the current frontend | Current callers still use Python-owned `createFile` and `deleteJsonSourceFileAndVariant`. |
 
 ## 5. MCP, app-spec ownership, tool registry, and LLM config
 
@@ -119,8 +117,6 @@ Primary sources used for this checklist:
 | Partial | External file-watch parity for `.env` and `llm_config.json` | Immediate runtime refresh is Go-owned, but broad external watch parity remains explicitly deferred. |
 | Missing | Legacy app-definition REST routes still used by the current frontend | The app-config pane still calls `getAppDefinition`, `setAppDefinition`, `validateAppDefinition`, and `getAppCatalog`; Go owns app-spec state and MCP tools, not these HTTP routes. |
 | Missing | Legacy app-spec streaming helper route | `AppConfigPane` still POSTs Python-owned `streamAppSpec` directly via raw `fetch`; Go owns app-spec state and MCP tools, not this HTTP route. |
-| Missing | Remaining legacy app-spec helper routes | `updateAppDefinition` and `listAppComponents` were not recreated as Go HTTP routes; the current Go owner is the MCP/app-spec boundary instead. |
-| Missing | Legacy `runMcpTools` route | The Python-era direct route is absent; the Go tool path is the authenticated MCP boundary instead. |
 
 ## 6. AI, agentic runtime, chat state, and transcription
 
@@ -143,7 +139,6 @@ Primary sources used for this checklist:
 | Partial | External-agent health/preflight parity | Current config/health reads are Go-owned, but richer Python-only plugin/env-var/cache preflight semantics remain deferred. |
 | Complete | Transcription-profile reads and CRUD | Go owns `getTranscriptionProfiles`, `createTranscriptionProfile`, `updateTranscriptionProfile`, and `deleteTranscriptionProfile`. |
 | Complete | Transcription-session file mode and realtime mode | Go owns `startTranscriptionSession`, `appendTranscriptionAudio`, `stopTranscriptionSession`, and `cancelTranscriptionSession`. |
-| Missing | Legacy direct chat CRUD/metadata routes | `createChat`, `getChat`, `appendChatMessages`, `deleteChat`, `getAllChatMetadata`, `getAllLLMChatMetadata`, `deleteLLMChat`, and `setChatSystemPrompt` do not have direct Go equivalents. |
 
 ## 7. Plugins and backend worker runtime
 
@@ -175,7 +170,7 @@ Primary sources used for this checklist:
 | Complete | Git read surface | Phase 20 marks `git/status`, `git/diff`, `git/log`, `git/commitDetails`, and `git/commitFileDiff` as Go-owned. |
 | Partial | IDE artifact import/update/delete and cached artifact reads | Go owns the current artifact cluster, but `updateArtifacts` is intentionally bounded to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, `deleteArtifacts` only supports `File`, and the draw-area canvas still uses Python-owned `appendDrawAreaLayerItem`. |
 | Partial | Share/app artifact overlays | Go owns per-session overlay reads and writes, but the same bounded artifact limits still apply: overlay updates are restricted to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, and overlay deletes only support `File`. |
-| Missing | Legacy artifact helper routes | Older routes like `loadArtifacts`, `loadAvailableArtifacts`, `loadArtifactFromDisk`, `sendArtifact`, and `getArtifactIdsFromNamePathType` are not recreated in Go. |
+| Missing | Legacy artifact helper routes still used by the current frontend | The UI still calls Python-owned `loadAvailableArtifacts`; other older helpers like `loadArtifacts`, `loadArtifactFromDisk`, `sendArtifact`, and `getArtifactIdsFromNamePathType` are not recreated in Go either. |
 | Missing | Legacy attachment URL helper routes still used by the current frontend | Chat/UI callers still use `getAttachmentDownloadUrl` and `getAttachmentDownloadUrls`; the Go-owned surface is the token-backed download endpoint itself. |
 
 ## 9. Remaining Python-only or intentionally omitted legacy route families
@@ -211,11 +206,15 @@ callers.
 - Attachment URL helper routes:
   - `getAttachmentDownloadUrl`
   - `getAttachmentDownloadUrls`
-- Default-project and JSON-source/file helper routes:
+- Default-project helper routes:
   - `getDefaultConfigName`
   - `setAsDefaultProject`
+- File and JSON-source helper routes:
   - `createFile`
   - `deleteJsonSourceFileAndVariant`
+- Artifact helper routes:
+  - `loadAvailableArtifacts`
+  - `appendDrawAreaLayerItem`
 - Large direct project-graph and section-config mutation tails:
   - child-section create/delete
   - edge and agentic-edge mutation
@@ -226,8 +225,6 @@ callers.
   - section sizing/filter/meta-control-title/edge-input-output/group-overflow/list-root/parent-default-child/column-width helpers
   - text-block display/format, browser view/search/column, spreadsheet, task-board, chart, image, and social/link metadata
   - password-param and subprocess helper routes (`getPasswordParamValue`, `killSubprocesses`)
-- Artifact/draw-area helper route:
-  - `appendDrawAreaLayerItem`
 
 ### Dormant or not-proven-current-caller legacy families
 
@@ -256,6 +253,11 @@ callers.
   - `newJsonVersionName`
   - `getJsonSourcePathToBeDeleted`
   - JSON export/import helper routes
+- Remaining legacy artifact helper routes:
+  - `loadArtifacts`
+  - `loadArtifactFromDisk`
+  - `sendArtifact`
+  - `getArtifactIdsFromNamePathType`
 - Old route shapes that were replaced rather than preserved:
   - `runMcpTools` was replaced by the Go MCP server/tool-call boundary
   - version-specific deployment session routes

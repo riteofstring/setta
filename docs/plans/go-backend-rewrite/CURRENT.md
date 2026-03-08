@@ -56,8 +56,8 @@ There is no currently selected next rewrite phase.
   caller
 - a smaller set of current frontend calls still reaches Python-owned HTTP and
   websocket routes, notably app-definition REST/app-spec streaming,
-  attachment/default-project/file helpers, helper/admin endpoints,
-  Python-era `/api/frontend` and terminal websocket paths, and parts of the
+  attachment/file/artifact helpers, helper/admin endpoints, Python-era
+  `/api/frontend` and terminal websocket paths, and parts of the
   project-mutation tail
 - some Go live-update paths are not yet end-to-end because the core frontend
   still uses Python-era websocket shapes; this currently affects settings
