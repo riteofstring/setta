@@ -12,6 +12,7 @@ import (
 	"setta/internal/externalagentconfigs"
 	"setta/internal/externalagents"
 	"setta/internal/managedchat"
+	"setta/internal/managedllm"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
 )
@@ -491,6 +492,8 @@ func writeGetLLMResponseError(w http.ResponseWriter, r *http.Request, err error)
 		writeError(w, r, http.StatusConflict, "chat_engine_mismatch", err.Error())
 	case errors.Is(err, externalagents.ErrChatProjectConfigMismatch), errors.Is(err, managedchat.ErrChatProjectConfigMismatch):
 		writeError(w, r, http.StatusConflict, "chat_project_config_mismatch", err.Error())
+	case errors.Is(err, managedllm.ErrReasoningUnsupported):
+		writeError(w, r, http.StatusBadRequest, "thinking_unsupported", err.Error())
 	case errors.Is(err, externalagents.ErrExternalAgentEngineRequired), errors.Is(err, agentruns.ErrManagedLLMEngineRequired):
 		writeError(w, r, http.StatusBadRequest, "unsupported_engine_config", "Unsupported engine config.")
 	case errors.Is(err, managedchat.ErrStarterRequired), errors.Is(err, agentruns.ErrManagedExecutorUnavailable):

@@ -107,6 +107,10 @@ func (e *Executor) Execute(ctx context.Context, request agentruns.ExecutionReque
 	return e.executeConversation(ctx, prepared, request)
 }
 
+func (e *Executor) Validate(request agentruns.ExecutionRequest) error {
+	return validateReasoningRequest(request)
+}
+
 func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (preparedExecution, error) {
 	provider := strings.ToLower(strings.TrimSpace(request.LLMConfig.Provider))
 	if provider != openAIProvider {
@@ -115,8 +119,8 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	if strings.TrimSpace(request.LLMConfig.Model) == "" {
 		return preparedExecution{}, ErrModelRequired
 	}
-	if request.Thinking && !hasExplicitReasoningConfig(request.RequestParams) {
-		return preparedExecution{}, ErrReasoningUnsupported
+	if err := validateReasoningRequest(request); err != nil {
+		return preparedExecution{}, err
 	}
 
 	endpoint, err := resolveChatCompletionsEndpoint(request)
@@ -168,6 +172,13 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		availableTools:   availableTools,
 		toolAllowlist:    allowlist,
 	}, nil
+}
+
+func validateReasoningRequest(request agentruns.ExecutionRequest) error {
+	if request.Thinking && !hasExplicitReasoningConfig(request.RequestParams) {
+		return ErrReasoningUnsupported
+	}
+	return nil
 }
 
 func (e *Executor) executeConversation(ctx context.Context, prepared preparedExecution, request agentruns.ExecutionRequest) (agentruns.ExecutionResult, error) {

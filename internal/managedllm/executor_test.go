@@ -329,7 +329,7 @@ func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	t.Parallel()
 
 	executor := NewExecutor(ExecutorOptions{})
-	_, err := executor.Execute(context.Background(), agentruns.ExecutionRequest{
+	err := executor.Validate(agentruns.ExecutionRequest{
 		Run: agentruns.Run{ID: "run-alpha"},
 		LLMConfig: llmconfig.Config{
 			Model:     "gpt-4o-mini",
@@ -348,6 +348,34 @@ func TestExecutorRejectsThinkingWithoutExplicitProviderConfig(t *testing.T) {
 	})
 	if !errors.Is(err, ErrReasoningUnsupported) {
 		t.Fatalf("expected reasoning unsupported, got %v", err)
+	}
+}
+
+func TestExecutorValidateAllowsThinkingWithExplicitReasoningConfig(t *testing.T) {
+	t.Parallel()
+
+	executor := NewExecutor(ExecutorOptions{})
+	err := executor.Validate(agentruns.ExecutionRequest{
+		Run: agentruns.Run{ID: "run-alpha"},
+		LLMConfig: llmconfig.Config{
+			Model:     "gpt-4o-mini",
+			Provider:  "openai",
+			APIKeyEnv: "OPENAI_API_KEY",
+		},
+		RequestParams: map[string]any{
+			"model":               "gpt-4o-mini",
+			"custom_llm_provider": "openai",
+			"reasoning_effort":    "high",
+		},
+		SystemPrompt: "System prompt",
+		ChatID:       "chat-alpha",
+		Thinking:     true,
+		Inputs: map[string]any{
+			"runType": "llm_chat",
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected explicit reasoning config to validate, got %v", err)
 	}
 }
 

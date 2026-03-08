@@ -34,6 +34,10 @@ type Executor interface {
 	Execute(context.Context, ExecutionRequest) (ExecutionResult, error)
 }
 
+type RequestValidator interface {
+	Validate(ExecutionRequest) error
+}
+
 type ExecutionRequest struct {
 	Profile                agentprofiles.Profile
 	Run                    Run
@@ -96,6 +100,7 @@ type runContext struct {
 	thinking        bool
 	systemPrompt    string
 	inputs          map[string]any
+	request         *ExecutionRequest
 }
 
 func NewService(options ServiceOptions) (*Service, error) {
@@ -153,6 +158,16 @@ func (s *Service) prepareRun(profile agentprofiles.Profile, inputs map[string]an
 	if err != nil {
 		return runContext{}, err
 	}
+	if validator, ok := s.executor.(RequestValidator); ok {
+		request, err := s.buildExecutionRequest(prepared)
+		if err != nil {
+			return runContext{}, err
+		}
+		if err := validator.Validate(request); err != nil {
+			return runContext{}, err
+		}
+		prepared.request = &request
+	}
 
 	if err := s.runs.Save(prepared.run); err != nil {
 		return runContext{}, err
@@ -180,19 +195,25 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		return Run{}, ErrManagedExecutorUnavailable
 	}
 
-	request, err := s.buildExecutionRequest(runContext)
-	if err != nil {
-		runContext.run.Outputs = buildOutputs(nil, s.buildRunMetadata(runContext), nil)
-		runContext.run.Status = RunStatusFailed
-		finishedAt := s.timeNow().UTC()
-		runContext.run.FinishedAt = &finishedAt
-		if saveErr := s.runs.Save(runContext.run); saveErr != nil {
-			return Run{}, saveErr
+	request := ExecutionRequest{}
+	if runContext.request != nil {
+		request = cloneExecutionRequest(*runContext.request)
+	} else {
+		var err error
+		request, err = s.buildExecutionRequest(runContext)
+		if err != nil {
+			runContext.run.Outputs = buildOutputs(nil, s.buildRunMetadata(runContext), nil)
+			runContext.run.Status = RunStatusFailed
+			finishedAt := s.timeNow().UTC()
+			runContext.run.FinishedAt = &finishedAt
+			if saveErr := s.runs.Save(runContext.run); saveErr != nil {
+				return Run{}, saveErr
+			}
+			if recordErr := s.recordEvent(&runContext.run, "run_failed", map[string]any{"error": err.Error()}); recordErr != nil {
+				return Run{}, recordErr
+			}
+			return s.runs.Load(runContext.run.ID)
 		}
-		if recordErr := s.recordEvent(&runContext.run, "run_failed", map[string]any{"error": err.Error()}); recordErr != nil {
-			return Run{}, recordErr
-		}
-		return s.runs.Load(runContext.run.ID)
 	}
 	result, execErr := s.executor.Execute(ctx, request)
 	if persistedRun, err := s.runs.Load(runContext.run.ID); err == nil {
@@ -231,6 +252,36 @@ func (s *Service) executeRun(ctx context.Context, runContext runContext) (Run, e
 		return Run{}, err
 	}
 	return s.runs.Load(runContext.run.ID)
+}
+
+func cloneExecutionRequest(request ExecutionRequest) ExecutionRequest {
+	return ExecutionRequest{
+		Profile:                request.Profile,
+		Run:                    request.Run.Clone(),
+		EngineConfig:           request.EngineConfig,
+		LLMConfig:              request.LLMConfig,
+		MCPServerIDs:           cloneStringSlice(request.MCPServerIDs),
+		CompletionGuardEnabled: request.CompletionGuardEnabled,
+		RequestParams:          cloneAnyMap(request.RequestParams),
+		APIKeys:                cloneStringMap(request.APIKeys),
+		SystemPrompt:           request.SystemPrompt,
+		ProjectConfigID:        request.ProjectConfigID,
+		ChatID:                 request.ChatID,
+		SectionID:              cloneStringPtr(request.SectionID),
+		Thinking:               request.Thinking,
+		Inputs:                 cloneAnyMap(request.Inputs),
+	}
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]string, len(input))
+	for key, value := range input {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func (s *Service) buildExecutionRequest(runContext runContext) (ExecutionRequest, error) {

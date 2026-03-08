@@ -19,6 +19,7 @@ import (
 	"setta/internal/externalagents"
 	"setta/internal/llmconfig"
 	"setta/internal/managedchat"
+	"setta/internal/managedllm"
 	"setta/internal/mcpx"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -349,6 +350,45 @@ func TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled(t *
 	}
 	if payload.Error.Code != "agent_runner_unavailable" {
 		t.Fatalf("expected agent_runner_unavailable, got %#v", payload)
+	}
+}
+
+func TestRegisterAIRoutesReturnsBadRequestForManagedThinkingUnsupported(t *testing.T) {
+	t.Parallel()
+
+	managedStarter := &aiRouteStubManagedStarter{err: managedllm.ErrReasoningUnsupported}
+	fixture := newAIRouteFixture(t, aiRouteFixtureOptions{managedStarter: managedStarter})
+	handler := newAIRouteTestHandler(t, config.ModeIDE, fixture.managed, fixture.send, fixture.service, fixture.runtime)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetLLMResponse,
+		strings.NewReader(`{
+			"chatId":null,
+			"message":{"id":"user-managed","role":"user","content":[{"type":"text","text":"Think through this."}]},
+			"engineConfigId":"engine-managed",
+			"agentProfileId":null,
+			"thinking":true,
+			"projectConfigId":"project-alpha",
+			"sectionId":null,
+			"allowUnscoped":true,
+			"permissionMode":"minimal",
+			"searchEnabled":false
+		}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload errorResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode error payload: %v", err)
+	}
+	if payload.Error.Code != "thinking_unsupported" {
+		t.Fatalf("expected thinking_unsupported, got %#v", payload)
 	}
 }
 

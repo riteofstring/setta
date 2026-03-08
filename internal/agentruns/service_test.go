@@ -15,15 +15,23 @@ import (
 )
 
 type stubExecutor struct {
-	result ExecutionResult
-	err    error
-	last   *ExecutionRequest
+	result       ExecutionResult
+	err          error
+	last         *ExecutionRequest
+	validateErr  error
+	lastValidate *ExecutionRequest
 }
 
 func (s *stubExecutor) Execute(_ context.Context, request ExecutionRequest) (ExecutionResult, error) {
 	cloned := request
 	s.last = &cloned
 	return s.result, s.err
+}
+
+func (s *stubExecutor) Validate(request ExecutionRequest) error {
+	cloned := request
+	s.lastValidate = &cloned
+	return s.validateErr
 }
 
 type stubTemporaryIDs struct {
@@ -203,6 +211,39 @@ func TestServiceRunSubAgentMarksRunFailedWhenExecutorFails(t *testing.T) {
 	lastEvent := loaded.Events[len(loaded.Events)-1]
 	if lastEvent.Type != "run_failed" {
 		t.Fatalf("expected run_failed event, got %#v", lastEvent)
+	}
+}
+
+func TestServiceRunSubAgentRejectsValidatedRequestBeforeSave(t *testing.T) {
+	t.Parallel()
+
+	service, executor, runs, _ := buildServiceFixture(t, nil)
+	executor.validateErr = errors.New("thinking unsupported")
+	profile := agentprofiles.Profile{
+		ID:             "profile-alpha",
+		Name:           "Alpha",
+		EngineConfigID: stringPtr("engine-primary"),
+	}
+
+	_, err := service.RunSubAgent(context.Background(), profile, map[string]any{
+		"allowUnscoped": true,
+		"thinking":      true,
+	})
+	if err == nil || err.Error() != "thinking unsupported" {
+		t.Fatalf("expected validation error, got %v", err)
+	}
+	if executor.lastValidate == nil {
+		t.Fatal("expected validate call")
+	}
+	if executor.last != nil {
+		t.Fatalf("expected execute to be skipped, got %#v", executor.last)
+	}
+	runsList, err := runs.List()
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runsList) != 0 {
+		t.Fatalf("expected no persisted runs, got %#v", runsList)
 	}
 }
 
