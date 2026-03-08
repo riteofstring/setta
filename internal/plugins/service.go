@@ -26,6 +26,7 @@ type RestartCallback func(context.Context) (bool, error)
 type ServiceOptions struct {
 	Store                     *Store
 	DiscoveryService          *DiscoveryService
+	BackendCodegenRuntime     BackendCodegenRegistrationSource
 	WorkspaceRoot             string
 	SettaFilesRoot            string
 	SettaHome                 string
@@ -42,6 +43,7 @@ type Service struct {
 	store             *Store
 	discoveryService  *DiscoveryService
 	candidateProvider CandidateProvider
+	codegenRuntime    BackendCodegenRegistrationSource
 	restartCommand    string
 	restartCallback   RestartCallback
 	settaVersion      string
@@ -83,6 +85,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		store:                       store,
 		discoveryService:            discoveryService,
 		candidateProvider:           options.CandidateProvider,
+		codegenRuntime:              options.BackendCodegenRuntime,
 		restartCommand:              defaultRestartCommand(options.RestartCommand),
 		restartCallback:             options.RestartCallback,
 		settaVersion:                resolvedSettaVersion(options.SettaVersion),

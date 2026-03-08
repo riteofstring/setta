@@ -542,17 +542,61 @@ func mustNewPluginMutationServiceWithStore(t *testing.T, roots filesystemResolve
 	t.Helper()
 
 	service, err := NewService(ServiceOptions{
-		Store:             store,
-		WorkspaceRoot:     roots.workspaceRoot,
-		SettaFilesRoot:    roots.settaFilesRoot,
-		SettaHome:         roots.settaHome,
-		ServerMode:        mode,
-		CandidateProvider: provider,
+		Store:                 store,
+		WorkspaceRoot:         roots.workspaceRoot,
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaHome:             roots.settaHome,
+		ServerMode:            mode,
+		CandidateProvider:     provider,
+		BackendCodegenRuntime: nil,
 	})
 	if err != nil {
 		t.Fatalf("new plugin mutation service: %v", err)
 	}
 	return service
+}
+
+func mustNewPluginMutationServiceWithCodegenRuntime(
+	t *testing.T,
+	roots filesystemResolverTestRoots,
+	provider CandidateProvider,
+	mode config.Mode,
+	codegenRuntime BackendCodegenRegistrationSource,
+) *Service {
+	t.Helper()
+
+	service, err := NewService(ServiceOptions{
+		WorkspaceRoot:         roots.workspaceRoot,
+		SettaFilesRoot:        roots.settaFilesRoot,
+		SettaHome:             roots.settaHome,
+		ServerMode:            mode,
+		CandidateProvider:     provider,
+		BackendCodegenRuntime: codegenRuntime,
+	})
+	if err != nil {
+		t.Fatalf("new plugin mutation service: %v", err)
+	}
+	return service
+}
+
+func mustNewBackendCodegenRegistrationLoader(t *testing.T, mode config.Mode) *BackendCodegenRegistrationLoader {
+	t.Helper()
+
+	repoRoot := workerRPCTestRepoRoot(t)
+	loader, err := NewBackendCodegenRegistrationLoader(BackendCodegenRegistrationLoaderOptions{
+		RuntimeProvider: WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
+			return WorkerRuntime{
+				PythonBinary:     workerRPCTestPythonBinary(t, repoRoot),
+				Environment:      workerRPCTestEnv(repoRoot),
+				WorkingDirectory: repoRoot,
+			}, nil
+		}),
+		ServerMode: mode,
+	})
+	if err != nil {
+		t.Fatalf("new backend codegen registration loader: %v", err)
+	}
+	return loader
 }
 
 func pluginScopePointer(scope PluginScope) *PluginScope {

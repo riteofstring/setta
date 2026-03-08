@@ -202,6 +202,51 @@ func TestServiceRuntimePreservesBlockedCapabilitiesInShareMode(t *testing.T) {
 	}
 }
 
+func TestServiceRuntimeIncludesBackendCodegenTargetRegistrations(t *testing.T) {
+	// Runtime should surface worker-registered codegen targets for active backend plugins.
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
+
+	service := mustNewPluginMutationServiceWithCodegenRuntime(
+		t,
+		roots,
+		nil,
+		config.ModeIDE,
+		mustNewBackendCodegenRegistrationLoader(t, config.ModeIDE),
+	)
+	runtimeResponse, err := service.Runtime(RuntimeOptions{})
+	if err != nil {
+		t.Fatalf("load runtime payload: %v", err)
+	}
+
+	if len(runtimeResponse.Status.Plugins) != 1 {
+		t.Fatalf("expected one status plugin, got %#v", runtimeResponse.Status.Plugins)
+	}
+	statusEntry := runtimeResponse.Status.Plugins[0]
+	if statusEntry.PluginID != "setta-fixture-backend-codegen" {
+		t.Fatalf("expected backend-codegen plugin id, got %#v", statusEntry.PluginID)
+	}
+	if statusEntry.State != PluginRuntimeStateActive {
+		t.Fatalf("expected active backend-codegen plugin, got %#v", statusEntry.State)
+	}
+	if len(statusEntry.RegisteredCodegenTargets) != 1 {
+		t.Fatalf("expected one registered codegen target, got %#v", statusEntry.RegisteredCodegenTargets)
+	}
+	registration := statusEntry.RegisteredCodegenTargets[0]
+	if registration.TargetID != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("expected backend-codegen target id, got %#v", registration.TargetID)
+	}
+	if registration.PluginID != "setta-fixture-backend-codegen" {
+		t.Fatalf("expected backend-codegen plugin id on registration, got %#v", registration.PluginID)
+	}
+	if registration.Language != "typescript" || registration.Name != "TypeScript" || registration.DefaultFileName != "setta_gen.ts" {
+		t.Fatalf("unexpected codegen registration payload %#v", registration)
+	}
+	if len(statusEntry.Errors) != 0 {
+		t.Fatalf("expected no backend registration errors, got %#v", statusEntry.Errors)
+	}
+}
+
 func TestServiceResolveAssetPathRejectsTraversalAndNonFrontendFiles(t *testing.T) {
 	// Asset resolution should allow declared frontend files only.
 	roots := newFilesystemResolverTestRoots(t)

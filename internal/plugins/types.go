@@ -79,6 +79,33 @@ type PluginBlockedCapability struct {
 	Reason     PluginBlockedCapabilityReason `json:"reason"`
 }
 
+type PluginRegisteredLanguageServer struct {
+	Name        string   `json:"name"`
+	Language    string   `json:"language"`
+	Command     string   `json:"command"`
+	Args        []string `json:"args"`
+	SettingsKey *string  `json:"settingsKey"`
+}
+
+type PluginRegisteredExternalAgentAdapter struct {
+	AdapterID       string   `json:"adapterId"`
+	PluginID        string   `json:"pluginId"`
+	Name            string   `json:"name"`
+	RunModes        []string `json:"runModes"`
+	Command         string   `json:"command"`
+	Args            []string `json:"args"`
+	EnvVarWhitelist []string `json:"envVarWhitelist"`
+	DefaultModel    *string  `json:"defaultModel"`
+}
+
+type PluginRegisteredCodegenTarget struct {
+	TargetID        string `json:"targetId"`
+	PluginID        string `json:"pluginId"`
+	Language        string `json:"language"`
+	Name            string `json:"name"`
+	DefaultFileName string `json:"defaultFileName"`
+}
+
 type PluginBackendManifest struct {
 	Entrypoint string `json:"entrypoint"`
 }

@@ -225,6 +225,92 @@ func TestAppServesPluginRuntimeAndFrontendAssets(t *testing.T) {
 	}
 }
 
+func TestAppServesPluginRuntimeWithBackendCodegenRegistrations(t *testing.T) {
+	// The real app should surface worker-backed backend codegen registrations through plugin runtime.
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppPluginWorkerRuntime(t)
+	installAppBackendCodegenFixture(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+
+	runtimeRequest, err := http.NewRequest(http.MethodGet, server.URL+"/api"+httpapi.RoutePluginsRuntime, nil)
+	if err != nil {
+		t.Fatalf("new plugin runtime request: %v", err)
+	}
+	runtimeRequest.AddCookie(authCookie)
+
+	runtimeResponse, err := http.DefaultClient.Do(runtimeRequest)
+	if err != nil {
+		t.Fatalf("get plugin runtime: %v", err)
+	}
+	defer runtimeResponse.Body.Close()
+	if runtimeResponse.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(runtimeResponse.Body)
+		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.StatusCode, string(body))
+	}
+
+	var runtimePayload struct {
+		Status struct {
+			Plugins []struct {
+				PluginID                 string `json:"pluginId"`
+				State                    string `json:"state"`
+				RegisteredCodegenTargets []struct {
+					TargetID        string `json:"targetId"`
+					PluginID        string `json:"pluginId"`
+					Language        string `json:"language"`
+					Name            string `json:"name"`
+					DefaultFileName string `json:"defaultFileName"`
+				} `json:"registeredCodegenTargets"`
+				Errors []struct {
+					Code string `json:"code"`
+				} `json:"errors"`
+			} `json:"plugins"`
+		} `json:"status"`
+	}
+	if err := json.NewDecoder(runtimeResponse.Body).Decode(&runtimePayload); err != nil {
+		t.Fatalf("decode plugin runtime payload: %v", err)
+	}
+	if len(runtimePayload.Status.Plugins) != 1 {
+		t.Fatalf("expected one plugin in runtime status payload, got %#v", runtimePayload.Status.Plugins)
+	}
+
+	statusEntry := runtimePayload.Status.Plugins[0]
+	if statusEntry.PluginID != "setta-fixture-backend-codegen" || statusEntry.State != "active" {
+		t.Fatalf("unexpected plugin runtime status entry %#v", statusEntry)
+	}
+	if len(statusEntry.RegisteredCodegenTargets) != 1 {
+		t.Fatalf("expected one backend codegen registration, got %#v", statusEntry.RegisteredCodegenTargets)
+	}
+	registration := statusEntry.RegisteredCodegenTargets[0]
+	if registration.TargetID != "setta-fixture-backend-codegen:typescript" {
+		t.Fatalf("expected backend codegen target id, got %#v", registration.TargetID)
+	}
+	if registration.PluginID != "setta-fixture-backend-codegen" || registration.Language != "typescript" {
+		t.Fatalf("unexpected backend codegen registration payload %#v", registration)
+	}
+	if registration.Name != "TypeScript" || registration.DefaultFileName != "setta_gen.ts" {
+		t.Fatalf("unexpected backend codegen registration details %#v", registration)
+	}
+	if len(statusEntry.Errors) != 0 {
+		t.Fatalf("expected no backend codegen registration errors, got %#v", statusEntry.Errors)
+	}
+}
+
 func TestAppWritesPluginConfigAndUpdatesRuntime(t *testing.T) {
 	// The real app should accept plugin config writes and reflect them in subsequent runtime reads.
 	cfg := testConfig(t)

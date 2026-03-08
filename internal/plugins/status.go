@@ -26,28 +26,28 @@ type RestartCapability struct {
 }
 
 type StatusEntry struct {
-	PluginID                        string                    `json:"pluginId"`
-	Name                            string                    `json:"name"`
-	Version                         string                    `json:"version"`
-	State                           PluginRuntimeState        `json:"state"`
-	SourceScope                     PluginScope               `json:"sourceScope"`
-	SourceScopeLabel                string                    `json:"sourceScopeLabel"`
-	SourceManager                   PluginSourceManager       `json:"sourceManager"`
-	SourceManagerHint               *string                   `json:"sourceManagerHint"`
-	SourcePath                      string                    `json:"sourcePath"`
-	CanonicalSourceKey              string                    `json:"canonicalSourceKey"`
-	SourceDigestSHA256              *string                   `json:"sourceDigestSha256"`
-	ShadowedBySourcePath            *string                   `json:"shadowedBySourcePath"`
-	RequestedCapabilities           []string                  `json:"requestedCapabilities"`
-	EffectiveCapabilities           []string                  `json:"effectiveCapabilities"`
-	BlockedCapabilities             []PluginBlockedCapability `json:"blockedCapabilities"`
-	RegisteredLanguageServers       []any                     `json:"registeredLanguageServers"`
-	RegisteredExternalAgentAdapters []any                     `json:"registeredExternalAgentAdapters"`
-	RegisteredCodegenTargets        []any                     `json:"registeredCodegenTargets"`
-	EnablementSource                *PluginEnablementSource   `json:"enablementSource"`
-	RestartRequired                 bool                      `json:"restartRequired"`
-	RuntimePayloadDigestSHA256      string                    `json:"runtimePayloadDigestSha256"`
-	Errors                          []PluginErrorInfo         `json:"errors"`
+	PluginID                        string                                 `json:"pluginId"`
+	Name                            string                                 `json:"name"`
+	Version                         string                                 `json:"version"`
+	State                           PluginRuntimeState                     `json:"state"`
+	SourceScope                     PluginScope                            `json:"sourceScope"`
+	SourceScopeLabel                string                                 `json:"sourceScopeLabel"`
+	SourceManager                   PluginSourceManager                    `json:"sourceManager"`
+	SourceManagerHint               *string                                `json:"sourceManagerHint"`
+	SourcePath                      string                                 `json:"sourcePath"`
+	CanonicalSourceKey              string                                 `json:"canonicalSourceKey"`
+	SourceDigestSHA256              *string                                `json:"sourceDigestSha256"`
+	ShadowedBySourcePath            *string                                `json:"shadowedBySourcePath"`
+	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
+	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
+	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
+	RegisteredLanguageServers       []PluginRegisteredLanguageServer       `json:"registeredLanguageServers"`
+	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
+	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
+	EnablementSource                *PluginEnablementSource                `json:"enablementSource"`
+	RestartRequired                 bool                                   `json:"restartRequired"`
+	RuntimePayloadDigestSHA256      string                                 `json:"runtimePayloadDigestSha256"`
+	Errors                          []PluginErrorInfo                      `json:"errors"`
 }
 
 type StatusResponse struct {
@@ -72,13 +72,18 @@ type PluginRestartResult struct {
 }
 
 type statusEntryRuntimeDigestPayload struct {
-	RequestedCapabilities           []string                  `json:"requestedCapabilities"`
-	EffectiveCapabilities           []string                  `json:"effectiveCapabilities"`
-	BlockedCapabilities             []PluginBlockedCapability `json:"blockedCapabilities"`
-	RegisteredLanguageServers       []any                     `json:"registeredLanguageServers"`
-	RegisteredExternalAgentAdapters []any                     `json:"registeredExternalAgentAdapters"`
-	RegisteredCodegenTargets        []any                     `json:"registeredCodegenTargets"`
-	Errors                          []PluginErrorInfo         `json:"errors"`
+	RequestedCapabilities           []string                               `json:"requestedCapabilities"`
+	EffectiveCapabilities           []string                               `json:"effectiveCapabilities"`
+	BlockedCapabilities             []PluginBlockedCapability              `json:"blockedCapabilities"`
+	RegisteredLanguageServers       []PluginRegisteredLanguageServer       `json:"registeredLanguageServers"`
+	RegisteredExternalAgentAdapters []PluginRegisteredExternalAgentAdapter `json:"registeredExternalAgentAdapters"`
+	RegisteredCodegenTargets        []PluginRegisteredCodegenTarget        `json:"registeredCodegenTargets"`
+	Errors                          []PluginErrorInfo                      `json:"errors"`
+}
+
+type pluginStatusRuntimeDetails struct {
+	registeredCodegenTargets []PluginRegisteredCodegenTarget
+	errors                   []PluginErrorInfo
 }
 
 func (s *Service) Status() (StatusResponse, error) {
@@ -93,7 +98,7 @@ func (s *Service) Status() (StatusResponse, error) {
 	if err != nil {
 		return StatusResponse{}, err
 	}
-	return statusResponseFromSnapshot(snapshot, s.restartCapability()), nil
+	return statusResponseFromSnapshot(snapshot, s.restartCapability(), s.loadStatusRuntimeDetailsLocked(snapshot)), nil
 }
 
 func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
@@ -119,7 +124,7 @@ func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
 		if entry.State != PluginRuntimeStatePendingRestart {
 			continue
 		}
-		pendingPlugins = append(pendingPlugins, statusEntryFromDiscoveredPlugin(entry))
+		pendingPlugins = append(pendingPlugins, statusEntryFromDiscoveredPlugin(entry, pluginStatusRuntimeDetails{}))
 		pendingIDsFromStatus[entry.PluginID] = struct{}{}
 	}
 
@@ -183,10 +188,10 @@ func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
 	}, nil
 }
 
-func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCapability) StatusResponse {
+func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCapability, detailsByPluginID map[string]pluginStatusRuntimeDetails) StatusResponse {
 	entries := make([]StatusEntry, 0, len(snapshot.Plugins))
 	for _, entry := range snapshot.Plugins {
-		entries = append(entries, statusEntryFromDiscoveredPlugin(entry))
+		entries = append(entries, statusEntryFromDiscoveredPlugin(entry, detailsByPluginID[entry.PluginID]))
 	}
 	return StatusResponse{
 		SchemaVersion:     pluginStatusSchemaVersion,
@@ -196,8 +201,10 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCa
 	}
 }
 
-func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
-	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry)
+func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin, details pluginStatusRuntimeDetails) StatusEntry {
+	errors := append([]PluginErrorInfo(nil), entry.Errors...)
+	errors = append(errors, details.errors...)
+	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry, details)
 	return StatusEntry{
 		PluginID:                        entry.PluginID,
 		Name:                            entry.Name,
@@ -214,25 +221,25 @@ func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
 		RequestedCapabilities:           append([]string(nil), entry.RequestedCapabilities...),
 		EffectiveCapabilities:           append([]string(nil), entry.EffectiveCapabilities...),
 		BlockedCapabilities:             append([]PluginBlockedCapability(nil), entry.BlockedCapabilities...),
-		RegisteredLanguageServers:       []any{},
-		RegisteredExternalAgentAdapters: []any{},
-		RegisteredCodegenTargets:        []any{},
+		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
+		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
+		RegisteredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), details.registeredCodegenTargets...),
 		EnablementSource:                cloneOptionalEnablementSource(entry.EnablementSource),
 		RestartRequired:                 entry.RestartRequired,
 		RuntimePayloadDigestSHA256:      runtimeDigest,
-		Errors:                          append([]PluginErrorInfo(nil), entry.Errors...),
+		Errors:                          errors,
 	}
 }
 
-func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
+func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin, details pluginStatusRuntimeDetails) string {
 	payload := statusEntryRuntimeDigestPayload{
 		RequestedCapabilities:           append([]string(nil), entry.RequestedCapabilities...),
 		EffectiveCapabilities:           append([]string(nil), entry.EffectiveCapabilities...),
 		BlockedCapabilities:             append([]PluginBlockedCapability(nil), entry.BlockedCapabilities...),
-		RegisteredLanguageServers:       []any{},
-		RegisteredExternalAgentAdapters: []any{},
-		RegisteredCodegenTargets:        []any{},
-		Errors:                          append([]PluginErrorInfo(nil), entry.Errors...),
+		RegisteredLanguageServers:       []PluginRegisteredLanguageServer{},
+		RegisteredExternalAgentAdapters: []PluginRegisteredExternalAgentAdapter{},
+		RegisteredCodegenTargets:        append([]PluginRegisteredCodegenTarget(nil), details.registeredCodegenTargets...),
+		Errors:                          append(append([]PluginErrorInfo(nil), entry.Errors...), details.errors...),
 	}
 	encoded, err := json.Marshal(payload)
 	if err != nil {
@@ -240,6 +247,28 @@ func computeStatusEntryRuntimePayloadDigest(entry DiscoveredPlugin) string {
 	}
 	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:])
+}
+
+func (s *Service) loadStatusRuntimeDetailsLocked(snapshot DiscoverySnapshot) map[string]pluginStatusRuntimeDetails {
+	if s == nil || s.codegenRuntime == nil {
+		return map[string]pluginStatusRuntimeDetails{}
+	}
+
+	detailsByPluginID := make(map[string]pluginStatusRuntimeDetails, len(snapshot.Plugins))
+	for _, entry := range snapshot.Plugins {
+		if !shouldLoadBackendCodegenRegistrations(entry) {
+			continue
+		}
+		snapshot := s.codegenRuntime.SnapshotCodegenRegistrations(context.Background(), entry)
+		if len(snapshot.Registrations) == 0 && len(snapshot.Errors) == 0 {
+			continue
+		}
+		detailsByPluginID[entry.PluginID] = pluginStatusRuntimeDetails{
+			registeredCodegenTargets: append([]PluginRegisteredCodegenTarget(nil), snapshot.Registrations...),
+			errors:                   append([]PluginErrorInfo(nil), snapshot.Errors...),
+		}
+	}
+	return detailsByPluginID
 }
 
 func (s *Service) restartCapability() RestartCapability {

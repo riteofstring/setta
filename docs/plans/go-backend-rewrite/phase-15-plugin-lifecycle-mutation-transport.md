@@ -334,11 +334,15 @@ Recommendation:
 
 ## Next Recommended Step
 
+- the first higher-level backend plugin runtime follow-on is now landed in
+  `phase-15-plugin-backend-codegen-registration-runtime.md`
 - keep `POST /plugins/link` and `POST /plugins/lock/*` deferred until they
   become caller-backed or a concrete follow-on phase requires them
-- if plugin rewrite work resumes, focus next on the higher-level Go backend
-  plugin runtime boundary for backend route/language-server/external-agent
-  registrations rather than reopening thin transport work already completed
+- if plugin rewrite work resumes beyond that bounded codegen slice, focus next
+  on a concrete higher-level backend plugin runtime boundary only when a caller
+  requires it
+  - likely candidates are backend language-server or external-agent
+    registrations rather than reopening thin transport work already completed
 
 ## Open Questions
 

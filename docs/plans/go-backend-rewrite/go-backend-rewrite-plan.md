@@ -503,8 +503,8 @@ The next bounded plugin follow-on tracked in
 - the real app remains manual-only because no concrete restart hook is wired
   there yet
 
-The remaining caller-backed plugin lifecycle mutation cluster is now tracked in
-`phase-15-plugin-lifecycle-mutation-transport.md`:
+The caller-backed plugin lifecycle mutation cluster tracked in
+`phase-15-plugin-lifecycle-mutation-transport.md` is now landed:
 
 - Slice A is now landed:
   - Go now owns:
@@ -528,6 +528,21 @@ The remaining caller-backed plugin lifecycle mutation cluster is now tracked in
   should target either:
   - the deferred non-caller `link` / `lock*` routes
   - the higher-level backend plugin runtime registration boundary
+
+The first higher-level backend plugin runtime follow-on tracked in
+`phase-15-plugin-backend-codegen-registration-runtime.md` is now landed:
+
+- Go now owns worker-backed backend `registeredCodegenTargets` loading in
+  plugin status/runtime payloads
+- `internal/plugins` now starts the existing codegen worker runtime to collect
+  backend codegen registrations and caches them by plugin runtime identity
+- the real IDE app now wires the current-process worker runtime provider into
+  that shared plugin-service registration path
+- plugin-scoped backend registration failures now surface as
+  `PLUGIN_BACKEND_REGISTER_FAILED` status errors instead of failing the entire
+  runtime/status read
+- `registeredLanguageServers` and `registeredExternalAgentAdapters` remain
+  deferred until a concrete caller needs them
 
 The bounded plugin dependency cleanup tracked in
 `phase-11-plugin-version-range-owner-and-dependency-cleanup.md` is now also

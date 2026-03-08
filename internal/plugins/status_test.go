@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"setta/internal/config"
@@ -258,6 +259,45 @@ func TestServiceRestartProgrammaticFailureReturnsServiceError(t *testing.T) {
 	}
 	if serviceErr.Code != ServiceErrorCodeRestartFailed {
 		t.Fatalf("expected restart failed error code, got %#v", serviceErr.Code)
+	}
+}
+
+// Backend registration startup failures should stay plugin-scoped inside status payloads.
+func TestServiceStatusSurfacesPluginScopedBackendCodegenRegistrationErrors(t *testing.T) {
+	roots := newFilesystemResolverTestRoots(t)
+	copyPluginFixtureToScope(t, roots, filesystemPluginScopeWorkspace, "backend-codegen")
+
+	loader, err := NewBackendCodegenRegistrationLoader(BackendCodegenRegistrationLoaderOptions{
+		RuntimeProvider: WorkerRuntimeProviderFunc(func(context.Context) (WorkerRuntime, error) {
+			return WorkerRuntime{}, errors.New("worker runtime unavailable")
+		}),
+		ServerMode: config.ModeIDE,
+	})
+	if err != nil {
+		t.Fatalf("new backend codegen registration loader: %v", err)
+	}
+
+	service := mustNewPluginMutationServiceWithCodegenRuntime(t, roots, nil, config.ModeIDE, loader)
+	status, err := service.Status()
+	if err != nil {
+		t.Fatalf("load status: %v", err)
+	}
+
+	entry := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend-codegen", PluginRuntimeStateActive)
+	if len(entry.RegisteredCodegenTargets) != 0 {
+		t.Fatalf("expected failed registration load to leave no codegen targets, got %#v", entry.RegisteredCodegenTargets)
+	}
+	if entry.RuntimePayloadDigestSHA256 == "" {
+		t.Fatalf("expected runtime digest for failed backend registration entry")
+	}
+	if len(entry.Errors) != 1 {
+		t.Fatalf("expected one plugin-scoped registration error, got %#v", entry.Errors)
+	}
+	if entry.Errors[0].Code != "PLUGIN_BACKEND_REGISTER_FAILED" {
+		t.Fatalf("expected backend register failed code, got %#v", entry.Errors[0])
+	}
+	if !strings.Contains(entry.Errors[0].Message, "worker runtime unavailable") {
+		t.Fatalf("expected worker runtime failure in message, got %#v", entry.Errors[0].Message)
 	}
 }
 
