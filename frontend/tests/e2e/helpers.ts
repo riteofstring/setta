@@ -174,9 +174,9 @@ export async function ensureAppReady(page: Page): Promise<void> {
     }
 
     if (SHOULD_RESOLVE_DEFAULT_PROJECT) {
-      const defaultProjectName = await resolveDefaultProjectName(page, false);
-      if (defaultProjectName) {
-        const defaultUrl = new URL(defaultProjectName, BASE_URL).toString();
+      const defaultConfig = await getDefaultConfigNameResult(page);
+      if (defaultConfig.name) {
+        const defaultUrl = new URL(defaultConfig.name, BASE_URL).toString();
         await page.goto(withBackendOriginOverride(defaultUrl), {
           waitUntil: "domcontentloaded",
         });
@@ -1033,7 +1033,28 @@ async function isAppReady(page: Page): Promise<boolean> {
 
 async function navigateToDefaultProject(page: Page): Promise<void> {
   try {
-    const targetName = await resolveDefaultProjectName(page, true);
+    const metadata = await postBackend<ProjectMetadataResponse>(
+      page,
+      "/loadAllProjectMetadata",
+      {},
+    );
+    if (!metadata) {
+      return;
+    }
+
+    // Prefer the configured default; otherwise fall back to the first project.
+    let targetName =
+      metadata.projectMetadata.find(
+        (entry) => entry.id === metadata.defaultProjectConfigId,
+      )?.name ?? metadata.projectMetadata[0]?.name;
+
+    // If the workspace has no projects (possible if a prior test deleted them),
+    // create one so IDE-mode tests can proceed.
+    if (!targetName) {
+      targetName = await postBackend<string>(page, "/createProjectConfig", {
+        previewImgColor: "bg-blue-500/60",
+      });
+    }
 
     if (!targetName) {
       return;
@@ -1067,35 +1088,28 @@ async function hasAuthCookie(page: Page): Promise<boolean> {
   );
 }
 
-async function resolveDefaultProjectName(
-  page: Page,
-  allowCreate: boolean,
-): Promise<string | null> {
-  const metadata = await postBackend<ProjectMetadataResponse>(
-    page,
-    "/loadAllProjectMetadata",
-    {},
+async function getDefaultConfigNameResult(page: Page): Promise<{
+  name: string | null;
+  status: number;
+}> {
+  const response = await page.request.post(
+    `${BACKEND_ORIGIN}/api/getDefaultConfigName`,
+    {
+      data: {},
+      headers: BACKEND_HELPER_REQUEST_HEADERS,
+    },
   );
-  if (!metadata) {
-    return null;
+  const status = response.status();
+  if (!response.ok()) {
+    return { name: null, status };
   }
-
-  const configuredDefaultProjectName =
-    metadata.projectMetadata.find(
-      (entry) => entry.id === metadata.defaultProjectConfigId,
-    )?.name ?? null;
-  if (configuredDefaultProjectName) {
-    return configuredDefaultProjectName;
+  const text = await response.text();
+  if (!text) {
+    return { name: null, status };
   }
-
-  const firstProjectName = metadata.projectMetadata[0]?.name ?? null;
-  if (firstProjectName || !allowCreate) {
-    return firstProjectName;
+  const payload = JSON.parse(text) as unknown;
+  if (typeof payload !== "string" || !payload.trim()) {
+    return { name: null, status };
   }
-
-  // If the workspace has no projects (possible if a prior test deleted them),
-  // create one so IDE-mode tests can proceed.
-  return await postBackend<string>(page, "/createProjectConfig", {
-    previewImgColor: "bg-blue-500/60",
-  });
+  return { name: payload, status };
 }

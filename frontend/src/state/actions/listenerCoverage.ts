@@ -66,13 +66,19 @@ export function dependencyKeyCovered(
   return record.dependenciesByKey[lookupKey] !== undefined;
 }
 
+function serializeCoverageKey(dependency: BaseDependencyKeyUnion): string {
+  return serializeListenerDependencyKey(dependency);
+}
+
 export async function fetchListenerCoverageSnapshot(
   projectConfigId: string,
 ): Promise<void> {
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
+  console.log("fetchListenerCoverageSnapshot");
   const res = await route_get_listener_coverage({ projectConfigId });
+  console.log("res", res);
   if (!res200(res)) {
     return;
   }
