@@ -1,4 +1,3 @@
-from setta.mcp.tools.agentic_tools import invoke_linked_chat
 from setta.mcp.tool_metadata import SettaToolType, get_tool_access
 from setta.mcp.tool_registry import build_setta_tool_manager, ensure_setta_mcp_tools_loaded
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
@@ -45,7 +44,7 @@ def test_discoverable_setta_tools_have_explicit_access_metadata() -> None:
         result_filter = getattr(annotations, "resultFilter", None)
         default_singleton = getattr(annotations, "defaultTargetSingletonSection", None)
         if (
-            access_type in ("read", "write", "peer_chat")
+            access_type in ("read", "write")
             and not id_paths
             and result_filter is None
             and default_singleton is None
@@ -56,10 +55,3 @@ def test_discoverable_setta_tools_have_explicit_access_metadata() -> None:
     assert missing_access == []
     assert missing_targets == []
 
-
-def test_invoke_linked_chat_uses_peer_chat_access() -> None:
-    access = get_tool_access(invoke_linked_chat)
-
-    assert access is not None
-    assert access.accessType == "peer_chat"
-    assert access.retryOnDisconnect is False

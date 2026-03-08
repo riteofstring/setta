@@ -57,7 +57,7 @@ Read docs/mcp-multi-server-plan.md. Implement the plan. Remember we never need b
 
 Read docs/mcp-multi-server-plan.md. Read the code base. Is the plan fully implemented?
 
-Implement the fixes. Add unit, integration, and Playwright tests when appropriate. Bias strongly toward clean, easy-to-read code: prefer the simplest correct design, explicit names, shallow control flow, and small focused functions/components. Remove dead or superseded code instead of layering on more logic. Avoid clever abstractions, speculative generalization, unnecessary indirection, and "just-in-case" helpers. If the current area is convoluted, refactor it as part of the fix so the final code is simpler and easier to understand. The CDP MCP server is already running and available for you to use, so do not try to start it up yourself, and you should not run `pnpm start` or `pnpm reset`.
+Implement the fixes. Add unit, integration, and playwright tests when appropriate. The CDP MCP server is already running and available for you to use, so do not try to start it up yourself, and you should not run pnpm start or pnpm reset.
 
 Merge the main branch into our current branch. If there are merge conflicts, resolve them, and then afterwards explain your logic for how you resolved each conflict. All branches are up to date (no need to fetch).
 
