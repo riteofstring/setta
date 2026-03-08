@@ -68,6 +68,8 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
+import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
 const effectiveImplCacheByImpl = new WeakMap<
   object,
@@ -543,8 +545,18 @@ export function getCurrEffectiveSectionImplOfType<T extends SectionType>(
   return impl as Extract<BaseSectionImplUnion, { type: T }>;
 }
 
+export type ManagedChatSectionAuthorityState = Pick<
+  ZustandProjectState,
+  "sections" | "sectionVariants" | "sectionImpls"
+> & {
+  projectConfig: Pick<
+    ZustandProjectState["projectConfig"],
+    "sectionVariantMap"
+  >;
+};
+
 export function isManagedChatSection(
-  state: ZustandProjectState,
+  state: ManagedChatSectionAuthorityState,
   sectionId: string,
 ): boolean {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -992,6 +1004,7 @@ function getComparableProjectState(
     shownParamIds: state.shownParamIds,
     requiredDecodedImages: state.requiredDecodedImages,
     genCodeBinding: state.genCodeBinding ?? null,
+    projectChatWindowing: state.projectChatWindowing,
   });
 }
 
@@ -1004,6 +1017,10 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  recordAuthoritativeProjectChatWindowingState(
+    x.projectState.projectConfig.id,
+    x.projectState.projectChatWindowing,
+  );
   const backendPendingIds = new Set(x.pendingOpIds);
   const completedIds = new Set(x.completedOpIds);
   const currentPending = usePendingOperations.getState().pending;
@@ -1055,6 +1072,10 @@ export function processProjectStateUpdateFromBackend(
   const nextNodesMap = createNodesMapFromProjectConfigChildren(
     x.projectState,
     useNodeInternals.getState().x,
+  );
+  reconcileProjectChatWindowingEphemeralState(
+    sanitizedProjectState.projectChatWindowing,
+    sanitizedProjectState.projectConfig.id,
   );
   runWithAtomicallyPublishedProjectStores(
     {
@@ -1771,6 +1792,53 @@ function removePendingOp(opId: string) {
   }));
 }
 
+function removePendingOpAndGetReplayOps(opId: string): Array<PendingOperation> {
+  const pendingBeforeRemoval = usePendingOperations.getState().pending;
+  const failedOpIndex = pendingBeforeRemoval.findIndex(
+    (opInfo) => opInfo.opId === opId,
+  );
+  removePendingOp(opId);
+  if (failedOpIndex < 0) {
+    return [];
+  }
+  const remainingOpIds = new Set(
+    usePendingOperations.getState().pending.map((opInfo) => opInfo.opId),
+  );
+  return pendingBeforeRemoval
+    .slice(failedOpIndex + 1)
+    .filter((opInfo) => remainingOpIds.has(opInfo.opId));
+}
+
+function rollbackOptimisticProjectStateUpdate(
+  opId: string,
+  rollback?: (state: ZustandProjectState) => void,
+) {
+  const replayOps = removePendingOpAndGetReplayOps(opId);
+  if (!rollback) {
+    return;
+  }
+  useProjectState.setState((state) => {
+    rollback(state);
+    for (const opInfo of replayOps) {
+      opInfo.apply(state);
+    }
+  });
+}
+
+function applyOptimisticProjectStateUpdateIfProjectMatches(
+  state: ZustandProjectState,
+  projectConfigId: string | undefined,
+  update: (state: ZustandProjectState) => void,
+) {
+  if (
+    projectConfigId !== undefined &&
+    state.projectConfig.id !== projectConfigId
+  ) {
+    return;
+  }
+  update(state);
+}
+
 function isResponseDataAndStatus(
   value: unknown,
 ): value is ResponseDataAndStatus<unknown> {
@@ -1787,26 +1855,60 @@ export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
   rollback,
+  reapply,
+  projectConfigId,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
+  reapply?: (state: ZustandProjectState) => void;
+  projectConfigId?: string;
 }) {
-  useProjectState.setState(apply);
-  const opId = addPendingOp(apply);
+  const applyWithProjectGuard = (state: ZustandProjectState) =>
+    applyOptimisticProjectStateUpdateIfProjectMatches(
+      state,
+      projectConfigId,
+      apply,
+    );
+  const reapplyWithProjectGuard = (state: ZustandProjectState) =>
+    applyOptimisticProjectStateUpdateIfProjectMatches(
+      state,
+      projectConfigId,
+      reapply ?? apply,
+    );
+  const rollbackWithProjectGuard =
+    rollback === undefined
+      ? undefined
+      : (state: ZustandProjectState) =>
+          applyOptimisticProjectStateUpdateIfProjectMatches(
+            state,
+            projectConfigId,
+            rollback,
+          );
+
+  useProjectState.setState(applyWithProjectGuard);
+  const opId = addPendingOp(reapplyWithProjectGuard);
   const result = send(opId);
   if (result instanceof Promise) {
-    void result.then((res) => {
-      // A 200 response means the backend accepted the op; don't keep reapplying it.
-      if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
-        if (rollback) {
-          useProjectState.setState(rollback);
+    void result
+      .then((res) => {
+        // A 200 response means the backend accepted the op; don't keep reapplying it.
+        if (isResponseDataAndStatus(res) && res200(res)) {
+          if (
+            projectConfigId !== undefined &&
+            useProjectState.getState().projectConfig.id !== projectConfigId
+          ) {
+            removePendingOp(opId);
+            return;
+          }
+          acknowledgePendingOp(opId);
+        } else if (isResponseDataAndStatus(res)) {
+          rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
         }
-      }
-    });
+      })
+      .catch(() => {
+        rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
+      });
   }
   return opId;
 }

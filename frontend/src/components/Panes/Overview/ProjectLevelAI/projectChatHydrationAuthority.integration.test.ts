@@ -45,6 +45,7 @@ describe("project chat hydration authority integration", () => {
       engineType: EngineTypeEnum.setta_llm,
     });
     const loadingCacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId: "project-1",
       chatId: "chat-1",
       hydrationRunType: authorityWhileLoading.hydrationRunType,
       hydrationMetadataRevision: "rev-1",
@@ -72,6 +73,7 @@ describe("project chat hydration authority integration", () => {
       engineType: EngineTypeEnum.setta_llm,
     });
     const resolvedCacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId: "project-1",
       chatId: "chat-1",
       hydrationRunType: authorityAfterResolution.hydrationRunType,
       hydrationMetadataRevision: "rev-1",
@@ -82,7 +84,7 @@ describe("project chat hydration authority integration", () => {
       hydrationRunType: "llm_chat",
       blockedErrorCode: null,
     });
-    expect(resolvedCacheKey).toBe("chat-1:llm_chat:rev-1");
+    expect(resolvedCacheKey).toBe("project-1:chat-1:llm_chat:rev-1");
   });
 
   it("keeps hydration cache-key inputs resolved when authoritative metadata reports a missing engine config", () => {
@@ -101,6 +103,7 @@ describe("project chat hydration authority integration", () => {
       engineType: EngineTypeEnum.setta_llm,
     });
     const cacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId: "project-1",
       chatId: "chat-1",
       hydrationRunType: authority.hydrationRunType,
       hydrationMetadataRevision: "rev-1",
@@ -111,7 +114,7 @@ describe("project chat hydration authority integration", () => {
       hydrationRunType: "llm_chat",
       blockedErrorCode: "engine_config_missing",
     });
-    expect(cacheKey).toBe("chat-1:llm_chat:rev-1");
+    expect(cacheKey).toBe("project-1:chat-1:llm_chat:rev-1");
   });
 
   it("keeps hydration unresolved while selected chat is still waiting and provenance has not appeared yet", () => {
@@ -125,6 +128,7 @@ describe("project chat hydration authority integration", () => {
       engineType: EngineTypeEnum.setta_llm,
     });
     const cacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId: "project-1",
       chatId: "chat-in-flight",
       hydrationRunType: authority.hydrationRunType,
       hydrationMetadataRevision: "rev-in-flight",
@@ -148,6 +152,7 @@ describe("project chat hydration authority integration", () => {
       engineType: EngineTypeEnum.setta_llm,
     });
     const cacheKey = buildProjectChatHydrationCacheKey({
+      projectConfigId: "project-1",
       chatId: "chat-missing-provenance",
       hydrationRunType: authority.hydrationRunType,
       hydrationMetadataRevision: "rev-missing-provenance",
@@ -159,7 +164,7 @@ describe("project chat hydration authority integration", () => {
       blockedErrorCode: "chat_provenance_missing",
     });
     expect(cacheKey).toBe(
-      "chat-missing-provenance:llm_chat:rev-missing-provenance",
+      "project-1:chat-missing-provenance:llm_chat:rev-missing-provenance",
     );
   });
 
