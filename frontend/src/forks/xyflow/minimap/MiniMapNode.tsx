@@ -25,6 +25,7 @@ const MiniMapNode = ({
   return (
     <rect
       className={cc(["react-flow__minimap-node", { selected }, className])}
+      data-minimap-node-id={id}
       x={x}
       y={y}
       rx={borderRadius}
