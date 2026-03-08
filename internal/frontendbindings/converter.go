@@ -35,6 +35,11 @@ func newTypeConverter() *typeConverter {
 			reflect.TypeOf(ServerMode("")):                       {"ide", "share", "app", "launcher"},
 			reflect.TypeOf(LaunchSettaFilesLocation("")):         {"auto", "local", "global"},
 			reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): {"local", "global"},
+			reflect.TypeOf(LauncherOpenMode("")):                 {"browser", "chrome-app"},
+			reflect.TypeOf(LauncherWorkspaceBehavior("")):        {"last_used_or_prompt", "always_prompt"},
+			reflect.TypeOf(SetupLauncherWorkspaceBehavior("")):   {"last-used-or-prompt", "always-prompt"},
+			reflect.TypeOf(LauncherInstallSource("")):            {"uv-tool", "installer-managed", "unsupported"},
+			reflect.TypeOf(LauncherUpdateCapability("")):         {"in_app", "installer_managed", "unsupported"},
 		},
 	}
 }

@@ -7,14 +7,14 @@ import {
   route_repair_launcher,
   route_setup_launcher,
   route_update_launcher,
-} from "utils/generatedEndpoints";
+} from "utils/generatedGoEndpoints";
 import {
   type LauncherRequestBaseInput,
   type LauncherStatusResponse,
   type LauncherUpdateResponse,
   type SetupLauncherRequestInput,
   type UpdateLauncherRequestInput,
-} from "utils/generatedTypes";
+} from "utils/generatedGoTypes";
 
 type LauncherActionState =
   | "refresh"
@@ -263,7 +263,9 @@ export function DesktopLauncherSettingsSection({
       if (missingRequiredSettaHome) {
         return null;
       }
-      const response = await route_get_launcher_status(normalizedSettaHome);
+      const response = await route_get_launcher_status({
+        setta_home: normalizedSettaHome,
+      });
       if (!res200(response) || !response.data) {
         return null;
       }

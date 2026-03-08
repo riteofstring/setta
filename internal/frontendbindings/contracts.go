@@ -197,3 +197,117 @@ type LauncherOpenWorkspaceResponse struct {
 	StartedNew           *bool                             `json:"startedNew"`
 	Error                *LauncherHomeErrorPayload         `json:"error"`
 }
+
+type LauncherOpenMode string
+
+const (
+	LauncherOpenModeBrowser   LauncherOpenMode = "browser"
+	LauncherOpenModeChromeApp LauncherOpenMode = "chrome-app"
+)
+
+type LauncherWorkspaceBehavior string
+
+const (
+	LauncherWorkspaceBehaviorLastUsedOrPrompt LauncherWorkspaceBehavior = "last_used_or_prompt"
+	LauncherWorkspaceBehaviorAlwaysPrompt     LauncherWorkspaceBehavior = "always_prompt"
+)
+
+type SetupLauncherWorkspaceBehavior string
+
+const (
+	SetupLauncherWorkspaceBehaviorLastUsedOrPrompt SetupLauncherWorkspaceBehavior = "last-used-or-prompt"
+	SetupLauncherWorkspaceBehaviorAlwaysPrompt     SetupLauncherWorkspaceBehavior = "always-prompt"
+)
+
+type LauncherInstallSource string
+
+const (
+	LauncherInstallSourceUVTool           LauncherInstallSource = "uv-tool"
+	LauncherInstallSourceInstallerManaged LauncherInstallSource = "installer-managed"
+	LauncherInstallSourceUnsupported      LauncherInstallSource = "unsupported"
+)
+
+type LauncherUpdateCapability string
+
+const (
+	LauncherUpdateCapabilityInApp            LauncherUpdateCapability = "in_app"
+	LauncherUpdateCapabilityInstallerManaged LauncherUpdateCapability = "installer_managed"
+	LauncherUpdateCapabilityUnsupported      LauncherUpdateCapability = "unsupported"
+)
+
+type LauncherOperationErrorPayload struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type GetLauncherStatusRequestInput struct {
+	SettaHome *string `json:"setta_home,omitempty"`
+}
+
+type LauncherStatusResponse struct {
+	Ok                       bool                           `json:"ok"`
+	Installed                *bool                          `json:"installed,omitempty"`
+	SettaHome                *string                        `json:"settaHome,omitempty"`
+	LauncherDir              *string                        `json:"launcherDir,omitempty"`
+	MetadataPath             *string                        `json:"metadataPath,omitempty"`
+	TargetCommand            []string                       `json:"targetCommand,omitempty"`
+	TargetValid              *bool                          `json:"targetValid,omitempty"`
+	TargetError              *string                        `json:"targetError,omitempty"`
+	Channel                  *string                        `json:"channel,omitempty"`
+	SettaVersion             *string                        `json:"settaVersion,omitempty"`
+	OpenMode                 *LauncherOpenMode              `json:"openMode,omitempty"`
+	WorkspaceBehavior        *LauncherWorkspaceBehavior     `json:"workspaceBehavior,omitempty"`
+	LastUsedWorkspace        *string                        `json:"lastUsedWorkspace,omitempty"`
+	ArtifactOptions          map[string]string              `json:"artifactOptions,omitempty"`
+	ManagedArtifacts         map[string]string              `json:"managedArtifacts,omitempty"`
+	ExistingManagedArtifacts []string                       `json:"existingManagedArtifacts,omitempty"`
+	MissingManagedArtifacts  []string                       `json:"missingManagedArtifacts,omitempty"`
+	UpdateCapability         *LauncherUpdateCapability      `json:"updateCapability,omitempty"`
+	UpdateGuidance           *string                        `json:"updateGuidance,omitempty"`
+	Error                    *LauncherOperationErrorPayload `json:"error,omitempty"`
+}
+
+type LauncherUpdateResponse struct {
+	Ok                       bool                           `json:"ok"`
+	Installed                *bool                          `json:"installed,omitempty"`
+	SettaHome                *string                        `json:"settaHome,omitempty"`
+	LauncherDir              *string                        `json:"launcherDir,omitempty"`
+	MetadataPath             *string                        `json:"metadataPath,omitempty"`
+	TargetCommand            []string                       `json:"targetCommand,omitempty"`
+	TargetValid              *bool                          `json:"targetValid,omitempty"`
+	TargetError              *string                        `json:"targetError,omitempty"`
+	Channel                  *string                        `json:"channel,omitempty"`
+	SettaVersion             *string                        `json:"settaVersion,omitempty"`
+	OpenMode                 *LauncherOpenMode              `json:"openMode,omitempty"`
+	WorkspaceBehavior        *LauncherWorkspaceBehavior     `json:"workspaceBehavior,omitempty"`
+	LastUsedWorkspace        *string                        `json:"lastUsedWorkspace,omitempty"`
+	ArtifactOptions          map[string]string              `json:"artifactOptions,omitempty"`
+	ManagedArtifacts         map[string]string              `json:"managedArtifacts,omitempty"`
+	ExistingManagedArtifacts []string                       `json:"existingManagedArtifacts,omitempty"`
+	MissingManagedArtifacts  []string                       `json:"missingManagedArtifacts,omitempty"`
+	UpdateCapability         *LauncherUpdateCapability      `json:"updateCapability,omitempty"`
+	UpdateGuidance           *string                        `json:"updateGuidance,omitempty"`
+	Error                    *LauncherOperationErrorPayload `json:"error,omitempty"`
+	PackageSpec              *string                        `json:"packageSpec,omitempty"`
+	FromVersion              *string                        `json:"fromVersion,omitempty"`
+	ToVersion                *string                        `json:"toVersion,omitempty"`
+}
+
+type LauncherRequestBaseInput struct {
+	SettaHome *string `json:"settaHome,omitempty"`
+}
+
+type SetupLauncherRequestInput struct {
+	SettaHome         *string                         `json:"settaHome,omitempty"`
+	Channel           *string                         `json:"channel,omitempty"`
+	InstallSource     *LauncherInstallSource          `json:"installSource,omitempty"`
+	OpenMode          *LauncherOpenMode               `json:"openMode,omitempty"`
+	WorkspaceBehavior *SetupLauncherWorkspaceBehavior `json:"workspaceBehavior,omitempty"`
+	InstallArtifacts  *bool                           `json:"installArtifacts,omitempty"`
+	ArtifactOptions   map[string]string               `json:"artifactOptions,omitempty"`
+}
+
+type UpdateLauncherRequestInput struct {
+	SettaHome   *string `json:"settaHome,omitempty"`
+	PackageSpec *string `json:"packageSpec,omitempty"`
+}

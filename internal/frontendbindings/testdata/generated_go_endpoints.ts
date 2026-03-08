@@ -67,6 +67,31 @@ export async function route_open_launcher_workspace(x: gt.LauncherOpenWorkspaceR
   return await post(GoHTTPRoutes.openLauncherWorkspace, x);
 
 }
+export async function route_get_launcher_status(x: gt.GetLauncherStatusRequestInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
+  return await get(GoHTTPRoutes.getLauncherStatus, x);
+
+}
+export async function route_setup_launcher(x: gt.SetupLauncherRequestInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
+  return await post(GoHTTPRoutes.setupLauncher, x);
+
+}
+export async function route_repair_launcher(x: gt.LauncherRequestBaseInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
+  return await post(GoHTTPRoutes.repairLauncher, x);
+
+}
+export async function route_remove_launcher(x: gt.LauncherRequestBaseInput): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+
+  return await post(GoHTTPRoutes.removeLauncher, x);
+
+}
+export async function route_update_launcher(x: gt.UpdateLauncherRequestInput): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
+
+  return await post(GoHTTPRoutes.updateLauncher, x);
+
+}
 export async function route_reveal_path_in_os_file_explorer(x: gt.RevealPathInOSFileExplorerRequest): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.revealPathInOsFileExplorer, x);

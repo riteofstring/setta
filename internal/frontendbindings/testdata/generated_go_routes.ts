@@ -21,6 +21,11 @@ export const GoHTTPRoutes = {
   getLauncherFilesystemRoots: "/launcherFilesystemRoots",
   listLauncherDirectory: "/listLauncherDirectory",
   openLauncherWorkspace: "/openLauncherWorkspace",
+  getLauncherStatus: "/launcherStatus",
+  setupLauncher: "/setupLauncher",
+  repairLauncher: "/repairLauncher",
+  removeLauncher: "/removeLauncher",
+  updateLauncher: "/updateLauncher",
   revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
 } as const;
 export const GoWebsocketRoutes = {

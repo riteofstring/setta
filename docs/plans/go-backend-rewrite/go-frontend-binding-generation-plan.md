@@ -67,6 +67,7 @@ Current landed wedge:
   - current status/meta route constants
   - current workspace-launch route constants
   - current launcher-home route constants
+  - current launcher-management route constants
 - `frontend/src/utils/generatedGoTypes.ts`
   - current status/meta request/response contract types
   - explicit workspace-launch boundary contract types
@@ -85,6 +86,11 @@ Current landed wedge:
     - the open-workspace request stays a dedicated frontend contract type
       rather than reflecting the internal launcher request that tracks
       `settaFilesLocation` presence for runtime behavior
+  - launcher-management contract types
+    - launcher status and update payloads
+    - setup/update request payloads
+    - launcher status-query and request-base payloads
+    - launcher state enums used by the frontend
 - `frontend/src/utils/generatedGoEndpoints.ts`
   - current status/meta endpoint wrappers
   - workspace-launch endpoint wrappers
@@ -98,6 +104,12 @@ Current landed wedge:
     - `route_get_launcher_filesystem_roots`
     - `route_list_launcher_directory`
     - `route_open_launcher_workspace`
+  - launcher-management endpoint wrappers
+    - `route_get_launcher_status`
+    - `route_setup_launcher`
+    - `route_repair_launcher`
+    - `route_remove_launcher`
+    - `route_update_launcher`
 - active caller adoption
   - `GlobalWrapper`, `WorktreeHint`, `initializeServerMode`,
     `websocketReceive`, and the `settaHomeInfo` read in
@@ -107,6 +119,8 @@ Current landed wedge:
     `workspaceSwitcherLaunch`, and `launchRequestDedupeKey` now consume the
     Go-generated workspace-launch bindings
   - `LauncherHomePage` now consumes the Go-generated launcher-home bindings
+  - `DesktopLauncherSettingsSection` now consumes the Go-generated
+    launcher-management bindings
 
 ## Rules
 

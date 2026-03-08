@@ -108,6 +108,26 @@ func CurrentRouteGroups() []RouteGroup {
 					Path: httpapi.RouteOpenLauncherWorkspace,
 				},
 				{
+					Name: "getLauncherStatus",
+					Path: httpapi.RouteGetLauncherStatus,
+				},
+				{
+					Name: "setupLauncher",
+					Path: httpapi.RouteSetupLauncher,
+				},
+				{
+					Name: "repairLauncher",
+					Path: httpapi.RouteRepairLauncher,
+				},
+				{
+					Name: "removeLauncher",
+					Path: httpapi.RouteRemoveLauncher,
+				},
+				{
+					Name: "updateLauncher",
+					Path: httpapi.RouteUpdateLauncher,
+				},
+				{
 					Name: "revealPathInOsFileExplorer",
 					Path: httpapi.RouteRevealPathInOSFileExplorer,
 				},
@@ -233,6 +253,46 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteName:       "openLauncherWorkspace",
 			RequestType:     reflect.TypeOf(LauncherOpenWorkspaceRequestInput{}),
 			ResponseType:    reflect.TypeOf(LauncherOpenWorkspaceResponse{}),
+		},
+		{
+			FunctionName:    "route_get_launcher_status",
+			Method:          "GET",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getLauncherStatus",
+			RequestType:     reflect.TypeOf(GetLauncherStatusRequestInput{}),
+			ResponseType:    reflect.TypeOf(LauncherStatusResponse{}),
+		},
+		{
+			FunctionName:    "route_setup_launcher",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setupLauncher",
+			RequestType:     reflect.TypeOf(SetupLauncherRequestInput{}),
+			ResponseType:    reflect.TypeOf(LauncherStatusResponse{}),
+		},
+		{
+			FunctionName:    "route_repair_launcher",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "repairLauncher",
+			RequestType:     reflect.TypeOf(LauncherRequestBaseInput{}),
+			ResponseType:    reflect.TypeOf(LauncherStatusResponse{}),
+		},
+		{
+			FunctionName:    "route_remove_launcher",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "removeLauncher",
+			RequestType:     reflect.TypeOf(LauncherRequestBaseInput{}),
+			ResponseType:    reflect.TypeOf(LauncherStatusResponse{}),
+		},
+		{
+			FunctionName:    "route_update_launcher",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "updateLauncher",
+			RequestType:     reflect.TypeOf(UpdateLauncherRequestInput{}),
+			ResponseType:    reflect.TypeOf(LauncherUpdateResponse{}),
 		},
 		{
 			FunctionName:    "route_reveal_path_in_os_file_explorer",

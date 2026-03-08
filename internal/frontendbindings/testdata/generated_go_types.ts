@@ -204,6 +204,105 @@ export type LauncherOpenWorkspaceResponse = {
 };
 
 
+export type GetLauncherStatusRequestInput = {
+  setta_home?: string | null;
+};
+
+
+export type LauncherOpenMode = "browser" | "chrome-app";
+
+
+export type LauncherWorkspaceBehavior = "last_used_or_prompt" | "always_prompt";
+
+
+export type LauncherUpdateCapability = "in_app" | "installer_managed" | "unsupported";
+
+
+export type LauncherOperationErrorPayload = {
+  code: string;
+  message: string;
+};
+
+
+export type LauncherStatusResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+};
+
+
+export type LauncherInstallSource = "uv-tool" | "installer-managed" | "unsupported";
+
+
+export type SetupLauncherWorkspaceBehavior = "last-used-or-prompt" | "always-prompt";
+
+
+export type SetupLauncherRequestInput = {
+  settaHome?: string | null;
+  channel?: string | null;
+  installSource?: LauncherInstallSource | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: SetupLauncherWorkspaceBehavior | null;
+  installArtifacts?: boolean | null;
+  artifactOptions?: Record<string, string>;
+};
+
+
+export type LauncherRequestBaseInput = {
+  settaHome?: string | null;
+};
+
+
+export type UpdateLauncherRequestInput = {
+  settaHome?: string | null;
+  packageSpec?: string | null;
+};
+
+
+export type LauncherUpdateResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+  packageSpec?: string | null;
+  fromVersion?: string | null;
+  toVersion?: string | null;
+};
+
+
 export type RevealPathInOSFileExplorerRequest = {
   path: string;
 };
