@@ -2944,347 +2944,6 @@ export function createShownParamIds(options: Partial<ShownParamIds> = {}): Shown
 }
 
 
-
-type GeneratedMutableValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<GeneratedMutableValue>
-  | { [key: string]: GeneratedMutableValue | undefined };
-
-function cloneGeneratedValue<T>(value: T): T {
-  if (value === null || value === undefined || typeof value !== "object") {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value.map((entry) => cloneGeneratedValue(entry)) as T;
-  }
-  const cloned: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(
-    value as Record<string, GeneratedMutableValue | undefined>,
-  )) {
-    cloned[key] = cloneGeneratedValue(entry);
-  }
-  return cloned as T;
-}
-
-function mergeGeneratedOptions<T extends object>(
-  defaults: T,
-  options: Partial<T> = {},
-): T {
-  return {
-    ...cloneGeneratedValue(defaults),
-    ...cloneGeneratedValue(options),
-  } as T;
-}
-
-type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
-  {
-    defaults: TDefaults;
-    overrides: Partial<TImpl>;
-  };
-
-function isGeneratedImplOverrideCandidate(
-  value: unknown,
-): value is { id?: unknown; type?: unknown } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    ("id" in value || "type" in value)
-  );
-}
-
-function resolveGeneratedFactoryInputs<
-  TDefaults extends object,
-  TImpl extends object,
->(
-  baseDefaults: TDefaults,
-  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
-  overrides?: Partial<TImpl>,
-): GeneratedFactoryResolution<TDefaults, TImpl> {
-  if (overrides !== undefined) {
-    return {
-      defaults: mergeGeneratedOptions(
-        baseDefaults,
-        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-      ),
-      overrides,
-    };
-  }
-  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
-    return {
-      defaults: cloneGeneratedValue(baseDefaults),
-      overrides: defaultsOrOverrides as Partial<TImpl>,
-    };
-  }
-  return {
-    defaults: mergeGeneratedOptions(
-      baseDefaults,
-      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-    ),
-    overrides: {},
-  };
-}
-
-function createGeneratedBaseSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-} {
-  return {
-    isFrozen: false,
-    tagColor: null,
-    styleColor: null,
-    size: {
-      width: 250,
-      height: 150,
-    },
-    aspectRatio: false,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-  };
-}
-
-function createGeneratedBaseSectionWithParamsDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    hideUnpinnedParams: false,
-    paramFilter: "",
-    columnWidth: null,
-    configLanguage: ConfigLanguageEnum.python,
-    edgeInputParams: [],
-    edgeOutputPorts: [],
-  };
-}
-
-function createGeneratedBaseCodeSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    code: "",
-    size: {
-      width: 500,
-      height: 150,
-    },
-    codeFileBinding: null,
-    attachedTerminalSectionId: null,
-  };
-}
-
-export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
-]);
-
-export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.TimeParam,
-]);
-
-const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeCallable,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-export const ControlCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.ButtonParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-]);
-
-export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
-  CodeObjTypeEnum.CodeParam,
-  CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
-  CodeObjTypeEnum.TextAreaParam,
-  CodeObjTypeEnum.SliderParam,
-  CodeObjTypeEnum.RotaryParam,
-  CodeObjTypeEnum.SwitchParam,
-  CodeObjTypeEnum.ColorPickerParam,
-  CodeObjTypeEnum.DropdownParam,
-  CodeObjTypeEnum.PasswordParam,
-  CodeObjTypeEnum.DropzoneParam,
-  CodeObjTypeEnum.NestedParam,
-]);
-
-const BaseParentSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Code,
-  SectionTypeEnum.GenPythonCode,
-  SectionTypeEnum.GenPythonMetadata,
-  SectionTypeEnum.Group,
-  SectionTypeEnum.ListRoot,
-]);
-
-const BaseDictSectionImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
-  SectionTypeEnum.Callable,
-  SectionTypeEnum.Dict,
-  SectionTypeEnum.GlobalVariables,
-]);
-
-export function isBaseChildlessCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseChildlessCodeObjImplUnion {
-  return BaseChildlessCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParamCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParamCodeObjImplUnion {
-  return BaseParamCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParentCodeObjImpl(
-  x: BaseCodeObjImplUnion,
-): x is BaseParentCodeObjImplUnion {
-  return BaseParentCodeObjImplTypeSet.has(x.type);
-}
-
-export function isBaseParentSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseParentSectionImplUnion {
-  return BaseParentSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseDictSectionImpl(
-  x: BaseSectionImplUnion,
-): x is BaseDictSectionImplUnion {
-  return BaseDictSectionImplTypeSet.has(x.type);
-}
-
-export function isBaseSectionWithParamsImpl(
-  x: BaseSectionImplUnion,
-): x is BaseSectionWithParamsImplUnion {
-  return BaseSectionWithParamsImplTypeSet.has(x.type);
-}
-
-type ImplArgsBundleWithUpdaters<T> = {
-  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
-};
-
-export type ImplArgsBundleMap = {
-  BaseSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  BaseSectionWithParams: {
-    impl: BaseSectionWithParamsImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplUnion>;
-  };
-  BaseParentSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  BaseCodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  ChatSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  CodeSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  GroupSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  ListRootSection: {
-    impl: BaseParentSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
-  };
-  BrowserSection: {
-    impl: BrowserSectionImpl;
-    args: ImplArgsBundleWithUpdaters<BrowserSectionImpl>;
-  };
-  TextBlockSection: {
-    impl: BaseSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
-  };
-  BaseDictSection: {
-    impl: BaseDictSectionImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
-  };
-  BaseChildlessCodeObj: {
-    impl: BaseChildlessCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplUnion>;
-  };
-  BaseCodeObj: {
-    impl: BaseCodeObjImplUnion;
-    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplUnion>;
-  };
-};
-
-
-
 export type ProjectConfig = {
   id: string;
   name: string;
@@ -8779,3 +8438,349 @@ export type PluginRestartResponse = {
 export function createPluginRestartResponse(options: Partial<PluginRestartResponse> = {}): PluginRestartResponse {
   return options as PluginRestartResponse;
 }
+
+
+
+type GeneratedMutableValue =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<GeneratedMutableValue>
+  | { [key: string]: GeneratedMutableValue | undefined };
+
+function cloneGeneratedValue<T>(value: T): T {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => cloneGeneratedValue(entry)) as T;
+  }
+  const cloned: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(
+    value as Record<string, GeneratedMutableValue | undefined>,
+  )) {
+    cloned[key] = cloneGeneratedValue(entry);
+  }
+  return cloned as T;
+}
+
+function mergeGeneratedOptions<T extends object>(
+  defaults: T,
+  options: Partial<T> = {},
+): T {
+  return {
+    ...cloneGeneratedValue(defaults),
+    ...cloneGeneratedValue(options),
+  } as T;
+}
+
+type GeneratedFactoryResolution<TDefaults extends object, TImpl extends object> =
+  {
+    defaults: TDefaults;
+    overrides: Partial<TImpl>;
+  };
+
+function isGeneratedImplOverrideCandidate(
+  value: unknown,
+): value is { id?: unknown; type?: unknown } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    ("id" in value || "type" in value)
+  );
+}
+
+function resolveGeneratedFactoryInputs<
+  TDefaults extends object,
+  TImpl extends object,
+>(
+  baseDefaults: TDefaults,
+  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
+  overrides?: Partial<TImpl>,
+): GeneratedFactoryResolution<TDefaults, TImpl> {
+  if (overrides !== undefined) {
+    return {
+      defaults: mergeGeneratedOptions(
+        baseDefaults,
+        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+      ),
+      overrides,
+    };
+  }
+  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
+    return {
+      defaults: cloneGeneratedValue(baseDefaults),
+      overrides: defaultsOrOverrides as Partial<TImpl>,
+    };
+  }
+  return {
+    defaults: mergeGeneratedOptions(
+      baseDefaults,
+      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
+    ),
+    overrides: {},
+  };
+}
+
+function createGeneratedBaseSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+} {
+  return {
+    isFrozen: false,
+    tagColor: null,
+    styleColor: null,
+    size: {
+      width: 250,
+      height: 150,
+    },
+    aspectRatio: false,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+  };
+}
+
+function createGeneratedBaseSectionWithParamsDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    hideUnpinnedParams: false,
+    paramFilter: "",
+    columnWidth: null,
+    configLanguage: ConfigLanguageEnum.python,
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+  };
+}
+
+function createGeneratedBaseCodeSectionDefaults(): {
+  isFrozen: boolean;
+  tagColor: string | null;
+  styleColor: string | null;
+  size: SectionSize;
+  aspectRatio: boolean | number;
+  isMinimized: boolean;
+  positionAndSizeLocked: boolean;
+  code: string;
+  codeFileBinding: CodeFileBinding | null;
+  attachedTerminalSectionId: string | null;
+} {
+  return {
+    ...createGeneratedBaseSectionDefaults(),
+    code: "",
+    size: {
+      width: 500,
+      height: 150,
+    },
+    codeFileBinding: null,
+    attachedTerminalSectionId: null,
+  };
+}
+
+
+
+
+export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.TimeParam,
+]);
+
+export const BaseParamCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.TimeParam,
+]);
+
+const BaseParentCodeObjImplTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeCallable,
+  CodeObjTypeEnum.NestedParam,
+]);
+
+export const ControlCodeObjTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.ButtonParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.DropzoneParam,
+]);
+
+export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
+  CodeObjTypeEnum.CodeParam,
+  CodeObjTypeEnum.TextParam,
+  CodeObjTypeEnum.DateParam,
+  CodeObjTypeEnum.TimeParam,
+  CodeObjTypeEnum.TextAreaParam,
+  CodeObjTypeEnum.SliderParam,
+  CodeObjTypeEnum.RotaryParam,
+  CodeObjTypeEnum.SwitchParam,
+  CodeObjTypeEnum.ColorPickerParam,
+  CodeObjTypeEnum.DropdownParam,
+  CodeObjTypeEnum.PasswordParam,
+  CodeObjTypeEnum.DropzoneParam,
+  CodeObjTypeEnum.NestedParam,
+]);
+
+const BaseParentSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Code,
+  SectionTypeEnum.GenPythonCode,
+  SectionTypeEnum.GenPythonMetadata,
+  SectionTypeEnum.Group,
+  SectionTypeEnum.ListRoot,
+]);
+
+const BaseDictSectionImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
+]);
+
+const BaseSectionWithParamsImplTypeSet = new Set<SectionType>([
+  SectionTypeEnum.Callable,
+  SectionTypeEnum.Dict,
+  SectionTypeEnum.GlobalVariables,
+]);
+
+export function isBaseChildlessCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseChildlessCodeObjImplUnion {
+  return BaseChildlessCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParamCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParamCodeObjImplUnion {
+  return BaseParamCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentCodeObjImpl(
+  x: BaseCodeObjImplUnion,
+): x is BaseParentCodeObjImplUnion {
+  return BaseParentCodeObjImplTypeSet.has(x.type);
+}
+
+export function isBaseParentSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseParentSectionImplUnion {
+  return BaseParentSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseDictSectionImpl(
+  x: BaseSectionImplUnion,
+): x is BaseDictSectionImplUnion {
+  return BaseDictSectionImplTypeSet.has(x.type);
+}
+
+export function isBaseSectionWithParamsImpl(
+  x: BaseSectionImplUnion,
+): x is BaseSectionWithParamsImplUnion {
+  return BaseSectionWithParamsImplTypeSet.has(x.type);
+}
+
+
+
+
+type ImplArgsBundleWithUpdaters<T> = {
+  [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
+};
+
+export type ImplArgsBundleMap = {
+  BaseSection: {
+    impl: BaseSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+  };
+  BaseSectionWithParams: {
+    impl: BaseSectionWithParamsImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionWithParamsImplUnion>;
+  };
+  BaseParentSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  BaseCodeSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  ChatSection: {
+    impl: BaseSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+  };
+  CodeSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  GroupSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  ListRootSection: {
+    impl: BaseParentSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseParentSectionImplUnion>;
+  };
+  BrowserSection: {
+    impl: BrowserSectionImpl;
+    args: ImplArgsBundleWithUpdaters<BrowserSectionImpl>;
+  };
+  TextBlockSection: {
+    impl: BaseSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseSectionImplUnion>;
+  };
+  BaseDictSection: {
+    impl: BaseDictSectionImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseDictSectionImplUnion>;
+  };
+  BaseChildlessCodeObj: {
+    impl: BaseChildlessCodeObjImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseChildlessCodeObjImplUnion>;
+  };
+  BaseCodeObj: {
+    impl: BaseCodeObjImplUnion;
+    args: ImplArgsBundleWithUpdaters<BaseCodeObjImplUnion>;
+  };
+};

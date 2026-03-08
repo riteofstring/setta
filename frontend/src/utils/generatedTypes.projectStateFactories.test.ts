@@ -41,6 +41,8 @@ import {
   isBaseDictSectionImpl,
   isBaseParamCodeObjImpl,
   isBaseParentCodeObjImpl,
+  isBaseParentSectionImpl,
+  isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
   ParamNameTypeEnum,
   ParameterPassingStyleEnum,
@@ -233,6 +235,37 @@ describe("generated project state factories", () => {
       throw new Error("expected global variables section to satisfy base dict");
     }
     expect(globalVariablesImpl.topLevelParamId).toBe("globals-root");
+  });
+
+  it("exports the canonical base-section guards for section-info and sizing callers", () => {
+    const callableImpl = createCallableSectionImpl(
+      createUserDefaultCallableSectionImpl(),
+      {
+        id: "callable-impl",
+      },
+    );
+    const listRootImpl = createListRootSectionImpl(
+      createUserDefaultListRootSectionImpl(),
+      {
+        id: "list-root-impl",
+        children: ["child-1"],
+      },
+    );
+    const textBlockImpl = createTextBlockSectionImpl(
+      createUserDefaultTextBlockSectionImpl(),
+      {
+        id: "text-block-impl",
+      },
+    );
+
+    expect(isBaseParentSectionImpl(listRootImpl)).toBe(true);
+    expect(isBaseParentSectionImpl(callableImpl)).toBe(false);
+    expect(isBaseSectionWithParamsImpl(callableImpl)).toBe(true);
+    expect(isBaseSectionWithParamsImpl(textBlockImpl)).toBe(false);
+    if (!isBaseParentSectionImpl(listRootImpl)) {
+      throw new Error("expected list-root section to satisfy base parent");
+    }
+    expect(listRootImpl.children).toEqual(["child-1"]);
   });
 
   it("exports the canonical base-parent code object helper for param tree callers", () => {

@@ -2,8 +2,6 @@ package frontendbindings
 
 type ProjectStateSingleConfig struct{}
 
-type ProjectStateFrontendSupport struct{}
-
 type ProjectStateSingleConfigWithCompletedOpIds struct{}
 
 type ClipboardDataType string
@@ -1059,7 +1057,7 @@ type SetActiveIDsRequestInput struct {
 	ActiveIDs       []string `json:"activeIds"`
 }
 
-const projectStateFrontendSupportRawTS = `
+const projectStateGeneratedFactorySupportTS = `
 type GeneratedMutableValue =
   | null
   | boolean
@@ -1214,7 +1212,9 @@ function createGeneratedBaseCodeSectionDefaults(): {
     attachedTerminalSectionId: null,
   };
 }
+`
 
+const projectStateTypeGuardSupportTS = `
 export const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,
@@ -1338,7 +1338,9 @@ export function isBaseSectionWithParamsImpl(
 ): x is BaseSectionWithParamsImplUnion {
   return BaseSectionWithParamsImplTypeSet.has(x.type);
 }
+`
 
+const projectStateImplArgsSupportTS = `
 type ImplArgsBundleWithUpdaters<T> = {
   [K in keyof T]?: T[K] | ((prev: T[K]) => T[K]);
 };
@@ -1398,3 +1400,20 @@ export type ImplArgsBundleMap = {
   };
 };
 `
+
+func projectStateSupportDeclarations() []TypeDeclaration {
+	return []TypeDeclaration{
+		rawDeclaration(
+			"ProjectStateGeneratedFactorySupport",
+			projectStateGeneratedFactorySupportTS,
+		),
+		rawDeclaration(
+			"ProjectStateTypeGuardSupport",
+			projectStateTypeGuardSupportTS,
+		),
+		rawDeclaration(
+			"ProjectStateImplArgsSupport",
+			projectStateImplArgsSupportTS,
+		),
+	}
+}

@@ -1072,7 +1072,9 @@ func CurrentRouteGroups() []RouteGroup {
 }
 
 func CurrentAdditionalDeclarations() []TypeDeclaration {
-	return nil
+	declarations := make([]TypeDeclaration, 0, len(projectStateSupportDeclarations()))
+	declarations = append(declarations, projectStateSupportDeclarations()...)
+	return declarations
 }
 
 func CurrentEndpoints() []EndpointSpec {
@@ -2699,7 +2701,6 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(SingletonSections{}),
 		reflect.TypeOf(ShownParamIdDetails{}),
 		reflect.TypeOf(ShownParamIds{}),
-		reflect.TypeOf(ProjectStateFrontendSupport{}),
 		reflect.TypeOf(ProjectConfig{}),
 		reflect.TypeOf(ProjectStateSingleConfig{}),
 		reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),

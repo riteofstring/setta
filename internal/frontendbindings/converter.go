@@ -1487,11 +1487,6 @@ func newTypeConverter() *typeConverter {
 					{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
 				},
 			},
-			reflect.TypeOf(ProjectStateFrontendSupport{}): {
-				Name: "ProjectStateFrontendSupport",
-				Kind: "raw",
-				Raw:  projectStateFrontendSupportRawTS,
-			},
 			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithCreateExpr(
 				"EngineConfigDefaults",
 				`mergeGeneratedOptions(
