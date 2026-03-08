@@ -137,7 +137,8 @@ As of 2026-03-08:
 Phase 11 Stage 2 is complete in
 `phase-11-readable-export-foundation-stage2.md`.
 
-The next bounded rewrite slice should be a dedicated `plugins` plan doc.
+The next bounded rewrite slice is Phase 11 Stage 3 in
+`phase-11-plugin-status-stage3.md`.
 
 ## Progress Notes
 
@@ -155,6 +156,11 @@ The next bounded rewrite slice should be a dedicated `plugins` plan doc.
 - 2026-03-08: completed the readable-export Stage 2 slice.
   - readable export and `setta export-db` are now Go-owned
   - the only remaining Python-owned maintenance command is `plugins`
+- 2026-03-08: added the dedicated plugin Stage 3 plan.
+  - the next bounded slice is now explicitly `setta plugins
+    list|rescan|restart-required`
+  - partial top-level `plugins` dispatch is required because the remaining
+    plugin mutations stay on Python for now
 
 ## Verification
 

@@ -377,11 +377,15 @@ Use the docs in this order:
 123. `phase-11-readable-export-foundation-stage2.md`
   - focused implementation-plan doc for the shared readable-export owner and
     Go-owned `setta export-db` migration
-124. `spike-mcp.md`
+124. `phase-11-plugin-status-stage3.md`
+  - focused implementation-plan doc for the first bounded `plugins` migration:
+    Go-owned `setta plugins list|rescan|restart-required` plus partial
+    Python-entrypoint dispatch for only those completed subcommands
+125. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-125. `spike-pty.md`
+126. `spike-pty.md`
    - PTY uncertainty-reduction plan
-125. `spike-lsp.md`
+127. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:
