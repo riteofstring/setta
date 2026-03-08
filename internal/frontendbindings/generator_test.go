@@ -68,6 +68,42 @@ func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 	}
 }
 
+func TestBuildBindingsRendersStructuredHelperDeclarations(t *testing.T) {
+	t.Helper()
+
+	bindings, err := buildBindings(nil, nil, nil, []TypeDeclaration{
+		localAliasDeclaration("LocalThing", "<T>", "{ value: T }"),
+		functionDeclaration(
+			"computeThing",
+			false,
+			"string",
+			"  return value.toUpperCase();",
+			TypeProperty{Name: "value", TypeExpr: "string"},
+		),
+		constDeclaration(
+			"ExampleSchema",
+			true,
+			`{
+  ok: true,
+}`,
+		),
+	})
+	if err != nil {
+		t.Fatalf("buildBindings(...) error = %v", err)
+	}
+
+	for _, snippet := range []string{
+		"type LocalThing<T> = { value: T };",
+		"function computeThing(",
+		"return value.toUpperCase();",
+		"export const ExampleSchema = {",
+	} {
+		if !strings.Contains(bindings.TypesTS, snippet) {
+			t.Fatalf("types output missing structured helper declaration %q:\n%s", snippet, bindings.TypesTS)
+		}
+	}
+}
+
 func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	t.Helper()
 

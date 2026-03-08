@@ -13,6 +13,7 @@ type TypeDeclaration struct {
 	Name            string
 	Kind            string
 	Alias           string
+	TypeParams      string
 	Properties      []TypeProperty
 	EnumValues      []EnumValue
 	Raw             string
@@ -24,6 +25,10 @@ type TypeDeclaration struct {
 	GuardInputType  string
 	GuardReturnType string
 	GuardSetName    string
+	FunctionParams  []TypeProperty
+	FunctionBody    string
+	FunctionReturn  string
+	ConstExpr       string
 }
 
 type EnumValue struct {
@@ -85,6 +90,15 @@ func rawDeclaration(name string, raw string) TypeDeclaration {
 	}
 }
 
+func localAliasDeclaration(name string, typeParams string, alias string) TypeDeclaration {
+	return TypeDeclaration{
+		Name:       name,
+		Kind:       "local_alias",
+		TypeParams: typeParams,
+		Alias:      alias,
+	}
+}
+
 func setDeclaration(name string, elementType string, exported bool, members ...string) TypeDeclaration {
 	return TypeDeclaration{
 		Name:           name,
@@ -102,6 +116,32 @@ func typeGuardDeclaration(name string, inputType string, returnType string, setN
 		GuardInputType:  inputType,
 		GuardReturnType: returnType,
 		GuardSetName:    setName,
+	}
+}
+
+func functionDeclaration(
+	name string,
+	exported bool,
+	returnType string,
+	body string,
+	params ...TypeProperty,
+) TypeDeclaration {
+	return TypeDeclaration{
+		Name:           name,
+		Kind:           "function",
+		Exported:       exported,
+		FunctionParams: append([]TypeProperty(nil), params...),
+		FunctionReturn: returnType,
+		FunctionBody:   body,
+	}
+}
+
+func constDeclaration(name string, exported bool, expr string) TypeDeclaration {
+	return TypeDeclaration{
+		Name:      name,
+		Kind:      "const",
+		Exported:  exported,
+		ConstExpr: expr,
 	}
 }
 

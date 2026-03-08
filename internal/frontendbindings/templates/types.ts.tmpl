@@ -199,6 +199,8 @@ export function create{{ .Name }}(options: Partial<{{ .Name }}> = {}): {{ .Name 
 {{- else if .FactoryTS }}
 {{ .FactoryTS }}
 {{- end }}
+{{ else if eq .Kind "local_alias" }}
+type {{ .Name }}{{ .TypeParams }} = {{ .Alias }};
 {{ else if eq .Kind "set" }}
 {{ if .Exported }}export {{ end }}const {{ .Name }} = new Set<{{ .SetElementType }}>([
 {{- range .SetMembers }}
@@ -211,6 +213,16 @@ export function {{ .Name }}(
 ): x is {{ .GuardReturnType }} {
   return {{ .GuardSetName }}.has(x.type);
 }
+{{ else if eq .Kind "function" }}
+{{ if .Exported }}export {{ end }}function {{ .Name }}(
+{{- range .FunctionParams }}
+  {{ .Name }}{{ if .Optional }}?{{ end }}: {{ .TypeExpr }},
+{{- end }}
+): {{ .FunctionReturn }} {
+{{ .FunctionBody }}
+}
+{{ else if eq .Kind "const" }}
+{{ if .Exported }}export {{ end }}const {{ .Name }} = {{ .ConstExpr }};
 {{ else if eq .Kind "raw" }}
 {{ .Raw }}
 {{ end }}
