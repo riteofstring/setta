@@ -206,6 +206,19 @@ describe("UnifiedChatSurface", () => {
     expect(markup).not.toContain('data-testid="mock-project-chat"');
   });
 
+  it("keeps workspace section-mode surfaces bound to section state", () => {
+    const markup = renderToStaticMarkup(
+      <UnifiedChatSurface
+        mode={ChatWindowModeEnum.section_mode}
+        host={ChatWindowPlacementEnum.floating}
+        sectionId="section-123"
+      />,
+    );
+
+    expect(markup).toContain('data-controlled-chat-id=""');
+    expect(markup).toContain('data-controlled-chat="false"');
+  });
+
   it("forwards surface ownership to section-mode chat hosts", () => {
     const markup = renderToStaticMarkup(
       <UnifiedChatSurface

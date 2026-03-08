@@ -1026,3 +1026,33 @@ Verification:
 - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.rollback.test.ts src/state/actions/windowSpaces.test.ts src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/state/actions/sectionInfos.projectChatWindowingSync.test.ts src/state/actions/project/loadProject.test.ts` passed: 61 tests.
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "blank chat ids|saving a window space in one project"` passed: 2 tests.
 - CDP verification on the live dev instance at `http://127.0.0.1:3098/sharp_river/chat/%20` confirmed the invalid standalone route rendered `Thread Not Found` with no chat surface at both mobile and desktop viewport sizes.
+
+## 2026-03-11 09:19:38 PDT
+
+Implemented the four remaining consolidated review findings around project-chat window recovery, workspace section-thread authority, backend git-graph validation, and blank window-space restore identity.
+
+What changed:
+- Reworked `frontend/src/state/actions/projectChatWindowing.ts` so `reopenProjectChatWindow(...)` now mirrors the existing read-only `focusProjectChatWindow(...)` behavior: when layout persistence is blocked, the reopen happens locally only, with no `/setProjectChatWindowingState` write. The state helper also now normalizes live workspace `section_mode` windows so they cannot retain a window-owned `chatId`.
+- Simplified `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.tsx` so `Reopen` and `Focus` are always available for existing rows, while real layout mutators remain gated by `canEditLayout`.
+- Removed workspace `section_mode` thread override plumbing from `frontend/src/components/ChatWindowing/ProjectChatBottomDock.tsx`. Workspace section windows no longer pass controlled `projectChatId` or `setProjectChatId`; they now read and write only the canonical `ChatSectionImpl.chatId` through the section surface path.
+- Updated `frontend/src/state/actions/windowSpaces.ts` so window-space snapshots read section-mode thread ids from the authoritative section impl instead of the live workspace window, workspace restores clear `chatId` back to `null` for `section_mode` windows, and blank `project_ai_mode` windows use `instanceId` as a stable restore owner key when `chatId` is still null.
+- Hardened `backend/setta/types/project_chat_windowing.py` so the authoritative backend model rejects `git_graph_mode` with `canvas_section` placement and strips stale `chatId` values from `section_mode` windows during normalization.
+- Adjusted the standalone Playwright helper in `frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts` so section-mode thread seeding now writes canonical section state instead of mutating live workspace window state directly.
+
+UX before/after:
+- Before: read-only deployments could load with a hidden/minimized project chat and no supported way to recover it. After: `Reopen` and `Focus` remain usable without layout edit permission, and reopening a hidden window does not attempt a forbidden layout write.
+- Before: workspace section chat could diverge by host because live windows carried their own `chatId` while the right-pane settings still edited the section impl. After: every workspace host of a section reads the same canonical thread, while standalone/window-space-local overrides remain explicitly local.
+- Before: unsupported `git_graph_mode + canvas_section` state could still enter persisted backend state through malformed payloads or stale saves. After: the backend rejects that state at validation time.
+- Before: restoring the same saved blank project-chat layout could duplicate the same unsent floating window. After: restore is idempotent for blank project chats too.
+
+DX before/after:
+- Before: local visibility recovery and persisted layout writes were coupled in the same permission gate, which made read-only behavior harder to reason about and easier to regress. After: the boundary is explicit: local reopen/focus is allowed, persisted layout mutation is not.
+- Before: workspace section-thread ownership was split between `window.chatId` and `ChatSectionImpl.chatId`. After: live workspace state has one thread authority.
+- Before: window-space snapshot/restore mixed workspace and standalone notions of section thread ownership. After: snapshot reads the authoritative workspace source of truth, while standalone restored windows still preserve saved local thread ids where intended.
+- Before: backend enforcement for unsupported git-graph placement existed only in frontend affordances. After: the backend model is the source of truth.
+
+Verification:
+- `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowing.test.ts src/state/actions/projectChatWindowing.permissions.test.ts src/state/actions/windowSpaces.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatManager.test.tsx src/components/ChatWindowing/UnifiedChatSurface.test.tsx` passed: 97 tests.
+- `source activate.sh && pytest tests/project_state/test_project_chat_windowing_persistence.py tests/types/test_project_chat_windowing.py tests/routers/test_share_policy_routes.py -k 'project_chat_windowing or invalid_window_owners'` passed: 28 selected tests.
+- `./scripts/run-playwright-e2e.sh tests/e2e/overview/layout/project-chat-layout-permissions.spec.ts tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep 'read-only deployments can reopen hidden project chat windows without layout writes|standalone section windows keep their saved section-mode thread when the workspace thread changes|standalone window-space owner rebinding resets stale local section thread state'` passed: 3 tests.
+- CDP verification on the live dev instance at `http://127.0.0.1:3098/kite_dreaming` confirmed that in share mode the Project AI manager exposed `Reopen` and `Focus` without `Canvas`/`Float`/`Hide`, and clicking `Reopen` restored the hidden floating chat window locally.

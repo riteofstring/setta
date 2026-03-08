@@ -123,10 +123,9 @@ export function ProjectChatManager() {
                     {formatPlacementLabel(row.placement)} | z-index {row.zIndex}
                   </p>
                 </div>
-                {canEditLayout ? (
-                  <div className="flex items-center gap-1">
-                    {row.placement ===
-                    ChatWindowPlacementEnum.canvas_section ? (
+                <div className="flex items-center gap-1">
+                  {canEditLayout ? (
+                    row.placement === ChatWindowPlacementEnum.canvas_section ? (
                       <button
                         type="button"
                         onClick={() => {
@@ -154,33 +153,9 @@ export function ProjectChatManager() {
                       >
                         Canvas
                       </button>
-                    )}
-                    {row.isClosed || row.isMinimized ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          reopenProjectChatWindow(row.instanceId);
-                          focusProjectChatWindow(row.instanceId);
-                        }}
-                        className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                        data-testid="project-chat-manager-reopen"
-                        data-chat-window-instance-id={row.instanceId}
-                      >
-                        Reopen
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          minimizeProjectChatWindow(row.instanceId);
-                        }}
-                        className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                        data-testid="project-chat-manager-hide"
-                        data-chat-window-instance-id={row.instanceId}
-                      >
-                        Hide
-                      </button>
-                    )}
+                    )
+                  ) : null}
+                  {row.isClosed || row.isMinimized ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -188,13 +163,37 @@ export function ProjectChatManager() {
                         focusProjectChatWindow(row.instanceId);
                       }}
                       className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-                      data-testid="project-chat-manager-focus"
+                      data-testid="project-chat-manager-reopen"
                       data-chat-window-instance-id={row.instanceId}
                     >
-                      Focus
+                      Reopen
                     </button>
-                  </div>
-                ) : null}
+                  ) : canEditLayout ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        minimizeProjectChatWindow(row.instanceId);
+                      }}
+                      className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
+                      data-testid="project-chat-manager-hide"
+                      data-chat-window-instance-id={row.instanceId}
+                    >
+                      Hide
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      reopenProjectChatWindow(row.instanceId);
+                      focusProjectChatWindow(row.instanceId);
+                    }}
+                    className="rounded-md border border-setta-300 px-2 py-1 text-[11px] font-semibold text-setta-700 hover:bg-setta-100 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
+                    data-testid="project-chat-manager-focus"
+                    data-chat-window-instance-id={row.instanceId}
+                  >
+                    Focus
+                  </button>
+                </div>
               </div>
             </li>
           ))}

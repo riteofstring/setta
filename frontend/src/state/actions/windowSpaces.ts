@@ -10,6 +10,7 @@ import {
 import { recordAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
@@ -24,6 +25,7 @@ import {
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  SectionTypeEnum,
   SettaNotificationTypeEnum,
   WindowSpaceSurfaceKindEnum,
   createProjectChatWindowInstance,
@@ -50,6 +52,15 @@ type AuthoringFloatingViewport = {
     bottom: number;
   };
 };
+
+type WindowSpaceSnapshotState = Pick<
+  ZustandProjectState,
+  | "projectChatWindowing"
+  | "projectConfig"
+  | "sections"
+  | "sectionImpls"
+  | "sectionVariants"
+>;
 
 function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
@@ -252,10 +263,7 @@ export function deleteWindowSpace(
 }
 
 export function snapshotFloatingWindowsForWindowSpace(
-  state: Pick<
-    ZustandProjectState,
-    "projectChatWindowing" | "projectConfig" | "sections"
-  >,
+  state: WindowSpaceSnapshotState,
   viewport: AuthoringFloatingViewport = resolveAuthoringFloatingViewport(),
 ): WindowSpaceState {
   const snapshotWindowsById: WindowSpaceState["windowsById"] = {};
@@ -294,7 +302,7 @@ export function snapshotFloatingWindowsForWindowSpace(
       sectionIdOrNull: instance.sectionIdOrNull,
       mode: instance.mode,
       title: instance.sectionIdOrNull ? null : instance.title,
-      chatId: instance.chatId,
+      chatId: resolveWindowSpaceSnapshotChatId(state, instance),
       embeddedGitPaneVisible:
         instance.mode === ChatWindowModeEnum.git_graph_mode &&
         instance.sectionIdOrNull === null
@@ -414,13 +422,39 @@ function dedupeWindowSpaceSectionBindings(
 }
 
 function normalizeWindowSpaceForPersistence(
-  state: Pick<
-    ZustandProjectState,
-    "projectChatWindowing" | "projectConfig" | "sections"
-  >,
+  state: WindowSpaceSnapshotState,
   viewport: AuthoringFloatingViewport = resolveAuthoringFloatingViewport(),
 ): WindowSpaceState {
   return snapshotFloatingWindowsForWindowSpace(state, viewport);
+}
+
+function resolveWindowSpaceSnapshotChatId(
+  state: WindowSpaceSnapshotState,
+  instance: ProjectChatWindowInstance,
+): string | null {
+  if (
+    instance.mode !== ChatWindowModeEnum.section_mode ||
+    instance.sectionIdOrNull === null
+  ) {
+    return instance.chatId;
+  }
+  return getCurrEffectiveSectionImplOfType(
+    state,
+    instance.sectionIdOrNull,
+    SectionTypeEnum.Chat,
+  ).chatId;
+}
+
+function resolveRestoredWorkspaceWindowChatId(
+  window: NonNullable<WindowSpaceState["windowsById"][string]>,
+): string | null | undefined {
+  if (
+    window.surfaceKind === WindowSpaceSurfaceKindEnum.section &&
+    window.mode === ChatWindowModeEnum.section_mode
+  ) {
+    return null;
+  }
+  return window.chatId;
 }
 
 function resolveNextProjectChatWindowInstanceNumber(
@@ -622,7 +656,7 @@ export function createProjectChatWindowingStateFromWindowSpace(
         window.surfaceKind === WindowSpaceSurfaceKindEnum.section
           ? null
           : window.title,
-      chatId: window.chatId,
+      chatId: resolveRestoredWorkspaceWindowChatId(window),
       isClosed: false,
       isMinimized: false,
       isMaximized: false,
@@ -803,6 +837,9 @@ function resolveFloatingWindowRestoreOwnerKey(
     instance.chatId !== null
   ) {
     return `project-chat:${instance.chatId}`;
+  }
+  if (instance.mode === ChatWindowModeEnum.project_ai_mode) {
+    return `project-chat-window:${instance.instanceId}`;
   }
   return null;
 }
@@ -1018,6 +1055,8 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     projectChatWindowing: syncResponse.data,
     projectConfig: projectConfigSnapshot,
     sections: sectionSnapshot,
+    sectionImpls: state.sectionImpls,
+    sectionVariants: state.sectionVariants,
   });
   if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
     return null;

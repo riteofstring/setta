@@ -30,14 +30,20 @@ def _enum_value(value: object) -> object:
 def validate_project_chat_window_owner(
     *,
     mode: object,
+    placement: object,
     section_id: ID | None,
 ) -> None:
     mode_value = _enum_value(mode)
+    placement_value = _enum_value(placement)
     if mode_value == "section_mode" and section_id is None:
         raise ValueError("Project chat section_mode windows require sectionIdOrNull.")
     if mode_value == "git_graph_mode" and section_id is not None:
         raise ValueError(
             "Project chat git_graph_mode windows cannot carry sectionIdOrNull."
+        )
+    if mode_value == "git_graph_mode" and placement_value == "canvas_section":
+        raise ValueError(
+            "Project chat git_graph_mode windows cannot use canvas_section placement."
         )
 
 
@@ -96,8 +102,11 @@ def normalize_project_chat_windowing(
         section_id = instance.sectionIdOrNull
         validate_project_chat_window_owner(
             mode=instance.mode,
+            placement=instance.placement,
             section_id=section_id,
         )
+        if _enum_value(instance.mode) == "section_mode" and instance.chatId is not None:
+            instance.chatId = None
         if section_id is not None and section_id not in section_ids:
             continue
         if section_id is not None and instance.title is not None:

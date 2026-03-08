@@ -235,6 +235,37 @@ def test_project_state_normalizes_section_window_titles_to_none() -> None:
     )
 
 
+def test_project_state_normalizes_section_mode_window_chat_ids_to_none() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    section_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        mode=ChatWindowMode.section_mode,
+        sectionIdOrNull=section_id,
+        chatId="window-thread",
+    )
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={section_window.instanceId: section_window},
+        order=[section_window.instanceId],
+        nextInstanceNumber=2,
+    )
+
+    project_state.validate_project_chat_windowing()
+
+    assert (
+        project_state.projectChatWindowing.instancesById[
+            section_window.instanceId
+        ].chatId
+        is None
+    )
+
+
 def test_project_chat_windowing_rejects_section_mode_without_section_binding() -> None:
     # Section-mode runtime windows must always point at a concrete section owner.
     with pytest.raises(
@@ -272,6 +303,26 @@ def test_project_chat_windowing_rejects_git_graph_section_binding() -> None:
                         placement=ChatWindowPlacement.floating,
                         mode=ChatWindowMode.git_graph_mode,
                         sectionIdOrNull="section-1",
+                    )
+                },
+                order=["project-chat-window-1"],
+            ),
+        )
+
+
+def test_project_chat_windowing_rejects_git_graph_canvas_placement() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Project chat git_graph_mode windows cannot use canvas_section placement",
+    ):
+        ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="x"),
+            projectChatWindowing=ProjectChatWindowingState(
+                instancesById={
+                    "project-chat-window-1": ProjectChatWindowInstance(
+                        instanceId="project-chat-window-1",
+                        placement=ChatWindowPlacement.canvas_section,
+                        mode=ChatWindowMode.git_graph_mode,
                     )
                 },
                 order=["project-chat-window-1"],

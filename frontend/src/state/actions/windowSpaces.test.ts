@@ -14,10 +14,14 @@ import { resetProjectStores } from "state/utils";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  SectionTypeEnum,
   SettaNotificationTypeEnum,
+  createChatSectionImpl,
   createCore,
   createProjectChatWindowingState,
   createProjectConfig,
+  createUserDefaultChatSectionImpl,
+  createVariant,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,6 +94,43 @@ async function flushOptimisticMutation(): Promise<void> {
   });
 }
 
+function buildChatSectionState(
+  sectionId: string,
+  chatId: string | null = null,
+) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sections: {
+      [sectionId]: createCore({
+        id: sectionId,
+        name: "Research Notes",
+      }),
+    },
+    sectionVariants: {
+      [variantId]: createVariant({
+        id: variantId,
+        impl: implId,
+        nonPresetImpls: [],
+      }),
+    },
+    sectionImpls: {
+      [implId]: createChatSectionImpl(createUserDefaultChatSectionImpl(), {
+        id: implId,
+        type: SectionTypeEnum.Chat,
+        chatId,
+      }),
+    },
+    projectConfig: createProjectConfig({
+      id: "project-id",
+      name: "demo",
+      sectionVariantMap: {
+        [sectionId]: variantId,
+      },
+    }),
+  };
+}
+
 describe("snapshotFloatingWindowsForWindowSpace", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -111,6 +152,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
 
   it("serializes only visible floating windows with normalized bounds", () => {
     const state = {
+      ...buildChatSectionState("section-1", "section-thread"),
       projectChatWindowing: createProjectChatWindowingState({
         order: [
           "floating-chat",
@@ -183,16 +225,6 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
           },
         },
       }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
-      }),
     };
 
     const snapshot = snapshotFloatingWindowsForWindowSpace(state, {
@@ -221,6 +253,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["floating-section"]).toMatchObject({
       surfaceKind: "section",
       sectionIdOrNull: "section-1",
+      chatId: "section-thread",
       title: null,
       zIndex: 5,
       normalizedBounds: {
@@ -236,6 +269,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
 
   it("collapses duplicate floating section bindings to one authoritative saved window", () => {
     const snapshot = snapshotFloatingWindowsForWindowSpace({
+      ...buildChatSectionState("section-1", "section-thread"),
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-section-a", "floating-section-b"],
         instancesById: {
@@ -274,16 +308,6 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
             lastFocusedAt: 2,
           },
         },
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
       }),
     });
 
@@ -340,6 +364,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
 
   it("clears inert section titles when snapshotting and restoring floating section windows", () => {
     const snapshot = snapshotFloatingWindowsForWindowSpace({
+      ...buildChatSectionState("section-1", "section-thread"),
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-section"],
         instancesById: {
@@ -361,16 +386,6 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
             },
           },
         },
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
       }),
     });
 
@@ -433,6 +448,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
       },
     };
     const state = {
+      ...buildChatSectionState("section-1", "section-thread"),
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-left", "floating-right"],
         instancesById: {
@@ -468,16 +484,6 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
             ),
           },
         },
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
       }),
     };
 
@@ -1038,17 +1044,10 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
   });
 
   it("persists the created window space into local project state after the backend accepts it", async () => {
+    const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
+      ...sectionState,
+      projectConfig: sectionState.projectConfig,
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-section"],
         instancesById: {
@@ -1114,17 +1113,10 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
         order: [],
       }),
     };
+    const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
+      ...sectionState,
+      projectConfig: sectionState.projectConfig,
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-section"],
         instancesById: {
@@ -1210,17 +1202,10 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
   });
 
   it("shows an error notification when the backend rejects the save", async () => {
+    const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
+      ...sectionState,
+      projectConfig: sectionState.projectConfig,
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-section"],
         instancesById: {
@@ -1261,17 +1246,10 @@ describe("createWindowSpaceFromCurrentFloatingWindows", () => {
   });
 
   it("uses the post-sync authoritative layout when saving a window space", async () => {
+    const sectionState = buildChatSectionState("section-1", "section-thread");
     useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-id",
-        name: "demo",
-      }),
-      sections: {
-        "section-1": createCore({
-          id: "section-1",
-          name: "Research Notes",
-        }),
-      },
+      ...sectionState,
+      projectConfig: sectionState.projectConfig,
       projectChatWindowing: createProjectChatWindowingState({
         order: ["floating-project", "floating-section"],
         instancesById: {
@@ -1501,6 +1479,58 @@ describe("restoreWindowSpaceInWorkspace", () => {
     });
     expect(nextWindowing.instancesById["stale-section-window"]).toBeUndefined();
     expect(nextWindowing.nextInstanceNumber).toBe(9);
+  });
+
+  it("does not restore saved per-window thread ids into workspace section-mode windows", async () => {
+    const sectionState = buildChatSectionState("section-1", "workspace-thread");
+    useProjectState.setState({
+      ...sectionState,
+      projectConfig: createProjectConfig({
+        ...sectionState.projectConfig,
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "section",
+                sectionIdOrNull: "section-1",
+                mode: ChatWindowModeEnum.section_mode,
+                chatId: "saved-section-thread",
+                zIndex: 3,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+    await flushOptimisticMutation();
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "project-chat-window-2"
+      ],
+    ).toMatchObject({
+      mode: ChatWindowModeEnum.section_mode,
+      sectionIdOrNull: "section-1",
+      chatId: null,
+    });
   });
 
   it("restores the saved floating layout while preserving unrelated live windows", async () => {
@@ -1741,6 +1771,83 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.nextInstanceNumber).toBe(3);
   });
 
+  it("keeps blank project-chat restores idempotent when the same floating instance already exists", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "space-1": {
+            id: "space-1",
+            name: "Focused Layout",
+            sortIndex: 0,
+            windowsById: {
+              "project-chat-window-2": {
+                surfaceKind: "project_chat",
+                mode: ChatWindowModeEnum.project_ai_mode,
+                title: "Saved Blank Chat",
+                chatId: null,
+                zIndex: 4,
+                normalizedBounds: {
+                  x: 0.1,
+                  y: 0.15,
+                  width: 0.45,
+                  height: 0.5,
+                },
+              },
+            },
+            order: ["project-chat-window-2"],
+          },
+        },
+      }),
+      sections: {},
+      sectionVariants: {},
+      sectionImpls: {},
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-2"],
+        instancesById: {
+          "project-chat-window-2": {
+            instanceId: "project-chat-window-2",
+            placement: ChatWindowPlacementEnum.floating,
+            mode: ChatWindowModeEnum.project_ai_mode,
+            title: "Live Blank Chat",
+            chatId: null,
+            zIndex: 1,
+            bounds: {
+              x: 500,
+              y: 400,
+              width: 240,
+              height: 180,
+            },
+          },
+        },
+        nextInstanceNumber: 3,
+      }),
+    });
+    routeSetProjectChatWindowingStateMock.mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+
+    restoreWindowSpaceInWorkspace("space-1");
+    await flushOptimisticMutation();
+    restoreWindowSpaceInWorkspace("space-1");
+    await flushOptimisticMutation();
+
+    const nextState = useProjectState.getState().projectChatWindowing;
+    expect(nextState.order).toEqual(["project-chat-window-2"]);
+    expect(Object.keys(nextState.instancesById)).toEqual([
+      "project-chat-window-2",
+    ]);
+    expect(nextState.instancesById["project-chat-window-2"]).toMatchObject({
+      title: "Saved Blank Chat",
+      chatId: null,
+      placement: ChatWindowPlacementEnum.floating,
+    });
+    expect(nextState.nextInstanceNumber).toBe(3);
+  });
+
   it("remaps restored floating windows when the same instance id belongs to a different live owner", () => {
     useProjectState.setState({
       projectConfig: createProjectConfig({
@@ -1894,7 +2001,7 @@ describe("restoreWindowSpaceInWorkspace", () => {
     expect(nextState.instancesById["restored-section-window"]).toMatchObject({
       placement: ChatWindowPlacementEnum.floating,
       sectionIdOrNull: "section-1",
-      chatId: "chat-saved-section",
+      chatId: null,
     });
     expect(nextState.instancesById["unrelated-floating-window"]).toMatchObject({
       placement: ChatWindowPlacementEnum.floating,

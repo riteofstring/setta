@@ -82,8 +82,7 @@ describe("ProjectChatManager", () => {
     expect(markup).not.toContain(">Canvas<");
     expect(markup).not.toContain(">Float<");
     expect(markup).not.toContain(">Hide<");
-    expect(markup).not.toContain(">Reopen<");
-    expect(markup).not.toContain(">Focus<");
+    expect(markup).toContain(">Focus<");
   });
 
   it("shows Reopen instead of Hide for minimized windows", () => {
@@ -111,5 +110,35 @@ describe("ProjectChatManager", () => {
     expect(markup).toContain(">Reopen<");
     expect(markup).not.toContain(">Hide<");
     expect(markup).toContain('data-testid="project-chat-manager-reopen"');
+  });
+
+  it("keeps Reopen and Focus visible for existing read-only rows", () => {
+    mockCanEditLayout = false;
+    const minimizedWindow = createProjectChatWindowInstance({
+      instanceId: "project-chat-window-minimized",
+      placement: ChatWindowPlacementEnum.floating,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      title: "Minimized Chat",
+      isMinimized: true,
+      isClosed: false,
+      zIndex: 7,
+    });
+    mockProjectState = {
+      projectChatWindowing: createProjectChatWindowingState({
+        order: [minimizedWindow.instanceId],
+        instancesById: {
+          [minimizedWindow.instanceId]: minimizedWindow,
+        },
+      }),
+      sections: {},
+    };
+
+    const markup = renderToStaticMarkup(<ProjectChatManager />);
+
+    expect(markup).toContain(">Reopen<");
+    expect(markup).toContain(">Focus<");
+    expect(markup).not.toContain(">Hide<");
+    expect(markup).not.toContain(">Canvas<");
+    expect(markup).not.toContain(">Float<");
   });
 });

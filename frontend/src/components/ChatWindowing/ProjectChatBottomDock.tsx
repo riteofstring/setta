@@ -3809,17 +3809,6 @@ export function ProjectChatBottomDock() {
                               projectConfigId,
                               pill.instanceId,
                             )}
-                            projectChatId={pill.chatId}
-                            setProjectChatId={(next) => {
-                              const resolvedChatId =
-                                typeof next === "function"
-                                  ? next(pill.chatId ?? undefined)
-                                  : next;
-                              setProjectChatWindowChatId(
-                                pill.instanceId,
-                                resolvedChatId,
-                              );
-                            }}
                             headerActions={
                               <>
                                 {showDockHeaderCycleControls ? (
@@ -4266,17 +4255,6 @@ export function ProjectChatBottomDock() {
                         projectConfigId,
                         pill.instanceId,
                       )}
-                      projectChatId={pill.chatId}
-                      setProjectChatId={(next) => {
-                        const resolvedChatId =
-                          typeof next === "function"
-                            ? next(pill.chatId ?? undefined)
-                            : next;
-                        setProjectChatWindowChatId(
-                          pill.instanceId,
-                          resolvedChatId,
-                        );
-                      }}
                       headerActions={
                         canEditLayout ? (
                           <>
@@ -4569,17 +4547,6 @@ export function ProjectChatBottomDock() {
                   projectConfigId,
                   openMaximizedWindow.instanceId,
                 )}
-                projectChatId={openMaximizedWindow.chatId}
-                setProjectChatId={(next) => {
-                  const resolvedChatId =
-                    typeof next === "function"
-                      ? next(openMaximizedWindow.chatId ?? undefined)
-                      : next;
-                  setProjectChatWindowChatId(
-                    openMaximizedWindow.instanceId,
-                    resolvedChatId,
-                  );
-                }}
                 headerActions={
                   canEditLayout ? (
                     <>

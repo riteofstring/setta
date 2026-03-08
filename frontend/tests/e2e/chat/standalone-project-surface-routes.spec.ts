@@ -333,13 +333,34 @@ async function seedProjectChatWindowThreads(
   fixtures: ProjectChatThreadFixture[],
 ): Promise<void> {
   await page.evaluate(async (nextFixtures) => {
-    const { useAIStore } = await import("/src/state/definitions.ts");
+    const { useAIStore, useProjectState } = await import(
+      "/src/state/definitions.ts"
+    );
     const { getDefaultChatDetails } = await import("/src/state/actions/ai.ts");
     const { setProjectChatWindowChatId } = await import(
       "/src/state/actions/projectChatWindowing.ts"
     );
+    const { route_set_chat_section_chat_id } = await import(
+      "/src/utils/generatedEndpoints.ts"
+    );
+    const { ChatWindowModeEnum } = await import("/src/utils/generatedTypes.ts");
 
     for (const fixture of nextFixtures) {
+      const window =
+        useProjectState.getState().projectChatWindowing.instancesById[
+          fixture.instanceId
+        ];
+      if (
+        window?.mode === ChatWindowModeEnum.section_mode &&
+        window.sectionIdOrNull
+      ) {
+        await route_set_chat_section_chat_id({
+          projectConfigId: useProjectState.getState().projectConfig.id,
+          sectionId: window.sectionIdOrNull,
+          chatId: fixture.chatId,
+        });
+        continue;
+      }
       setProjectChatWindowChatId(fixture.instanceId, fixture.chatId);
     }
 

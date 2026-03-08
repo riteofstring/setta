@@ -922,6 +922,34 @@ describe("project chat windowing reducer helpers", () => {
     expect(next).toBe(initial);
   });
 
+  it("clears live window-owned chat ids when a bound section window switches to section mode", () => {
+    const sectionWindow = createProjectChatWindowInstance({
+      instanceId: "section-window-1",
+      placement: ChatWindowPlacementEnum.floating,
+      mode: ChatWindowModeEnum.project_ai_mode,
+      sectionIdOrNull: "section-1",
+      chatId: "window-thread",
+    });
+    const initial = createProjectChatWindowingState({
+      order: [sectionWindow.instanceId],
+      instancesById: {
+        [sectionWindow.instanceId]: sectionWindow,
+      },
+      nextInstanceNumber: 2,
+    });
+
+    const next = setProjectChatWindowModeForSectionInState(
+      initial,
+      "section-1",
+      ChatWindowModeEnum.section_mode,
+    );
+
+    expect(next.instancesById[sectionWindow.instanceId]).toMatchObject({
+      mode: ChatWindowModeEnum.section_mode,
+      chatId: null,
+    });
+  });
+
   it("keeps section-backed project-ai threads out of the global active project chat", () => {
     const sectionWindow = createProjectChatWindowInstance({
       instanceId: "chat-window-section",

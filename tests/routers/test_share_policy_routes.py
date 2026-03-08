@@ -1397,6 +1397,26 @@ class TestSharePolicyRoutes:
                     )
                 assert windowing_ctx.value.status_code == 422
 
+                with pytest.raises(HTTPException) as git_graph_ctx:
+                    await route_set_project_chat_windowing_state(
+                        SetProjectChatWindowingStateRequest(
+                            projectConfigId=project_config_id,
+                            state=ProjectChatWindowingState(
+                                instancesById={
+                                    "project-chat-window-2": ProjectChatWindowInstance(
+                                        instanceId="project-chat-window-2",
+                                        placement=ChatWindowPlacement.canvas_section,
+                                        mode=ChatWindowMode.git_graph_mode,
+                                    )
+                                },
+                                order=["project-chat-window-2"],
+                                nextInstanceNumber=3,
+                            ),
+                        ),
+                        runtime_ctx,
+                    )
+                assert git_graph_ctx.value.status_code == 422
+
                 with pytest.raises(
                     ValidationError,
                     match="Project-chat window-space windows cannot carry sectionIdOrNull",

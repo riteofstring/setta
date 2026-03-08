@@ -23,6 +23,7 @@ import {
   flushPendingProjectChatWindowingWrites,
   focusProjectChatWindow,
   minimizeProjectChatWindow,
+  reopenProjectChatWindow,
   setProjectChatWindowChatId,
   showSectionInProjectChatWindow,
 } from "./projectChatWindowing";
@@ -204,6 +205,52 @@ describe("project chat windowing permissions", () => {
         "project-chat-window-2"
       ]?.zIndex ?? 0,
     );
+    expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
+  });
+
+  it("reopens hidden windows locally when read-only deployments block layout edits", () => {
+    useShareSession.setState({
+      isDeploymentMode: true,
+      shareSessionId: "share-session-1",
+      sessionRunCount: 0,
+      sharePolicy: {
+        allowLLM: true,
+        allowLayoutChanges: false,
+        allowParamChanges: false,
+        allowVariantChanges: false,
+        allowRun: false,
+        allowMultipleRuns: false,
+      },
+      shareDeploymentName: "deployment",
+      shareDeploymentVersion: "v1",
+      deploymentMode: "share",
+    });
+    useProjectState.setState({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstanceModel({
+            instanceId: "project-chat-window-1",
+            placement: ChatWindowPlacementEnum.floating,
+            chatId: "chat-a",
+            isClosed: false,
+            isMinimized: true,
+            zIndex: 1,
+          }),
+        },
+      }),
+    });
+
+    reopenProjectChatWindow("project-chat-window-1");
+
+    expect(
+      useProjectState.getState().projectChatWindowing.instancesById[
+        "project-chat-window-1"
+      ],
+    ).toMatchObject({
+      isClosed: false,
+      isMinimized: false,
+    });
     expect(routeSetProjectChatWindowingStateMock).not.toHaveBeenCalled();
   });
 
