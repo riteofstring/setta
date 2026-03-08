@@ -30,9 +30,12 @@ As of 2026-03-08:
 - Go now also owns the readable-export maintenance slice:
   - shared readable export in `internal/projectstate`
   - thin `setta export-db` routing in `internal/settacmd`
+- Go now also owns the plugin status/read slice:
+  - `setta plugins list|rescan|restart-required` in `internal/settacmd`
+  - shared plugin status/restart-required payload shaping in `internal/plugins`
 - Python still owns the remaining maintenance/authoring commands in
   `backend/setta/start.py`:
-  - `plugins`
+  - the remaining `plugins` mutation/authoring commands
 - Go already owns substantial plugin runtime and mutation foundations in:
   - `internal/plugins`
   - `internal/mcpx`
@@ -96,12 +99,17 @@ As of 2026-03-08:
      - discovery and rescan
      - install, uninstall, update, and rollback mutation service methods
      - pending-restart bookkeeping
+   - Go now owns the first shipped plugin read/status slice:
+     - `list`
+     - `rescan`
+     - `restart-required`
    - Go does not yet own several CLI-facing plugin behaviors:
      - template init and folder validation
      - local link workflow
      - enable/disable toggles
      - lockfile write/apply
-     - restart/restart-required CLI payload shaping
+     - mutation CLI output shaping
+     - programmatic restart acceptance/rejection
    - rewrite implication:
      - plugin CLI parity should be its own dedicated slice, not bundled with
        `backups` or `export-db`
@@ -134,11 +142,11 @@ As of 2026-03-08:
 
 ## Recommended Next Step
 
-Phase 11 Stage 2 is complete in
-`phase-11-readable-export-foundation-stage2.md`.
-
-The next bounded rewrite slice is Phase 11 Stage 3 in
+Phase 11 Stage 3 is complete in
 `phase-11-plugin-status-stage3.md`.
+
+The next bounded rewrite slice should be a dedicated plugin mutation/authoring
+plan doc over the completed status/read boundary.
 
 ## Progress Notes
 
@@ -161,9 +169,13 @@ The next bounded rewrite slice is Phase 11 Stage 3 in
     list|rescan|restart-required`
   - partial top-level `plugins` dispatch is required because the remaining
     plugin mutations stay on Python for now
+- 2026-03-08: completed the plugin Stage 3 slice.
+  - `setta plugins list|rescan|restart-required` are now Go-owned
+  - the remaining Python-owned maintenance surface is the plugin
+    mutation/authoring cluster plus `plugins restart`
 
 ## Verification
 
-- `GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
 - `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`

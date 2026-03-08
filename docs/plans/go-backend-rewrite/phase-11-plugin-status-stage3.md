@@ -21,12 +21,15 @@ As of 2026-03-08:
   - `internal/plugins/discovery.go`
   - `internal/plugins/service.go`
   - `internal/plugins/store.go`
-- Python still owns the full shipped `plugins` CLI in:
-  - `backend/setta/start.py`
-- this stage is now planned to move only:
+- this stage is now complete:
   - `setta plugins list`
   - `setta plugins rescan`
   - `setta plugins restart-required`
+  - partial `plugins` dispatch in `backend/setta/entrypoint.py`
+- Python still owns the remaining `plugins` commands in:
+  - `backend/setta/start.py`
+  - `init`, `validate`, `install`, `link`, `uninstall`, `enable`, `disable`,
+    `update`, `pin`, `rollback`, `lock`, and `restart`
 
 ## Inputs
 
@@ -154,14 +157,24 @@ Do not include:
 
 - 2026-03-08: created this Stage 3 plan to keep the remaining `plugins` work
   bounded around the shipped read/status surface first.
+- 2026-03-08: completed this Stage 3 slice.
+  - `setta plugins list`, `setta plugins rescan`, and
+    `setta plugins restart-required` now route through the shipped Go CLI
+  - plugin status/restart-required payload shaping now lives in
+    `internal/plugins`
+  - `backend/setta/entrypoint.py` now dispatches only those completed
+    `plugins` subcommands to Go
 
 ## Verification
 
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/plugins ./internal/settacmd -count=1 -timeout 300s`
+- `source activate.sh && python -m pytest tests/start/test_module_entrypoint.py -q`
 - `git diff --check`
 
 ## Recommended Next Step
 
-Implement this Stage 3 slice:
+Move to the remaining `plugins` surface with a new bounded plan:
 
-1. Go-owned `setta plugins list|rescan|restart-required`
-2. partial Python entrypoint dispatch for only those subcommands
+1. mutation/authoring commands (`install`, `link`, `uninstall`, `update`,
+   `pin`, `rollback`, `enable`, `disable`, `lock`)
+2. keep `restart` separate unless that slice also lands a real Go restart hook

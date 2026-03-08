@@ -3,8 +3,10 @@
 This doc covers the commands exposed by the shipped `setta` CLI. The published
 entrypoint now uses `backend/setta/entrypoint.py` as a thin dispatcher:
 Go-owned commands are handed off to packaged Go binaries, while the remaining
-Python-owned local commands still route through `backend/setta/start.py`
-(`plugins`).
+Python-owned local commands still route through `backend/setta/start.py`.
+`setta plugins` is currently split:
+`list`, `rescan`, and `restart-required` are Go-owned; the remaining plugin
+subcommands still route through Python.
 Local commands operate on a workspace root (code operations) and a
 `setta_files` root (state/runtime). By default both roots follow the current
 working directory and the default Setta home, but you can override runtime
@@ -279,6 +281,7 @@ Subcommands:
   - Validate a plugin manifest/folder contract.
 - `setta plugins list [--json]`
   - List discovered plugin runtime status entries.
+  - Ownership: Go.
 - `setta plugins install <source_spec> [--scope ...] [--installer auto|pip|uv] [--no-enable] [--force] [--json]`
   - Install plugin source into a selected scope.
 - `setta plugins link <local_plugin_root> [--scope ...] [--no-enable] [--force] [--json]`
@@ -290,6 +293,7 @@ Subcommands:
   - Toggle enablement for the highest-precedence discovered plugin id.
 - `setta plugins rescan [--json]`
   - Rebuild plugin discovery/runtime status without restarting Setta.
+  - Ownership: Go.
 - `setta plugins update <plugin_id> [--scope ...] [--to <source_spec_or_version>] [--json]`
   - Update an installed plugin to latest or to a pinned target.
 - `setta plugins pin <plugin_id> <source_spec_or_version> [--scope ...] [--json]`
@@ -304,6 +308,7 @@ Subcommands:
   - Request programmatic backend restart when available.
 - `setta plugins restart-required [--json]`
   - List plugins pending backend restart and restart capability details.
+  - Ownership: Go.
 
 Examples:
 ```sh

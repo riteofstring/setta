@@ -21,6 +21,9 @@ _GO_OWNED_COMMANDS = frozenset(
         "c",
     }
 )
+_GO_OWNED_SUBCOMMANDS = {
+    "plugins": frozenset({"list", "rescan", "restart-required"}),
+}
 _GO_GLOBAL_OPTIONS_WITH_VALUES = frozenset(
     {
         "-w",
@@ -61,6 +64,8 @@ def resolve_go_dispatch_command(argv: list[str]) -> str | None:
         if not token.startswith("-"):
             if token in _GO_OWNED_COMMANDS:
                 return token
+            if token in _GO_OWNED_SUBCOMMANDS:
+                return _resolve_go_dispatch_subcommand(token, effective_argv=argv[index + 1 :])
             return None
 
         option_name = token.split("=", 1)[0]
@@ -78,6 +83,29 @@ def resolve_go_dispatch_command(argv: list[str]) -> str | None:
         return None
 
     return ""
+
+
+def _resolve_go_dispatch_subcommand(
+    command: str,
+    *,
+    effective_argv: list[str],
+) -> str | None:
+    go_owned_subcommands = _GO_OWNED_SUBCOMMANDS.get(command)
+    if go_owned_subcommands is None:
+        return None
+
+    for token in effective_argv:
+        if token == "--":
+            return None
+        if token in {"-h", "--help"}:
+            return None
+        if token.startswith("-"):
+            return None
+        if token in go_owned_subcommands:
+            return command
+        return None
+
+    return None
 
 
 def run_go_dispatch(argv: list[str]) -> int:

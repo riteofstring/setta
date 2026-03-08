@@ -130,6 +130,8 @@ func Run(args []string, options RunOptions) error {
 		return runExportDB(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	case "backups":
 		return runBackups(remaining[1:], global, stdin, stdout, stderr, envLookup, cwd)
+	case "plugins":
+		return runPlugins(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	case "launch":
 		return runLaunch(remaining[1:], global, stdout, stderr, envLookup, cwd)
 	case "share":

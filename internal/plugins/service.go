@@ -24,6 +24,7 @@ type ServiceOptions struct {
 	SettaFilesRoot    string
 	SettaHome         string
 	ServerMode        config.Mode
+	RestartCommand    string
 	CandidateProvider CandidateProvider
 }
 
@@ -31,6 +32,7 @@ type Service struct {
 	store             *Store
 	discoveryService  *DiscoveryService
 	candidateProvider CandidateProvider
+	restartCommand    string
 
 	mu                          sync.Mutex
 	installTargetReservations   map[string]struct{}
@@ -67,6 +69,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 		store:                       store,
 		discoveryService:            discoveryService,
 		candidateProvider:           options.CandidateProvider,
+		restartCommand:              defaultRestartCommand(options.RestartCommand),
 		installTargetReservations:   map[string]struct{}{},
 		pendingRestartRemovedPlugin: map[string]PendingRestartRemovedBackendPlugin{},
 	}, nil
