@@ -8,21 +8,21 @@ from tempfile import TemporaryDirectory
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
-from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.session_project_manager import (
     SessionPersistenceMode,
     SessionProjectManager,
 )
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.project_state.settings_project import create_settings_project_state
 from setta.types.generated.settings_state import SettingsState
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, MCPServerConfig
 from setta.types.project_config import ProjectConfig
-from setta.types.project_state import ProjectStateBackend
+from setta.types.project_state import ProjectChatWindowingState, ProjectStateBackend
 from setta.utils.constants import C
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -30,6 +30,7 @@ from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSe
 from setta.websockets.websocket_manager import WebsocketManager
 
 from tests.utils.setta_paths import temporary_setta_paths
+
 __all__ = [
     "ProjectManagerFixture",
     "SettingsManagerFixture",
@@ -294,8 +295,11 @@ DEFAULT_SETTA_GEN_CONTENT = """class SettaState:
 state = SettaState()
 """
 
+
 def _populate_project_fixture_files(setta_root: Path) -> None:
     _seed_minimal_setta_files(setta_root)
+
+
 def _seed_minimal_setta_files(setta_root: Path) -> None:
     setta_root.mkdir(parents=True, exist_ok=True)
     _write_sample_project_json(setta_root / "project.json")
@@ -348,5 +352,8 @@ def _build_sample_project_state() -> ProjectStateBackend:
     )
     return ProjectStateBackend(
         projectConfigs={project_config.id: project_config},
+        projectChatWindowingByProjectConfigId={
+            project_config.id: ProjectChatWindowingState()
+        },
         defaultProjectConfigId=project_config.id,
     )

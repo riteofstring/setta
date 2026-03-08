@@ -1,5 +1,4 @@
 import { GitDiffOverlay } from "components/Git/GitDiffOverlay";
-import { GitGraphOverlay } from "components/Git/GitGraphOverlay";
 import { useEffect } from "react";
 import { closeGitOverlay } from "state/actions/git";
 import { useLocalStorage } from "state/definitions";
@@ -30,7 +29,7 @@ export function GitOverlayLayer() {
   }));
 
   useEffect(() => {
-    if (overlayKind === "none") {
+    if (overlayKind !== "diff") {
       return;
     }
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -51,7 +50,7 @@ export function GitOverlayLayer() {
     };
   }, [overlayKind]);
 
-  if (overlayKind === "none") {
+  if (overlayKind !== "diff") {
     return null;
   }
 
@@ -64,7 +63,7 @@ export function GitOverlayLayer() {
           right: uiEditorWidth,
         }}
       >
-        {overlayKind === "diff" ? <GitDiffOverlay /> : <GitGraphOverlay />}
+        <GitDiffOverlay />
       </div>
     </div>
   );
