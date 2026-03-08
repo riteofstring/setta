@@ -5,6 +5,7 @@ import type { MiniMapNodeProps } from "./types";
 
 const MiniMapNode = ({
   id,
+  dataMinimapNodeId,
   x,
   y,
   width,
@@ -24,7 +25,7 @@ const MiniMapNode = ({
   return (
     <rect
       className={cc(["react-flow__minimap-node", className])}
-      data-minimap-node-id={id}
+      data-minimap-node-id={dataMinimapNodeId}
       x={x}
       y={y}
       rx={borderRadius}

@@ -239,3 +239,60 @@ New/updated automated coverage:
 
 Manual/CDP verification:
 - In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, selected the live generated-code section, confirmed the minimap node gained `selected`, then simulated the selection-key blank-canvas deselect path and confirmed both the section outline and minimap `selected` styling cleared in the real UI.
+
+## 2026-03-09 13:14:42 PDT
+
+Summary:
+- Implemented the remaining fixes from the consolidated top-level review set: transient UI-owned active-section flows now prune invalid ids and explicitly hand authority back to backend reconciliation, marquee hit testing no longer falsely selects unmeasured top-level nodes, and minimap rendering now invalidates on real visual inputs while exposing an explicit custom-node selection hook.
+- Added targeted unit, integration, and browser regression coverage for each issue class, then re-verified the minimap repaint and unmeasured-node marquee behavior in the live headed app through Chrome DevTools MCP.
+
+Detailed findings addressed:
+- `ui-only` selection flows could preserve impossible ids after backend snapshots and reveal rollback could leave `useActiveSectionUI` stuck in a locally-owned state even after the temporary reveal mutation had finished. That let right-pane, minimap, and plugin consumers observe stale active ids that no longer existed in the backend project snapshot.
+- `getNodesInside(...)` treated nodes with `width: null` / `height: null` as overlapping by default when using React Flow node internals. Newly created or recently moved top-level nodes could therefore be selected by far-away marquee gestures before they had real measured geometry.
+- `MiniMapNodes` only memoized against geometry-like inputs even though minimap fill, stroke, and class output also depend on node `type`, effective section theme, and temporary style preview state. Visual-only changes could therefore leave the minimap stale until some later geometry mutation.
+- The minimap custom-node path had lost its explicit selection contract. Default nodes still worked because the selection sync code queried baked-in DOM attributes, but custom nodes had no typed, documented way to participate.
+
+Fixes implemented:
+- Extended active-section reconciliation in `frontend/src/state/activeSectionUI.ts` and `frontend/src/state/actions/activeSections.ts` with an explicit restore-backend-authority path, while keeping UI-only selection responsive during local reveal flows.
+- Updated backend project-state reconciliation in `frontend/src/state/actions/sectionInfos.ts` to always intersect UI active ids with the incoming live section id set, even when backend hydration is temporarily disabled for stale durable acknowledgements.
+- Updated reveal rollback in `frontend/src/state/actions/uiSettingReveal.ts` so it restores backend-authoritative active-section reconciliation instead of leaving the UI store in a lingering `ui-only` state.
+- Reworked `frontend/src/forks/xyflow/core/utils/graph.ts` so unmeasured node internals no longer count as automatic hits; the selector now uses measured internals when available, falls back to real section DOM bounds when possible, and otherwise excludes the node until valid bounds exist.
+- Expanded minimap render inputs in `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` to include node `type`, `style`, effective section theme, and temporary style previews, and merged those visuals into the rendered minimap node state without reintroducing selection-driven churn.
+- Restored an explicit custom-node selection hook by passing `dataMinimapNodeId` through the minimap node API in `frontend/src/forks/xyflow/minimap/types.ts`, `frontend/src/forks/xyflow/minimap/MiniMapNode.tsx`, and `frontend/src/forks/xyflow/minimap/MiniMap.tsx`.
+
+Behavioral impact before vs after:
+- UX before: reveal flows could finish with stale or deleted active section ids still driving the right pane, minimap, and plugins; marqueeing empty space could select unrelated unmeasured nodes; and style-only section changes could leave minimap swatches visually stale.
+- UX after: temporary reveal flows remain fast and local but converge back to valid backend-owned selection immediately after rollback or backend deletion, empty-space marquee stays local even while nodes are still unmeasured, and minimap swatches repaint as soon as section appearance changes.
+- DX before: selection authority had an implicit split between “ignore stale durable acks” and “accept impossible ids”, hit-testing treated missing measurements as truthy geometry, and custom minimap node support depended on undocumented DOM conventions.
+- DX after: active-section reconciliation has an explicit backend handoff path, minimap and hit-testing behavior follow stable input contracts, and custom minimap nodes have a typed, testable selection integration surface.
+
+Automated verification completed:
+- `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts src/state/actions/activeSections.test.ts src/state/actions/uiSettingReveal.test.ts src/forks/xyflow/core/utils/graph.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx src/forks/xyflow/minimap/MiniMap.test.ts`
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/nested-marquee-selection.spec.ts frontend/tests/e2e/editor/section-style-colors.spec.ts frontend/tests/e2e/overview/misc/right-pane-ui-settings-tools.spec.ts --grep "marquee selection ignores far-away unmeasured|updates the minimap swatch|right-pane reveal rollback returns backend authority"`
+
+New/updated automated coverage:
+- `frontend/src/state/actions/activeSections.test.ts`
+  - covers pruning invalid UI-only active ids against backend snapshots.
+- `frontend/src/state/actions/uiSettingReveal.test.ts`
+  - covers reveal rollback restoring backend authority so later backend snapshots can move selection again.
+- `frontend/src/state/actions/sectionInfos.test.ts`
+  - covers node-map creation carrying minimap-relevant `type` and derived style theme data.
+- `frontend/src/forks/xyflow/core/utils/graph.test.ts`
+  - covers unmeasured nodes without fallback bounds no longer being selected.
+  - covers unmeasured nodes with real DOM bounds still participating correctly.
+- `frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+  - covers comparator invalidation for visual-only node changes.
+  - covers minimap repainting from effective project-state style changes and temporary preview changes without geometry churn.
+  - covers the explicit `dataMinimapNodeId` contract for custom minimap nodes.
+- `frontend/src/forks/xyflow/minimap/MiniMap.test.ts`
+  - covers custom minimap nodes participating in selection-sync through the new explicit node-id prop.
+- `frontend/tests/e2e/sections/nested-marquee-selection.spec.ts`
+  - covers far-away marquee selection ignoring a top-level node whose internals were forced into the unmeasured state.
+- `frontend/tests/e2e/editor/section-style-colors.spec.ts`
+  - covers minimap swatches updating immediately after section style color changes without geometry changes.
+- `frontend/tests/e2e/overview/misc/right-pane-ui-settings-tools.spec.ts`
+  - covers right-pane reveal rollback returning active-section authority to later backend snapshots.
+
+Manual/CDP verification:
+- In the running headed app via Chrome DevTools MCP on `http://127.0.0.1:3009`, created a temporary project, confirmed the minimap exposed nodes through the new `data-minimap-node-id` contract, changed a text-block style color through the real right-pane appearance control, and verified the section chrome and minimap swatch repainted together in the live UI.
+- In the same live app, forced a top-level node into an unmeasured `width: null` / `height: null` state, replayed the pane's marquee-selection event path across empty canvas space, and verified `useActiveSectionUI.activeIds` remained empty.

@@ -93,6 +93,73 @@ test("marquee selection includes nested group children", async ({ page }) => {
   }
 });
 
+test("marquee selection ignores far-away unmeasured top-level nodes when DOM bounds do not overlap", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const sectionId = await createTopLevelSection(
+      page,
+      projectContext.projectConfigId,
+      "Code",
+    );
+    await placeSections(page, projectContext.projectConfigId, {
+      [sectionId]: { x: 80, y: 120 },
+    });
+
+    const pane = page.locator(".react-flow__pane").first();
+    const section = page
+      .locator(`section[data-section-id="${sectionId}"]`)
+      .first();
+
+    await expect(pane).toBeVisible();
+    await expect(section).toBeVisible();
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
+
+    await page.evaluate(async (targetSectionId) => {
+      const { useNodeInternals } = await import("/src/state/definitions.ts");
+      const currentNodes = useNodeInternals.getState().x;
+      const nextNodes = new Map(currentNodes);
+      const targetNode = nextNodes.get(targetSectionId);
+      if (!targetNode) {
+        throw new Error(`Missing node internals for ${targetSectionId}.`);
+      }
+      nextNodes.set(targetSectionId, {
+        ...targetNode,
+        width: null,
+        height: null,
+      });
+      useNodeInternals.setState({ x: nextNodes });
+    }, sectionId);
+
+    const paneBox = await pane.boundingBox();
+    if (!paneBox) {
+      throw new Error("Missing pane bounds for unmeasured marquee test.");
+    }
+
+    const startX = paneBox.x + paneBox.width - 140;
+    const startY = paneBox.y + paneBox.height - 120;
+    const endX = paneBox.x + paneBox.width - 32;
+    const endY = paneBox.y + paneBox.height - 32;
+
+    await page.keyboard.down("Shift");
+    try {
+      await page.mouse.move(startX, startY);
+      await page.mouse.down();
+      await page.mouse.move(endX, endY, { steps: 12 });
+      await page.mouse.up();
+    } finally {
+      await page.keyboard.up("Shift");
+    }
+
+    await expect.poll(async () => readFrontendActiveIds(page)).toEqual([]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 async function createTopLevelSection(
   page: Page,
   projectConfigId: string,

@@ -23,6 +23,7 @@ import {
   NULL_PROJECT_CONFIG_ID,
   PendingOperation,
   useAllProjectMetadata,
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   usePendingOperations,
@@ -64,6 +65,7 @@ import {
   Viewport,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
 
 const effectiveImplCacheByImpl = new WeakMap<
@@ -1027,6 +1029,7 @@ export function processProjectStateUpdateFromBackend(
     x.projectState.projectConfig.activeIds,
     x.completedOpIds,
     x.projectState.projectConfig.id,
+    Object.keys(x.projectState.sections),
   );
   const sanitizedProjectState = getComparableProjectState(x.projectState);
   const projectStateChanged = !_.isEqual(
@@ -1241,6 +1244,7 @@ export function createNodesMapFromProjectConfigChildren(
   nodes: ZustandNodeInternalsState["x"],
 ) {
   const nodesMap: Map<string, Node> = new Map();
+  const darkMode = useLocalStorage.getState().darkMode;
   const { activeViewModeId, viewModes } = p.projectConfig;
   const topLevelSections = getActiveViewModeTopLevelSections(p);
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(p);
@@ -1270,6 +1274,13 @@ export function createNodesMapFromProjectConfigChildren(
         continue;
       }
     }
+    const sectionImpl = getEffectiveSectionImplIfPresent(p, sectionId);
+    const sectionTheme =
+      sectionImpl?.styleColor !== null &&
+      sectionImpl?.styleColor !== undefined &&
+      sectionImpl.styleColor.trim() !== ""
+        ? deriveSectionStyleTheme(sectionImpl.styleColor, darkMode)
+        : null;
     nodesMap.set(sectionId, {
       id: sectionId,
       position: { x: layout.x, y: layout.y },
@@ -1277,6 +1288,8 @@ export function createNodesMapFromProjectConfigChildren(
       height: nodes.get(sectionId)?.height ?? layout.h,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
+      type: sectionImpl?.type,
+      style: sectionTheme ? { background: sectionTheme.bg } : undefined,
     });
   }
 

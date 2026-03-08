@@ -282,7 +282,9 @@ describe("activeSections", () => {
   });
 
   it("keeps the UI selection stable when backend state arrives before a deferred sync flushes", () => {
-    useProjectState.setState(buildProjectState("project-a", []).projectState);
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a"]).projectState,
+    );
     const endpointSpy = vi
       .spyOn(endpoints, "route_set_active_ids")
       .mockResolvedValue({
@@ -299,7 +301,9 @@ describe("activeSections", () => {
     vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
 
     setActiveSectionIds(["section-a"]);
-    processProjectStateUpdateFromBackend(buildProjectState("project-a", []));
+    processProjectStateUpdateFromBackend(
+      buildProjectState("project-a", [], ["section-a"]),
+    );
 
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
 
@@ -416,6 +420,22 @@ describe("activeSections", () => {
 
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-b"]);
     expect(useActiveSectionUI.getState().pendingBackendSyncOpIds).toEqual([]);
+  });
+
+  it("prunes ui-only active ids that no longer exist in the incoming project snapshot", () => {
+    useProjectState.setState(
+      buildProjectState("project-a", [], ["section-a", "section-b"])
+        .projectState,
+    );
+
+    setActiveSectionIds(["section-b"], { syncMode: "ui-only" });
+
+    processProjectStateUpdateFromBackend(
+      buildProjectState("project-a", [], ["section-a"]),
+    );
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([]);
+    expect(useProjectState.getState().sections["section-b"]).toBeUndefined();
   });
 
   it("lets the next backend snapshot restore backend selection after a non-200 durable sync failure", async () => {

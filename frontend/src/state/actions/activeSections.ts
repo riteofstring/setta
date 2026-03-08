@@ -7,6 +7,7 @@ import {
   getActiveSectionUISelectionGeneration,
   getScheduledActiveSectionBackendSync,
   markPendingActiveSectionBackendSyncOp,
+  restoreBackendAuthoritativeActiveSectionUIIds,
   schedulePendingActiveSectionBackendSync,
   setActiveSectionUIIds,
 } from "state/activeSectionUI";
@@ -95,6 +96,13 @@ function cancelPendingProjectActiveIdsSync() {
 
 export function cancelPendingActiveSectionIdsSync() {
   cancelPendingProjectActiveIdsSync();
+}
+
+export function restoreBackendAuthoritativeActiveSectionIds(
+  ids: Array<string>,
+) {
+  cancelPendingProjectActiveIdsSync();
+  restoreBackendAuthoritativeActiveSectionUIIds(ids);
 }
 
 function flushPendingProjectActiveIdsSync() {

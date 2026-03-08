@@ -9,6 +9,7 @@ import type {
 } from "utils/generatedTypes";
 import {
   createCodeSectionImpl,
+  createCore,
   createUserDefaultCodeSectionImpl,
   createVariant,
   SectionTypeEnum,
@@ -170,6 +171,7 @@ function configureCodeSections({
     for (const sectionId of sectionIds) {
       const variantId = `variant-${sectionId}`;
       const implId = `impl-${sectionId}`;
+      state.sections[sectionId] = createCore({ id: sectionId });
       state.projectConfig.sectionVariantMap[sectionId] = variantId;
       state.sectionVariants[variantId] = createVariant({
         id: variantId,
@@ -691,6 +693,53 @@ describe("receiveUISettingReveal", () => {
       "section-initial",
     ]);
     expect(useLocalStorage.getState().uiEditorVis).toBe(false);
+  });
+
+  it("restores backend hydration after rolling back a request-scoped activeSectionId", async () => {
+    configureCodeSections({
+      projectConfigId: "project-1",
+      sectionIds: ["section-initial", "section-target", "section-backend"],
+      activeIds: ["section-initial"],
+    });
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        activeSectionId: "section-target",
+        reveals: [
+          createRevealTarget({
+            settingId: "core.project.show_param_display_names",
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "QuickInfoConfig",
+            anchorId: "core.project.show_param_display_names",
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.project.show_param_display_names",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: "Section type Code does not support tab QuickInfoConfig.",
+      },
+    ]);
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-initial",
+    ]);
+    expect(useActiveSectionUI.getState().backendHydrationEnabled).toBe(true);
+
+    processProjectStateUpdateFromBackend(
+      buildBackendProjectStateUpdate({
+        projectConfigId: "project-1",
+        activeIds: ["section-backend"],
+      }),
+    );
+
+    expect(useActiveSectionUI.getState().activeIds).toEqual([
+      "section-backend",
+    ]);
   });
 
   it("rolls back request-scoped activeSectionId on execution-context mismatch", async () => {

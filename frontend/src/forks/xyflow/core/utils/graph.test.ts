@@ -158,7 +158,7 @@ describe("getNodesInside", () => {
     ).toEqual(["section-a"]);
   });
 
-  it("treats nodes with unknown dimensions as selectable to preserve existing behavior", () => {
+  it("does not select unmeasured nodes when no fallback bounds overlap", () => {
     useNodeInternals.setState({
       x: new Map([
         [
@@ -175,9 +175,42 @@ describe("getNodesInside", () => {
       ]),
     });
 
-    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual([
+    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual(
+      [],
+    );
+  });
+
+  it("falls back to section DOM bounds for unmeasured node internals", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-a",
+          {
+            id: "section-a",
+            position: { x: 10, y: 20 },
+            width: null,
+            height: null,
+            zIndex: 0,
+            tempZIndex: 0,
+          },
+        ],
+      ]),
+    });
+    useSectionRefs.setState((state) => {
+      state.selfOnly["section-a"] = createSectionElement({
+        x: 40,
+        y: 60,
+        width: 120,
+        height: 80,
+      });
+    });
+
+    expect(getNodesInside({ x: 30, y: 50, width: 140, height: 100 })).toEqual([
       "section-a",
     ]);
+    expect(getNodesInside({ x: 500, y: 500, width: 10, height: 10 })).toEqual(
+      [],
+    );
   });
 
   it("falls back to nested section DOM geometry when a selectable section has no node internals entry", () => {

@@ -48,6 +48,35 @@ export function setActiveSectionUIIds(nextActiveIds: Array<string>) {
   });
 }
 
+export function restoreBackendAuthoritativeActiveSectionUIIds(
+  nextActiveIds: Array<string>,
+) {
+  const state = useActiveSectionUI.getState();
+  const activeIdsChanged = !areStringArraysEqual(
+    state.activeIds,
+    nextActiveIds,
+  );
+  const nextSelectionGeneration = activeIdsChanged
+    ? state.selectionGeneration + 1
+    : state.selectionGeneration;
+  const nextState: ActiveSectionUIStatePatch = {};
+
+  if (activeIdsChanged) {
+    nextState.activeIds = [...nextActiveIds];
+    nextState.selectionGeneration = nextSelectionGeneration;
+  }
+  if (state.backendGeneration !== nextSelectionGeneration) {
+    nextState.backendGeneration = nextSelectionGeneration;
+  }
+  if (!state.backendHydrationEnabled) {
+    nextState.backendHydrationEnabled = true;
+  }
+  if (Object.keys(nextState).length === 0) {
+    return;
+  }
+  useActiveSectionUI.setState(nextState);
+}
+
 export function getHydratedActiveSectionUIState(nextActiveIds: Array<string>) {
   const state = useActiveSectionUI.getState();
   const generationsAlreadyAuthoritative =
@@ -189,8 +218,10 @@ export function getReconciledActiveSectionUIStateFromBackend(
   backendActiveIds: Array<string>,
   completedOpIds: Array<string>,
   projectConfigId: string,
+  validSectionIds: Array<string>,
 ) {
   const state = useActiveSectionUI.getState();
+  const validSectionIdSet = new Set(validSectionIds);
   const completedOpIdSet = new Set(completedOpIds);
   const nextPendingBackendSyncOpIds: Array<string> = [];
   const nextPendingBackendSyncGenerationByOpId: Record<string, number> = {};
@@ -220,6 +251,10 @@ export function getReconciledActiveSectionUIStateFromBackend(
     : state.backendGeneration;
   const canHydrateFromBackend =
     !hasScheduledBackendSync && backendHydrationEnabled;
+  let reconciledActiveIds = state.activeIds.filter((sectionId) =>
+    validSectionIdSet.has(sectionId),
+  );
+  let nextSelectionGeneration = state.selectionGeneration;
 
   const nextState: ActiveSectionUIStatePatch = {};
 
@@ -234,16 +269,30 @@ export function getReconciledActiveSectionUIStateFromBackend(
   if (backendHydrationEnabled !== state.backendHydrationEnabled) {
     nextState.backendHydrationEnabled = backendHydrationEnabled;
   }
+
+  if (!areStringArraysEqual(state.activeIds, reconciledActiveIds)) {
+    nextSelectionGeneration += 1;
+    nextState.activeIds = [...reconciledActiveIds];
+    nextState.selectionGeneration = nextSelectionGeneration;
+  }
+
   if (
     canHydrateFromBackend &&
-    !areStringArraysEqual(state.activeIds, backendActiveIds)
+    !areStringArraysEqual(reconciledActiveIds, backendActiveIds)
   ) {
-    const nextGeneration = state.selectionGeneration + 1;
+    nextSelectionGeneration += 1;
+    reconciledActiveIds = [...backendActiveIds];
     nextState.activeIds = [...backendActiveIds];
-    nextState.selectionGeneration = nextGeneration;
-    nextState.backendGeneration = nextGeneration;
+    nextState.selectionGeneration = nextSelectionGeneration;
+    nextState.backendGeneration = nextSelectionGeneration;
     nextState.backendHydrationEnabled = true;
+  } else if (
+    canHydrateFromBackend &&
+    nextBackendGeneration !== nextSelectionGeneration
+  ) {
+    nextState.backendGeneration = nextSelectionGeneration;
   }
+
   if (Object.keys(nextState).length === 0) {
     return null;
   }

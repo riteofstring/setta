@@ -103,11 +103,9 @@ export function getNodesInside(
   const handledSectionIds = new Set<string>();
 
   for (const node of nodeInternals.values()) {
-    const isVisible = isNodeOverlappingWithRect(
-      node,
-      rectToLookInside,
-      partially,
-    );
+    const isVisible = hasMeasuredNodeBounds(node)
+      ? isNodeOverlappingWithRect(node, rectToLookInside, partially)
+      : isSectionOverlappingWithRect(node.id, rectToLookInside, partially);
 
     if (isVisible) {
       visibleNodes.push(node.id);
@@ -310,14 +308,13 @@ function isNodeOverlappingWithRect(
     height: height || 0,
   };
   const overlappingArea = getOverlappingArea(otherRect, nodeRect);
-  const notInitialized =
-    typeof width === "undefined" ||
-    typeof height === "undefined" ||
-    width === null ||
-    height === null;
   const partiallyVisible = partially && overlappingArea > 0;
   const area = (width || 0) * (height || 0);
-  return notInitialized || partiallyVisible || overlappingArea >= area;
+  return partiallyVisible || overlappingArea >= area;
+}
+
+function hasMeasuredNodeBounds(node: Node) {
+  return typeof node.width === "number" && typeof node.height === "number";
 }
 
 export function movePaneToIncludeElement(element: HTMLElement) {

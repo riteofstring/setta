@@ -908,6 +908,153 @@ test("right-pane reveal_ui_setting keeps frontend activation and pane state unch
   }
 });
 
+test("right-pane reveal rollback returns backend authority to later backend snapshots", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const result = await page.evaluate(
+      async ({ projectConfigId }) => {
+        const [
+          { useActiveSectionUI },
+          { receiveUISettingReveal },
+          { loadProjectState },
+          { processProjectStateUpdateFromBackend },
+          {
+            createCodeSectionImpl,
+            createCore,
+            createProjectConfig,
+            createSingletonSections,
+            createUserDefaultCodeSectionImpl,
+            createVariant,
+          },
+        ] = await Promise.all([
+          import("/src/state/definitions.ts"),
+          import("/src/state/actions/uiSettingReveal.ts"),
+          import("/src/state/actions/project/loadProject.ts"),
+          import("/src/state/actions/sectionInfos.ts"),
+          import("/src/utils/generatedTypes.ts"),
+        ]);
+
+        const initialId = "section-initial";
+        const targetId = "section-target";
+        const backendId = "section-backend";
+
+        const buildProjectState = (activeIds: string[]) => {
+          const sectionVariantMap: Record<string, string> = {};
+          const sections: Record<string, unknown> = {};
+          const sectionImpls: Record<string, unknown> = {};
+          const sectionVariants: Record<string, unknown> = {};
+
+          for (const sectionId of [initialId, targetId, backendId]) {
+            const variantId = `variant-${sectionId}`;
+            const implId = `impl-${sectionId}`;
+            sectionVariantMap[sectionId] = variantId;
+            sections[sectionId] = createCore({ id: sectionId });
+            sectionVariants[variantId] = createVariant({
+              id: variantId,
+              impl: implId,
+              nonPresetImpls: [implId],
+              name: `variant-${sectionId}`,
+            });
+            sectionImpls[implId] = createCodeSectionImpl(
+              createUserDefaultCodeSectionImpl(),
+              {
+                id: implId,
+              },
+            );
+          }
+
+          return {
+            projectConfig: createProjectConfig({
+              id: projectConfigId,
+              activeIds,
+              sectionVariantMap,
+            }),
+            sections,
+            sectionImpls,
+            sectionVariants,
+            codeObjs: {},
+            codeObjImpls: {},
+            codeObjVariants: {},
+            artifactGroups: {},
+            singletonSections: createSingletonSections(),
+            parentSectionMap: {},
+            shownParamIds: {},
+            requiredDecodedImages: [],
+            genCodeBinding: null,
+          };
+        };
+
+        await loadProjectState(buildProjectState([initialId]));
+
+        const originalQuerySelector = document.querySelector.bind(document);
+        document.querySelector = ((selector: string) => {
+          if (selector === '[data-testid="ui-editor-tab-content-shell"]') {
+            return {
+              querySelector: () => null,
+            } as unknown as Element;
+          }
+          return originalQuerySelector(selector);
+        }) as typeof document.querySelector;
+
+        try {
+          const statuses = await receiveUISettingReveal({
+            projectConfigId,
+            chatId: null,
+            durationMs: 120,
+            requestId: "pw-reveal-rollback-authority",
+            activeSectionId: targetId,
+            reveals: [
+              {
+                settingId: "core.code.section_variants",
+                side: "right",
+                overviewTabKey: null,
+                uiEditorTabName: "SectionVariantsConfig",
+                pluginId: null,
+                paneId: null,
+                strategy: "dom_anchor",
+                anchorId: "core.code.section_variants",
+                pluginRevealKey: null,
+                revealActivationSteps: [],
+              },
+            ],
+          });
+          const afterRollback = [...useActiveSectionUI.getState().activeIds];
+          const backendHydrationEnabled =
+            useActiveSectionUI.getState().backendHydrationEnabled;
+
+          processProjectStateUpdateFromBackend({
+            projectState: buildProjectState([backendId]),
+            completedOpIds: [],
+            pendingOpIds: [],
+          });
+
+          return {
+            afterBackend: [...useActiveSectionUI.getState().activeIds],
+            afterRollback,
+            backendHydrationEnabled,
+            statuses,
+          };
+        } finally {
+          document.querySelector = originalQuerySelector;
+        }
+      },
+      { projectConfigId: projectContext.projectConfigId },
+    );
+
+    expect(result.statuses[0]?.status).toBe("failed");
+    expect(result.statuses[0]?.errorMessage).toContain("Could not find anchor");
+    expect(result.afterRollback).toEqual(["section-initial"]);
+    expect(result.backendHydrationEnabled).toBe(true);
+    expect(result.afterBackend).toEqual(["section-backend"]);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("right-pane reveal timeout preserves user ABA activeIds navigation", async ({
   page,
 }) => {

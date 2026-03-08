@@ -16,6 +16,7 @@ import {
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   usePendingOperations,
@@ -698,6 +699,66 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     );
     expect(nodesMap.has(sectionVisible)).toBe(true);
     expect(nodesMap.has(sectionMissingVisibility)).toBe(false);
+  });
+
+  it("includes node type and derived style background for minimap rendering", () => {
+    const sectionId = "section-visible";
+    const variantId = "variant-visible";
+    const implId = "impl-visible";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    useLocalStorage.setState({ darkMode: false });
+
+    const projectState = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: {
+          [sectionId]: variantId,
+        },
+        topLevelSections: {
+          [sectionId]: { ...layout },
+        },
+      }),
+      sections: {
+        [sectionId]: createCore({ id: sectionId }),
+      },
+      sectionImpls: {
+        [implId]: createTerminalSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Terminal,
+          styleColor: "#ff0000",
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const nodesMap = createNodesMapFromProjectConfigChildren(
+      projectState,
+      new Map(),
+    );
+
+    expect(nodesMap.get(sectionId)).toMatchObject({
+      type: SectionTypeEnum.Terminal,
+      style: {
+        background: "#ffe0e0",
+      },
+    });
   });
 });
 

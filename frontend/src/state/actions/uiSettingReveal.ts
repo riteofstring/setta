@@ -18,7 +18,10 @@ import type {
   UISettingRevealContent,
   UISettingRevealTarget,
 } from "utils/generatedTypes";
-import { setActiveSectionIds } from "./activeSections";
+import {
+  restoreBackendAuthoritativeActiveSectionIds,
+  setActiveSectionIds,
+} from "./activeSections";
 
 const DEFAULT_DURATION_MS = 3000;
 const MAX_DURATION_MS = 10000;
@@ -889,7 +892,7 @@ function restoreRevealProjectStateSnapshotIfOwned({
   ) {
     return;
   }
-  setActiveSectionIds(snapshot.activeIds, { syncMode: "ui-only" });
+  restoreBackendAuthoritativeActiveSectionIds(snapshot.activeIds);
 }
 
 function isRevealMutationOwnerMatch(

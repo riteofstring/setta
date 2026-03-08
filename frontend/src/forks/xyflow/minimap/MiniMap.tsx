@@ -26,7 +26,7 @@ import type {
 import { getBoundsOfRects, getWheelDelta } from "../core/utils";
 import { getNodesBounds, getPaneRect } from "../core/utils/graph";
 import {
-  areMiniMapNodesGeometriesEqual,
+  areMiniMapNodesRenderableInputsEqual,
   MiniMapNodes,
   MiniMapNodesReactive,
 } from "./MiniMapNodes";
@@ -96,7 +96,7 @@ export function syncSelectedMiniMapNodes(
   }
 
   const activeIdSet = new Set(activeIds);
-  const nodes = svg.querySelectorAll<SVGRectElement>("[data-minimap-node-id]");
+  const nodes = svg.querySelectorAll<SVGElement>("[data-minimap-node-id]");
   for (const node of nodes) {
     const sectionId = node.dataset.minimapNodeId;
     if (!sectionId) {
@@ -167,7 +167,10 @@ function MiniMap({
   offsetScale = 5,
 }: MiniMapProps) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const nodes = useNodeInternals(getNodes, areMiniMapNodesGeometriesEqual);
+  const nodes = useNodeInternals(
+    getNodes,
+    areMiniMapNodesRenderableInputsEqual,
+  );
   const overviewWidth = useLocalStorage((x) => x.overviewTrueWidth);
   const uiEditorWidth = useLocalStorage((x) => x.uiEditorTrueWidth);
   const { boundingRect, viewBB } = useReactFlow(

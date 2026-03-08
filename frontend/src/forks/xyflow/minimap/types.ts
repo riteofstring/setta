@@ -44,6 +44,7 @@ export type MiniMapNodesType = Pick<
 
 export type MiniMapNodeProps = {
   id: string;
+  dataMinimapNodeId: string;
   x: number;
   y: number;
   width: number;
