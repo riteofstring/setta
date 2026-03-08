@@ -48,13 +48,6 @@ type SectionHeaderProps = {
   isUserView: boolean;
   isRoot: boolean;
   hasSectionStyleTheme: boolean;
-  extraControls?: React.ReactNode;
-  showSectionContainerControls?: boolean;
-  trackMeasuredHeight?: boolean;
-  headerProps?: Omit<
-    React.ComponentPropsWithoutRef<"header">,
-    "children" | "ref"
-  >;
 };
 
 function _SectionHeader({
@@ -65,18 +58,11 @@ function _SectionHeader({
   isUserView,
   isRoot,
   hasSectionStyleTheme,
-  extraControls = null,
-  showSectionContainerControls = true,
-  trackMeasuredHeight = true,
-  headerProps,
 }: SectionHeaderProps) {
   const headerRef = useRef<HTMLElement | null>(null);
   const heightKey = getSectionHeaderHeightKey(sectionId);
 
   useLayoutEffect(() => {
-    if (!trackMeasuredHeight) {
-      return;
-    }
     const node = headerRef.current;
     if (!node) {
       useTemporaryMiscState.setState({ [heightKey]: 0 });
@@ -105,7 +91,7 @@ function _SectionHeader({
       observer.disconnect();
       useTemporaryMiscState.setState({ [heightKey]: 0 });
     };
-  }, [heightKey, trackMeasuredHeight]);
+  }, [heightKey]);
 
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const tagColor = useProjectState((x) => {
@@ -174,20 +160,14 @@ function _SectionHeader({
 
   // DOM: maybe get rid of the extra div under header?
 
-  const headerClassName = headerProps?.className ?? "";
-
   return (
     <header
-      {...headerProps}
-      className={`section-title mx-2 flex flex-row items-center ${headerClassName}`}
+      className="section-title mx-2 flex flex-row items-center"
       ref={headerRef}
       style={
         hasSectionStyleTheme
-          ? {
-              color: "var(--setta-section-style-text)",
-              ...headerProps?.style,
-            }
-          : headerProps?.style
+          ? { color: "var(--setta-section-style-text)" }
+          : undefined
       }
     >
       <MenuButton
@@ -319,20 +299,19 @@ function _SectionHeader({
             <RiFocus2Line className="text-[12px]" />
           </button>
         )}
-        {extraControls}
-        {!isUserView && showSectionContainerControls && (
+        {!isUserView && (
           <LockPositionButton
             sectionId={sectionId}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}
-        {!isUserView && showSectionContainerControls && !isRoot && (
+        {!isUserView && !isRoot && (
           <MinimizeButton
             sectionId={sectionId}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}
-        {!isUserView && showSectionContainerControls && (
+        {!isUserView && (
           <DeleteOrHideButton
             sectionId={sectionId}
             hasSectionStyleTheme={hasSectionStyleTheme}
@@ -652,7 +631,7 @@ export function hasMarkdownHeadingText(markdown: string) {
   return match[2].trim().length > 0;
 }
 
-export function getTitleStyles({
+function getTitleStyles({
   isActiveSection,
   isInOtherProjectConfigs,
   sectionTypeName,

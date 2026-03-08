@@ -2,18 +2,11 @@ from typing import Any
 
 from mcp.server.fastmcp.server import Context
 
-from setta.agentic.agentic_scope import (
-    AgenticContext,
-    normalize_linked_chat_invocation_chain_section_ids,
-    normalize_linked_chat_invocation_depth,
-)
+from setta.agentic.agentic_scope import AgenticContext
 from setta.agentic.completion_report import (
     CheckResult,
     CompletionStatusReport,
     build_completion_status_report,
-)
-from setta.agentic.linked_chat_invocation import (
-    invoke_linked_chat as invoke_linked_chat_impl,
 )
 from setta.agentic.store import load_agent_profiles
 from setta.frontend_affinity_token import parse_frontend_affinity_token
@@ -24,16 +17,31 @@ from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
 from setta.types.id import ID
 
 
+def _normalize_agentic_context_id(value: str | None) -> ID | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if normalized == "":
+        return None
+    return ID(normalized)
+
+
+def _resolve_tool_agentic_context(ctx: Context) -> AgenticContext | None:
+    resolve_agentic_context = getattr(ctx.fastmcp, "_resolve_agentic_context", None)
+    if not callable(resolve_agentic_context):
+        return None
+    return resolve_agentic_context(ctx)
+
+
 @setta_init_tool
 def set_agentic_context(
     *,
     projectConfigId: ID,
     chatId: ID | None = None,
     sectionId: ID | None = None,
+    runId: str | None = None,
     frontendAffinityToken: str | None = None,
     allowUnscoped: bool = False,
-    linkedChatInvocationDepth: int = 0,
-    linkedChatInvocationChainSectionIds: list[ID] | None = None,
     ctx: Context,
 ) -> dict[str, Any]:
     """
@@ -45,8 +53,6 @@ def set_agentic_context(
         sectionId: Chat section id (required unless allowUnscoped=true).
         frontendAffinityToken: Frontend affinity token for reveal routing.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
-        linkedChatInvocationDepth: Current linked-chat recursion depth.
-        linkedChatInvocationChainSectionIds: Current linked-chat caller chain.
     """
     if sectionId is None and not allowUnscoped:
         raise InvalidToolArgumentsError(
@@ -58,14 +64,6 @@ def set_agentic_context(
         )
     try:
         frontend_affinity_token = parse_frontend_affinity_token(frontendAffinityToken)
-        linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
-            linkedChatInvocationDepth
-        )
-        linked_chat_invocation_chain_section_ids = (
-            normalize_linked_chat_invocation_chain_section_ids(
-                linkedChatInvocationChainSectionIds
-            )
-        )
     except (TypeError, ValueError) as exc:
         raise InvalidToolArgumentsError(str(exc)) from exc
     ctx.fastmcp.set_agentic_context_for_session(
@@ -74,10 +72,9 @@ def set_agentic_context(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
+            run_id=_normalize_agentic_context_id(runId),
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allowUnscoped,
-            linked_chat_invocation_depth=linked_chat_invocation_depth,
-            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         ),
     )
     return {"status": "ok"}
@@ -104,6 +101,51 @@ def report_completion_status(
 
 attach_tool_access(
     report_completion_status,
+    ToolAccessMetadata(accessType="structural"),
+)
+
+
+@setta_tool
+async def report_state_machine_signal(
+    *,
+    signalName: str,
+    payload: dict[str, object] | None = None,
+    machineRunId: str | None = None,
+    sectionId: ID | None = None,
+    ctx: Context,
+) -> dict[str, object]:
+    """
+    Report a structured signal from the active child chat into its parent state machine.
+    """
+    normalized_signal_name = signalName.strip()
+    if normalized_signal_name == "":
+        raise InvalidToolArgumentsError("signalName must be a non-empty string.")
+    agentic_context = _resolve_tool_agentic_context(ctx)
+    if agentic_context is None:
+        raise InvalidToolArgumentsError(
+            "report_state_machine_signal requires active agentic context."
+        )
+    normalized_machine_run_id = _normalize_agentic_context_id(machineRunId)
+    if agentic_context.run_id is None and normalized_machine_run_id is None:
+        raise InvalidToolArgumentsError(
+            "report_state_machine_signal requires an active child run or machineRunId."
+        )
+    try:
+        signal_report = await ctx.fastmcp.state.state_machine_runner.report_signal(
+            project_config_id=agentic_context.project_config_id,
+            child_run_id=agentic_context.run_id,
+            machine_run_id=normalized_machine_run_id,
+            section_id=sectionId or agentic_context.section_id,
+            signal_name=normalized_signal_name,
+            payload=dict(payload or {}),
+        )
+    except (KeyError, ValueError) as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
+    return signal_report
+
+
+attach_tool_access(
+    report_state_machine_signal,
     ToolAccessMetadata(accessType="structural"),
 )
 
@@ -168,35 +210,4 @@ async def run_agent_profile(
 attach_tool_access(
     run_agent_profile,
     ToolAccessMetadata(accessType="structural"),
-)
-
-
-@setta_tool
-async def invoke_linked_chat(
-    *,
-    targetSectionId: ID,
-    prompt: str,
-    ctx: Context,
-):
-    """
-    Invoke a directly linked chat section as a bounded tool endpoint.
-
-    Args:
-        targetSectionId: Linked target chat section id from a direct `chat_chat` edge.
-        prompt: Prompt to send to the linked chat.
-    """
-    return await invoke_linked_chat_impl(
-        target_section_id=targetSectionId,
-        prompt=prompt,
-        ctx=ctx,
-    )
-
-
-attach_tool_access(
-    invoke_linked_chat,
-    ToolAccessMetadata(
-        accessType="read",
-        retryOnDisconnect=False,
-        idPathsByType={"section": ["targetSectionId"]},
-    ),
 )

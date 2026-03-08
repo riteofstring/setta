@@ -22,12 +22,9 @@ class AgenticContext:
     project_config_id: ID
     chat_id: ID | None
     section_id: ID | None
+    run_id: ID | None = None
     frontend_affinity_token: str | None = None
     allow_unscoped: bool = False
-    linked_chat_invocation_depth: int = 0
-    linked_chat_invocation_chain_section_ids: tuple[ID, ...] = field(
-        default_factory=tuple
-    )
 
 
 @dataclass(frozen=True)
@@ -50,63 +47,6 @@ class AgenticScopeCheck:
     blocked_section_ids: set[ID]
     unmapped_code_obj_ids: set[ID]
     reason: str
-
-
-def normalize_linked_chat_invocation_depth(value: Any) -> int:
-    if value is None:
-        return 0
-    if isinstance(value, bool):
-        raise TypeError("linkedChatInvocationDepth must be an integer")
-    if isinstance(value, int):
-        depth = value
-    elif isinstance(value, str):
-        normalized = value.strip()
-        if normalized == "":
-            return 0
-        try:
-            depth = int(normalized)
-        except ValueError as exc:
-            raise TypeError("linkedChatInvocationDepth must be an integer") from exc
-    else:
-        raise TypeError("linkedChatInvocationDepth must be an integer")
-    if depth < 0:
-        raise ValueError("linkedChatInvocationDepth must be non-negative")
-    return depth
-
-
-def normalize_linked_chat_invocation_chain_section_ids(
-    value: Any,
-) -> tuple[ID, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, str):
-        normalized = value.strip()
-        if normalized == "":
-            return ()
-        raw_entries: list[Any] = [entry for entry in normalized.split(",")]
-    elif isinstance(value, (list, tuple)):
-        raw_entries = list(value)
-    else:
-        raise TypeError(
-            "linkedChatInvocationChainSectionIds must be a list of section ids"
-        )
-
-    chain: list[ID] = []
-    for raw_entry in raw_entries:
-        if isinstance(raw_entry, ID):
-            chain.append(raw_entry)
-            continue
-        if not isinstance(raw_entry, str):
-            raise TypeError(
-                "linkedChatInvocationChainSectionIds must be a list of section ids"
-            )
-        normalized_entry = raw_entry.strip()
-        if normalized_entry == "":
-            raise ValueError(
-                "linkedChatInvocationChainSectionIds cannot contain empty values"
-            )
-        chain.append(ID(normalized_entry))
-    return tuple(chain)
 
 
 def resolve_agentic_scope(
@@ -136,15 +76,23 @@ def resolve_agentic_scope(
     peer_chat_section_ids: set[ID] = set()
 
     for edge in project_state.projectConfig.agenticEdges:
-        if edge.sourceSectionId != chat_section_id:
+        if edge.kind == AgenticEdgeKind.section_chat:
+            if edge.targetSectionId != chat_section_id:
+                continue
+            read_section_ids.add(edge.sourceSectionId)
+            context_section_ids.add(edge.sourceSectionId)
             continue
         if edge.kind == AgenticEdgeKind.chat_section:
+            if edge.sourceSectionId != chat_section_id:
+                continue
             read_section_ids.add(edge.targetSectionId)
             write_section_ids.add(edge.targetSectionId)
-            context_section_ids.add(edge.targetSectionId)
             continue
         if edge.kind == AgenticEdgeKind.chat_chat:
-            peer_chat_section_ids.add(edge.targetSectionId)
+            if edge.sourceSectionId == chat_section_id:
+                peer_chat_section_ids.add(edge.targetSectionId)
+            elif edge.targetSectionId == chat_section_id:
+                peer_chat_section_ids.add(edge.sourceSectionId)
 
     return AgenticScope(
         read_section_ids=read_section_ids,
@@ -161,11 +109,11 @@ def resolve_context_edges(
 ) -> list[tuple[ID, AgenticEdgeContextMode]]:
     edges: list[tuple[ID, AgenticEdgeContextMode]] = []
     for edge in project_state.projectConfig.agenticEdges:
-        if edge.kind != AgenticEdgeKind.chat_section:
+        if edge.kind != AgenticEdgeKind.section_chat:
             continue
-        if edge.sourceSectionId != chat_section_id:
+        if edge.targetSectionId != chat_section_id:
             continue
-        edges.append((edge.targetSectionId, edge.contextMode))
+        edges.append((edge.sourceSectionId, edge.contextMode))
     edges.sort(key=lambda entry: (str(entry[0]), entry[1].value))
     return edges
 
@@ -457,7 +405,9 @@ def _resolve_missing_edge_kind(
         return None
     if _is_chat_section(project_state, section_id) and access_type == "read":
         return AgenticEdgeKind.chat_chat
-    return AgenticEdgeKind.chat_section
+    if access_type == "write":
+        return AgenticEdgeKind.chat_section
+    return AgenticEdgeKind.section_chat
 
 
 def _collect_chat_section_ids(project_state: ProjectStateSingleConfig) -> set[ID]:

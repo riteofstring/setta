@@ -9,10 +9,6 @@ from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
 from pydantic import BaseModel, ValidationError, field_validator
 
-from setta.agentic.agentic_scope import (
-    normalize_linked_chat_invocation_chain_section_ids,
-    normalize_linked_chat_invocation_depth,
-)
 from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -43,29 +39,15 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
+    runId: str | None = None
     frontendAffinityToken: str | None = None
     allowUnscoped: bool = False
-    linkedChatInvocationDepth: int = 0
-    linkedChatInvocationChainSectionIds: tuple[ID, ...] = ()
     shareSessionId: str | None = None
 
     @field_validator("frontendAffinityToken")
     @classmethod
     def _normalize_frontend_affinity_token(cls, value: str | None) -> str | None:
         return validate_frontend_affinity_token_for_model(value)
-
-    @field_validator("linkedChatInvocationDepth", mode="before")
-    @classmethod
-    def _normalize_linked_chat_invocation_depth(cls, value: Any) -> int:
-        return normalize_linked_chat_invocation_depth(value)
-
-    @field_validator("linkedChatInvocationChainSectionIds", mode="before")
-    @classmethod
-    def _normalize_linked_chat_invocation_chain(
-        cls,
-        value: Any,
-    ) -> tuple[ID, ...]:
-        return normalize_linked_chat_invocation_chain_section_ids(value)
 
 
 @router.post(Route.TOOLS_CALL)

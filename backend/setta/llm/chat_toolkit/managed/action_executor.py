@@ -201,6 +201,11 @@ class ManagedActionExecutor:
                                     if action.agentic_context.section_id is not None
                                     else None
                                 ),
+                                "runId": (
+                                    str(action.agentic_context.run_id)
+                                    if action.agentic_context.run_id is not None
+                                    else None
+                                ),
                             }
                             meta_payload["frontendAffinityToken"] = (
                                 action.agentic_context.frontend_affinity_token
@@ -214,15 +219,6 @@ class ManagedActionExecutor:
                             )
                             if action.agentic_context.allow_unscoped:
                                 meta_payload["allowUnscoped"] = True
-                            if action.agentic_context.linked_chat_invocation_depth > 0:
-                                meta_payload["linkedChatInvocationDepth"] = (
-                                    action.agentic_context.linked_chat_invocation_depth
-                                )
-                            if action.agentic_context.linked_chat_invocation_chain_section_ids:
-                                meta_payload["linkedChatInvocationChainSectionIds"] = [
-                                    str(section_id)
-                                    for section_id in action.agentic_context.linked_chat_invocation_chain_section_ids
-                                ]
                             if action.share_session_id:
                                 meta_payload["shareSessionId"] = action.share_session_id
                             meta = meta_payload

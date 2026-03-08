@@ -16,16 +16,15 @@ import {
   TbArrowAutofitWidth,
   TbCircleDot,
   TbGridDots,
-  TbLayoutSidebarLeftCollapse,
-  TbLayoutSidebarRightCollapse,
   TbSparkles,
   TbZoomReset,
 } from "react-icons/tb";
+import { getChatSharedEdgeModeLabel } from "state/actions/chatSharedEdges";
 import {
   toggleAgenticEdges,
   toggleArgEdges,
+  toggleChatSharedEdgeMode,
   toggleMiniMap,
-  toggleMiniMapSide,
   toggleSnapToGrid,
 } from "state/actions/localStorage";
 import {
@@ -73,8 +72,8 @@ const Controls = () => {
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
+  const chatSharedEdgeMode = useLocalStorage((x) => x.chatSharedEdgeMode);
   const showMinimap = useLocalStorage((x) => x.showMinimap);
-  const minimapSide = useLocalStorage((x) => x.minimapSide);
   const watchCodeEnabled = useProjectState(
     (state) => state.projectConfig.watchCodeEnabled,
   );
@@ -108,6 +107,10 @@ const Controls = () => {
   const watchCodePortalRef = useRef<HTMLDivElement | null>(null);
   const styleForActive =
     "text-white bg-blue-500 dark:text-blue-600 dark:bg-transparent";
+  const sharedChatModeStyle =
+    chatSharedEdgeMode === "workflow"
+      ? "text-amber-50 bg-amber-500 dark:bg-transparent dark:text-amber-400"
+      : styleForActive;
   const setWatchCodePortalNode = useCallback((node: HTMLDivElement | null) => {
     watchCodePortalRef.current = node;
     setWatchCodePortalElement((current) => (current === node ? current : node));
@@ -320,6 +323,19 @@ const Controls = () => {
       >
         <TbCircleDot size={15} />
       </button>
+      <button
+        onClick={toggleChatSharedEdgeMode}
+        className={`cursor-pointer items-center justify-center overflow-clip rounded-md px-1 py-1 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:hover:text-setta-500 ${sharedChatModeStyle}`}
+        aria-label="toggle shared chat edge mode"
+        data-testid="rf__toggle-chat-shared-edge-mode"
+        {...getFloatingBoxHandlers({
+          content: `${getChatSharedEdgeModeLabel(chatSharedEdgeMode)} mode for shared Chat to Chat connections`,
+        })}
+      >
+        <span className="font-mono text-[10px] font-semibold leading-none">
+          {chatSharedEdgeMode === "workflow" ? "W" : "A"}
+        </span>
+      </button>
       <div className="my-0.5 h-px w-full bg-setta-200/70 dark:bg-setta-800/70" />
       {showWatchCodePortalControl ? (
         <>
@@ -394,28 +410,6 @@ const Controls = () => {
         })}
       >
         <IoMapOutline size={15} />
-      </button>
-      <button
-        onClick={toggleMiniMapSide}
-        className="cursor-pointer items-center justify-center overflow-clip rounded-md p-1 text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
-        aria-label={
-          minimapSide === "left"
-            ? "move minimap to right"
-            : "move minimap to left"
-        }
-        data-testid="rf__toggle-minimap-side"
-        {...getFloatingBoxHandlers({
-          content:
-            minimapSide === "left"
-              ? "Move minimap to right"
-              : "Move minimap to left",
-        })}
-      >
-        {minimapSide === "left" ? (
-          <TbLayoutSidebarRightCollapse size={15} />
-        ) : (
-          <TbLayoutSidebarLeftCollapse size={15} />
-        )}
       </button>
       {showWatchCodePortalControl &&
       watchCodePortalOpen &&

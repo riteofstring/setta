@@ -21,8 +21,6 @@ from setta.agentic.agentic_context_payload_builder import (
 from setta.agentic.agentic_scope import (
     AgenticContext,
     AgenticScope,
-    normalize_linked_chat_invocation_chain_section_ids,
-    normalize_linked_chat_invocation_depth,
     resolve_agentic_scope,
 )
 from setta.agentic.agentic_summary_cache import (
@@ -309,12 +307,14 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRun:
         context = self._build_context(
             profile,
             inputs,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
+            project_state=project_state,
         )
         run = context.run
         self._runs[run.id] = run
@@ -852,6 +852,7 @@ class AgentRunner:
         *,
         emit_stream: bool = True,
         emit_ai_follow: bool = True,
+        project_state: ProjectStateSingleConfig | None = None,
     ) -> AgentRunContext:
         project_state_backend = self.dbe.read_project_required()
         if project_state_backend.defaultProjectConfigId is None:
@@ -894,18 +895,6 @@ class AgentRunner:
             frontend_affinity_token = parse_frontend_affinity_token(
                 inputs["frontendAffinityToken"]
             )
-        linked_chat_invocation_depth = 0
-        linked_chat_invocation_chain_section_ids: tuple[ID, ...] = ()
-        if inputs and "linkedChatInvocationDepth" in inputs:
-            linked_chat_invocation_depth = normalize_linked_chat_invocation_depth(
-                inputs["linkedChatInvocationDepth"]
-            )
-        if inputs and "linkedChatInvocationChainSectionIds" in inputs:
-            linked_chat_invocation_chain_section_ids = (
-                normalize_linked_chat_invocation_chain_section_ids(
-                    inputs["linkedChatInvocationChainSectionIds"]
-                )
-            )
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -932,9 +921,14 @@ class AgentRunner:
             profile,
             completion_guard_enabled=completion_guard_enabled,
         )
-        project_state = convert_backend_to_single_config(
-            project_state_backend, project_config_id
-        )
+        if project_state is None:
+            project_state = convert_backend_to_single_config(
+                project_state_backend, project_config_id
+            )
+        elif project_state.projectConfig.id != project_config_id:
+            raise KeyError(
+                f"project_state override does not match project config {project_config_id}"
+            )
         agentic_scope = resolve_agentic_scope(
             project_state,
             section_id,
@@ -956,10 +950,9 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
             section_id=section_id,
+            run_id=run.id,
             frontend_affinity_token=frontend_affinity_token,
             allow_unscoped=allow_unscoped,
-            linked_chat_invocation_depth=linked_chat_invocation_depth,
-            linked_chat_invocation_chain_section_ids=linked_chat_invocation_chain_section_ids,
         )
         return AgentRunContext(
             run=run,

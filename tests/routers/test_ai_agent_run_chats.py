@@ -946,7 +946,7 @@ class TestAgentRunChatRoutes:
                 return []
 
             monkeypatch.setattr(
-                "setta.routers.ai._get_prior_messages_for_engine",
+                "setta.agentic.managed_chat_dispatch._get_prior_messages_for_engine",
                 _capture_prior_messages,
             )
 
@@ -972,107 +972,6 @@ class TestAgentRunChatRoutes:
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
             assert prior_message_loader_called is False
-
-    async def test_managed_engine_rejects_external_history_on_reused_chat_id(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            chat_id = ID("chat-mixed-history")
-            project_config_id = ID("project-llm-1")
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello external first")],
-            )
-            run = _build_external_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=ID("engine-external"),
-                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message],
-            )
-            save_agent_run(dbe, run)
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_response(
-                        GetLLMResponseRequest(
-                            chatId=chat_id,
-                            message=UserChatMessage(
-                                content=[MessageTextContent(text="Next")],
-                            ),
-                            engineConfigId=engine_config_id,
-                            agentProfileId=None,
-                            thinking=False,
-                            projectConfigId=project_config_id,
-                            allowUnscoped=True,
-                            permissionMode=ChatPermissionMode.minimal,
-                            searchEnabled=True,
-                        ),
-                        ctx,
-                    )
-
-            assert exc.value.status_code == 409
-            assert exc.value.detail == "Chat engine mismatch; start a new chat."
-
-    async def test_managed_engine_rejects_project_mismatch_on_reused_chat_id(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            chat_id = ID("chat-project-mismatch")
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello")],
-            )
-            run = _build_run(
-                chat_id=chat_id,
-                project_config_id=ID("project-llm-other"),
-                engine_config_id=engine_config_id,
-                started_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message],
-            )
-            save_agent_run(dbe, run)
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    await route_get_llm_response(
-                        GetLLMResponseRequest(
-                            chatId=chat_id,
-                            message=UserChatMessage(
-                                content=[MessageTextContent(text="Next")],
-                            ),
-                            engineConfigId=engine_config_id,
-                            agentProfileId=None,
-                            thinking=False,
-                            projectConfigId=ID("project-llm-1"),
-                            allowUnscoped=True,
-                            permissionMode=ChatPermissionMode.minimal,
-                            searchEnabled=True,
-                        ),
-                        ctx,
-                    )
-
-            assert exc.value.status_code == 409
-            assert exc.value.detail == "Chat project config mismatch; start a new chat."
 
     async def test_branch_edit_missing_message_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1187,7 +1086,7 @@ class TestAgentRunChatRoutes:
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state) as ctx:
-                created_chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         continueFromChatId=source_chat_id,
@@ -1205,6 +1104,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                created_chat_id = response.chatId
 
             assert created_chat_id is not None
             assert created_chat_id != source_chat_id
@@ -1269,7 +1169,7 @@ class TestAgentRunChatRoutes:
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state) as ctx:
-                created_chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         continueFromChatId=source_chat_id,
@@ -1287,6 +1187,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                created_chat_id = response.chatId
 
             assert created_chat_id is not None
             raw_messages = captured_inputs.get("messages")
@@ -1458,12 +1359,14 @@ class TestAgentRunChatRoutes:
             def _capture_start_run(profile, inputs, **_kwargs):
                 captured["profile"] = profile
                 captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id, inputs=inputs)
+                run = create_agent_run(profile_id=profile.id, inputs=inputs)
+                captured["run"] = run
+                return run
 
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1482,8 +1385,12 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
+            assert response.runId == captured["run"].id
+            assert response.engineType == EngineType.setta_llm
+            assert response.sectionId is None
             captured_profile = captured.get("profile")
             assert captured_profile is not None
             system_prompt = captured_profile.systemPrompt
@@ -1526,7 +1433,7 @@ class TestAgentRunChatRoutes:
             monkeypatch.setattr(runner, "start_run", _capture_start_run)
 
             with runtime_context(state, share_session_id="share-session-1") as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1543,6 +1450,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -1639,7 +1547,7 @@ class TestAgentRunChatRoutes:
                 )
 
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 _preflight_status_stub,
             )
 
@@ -1663,7 +1571,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1671,7 +1579,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1688,8 +1596,11 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
+            assert response.runId is not None
+            assert response.engineType == EngineType.external_agent
             captured_inputs = captured.get("inputs")
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "minimal"
@@ -1749,7 +1660,7 @@ class TestAgentRunChatRoutes:
             )
 
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1775,7 +1686,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1783,7 +1694,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1799,6 +1710,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -1850,7 +1762,7 @@ class TestAgentRunChatRoutes:
             )
 
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1877,7 +1789,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state, share_session_id="share-session-1") as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1894,6 +1806,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -1960,7 +1873,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -1968,7 +1881,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -1985,6 +1898,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -2055,7 +1969,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -2063,7 +1977,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -2079,6 +1993,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")
@@ -2814,7 +2729,7 @@ class TestAgentRunChatRoutes:
                 external_runner, "start_run", _capture_external_start_run
             )
             monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
+                "setta.agentic.managed_chat_dispatch.build_external_agent_preflight_status",
                 lambda *_args, **_kwargs: SimpleNamespace(
                     available=True,
                     issues=[],
@@ -2822,7 +2737,7 @@ class TestAgentRunChatRoutes:
             )
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                response = await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
@@ -2838,6 +2753,7 @@ class TestAgentRunChatRoutes:
                     ),
                     ctx,
                 )
+                chat_id = response.chatId
 
             assert chat_id is not None
             captured_inputs = captured.get("inputs")

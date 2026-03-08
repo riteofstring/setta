@@ -113,22 +113,6 @@ class SettingsShortcuts(BaseModel):
     restartLanguageServerShortcut: str = "Alt + Shift + R"
 
 
-class ChatWindowingShortcuts(BaseModel):
-    canvasToggle: str = "Shift + Esc"
-    maximizeFocused: str = "Mod + Shift + Enter"
-    minimizeFocused: str = "Mod + Shift + M"
-    snapLeft: str = "Mod + Alt + ArrowLeft"
-    snapRight: str = "Mod + Alt + ArrowRight"
-    snapTop: str = "Mod + Alt + ArrowUp"
-    snapBottom: str = "Mod + Alt + ArrowDown"
-
-
-class ChatWindowingSettings(BaseModel):
-    autoCreateInitialChat: bool = True
-    restorePriorStateOnUnmaximize: bool = True
-    shortcuts: ChatWindowingShortcuts = Field(default_factory=ChatWindowingShortcuts)
-
-
 class SettingsGUI(BaseModel):
     snapGrid: tuple[int, int] = (15, 15)
     showGridLines: bool = True
@@ -362,6 +346,30 @@ class SectionSizingPolicyByType(BaseModel):
             minHeight=0,
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
+            maxWidth=INFINITE_MAX_WIDTH,
+        )
+    )
+    StateMachineStart: SectionSizingPolicyTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyTypeEntry(
+            minHeight=96,
+            maxHeight=INFINITE_MAX_HEIGHT,
+            minWidth=240,
+            maxWidth=INFINITE_MAX_WIDTH,
+        )
+    )
+    StateMachineGate: SectionSizingPolicyTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyTypeEntry(
+            minHeight=120,
+            maxHeight=INFINITE_MAX_HEIGHT,
+            minWidth=240,
+            maxWidth=INFINITE_MAX_WIDTH,
+        )
+    )
+    StateMachineEnd: SectionSizingPolicyTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyTypeEntry(
+            minHeight=96,
+            maxHeight=INFINITE_MAX_HEIGHT,
+            minWidth=240,
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )

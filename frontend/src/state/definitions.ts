@@ -1,5 +1,6 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
@@ -32,7 +33,6 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -160,7 +160,6 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
-          projectChatWindowing: createProjectChatWindowingState(),
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
         })),
@@ -723,11 +722,6 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
-        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
-        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
-          string,
-          true
-        >,
       })),
     ),
   ),
@@ -979,16 +973,15 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
-export type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
   showAgenticEdges: boolean;
   showArgEdges: boolean;
+  chatSharedEdgeMode: ChatSharedEdgeMode;
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
-  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -1061,10 +1054,10 @@ export const useLocalStorage = createWithEqualityFn(
       snapToGrid: true,
       showAgenticEdges: true,
       showArgEdges: true,
+      chatSharedEdgeMode: "agentic",
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
-      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1129,6 +1122,12 @@ export const useLocalStorage = createWithEqualityFn(
           merged.homeProjectGalleryViewMode !== "list"
         ) {
           merged.homeProjectGalleryViewMode = "thumbnails";
+        }
+        if (
+          merged.chatSharedEdgeMode !== "agentic" &&
+          merged.chatSharedEdgeMode !== "workflow"
+        ) {
+          merged.chatSharedEdgeMode = "agentic";
         }
         if (!Array.isArray(merged.favoriteProjectConfigIds)) {
           merged.favoriteProjectConfigIds = [];
@@ -1220,12 +1219,14 @@ export const useLocalStorage = createWithEqualityFn(
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
+
         return merged;
       },
       partialize: (state) => ({
         snapToGrid: state.snapToGrid,
         showAgenticEdges: state.showAgenticEdges,
         showArgEdges: state.showArgEdges,
+        chatSharedEdgeMode: state.chatSharedEdgeMode,
         darkMode: state.darkMode,
         colorMode: state.colorMode,
         showMinimap: state.showMinimap,

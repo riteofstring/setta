@@ -117,10 +117,10 @@ from setta.project_state.project_manager_types import (
     CreateChildSectionsViaIncrementerRequest,
     CreateEdgeRequest,
     CreateNewSectionVariantRequest,
+    CreateStateMachineEdgeRequest,
     CreateTopLevelSectionRequest,
     CreateTopLevelSectionResponse,
     CreateViewModeRequest,
-    CreateWindowSpaceRequest,
     DeclineRenameRefactorRequest,
     DeleteAgenticEdgesRequest,
     DeleteChildSectionsViaDecrementerRequest,
@@ -130,8 +130,8 @@ from setta.project_state.project_manager_types import (
     DeleteSectionsRequest,
     DeleteSectionVariantOrAskRequest,
     DeleteSelectedParamsRequest,
+    DeleteStateMachineEdgesRequest,
     DeleteViewModeRequest,
-    DeleteWindowSpaceRequest,
     FormatCodeRequest,
     GenCodePrefixCompletionRequest,
     GenCodeSuffixCompletionRequest,
@@ -189,7 +189,6 @@ from setta.project_state.project_manager_types import (
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
     SetParentDefaultChildSectionTypeRequest,
-    SetProjectChatWindowingStateRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
@@ -211,6 +210,8 @@ from setta.project_state.project_manager_types import (
     SetSocialUrlRequest,
     SetSpreadsheetFilePathRequest,
     SetSpreadsheetSectionSettingsRequest,
+    SetStateMachineEdgesRequest,
+    SetStateMachineSectionSettingsRequest,
     SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
@@ -226,9 +227,6 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
-    SetWindowSpaceNameRequest,
-    SetWindowSpaceSortOrderRequest,
-    SetWindowSpaceStateRequest,
     TextFieldCompletionRequest,
     ToggleGroupOrientationRequest,
     ToggleIsEditingViewModeRequest,
@@ -248,6 +246,7 @@ from setta.project_state.project_manager_types import (
     UpdateAppDefinitionRequest,
     UpdateEdgeRequest,
     UpdateParamImplConfigRequest,
+    UpdateStateMachineEdgeRequest,
     ValidateAppDefinitionRequest,
     ValidateAppDefinitionResponse,
 )
@@ -291,6 +290,7 @@ from setta.types.helpers_lvl2 import (
     create_child_sections_via_incrementer,
     create_edge,
     create_new_section_variant,
+    create_state_machine_edge,
     create_top_level_section,
     delete_agentic_edges,
     delete_child_sections_via_decrementer,
@@ -300,6 +300,7 @@ from setta.types.helpers_lvl2 import (
     delete_section_variant_or_ask,
     delete_sections,
     delete_selected_params,
+    delete_state_machine_edges,
     detach_code_section_attached_terminal,
     ensure_code_section_attached_terminal,
     ensure_code_section_embedded_terminal_size,
@@ -339,7 +340,6 @@ from setta.types.helpers_lvl2 import (
     set_meta_control_show_section_title,
     set_param_entered_value,
     set_parent_default_child_section_type,
-    set_project_chat_windowing_state,
     set_project_config_name,
     set_prompt_section_format,
     set_prompt_section_inputs,
@@ -359,6 +359,8 @@ from setta.types.helpers_lvl2 import (
     set_social_url,
     set_spreadsheet_file_path,
     set_spreadsheet_section_settings,
+    set_state_machine_edges,
+    set_state_machine_section_settings,
     set_task_board_section_state,
     set_text_block_display_mode,
     set_text_block_format,
@@ -380,6 +382,7 @@ from setta.types.helpers_lvl2 import (
     update_agentic_edge,
     update_edge,
     update_param_impl_config,
+    update_state_machine_edge,
 )
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
@@ -407,7 +410,6 @@ from setta.types.project_config import (
     TopLevelSectionLayout,
     ViewModeConfig,
     Viewport,
-    WindowSpaceConfig,
     get_python_codegen_target,
     get_python_codegen_target_with_type_guard,
     project_config_has_codegen_language,
@@ -433,6 +435,7 @@ from setta.types.section_impls import (
     TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.types.state_machine_edges import StateMachineEdge
 from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
@@ -449,7 +452,6 @@ from setta.utils.name_validation import (
     validate_param_name_format,
     validate_project_name,
     validate_view_mode_name,
-    validate_window_space_name,
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
@@ -3641,6 +3643,49 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def create_state_machine_edge(self, x: CreateStateMachineEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        edge_kwargs = {
+            "machineGroupId": x.machineGroupId,
+            "sourceSectionId": x.sourceSectionId,
+            "sourcePortId": x.sourcePortId,
+            "targetSectionId": x.targetSectionId,
+            "targetPortId": x.targetPortId,
+            "sourceFilter": x.sourceFilter,
+            "targetAction": x.targetAction,
+            "style": x.style,
+            "hidden": x.hidden,
+            "zIndex": x.zIndex,
+        }
+        if x.id is not None:
+            edge_kwargs["id"] = x.id
+        edge = StateMachineEdge(**edge_kwargs)
+        create_state_machine_edge(project_state, edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def update_state_machine_edge(self, x: UpdateStateMachineEdgeRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        update_state_machine_edge(project_state, x.edge)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def delete_state_machine_edges(self, x: DeleteStateMachineEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        delete_state_machine_edges(project_state, x.edgeIds)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_state_machine_edges(self, x: SetStateMachineEdgesRequest):
+        self.add_new_history_entry()
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_state_machine_edges(project_state, x.edges)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -4134,10 +4179,6 @@ class BaseProjectManager(ABC):
             if previous_output_root.exists():
                 shutil.rmtree(previous_output_root)
             del self.project_state_backend.projectConfigs[project_config_id]
-            self.project_state_backend.projectChatWindowingByProjectConfigId.pop(
-                project_config_id,
-                None,
-            )
             gen_code = self.gen_code.pop(project_config_id, None)
             if gen_code is not None:
                 gen_code.callback_cleanup()
@@ -4565,110 +4606,6 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    async def create_window_space(self, x: CreateWindowSpaceRequest) -> ID:
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        next_sort_index = (
-            max(
-                (
-                    window_space.sortIndex
-                    for window_space in project_state.projectConfig.windowSpaces.values()
-                ),
-                default=-1,
-            )
-            + 1
-        )
-        if x.name is not None:
-            name = validate_window_space_name(project_state, None, x.name)
-        else:
-            existing_slugs = {
-                sanitize_slug(window_space.name)
-                for window_space in project_state.projectConfig.windowSpaces.values()
-            }
-            name = generate_memorable_string()
-            while sanitize_slug(name) in existing_slugs:
-                name = generate_memorable_string()
-        window_space = WindowSpaceConfig(
-            name=name,
-            sortIndex=next_sort_index,
-            windowsById=x.state.windowsById,
-            order=x.state.order,
-        )
-        project_state.projectConfig.windowSpaces[window_space.id] = window_space
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-        return window_space.id
-
-    @enqueue_method
-    async def set_window_space_name(self, x: SetWindowSpaceNameRequest) -> None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        window_spaces = project_state.projectConfig.windowSpaces
-        if x.windowSpaceId not in window_spaces:
-            raise KeyError(f"Window space {x.windowSpaceId} not found")
-        normalized_name = validate_window_space_name(
-            project_state,
-            x.windowSpaceId,
-            x.name,
-        )
-        window_spaces[x.windowSpaceId].name = normalized_name
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_window_space_sort_order(
-        self, x: SetWindowSpaceSortOrderRequest
-    ) -> None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        window_spaces = project_state.projectConfig.windowSpaces
-        existing_ids = set(window_spaces.keys())
-        ordered_ids = x.orderedWindowSpaceIds
-        if len(ordered_ids) != len(existing_ids):
-            raise ValueError(
-                "orderedWindowSpaceIds must contain every window space exactly once."
-            )
-        seen: set[str] = set()
-        for window_space_id in ordered_ids:
-            if window_space_id not in window_spaces:
-                raise KeyError(f"Window space {window_space_id} not found")
-            if window_space_id in seen:
-                raise ValueError(
-                    "orderedWindowSpaceIds must not contain duplicate window space IDs."
-                )
-            seen.add(window_space_id)
-        for index, window_space_id in enumerate(ordered_ids):
-            window_spaces[window_space_id].sortIndex = index
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def delete_window_space(self, x: DeleteWindowSpaceRequest) -> None:
-        self.add_new_history_entry()
-        project_state = self.get_single_config_state(x.projectConfigId)
-        window_spaces = project_state.projectConfig.windowSpaces
-        if x.windowSpaceId not in window_spaces:
-            raise KeyError(f"Window space {x.windowSpaceId} not found")
-        del window_spaces[x.windowSpaceId]
-        sorted_window_spaces = sorted(
-            window_spaces.values(),
-            key=lambda window_space: (
-                window_space.sortIndex,
-                window_space.name.lower(),
-                window_space.id,
-            ),
-        )
-        for index, window_space in enumerate(sorted_window_spaces):
-            window_space.sortIndex = index
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_window_space_state(self, x: SetWindowSpaceStateRequest) -> None:
-        project_state = self.get_single_config_state(x.projectConfigId)
-        window_spaces = project_state.projectConfig.windowSpaces
-        if x.windowSpaceId not in window_spaces:
-            raise KeyError(f"Window space {x.windowSpaceId} not found")
-        window_space = window_spaces[x.windowSpaceId]
-        window_space.windowsById = x.state.windowsById
-        window_space.order = x.state.order
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
     @project_state_tool(
         ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
             pathsByIdType={"section": ["sectionId"]}
@@ -4926,17 +4863,24 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    async def set_chat_section_state(self, x: SetChatSectionStateRequest):
+    async def set_state_machine_section_settings(
+        self, x: SetStateMachineSectionSettingsRequest
+    ):
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_chat_section_state(project_state, x.sectionId, x.state)
+        set_state_machine_section_settings(
+            project_state,
+            x.sectionId,
+            x.machineGroupId,
+            x.label,
+            x.gateType,
+            x.maxIterations,
+        )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    async def set_project_chat_windowing_state(
-        self, x: SetProjectChatWindowingStateRequest
-    ):
+    async def set_chat_section_state(self, x: SetChatSectionStateRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
-        set_project_chat_windowing_state(project_state, x.state)
+        set_chat_section_state(project_state, x.sectionId, x.state)
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

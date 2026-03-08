@@ -31,12 +31,9 @@ from setta.types.project_config import (
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
-    WindowSpaceConfig,
-    WindowSpaceSurfaceKind,
 )
 from setta.types.project_state import (
     SINGLETON_SECTION_TYPES,
-    ProjectChatWindowingState,
     ProjectStateBackend,
     ProjectStateCore,
     ProjectStateSingleConfig,
@@ -53,6 +50,7 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
 )
 from setta.types.shown_params import ShownParamIds
+from setta.types.state_machine_edges import StateMachineEdge
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 if TYPE_CHECKING:
@@ -107,10 +105,6 @@ def merge_single_config_into_backend(
         projectConfigs={
             **x.projectConfigs,
             config.projectConfig.id: config.projectConfig,
-        },
-        projectChatWindowingByProjectConfigId={
-            **x.projectChatWindowingByProjectConfigId,
-            config.projectConfig.id: config.projectChatWindowing,
         },
         defaultProjectConfigId=x.defaultProjectConfigId,
         appDefinition=x.appDefinition,
@@ -220,10 +214,6 @@ def convert_backend_to_single_config(p: ProjectStateBackend, projectConfigId: ID
         codeObjImpls=project_state_core.codeObjImpls,
         codeObjVariants=project_state_core.codeObjVariants,
         projectConfig=project_config,
-        projectChatWindowing=p.projectChatWindowingByProjectConfigId.get(
-            projectConfigId,
-            ProjectChatWindowingState(),
-        ),
     )
 
 
@@ -592,6 +582,12 @@ def _filter_project_config_for_summary(
         if edge.sourceSectionId in allowed_section_ids
         and edge.targetSectionId in allowed_section_ids
     ]
+    cloned.stateMachineEdges = [
+        edge
+        for edge in cloned.stateMachineEdges
+        if edge.sourceSectionId in allowed_section_ids
+        and edge.targetSectionId in allowed_section_ids
+    ]
     if cloned.entryCodeBlockId not in allowed_section_ids:
         cloned.entryCodeBlockId = None
     for view_mode in cloned.viewModes.values():
@@ -605,21 +601,6 @@ def _filter_project_config_for_summary(
             for section_id, visible in view_mode.visibilityBySectionId.items()
             if section_id in allowed_section_ids
         }
-    for window_space in cloned.windowSpaces.values():
-        next_windows_by_id = {}
-        for instance_id, window in window_space.windowsById.items():
-            if window.surfaceKind != WindowSpaceSurfaceKind.section:
-                next_windows_by_id[instance_id] = window
-                continue
-            if window.sectionIdOrNull not in allowed_section_ids:
-                continue
-            next_windows_by_id[instance_id] = window
-        window_space.windowsById = next_windows_by_id
-        window_space.order = [
-            instance_id
-            for instance_id in window_space.order
-            if instance_id in next_windows_by_id
-        ]
     return cloned
 
 
@@ -780,44 +761,6 @@ def remap_view_modes(
     return remapped_view_modes
 
 
-def remap_window_spaces(
-    window_spaces: dict[ID, WindowSpaceConfig],
-    section_id_map: dict[ID, ID] | None,
-):
-    if not section_id_map:
-        return window_spaces
-    remapped_window_spaces: dict[ID, WindowSpaceConfig] = {}
-    for window_space_id, window_space in window_spaces.items():
-        remapped_windows_by_id = {}
-        for instance_id, window in window_space.windowsById.items():
-            if window.surfaceKind != WindowSpaceSurfaceKind.section:
-                remapped_windows_by_id[instance_id] = window.model_copy(deep=True)
-                continue
-            section_id = window.sectionIdOrNull
-            if section_id is None:
-                continue
-            if section_id not in section_id_map:
-                raise KeyError(f"Section {section_id} missing for window space remap.")
-            remapped_windows_by_id[instance_id] = window.model_copy(
-                update={
-                    "sectionIdOrNull": section_id_map[section_id],
-                },
-                deep=True,
-            )
-        remapped_window_spaces[window_space_id] = window_space.model_copy(
-            update={
-                "windowsById": remapped_windows_by_id,
-                "order": [
-                    instance_id
-                    for instance_id in window_space.order
-                    if instance_id in remapped_windows_by_id
-                ],
-            },
-            deep=True,
-        )
-    return remapped_window_spaces
-
-
 def copy_project_config(
     project_config: ProjectConfig,
     new_config_name: str | None = None,
@@ -848,9 +791,6 @@ def copy_project_config(
         new_values["viewModes"] = remap_view_modes(
             project_config.viewModes, section_id_map
         )
-        new_values["windowSpaces"] = remap_window_spaces(
-            project_config.windowSpaces, section_id_map
-        )
         if project_config.edges:
             if code_obj_id_map is None:
                 raise ValueError("Code obj map is required to remap edges.")
@@ -863,6 +803,11 @@ def copy_project_config(
         if project_config.agenticEdges:
             new_values["agenticEdges"] = _remap_agentic_edges(
                 project_config.agenticEdges,
+                section_id_map,
+            )
+        if project_config.stateMachineEdges:
+            new_values["stateMachineEdges"] = _remap_state_machine_edges(
+                project_config.stateMachineEdges,
                 section_id_map,
             )
 
@@ -915,6 +860,32 @@ def _remap_agentic_edges(
         if edge.targetSectionId not in section_id_map:
             raise KeyError(
                 f"Section {edge.targetSectionId} missing for agentic edge remap."
+            )
+        remapped.append(
+            edge.model_copy(
+                update={
+                    "sourceSectionId": section_id_map[edge.sourceSectionId],
+                    "targetSectionId": section_id_map[edge.targetSectionId],
+                },
+                deep=True,
+            )
+        )
+    return remapped
+
+
+def _remap_state_machine_edges(
+    edges: list[StateMachineEdge],
+    section_id_map: dict[ID, ID],
+) -> list[StateMachineEdge]:
+    remapped: list[StateMachineEdge] = []
+    for edge in edges:
+        if edge.sourceSectionId not in section_id_map:
+            raise KeyError(
+                f"Section {edge.sourceSectionId} missing for state machine edge remap."
+            )
+        if edge.targetSectionId not in section_id_map:
+            raise KeyError(
+                f"Section {edge.targetSectionId} missing for state machine edge remap."
             )
         remapped.append(
             edge.model_copy(
