@@ -39,6 +39,9 @@ Start with explicit route ownership wedges, not full schema reflection.
     `binaryDownload` route constants
 - decide the minimal typed request/response ownership model for Go-backed HTTP
   contracts
+  - current landed wedge: active status/meta read endpoint wrappers and
+    response types for `backendInitStatus`, `authRefreshStatus`,
+    `serverMode`, and `settaHomeInfo`
 - keep schema reflection as a bounded tool, not the default owner
 
 ## Non-Goals

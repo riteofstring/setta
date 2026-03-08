@@ -29,10 +29,10 @@ import { C_ADDRESSES } from "utils/c_addresses";
 import { res200 } from "utils/endpointUtils";
 import {
   route_binary_upload,
-  route_get_auth_refresh_status,
   route_get_latest_lsp_diagnostics,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
+import { route_get_auth_refresh_status } from "utils/generatedGoEndpoints";
 import { GoRootRoutes, GoWebsocketRoutes } from "utils/generatedGoRoutes";
 import {
   BaseDependencyKeyUnion,

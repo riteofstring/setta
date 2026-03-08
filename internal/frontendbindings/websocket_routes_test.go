@@ -17,6 +17,9 @@ export const GoRootRoutes = {
 } as const;
 
 export const GoHTTPRoutes = {
+  getBackendInitStatus: "/backendInitStatus",
+  getAuthRefreshStatus: "/authRefreshStatus",
+  getServerMode: "/serverMode",
   createWorkspaceLaunchIntent: "/createWorkspaceLaunchIntent",
   launch: "/launch",
   getSettaHomeInfo: "/settaHomeInfo",

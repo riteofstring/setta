@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { IoMdGitBranch } from "react-icons/io";
 import { res200 } from "utils/endpointUtils";
-import { route_get_backend_init_status } from "utils/generatedEndpoints";
+import { route_get_backend_init_status } from "utils/generatedGoEndpoints";
 
 export function WorktreeHint() {
   const [worktreeName, setWorktreeName] = useState<string | null>(null);

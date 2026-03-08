@@ -55,6 +55,18 @@ func CurrentRootRoutes() []RootRoute {
 func CurrentHTTPRoutes() []HTTPRoute {
 	return []HTTPRoute{
 		{
+			Name: "getBackendInitStatus",
+			Path: httpapi.RouteGetBackendInitStatus,
+		},
+		{
+			Name: "getAuthRefreshStatus",
+			Path: httpapi.RouteGetAuthRefreshStatus,
+		},
+		{
+			Name: "getServerMode",
+			Path: httpapi.RouteGetServerMode,
+		},
+		{
 			Name: "createWorkspaceLaunchIntent",
 			Path: httpapi.RouteCreateWorkspaceLaunchIntent,
 		},

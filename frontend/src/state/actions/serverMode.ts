@@ -1,10 +1,11 @@
 import { useServerMode } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
-import { route_get_server_mode } from "utils/generatedEndpoints";
+import {
+  type ServerMode,
+  route_get_server_mode,
+} from "utils/generatedGoEndpoints";
 
-export async function initializeServerMode(): Promise<
-  "ide" | "share" | "app" | "launcher" | null
-> {
+export async function initializeServerMode(): Promise<ServerMode | null> {
   const serverMode = useServerMode.getState();
   if (serverMode.modeResolved) {
     return serverMode.mode;

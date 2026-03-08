@@ -17,10 +17,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_binary_upload: vi.fn(),
-  route_get_auth_refresh_status: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
   route_get_latest_lsp_diagnostics: vi.fn(),
+}));
+
+vi.mock("utils/generatedGoEndpoints", () => ({
+  route_get_auth_refresh_status: vi.fn(),
 }));
 
 vi.mock("state/actions/lspDiagnostics", () => ({
@@ -172,7 +175,7 @@ describe("openWebSocket", () => {
       globalThis;
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     const { route_get_listener_coverage } = await import(
       "utils/generatedEndpoints"
@@ -400,7 +403,7 @@ describe("openWebSocket", () => {
   it("does not set frontend websocket affinity from AllConnections payloads", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     const { buildFrontendAffinityCurrentAddress, getFrontendAffinityToken } =
       await import("state/actions/frontendWebsocketAffinity");
@@ -436,7 +439,7 @@ describe("openWebSocket", () => {
   it("updates frontend websocket affinity from FrontendIdentity and keeps it stable", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
@@ -474,7 +477,7 @@ describe("openWebSocket", () => {
   it("clears affinity immediately on socket replacement and ignores stale socket identity events", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
@@ -522,7 +525,7 @@ describe("openWebSocket", () => {
   it("repopulates affinity from active-socket FrontendIdentity after replacement clear", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
@@ -566,7 +569,7 @@ describe("openWebSocket", () => {
   it("reconnects once after an active-socket transport error followed by close", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -597,7 +600,7 @@ describe("openWebSocket", () => {
   it("ignores stale-socket transport errors after socket replacement", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -626,7 +629,7 @@ describe("openWebSocket", () => {
   it("does not schedule reconnect from stale close events during socket replacement", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -653,7 +656,7 @@ describe("openWebSocket", () => {
   it("sends current address updates when pathname changes on an open socket", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     const { buildFrontendAffinityCurrentAddress } = await import(
       "state/actions/frontendWebsocketAffinity"
@@ -712,7 +715,7 @@ describe("openWebSocket", () => {
       "state/actions/uiSettingReveal"
     );
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -825,7 +828,7 @@ describe("openWebSocket", () => {
       "state/actions/uiSettingReveal"
     );
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -932,7 +935,7 @@ describe("openWebSocket", () => {
       "state/actions/uiSettingReveal"
     );
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -1012,7 +1015,7 @@ describe("openWebSocket", () => {
       "state/actions/uiSettingReveal"
     );
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -1090,7 +1093,7 @@ describe("openWebSocket", () => {
       "state/actions/uiSettingReveal"
     );
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
@@ -1144,7 +1147,7 @@ describe("openWebSocket", () => {
   it("returns structured failure statuses for malformed reveal targets when ids are available", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(
-      "utils/generatedEndpoints"
+      "utils/generatedGoEndpoints"
     );
     vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,

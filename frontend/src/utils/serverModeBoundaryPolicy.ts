@@ -1,5 +1,5 @@
+import type { ServerModeResponse } from "./generatedGoEndpoints";
 import { GoHTTPRoutes, GoRootRoutes } from "./generatedGoRoutes";
-import type { ServerModeResponse } from "./generatedTypes";
 
 export type ServerMode = ServerModeResponse["mode"] | null;
 export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";

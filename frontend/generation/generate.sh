@@ -20,7 +20,7 @@ python -m generation.generate_listener_endpoints && \
 python -m generation.convert_pydantic_to_js && \
 python -m generation.convert_constants_to_js && \
 python -m generation.convert_endpoints && \
-../scripts/go.sh run ./cmd/setta-gen-frontend-bindings -out frontend/src/utils/generatedGoRoutes.ts && \
+../scripts/go.sh run ./cmd/setta-gen-frontend-bindings -out frontend/src/utils/generatedGoRoutes.ts -endpoints-out frontend/src/utils/generatedGoEndpoints.ts && \
 cd .. && \
 ./format_code.sh
 echo "Done!"
