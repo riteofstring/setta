@@ -2155,6 +2155,162 @@ func TestRegisterProjectRoutesSetSectionColumnWidthRejectsUnsupportedSection(t *
 	}
 }
 
+func TestRegisterProjectRoutesSectionEdgeMutationsPersistLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+route,
+			strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for _, requestSpec := range []struct {
+		route string
+		body  string
+	}{
+		{
+			route: RouteSetSectionEdgeInputs,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","edgeInputParams":[" added-param ","added-param"]}`,
+		},
+		{
+			route: RouteSetSectionEdgeOutputs,
+			body:  `{"projectConfigId":"project-alpha","sectionId":"dict-section","edgeOutputPorts":[{"id":"new-port","accessor":"  .result  "},{"id":"new-port","accessor":".ignored"}]}`,
+		},
+	} {
+		response := post(requestSpec.route, requestSpec.body)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s, got %d with body %q", requestSpec.route, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	dictSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.Sections["dict-section"].SharedModifier)
+	if got := decodeProjectRouteStringArray(dictSharedModifier["edgeInputParams"]); !reflect.DeepEqual(got, []string{"added-param"}) {
+		t.Fatalf("expected edgeInputParams [added-param], got %#v", got)
+	}
+
+	rawPorts, ok := dictSharedModifier["edgeOutputPorts"].([]any)
+	if !ok || len(rawPorts) != 1 {
+		t.Fatalf("expected one edgeOutputPort, got %#v", dictSharedModifier["edgeOutputPorts"])
+	}
+	portObject, ok := rawPorts[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected edgeOutputPorts[0] object, got %#v", rawPorts[0])
+	}
+	if got := portObject["id"]; got != "new-port" {
+		t.Fatalf("expected edgeOutputPorts[0].id new-port, got %#v", got)
+	}
+	if got := portObject["accessor"]; got != ".result" {
+		t.Fatalf("expected edgeOutputPorts[0].accessor .result, got %#v", got)
+	}
+
+	addedVariantID := payload.ProjectState.CodeObjs["added-param"].DefaultVariant
+	if addedVariantID == nil {
+		t.Fatal("expected added-param default variant to be present")
+	}
+	addedImplID := payload.ProjectState.CodeObjVariants[*addedVariantID].Impl
+	addedPayload := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjImpls[addedImplID])
+	if got := addedPayload["type"]; got != "CodeParam" {
+		t.Fatalf("expected added-param to convert to CodeParam, got %#v", got)
+	}
+}
+
+func TestRegisterProjectRoutesSectionEdgeMutationsRejectInvalidInputs(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionEdgeRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+
+	for _, requestSpec := range []struct {
+		route        string
+		body         string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			route:        RouteSetSectionEdgeInputs,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","edgeInputParams":["added-param"]}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"section_edge_io_unsupported"`,
+		},
+		{
+			route:        RouteSetSectionEdgeOutputs,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"plain-section","edgeOutputPorts":[{"id":"result","accessor":".result"}]}`,
+			expectedCode: http.StatusUnprocessableEntity,
+			expectedBody: `"code":"section_edge_io_unsupported"`,
+		},
+		{
+			route:        RouteSetSectionEdgeInputs,
+			body:         `{"projectConfigId":"project-alpha","sectionId":"dict-section","edgeInputParams":["missing-param"]}`,
+			expectedCode: http.StatusNotFound,
+			expectedBody: `"code":"param_info_not_found"`,
+		},
+	} {
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api"+requestSpec.route,
+			strings.NewReader(requestSpec.body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != requestSpec.expectedCode {
+			t.Fatalf("expected %d for %s, got %d with body %q", requestSpec.expectedCode, requestSpec.route, response.Code, response.Body.String())
+		}
+		if !strings.Contains(response.Body.String(), requestSpec.expectedBody) {
+			t.Fatalf("expected response body to contain %s, got %q", requestSpec.expectedBody, response.Body.String())
+		}
+	}
+}
+
 func TestSectionSizeValueRequestUnmarshalJSONSupportsAutoAndNumbers(t *testing.T) {
 	t.Parallel()
 
@@ -3929,6 +4085,197 @@ func sectionFilterMetaControlRouteTestProject(t *testing.T) projectstate.Project
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize section filter/meta control route project: %v", err)
+	}
+	return project
+}
+
+func sectionEdgeRouteTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		TopLevelSectionIDs: []string{
+			"dict-section",
+			"source-section",
+			"sink-section",
+			"plain-section",
+		},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"dict-section":   {X: 10, Y: 10},
+			"source-section": {X: 20, Y: 20},
+			"sink-section":   {X: 30, Y: 30},
+			"plain-section":  {X: 40, Y: 40},
+		},
+		SectionVariantMap: map[string]string{
+			"dict-section":   "dict-variant",
+			"source-section": "source-variant",
+			"sink-section":   "sink-variant",
+			"plain-section":  "plain-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"dict-section": {
+				ID:               "dict-section",
+				Name:             "Dict",
+				VariantIDs:       []string{"dict-variant"},
+				DefaultVariantID: "dict-variant",
+			},
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source",
+				VariantIDs:       []string{"source-variant"},
+				DefaultVariantID: "source-variant",
+			},
+			"sink-section": {
+				ID:               "sink-section",
+				Name:             "Sink",
+				VariantIDs:       []string{"sink-variant"},
+				DefaultVariantID: "sink-variant",
+			},
+			"plain-section": {
+				ID:               "plain-section",
+				Name:             "Plain",
+				VariantIDs:       []string{"plain-variant"},
+				DefaultVariantID: "plain-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"dict-variant":   {ID: "dict-variant", ImplID: "dict-impl"},
+			"source-variant": {ID: "source-variant", ImplID: "source-impl"},
+			"sink-variant":   {ID: "sink-variant", ImplID: "sink-impl"},
+			"plain-variant":  {ID: "plain-variant", ImplID: "plain-impl"},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"dict-impl": {
+				ID:   "dict-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":              "dict-impl",
+					"type":            "Dict",
+					"topLevelParamId": "dict-root",
+					"codeObjVariantMap": map[string]string{
+						"dict-root":    "dict-root-variant",
+						"target-param": "target-param-variant",
+						"added-param":  "added-param-variant",
+					},
+					"edgeInputParams": []string{"target-param"},
+					"edgeOutputPorts": []map[string]any{{"id": "result", "accessor": ".old"}},
+				}),
+			},
+			"source-impl": {
+				ID:      "source-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "source-impl", "type": "TextBlock"}),
+			},
+			"sink-impl": {
+				ID:   "sink-impl",
+				Kind: projectstate.SectionKind("dict"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{
+					"id":              "sink-impl",
+					"type":            "Dict",
+					"topLevelParamId": "sink-root",
+					"codeObjVariantMap": map[string]string{
+						"sink-root":  "sink-root-variant",
+						"sink-param": "sink-param-variant",
+					},
+					"edgeInputParams": []string{"sink-param"},
+				}),
+			},
+			"plain-impl": {
+				ID:      "plain-impl",
+				Kind:    projectstate.SectionKind("frontend"),
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "plain-impl", "type": "TextBlock"}),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"dict-root": {
+				ID:               "dict-root",
+				Name:             "root",
+				VariantIDs:       []string{"dict-root-variant"},
+				DefaultVariantID: "dict-root-variant",
+			},
+			"target-param": {
+				ID:               "target-param",
+				Name:             "target",
+				VariantIDs:       []string{"target-param-variant"},
+				DefaultVariantID: "target-param-variant",
+			},
+			"added-param": {
+				ID:               "added-param",
+				Name:             "added",
+				VariantIDs:       []string{"added-param-variant"},
+				DefaultVariantID: "added-param-variant",
+			},
+			"sink-root": {
+				ID:               "sink-root",
+				Name:             "sink_root",
+				VariantIDs:       []string{"sink-root-variant"},
+				DefaultVariantID: "sink-root-variant",
+			},
+			"sink-param": {
+				ID:               "sink-param",
+				Name:             "sink_param",
+				VariantIDs:       []string{"sink-param-variant"},
+				DefaultVariantID: "sink-param-variant",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"dict-root-variant":    {ID: "dict-root-variant", ImplID: "dict-root-impl"},
+			"target-param-variant": {ID: "target-param-variant", ImplID: "target-param-impl"},
+			"added-param-variant":  {ID: "added-param-variant", ImplID: "added-param-impl"},
+			"sink-root-variant":    {ID: "sink-root-variant", ImplID: "sink-root-impl"},
+			"sink-param-variant":   {ID: "sink-param-variant", ImplID: "sink-param-impl"},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"dict-root-impl": {
+				ID:      "dict-root-impl",
+				Type:    "NestedParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "dict-root-impl", "type": "NestedParam", "children": []string{"target-param", "added-param"}}),
+			},
+			"target-param-impl": {
+				ID:      "target-param-impl",
+				Type:    "CodeParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "target-param-impl", "type": "CodeParam", "coreNameEditable": true, "passingStyle": "DEFAULT", "value": "connected"}),
+			},
+			"added-param-impl": {
+				ID:      "added-param-impl",
+				Type:    "TextParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "added-param-impl", "type": "TextParam", "coreNameEditable": true, "passingStyle": "DEFAULT", "value": "typed"}),
+			},
+			"sink-root-impl": {
+				ID:      "sink-root-impl",
+				Type:    "NestedParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "sink-root-impl", "type": "NestedParam", "children": []string{"sink-param"}}),
+			},
+			"sink-param-impl": {
+				ID:      "sink-param-impl",
+				Type:    "CodeParam",
+				Payload: mustProjectRouteRawJSON(t, map[string]any{"id": "sink-param-impl", "type": "CodeParam", "coreNameEditable": true, "passingStyle": "DEFAULT", "value": "connected"}),
+			},
+		},
+		Edges: []projectstate.Edge{
+			{
+				ID:              "incoming-edge",
+				SourceSectionID: "source-section",
+				SourceVariantID: "source-variant",
+				SourcePortID:    "source-port",
+				TargetSectionID: "dict-section",
+				TargetVariantID: "dict-variant",
+				TargetPortID:    "target-param",
+			},
+			{
+				ID:              "outgoing-edge",
+				SourceSectionID: "dict-section",
+				SourceVariantID: "dict-variant",
+				SourcePortID:    "result",
+				TargetSectionID: "sink-section",
+				TargetVariantID: "sink-variant",
+				TargetPortID:    "sink-param",
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize section edge route project: %v", err)
 	}
 	return project
 }

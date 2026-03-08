@@ -379,6 +379,16 @@ func newTypeConverter() *typeConverter {
 				Kind: "raw",
 				Raw:  setSectionColumnWidthRequestInputRawTS,
 			},
+			reflect.TypeOf(SetSectionEdgeInputsRequestInput{}): {
+				Name: "SetSectionEdgeInputsRequestInput",
+				Kind: "raw",
+				Raw:  setSectionEdgeInputsRequestInputRawTS,
+			},
+			reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}): {
+				Name: "SetSectionEdgeOutputsRequestInput",
+				Kind: "raw",
+				Raw:  setSectionEdgeOutputsRequestInputRawTS,
+			},
 			reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{}): {
 				Name: "SetParentDefaultChildSectionTypeRequestInput",
 				Kind: "raw",

@@ -442,6 +442,16 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "SET_SECTION_COLUMN_WIDTH",
 				},
 				{
+					Name:     "setSectionEdgeInputs",
+					Path:     httpapi.RouteSetSectionEdgeInputs,
+					EnumName: "SET_SECTION_EDGE_INPUTS",
+				},
+				{
+					Name:     "setSectionEdgeOutputs",
+					Path:     httpapi.RouteSetSectionEdgeOutputs,
+					EnumName: "SET_SECTION_EDGE_OUTPUTS",
+				},
+				{
 					Name:     "setParentDefaultChildSectionType",
 					Path:     httpapi.RouteSetParentDefaultChildSectionType,
 					EnumName: "SET_PARENT_DEFAULT_CHILD_SECTION_TYPE",
@@ -1379,6 +1389,20 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setSectionColumnWidth",
 			RequestType:     reflect.TypeOf(SetSectionColumnWidthRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_edge_inputs",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionEdgeInputs",
+			RequestType:     reflect.TypeOf(SetSectionEdgeInputsRequestInput{}),
+		},
+		{
+			FunctionName:    "route_set_section_edge_outputs",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "setSectionEdgeOutputs",
+			RequestType:     reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}),
 		},
 		{
 			FunctionName:    "route_set_parent_default_child_section_type",

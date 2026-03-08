@@ -69,6 +69,8 @@ import {
   route_set_chat_section_state,
   route_set_code_file_binding,
   route_set_group_overflow_mode,
+  route_set_section_edge_inputs,
+  route_set_section_edge_outputs,
   route_set_list_root_view_mode,
   route_set_llm_api_keys,
   route_set_meta_control_show_section_title,
@@ -691,6 +693,58 @@ describe("generatedEndpoints project shell and layout", () => {
             height: 180,
           },
         },
+      }),
+    });
+  });
+
+  it("posts edge-input writes with the canonical request shape", async () => {
+    await route_set_section_edge_inputs({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      edgeInputParams: ["param-a", "param-b"],
+      frontendOpId: "frontend-op-edge-inputs",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionEdgeInputs`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        edgeInputParams: ["param-a", "param-b"],
+        frontendOpId: "frontend-op-edge-inputs",
+      }),
+    });
+  });
+
+  it("posts edge-output writes with the canonical request shape", async () => {
+    await route_set_section_edge_outputs({
+      projectConfigId: "project-alpha",
+      sectionId: "dict-section",
+      edgeOutputPorts: [
+        { id: "result", accessor: ".result" },
+        { id: "summary", accessor: "" },
+      ],
+      frontendOpId: "frontend-op-edge-outputs",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND}/setSectionEdgeOutputs`,
+    );
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        projectConfigId: "project-alpha",
+        sectionId: "dict-section",
+        edgeOutputPorts: [
+          { id: "result", accessor: ".result" },
+          { id: "summary", accessor: "" },
+        ],
+        frontendOpId: "frontend-op-edge-outputs",
       }),
     });
   });

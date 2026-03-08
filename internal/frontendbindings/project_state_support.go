@@ -143,6 +143,10 @@ type SetMetaControlShowSectionTitleRequestInput struct{}
 
 type SetSectionColumnWidthRequestInput struct{}
 
+type SetSectionEdgeInputsRequestInput struct{}
+
+type SetSectionEdgeOutputsRequestInput struct{}
+
 type SetParentDefaultChildSectionTypeRequestInput struct{}
 
 type SetListRootViewModeRequestInput struct{}
@@ -223,6 +227,24 @@ export type SetSectionColumnWidthRequestInput = {
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
+};
+`
+
+const setSectionEdgeInputsRequestInputRawTS = `
+export type SetSectionEdgeInputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeInputParams: Array<string>;
+};
+`
+
+const setSectionEdgeOutputsRequestInputRawTS = `
+export type SetSectionEdgeOutputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeOutputPorts: Array<EdgePort>;
 };
 `
 

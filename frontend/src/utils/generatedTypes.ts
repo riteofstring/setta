@@ -6569,6 +6569,26 @@ export type SetSectionColumnWidthRequestInput = {
 
 
 
+export type SetSectionEdgeInputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeInputParams: Array<string>;
+};
+
+
+
+
+export type SetSectionEdgeOutputsRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  edgeOutputPorts: Array<EdgePort>;
+};
+
+
+
+
 export type SetParentDefaultChildSectionTypeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;

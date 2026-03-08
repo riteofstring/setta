@@ -188,7 +188,7 @@ func (p Project) allowedChangeParamImplTypes(sectionID string) (map[string]struc
 	switch canonicalSectionType(payloadStringField(payload, "type"), impl) {
 	case "MetaControl":
 		return controlCodeObjectTypes, nil
-	case "Callable", "Dict":
+	case "Callable", "Dict", "GlobalVariables":
 		return sectionParamCodeObjectTypes, nil
 	default:
 		return nil, fmt.Errorf("%w: section=%q type=%q", ErrChangeParamImplUnsupported, sectionID, canonicalSectionType(payloadStringField(payload, "type"), impl))

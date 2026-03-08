@@ -382,6 +382,16 @@ export async function route_set_section_column_width(x: gt.SetSectionColumnWidth
   return await post(GoHTTPRoutes.setSectionColumnWidth, x);
 
 }
+export async function route_set_section_edge_inputs(x: gt.SetSectionEdgeInputsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionEdgeInputs, x);
+
+}
+export async function route_set_section_edge_outputs(x: gt.SetSectionEdgeOutputsRequestInput): Promise<ResponseDataAndStatus<null>> {
+
+  return await post(GoHTTPRoutes.setSectionEdgeOutputs, x);
+
+}
 export async function route_set_parent_default_child_section_type(x: gt.SetParentDefaultChildSectionTypeRequestInput): Promise<ResponseDataAndStatus<null>> {
 
   return await post(GoHTTPRoutes.setParentDefaultChildSectionType, x);

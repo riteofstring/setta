@@ -45,6 +45,11 @@ type TopLevelSectionLayout struct {
 	H      *float64 `json:"h,omitempty"`
 }
 
+type EdgePort struct {
+	ID       string `json:"id"`
+	Accessor string `json:"accessor"`
+}
+
 type ViewMode struct {
 	ID                    string                           `json:"id"`
 	Name                  string                           `json:"name"`

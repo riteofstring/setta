@@ -55,6 +55,8 @@ const (
 	RouteSetSectionParamFilter            = "/setSectionParamFilter"
 	RouteSetMetaControlShowSectionTitle   = "/setMetaControlShowSectionTitle"
 	RouteSetSectionColumnWidth            = "/setSectionColumnWidth"
+	RouteSetSectionEdgeInputs             = "/setSectionEdgeInputs"
+	RouteSetSectionEdgeOutputs            = "/setSectionEdgeOutputs"
 	RouteSetParentDefaultChildSectionType = "/setParentDefaultChildSectionType"
 	RouteSetListRootViewMode              = "/setListRootViewMode"
 	RouteSetCallableHideParams            = "/setCallableHideParams"
@@ -426,6 +428,20 @@ type SetSectionColumnWidthRequest struct {
 	ColumnWidth  *float64 `json:"columnWidth"`
 }
 
+type SetSectionEdgeInputsRequest struct {
+	FrontendOpID    *string  `json:"frontendOpId"`
+	ProjectID       string   `json:"projectConfigId"`
+	SectionID       string   `json:"sectionId"`
+	EdgeInputParams []string `json:"edgeInputParams"`
+}
+
+type SetSectionEdgeOutputsRequest struct {
+	FrontendOpID    *string                 `json:"frontendOpId"`
+	ProjectID       string                  `json:"projectConfigId"`
+	SectionID       string                  `json:"sectionId"`
+	EdgeOutputPorts []projectstate.EdgePort `json:"edgeOutputPorts"`
+}
+
 type SetParentDefaultChildSectionTypeRequest struct {
 	FrontendOpID            *string `json:"frontendOpId"`
 	ProjectID               string  `json:"projectConfigId"`
@@ -639,6 +655,8 @@ func RegisterProjectRoutes(router chi.Router, deps ProjectRouteDependencies) err
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionParamFilter, setSectionParamFilterHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetMetaControlShowSectionTitle, setMetaControlShowSectionTitleHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionColumnWidth, setSectionColumnWidthHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionEdgeInputs, setSectionEdgeInputsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetSectionEdgeOutputs, setSectionEdgeOutputsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetParentDefaultChildSectionType, setParentDefaultChildSectionTypeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetListRootViewMode, setListRootViewModeHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetGroupOverflowMode, setGroupOverflowModeHandler(deps))
@@ -1958,6 +1976,78 @@ func setSectionColumnWidthHandler(deps ProjectRouteDependencies) http.HandlerFun
 	}
 }
 
+func setSectionEdgeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionEdgeInputsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionEdgeInputs(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.EdgeInputParams,
+		); err != nil {
+			writeSectionEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setSectionEdgeOutputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetSectionEdgeOutputsRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		projectID := strings.TrimSpace(payload.ProjectID)
+		if projectID == "" {
+			writeError(w, r, http.StatusBadRequest, "project_config_id_required", "Project config id is required.")
+			return
+		}
+		sectionID := strings.TrimSpace(payload.SectionID)
+		if sectionID == "" {
+			writeError(w, r, http.StatusBadRequest, "section_id_required", "Section id is required.")
+			return
+		}
+		if deps.ProjectState == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if _, err := deps.ProjectState.SetSectionEdgeOutputs(
+			projectMutationContext(r.Context(), payload.FrontendOpID),
+			projectID,
+			sectionID,
+			payload.EdgeOutputPorts,
+		); err != nil {
+			writeSectionEdgeMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
 func setParentDefaultChildSectionTypeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[SetParentDefaultChildSectionTypeRequest](r)
@@ -2692,6 +2782,23 @@ func writeProjectLayoutMutationError(w http.ResponseWriter, r *http.Request, err
 		writeError(w, r, http.StatusUnprocessableEntity, "section_param_column_width_unsupported", err.Error())
 	default:
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+	}
+}
+
+func writeSectionEdgeMutationError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, projectstate.ErrCodeObjIDRequired):
+		writeError(w, r, http.StatusBadRequest, "param_info_id_required", "Param info id is required.")
+	case errors.Is(err, projectstate.ErrCodeObjNotFound):
+		writeError(w, r, http.StatusNotFound, "param_info_not_found", "Param info not found.")
+	case errors.Is(err, projectstate.ErrSectionEdgeIOUnsupported):
+		writeError(w, r, http.StatusUnprocessableEntity, "section_edge_io_unsupported", err.Error())
+	case errors.Is(err, projectstate.ErrSectionEdgeInputParamUnsupported),
+		errors.Is(err, projectstate.ErrChangeParamImplUnsupported),
+		errors.Is(err, projectstate.ErrChangeParamImplCodeObjTypeNotAllowed):
+		writeError(w, r, http.StatusUnprocessableEntity, "edge_input_param_invalid", err.Error())
+	default:
+		writeProjectLayoutMutationError(w, r, err)
 	}
 }
 

@@ -702,6 +702,10 @@ Current landed wedge:
     `sectionInfos`, `SelectionContextMenu`, `DeleteOrHideButton`,
     `UngroupButton`, `KwargsControls`, and `PluginArea` now consume canonical
     Go-generated project-state mutation bindings
+  - `KwargsControls` and `EdgePortsSettings` now consume canonical
+    Go-generated `setSectionEdgeInputs` and `setSectionEdgeOutputs` bindings
+    for the current edge-input/output mutation slice, including the
+    `GlobalVariables` conversion path and edge-cleanup semantics owned by Go
   - `createSections`, `ViewingEditingMode`, `ViewModeTabs`, `SectionTitle`,
     and the Setta API preset helper now consume canonical Go-generated
     top-level section creation, view-mode lifecycle, and section-rename

@@ -14,11 +14,6 @@ type CreateNewSectionVariantResult struct {
 	VariantID string `json:"variantId"`
 }
 
-type sectionEdgeOutputPort struct {
-	ID       string
-	Accessor string
-}
-
 func (d *Document) CreateNewSectionVariant(
 	projectID string,
 	input CreateNewSectionVariantInput,
@@ -318,7 +313,7 @@ func (p *Project) copyEdgesForNewSectionVariant(
 	return nil
 }
 
-func payloadEdgeOutputPorts(object map[string]any) []sectionEdgeOutputPort {
+func payloadEdgeOutputPorts(object map[string]any) []EdgePort {
 	value, ok := object["edgeOutputPorts"]
 	if !ok {
 		return nil
@@ -328,7 +323,7 @@ func payloadEdgeOutputPorts(object map[string]any) []sectionEdgeOutputPort {
 		return nil
 	}
 
-	output := make([]sectionEdgeOutputPort, 0, len(entries))
+	output := make([]EdgePort, 0, len(entries))
 	for _, entry := range entries {
 		portObject, ok := entry.(map[string]any)
 		if !ok {
@@ -338,7 +333,7 @@ func payloadEdgeOutputPorts(object map[string]any) []sectionEdgeOutputPort {
 		if portID == "" {
 			continue
 		}
-		output = append(output, sectionEdgeOutputPort{
+		output = append(output, EdgePort{
 			ID:       portID,
 			Accessor: payloadRawStringField(portObject, "accessor"),
 		})
