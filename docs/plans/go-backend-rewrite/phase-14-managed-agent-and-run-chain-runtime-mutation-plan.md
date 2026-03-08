@@ -58,6 +58,8 @@ What is still deferred in Go after the landed follow-ons:
 
 - external-agent child-step orchestration inside run-chain
 - any richer run-chain progress realtime surface beyond persisted run polling
+- the focused executable follow-on for the first item is now opened in
+  `phase-14-run-chain-external-agent-child-step-runtime.md`
 
 ## Inputs
 

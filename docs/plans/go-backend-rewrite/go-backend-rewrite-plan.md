@@ -414,9 +414,17 @@ That bounded follow-on tracked in
   external-agent-backed child steps instead of preserving Python's hybrid
   chain-step dispatch
 - the current bounded agentic runtime route surface is now Go-owned
-- the only remaining follow-on here is whether product work still needs
-  external-agent child-step orchestration or richer chain-progress realtime
-  behavior
+- the next bounded follow-on is now opened in
+  `phase-14-run-chain-external-agent-child-step-runtime.md`
+
+That focused follow-on records the next honest executable slice:
+
+- add a bounded Go external-agent run owner for non-chat orchestration callers
+- add a wait boundary to the landed external-agent runtime
+- reuse those boundaries inside `internal/runchains` so external child steps
+  no longer need to be rejected
+- keep route transport unchanged and keep richer chain-progress realtime out of
+  scope
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are
