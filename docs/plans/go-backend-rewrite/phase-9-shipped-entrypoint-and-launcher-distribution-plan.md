@@ -66,7 +66,6 @@ As of 2026-03-08:
   - `launch`
   - `backups`
   - `plugins`
-  - `version`
   - `export-db`
 
 ## Inputs
@@ -268,6 +267,11 @@ the actual Go command tree that installer scripts can target next.
   question is no longer release-artifact binding; it is whether the
   still-Python local command groups should remain behind the thin wrapper or
   move into later Go slices.
+- 2026-03-08: narrowed that follow-up into
+  `phase-10-local-runtime-command-cluster-plan.md`.
+  The next rewrite-owned CLI slice is the local runtime command cluster
+  (`launch` first, then default `setta` / `share` / `app`), while
+  `backups` / `plugins` / `export-db` remain explicitly out of scope.
 
 ## Verification
 
@@ -285,10 +289,5 @@ the actual Go command tree that installer scripts can target next.
 ## Recommended Next Step
 
 Use the completed distribution boundary from this doc as the handoff point and
-decide the next separate slice explicitly:
-
-1. keep the remaining Python local command groups behind the thin wrapper for
-   now and close Phase 9 distribution work
-2. or open a later Go CLI slice for selected local commands (`setta`, `share`,
-   `app`, `launch`, `backups`, `plugins`, `export-db`) only if product
-   priorities justify it
+take the next explicit plan from
+`phase-10-local-runtime-command-cluster-plan.md`.

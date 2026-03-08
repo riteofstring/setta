@@ -353,11 +353,15 @@ Use the docs in this order:
   - focused implementation-plan doc for bundling the exact packaged Setta
     artifact into native macOS/Windows launcher installers so release smoke and
     installer bootstrap bind to the same release bits
-117. `spike-mcp.md`
+117. `phase-10-local-runtime-command-cluster-plan.md`
+  - focused implementation-plan doc for the next Go-owned local runtime CLI
+    cluster: `launch` first, then default `setta`, `share`, and `app`, while
+    keeping `backups`/`plugins`/`export-db` explicitly out of scope
+118. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-118. `spike-pty.md`
+119. `spike-pty.md`
    - PTY uncertainty-reduction plan
-119. `spike-lsp.md`
+120. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

@@ -158,5 +158,5 @@ smaller and more explicit:
 
 1. take the native-installer bundled-package follow-up in
    `phase-9-native-installer-bundled-package-stage2.md`
-2. after that, decide whether remaining Python local commands should stay
-   behind the thin wrapper longer or move to later Go slices
+2. after that, take the local-runtime CLI follow-up in
+   `phase-10-local-runtime-command-cluster-plan.md`

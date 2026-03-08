@@ -107,6 +107,9 @@ As of 2026-03-08:
 ## Recommended Next Step
 
 With Stage 2 complete, the remaining Phase 9 question is no longer installer
-artifact ownership. The next decision is whether the still-Python local command
-groups should remain behind the thin wrapper boundary longer or move into later
-Go slices.
+artifact ownership.
+
+Take the next bounded follow-up from
+`phase-10-local-runtime-command-cluster-plan.md`, which narrows the remaining
+high-leverage Python CLI surface to the local runtime command cluster and keeps
+`backups` / `plugins` / `export-db` out of scope.

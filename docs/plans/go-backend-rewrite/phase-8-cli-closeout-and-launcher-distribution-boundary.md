@@ -37,7 +37,6 @@ As of 2026-03-08:
   - `launcher` and `launcher setup|status|repair|remove|update`
   - `backups`
   - `plugins`
-  - `version`
   - `export-db`
 - Python/shell/PowerShell still own distribution and installer workflows in:
   - `scripts/install_desktop_launcher.sh`
@@ -103,7 +102,6 @@ As of 2026-03-08:
      - `launch`
      - `backups`
      - `plugins`
-     - `version`
      - `export-db`
 
 4. The remaining Python surface is no longer a backend blocker
@@ -138,7 +136,7 @@ That Phase 9 plan keeps the boundary explicit:
 2. port the launcher run/setup/status/repair/remove/update surface plus managed
    artifact integration
 3. only after that, decide whether the remaining local command groups
-   (`setta`, `share`, `app`, `launch`, `backups`, `plugins`, `version`,
+   (`setta`, `share`, `app`, `launch`, `backups`, `plugins`,
    `export-db`) should move to Go or remain Python temporarily
 
 Do not combine launcher/distribution migration with backups/plugins/local
