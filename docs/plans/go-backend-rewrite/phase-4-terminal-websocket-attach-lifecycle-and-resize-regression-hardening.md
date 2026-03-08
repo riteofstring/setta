@@ -124,6 +124,8 @@ This slice covered:
 
 ## Next Recommended Step
 
+- the current-scope app-level follow-on is now also landed in:
+  - `docs/plans/go-backend-rewrite/phase-4-terminal-websocket-app-middleware-regression-hardening.md`
 - treat terminal websocket lifecycle hardening as current-scope complete
 - only reopen terminal work for explicit Windows PTY follow-up or caller-backed
   features like `cliId` or detached-run transport

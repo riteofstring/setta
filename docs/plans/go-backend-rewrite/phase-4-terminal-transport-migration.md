@@ -26,6 +26,8 @@ Current repo status as of 2026-03-06:
   - `GET /ws/terminals/{projectID}/{sectionID}` in `internal/wsapi/routes.go`
   - route-level PTY integration tests in `internal/wsapi/routes_test.go`
   - app-level upgrade coverage in `internal/app/websocket_test.go`
+  - app-level reconnect/history replay and resize-state regression coverage in
+    `internal/app/websocket_test.go`
 - Go terminal HTTP transport now includes:
   - `POST /api/deleteTerminals`
   - `POST /api/interruptTerminalProcesses`

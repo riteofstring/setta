@@ -23,6 +23,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
+	"setta/internal/terminals"
 	"setta/internal/wsapi"
 )
 
@@ -437,6 +438,8 @@ func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *te
 }
 
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareCurrentSession(t, cfg)
@@ -475,6 +478,170 @@ func TestAppServesTerminalWebsocketRoute(t *testing.T) {
 
 	if frame := readAppRawFrame(t, conn); frame != wsapi.TerminalReadyMessage {
 		t.Fatalf("expected terminal ready marker, got %q", frame)
+	}
+}
+
+func TestAppServesTerminalWebsocketReconnectAndReplaysBufferedHistory(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	sessionID := terminals.BuildTerminalID("section-a", "")
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open app terminal: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + strings.Replace(strings.Replace(wsapi.RouteTerminalBySection, "{projectID}", "project-a", 1), "{sectionID}", "section-a", 1)
+	headers := http.Header{
+		"Cookie": []string{cookieName + "=" + token},
+	}
+
+	first, _, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{
+		HTTPHeader: headers,
+	})
+	if err != nil {
+		t.Fatalf("dial first terminal websocket route: %v", err)
+	}
+
+	if frame := readAppRawFrame(t, first); frame != wsapi.TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", frame)
+	}
+
+	if err := first.Write(context.Background(), websocket.MessageText, []byte("first app line\n")); err != nil {
+		t.Fatalf("write first terminal input: %v", err)
+	}
+	if output := readAppRawFrameUntilContains(t, first, "first app line", 4); !strings.Contains(output, "first app line") {
+		t.Fatalf("expected terminal output to include first app line, got %q", output)
+	}
+	if err := first.Close(websocket.StatusNormalClosure, ""); err != nil {
+		t.Fatalf("close first terminal websocket: %v", err)
+	}
+
+	if err := app.Terminals().Write(sessionID, []byte("after disconnect\n")); err != nil {
+		t.Fatalf("write buffered app terminal output after disconnect: %v", err)
+	}
+	waitForCondition(t, func() bool {
+		history, err := app.Terminals().History(sessionID)
+		if err != nil {
+			return false
+		}
+		return strings.Contains(history, "after disconnect")
+	})
+
+	second, _, err := websocket.Dial(context.Background(), wsURL, &websocket.DialOptions{
+		HTTPHeader: headers,
+	})
+	if err != nil {
+		t.Fatalf("dial second terminal websocket route: %v", err)
+	}
+	defer second.CloseNow()
+
+	if frame := readAppRawFrame(t, second); frame != wsapi.TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker on reconnect, got %q", frame)
+	}
+	replayedHistory := readAppRawFrame(t, second)
+	if !strings.Contains(replayedHistory, "first app line") || !strings.Contains(replayedHistory, "after disconnect") {
+		t.Fatalf("expected reattached app terminal history to include buffered output, got %q", replayedHistory)
+	}
+}
+
+func TestAppServesTerminalWebsocketResizeUpdatesStoredSessionDimensions(t *testing.T) {
+	skipIfAppTerminalPTYUnsupported(t)
+
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	sessionID := terminals.BuildTerminalID("section-a", "")
+	if _, _, err := app.Terminals().Open(terminals.OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open app terminal: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+strings.Replace(strings.Replace(wsapi.RouteTerminalBySection, "{projectID}", "project-a", 1), "{sectionID}", "section-a", 1), &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial terminal websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	if frame := readAppRawFrame(t, conn); frame != wsapi.TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", frame)
+	}
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"terminalResize","rows":31,"cols":97}`)); err != nil {
+		t.Fatalf("write app terminal resize message: %v", err)
+	}
+
+	waitForCondition(t, func() bool {
+		info, ok := app.Terminals().Session(sessionID)
+		return ok && info.Rows == 31 && info.Columns == 97
+	})
+
+	info, ok := app.Terminals().Session(sessionID)
+	if !ok {
+		t.Fatal("expected app terminal session to exist after resize")
+	}
+	if info.Rows != 31 || info.Columns != 97 {
+		t.Fatalf("expected stored app terminal size 97x31, got %dx%d", info.Columns, info.Rows)
 	}
 }
 
@@ -968,6 +1135,35 @@ func readAppRawFrame(t *testing.T, conn *websocket.Conn) string {
 		t.Fatalf("read app websocket frame: %v", err)
 	}
 	return string(payload)
+}
+
+func readAppRawFrameUntilContains(t *testing.T, conn *websocket.Conn, needle string, maxReads int) string {
+	t.Helper()
+
+	buffer := strings.Builder{}
+	for range maxReads {
+		frame := readAppRawFrame(t, conn)
+		buffer.WriteString(frame)
+		if strings.Contains(buffer.String(), needle) {
+			return buffer.String()
+		}
+	}
+
+	t.Fatalf("did not receive app terminal output containing %q within %d reads; collected output: %q", needle, maxReads, buffer.String())
+	return ""
+}
+
+func waitForCondition(t *testing.T, check func() bool) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if check() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("condition did not become true before timeout")
 }
 
 func assertAppLSPDiagnosticsPayload(t *testing.T, payload projectstate.LSPDiagnosticsPayload) {

@@ -1040,6 +1040,10 @@ Do not weaken this rule during the rewrite.
    - a third example is now landed in
      `phase-4-terminal-websocket-attach-lifecycle-and-resize-regression-hardening.md`
      for the completed terminal websocket attach/history/resize surface
+   - a fourth example is now landed in
+     `phase-4-terminal-websocket-app-middleware-regression-hardening.md`
+     for the real app-middleware coverage of the completed terminal websocket
+     surface
 5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.

@@ -2,14 +2,15 @@
 
 ## Purpose
 
-This doc narrows the next bounded Phase 4 hardening slice to app-level terminal
-websocket regression coverage.
+This doc records the bounded Phase 4 app-level terminal websocket
+regression-hardening follow-on that landed after the completed runtime, route,
+and PTY backend slices.
 
 The terminal runtime, websocket route coverage, run-code ownership,
 prompt-readiness stabilization, Unix PTY backend migration, and route-level
-terminal websocket reconnect/resize hardening are already landed. What remains
-thin is proving those same terminal websocket lifecycle semantics through the
-real app middleware stack.
+terminal websocket reconnect/resize hardening were already landed. What
+remained thin was proving those same terminal websocket lifecycle semantics
+through the real app middleware stack.
 
 This is a regression-hardening slice, not a new terminal feature slice.
 
@@ -25,20 +26,20 @@ Completed before this slice:
 - route-level websocket regressions for reconnect/history replay and resize
   session state in `internal/wsapi/routes_test.go`
 
-Current Go app-level terminal coverage before this slice:
+Current Go app-level terminal coverage after this slice:
 
 - `internal/app/websocket_test.go` proves:
   - terminal websocket upgrade through the real middleware stack
   - ready-marker delivery through the app-owned route wiring
 
-What is still missing explicitly:
+What this slice added:
 
 - app-level reconnect after websocket disconnect with buffered history replay
 - app-level proof that resize updates stored terminal session dimensions
 
 ## Scope
 
-This slice covers:
+This slice covered:
 
 - focused app-level websocket regressions in `internal/app/websocket_test.go`
 - reuse of the existing Go terminal runtime as the source of truth
@@ -76,28 +77,40 @@ This slice covers:
 
 ## Implementation Notes
 
-1. Add an app-level reconnect/history replay regression.
-   - first websocket attaches and receives ready/history
+1. Added an app-level reconnect/history replay regression in
+   `internal/app/websocket_test.go`.
+   - first websocket attaches and receives the ready marker
    - the socket disconnects
    - output written while disconnected remains buffered
    - a second websocket receives ready plus replayed buffered history
 
-2. Add an app-level resize-state regression.
-   - send a resize control message through the real app websocket route
-   - verify the stored terminal session `Columns` and `Rows`
+2. Added an app-level resize-state regression.
+   - sent a resize control message through the real app websocket route
+   - verified the stored terminal session `Columns` and `Rows`
 
-3. Keep acceptance narrow.
+3. Kept acceptance narrow and middleware-focused.
    - `./scripts/go.sh test ./internal/app -run 'TerminalWebsocket' -count=1`
+   - `./scripts/go.sh test ./internal/app -run 'Websocket' -count=1`
+   - `./scripts/go.sh test ./internal/wsapi -run 'Terminal' -count=1`
+
+## Verification
+
+- `./scripts/go.sh test ./internal/app -run 'TerminalWebsocket' -count=1`
+- `./scripts/go.sh test ./internal/app -run 'Websocket' -count=1`
+- `./scripts/go.sh test ./internal/wsapi -run 'Terminal' -count=1`
 
 ## Progress Notes
 
 - 2026-03-09: opened this focused app-level follow-on after confirming the
   route-level terminal websocket regressions were landed but the real app
   middleware stack still only had basic terminal upgrade coverage.
+- 2026-03-09: landed app-level reconnect/history replay and resize-state
+  regressions over the real websocket middleware stack without changing
+  terminal runtime behavior.
 
 ## Next Recommended Step
 
-- if this slice lands cleanly, treat the current-scope terminal websocket
-  regression suite as complete across both route and app levels
+- treat the current-scope terminal websocket regression suite as complete
+  across both route and app levels
 - only reopen terminal work for explicit Windows PTY follow-up or caller-backed
   features like `cliId` or detached-run transport
