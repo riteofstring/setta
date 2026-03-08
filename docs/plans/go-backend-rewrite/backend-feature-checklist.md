@@ -28,7 +28,7 @@ Primary sources used for this checklist:
 - `backend/setta/types/routes.py`
 - `backend/setta/routers/*.py`
 - `frontend/src/utils/generatedEndpoints.ts`
-- non-test `frontend/src/**` caller sites
+- non-test `frontend/src/**` caller sites, including direct websocket callers
 - current Go transport/runtime packages under `internal/`
 
 ## 1. Server, auth, modes, and settings
@@ -66,6 +66,7 @@ Primary sources used for this checklist:
 | Missing | Frontend websocket auth, identity, and connection inventory | Go owns `/ws/frontend`, frontend affinity tokens, and connection broadcasts under `internal/wsapi`/`internal/realtime`, but the current frontend still opens the Python-era `/api/frontend` and `/api/share/frontend` websocket routes. |
 | Missing | Frontend realtime UI-change and dependency-event routing | Go owns the replacement `/ws/frontend` producer/broadcaster path, but current frontend realtime UI-change and dependency-event messages still ride the Python-era websocket route shapes. |
 | Complete | Listener coverage reads | Go owns `getListenerCoverage` through `internal/realtime` and `internal/httpapi/listener_routes.go`. |
+| Complete | Listener force-refresh transport | Go owns `forceRefreshListener`, and the current frontend listener actions call that Go HTTP route today. |
 | Complete | Listener websocket dispatch for plugin listener endpoints | `internal/wsapi` plus Phase 15 listener endpoint work own websocket dispatch for plugin-registered listener endpoints. |
 | Partial | Built-in listener endpoint parity beyond the active plugin caller surface | The plan still calls out built-in endpoint dispatch, listener temp-id negotiation, and related follow-ons as deferred. |
 | Partial | Terminal PTY runtime | `internal/terminals` owns the replacement PTY runtime, but the current frontend terminal attach flow still targets the Python-era websocket path `/{projectConfigId}/{sectionId}/{id}` rather than Go's `/ws/terminals/{projectID}/{sectionID}`. |
@@ -95,7 +96,7 @@ Primary sources used for this checklist:
 | Complete | LSP diagnostics and completion surface | Go owns text-field, output-accessor, code-area, prefix/suffix completion, diagnostics reads, and diagnostics mute/suppression routes. |
 | Complete | Plugin-defined code-language routing for LSP | Go owns language-aware routing for plugin-defined `Code` sections in the current caller-backed scope. |
 | Missing | LSP/admin helper routes still used by the current frontend | Edit-menu and shortcut flows still call Python-owned `typeCheck` and `restartLanguageServer`; Go does not register those HTTP endpoints today. |
-| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group/move/undo/redo flows, variant/default-variant and JSON-source-key mutation, section sizing/filter/edge-IO helpers, prompt/codegen-prefix-suffix and code-object/file-binding/attached-terminal helpers, password/subprocess helpers, and text-block/browser/spreadsheet/task-board/chart/image/social mutations are still current-frontend callers but do not have direct Go HTTP routes. |
+| Missing | Large tail of direct HTTP project-graph and section-config mutations from Python | Child-section creation/deletion, edge and agentic-edge mutation, copy/paste/group/ungroup/move/undo/redo flows, section-variant create/delete/select/default/name/sort/frozen and JSON-source-key mutation, param entered-value/order/selection/update and kwarg helpers, prompt/codegen-prefix-suffix and code-object/file-binding/attached-terminal helpers, section sizing/filter/edge-IO/group-overflow/list-root/parent-default-child/column-width helpers, password/subprocess helpers such as `getPasswordParamValue` and `killSubprocesses`, and text-block/browser/spreadsheet/task-board/chart/image/social mutations are still current-frontend callers but do not have direct Go HTTP routes. |
 | Missing | Default-project and JSON-source/file helpers still used by the current frontend | Home/global and input-area flows still call `getDefaultConfigName`, `setAsDefaultProject`, `createFile`, and `deleteJsonSourceFileAndVariant`; Go does not expose those HTTP routes today. |
 | Missing | Legacy settings-project HTTP routes | `loadSettingsProject` and `saveSettingsProject` do not have Go route equivalents. |
 
@@ -122,11 +123,12 @@ Primary sources used for this checklist:
 | --- | --- | --- |
 | Complete | External-agent runtime ownership for Codex, OpenCode, and Claude | `internal/externalagents` and the Phase 12 slices mark the current bounded external-agent runtime as complete. |
 | Complete | External-agent approval/question response transport | Go owns `respondExternalAgentApproval` and `respondExternalAgentQuestion`. |
-| Complete | External-agent stop and AI-follow snapshot transport | Go owns `stopExternalAgentRun` and `getAIFollowSnapshot`. |
+| Complete | External-agent chat hydration, stop, and AI-follow snapshot transport | Go owns `getExternalAgentChat`, `stopExternalAgentRun`, and `getAIFollowSnapshot`. |
 | Complete | External-agent attachment/prompt/app-generation payload handling | The bounded prompt, attachment, and app-generation follow-ons are marked landed in Phase 12. |
 | Complete | Agent-run list/read transport | Go owns `getAgentRuns` and `getAgentRun`. |
 | Complete | Agent profile CRUD | Go owns `getAgentProfiles`, `getAgentProfile`, `createAgentProfile`, `updateAgentProfile`, and `deleteAgentProfile`. |
 | Complete | Prompt template CRUD | Go owns `getPromptTemplates`, `getPromptTemplate`, `createPromptTemplate`, `updatePromptTemplate`, and `deletePromptTemplate`. |
+| Complete | App-gen skill list/read/upsert transport | Go owns `getAppGenSkills`, `getAppGenSkillContent`, and `upsertAppGenCustomSkill`, and the project-level AI skills UI uses those Go routes today. |
 | Complete | External-agent config reads/health/CRUD | Go owns config list/single-item/health plus create/update/delete through `internal/externalagentconfigs`. |
 | Complete | Engine config CRUD | Go owns list/single-item/create/update/delete through `internal/agentruns.EngineStore` and route transport. |
 | Complete | Agentic summary-cache status | Go owns `getAgenticSummaryCacheStatus`. |
@@ -207,12 +209,12 @@ callers.
   - child-section create/delete
   - edge and agentic-edge mutation
   - copy/paste/group/ungroup/move plus undo/redo helpers
-  - section variants/default variants and JSON-source-key toggles
+  - section-variant create/delete/select/default/name/sort/frozen and JSON-source-key toggles
   - param entered-value/order/selection/update and kwarg helpers
   - prompt/codegen-prefix-suffix and code-object/file-binding/attached-terminal helpers
-  - section sizing/filter/edge-input-output/group-overflow/list-root/parent-default-child helpers
+  - section sizing/filter/edge-input-output/group-overflow/list-root/parent-default-child/column-width helpers
   - text-block, browser, spreadsheet, task-board, chart, image, and social/link metadata
-  - password-param and subprocess helper routes
+  - password-param and subprocess helper routes (`getPasswordParamValue`, `killSubprocesses`)
 - Artifact/draw-area helper route:
   - `appendDrawAreaLayerItem`
 
@@ -256,17 +258,17 @@ main product-facing runtime surface:
 
 - auth/modes/settings
 - project shell and current project-state transport
-- websocket/realtime and terminals
+- listener coverage and force-refresh plus the replacement websocket/terminal runtime
 - LSP/watch-code
 - MCP/tooling
 - deployments/launcher/workspace launch
 - plugins
 - git/file browser/artifacts
-- current agentic and transcription surfaces
+- current agentic, app-gen skills, and transcription surfaces
 
 The remaining gaps are concentrated in older Python-only route tails,
-intentionally bounded AI/plugin behavior, and a real set of still-live
-frontend callers that continue to hit Python-owned HTTP routes.
+intentionally bounded AI/plugin behavior, and still-live frontend callers that
+continue to hit Python-owned HTTP routes and websocket path shapes.
 
 Treat the active caller-backed gaps as remaining rewrite surface, not as
 dormant historical debris.
