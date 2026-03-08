@@ -1037,6 +1037,9 @@ Do not weaken this rule during the rewrite.
    - a second example is now landed in
      `phase-4-terminal-command-dispatch-prompt-readiness-and-echo-stability.md`
      for the completed terminal `runCode` runtime boundary
+   - a third example is now landed in
+     `phase-4-terminal-websocket-attach-lifecycle-and-resize-regression-hardening.md`
+     for the completed terminal websocket attach/history/resize surface
 5. Treat Go-owned managed `setta_llm` runtime mutation work as explicitly
    deferred unless a later product decision reopens the Phase 14 managed
    `start/stopAgentRun` slice.

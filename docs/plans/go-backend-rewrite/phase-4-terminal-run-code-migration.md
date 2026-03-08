@@ -85,6 +85,13 @@ Current repo status as of 2026-03-07:
   - backend-owned command dispatch into fresh default-shell sessions now waits
     for a Go-owned prompt-ready barrier and uses deterministic rc-less built-in
     shell resolution instead of depending on ambient user-shell startup
+- a second bounded post-closeout terminal websocket hardening slice is now
+  landed in:
+  - `docs/plans/go-backend-rewrite/phase-4-terminal-websocket-attach-lifecycle-and-resize-regression-hardening.md`
+  - websocket reconnect now has explicit regression coverage for buffered
+    history replay after disconnect
+  - route-level resize now has explicit regression coverage for stored session
+    dimensions, not only PTY-visible size
 - Go now includes deployment `runCode` groundwork under:
   - `internal/deployments`
   - deployment manifest/policy loading

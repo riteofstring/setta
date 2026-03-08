@@ -777,6 +777,83 @@ func TestRegisterRoutesTerminalConnectSendsReadyHistoryAndStreamsInput(t *testin
 	}
 }
 
+func TestRegisterRoutesTerminalReconnectReplaysBufferedHistoryAfterDisconnect(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	terminalService := newRouteTerminalService(t)
+	terminalID := terminals.BuildTerminalID("section-a", "")
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:         terminalID,
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Command:    readyQuietCatCommand(t, "initial history"),
+	})
+	seedRouteTerminalHistory(t, terminalService, terminalID, "initial history")
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	// Go no longer waits for prompt readiness during websocket connect. The
+	// equivalent lifecycle regression is that a disconnected terminal route can
+	// later reattach and replay buffered output written while no websocket is
+	// attached.
+	first := dialRouteConnection(t, server.URL, RouteTerminalBySection, authHeaderForCookie(t, authService), withTerminalPath("project-a", "section-a"))
+	if ready := readNextRawFrame(t, first); ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", ready)
+	}
+	firstHistory := readNextRawFrame(t, first)
+	if !strings.Contains(firstHistory, "initial history") {
+		t.Fatalf("expected initial terminal history replay, got %q", firstHistory)
+	}
+	if err := first.Close(websocket.StatusNormalClosure, ""); err != nil {
+		t.Fatalf("close first terminal websocket: %v", err)
+	}
+
+	if err := terminalService.Write(terminalID, []byte("after disconnect\n")); err != nil {
+		t.Fatalf("write buffered terminal output after disconnect: %v", err)
+	}
+	waitForCondition(t, func() bool {
+		history, err := terminalService.History(terminalID)
+		if err != nil {
+			return false
+		}
+		return strings.Contains(history, "after disconnect")
+	})
+
+	second := dialRouteConnection(t, server.URL, RouteTerminalBySection, authHeaderForCookie(t, authService), withTerminalPath("project-a", "section-a"))
+	defer second.CloseNow()
+
+	if ready := readNextRawFrame(t, second); ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker on reconnect, got %q", ready)
+	}
+	replayedHistory := readNextRawFrame(t, second)
+	if !strings.Contains(replayedHistory, "initial history") || !strings.Contains(replayedHistory, "after disconnect") {
+		t.Fatalf("expected reattached history replay to include buffered disconnected output, got %q", replayedHistory)
+	}
+
+	if err := second.Write(context.Background(), websocket.MessageText, []byte("reattached line\n")); err != nil {
+		t.Fatalf("write terminal input after reconnect: %v", err)
+	}
+	output := readUntilRawFrameContains(t, second, "reattached line", 4)
+	if !strings.Contains(output, "reattached line") {
+		t.Fatalf("expected terminal output after reconnect, got %q", output)
+	}
+}
+
 func TestRegisterRoutesTerminalResizeMessageResizesPTY(t *testing.T) {
 	t.Parallel()
 	skipIfPTYUnsupported(t)
@@ -822,6 +899,16 @@ func TestRegisterRoutesTerminalResizeMessageResizesPTY(t *testing.T) {
 	output := readUntilRawFrameContains(t, conn, "24 80", 6)
 	if !strings.Contains(output, "24 80") {
 		t.Fatalf("expected resized PTY output, got %q", output)
+	}
+
+	// The resize route path must update the stored session dimensions, not only
+	// the PTY-visible size reported by the shell probe.
+	info, ok := terminalService.Session(terminals.BuildTerminalID("section-a", ""))
+	if !ok {
+		t.Fatal("expected terminal session to still exist after resize")
+	}
+	if info.Rows != 24 || info.Columns != 80 {
+		t.Fatalf("expected stored route terminal size 80x24, got %dx%d", info.Columns, info.Rows)
 	}
 }
 

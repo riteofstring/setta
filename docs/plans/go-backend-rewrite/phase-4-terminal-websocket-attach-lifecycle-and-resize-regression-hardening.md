@@ -2,13 +2,14 @@
 
 ## Purpose
 
-This doc narrows the next bounded Phase 4 follow-on to terminal websocket
-regression hardening.
+This doc records the bounded Phase 4 terminal websocket regression-hardening
+follow-on that landed after the completed runtime, run-code, and Unix PTY
+backend slices.
 
 The terminal runtime, transport, run-code ownership, prompt-readiness
-stabilization, and Unix PTY backend migration are already landed. What remains
-thin is explicit regression coverage for terminal websocket lifecycle behavior
-that the Python reference suite covered:
+stabilization, and Unix PTY backend migration were already landed. What
+remained thin was explicit regression coverage for terminal websocket lifecycle
+behavior that the Python reference suite covered conceptually:
 
 - disconnect and reattach over the websocket terminal route
 - resize messages updating both PTY state and stored session dimensions
@@ -25,7 +26,7 @@ Completed before this slice:
 - prompt-ready/default-shell command-dispatch stabilization
 - bounded Unix PTY backend migration to `github.com/creack/pty`
 
-Current Go regression protection before this slice:
+Current Go regression protection after this slice:
 
 - `internal/terminals/service_test.go` covers:
   - attach/write/history/reattach behavior
@@ -35,7 +36,7 @@ Current Go regression protection before this slice:
   - terminal resize messages changing PTY-visible size
   - invalid resize and deployment-mode rejection
 
-What is still missing explicitly:
+What this slice added:
 
 - route-level reattach after websocket disconnect with buffered history replay
 - route-level proof that resize updates the stored terminal session dimensions,
@@ -43,7 +44,7 @@ What is still missing explicitly:
 
 ## Scope
 
-This slice covers:
+This slice covered:
 
 - adding focused websocket-route terminal lifecycle regressions in
   `internal/wsapi/routes_test.go`
@@ -92,28 +93,37 @@ This slice covers:
 
 ## Implementation Notes
 
-1. Add a websocket disconnect/reattach regression.
+1. Added a websocket disconnect/reattach regression in
+   `internal/wsapi/routes_test.go`.
    - first connection attaches, then disconnects
    - output written while disconnected still appears in buffered history
    - a second connection gets the ready marker plus replayed history
 
-2. Tighten the route-level resize regression.
-   - keep the PTY-visible size assertion
-   - also assert the terminal session's stored `Columns` and `Rows`
+2. Tightened the existing route-level resize regression.
+   - kept the PTY-visible size assertion
+   - also asserted the terminal session's stored `Columns` and `Rows`
 
-3. Keep acceptance narrow.
+3. Kept acceptance narrow and terminal-focused.
    - `./scripts/go.sh test ./internal/wsapi -run 'Terminal' -count=1`
    - `./scripts/go.sh test ./internal/terminals -run 'Attach|History|Resize' -count=1`
+   - `./scripts/go.sh test ./internal/wsapi -count=1`
+
+## Verification
+
+- `./scripts/go.sh test ./internal/wsapi -run 'Terminal' -count=1`
+- `./scripts/go.sh test ./internal/terminals -run 'Attach|History|Resize' -count=1`
+- `./scripts/go.sh test ./internal/wsapi -count=1`
 
 ## Progress Notes
 
 - 2026-03-09: opened this focused Phase 4 hardening slice after confirming the
   current roadmap no longer points to another automatic terminal feature
   migration and that the remaining leverage is reference-suite expansion.
+- 2026-03-09: landed explicit websocket reconnect/history replay and route-level
+  resize-state regressions without changing terminal runtime behavior.
 
 ## Next Recommended Step
 
-- if this slice lands cleanly, treat terminal websocket lifecycle hardening as
-  current-scope complete
+- treat terminal websocket lifecycle hardening as current-scope complete
 - only reopen terminal work for explicit Windows PTY follow-up or caller-backed
   features like `cliId` or detached-run transport
