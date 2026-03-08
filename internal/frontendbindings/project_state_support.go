@@ -518,9 +518,46 @@ type Edge struct{}
 
 type AgenticEdge struct{}
 
+type ChatRole string
+
+const (
+	ChatRoleSystem    ChatRole = "system"
+	ChatRoleUser      ChatRole = "user"
+	ChatRoleAssistant ChatRole = "assistant"
+	ChatRoleTool      ChatRole = "tool"
+)
+
+type JSONValue struct{}
+
+type ChatFileAttachment struct{}
+
+type MessageTextContent struct{}
+
+type MessageImageURL struct{}
+
+type MessageImageURLContent struct{}
+
+type MessageThinkingContent struct{}
+
+type MessageContent struct{}
+
+type ToolReferenceContent struct{}
+
+type ToolCallFunction struct{}
+
+type ToolCall struct{}
+
+type SystemChatMessage struct{}
+
+type AssistantChatMessage struct{}
+
+type UserChatMessage struct{}
+
 type ToolChatMessage struct{}
 
 type BaseChatMessageUnion struct{}
+
+type ChatSectionBranch struct{}
 
 type ChatSectionState struct{}
 
@@ -852,14 +889,6 @@ export const TextBlockFormatEnum = {
   Markdown: "Markdown",
 } as const;
 export type TextBlockFormat = ObjectValues<typeof TextBlockFormatEnum>;
-
-export const ChatRoleEnum = {
-  system: "system",
-  user: "user",
-  assistant: "assistant",
-  tool: "tool",
-} as const;
-export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
@@ -1860,226 +1889,6 @@ function resolveGeneratedFactoryInputs<
     overrides: {},
   };
 }
-
-type JSONValue =
-  | null
-  | boolean
-  | number
-  | string
-  | Array<JSONValue>
-  | { [key: string]: JSONValue | undefined };
-
-export type ChatFileAttachment = {
-  id: string;
-  name: string;
-  mimeType?: string | null;
-  size?: number | null;
-};
-
-export type MessageTextContent = {
-  type: "text";
-  text: string;
-};
-export function createMessageTextContent(
-  options: Partial<MessageTextContent> = {},
-): MessageTextContent {
-  return mergeGeneratedOptions(
-    {
-      type: "text",
-      text: "",
-    },
-    options,
-  );
-}
-
-export type MessageImageUrl = {
-  url: string;
-  detail?: "auto" | "low" | "high" | null;
-};
-
-export type MessageImageUrlContent = {
-  type: "image_url";
-  image_url: MessageImageUrl;
-};
-
-export type MessageThinkingContent = {
-  type: "thinking";
-  thinking: string;
-  summary?: string | null;
-  signature?: string | null;
-};
-export function createMessageThinkingContent(
-  options: Partial<MessageThinkingContent> = {},
-): MessageThinkingContent {
-  return mergeGeneratedOptions(
-    {
-      type: "thinking",
-      thinking: "",
-      summary: "",
-      signature: "",
-    },
-    options,
-  );
-}
-
-export type MessageContent =
-  | MessageTextContent
-  | MessageImageUrlContent
-  | MessageThinkingContent;
-
-export type ToolReferenceContent = {
-  type: "tool_reference";
-  tool_name: string;
-};
-
-export type ToolCallFunction = {
-  name: string;
-  arguments: { [key: string]: JSONValue | undefined };
-};
-export function createToolCallFunction(
-  options: Partial<ToolCallFunction> = {},
-): ToolCallFunction {
-  return mergeGeneratedOptions(
-    {
-      name: "",
-      arguments: {},
-    },
-    options,
-  );
-}
-
-export type ToolCall = {
-  id: string;
-  type: "function";
-  function: ToolCallFunction;
-};
-export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      type: "function",
-      function: createToolCallFunction(),
-    },
-    options,
-  );
-}
-
-type ContentChatMessageBase = {
-  id: string;
-  content: Array<MessageContent>;
-  attachments: Array<ChatFileAttachment>;
-};
-
-export type SystemChatMessage = ContentChatMessageBase & {
-  role: typeof ChatRoleEnum.system;
-};
-
-export type AssistantChatMessage = ContentChatMessageBase & {
-  role: typeof ChatRoleEnum.assistant;
-  tool_calls?: Array<ToolCall> | null;
-};
-
-export type UserChatMessage = ContentChatMessageBase & {
-  role: typeof ChatRoleEnum.user;
-};
-
-export type ToolChatMessage = {
-  id: string;
-  role: typeof ChatRoleEnum.tool;
-  tool_call_id: string;
-  tool_name?: string | null;
-  arguments: JSONValue;
-  result: JSONValue;
-  content: Array<ToolReferenceContent | Record<string, unknown>>;
-  is_error: boolean;
-  started_at: string;
-  completed_at?: string | null;
-};
-
-export type BaseChatMessageUnion =
-  | SystemChatMessage
-  | AssistantChatMessage
-  | UserChatMessage
-  | ToolChatMessage;
-
-export function createSystemChatMessage(
-  options: Partial<SystemChatMessage> = {},
-): SystemChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.system,
-      content: [],
-      attachments: [],
-    },
-    options,
-  );
-}
-
-export function createAssistantChatMessage(
-  options: Partial<AssistantChatMessage> = {},
-): AssistantChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.assistant,
-      content: [],
-      attachments: [],
-      tool_calls: null,
-    },
-    options,
-  );
-}
-
-export function createUserChatMessage(
-  options: Partial<UserChatMessage> = {},
-): UserChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.user,
-      content: [],
-      attachments: [],
-    },
-    options,
-  );
-}
-
-export function createToolChatMessage(
-  options: Partial<ToolChatMessage> = {},
-): ToolChatMessage {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      role: ChatRoleEnum.tool,
-      tool_call_id: "",
-      tool_name: null,
-      arguments: {},
-      result: null,
-      content: [],
-      is_error: false,
-      started_at: "",
-      completed_at: null,
-    },
-    options,
-  );
-}
-
-export type ChatSectionBranch = {
-  messages: Array<BaseChatMessageUnion>;
-  createdAt: number;
-  parentBranchId?: string | null;
-  branchFromMessageId?: string | null;
-};
-
-export type ChatSectionState = {
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
 
 export type CodeSectionDiagnosticsIgnoreState = {
   muted: boolean;

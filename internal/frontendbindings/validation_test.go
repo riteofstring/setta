@@ -958,6 +958,255 @@ func TestAIResponseContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestChatSupportEnumsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name   string
+		root   reflect.Type
+		values []EnumValue
+	}{
+		{
+			name: "ChatRole",
+			root: reflect.TypeOf(ChatRole("")),
+			values: []EnumValue{
+				{Name: "system", Value: "system"},
+				{Name: "user", Value: "user"},
+				{Name: "assistant", Value: "assistant"},
+				{Name: "tool", Value: "tool"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.values) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.values)
+			}
+		})
+	}
+}
+
+func TestChatSupportContractsUseConverterDeclarations(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name:  "JSONValue",
+			root:  reflect.TypeOf(JSONValue{}),
+			kind:  "alias",
+			alias: "null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
+		},
+		{
+			name: "ChatFileAttachment",
+			root: reflect.TypeOf(ChatFileAttachment{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "mimeType", TypeExpr: "string | null", Optional: true},
+				{Name: "size", TypeExpr: "number | null", Optional: true},
+			},
+		},
+		{
+			name: "MessageTextContent",
+			root: reflect.TypeOf(MessageTextContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"text"`, Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "MessageImageUrl",
+			root: reflect.TypeOf(MessageImageURL{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "url", TypeExpr: "string", Optional: false},
+				{Name: "detail", TypeExpr: `"auto" | "low" | "high" | null`, Optional: true},
+			},
+		},
+		{
+			name: "MessageImageUrlContent",
+			root: reflect.TypeOf(MessageImageURLContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"image_url"`, Optional: false},
+				{Name: "image_url", TypeExpr: "MessageImageUrl", Optional: false},
+			},
+		},
+		{
+			name: "MessageThinkingContent",
+			root: reflect.TypeOf(MessageThinkingContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"thinking"`, Optional: false},
+				{Name: "thinking", TypeExpr: "string", Optional: false},
+				{Name: "summary", TypeExpr: "string | null", Optional: true},
+				{Name: "signature", TypeExpr: "string | null", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "MessageContent",
+			root:  reflect.TypeOf(MessageContent{}),
+			kind:  "alias",
+			alias: "MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
+		},
+		{
+			name: "ToolReferenceContent",
+			root: reflect.TypeOf(ToolReferenceContent{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"tool_reference"`, Optional: false},
+				{Name: "tool_name", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "ToolCallFunction",
+			root: reflect.TypeOf(ToolCallFunction{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "arguments", TypeExpr: "{ [key: string]: JSONValue | undefined }", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ToolCall",
+			root: reflect.TypeOf(ToolCall{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "type", TypeExpr: `"function"`, Optional: false},
+				{Name: "function", TypeExpr: "ToolCallFunction", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "SystemChatMessage",
+			root: reflect.TypeOf(SystemChatMessage{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContent>", Optional: false},
+				{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.system", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "AssistantChatMessage",
+			root: reflect.TypeOf(AssistantChatMessage{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContent>", Optional: false},
+				{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant", Optional: false},
+				{Name: "tool_calls", TypeExpr: "Array<ToolCall> | null", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "UserChatMessage",
+			root: reflect.TypeOf(UserChatMessage{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContent>", Optional: false},
+				{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.user", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "ToolChatMessage",
+			root: reflect.TypeOf(ToolChatMessage{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.tool", Optional: false},
+				{Name: "tool_call_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_name", TypeExpr: "string | null", Optional: true},
+				{Name: "arguments", TypeExpr: "JSONValue", Optional: false},
+				{Name: "result", TypeExpr: "JSONValue", Optional: false},
+				{Name: "content", TypeExpr: "Array<ToolReferenceContent | Record<string, unknown>>", Optional: false},
+				{Name: "is_error", TypeExpr: "boolean", Optional: false},
+				{Name: "started_at", TypeExpr: "string", Optional: false},
+				{Name: "completed_at", TypeExpr: "string | null", Optional: true},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name:  "BaseChatMessageUnion",
+			root:  reflect.TypeOf(BaseChatMessageUnion{}),
+			kind:  "alias",
+			alias: "SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
+		},
+		{
+			name: "ChatSectionBranch",
+			root: reflect.TypeOf(ChatSectionBranch{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "createdAt", TypeExpr: "number", Optional: false},
+				{Name: "parentBranchId", TypeExpr: "string | null", Optional: true},
+				{Name: "branchFromMessageId", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ChatSectionState",
+			root: reflect.TypeOf(ChatSectionState{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "inputText", TypeExpr: "string", Optional: false},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: false},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "activeBranchId", TypeExpr: "string | null", Optional: true},
+				{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+		})
+	}
+}
+
 func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
 	tests := []struct {
 		name       string
