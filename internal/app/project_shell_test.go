@@ -348,6 +348,93 @@ func TestAppSetProjectConfigNameRouteBroadcastsProjectAndMetadataUpdates(t *test
 	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeAllProjectMetadata, 250*time.Millisecond)
 }
 
+func TestAppSetDefaultProjectRouteBroadcastsMetadataUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(cfg.Server.LogLevel, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:   "project-alpha",
+			Name: "Alpha",
+		}
+		document.Projects["project-beta"] = projectstate.Project{
+			ID:   "project-beta",
+			Name: "Beta",
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed project runtime: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(http.MethodPost, server.URL+"/api"+httpapi.RouteSetAsDefaultProject, strings.NewReader(`{"projectConfigId":"project-beta"}`))
+	if err != nil {
+		t.Fatalf("new set default request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("set default project: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected set default 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	persistedDocumentStore, err := projectstate.NewStore(app.ProjectStates().Paths().Main, projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("open persisted project store: %v", err)
+	}
+	persistedDocument, err := persistedDocumentStore.Load(context.Background())
+	if err != nil {
+		t.Fatalf("load persisted document: %v", err)
+	}
+	if persistedDocument.DefaultProjectID != "project-beta" {
+		t.Fatalf("expected persisted default project-beta, got %q", persistedDocument.DefaultProjectID)
+	}
+
+	metadataEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeAllProjectMetadata, 4)
+	var metadataPayload projectshell.AllProjectMetadata
+	if err := json.Unmarshal(metadataEnvelope.Content, &metadataPayload); err != nil {
+		t.Fatalf("decode metadata payload: %v", err)
+	}
+	if metadataPayload.DefaultProjectConfigID == nil || *metadataPayload.DefaultProjectConfigID != "project-beta" {
+		t.Fatalf("expected websocket default project-beta, got %#v", metadataPayload.DefaultProjectConfigID)
+	}
+
+	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 250*time.Millisecond)
+}
+
 func TestAppServesProjectShellLifecycleRoutes(t *testing.T) {
 	skipIfAppTerminalPTYUnsupported(t)
 

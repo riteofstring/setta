@@ -78,6 +78,29 @@ func (s *Service) LoadProjectConfig(_ context.Context, projectConfigName string)
 	return projectStateView, nil
 }
 
+func (s *Service) SetDefaultProjectConfig(ctx context.Context, projectConfigID string) error {
+	if s == nil || s.projectState == nil {
+		return ErrProjectStateRequired
+	}
+
+	currentSnapshot := s.projectState.Snapshot()
+	if _, err := currentSnapshot.Document.ProjectByID(projectConfigID); err != nil {
+		return err
+	}
+	if currentSnapshot.Document.DefaultProjectID == strings.TrimSpace(projectConfigID) {
+		return nil
+	}
+
+	snapshot, err := s.projectState.SetDefaultProjectID(ctx, projectConfigID)
+	if err != nil {
+		return err
+	}
+	if s.afterProjectMetadataMutation != nil {
+		return s.afterProjectMetadataMutation(ctx, snapshot)
+	}
+	return nil
+}
+
 func (s *Service) SetProjectConfigName(ctx context.Context, projectConfigID string, newName string) error {
 	if s == nil || s.projectState == nil {
 		return ErrProjectStateRequired

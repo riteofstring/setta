@@ -23,6 +23,7 @@ const (
 	RouteCreateProjectConfig    = "/createProjectConfig"
 	RouteDeleteProjectConfigs   = "/deleteProjectConfigs"
 	RouteSetProjectConfigName   = "/setProjectConfigName"
+	RouteSetAsDefaultProject    = "/setAsDefaultProject"
 	RouteGetNotifications       = "/getNotifications"
 	RouteDeleteNotification     = "/deleteNotification"
 )
@@ -40,6 +41,7 @@ type ProjectShellService interface {
 	CreateProjectConfig(ctx context.Context, previewImgColor string) (string, error)
 	SaveAsNewProjectConfig(ctx context.Context, projectConfigID string, newConfigName string, withRefs bool) error
 	DeleteProjectConfigs(ctx context.Context, projectConfigIDs []string) error
+	SetDefaultProjectConfig(ctx context.Context, projectConfigID string) error
 	SetProjectConfigName(ctx context.Context, projectConfigID string, newName string) error
 }
 
@@ -76,6 +78,10 @@ type SetProjectConfigNameRequest struct {
 	NewName         string `json:"newName"`
 }
 
+type SetDefaultProjectConfigRequest struct {
+	ProjectConfigID string `json:"projectConfigId"`
+}
+
 type GetNotificationsRequest struct {
 	ProjectConfigID string `json:"projectConfigId"`
 }
@@ -103,6 +109,7 @@ func RegisterProjectShellRoutes(router chi.Router, deps ProjectShellRouteDepende
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSaveAsNewProjectConfig, saveAsNewProjectConfigHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteCreateProjectConfig, createProjectConfigHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteProjectConfigs, deleteProjectConfigsHandler(deps))
+	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetAsDefaultProject, setDefaultProjectConfigHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteSetProjectConfigName, setProjectConfigNameHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteGetNotifications, getNotificationsHandler(deps))
 	router.With(RequireIDEMode(deps.ModePolicy)).Post(RouteDeleteNotification, deleteNotificationHandler(deps))
@@ -246,6 +253,26 @@ func setProjectConfigNameHandler(deps ProjectShellRouteDependencies) http.Handle
 
 		if err := deps.Shell.SetProjectConfigName(r.Context(), payload.ProjectConfigID, payload.NewName); err != nil {
 			writeProjectNameMutationError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, nil)
+	}
+}
+
+func setDefaultProjectConfigHandler(deps ProjectShellRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		payload, err := decodeJSONBody[SetDefaultProjectConfigRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+		if deps.Shell == nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+
+		if err := deps.Shell.SetDefaultProjectConfig(r.Context(), payload.ProjectConfigID); err != nil {
+			writeProjectLifecycleMutationError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

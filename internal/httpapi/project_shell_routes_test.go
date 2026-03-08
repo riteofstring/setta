@@ -480,6 +480,51 @@ func TestRegisterProjectShellRoutesRenamesProjectConfig(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectShellRoutesSetsDefaultProjectConfig(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Beta",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	service, err := projectshell.NewService(projectshell.ServiceOptions{ProjectState: projectRuntime})
+	if err != nil {
+		t.Fatalf("new project shell service: %v", err)
+	}
+
+	handler := newProjectShellRouteTestHandler(t, config.ModeIDE, service, newProjectNotificationRuntimeForTest(t).service)
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteSetAsDefaultProject, strings.NewReader(`{"projectConfigId":"project-beta"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	if got := projectRuntime.Snapshot().Document.DefaultProjectID; got != "project-beta" {
+		t.Fatalf("expected default project-beta, got %q", got)
+	}
+}
+
 func TestRegisterProjectShellRoutesRejectsInvalidProjectRenameWithDetail(t *testing.T) {
 	t.Parallel()
 

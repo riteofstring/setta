@@ -85,7 +85,7 @@ Primary sources used for this checklist:
 | Complete | Project-state runtime and persistence | The main Go owners are `internal/projectstate`, `internal/projectview`, and `internal/app`. |
 | Complete | Project shell reads | Go owns `loadAllProjectMetadata` and `loadProjectConfig`. |
 | Complete | Project lifecycle mutations | Go owns `saveProject`, `createProjectConfig`, `saveAsNewProjectConfig`, `deleteProjectConfigs`, and `setProjectConfigName`. |
-| Missing | Default-project helper routes still used by the current frontend | `GlobalWrapper` still POSTs Python-owned `getDefaultConfigName`, and `HomePage` still POSTs Python-owned `setAsDefaultProject`; Go project shell metadata already carries the default-project id, but Go does not register these legacy helper endpoints. |
+| Partial | Default-project helper routes still used by the current frontend | `HomePage` now reaches Go-owned `setAsDefaultProject`, but `GlobalWrapper` still POSTs Python-owned `getDefaultConfigName` instead of deriving the redirect target from Go-owned project-shell metadata. |
 | Complete | Notification reads and deletes | `internal/notifications` plus `internal/httpapi/project_shell_routes.go` own `getNotifications` and `deleteNotification`. |
 | Complete | Latest project-state hydration | Go owns `getLatestProjectState` and frontend-op completion/pending tracking. |
 | Complete | Top-level section creation and view-mode lifecycle | Go owns `createTopLevelSection`, `createViewMode`, `setActiveViewMode`, `toggleIsEditingViewMode`, `toggleViewModeUserFacing`, `toggleViewModeTab`, `setViewModeName`, `setViewModeSortOrder`, and `deleteViewMode`. |
@@ -201,7 +201,6 @@ callers.
   - `getAttachmentDownloadUrls`
 - Default-project helper routes:
   - `getDefaultConfigName`
-  - `setAsDefaultProject`
 - File and JSON-source helper routes:
   - `createFile`
   - `deleteJsonSourceFileAndVariant`

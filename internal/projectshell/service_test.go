@@ -170,6 +170,114 @@ func TestServiceLoadProjectConfigRejectsAmbiguousName(t *testing.T) {
 	}
 }
 
+func TestServiceSetDefaultProjectConfigPersistsAndRunsMetadataHook(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	store, err := projectstate.NewStore(filepath.Join(root, "project.json"), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(t.Context(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+			"project-beta": {
+				ID:   "project-beta",
+				Name: "Beta",
+			},
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntime(t.Context(), store)
+	if err != nil {
+		t.Fatalf("open project runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close project runtime: %v", err)
+		}
+	})
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectMetadataMutation: func(_ context.Context, snapshot projectstate.Snapshot) error {
+			hookCalls++
+			if snapshot.Document.DefaultProjectID != "project-beta" {
+				t.Fatalf("expected default project-beta, got %q", snapshot.Document.DefaultProjectID)
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SetDefaultProjectConfig(context.Background(), "project-beta"); err != nil {
+		t.Fatalf("SetDefaultProjectConfig returned error: %v", err)
+	}
+	if hookCalls != 1 {
+		t.Fatalf("expected metadata hook once, got %d", hookCalls)
+	}
+
+	reloaded, err := store.Load(t.Context())
+	if err != nil {
+		t.Fatalf("reload store: %v", err)
+	}
+	if reloaded.DefaultProjectID != "project-beta" {
+		t.Fatalf("expected persisted default project-beta, got %q", reloaded.DefaultProjectID)
+	}
+}
+
+func TestServiceSetDefaultProjectConfigNoopSkipsMetadataHook(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:   "project-alpha",
+				Name: "Alpha",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	hookCalls := 0
+	service, err := NewService(ServiceOptions{
+		ProjectState: projectRuntime,
+		AfterProjectMetadataMutation: func(context.Context, projectstate.Snapshot) error {
+			hookCalls++
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SetDefaultProjectConfig(context.Background(), "project-alpha"); err != nil {
+		t.Fatalf("SetDefaultProjectConfig no-op returned error: %v", err)
+	}
+	if hookCalls != 0 {
+		t.Fatalf("expected no metadata hook calls for no-op, got %d", hookCalls)
+	}
+}
+
 func TestServiceSetProjectConfigNameRenamesProjectPersistsAndRunsHook(t *testing.T) {
 	t.Parallel()
 

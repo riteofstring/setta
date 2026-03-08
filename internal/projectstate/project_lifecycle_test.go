@@ -143,3 +143,34 @@ func TestDocumentDeleteProjectsReconcilesDefaultProject(t *testing.T) {
 		t.Fatalf("expected default project id to clear, got %q", document.DefaultProjectID)
 	}
 }
+
+func TestDocumentSetDefaultProjectIDTrimsWhitespaceAndUpdatesDefault(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.DefaultProjectID = "project-alpha"
+	document.Projects["project-alpha"] = Project{ID: "project-alpha", Name: "Alpha"}
+	document.Projects["project-beta"] = Project{ID: "project-beta", Name: "Beta"}
+
+	if err := document.SetDefaultProjectID("  project-beta  "); err != nil {
+		t.Fatalf("SetDefaultProjectID returned error: %v", err)
+	}
+	if document.DefaultProjectID != "project-beta" {
+		t.Fatalf("expected default project-beta, got %q", document.DefaultProjectID)
+	}
+}
+
+func TestDocumentSetDefaultProjectIDRequiresKnownProject(t *testing.T) {
+	t.Parallel()
+
+	document := NewDocument()
+	document.Projects["project-alpha"] = Project{ID: "project-alpha", Name: "Alpha"}
+
+	err := document.SetDefaultProjectID("missing")
+	if err == nil {
+		t.Fatal("expected missing project error")
+	}
+	if err != ErrProjectNotFound && err.Error() == "" {
+		t.Fatalf("expected project not found error, got %v", err)
+	}
+}
