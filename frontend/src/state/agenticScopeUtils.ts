@@ -17,27 +17,18 @@ export function resolveAgenticScopeFromEdges(
   const peerChatSectionIds = new Set<string>();
 
   for (const edge of agenticEdges) {
-    if (edge.kind === AgenticEdgeKindEnum.section_chat) {
-      if (edge.targetSectionId !== chatSectionId) {
-        continue;
-      }
-      readSectionIds.add(edge.sourceSectionId);
-      contextSectionIds.add(edge.sourceSectionId);
-      continue;
-    }
     if (edge.kind === AgenticEdgeKindEnum.chat_section) {
       if (edge.sourceSectionId !== chatSectionId) {
         continue;
       }
       readSectionIds.add(edge.targetSectionId);
       writeSectionIds.add(edge.targetSectionId);
+      contextSectionIds.add(edge.targetSectionId);
       continue;
     }
     if (edge.kind === AgenticEdgeKindEnum.chat_chat) {
       if (edge.sourceSectionId === chatSectionId) {
         peerChatSectionIds.add(edge.targetSectionId);
-      } else if (edge.targetSectionId === chatSectionId) {
-        peerChatSectionIds.add(edge.sourceSectionId);
       }
     }
   }
@@ -70,30 +61,18 @@ export function resolveAgenticScopeForChatSections(
   }
 
   for (const edge of agenticEdges) {
-    if (edge.kind === AgenticEdgeKindEnum.section_chat) {
-      if (!chatSectionIdSet.has(edge.targetSectionId)) {
-        continue;
-      }
-      readSectionIds.add(edge.sourceSectionId);
-      contextSectionIds.add(edge.sourceSectionId);
-      continue;
-    }
     if (edge.kind === AgenticEdgeKindEnum.chat_section) {
       if (!chatSectionIdSet.has(edge.sourceSectionId)) {
         continue;
       }
       readSectionIds.add(edge.targetSectionId);
       writeSectionIds.add(edge.targetSectionId);
+      contextSectionIds.add(edge.targetSectionId);
       continue;
     }
     if (edge.kind === AgenticEdgeKindEnum.chat_chat) {
-      const sourceActive = chatSectionIdSet.has(edge.sourceSectionId);
-      const targetActive = chatSectionIdSet.has(edge.targetSectionId);
-      if (sourceActive) {
+      if (chatSectionIdSet.has(edge.sourceSectionId)) {
         peerChatSectionIds.add(edge.targetSectionId);
-      }
-      if (targetActive) {
-        peerChatSectionIds.add(edge.sourceSectionId);
       }
     }
   }

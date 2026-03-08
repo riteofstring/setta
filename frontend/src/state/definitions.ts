@@ -32,6 +32,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -52,6 +53,7 @@ import {
   SharePolicy,
   TranscriptionProfile,
   WebsocketConnectionInfo,
+  type ProjectChatWindowingState,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -159,6 +161,7 @@ export const useProjectState = withProjectState(
           singletonSections: createSingletonSections(),
           parentSectionMap: {},
           shownParamIds: {},
+          projectChatWindowing: createProjectChatWindowingState(),
           previewSectionVariantMap: {},
           requiredDecodedImages: [],
         })),
@@ -721,6 +724,11 @@ export const useMisc = withProjectState(
         requestUpdateNodeDimensions: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
+        projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
+        projectChatGitGraphEmbeddedPaneVisibleByInstanceId: {} as Record<
+          string,
+          true
+        >,
       })),
     ),
   ),
@@ -972,6 +980,7 @@ export const useToolArgumentPreview = withProjectState(
 
 export type ColorModePreference = "dark" | "light" | "auto";
 export type HomeProjectGalleryViewMode = "thumbnails" | "list";
+export type MiniMapSide = "left" | "right";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -980,6 +989,7 @@ type ZustandLocalStorage = {
   darkMode: boolean;
   colorMode: ColorModePreference;
   showMinimap: boolean;
+  minimapSide: MiniMapSide;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
@@ -1044,6 +1054,10 @@ type ZustandLocalStorage = {
   projectChatThreadOrderByProjectConfigId: Record<string, Array<string>>;
   pinnedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
   trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
+  projectChatWindowingByProjectConfigId: Record<
+    string,
+    ProjectChatWindowingState
+  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -1055,6 +1069,7 @@ export const useLocalStorage = createWithEqualityFn(
       darkMode: true,
       colorMode: "dark",
       showMinimap: true,
+      minimapSide: "left",
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
@@ -1100,6 +1115,7 @@ export const useLocalStorage = createWithEqualityFn(
       projectChatThreadOrderByProjectConfigId: {},
       pinnedProjectChatThreadIdsByProjectConfigId: {},
       trashedProjectChatThreadIdsByProjectConfigId: {},
+      projectChatWindowingByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -1209,6 +1225,13 @@ export const useLocalStorage = createWithEqualityFn(
           Array.isArray(merged.trashedProjectChatThreadIdsByProjectConfigId)
         ) {
           merged.trashedProjectChatThreadIdsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatWindowingByProjectConfigId ||
+          typeof merged.projectChatWindowingByProjectConfigId !== "object" ||
+          Array.isArray(merged.projectChatWindowingByProjectConfigId)
+        ) {
+          merged.projectChatWindowingByProjectConfigId = {};
         }
 
         return merged;

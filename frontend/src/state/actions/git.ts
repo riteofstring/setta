@@ -1,3 +1,4 @@
+import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useGitStore } from "state/git";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -7,7 +8,7 @@ import {
   route_get_git_log,
   route_get_git_status,
 } from "utils/generatedEndpoints";
-import type { GitDiffMode, GitStatusEntry } from "utils/generatedTypes";
+import { type GitDiffMode, type GitStatusEntry } from "utils/generatedTypes";
 import {
   appendGitGraphRows,
   computeGitGraphRowsWithState,
@@ -67,7 +68,7 @@ export function buildGitDiffAvailabilityByPath(
   return availabilityByPath;
 }
 
-function createInitialGitGraphOverlayState({
+function createInitialGitGraphState({
   allRefs,
   filterText,
 }: {
@@ -91,6 +92,10 @@ function createInitialGitGraphOverlayState({
     isCapped: false,
     ...createClearedGitGraphSelectionState(),
   };
+}
+
+function getGitGraphState() {
+  return useGitStore.getState().graph;
 }
 
 export async function refreshGitStatus(): Promise<void> {
@@ -268,32 +273,26 @@ export function closeGitOverlay(): void {
 
 export function setGitGraphFilterText(filterText: string): void {
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: { ...state.overlay.graph, filterText },
-      },
+      graph: { ...state.graph, filterText },
     };
   });
 }
 
 export function clearGitGraphSelectedCommit(): void {
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          ...createClearedGitGraphSelectionState(),
-        },
+      graph: {
+        ...state.graph,
+        ...createClearedGitGraphSelectionState(),
       },
     };
   });
@@ -309,20 +308,17 @@ async function refreshGitGraph({
   const requestId = (logRequestId += 1);
   if (!skipPreloadState) {
     useGitStore.setState((state) => {
-      if (state.overlay.kind !== "graph") {
+      if (!state.graph) {
         return state;
       }
       return {
         ...state,
-        overlay: {
-          kind: "graph",
-          graph: {
-            ...state.overlay.graph,
-            isLoading: true,
-            isLoadingMore: false,
-            error: null,
-            loadMoreError: null,
-          },
+        graph: {
+          ...state.graph,
+          isLoading: true,
+          isLoadingMore: false,
+          error: null,
+          loadMoreError: null,
         },
       };
     });
@@ -343,35 +339,32 @@ async function refreshGitGraph({
     const seenCommitHashes = new Set(commits.map((commit) => commit.hash));
     const { rows, rowComputationState } = computeGitGraphRowsWithState(commits);
     useGitStore.setState((state) => {
-      if (state.overlay.kind !== "graph") {
+      if (!state.graph) {
         return state;
       }
-      const selectedCommitHash = state.overlay.graph.selectedCommitHash;
+      const selectedCommitHash = state.graph.selectedCommitHash;
       const shouldClearSelection =
         selectedCommitHash !== null &&
         !seenCommitHashes.has(selectedCommitHash);
       return {
         ...state,
-        overlay: {
-          kind: "graph",
-          graph: {
-            ...state.overlay.graph,
-            allRefs,
-            response: responseData,
-            seenCommitHashes,
-            rows,
-            rowComputationState,
-            isLoading: false,
-            isLoadingMore: false,
-            loadMoreError: null,
-            hasMore: responseData.hasMore,
-            nextOffset: responseData.nextOffset,
-            pageSize: responseData.pageSize,
-            isCapped: responseData.isCapped,
-            ...(shouldClearSelection
-              ? createClearedGitGraphSelectionState()
-              : {}),
-          },
+        graph: {
+          ...state.graph,
+          allRefs,
+          response: responseData,
+          seenCommitHashes,
+          rows,
+          rowComputationState,
+          isLoading: false,
+          isLoadingMore: false,
+          loadMoreError: null,
+          hasMore: responseData.hasMore,
+          nextOffset: responseData.nextOffset,
+          pageSize: responseData.pageSize,
+          isCapped: responseData.isCapped,
+          ...(shouldClearSelection
+            ? createClearedGitGraphSelectionState()
+            : {}),
         },
       };
     });
@@ -379,28 +372,25 @@ async function refreshGitGraph({
   }
 
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          response: null,
-          seenCommitHashes: new Set<string>(),
-          rows: [],
-          rowComputationState: createEmptyGitGraphRowComputationState(),
-          isLoading: false,
-          error: getErrorDetail(res.data) ?? "Failed to load git log.",
-          isLoadingMore: false,
-          loadMoreError: null,
-          hasMore: false,
-          nextOffset: null,
-          isCapped: false,
-          ...createClearedGitGraphSelectionState(),
-        },
+      graph: {
+        ...state.graph,
+        response: null,
+        seenCommitHashes: new Set<string>(),
+        rows: [],
+        rowComputationState: createEmptyGitGraphRowComputationState(),
+        isLoading: false,
+        error: getErrorDetail(res.data) ?? "Failed to load git log.",
+        isLoadingMore: false,
+        loadMoreError: null,
+        hasMore: false,
+        nextOffset: null,
+        isCapped: false,
+        ...createClearedGitGraphSelectionState(),
       },
     };
   });
@@ -411,11 +401,10 @@ export async function loadMoreGitGraphCommits({
 }: {
   force?: boolean;
 } = {}): Promise<void> {
-  const overlay = useGitStore.getState().overlay;
-  if (overlay.kind !== "graph") {
+  const graph = getGitGraphState();
+  if (!graph) {
     return;
   }
-  const graph = overlay.graph;
   if (
     graph.isLoading ||
     graph.isLoadingMore ||
@@ -437,18 +426,15 @@ export async function loadMoreGitGraphCommits({
   const allRefs = graph.allRefs;
 
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          isLoadingMore: true,
-          loadMoreError: null,
-        },
+      graph: {
+        ...state.graph,
+        isLoadingMore: true,
+        loadMoreError: null,
       },
     };
   });
@@ -466,10 +452,10 @@ export async function loadMoreGitGraphCommits({
   if (res200(res)) {
     const nextPage = res.data;
     useGitStore.setState((state) => {
-      if (state.overlay.kind !== "graph") {
+      if (!state.graph) {
         return state;
       }
-      const existingResponse = state.overlay.graph.response;
+      const existingResponse = state.graph.response;
       if (!existingResponse) {
         const initialSeenCommitHashes = new Set(
           nextPage.commits.map((commit) => commit.hash),
@@ -477,28 +463,23 @@ export async function loadMoreGitGraphCommits({
         const initialRows = computeGitGraphRowsWithState(nextPage.commits);
         return {
           ...state,
-          overlay: {
-            kind: "graph",
-            graph: {
-              ...state.overlay.graph,
-              response: nextPage,
-              seenCommitHashes: initialSeenCommitHashes,
-              rows: initialRows.rows,
-              rowComputationState: initialRows.rowComputationState,
-              isLoadingMore: false,
-              loadMoreError: null,
-              hasMore: nextPage.hasMore,
-              nextOffset: nextPage.nextOffset,
-              pageSize: nextPage.pageSize,
-              isCapped: nextPage.isCapped,
-            },
+          graph: {
+            ...state.graph,
+            response: nextPage,
+            seenCommitHashes: initialSeenCommitHashes,
+            rows: initialRows.rows,
+            rowComputationState: initialRows.rowComputationState,
+            isLoadingMore: false,
+            loadMoreError: null,
+            hasMore: nextPage.hasMore,
+            nextOffset: nextPage.nextOffset,
+            pageSize: nextPage.pageSize,
+            isCapped: nextPage.isCapped,
           },
         };
       }
 
-      const nextSeenCommitHashes = new Set(
-        state.overlay.graph.seenCommitHashes,
-      );
+      const nextSeenCommitHashes = new Set(state.graph.seenCommitHashes);
       const appendedCommits: typeof nextPage.commits = [];
       for (const commit of nextPage.commits) {
         if (nextSeenCommitHashes.has(commit.hash)) {
@@ -508,12 +489,12 @@ export async function loadMoreGitGraphCommits({
         appendedCommits.push(commit);
       }
       const mergedCommits = existingResponse.commits.concat(appendedCommits);
-      let appendedRows: typeof state.overlay.graph.rows = [];
-      let nextRowComputationState = state.overlay.graph.rowComputationState;
+      let appendedRows: typeof state.graph.rows = [];
+      let nextRowComputationState = state.graph.rowComputationState;
       if (appendedCommits.length > 0) {
         const appendedResult = appendGitGraphRows(
           appendedCommits,
-          state.overlay.graph.rowComputationState,
+          state.graph.rowComputationState,
         );
         appendedRows = appendedResult.rows;
         nextRowComputationState = appendedResult.rowComputationState;
@@ -530,21 +511,18 @@ export async function loadMoreGitGraphCommits({
 
       return {
         ...state,
-        overlay: {
-          kind: "graph",
-          graph: {
-            ...state.overlay.graph,
-            response: mergedResponse,
-            seenCommitHashes: nextSeenCommitHashes,
-            rows: state.overlay.graph.rows.concat(appendedRows),
-            rowComputationState: nextRowComputationState,
-            isLoadingMore: false,
-            loadMoreError: null,
-            hasMore: nextPage.hasMore,
-            nextOffset: nextPage.nextOffset,
-            pageSize: nextPage.pageSize,
-            isCapped: nextPage.isCapped,
-          },
+        graph: {
+          ...state.graph,
+          response: mergedResponse,
+          seenCommitHashes: nextSeenCommitHashes,
+          rows: state.graph.rows.concat(appendedRows),
+          rowComputationState: nextRowComputationState,
+          isLoadingMore: false,
+          loadMoreError: null,
+          hasMore: nextPage.hasMore,
+          nextOffset: nextPage.nextOffset,
+          pageSize: nextPage.pageSize,
+          isCapped: nextPage.isCapped,
         },
       };
     });
@@ -552,72 +530,79 @@ export async function loadMoreGitGraphCommits({
   }
 
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          isLoadingMore: false,
-          loadMoreError:
-            getErrorDetail(res.data) ?? "Failed to load more commits.",
-        },
+      graph: {
+        ...state.graph,
+        isLoadingMore: false,
+        loadMoreError:
+          getErrorDetail(res.data) ?? "Failed to load more commits.",
       },
     };
   });
 }
 
-export async function openGitGraphOverlay(): Promise<void> {
+export async function ensureGitGraphStateLoaded(): Promise<void> {
+  const existingGraphState = getGitGraphState();
+  if (existingGraphState) {
+    return;
+  }
   const allRefs = false;
   useGitStore.setState((state) => ({
     ...state,
-    overlay: {
-      kind: "graph",
-      graph: createInitialGitGraphOverlayState({ allRefs, filterText: "" }),
-    },
+    graph: createInitialGitGraphState({ allRefs, filterText: "" }),
+  }));
+  await refreshGitGraph({ allRefs, skipPreloadState: true });
+}
+
+export async function openGitGraphOverlay(): Promise<void> {
+  const allRefs = false;
+  ensureTrackedGitPaneGraphWindow({
+    title: "Git Graph",
+  });
+  useGitStore.setState((state) => ({
+    ...state,
+    overlay: { kind: "none" },
+    graph: createInitialGitGraphState({ allRefs, filterText: "" }),
   }));
   await refreshGitGraph({ allRefs, skipPreloadState: true });
 }
 
 export async function refreshGitGraphOverlay(): Promise<void> {
-  const overlay = useGitStore.getState().overlay;
-  if (overlay.kind !== "graph") {
+  const graph = getGitGraphState();
+  if (!graph) {
     return;
   }
-  await refreshGitGraph({ allRefs: overlay.graph.allRefs });
+  await refreshGitGraph({ allRefs: graph.allRefs });
 }
 
 export async function toggleGitGraphAllRefs(): Promise<void> {
-  const overlay = useGitStore.getState().overlay;
-  if (overlay.kind !== "graph") {
+  const graph = getGitGraphState();
+  if (!graph) {
     return;
   }
-  await refreshGitGraph({ allRefs: !overlay.graph.allRefs });
+  await refreshGitGraph({ allRefs: !graph.allRefs });
 }
 
 export async function selectGitCommit(commitHash: string): Promise<void> {
-  const overlay = useGitStore.getState().overlay;
-  if (overlay.kind !== "graph") {
+  if (!getGitGraphState()) {
     return;
   }
   const requestId = (commitDetailsRequestId += 1);
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          ...createClearedGitGraphSelectionState(),
-          selectedCommitHash: commitHash,
-          selectedCommitDetailsIsLoading: true,
-        },
+      graph: {
+        ...state.graph,
+        ...createClearedGitGraphSelectionState(),
+        selectedCommitHash: commitHash,
+        selectedCommitDetailsIsLoading: true,
       },
     };
   });
@@ -628,21 +613,18 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
   }
   if (res200(res)) {
     useGitStore.setState((state) => {
-      if (state.overlay.kind !== "graph") {
+      if (!state.graph) {
         return state;
       }
-      if (state.overlay.graph.selectedCommitHash !== commitHash) {
+      if (state.graph.selectedCommitHash !== commitHash) {
         return state;
       }
       return {
         ...state,
-        overlay: {
-          kind: "graph",
-          graph: {
-            ...state.overlay.graph,
-            selectedCommitDetails: res.data,
-            selectedCommitDetailsIsLoading: false,
-          },
+        graph: {
+          ...state.graph,
+          selectedCommitDetails: res.data,
+          selectedCommitDetailsIsLoading: false,
         },
       };
     });
@@ -650,23 +632,20 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
   }
 
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
-    if (state.overlay.graph.selectedCommitHash !== commitHash) {
+    if (state.graph.selectedCommitHash !== commitHash) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          selectedCommitDetails: null,
-          selectedCommitDetailsIsLoading: false,
-          selectedCommitDetailsError:
-            getErrorDetail(res.data) ?? "Failed to load commit details.",
-        },
+      graph: {
+        ...state.graph,
+        selectedCommitDetails: null,
+        selectedCommitDetailsIsLoading: false,
+        selectedCommitDetailsError:
+          getErrorDetail(res.data) ?? "Failed to load commit details.",
       },
     };
   });
@@ -679,33 +658,30 @@ export async function selectGitCommitFile({
   path: string;
   oldPath: string | null;
 }): Promise<void> {
-  const overlay = useGitStore.getState().overlay;
-  if (overlay.kind !== "graph") {
+  const graph = getGitGraphState();
+  if (!graph) {
     return;
   }
-  const commitHash = overlay.graph.selectedCommitHash;
+  const commitHash = graph.selectedCommitHash;
   if (!commitHash) {
     return;
   }
   const requestId = (commitFileDiffRequestId += 1);
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
-    if (state.overlay.graph.selectedCommitHash !== commitHash) {
+    if (state.graph.selectedCommitHash !== commitHash) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          selectedCommitFilePath: path,
-          selectedCommitFileDiffResponse: null,
-          selectedCommitFileDiffIsLoading: true,
-          selectedCommitFileDiffError: null,
-        },
+      graph: {
+        ...state.graph,
+        selectedCommitFilePath: path,
+        selectedCommitFileDiffResponse: null,
+        selectedCommitFileDiffIsLoading: true,
+        selectedCommitFileDiffError: null,
       },
     };
   });
@@ -720,24 +696,21 @@ export async function selectGitCommitFile({
   }
   if (res200(res)) {
     useGitStore.setState((state) => {
-      if (state.overlay.kind !== "graph") {
+      if (!state.graph) {
         return state;
       }
-      if (state.overlay.graph.selectedCommitHash !== commitHash) {
+      if (state.graph.selectedCommitHash !== commitHash) {
         return state;
       }
-      if (state.overlay.graph.selectedCommitFilePath !== path) {
+      if (state.graph.selectedCommitFilePath !== path) {
         return state;
       }
       return {
         ...state,
-        overlay: {
-          kind: "graph",
-          graph: {
-            ...state.overlay.graph,
-            selectedCommitFileDiffResponse: res.data,
-            selectedCommitFileDiffIsLoading: false,
-          },
+        graph: {
+          ...state.graph,
+          selectedCommitFileDiffResponse: res.data,
+          selectedCommitFileDiffIsLoading: false,
         },
       };
     });
@@ -745,26 +718,23 @@ export async function selectGitCommitFile({
   }
 
   useGitStore.setState((state) => {
-    if (state.overlay.kind !== "graph") {
+    if (!state.graph) {
       return state;
     }
-    if (state.overlay.graph.selectedCommitHash !== commitHash) {
+    if (state.graph.selectedCommitHash !== commitHash) {
       return state;
     }
-    if (state.overlay.graph.selectedCommitFilePath !== path) {
+    if (state.graph.selectedCommitFilePath !== path) {
       return state;
     }
     return {
       ...state,
-      overlay: {
-        kind: "graph",
-        graph: {
-          ...state.overlay.graph,
-          selectedCommitFileDiffResponse: null,
-          selectedCommitFileDiffIsLoading: false,
-          selectedCommitFileDiffError:
-            getErrorDetail(res.data) ?? "Failed to load file diff.",
-        },
+      graph: {
+        ...state.graph,
+        selectedCommitFileDiffResponse: null,
+        selectedCommitFileDiffIsLoading: false,
+        selectedCommitFileDiffError:
+          getErrorDetail(res.data) ?? "Failed to load file diff.",
       },
     };
   });
