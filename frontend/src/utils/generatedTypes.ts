@@ -1034,17 +1034,6 @@ export function createCodeFileBindingUpdate(
   return options as CodeFileBindingUpdate;
 }
 
-export const WebsocketConnectionTypeEnum = {
-  CLI: "CLI",
-  SERVER: "SERVER",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
-  PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  FRONTEND: "FRONTEND",
-} as const;
-export type WebsocketConnectionType = ObjectValues<
-  typeof WebsocketConnectionTypeEnum
->;
-
 export type WebsocketConnectionInfo = {
   id: string;
   connectionType: WebsocketConnectionType;
@@ -1062,6 +1051,33 @@ export function createWebsocketConnectionInfo(
     ...options,
   };
 }
+
+export type WebsocketMsgCurrentAddressUpdate = {
+  id?: string | null;
+  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
+  content: string;
+};
+export function createWebsocketMsgCurrentAddressUpdate(
+  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
+): WebsocketMsgCurrentAddressUpdate {
+  return {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
+    content: "",
+    ...options,
+  };
+}
+
+export const WebsocketConnectionTypeEnum = {
+  CLI: "CLI",
+  SERVER: "SERVER",
+  PYTHON_LOGGER: "PYTHON_LOGGER",
+  PYTHON_SCRIPT: "PYTHON_SCRIPT",
+  FRONTEND: "FRONTEND",
+} as const;
+export type WebsocketConnectionType = ObjectValues<
+  typeof WebsocketConnectionTypeEnum
+>;
 
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
@@ -1142,22 +1158,6 @@ export type UISettingRevealResultContent = {
   requestId: string;
   statuses: Array<UISettingRevealResultStatus>;
 };
-
-export type WebsocketMsgCurrentAddressUpdate = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
-  content: string;
-};
-export function createWebsocketMsgCurrentAddressUpdate(
-  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
-): WebsocketMsgCurrentAddressUpdate {
-  return {
-    id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
-    content: "",
-    ...options,
-  };
-}
 
 export type WebsocketMsgRealtimeUIChange = {
   id?: string | null;

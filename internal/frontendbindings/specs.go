@@ -2597,6 +2597,8 @@ func CurrentAdditionalTypeRoots() []reflect.Type {
 		reflect.TypeOf(FileMapping{}),
 		reflect.TypeOf(UpdateArtifactMsgContent{}),
 		reflect.TypeOf(CodeFileBindingUpdate{}),
+		reflect.TypeOf(WebsocketConnectionInfo{}),
+		reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}),
 		reflect.TypeOf(WebsocketFrontendSupport{}),
 	}
 }

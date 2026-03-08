@@ -988,6 +988,38 @@ export function createCodeFileBindingUpdate(options: Partial<CodeFileBindingUpda
 }
 
 
+export type WebsocketConnectionInfo = {
+  id: string;
+  connectionType: WebsocketConnectionType;
+  currentAddress: string | null;
+  shareSessionId: string | null;
+};
+export function createWebsocketConnectionInfo(options: Partial<WebsocketConnectionInfo> = {}): WebsocketConnectionInfo {
+  return {
+    id: "",
+    connectionType: WebsocketConnectionTypeEnum.SERVER,
+    currentAddress: null,
+    shareSessionId: null,
+    ...options,
+  };
+}
+
+
+export type WebsocketMsgCurrentAddressUpdate = {
+  id?: string | null;
+  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
+  content: string;
+};
+export function createWebsocketMsgCurrentAddressUpdate(options: Partial<WebsocketMsgCurrentAddressUpdate> = {}): WebsocketMsgCurrentAddressUpdate {
+  return {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
+    content: "",
+    ...options,
+  };
+}
+
+
 
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
@@ -997,24 +1029,6 @@ export const WebsocketConnectionTypeEnum = {
   FRONTEND: "FRONTEND",
 } as const;
 export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
-
-export type WebsocketConnectionInfo = {
-  id: string;
-  connectionType: WebsocketConnectionType;
-  currentAddress: string | null;
-  shareSessionId: string | null;
-};
-export function createWebsocketConnectionInfo(
-  options: Partial<WebsocketConnectionInfo> = {},
-): WebsocketConnectionInfo {
-  return {
-    id: "",
-    connectionType: WebsocketConnectionTypeEnum.SERVER,
-    currentAddress: null,
-    shareSessionId: null,
-    ...options,
-  };
-}
 
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
@@ -1091,22 +1105,6 @@ export type UISettingRevealResultContent = {
   requestId: string;
   statuses: Array<UISettingRevealResultStatus>;
 };
-
-export type WebsocketMsgCurrentAddressUpdate = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
-  content: string;
-};
-export function createWebsocketMsgCurrentAddressUpdate(
-  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
-): WebsocketMsgCurrentAddressUpdate {
-  return {
-    id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
-    content: "",
-    ...options,
-  };
-}
 
 export type WebsocketMsgRealtimeUIChange = {
   id?: string | null;

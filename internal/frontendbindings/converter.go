@@ -855,6 +855,32 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "artifacts", TypeExpr: "Array<ArtifactUnion>"},
 				TypeProperty{Name: "updateType", TypeExpr: `"update" | "delete"`},
 			),
+			reflect.TypeOf(WebsocketConnectionInfo{}): objectDeclarationWithCreateExpr(
+				"WebsocketConnectionInfo",
+				`{
+    id: "",
+    connectionType: WebsocketConnectionTypeEnum.SERVER,
+    currentAddress: null,
+    shareSessionId: null,
+    ...options,
+  }`,
+				TypeProperty{Name: "id", TypeExpr: "string"},
+				TypeProperty{Name: "connectionType", TypeExpr: "WebsocketConnectionType"},
+				TypeProperty{Name: "currentAddress", TypeExpr: "string | null"},
+				TypeProperty{Name: "shareSessionId", TypeExpr: "string | null"},
+			),
+			reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}): objectDeclarationWithCreateExpr(
+				"WebsocketMsgCurrentAddressUpdate",
+				`{
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
+    content: "",
+    ...options,
+  }`,
+				TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate"},
+				TypeProperty{Name: "content", TypeExpr: "string"},
+			),
 			reflect.TypeOf(WebsocketFrontendSupport{}): {
 				Name: "WebsocketFrontendSupport",
 				Kind: "raw",

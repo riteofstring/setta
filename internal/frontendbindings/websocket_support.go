@@ -2,6 +2,19 @@ package frontendbindings
 
 type WebsocketFrontendSupport struct{}
 
+type WebsocketConnectionInfo struct {
+	ID             string  `json:"id"`
+	ConnectionType string  `json:"connectionType"`
+	CurrentAddress *string `json:"currentAddress"`
+	ShareSessionID *string `json:"shareSessionId"`
+}
+
+type WebsocketMsgCurrentAddressUpdate struct {
+	ID          *string `json:"id,omitempty"`
+	MessageType string  `json:"messageType"`
+	Content     string  `json:"content"`
+}
+
 const websocketFrontendSupportRawTS = `
 export const WebsocketConnectionTypeEnum = {
   CLI: "CLI",
@@ -11,24 +24,6 @@ export const WebsocketConnectionTypeEnum = {
   FRONTEND: "FRONTEND",
 } as const;
 export type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
-
-export type WebsocketConnectionInfo = {
-  id: string;
-  connectionType: WebsocketConnectionType;
-  currentAddress: string | null;
-  shareSessionId: string | null;
-};
-export function createWebsocketConnectionInfo(
-  options: Partial<WebsocketConnectionInfo> = {},
-): WebsocketConnectionInfo {
-  return {
-    id: "",
-    connectionType: WebsocketConnectionTypeEnum.SERVER,
-    currentAddress: null,
-    shareSessionId: null,
-    ...options,
-  };
-}
 
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
@@ -105,22 +100,6 @@ export type UISettingRevealResultContent = {
   requestId: string;
   statuses: Array<UISettingRevealResultStatus>;
 };
-
-export type WebsocketMsgCurrentAddressUpdate = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
-  content: string;
-};
-export function createWebsocketMsgCurrentAddressUpdate(
-  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
-): WebsocketMsgCurrentAddressUpdate {
-  return {
-    id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
-    content: "",
-    ...options,
-  };
-}
 
 export type WebsocketMsgRealtimeUIChange = {
   id?: string | null;
