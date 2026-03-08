@@ -171,7 +171,7 @@ Primary sources used for this checklist:
 | Complete | Git read surface | Phase 20 marks `git/status`, `git/diff`, `git/log`, `git/commitDetails`, and `git/commitFileDiff` as Go-owned. |
 | Partial | IDE artifact import/update/delete and cached artifact reads | Go owns the current artifact cluster, but `updateArtifacts` is intentionally bounded to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, `deleteArtifacts` only supports `File`, and the draw-area canvas still uses Python-owned `appendDrawAreaLayerItem`. |
 | Partial | Share/app artifact overlays | Go owns per-session overlay reads and writes, but the same bounded artifact limits still apply: overlay updates are restricted to `File`, `BrushStroke`, and `DrawAreaLayerItemTransform`, and overlay deletes only support `File`. |
-| Missing | Legacy artifact helper routes still used by the current frontend | The UI still calls Python-owned `loadAvailableArtifacts`; other older helpers like `loadArtifacts`, `loadArtifactFromDisk`, `sendArtifact`, and `getArtifactIdsFromNamePathType` are not recreated in Go either. |
+| Missing | Legacy artifact helper routes still used by the current frontend | The active draw-area canvas still POSTs Python-owned `appendDrawAreaLayerItem`. Older helper names like `loadArtifacts`, `loadArtifactFromDisk`, `sendArtifact`, and `getArtifactIdsFromNamePathType` are not recreated in Go either, but the repo does not currently show a caller-backed generated transport for `loadAvailableArtifacts`. |
 | Complete | Attachment URL helper routes used by the current frontend | Chat/UI callers now reach Go-owned `getAttachmentDownloadUrl` and `getAttachmentDownloadUrls` handlers in `internal/httpapi/attachment_routes.go`, backed by `internal/chatattachments` for artifact-path normalization, token minting, deployment/share query binding, and token-backed download serving. |
 
 ## 9. Remaining Python-only or intentionally omitted legacy route families
@@ -192,7 +192,6 @@ callers.
   - deployment/share/app terminal websocket path `/{projectConfigId}/{sectionId}/{id}`
 - Password and subprocess helper routes:
 - Artifact helper routes:
-  - `loadAvailableArtifacts`
   - `appendDrawAreaLayerItem`
 - Large direct project-graph and section-config mutation tails:
   - child-section create/delete
@@ -215,6 +214,8 @@ callers.
   - `/pythonScript/{id}`
 - Legacy default-project read helper:
   - `getDefaultConfigName`
+- Legacy artifact helper constant without a current caller-backed transport:
+  - `loadAvailableArtifacts`
 - Generic chat CRUD/metadata routes:
   - `createChat`
   - `getChat`

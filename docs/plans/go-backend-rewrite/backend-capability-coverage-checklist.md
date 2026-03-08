@@ -90,7 +90,7 @@ Primary sources used for this checklist:
 | Go-owned | Core project state and project shell | `internal/projectstate`, `internal/projectview`, `internal/projectshell`, `internal/settingsstate`, `internal/chatsections`, and `internal/notifications` own the main project/runtime state slice, including the caller-backed section-variant delete prompt/delete flow. |
 | Go-owned | Artifact, binary, attachment, file-browser, and git-read services | `internal/artifacts`, `internal/binary`, `internal/chatattachments`, `internal/filebrowser`, `internal/gitread`, and `internal/shareartifacts` are Go-owned. |
 | Go-owned | State filesystem and project backup helpers | `internal/statefs` and `internal/projectbackup` are Go-owned support capabilities. |
-| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including the dormant default-project helper `getDefaultConfigName`, `loadAvailableArtifacts`, and `appendDrawAreaLayerItem`. |
+| Python-owned | Settings-project runtime and remaining direct helper/mutation runtime | `backend/setta/project_state/**` and Python router-owned legacy helpers still cover settings-project plus the omitted direct helper/mutation tails that were not re-created in Go, including the dormant default-project helper `getDefaultConfigName` and the active draw-area mutation helper `appendDrawAreaLayerItem`. The repo still carries a `loadAvailableArtifacts` route constant, but the current worktree does not show a live router or caller-backed generated transport for it. |
 
 ## 6. Code intelligence, formatting, and execution planning
 
