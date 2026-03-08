@@ -41,6 +41,8 @@ Current repo status as of 2026-03-08:
     - Go-owned send-path validation, history shaping, persisted running-run
       creation, and runtime activation for the external-agent branch of
       `getLLMResponse`
+    - real Codex app-server execution, approval production, persisted
+      completion/failure closeout, and same-chat `threadId` continuity
   - `internal/httpapi/ai_routes.go`
     - thin Go transport for:
       - `/getLLMResponse` (external-agent branch only)
@@ -56,14 +58,14 @@ Current repo status as of 2026-03-08:
   planned Go target for the current rewrite scope
 - Go does not yet own the remaining active external-agent route/runtime
   surface:
-  - the adapter-backed execution runtime that produces live chat updates and
-    approval prompts during an active run
+  - Claude Code and OpenCode adapter-backed execution
+  - broader Codex item-type parity for MCP/tool-result rich flows
   - `route_respond_external_agent_question`
 - current work is no longer pure planning/inventory:
   - the hydration read path is implemented in Go
-  - the active runtime, stop route, approval-response route, and external-agent
-    send-route foundations are implemented in Go
-  - the remaining bounded gap is now real adapter execution plus question/event
+  - the active runtime, stop route, approval-response route, send-route
+    foundations, and the first real Codex executor are implemented in Go
+  - the remaining bounded gap is now the non-Codex adapters plus question/event
     ownership, not another CLI or launcher slice
 
 ## Scope

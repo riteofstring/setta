@@ -46,14 +46,22 @@ Completed in this slice:
   - thin `/getLLMResponse` transport for the external-agent engine branch
   - thin `/stopExternalAgentRun` transport
   - thin `/respondExternalAgentApproval` transport
+- `internal/externalagents/codex_executor.go`
+  - real Codex app-server execution behind the bounded executor interface
+  - Go-owned initialize / thread start-or-resume / turn start lifecycle
+  - live assistant-output and approval-request persistence during active runs
+  - terminal completion and failure persistence
 - `internal/app/app.go`
   - runtime wiring so the hydration read path and send path share the same Go
     runtime owner and external-agent config source of truth
+  - bounded multi-executor wiring with the real Codex executor installed in IDE
+    mode
 
 Still missing:
 
-- Go-owned adapter execution for the supported external agents
-- active approval/question production during live execution
+- Claude Code execution
+- OpenCode execution
+- active question production during live execution
 - `respondExternalAgentQuestion`
 
 ## Scope
@@ -168,12 +176,18 @@ It should preserve the current rewrite constraints:
 - added `internal/externalagents/send.go` so the external-agent branch of
   `getLLMResponse` now resolves state, validates inputs, persists the running
   run, and activates the completed runtime in Go
+- added `internal/externalagents/codex_executor.go` so Codex-backed external
+  chats now launch and complete through a real Go-owned app-server runtime
+- seeded persisted Codex `threadId` into same-chat follow-up runs so Codex
+  thread continuity is now Go-owned
 - implemented stop ownership against persisted runs plus active controllers
-- implemented approval-response dispatch and event persistence
+- implemented approval-response dispatch plus persisted approval tool-result
+  messages
 - added focused tests for:
   - external-agent config reads and preflight gating
   - external-agent send-path validation, continuation seeding, and conflict
     handling
+  - real Codex executor completion and approval round-trip over stdio
   - `/getLLMResponse` transport over the new send service
   - live overlay retrieval
   - cancellation persistence and cleanup
@@ -183,8 +197,12 @@ It should preserve the current rewrite constraints:
 ## Verification
 
 - passed:
-  - `./scripts/go.sh test ./internal/externalagentconfigs ./internal/externalagents ./internal/httpapi`
+  - `./scripts/go.sh test ./internal/externalagents`
+  - `./scripts/go.sh test ./internal/httpapi -run 'AI|ExternalAgent|GetLLMResponse|RespondExternalAgentApproval|StopExternalAgentRun'`
   - `./scripts/go.sh test ./internal/app -run '^$'`
+- noted:
+  - `./scripts/go.sh test ./internal/httpapi` still has unrelated terminal-route
+    failures outside this external-agent slice
 
 ## Verification Targets
 
@@ -216,11 +234,9 @@ It should preserve the current rewrite constraints:
 
 ## Next Recommended Step
 
-- land the Codex-first real executor slice tracked in
-  `phase-12-codex-app-server-executor-runtime.md`
 - keep the completed runtime as the execution owner; do not add a parallel send
   path that bypasses it
-- use that Codex slice to prove live execution outputs, approval production, and
-  completion/failure persistence before broadening to Claude Code or OpenCode
+- land Claude Code and OpenCode executors on the same bounded runtime boundary
+  now that Codex execution, stop, and approval ownership are proven
 - land `respondExternalAgentQuestion` only after question production exists in a
   real adapter-backed runtime

@@ -141,6 +141,30 @@ func TestRuntimeRespondToApprovalDispatchesAndPersistsEvent(t *testing.T) {
 	if err := runtime.ActivateRun(run.ID, controller); err != nil {
 		t.Fatalf("activate run: %v", err)
 	}
+	if err := runtime.SetLiveChatState(run.ID, ChatState{
+		Messages: []map[string]any{
+			{
+				"id":      "approval-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id": "approval-1",
+						"function": map[string]any{
+							"name":      codexApprovalToolName,
+							"arguments": map[string]any{"approvalId": "approval-1"},
+						},
+					},
+				},
+			},
+		},
+		WaitingForResponse: true,
+		ToolCallArguments: map[string]string{
+			"approval-1": "{\"approvalId\":\"approval-1\"}",
+		},
+	}); err != nil {
+		t.Fatalf("set live approval state: %v", err)
+	}
 	if err := runtime.RegisterApproval(ApprovalState{
 		ApprovalID:      "approval-1",
 		RunID:           run.ID,
@@ -166,6 +190,23 @@ func TestRuntimeRespondToApprovalDispatchesAndPersistsEvent(t *testing.T) {
 	lastEvent := persisted.Events[len(persisted.Events)-1]
 	if lastEvent.Type != "approval_response" {
 		t.Fatalf("expected approval_response event, got %#v", lastEvent)
+	}
+	if len(persisted.Events) < 2 || persisted.Events[len(persisted.Events)-2].Type != "tool_result" {
+		t.Fatalf("expected tool_result before approval_response, got %#v", persisted.Events)
+	}
+	rawMessages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(rawMessages) == 0 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := rawMessages[len(rawMessages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected tool result message, got %#v", rawMessages[len(rawMessages)-1])
+	}
+	if lastMessage["role"] != "tool" {
+		t.Fatalf("expected tool role, got %#v", lastMessage)
+	}
+	if lastMessage["tool_name"] != codexApprovalToolName {
+		t.Fatalf("expected approval tool name, got %#v", lastMessage)
 	}
 	if err := runtime.RespondToApproval("approval-1", true); !errors.Is(err, ErrApprovalNotFound) {
 		t.Fatalf("expected approval to be removed after response, got %v", err)

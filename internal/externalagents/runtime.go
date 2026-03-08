@@ -183,6 +183,29 @@ func (r *Runtime) RespondToApproval(approvalID string, approved bool) error {
 	if err := runState.controller.SendApprovalResponse(trimmedApprovalID, approved); err != nil {
 		return err
 	}
+	liveState := runState.liveChat
+	if liveState == nil {
+		built, err := buildChatStateFromRun(run.Clone())
+		if err != nil {
+			return err
+		}
+		liveState = built
+	}
+	if liveState != nil {
+		nextState := liveState.Clone()
+		appendApprovalResultMessage(nextState, trimmedApprovalID, approved)
+		run.Outputs = ensureAnyMap(run.Outputs)
+		run.Outputs["messages"] = messageSliceToJSONList(nextState.Messages)
+		runState.liveChat = nextState.Clone()
+		r.mu.Lock()
+		r.activeRuns[approvalState.RunID] = runState
+		r.mu.Unlock()
+	}
+	appendRunEvent(&run, "tool_result", map[string]any{
+		"toolCallId": trimmedApprovalID,
+		"toolName":   codexApprovalToolName,
+		"isError":    !approved,
+	}, r.timeNow())
 	appendRunEvent(&run, "approval_response", map[string]any{
 		"approvalId": trimmedApprovalID,
 		"approved":   approved,

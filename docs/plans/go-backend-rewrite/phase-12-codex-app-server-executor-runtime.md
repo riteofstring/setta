@@ -35,14 +35,36 @@ Completed before this slice:
   - persisted running-run creation
   - runtime activation behind a bounded executor interface
 
-Still missing before this slice:
+Completed in this slice:
 
-- real adapter-backed execution behind the executor interface
-- live output persistence during execution
-- terminal completion and failure persistence owned by Go execution
-- real approval request production from an adapter-backed runtime
-- Claude Code and OpenCode execution
-- `respondExternalAgentQuestion`
+- `internal/externalagents/codex_executor.go`
+  - Codex-specific executor behind the existing executor boundary
+  - `codex app-server` process launch plus initialize / initialized handshake
+  - thread start or resume plus turn start
+  - bounded assistant-text and approval-request handling
+  - terminal completion and failure persistence
+- `internal/externalagents/runtime.go`
+  - approval responses now also persist tool-result messages into the live chat
+    and run outputs
+- `internal/externalagents/send.go`
+  - seeds prior Codex `threadId` into the next run for same-chat continuations
+  - coordinates runtime activation with the executor through an explicit
+    runtime-ready handshake so live updates do not outrun activation
+- `internal/app/app.go`
+  - app wiring now installs the real Codex executor in IDE mode through a
+    bounded multi-executor
+- focused Go tests now cover:
+  - real stdio fixture execution for Codex completion
+  - approval round-trip through the active runtime
+  - prior-thread seeding in the send path
+
+Still missing after this slice:
+
+- Claude Code execution
+- OpenCode execution
+- external question-production and `respondExternalAgentQuestion`
+- broader Codex item-type parity for MCP/tool-result rich flows
+- websocket/event fanout closeout for active external-agent runs
 
 ## Why This Slice Exists
 
@@ -152,6 +174,35 @@ This slice should deliver:
 
 - `./scripts/go.sh test ./internal/externalagents ./internal/httpapi`
 - `./scripts/go.sh test ./internal/app -run '^$'`
+
+## Verification
+
+- passed:
+  - `./scripts/go.sh test ./internal/externalagents`
+  - `./scripts/go.sh test ./internal/httpapi -run 'AI|ExternalAgent|GetLLMResponse|RespondExternalAgentApproval|StopExternalAgentRun'`
+  - `./scripts/go.sh test ./internal/app -run '^$'`
+- noted:
+  - `./scripts/go.sh test ./internal/httpapi` still has unrelated pre-existing
+    terminal-route failures outside this slice
+
+## Decisions Made
+
+- kept the Codex executor behind the existing `internal/externalagents.Executor`
+  boundary instead of letting the send service or routes own process launch
+- used a runtime-ready handshake between the send service and the concrete
+  controller so active execution cannot race ahead of runtime activation
+- seeded Codex `threadId` from the latest same-chat external run instead of
+  keeping Codex chat continuity as an implicit Python-only behavior
+- kept the Codex parser intentionally bounded to assistant text, approvals, and
+  terminal lifecycle so this slice proves the runtime shape without broadening
+  into full item parity
+
+## Next Recommended Step
+
+- land the next real adapter on the same runtime boundary, starting with Claude
+  Code or OpenCode instead of broadening the Codex slice immediately
+- keep `respondExternalAgentQuestion` deferred until a real adapter-backed
+  question-production path exists in Go
 
 ## Expected Remaining Gap After This Slice
 

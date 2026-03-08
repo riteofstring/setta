@@ -34,6 +34,8 @@ Phase 12 surface now includes:
     approval-response dispatch foundations
   - external-agent send-path validation, history shaping, persisted running-run
     creation, and runtime activation foundations
+  - real Codex app-server execution, approval production, terminal
+    completion/failure persistence, and same-chat `threadId` continuity
 - `internal/httpapi/ai_routes.go`
   - thin Go transport for:
     - `/getLLMResponse` (external-agent branch only)
@@ -41,8 +43,8 @@ Phase 12 surface now includes:
     - `/stopExternalAgentRun`
     - `/respondExternalAgentApproval`
 
-The remaining Phase 12 target is now the real adapter-backed execution path and
-the remaining active interaction surface still owned in
+The remaining Phase 12 target is now the non-Codex adapter-backed execution
+path and the remaining active interaction surface still owned in
 `backend/setta/routers/ai.py`, `backend/setta/routers/agentic.py`, and
 `backend/setta/agentic/external_agent_runner.py`, tracked explicitly in
 `phase-12-managed-chat-runtime-and-ai-route-foundation.md`,
@@ -54,7 +56,9 @@ real executor slice tracked in
 `phase-12-codex-app-server-executor-runtime.md`. That slice owns real Codex
 app-server launch, approval control, live chat/output persistence, and terminal
 run closeout without pretending Claude Code, OpenCode, or question-response
-parity land at the same time.
+parity land at the same time. With that slice landed, the remaining Phase 12
+gap is Claude Code and OpenCode execution, question routing, and the deferred
+Codex item-parity work that still depends on richer MCP/tool-result handling.
 
 The practical next step is still not "rerun the early spikes" or broadly
 re-decide the initial library choices. MCP, LSP, and file-state decisions are

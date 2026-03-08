@@ -110,6 +110,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalAgentChats    *externalagents.Service
 		externalAgentRuntime  *externalagents.Runtime
 		externalAgentSend     *externalagents.SendService
+		externalAgentExecutor externalagents.Executor
 		watchCodeWarnings     *watchCodeWarningTracker
 		codeUpdates           *codeUpdateService
 		renameRefactors       *renameRefactorService
@@ -552,6 +553,20 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
+		codexExecutor, err := externalagents.NewCodexExecutor(externalagents.CodexExecutorOptions{
+			Runs:           runStore,
+			Runtime:        externalAgentRuntime,
+			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+			ProcessEnv:     llmconfig.CurrentProcessEnv(),
+		})
+		if err != nil {
+			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
+			return nil, err
+		}
+		externalAgentExecutor = externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
+			Codex: codexExecutor,
+		})
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState: projectRuntime,
 			Engines:      engineStore,
@@ -560,6 +575,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Configs:      externalConfigStore,
 			Runtime:      externalAgentRuntime,
 			Preflight:    externalPreflightChecker,
+			Executor:     externalAgentExecutor,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))

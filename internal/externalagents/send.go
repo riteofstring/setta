@@ -100,6 +100,11 @@ type SendService struct {
 	timeNow      func() time.Time
 }
 
+type runtimeReadyController interface {
+	RunController
+	markRuntimeReady()
+}
+
 type StartChatRequest struct {
 	ChatID                           *string
 	ContinueFromChatID               *string
@@ -398,6 +403,13 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if frontendAffinityToken != nil {
 		inputs["frontendAffinityToken"] = *frontendAffinityToken
 	}
+	if externalConfig.ToolType == externalagentconfigs.ToolTypeCodex {
+		if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
+			if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
+				inputs["threadId"] = threadID
+			}
+		}
+	}
 
 	run := agentruns.NewRun(profileID, inputs, s.timeNow())
 	if err := s.runs.Save(run); err != nil {
@@ -438,8 +450,12 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 		WaitingForResponse: true,
 		ToolCallArguments:  map[string]string{},
 	}); err != nil {
+		_ = started.Controller.Cancel()
 		s.runtime.DeactivateRun(run.ID)
 		return StartChatResult{}, err
+	}
+	if readyController, ok := started.Controller.(runtimeReadyController); ok {
+		readyController.markRuntimeReady()
 	}
 
 	persisted, err := s.runs.Load(run.ID)
@@ -731,6 +747,21 @@ func resolveRunInputString(run agentruns.Run, key string) string {
 		return ""
 	}
 	raw, ok := run.Inputs[key]
+	if !ok {
+		return ""
+	}
+	value, ok := raw.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(value)
+}
+
+func resolveRunOutputString(run agentruns.Run, key string) string {
+	if run.Outputs == nil {
+		return ""
+	}
+	raw, ok := run.Outputs[key]
 	if !ok {
 		return ""
 	}
