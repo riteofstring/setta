@@ -1,4 +1,3 @@
-import { getRequestedSettingsAllSettingsBenchmarkStageFromWindow } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import _ from "lodash";
 import { getActiveSectionUIIds, setActiveSectionUIIds } from "state/activeSectionUI";
 import {
@@ -52,24 +51,6 @@ function optimisticActiveIdsUpdate(
   });
 }
 
-function shouldDeferProjectActiveIdsSyncForBenchmark() {
-  return (
-    getRequestedSettingsAllSettingsBenchmarkStageFromWindow() ===
-    "full-ui-active-store"
-  );
-}
-
-function cancelPendingProjectActiveIdsSync() {
-  if (
-    pendingProjectActiveIdsAnimationFrame !== null &&
-    typeof window !== "undefined"
-  ) {
-    window.cancelAnimationFrame(pendingProjectActiveIdsAnimationFrame);
-  }
-  pendingProjectActiveIdsAnimationFrame = null;
-  pendingProjectActiveIds = null;
-}
-
 function applyProjectActiveSectionIds(ids: Array<string>) {
   const currentActiveIds = useProjectState.getState().projectConfig.activeIds;
   if (_.isEqual(currentActiveIds, ids)) {
@@ -78,6 +59,18 @@ function applyProjectActiveSectionIds(ids: Array<string>) {
   optimisticActiveIdsUpdate((state) => {
     state.projectConfig.activeIds = ids;
   });
+}
+
+function shouldDeferProjectActiveSectionIdsSync() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const projectConfigId = getCurrProjectConfigId();
+  return (
+    projectConfigId !== null &&
+    projectConfigId !== undefined &&
+    projectConfigId !== NULL_PROJECT_CONFIG_ID
+  );
 }
 
 function flushPendingProjectActiveIdsSync() {
@@ -110,12 +103,11 @@ export function setActiveSectionIds(ids: Array<string>) {
     return;
   }
   setActiveSectionUIIds(ids);
-  if (shouldDeferProjectActiveIdsSyncForBenchmark()) {
-    scheduleProjectActiveSectionIdsSync(ids);
+  if (!shouldDeferProjectActiveSectionIdsSync()) {
+    applyProjectActiveSectionIds(ids);
     return;
   }
-  cancelPendingProjectActiveIdsSync();
-  applyProjectActiveSectionIds(ids);
+  scheduleProjectActiveSectionIdsSync(ids);
 }
 
 export function pruneActiveSectionIdsForViewMode(
@@ -134,7 +126,7 @@ export function pruneActiveSectionIdsForViewMode(
   if (!viewMode) {
     throw new Error(`Active view mode ${resolvedViewModeId} not found`);
   }
-  const nextIds = state.projectConfig.activeIds.filter((sectionId) => {
+  const nextIds = getActiveSectionUIIds().filter((sectionId) => {
     const visibility = viewMode.visibilityBySectionId[sectionId];
     if (visibility === undefined) {
       throw new Error(

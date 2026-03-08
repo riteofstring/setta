@@ -3440,3 +3440,71 @@ New benchmark stages:
   - promote the active-section UI store out of benchmark-only mode
   - keep it as the immediate source for active shell/pane state
   - mirror to `projectConfig.activeIds` asynchronously, with follow-up coverage for any behavior that currently assumes same-tick project-store updates
+
+## Addendum: promoting the split active-section UI store makes normal `full` activation match the benchmark prototype band
+
+- Date: `2026-03-08`
+- Goal: promote the benchmark-only `useActiveSectionUI` activation path into normal production behavior, then verify that the real `full` stage lands in the same activation band as the prototype.
+- Production change:
+  - `setActiveSectionIds(...)` now updates `useActiveSectionUI` immediately and defers the durable `projectConfig.activeIds` sync for real loaded projects, not just the benchmark-only stage.
+  - switched immediate active-selection readers that drive UI behavior and interaction targeting to `useActiveSectionUI` / `getActiveSectionUIIds()`, including:
+    - pane tab resolution
+    - copy/paste and format-code actions
+    - keyboard escape / tab helpers
+    - section search focus
+    - group / ungroup actions
+    - node selection, minimap, drag, selection-bounds, and active-edge rendering
+
+### Method
+
+- Kept the normal live headed browser workflow on `http://127.0.0.1:3009/settings`.
+- Fixed the viewport at `1440x1200`.
+- Used the same browser-side activation harness as the recent addenda:
+  - click a visible inactive section
+  - measure click to `data-section-active="true"`
+  - measure click to visual settle using stable computed-style sampling on the activated shell
+- Measured the same-session sequence:
+  - `full`
+  - `full-ui-active-store`
+  - `full` rerun
+- Important comparison note:
+  - these absolute numbers were collected in a later live session than the prototype addendum above
+  - compare within this addendum first; the key question here is whether normal `full` now matches the prototype control in the same session
+
+### Visual validation
+
+- `full` production baseline:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-active-store-production-2026-03-08/full-production-visible.png`
+- `full-ui-active-store` control:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-active-store-production-2026-03-08/full-ui-active-store-production-visible.png`
+- `full` production rerun:
+  - `perf/artifacts/frontend/settings-all-settings/activation-ui-active-store-production-2026-03-08/full-production-rerun-visible.png`
+
+### Results
+
+- `full` first same-session production run:
+  - average click to active: `105.30ms`
+  - average click to visual settle: `122.22ms`
+  - average extra time after active: `16.92ms`
+
+- `full-ui-active-store` control stage:
+  - average click to active: `93.30ms`
+  - average click to visual settle: `109.28ms`
+  - average extra time after active: `15.98ms`
+
+- `full` production rerun:
+  - average click to active: `95.70ms`
+  - average click to visual settle: `113.18ms`
+  - average extra time after active: `17.48ms`
+
+### Conclusion
+
+- The production promotion worked.
+- After the split-store path is enabled for normal `full`, the real `full` stage lands in essentially the same band as the old benchmark-only prototype control.
+- Within this same session, the remaining `full` rerun gap to `full-ui-active-store` is small:
+  - about `2.4ms` on click to active
+  - about `3.9ms` on click to visual settle
+- That is close enough to treat as normal warm-session variance rather than a meaningful remaining architecture gap.
+- So the split is worth keeping:
+  - immediate active-shell/UI behavior belongs in the lightweight active-section UI store
+  - durable `projectConfig.activeIds` sync can stay on the deferred project-state/backend path

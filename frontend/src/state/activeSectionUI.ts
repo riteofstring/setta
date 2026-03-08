@@ -1,5 +1,7 @@
 import { useProjectState, useActiveSectionUI } from "./definitions";
 
+export { useActiveSectionUI } from "./definitions";
+
 let activeSectionUIProjectSubscriptionInitialized = false;
 
 function areStringArraysEqual(left: Array<string>, right: Array<string>) {

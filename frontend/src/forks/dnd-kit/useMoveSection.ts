@@ -10,6 +10,7 @@ import {
   getSectionChildren,
   manualDndChildrenReset,
 } from "state/actions/sectionInfos";
+import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 import {
   getSharedParentId,
@@ -401,7 +402,7 @@ function getSortingOverIdFromCollisions(
 }
 
 function scheduleSelectionBoundsUpdate() {
-  const activeIds = useProjectState.getState().projectConfig.activeIds;
+  const activeIds = getActiveSectionUIIds();
   if (activeIds.length === 0) {
     return;
   }

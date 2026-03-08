@@ -94,17 +94,17 @@ describe("activeSections", () => {
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
   });
 
-  it("updates the UI active ids immediately and defers the project-state sync in the UI-store benchmark stage", () => {
-    useServerMode.setState({
-      mode: "app",
-      modeResolved: true,
-      modeError: null,
+  it("updates the UI active ids immediately and defers the durable project-state sync when a real project config is loaded", () => {
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-a";
     });
-    window.history.replaceState(
-      {},
-      "",
-      "/settings?settingsBenchmarkStage=full-ui-active-store",
-    );
+    const endpointSpy = vi
+      .spyOn(endpoints, "route_set_active_ids")
+      .mockResolvedValue({
+        status: 200,
+        hasResponse: true,
+        data: undefined,
+      });
 
     let scheduledFrame: FrameRequestCallback | null = null;
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
@@ -118,11 +118,13 @@ describe("activeSections", () => {
     expect(useActiveSectionUI.getState().activeIds).toEqual(["section-a"]);
     expect(useProjectState.getState().projectConfig.activeIds).toEqual([]);
     expect(scheduledFrame).not.toBeNull();
+    expect(endpointSpy).not.toHaveBeenCalled();
 
     scheduledFrame?.(16);
 
     expect(useProjectState.getState().projectConfig.activeIds).toEqual([
       "section-a",
     ]);
+    expect(endpointSpy).toHaveBeenCalledOnce();
   });
 });
