@@ -2371,13 +2371,12 @@ export async function getExternalAgentChat(
 
 export async function getProjectChatHydrationOutcomeWithFallback(
   chatId: string,
-  projectConfigId: string | null,
+  projectConfigId: string,
   preferredRunType: ProjectChatHydrationRunType | null,
   sectionId?: string,
 ): Promise<ChatHydrationOutcome> {
-  const resolvedProjectConfigId = getCurrProjectConfigId();
   const [llmProbe, externalProbe] = await Promise.all([
-    probeLLMChatHydration(chatId, resolvedProjectConfigId),
+    probeLLMChatHydration(chatId, projectConfigId),
     probeExternalAgentChatHydration(chatId, projectConfigId),
   ]);
 
@@ -2392,7 +2391,7 @@ export async function getProjectChatHydrationOutcomeWithFallback(
     applyLLMChatHydrationSuccess({
       chatId,
       sectionId,
-      projectConfigId: resolvedProjectConfigId,
+      projectConfigId,
       payload: llmProbe.payload,
     });
     return {

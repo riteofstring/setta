@@ -169,6 +169,45 @@ def test_project_state_normalizes_duplicate_section_bindings_to_one_authoritativ
     assert project_state.projectChatWindowing.nextInstanceNumber == 3
 
 
+def test_project_state_normalizes_exact_section_binding_ties_by_instance_id() -> None:
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
+    section_id = create_top_level_section(
+        SettingsState(),
+        project_state,
+        SectionType.Chat,
+        Position(),
+    )
+    lower_id_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-1",
+        placement=ChatWindowPlacement.floating,
+        sectionIdOrNull=section_id,
+        zIndex=9,
+        lastFocusedAt=100,
+    )
+    higher_id_window = ProjectChatWindowInstance(
+        instanceId="project-chat-window-2",
+        placement=ChatWindowPlacement.floating,
+        sectionIdOrNull=section_id,
+        zIndex=9,
+        lastFocusedAt=100,
+    )
+
+    project_state.projectChatWindowing = ProjectChatWindowingState(
+        instancesById={
+            lower_id_window.instanceId: lower_id_window,
+            higher_id_window.instanceId: higher_id_window,
+        },
+        order=[lower_id_window.instanceId, higher_id_window.instanceId],
+        nextInstanceNumber=3,
+    )
+    project_state.validate_project_chat_windowing()
+
+    assert project_state.projectChatWindowing.instancesById == {
+        higher_id_window.instanceId: higher_id_window
+    }
+    assert project_state.projectChatWindowing.order == [higher_id_window.instanceId]
+
+
 def test_project_state_normalizes_section_window_titles_to_none() -> None:
     project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="x"))
     section_id = create_top_level_section(

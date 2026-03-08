@@ -13,6 +13,7 @@ import {
   createAgentRun,
   createAssistantChatMessage,
   createMessageTextContent,
+  createProjectConfig,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -57,6 +58,7 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
+let useProjectState: typeof import("state/definitions").useProjectState;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
 let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
 let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
@@ -90,6 +92,7 @@ describe("stopProjectChatResponse", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     useLocalStorage = definitions.useLocalStorage;
+    useProjectState = definitions.useProjectState;
     const ai = await import("state/actions/ai");
     stopProjectChatResponse = ai.stopProjectChatResponse;
     stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
@@ -1111,6 +1114,9 @@ describe("stopProjectChatResponse", () => {
 
   it("falls back to llm hydration when the preferred runtime misses but llm succeeds", async () => {
     const chatId = "chat-fallback-llm";
+    useProjectState.setState({
+      projectConfig: createProjectConfig({ id: "current-project" }),
+    });
     mockedRouteGetExternalAgentChat.mockResolvedValue({
       status: 404,
       hasResponse: true,
@@ -1158,7 +1164,7 @@ describe("stopProjectChatResponse", () => {
     });
     expect(mockedRouteGetLLMChat).toHaveBeenCalledWith({
       chatId,
-      projectConfigId: "null",
+      projectConfigId: "project-a",
     });
     expect(
       useAIStore

@@ -258,6 +258,42 @@ Backend and state-model changes:
 Frontend behavior changes:
 - Chat sections no longer need an existing host window binding before the user can control Chat Mode. The Section Config UI now always exposes the mode selector, and switching an unbound section to `project_ai_mode` creates a canonical `canvas_section` project-chat window binding.
 - Fixed project-chat authority so only unscoped `project_ai_mode` windows update the global `useAIStore.activeChatId`. Section-backed project-chat windows now keep their `chatId` local to the owning window instead of hijacking the main project-chat thread.
+
+## 2026-03-10 19:17:34 PDT
+
+Implemented the final consolidated fixes from the top-level review documents for MCP linked-chat authority, deployment policy enforcement, project-scoped standalone hydration, and exact frontend/backend window-binding parity, then verified the affected paths with backend pytest, frontend Vitest, Playwright, Ruff, and CDP.
+
+MCP linked-chat authority and deployment policy:
+- Removed caller-controlled `shareSessionId` authority from the synthetic MCP tools-call context. `route_call_mcp_tool(...)` now injects the validated HTTP/share-session identity into the internal MCP request context, so MCP linked-chat execution is always bound to the authenticated deployment session rather than payload-supplied session metadata.
+- Added shared MCP run-start authorization helpers in `backend/setta/mcp/run_start_authorization.py` and wired them into linked-chat invocation. Deployment/share `allowRun`, `allowMultipleRuns`, and `allowLLM` are now enforced before linked-chat execution starts, including managed linked-chat runs that resolve to the built-in LLM engine.
+- Tightened failure handling around linked-chat startup so reserved single-run slots are rolled back on all pre-start failures and only committed after a successful managed or external linked-chat launch.
+- Adjusted the tools-call router to use the non-launcher guard and to unwrap `ToolError` causes that are already `HTTPException`s, so deployment policy denials come back as truthful 4xx responses instead of route-level 500 masking.
+
+Project-scoped hydration and standalone route ownership:
+- Project-chat hydration cache keys, provenance-probe keys, cache eviction, and missing-provenance fallback probing now all carry `projectConfigId`, eliminating the previous ambient fallback that could hydrate the wrong project when a `chatId` was reused across configs.
+- Standalone `/:projectConfigName/chat/:chatId` thread-missing state is now owned by `{projectConfigId, chatId}` rather than `chatId` alone. The standalone thread route clears stale `chat_not_found` state when the same thread id is opened in a different project config, instead of pinning the old not-found result across route changes.
+- `useLoadProjectConfig()` now treats project-route identity as authoritative even on same-document router navigations without explicit `pageLoadType` state. It waits for in-flight project loads to settle, marks matching already-loaded routes complete, and reliably reloads when the route project config changes in the same tab.
+
+Windowing parity and deterministic selection:
+- Frontend duplicate section-binding winner selection now matches backend normalization exactly by falling through to `instanceId` ordering on exact ties. This removes the last frontend/backend disagreement where equal `zIndex` and `lastFocusedAt` values could make the UI act on one bound window while persistence kept another.
+- Backend coverage now locks the same authoritative tie-break on persisted state validation, keeping restore/save/load behavior deterministic across both sides of the model.
+
+UX before vs after:
+- Before: MCP linked-chat could escape the validated deployment session, start runs through policy paths the rest of the product blocked, and return misleading 500s when share/deployment policy should have denied the action explicitly. After: linked-chat execution uses the authenticated request session, obeys the same deployment gates as other run-starting surfaces, and returns deterministic authorization failures.
+- Before: standalone project-chat routes could hold onto a stale “Thread Not Found” result when the same `chatId` was opened under a different project config in the same tab, and fallback hydration could broaden into the wrong project when ids overlapped. After: standalone routes rehydrate per-project correctly, thread-missing state resets on project changes, and fallback probing stays inside the current project boundary.
+- Before: duplicate section-bound chat windows could diverge between frontend selection and backend normalization on exact ties, producing disappearing or inconsistent authoritative bindings after persistence. After: both layers choose the same winning window deterministically.
+
+DX before vs after:
+- Before: MCP tools-call admission and linked-chat launch policy were split across loosely related code paths, with request identity partially reconstructed from payload context. After: request-scoped share-session authority and deployment run-start policy live in one explicit pathway that is directly testable.
+- Before: project-route hydration correctness depended on a mix of cache keys, ambient current-project lookups, and navigation-state conventions that were easy to bypass during same-tab navigation. After: route identity is explicit in the loader and hydration paths, and the behavior is covered by unit, integration, E2E, and CDP checks.
+- Before: frontend/backend duplicate-binding reconciliation relied on “should never tie” assumptions. After: the parity rule is explicit, centralized, and enforced in tests.
+
+Verification:
+- `source activate.sh && python -m pytest tests/routers/test_mcp_linked_chat_tool.py tests/types/test_project_chat_windowing.py tests/routers/test_full_runtime_router_policy.py tests/routers/test_full_runtime_mode_guards.py -q` passed: 69 tests.
+- `source activate.sh && python -m ruff check backend/setta/routers/mcp_tools.py backend/setta/agentic/linked_chat_invocation.py backend/setta/mcp/run_start_authorization.py tests/routers/test_mcp_linked_chat_tool.py tests/routers/test_full_runtime_router_policy.py tests/types/test_project_chat_windowing.py` passed.
+- `pnpm -C frontend exec vitest run src/state/hooks/project.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/state/actions/aiStopProjectChat.test.ts src/state/actions/projectChatWindowing.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatExecutionSettings.test.ts src/components/Panes/Overview/ProjectLevelAI/projectChatHydrationAuthority.integration.test.ts src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.test.tsx` passed: 7 files, 141 tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "re-hydrates the same standalone thread id when navigating across project configs"` passed.
+- CDP verification used a clean live tab on the running dev instance to route from `rough_playing/chat/shared-cdp-thread` showing `Thread Not Found` to `pike_tank/chat/shared-cdp-thread` via the app router, and confirmed the standalone thread surface rehydrated with `Hydrated independently for project B.` and no remaining not-found state.
 - Standalone git-graph windows now own their embedded git-pane visibility locally. The previous shared `useMisc` pathway caused git-pane toggles to leak between workspace and standalone surfaces when ids collided or a saved layout reused the same window instance id.
 
 UX before/after:

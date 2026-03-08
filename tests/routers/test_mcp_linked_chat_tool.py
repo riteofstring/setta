@@ -29,6 +29,7 @@ from setta.project_state.linked_chat_admission import (
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.routers.mcp_tools import router as mcp_tools_router
+from setta.share.session_store import MemorySessionStore
 from setta.types.agentic import AgentRun, AgentRunStatus, EngineConfig, EngineType
 from setta.types.agentic_edges import AgenticEdge, AgenticEdgeKind
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
@@ -61,6 +62,7 @@ from setta.types.section_impls import (
     SectionType,
     TextBlockSectionImpl,
 )
+from setta.types.share_deployment import SharePolicy
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
 
@@ -305,6 +307,68 @@ class _StrictProjectManagerSwitcher:
         if project_config_id != self._project_config_id:
             raise KeyError(f"Unexpected project config id: {project_config_id}")
         return self._manager
+
+
+class _DeploymentProjectManagerSwitcher:
+    def __init__(
+        self,
+        project_config_id: ID,
+        manager: _DummyLinkedChatProjectManager,
+    ) -> None:
+        self._project_config_id = project_config_id
+        self._manager = manager
+        self.main = None
+        self.calls: list[tuple[ID, str | None]] = []
+
+    def get(self, project_config_id: ID, *, share_session_id: str | None = None):
+        self.calls.append((project_config_id, share_session_id))
+        if share_session_id is None:
+            raise KeyError("Missing share session id")
+        if project_config_id != self._project_config_id:
+            raise KeyError(f"Unexpected project config id: {project_config_id}")
+        return self._manager
+
+
+class _DummyShareRuntimeState:
+    def __init__(
+        self,
+        share_policy: SharePolicy,
+        *,
+        initial_run_counts: dict[str, int] | None = None,
+    ) -> None:
+        self.share_policy = share_policy
+        self.session_backend_calls: list[str] = []
+        self.increment_calls: list[str] = []
+        self.rollback_calls: list[str] = []
+        self._session_run_counts = dict(initial_run_counts or {})
+
+    def get_or_create_session_backend(self, session_id: str) -> dict[str, object]:
+        self.session_backend_calls.append(session_id)
+        self._session_run_counts.setdefault(session_id, 0)
+        return {"sessionId": session_id}
+
+    async def try_reserve_session_run_count(self, session_id: str) -> bool:
+        self._session_run_counts.setdefault(session_id, 0)
+        if self._session_run_counts[session_id] > 0:
+            return False
+        self._session_run_counts[session_id] += 1
+        return True
+
+    async def rollback_reserved_session_run_count(self, session_id: str) -> int:
+        self.rollback_calls.append(session_id)
+        self._session_run_counts.setdefault(session_id, 0)
+        if self._session_run_counts[session_id] > 0:
+            self._session_run_counts[session_id] -= 1
+        return self._session_run_counts[session_id]
+
+    def increment_session_run_count(self, session_id: str) -> int:
+        self.increment_calls.append(session_id)
+        self._session_run_counts.setdefault(session_id, 0)
+        self._session_run_counts[session_id] += 1
+        return self._session_run_counts[session_id]
+
+    def get_session_run_count(self, session_id: str) -> int:
+        return self._session_run_counts.get(session_id, 0)
 
 
 class _DummyAgentRunner:
@@ -669,6 +733,121 @@ def _build_test_app(
     )
 
 
+def _build_deployment_test_app(
+    tmp_path,
+    *,
+    share_policy: SharePolicy,
+    initial_run_counts: dict[str, int] | None = None,
+    managed_target: bool = True,
+    seed_target_chat_id: bool = True,
+    agent_runner_override: _DummyAgentRunner | None = None,
+    external_agent_runner_override: object | None = None,
+    engine_type: EngineType = EngineType.setta_llm,
+) -> tuple[
+    FastAPI,
+    _DummyAgentRunner,
+    _DummyLinkedChatProjectManager,
+    _DummyShareRuntimeState,
+    _DeploymentProjectManagerSwitcher,
+    dict[ID, ID],
+    ID,
+    ID,
+    ID,
+    str,
+    str,
+]:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        target_chat_id,
+    ) = _build_project_state(
+        managed_target=managed_target,
+        seed_target_chat_id=seed_target_chat_id,
+    )
+    _seed_engine_config_with_type(
+        dbe,
+        engine_config_id=ID("engine-linked"),
+        engine_type=engine_type,
+    )
+    manager = _DummyLinkedChatProjectManager(project_state)
+    switcher = _DeploymentProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=True)
+    agent_runner = agent_runner_override or _DummyAgentRunner()
+    external_agent_runner = external_agent_runner_override or SimpleNamespace(
+        disabled=True
+    )
+    share_session_store = MemorySessionStore()
+    request_session_id = share_session_store.create_session().id
+    spoofed_session_id = share_session_store.create_session().id
+    share_runtime_state = _DummyShareRuntimeState(
+        share_policy,
+        initial_run_counts=initial_run_counts,
+    )
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    ids_to_map = [
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        ID("caller-chat-1"),
+    ]
+    if target_chat_id is not None:
+        ids_to_map.append(target_chat_id)
+    _ = convert_canonical_ids_to_temporary(
+        ids_to_map,
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": True,
+            "deployment_mode": True,
+            "wmh_frontend_sender": frontend_sender,
+            "wait_until_ready": _noop_wait_until_ready,
+            "agent_runner": agent_runner,
+            "external_agent_runner": external_agent_runner,
+            "share_session_store": share_session_store,
+            "share_runtime_state": share_runtime_state,
+            "terminals": object(),
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+    return (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        spoofed_session_id,
+    )
+
+
 @pytest.mark.asyncio
 async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
     tmp_path,
@@ -724,6 +903,233 @@ async def test_tools_call_invoke_linked_chat_runs_direct_linked_target(
         str(caller_section_id)
     ]
     assert manager.set_chat_section_chat_id_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_uses_request_scoped_share_session_in_deployment_mode(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        _manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=True, allowLLM=True),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                    "shareSessionId": spoofed_session_id,
+                },
+            },
+    )
+
+    assert response.status_code == 200
+    assert agent_runner.calls
+    assert switcher.calls
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.session_backend_calls == [request_session_id]
+    assert request_session_id not in share_runtime_state.rollback_calls
+    assert spoofed_session_id not in share_runtime_state.session_backend_calls
+    assert spoofed_session_id not in {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    }
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_denies_deployment_runs_when_allow_run_is_false(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=False, allowLLM=True),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 403
+    assert agent_runner.calls == []
+    assert manager.linked_chat_reservation_calls == []
+    assert manager.set_chat_section_chat_id_calls == []
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.session_backend_calls == [request_session_id]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_denies_second_deployment_run_when_multiple_runs_are_disabled(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(
+            allowRun=True,
+            allowLLM=True,
+            allowMultipleRuns=False,
+        ),
+    )
+    share_runtime_state._session_run_counts[request_session_id] = 1
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 403
+    assert agent_runner.calls == []
+    assert manager.linked_chat_reservation_calls == []
+    assert manager.set_chat_section_chat_id_calls == []
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.get_session_run_count(request_session_id) == 1
+    assert share_runtime_state.increment_calls == []
+    assert share_runtime_state.rollback_calls == []
+
+
+@pytest.mark.asyncio
+async def test_tools_call_invoke_linked_chat_denies_managed_runs_when_llm_is_disallowed(
+    tmp_path,
+) -> None:
+    (
+        app,
+        agent_runner,
+        manager,
+        share_runtime_state,
+        switcher,
+        canonical_to_temporary,
+        project_config_id,
+        caller_section_id,
+        target_section_id,
+        request_session_id,
+        _spoofed_session_id,
+    ) = _build_deployment_test_app(
+        tmp_path,
+        share_policy=SharePolicy(allowRun=True, allowLLM=False),
+    )
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_caller_section_id = canonical_to_temporary[caller_section_id]
+    tmp_target_section_id = canonical_to_temporary[target_section_id]
+    tmp_caller_chat_id = canonical_to_temporary[ID("caller-chat-1")]
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            headers={"X-Share-Session-Id": request_session_id},
+            json={
+                "tool": "invoke_linked_chat",
+                "arguments": {
+                    "targetSectionId": str(tmp_target_section_id),
+                    "prompt": "Plan the next implementation step.",
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_caller_chat_id),
+                    "sectionId": str(tmp_caller_section_id),
+                },
+            },
+        )
+
+    assert response.status_code == 403
+    assert agent_runner.calls == []
+    assert manager.set_chat_section_chat_id_calls == []
+    assert {
+        recorded_share_session_id for _, recorded_share_session_id in switcher.calls
+    } == {request_session_id}
+    assert share_runtime_state.session_backend_calls == [request_session_id]
 
 
 @pytest.mark.asyncio

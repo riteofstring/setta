@@ -466,7 +466,7 @@ function isPreferredSectionBindingCandidate(
   if (candidate.lastFocusedAt !== currentBest.lastFocusedAt) {
     return candidate.lastFocusedAt > currentBest.lastFocusedAt;
   }
-  return false;
+  return candidate.instanceId > currentBest.instanceId;
 }
 
 function getProjectChatWindowInstanceForSectionInState(

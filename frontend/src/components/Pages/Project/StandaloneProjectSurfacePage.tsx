@@ -300,9 +300,11 @@ export function StandaloneProjectSurfacePageWithLoadState({
     standaloneProjectChatBlockedState,
     setStandaloneProjectChatBlockedState,
   ] = useState<{
+    projectConfigId: string | null;
     chatId: string | null;
     errorCode: string | null;
   }>({
+    projectConfigId: null,
     chatId: null,
     errorCode: null,
   });
@@ -318,6 +320,7 @@ export function StandaloneProjectSurfacePageWithLoadState({
     target.kind === "project_chat_thread" ? target.chatId : null;
   const standaloneProjectChatThreadMissing =
     target.kind === "project_chat_thread" &&
+    standaloneProjectChatBlockedState.projectConfigId === projectConfigId &&
     standaloneProjectChatBlockedState.chatId === standaloneProjectChatId &&
     standaloneProjectChatBlockedState.errorCode === "chat_not_found";
   const standaloneSurfaceIdentity =
@@ -347,15 +350,19 @@ export function StandaloneProjectSurfacePageWithLoadState({
 
   useEffect(() => {
     setStandaloneProjectChatBlockedState((current) => {
-      if (current.chatId === standaloneProjectChatId) {
+      if (
+        current.projectConfigId === projectConfigId &&
+        current.chatId === standaloneProjectChatId
+      ) {
         return current;
       }
       return {
+        projectConfigId,
         chatId: standaloneProjectChatId,
         errorCode: null,
       };
     });
-  }, [standaloneProjectChatId]);
+  }, [projectConfigId, standaloneProjectChatId]);
 
   useEffect(() => {
     setStandaloneManagedChatDenied(false);
@@ -439,12 +446,14 @@ export function StandaloneProjectSurfacePageWithLoadState({
           onProjectChatBlockedErrorCodeChange={(errorCode) => {
             setStandaloneProjectChatBlockedState((current) => {
               if (
+                current.projectConfigId === projectConfigId &&
                 current.chatId === standaloneProjectChatId &&
                 current.errorCode === errorCode
               ) {
                 return current;
               }
               return {
+                projectConfigId,
                 chatId: standaloneProjectChatId,
                 errorCode,
               };

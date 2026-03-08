@@ -604,26 +604,29 @@ describe("resolveProjectChatRunTypeForEngine", () => {
 });
 
 describe("buildProjectChatHydrationCacheKey", () => {
-  it("includes chat id, run provenance, and metadata revision", () => {
+  it("includes project route identity, run provenance, and metadata revision", () => {
     expect(
       buildProjectChatHydrationCacheKey({
+        projectConfigId: "project-1",
         chatId: "chat-1",
         hydrationRunType: "external_agent",
         hydrationMetadataRevision: "rev-1",
       }),
-    ).toBe("chat-1:external_agent:rev-1");
+    ).toBe("project-1:chat-1:external_agent:rev-1");
     expect(
       buildProjectChatHydrationCacheKey({
+        projectConfigId: "project-1",
         chatId: "chat-1",
         hydrationRunType: "llm_chat",
         hydrationMetadataRevision: "rev-2",
       }),
-    ).toBe("chat-1:llm_chat:rev-2");
+    ).toBe("project-1:chat-1:llm_chat:rev-2");
   });
 
   it("returns null for missing cache dimensions", () => {
     expect(
       buildProjectChatHydrationCacheKey({
+        projectConfigId: "project-1",
         chatId: null,
         hydrationRunType: "llm_chat",
         hydrationMetadataRevision: "rev-1",
@@ -631,6 +634,7 @@ describe("buildProjectChatHydrationCacheKey", () => {
     ).toBeNull();
     expect(
       buildProjectChatHydrationCacheKey({
+        projectConfigId: "project-1",
         chatId: "chat-1",
         hydrationRunType: null,
         hydrationMetadataRevision: "rev-1",
@@ -638,43 +642,59 @@ describe("buildProjectChatHydrationCacheKey", () => {
     ).toBeNull();
     expect(
       buildProjectChatHydrationCacheKey({
+        projectConfigId: "project-1",
         chatId: "chat-1",
         hydrationRunType: "llm_chat",
         hydrationMetadataRevision: "",
+      }),
+    ).toBeNull();
+    expect(
+      buildProjectChatHydrationCacheKey({
+        projectConfigId: "",
+        chatId: "chat-1",
+        hydrationRunType: "llm_chat",
+        hydrationMetadataRevision: "rev-1",
       }),
     ).toBeNull();
   });
 });
 
 describe("hydration cache lifecycle helpers", () => {
-  it("clears stale entries for the selected chat while preserving the active key", () => {
+  it("clears stale entries for the selected project-owned chat route while preserving the active key", () => {
     const cache = {
-      "chat-a:llm_chat:rev-1": {
+      "project-1:chat-a:llm_chat:rev-1": {
         status: "terminal_failure",
         timerId: null,
         attempt: 1,
         lastTouchedAt: 1,
       },
-      "chat-a:llm_chat:rev-2": {
+      "project-1:chat-a:llm_chat:rev-2": {
         status: "in_flight",
         timerId: null,
         attempt: 2,
         lastTouchedAt: 2,
       },
-      "chat-b:llm_chat:rev-1": {
+      "project-2:chat-a:llm_chat:rev-1": {
         status: "succeeded",
         timerId: null,
         attempt: 0,
         lastTouchedAt: 3,
       },
+      "project-1:chat-b:llm_chat:rev-1": {
+        status: "succeeded",
+        timerId: null,
+        attempt: 0,
+        lastTouchedAt: 4,
+      },
     };
     expect(
       clearProjectChatHydrationCacheEntriesForChat({
         cache,
+        projectConfigId: "project-1",
         chatId: "chat-a",
-        keepCacheKey: "chat-a:llm_chat:rev-2",
+        keepCacheKey: "project-1:chat-a:llm_chat:rev-2",
       }),
-    ).toEqual(["chat-a:llm_chat:rev-1"]);
+    ).toEqual(["project-1:chat-a:llm_chat:rev-1"]);
   });
 
   it("trims least-recently-touched entries when cache size exceeds a bound", () => {

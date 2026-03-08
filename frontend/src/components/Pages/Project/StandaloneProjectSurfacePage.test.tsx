@@ -565,6 +565,46 @@ describe("StandaloneProjectSurfacePage", () => {
     expect(host.textContent).not.toContain("Thread Not Found");
   });
 
+  it("clears a stale thread-not-found block when navigating to the same thread in a different project config", async () => {
+    hoisted.state.chatHistoryEntries = [];
+    hoisted.state.projectChatBlockedErrorCode = "chat_not_found";
+    hoisted.state.projectState.projectConfig.id = "project-config-1";
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/demo-a/chat/shared-thread"]}>
+          <Routes>
+            <Route
+              path="/:projectConfigName/chat/:chatId"
+              element={<StandaloneProjectSurfacePage />}
+            />
+          </Routes>
+          <NavigateButton to="/demo-b/chat/shared-thread" />
+        </MemoryRouter>,
+      );
+    });
+
+    expect(host.textContent).toContain("Thread Not Found");
+
+    hoisted.state.projectState.projectConfig.id = "project-config-2";
+    hoisted.state.projectChatBlockedErrorCode = null;
+
+    await act(async () => {
+      click(
+        host.querySelector(
+          '[data-testid="mock-navigate-/demo-b/chat/shared-thread"]',
+        ),
+      );
+    });
+
+    const surface = host.querySelector(
+      '[data-testid="standalone-project-chat-thread-surface"]',
+    );
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("data-project-chat-id")).toBe("shared-thread");
+    expect(host.textContent).not.toContain("Thread Not Found");
+  });
+
   it("fails closed for standalone project chat routes when deployment policy disallows LLM access", async () => {
     hoisted.state.shareSessionState = {
       isDeploymentMode: true,

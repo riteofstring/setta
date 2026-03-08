@@ -624,6 +624,169 @@ test.describe.serial("standalone project surface routes", () => {
     }
   });
 
+  test("re-hydrates the same standalone thread id when navigating across project configs", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    let firstProjectContext: Awaited<
+      ReturnType<typeof openIsolatedProject>
+    > | null = null;
+    let secondProjectContext: Awaited<
+      ReturnType<typeof openIsolatedProject>
+    > | null = null;
+    const cleanupManagedEngine = await ensureManagedChatEngine(page);
+    const sharedThreadChatId = "shared-standalone-thread";
+    const llmHydrationCalls: Array<{
+      chatId: string | undefined;
+      projectConfigId: string | undefined;
+    }> = [];
+
+    try {
+      firstProjectContext = await openIsolatedProject(page);
+      const firstProjectName = getProjectConfigNameFromUrl(page.url());
+      secondProjectContext = await openIsolatedProject(page);
+      const secondProjectName = getProjectConfigNameFromUrl(page.url());
+
+      await page.context().route("**/api/getLLMChat", async (route) => {
+        const payload = route.request().postDataJSON() as
+          | { chatId?: string; projectConfigId?: string }
+          | undefined;
+        llmHydrationCalls.push({
+          chatId: payload?.chatId,
+          projectConfigId: payload?.projectConfigId,
+        });
+        if (payload?.chatId !== sharedThreadChatId) {
+          await route.continue();
+          return;
+        }
+        if (
+          firstProjectContext &&
+          payload?.projectConfigId === firstProjectContext.projectConfigId
+        ) {
+          await route.fulfill({
+            status: 404,
+            contentType: "application/json",
+            body: JSON.stringify({
+              detail: {
+                errorCode: "chat_not_found",
+                message: "Chat not found.",
+              },
+            }),
+          });
+          return;
+        }
+        if (
+          secondProjectContext &&
+          payload?.projectConfigId === secondProjectContext.projectConfigId
+        ) {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              messages: [
+                {
+                  id: "project-b-thread-message",
+                  role: "assistant",
+                  content: [
+                    {
+                      type: "text",
+                      text: "Hydrated independently for project B.",
+                    },
+                  ],
+                  attachments: [],
+                  tool_calls: null,
+                },
+              ],
+              waitingForResponse: false,
+              llmConfig: {
+                id: "standalone-thread-config",
+                model: "gpt-4o-mini",
+                provider: "openai",
+                base_url: null,
+                api_key_env: null,
+                other_params: null,
+                mcpServerIds: [],
+                temporary: false,
+              },
+              contextUsage: null,
+            }),
+          });
+          return;
+        }
+        await route.continue();
+      });
+
+      await page.goto(
+        buildStandaloneUrl(
+          page.url(),
+          `/${encodeURIComponent(firstProjectName)}/chat/${encodeURIComponent(sharedThreadChatId)}`,
+        ),
+        { waitUntil: "domcontentloaded" },
+      );
+      await expect(
+        page.getByTestId("standalone-project-chat-thread-not-found"),
+      ).toBeVisible();
+
+      const secondThreadPath = `/${secondProjectName}/chat/${sharedThreadChatId}`;
+      await page.evaluate(async (nextPath) => {
+        const { router } = await import("/src/components/Pages/router.tsx");
+        await router.navigate(nextPath);
+      }, secondThreadPath);
+      await expect
+        .poll(() => new URL(page.url()).pathname)
+        .toBe(secondThreadPath);
+      await expect(
+        page.getByTestId("standalone-project-chat-thread-surface"),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Hydrated independently for project B."),
+      ).toBeVisible();
+      await expect(
+        page.getByTestId("standalone-project-chat-thread-not-found"),
+      ).toHaveCount(0);
+      await expect
+        .poll(() =>
+          llmHydrationCalls.some(
+            (call) =>
+              call.chatId === sharedThreadChatId &&
+              call.projectConfigId === secondProjectContext?.projectConfigId,
+          ),
+        )
+        .toBe(true);
+      const matchingHydrationCalls = llmHydrationCalls.filter(
+        (call) => call.chatId === sharedThreadChatId,
+      );
+      expect(matchingHydrationCalls[0]).toEqual({
+        chatId: sharedThreadChatId,
+        projectConfigId: firstProjectContext.projectConfigId,
+      });
+      expect(
+        matchingHydrationCalls.some(
+          (call) =>
+            call.projectConfigId === secondProjectContext.projectConfigId,
+        ),
+      ).toBe(true);
+      expect(matchingHydrationCalls.at(-1)?.projectConfigId).toBe(
+        secondProjectContext.projectConfigId,
+      );
+      expect(
+        new Set(
+          matchingHydrationCalls.map((call) => call.projectConfigId),
+        ),
+      ).toEqual(
+        new Set([
+          firstProjectContext.projectConfigId,
+          secondProjectContext.projectConfigId,
+        ]),
+      );
+    } finally {
+      await page.context().unroute("**/api/getLLMChat");
+      await cleanupManagedEngine();
+      await cleanupIsolatedProject(page, secondProjectContext);
+      await cleanupIsolatedProject(page, firstProjectContext);
+    }
+  });
+
   test("keeps standalone project surfaces isolated from workspace selection and windowing state", async ({
     page,
   }) => {

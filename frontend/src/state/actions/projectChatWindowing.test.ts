@@ -44,6 +44,7 @@ import {
   focusProjectChatWindowInState,
   getExternalProjectChatWindowBindingForSectionInState,
   getOpenExternalProjectChatWindowInstanceForSectionInState,
+  getProjectChatWindowBindingForSectionInState,
   getProjectChatWindowModeForSectionInState,
   getVisibleProjectChatWindowInstances,
   maximizeProjectChatWindowInState,
@@ -831,6 +832,40 @@ describe("project chat windowing reducer helpers", () => {
     expect(getProjectChatWindowModeForSectionInState(initial, "missing")).toBe(
       ChatWindowModeEnum.section_mode,
     );
+  });
+
+  it("matches backend normalization for exact duplicate section-binding ties", () => {
+    const lowerId = createProjectChatWindowInstance({
+      instanceId: "project-chat-window-1",
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: "section-1",
+      isClosed: false,
+      isMinimized: false,
+      zIndex: 7,
+      lastFocusedAt: 100,
+    });
+    const higherId = createProjectChatWindowInstance({
+      instanceId: "project-chat-window-2",
+      placement: ChatWindowPlacementEnum.floating,
+      sectionIdOrNull: "section-1",
+      isClosed: false,
+      isMinimized: false,
+      zIndex: 7,
+      lastFocusedAt: 100,
+    });
+    const initial = createProjectChatWindowingState({
+      instancesById: {
+        [lowerId.instanceId]: lowerId,
+        [higherId.instanceId]: higherId,
+      },
+      order: [lowerId.instanceId, higherId.instanceId],
+      nextInstanceNumber: 3,
+    });
+
+    expect(
+      getProjectChatWindowBindingForSectionInState(initial, "section-1")
+        ?.instanceId,
+    ).toBe(higherId.instanceId);
   });
 
   it("updates the bound section window mode when switching chat mode", () => {

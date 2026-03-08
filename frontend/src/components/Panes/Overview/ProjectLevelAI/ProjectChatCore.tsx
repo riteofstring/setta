@@ -167,23 +167,26 @@ export function getProjectChatBlockedReasonMessage(
 }
 
 export function buildProjectChatHydrationCacheKey({
+  projectConfigId,
   chatId,
   hydrationRunType,
   hydrationMetadataRevision,
 }: {
+  projectConfigId: string;
   chatId: string | null | undefined;
   hydrationRunType: ChatRunType | null;
   hydrationMetadataRevision: string;
 }): string | null {
+  const normalizedProjectConfigId = projectConfigId.trim();
   const normalizedChatId = chatId?.trim() ?? "";
-  if (!normalizedChatId || !hydrationRunType) {
+  if (!normalizedProjectConfigId || !normalizedChatId || !hydrationRunType) {
     return null;
   }
   const normalizedRevision = hydrationMetadataRevision.trim();
   if (!normalizedRevision) {
     return null;
   }
-  return `${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
+  return `${normalizedProjectConfigId}:${normalizedChatId}:${hydrationRunType}:${normalizedRevision}`;
 }
 
 export async function hydrateProjectChatFromRuntime({
@@ -461,24 +464,39 @@ export function shouldSkipProjectChatHydration(
   return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
 }
 
-function buildProjectChatHydrationChatKeyPrefix(chatId: string): string {
-  return `${chatId.trim()}:`;
+function buildProjectChatHydrationRouteKeyPrefix({
+  projectConfigId,
+  chatId,
+}: {
+  projectConfigId: string;
+  chatId: string;
+}): string | null {
+  const normalizedProjectConfigId = projectConfigId.trim();
+  const normalizedChatId = chatId.trim();
+  if (!normalizedProjectConfigId || !normalizedChatId) {
+    return null;
+  }
+  return `${normalizedProjectConfigId}:${normalizedChatId}:`;
 }
 
 export function clearProjectChatHydrationCacheEntriesForChat({
   cache,
+  projectConfigId,
   chatId,
   keepCacheKey,
 }: {
   cache: Record<string, ProjectChatHydrationRetryEntry>;
+  projectConfigId: string;
   chatId: string;
   keepCacheKey: string | null;
 }): string[] {
-  const normalizedChatId = chatId.trim();
-  if (!normalizedChatId) {
+  const keyPrefix = buildProjectChatHydrationRouteKeyPrefix({
+    projectConfigId,
+    chatId,
+  });
+  if (!keyPrefix) {
     return [];
   }
-  const keyPrefix = buildProjectChatHydrationChatKeyPrefix(normalizedChatId);
   const removedCacheKeys: string[] = [];
   for (const cacheKey of Object.keys(cache)) {
     if (!cacheKey.startsWith(keyPrefix)) {
@@ -1496,7 +1514,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
 
   useEffect(() => {
     setHydrationBlockedErrorCode(null);
-  }, [chatId, hydrationMetadataRevision, hydrationRunType]);
+  }, [chatId, hydrationMetadataRevision, hydrationRunType, projectConfigId]);
 
   const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
     const state = hydrationStatusByKeyRef.current[cacheKey];
@@ -1547,8 +1565,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       return;
     }
     const cacheKey = shouldProbeMissingProvenance
-      ? `${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
+      ? `${projectConfigId}:${chatId}:chat_provenance_probe:${hydrationMetadataRevision}`
       : buildProjectChatHydrationCacheKey({
+          projectConfigId,
           chatId,
           hydrationRunType,
           hydrationMetadataRevision,
@@ -1558,6 +1577,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     const staleCacheKeys = clearProjectChatHydrationCacheEntriesForChat({
       cache: hydrationStatusByKeyRef.current,
+      projectConfigId,
       chatId,
       keepCacheKey: cacheKey,
     });

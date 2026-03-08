@@ -9582,6 +9582,25 @@ const MCPToolCallRequestSchema = z.object({
 
 export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;
 
+const _MCPToolRequestContextMetaSchema = z.object({
+  projectConfigId: z.union([IDSchema, z.null()]).default(null),
+  chatId: z.union([IDSchema, z.null()]).default(null),
+  sectionId: z.union([IDSchema, z.null()]).default(null),
+  frontendAffinityToken: z.union([z.string(), z.null()]).default(null),
+  allowUnscoped: z.boolean().default(false),
+  linkedChatInvocationDepth: z.int().default(0),
+  linkedChatInvocationChainSectionIds: z.array(IDSchema).default([]),
+  shareSessionId: z.union([z.string(), z.null()]).default(null),
+});
+
+type _MCPToolRequestContextMeta = z.infer<
+  typeof _MCPToolRequestContextMetaSchema
+>;
+
+type _MCPToolRequestContextMetaInput = z.input<
+  typeof _MCPToolRequestContextMetaSchema
+>;
+
 const PluginConfigRequestSchema = z.object({
   pluginId: z.string(),
   config: z.record(z.string(), z.any()),
