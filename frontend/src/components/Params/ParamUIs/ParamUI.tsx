@@ -256,6 +256,21 @@ export function ParamUI({
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
+      return (
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          value={value}
+          defaultVal={defaultVal}
+          onChange={onChange}
+          onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
+          isDisabled={isDisabled}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+        />
+      );
     case CodeObjTypeEnum.TextParam:
       return (
         <TextParamConfigured
@@ -426,6 +441,18 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  defaultVal: string;
+  onChange: ParamValueChange;
+  onEscape: () => void;
+  maybeErrorMessage: string | undefined;
+  isDisabled: boolean;
+  configLanguage: string;
+  waitingForResult: boolean;
+  isSelectingParams: boolean;
 }) {
   return (
     <>
