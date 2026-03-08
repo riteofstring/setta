@@ -671,12 +671,18 @@ Use the docs in this order:
 183. `phase-18-managed-chat-send-owner-and-route-foundation.md`
   - focused Phase 18 follow-on doc for the landed managed send owner and thin
     `/getLLMResponse` route dispatch slice ahead of provider-executor work
-184. `spike-mcp.md`
+184. `phase-18-managed-provider-executor-and-live-chat-runtime-plan.md`
+  - focused Phase 18 follow-on doc for the landed managed live chat runtime,
+    websocket chunk foundation, and bounded OpenAI executor slices
+185. `phase-18-managed-mcp-tool-execution-plan.md`
+  - focused Phase 18 follow-on doc for the landed bounded managed MCP tool
+    execution slice over resolved `MCPServerIDs` and per-call MCP metadata
+186. `spike-mcp.md`
    - completed MCP spike outcome and wrapper-boundary decision record
-185. `spike-pty.md`
+187. `spike-pty.md`
    - completed PTY spike outcome plus the current bounded Unix PTY library
      follow-up note
-186. `spike-lsp.md`
+188. `spike-lsp.md`
    - completed LSP spike outcome and runtime-boundary decision record
 
 All docs in this folder assume a clean-break rewrite:

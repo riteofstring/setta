@@ -50,11 +50,12 @@ Landed during this phase:
   - focused owner, route, and app coverage for the unavailable/runtime-start
     boundary
 
-Remaining managed dependency that still triggers follow-on work in this phase:
+Remaining managed follow-ons inside this phase:
 
-- provider-backed managed executor behind the now-landed Go-owned
-  `POST /getLLMResponse` managed owner and the now-landed managed live chat
-  runtime
+- explicit provider-native or explicitly unsupported handling for managed
+  `thinking=true`
+- tool-preview / AI-follow parity only if the active managed frontend surface
+  still proves it necessary after the landed bounded tool path
 
 Current callers are concentrated in:
 
@@ -330,9 +331,17 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
     `/startAgentRun`
   - cancellation persistence in `internal/agentruns` so stopped runs keep
     partial outputs
-- 2026-03-09: the remaining managed-chat dependency inside this phase is now
-  the explicit MCP/tool-call and robust reasoning follow-on behind the landed
-  send/hydrate/stop/live/provider foundations.
+- 2026-03-09: landed the sixth executable Phase 18 slice in Go for bounded
+  managed MCP tool execution:
+  - per-call MCP request metadata in `internal/mcpx.Client`
+  - bounded OpenAI tool-call streaming and follow-up looping in
+    `internal/managedllm`
+  - persisted assistant `tool_calls` plus tool-result transcript support
+  - real IDE app coverage for managed chats calling the internal Setta MCP
+    server
+- 2026-03-09: the remaining managed-chat follow-on inside this phase is now
+  the explicit `thinking=true` decision plus any still-needed tool-preview or
+  AI-follow parity, not route movement or basic tool execution ownership.
 
 ## Verification
 
@@ -340,16 +349,16 @@ Recommended option if provider breadth becomes the first architecture tradeoff:
 - `./scripts/go.sh test ./internal/realtime ./internal/managedchat ./internal/agentruns ./internal/app -run 'Test(NewLLMStreamingResponseMessage|LiveRuntimeApplyChunkBroadcastsAndStoresState|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RuntimeStartRunActivatesAndClearsLiveTracker|ServiceGetChatUsesLiveOverlayWhenRunning|AppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor))' -count=1`
 - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterAIRoutesStarts(ExternalAgentChat|ManagedChat)|TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled' -count=1`
 - `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/managedllm ./internal/agentruns ./internal/managedchat -run 'Test(AppServesManagedChatSendThroughManagedExecutor|AppWiresManagedAgentRunFoundationInIDEMode|AppServesManagedAgentRunRoutesWithManagedExecutor|Executor|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RegisterAIRoutes)' -count=1`
+- `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 
 ## Next Recommended Step
 
-- add MCP/tool-call execution over the landed managed provider/runtime
-  boundary so managed chats can use the same resolved server IDs as the
-  persisted Go runtime
 - resolve managed `thinking=true` with an explicit provider-native or product
   decision instead of model-name heuristics
-- keep transport layers thin; the remaining work is executor/runtime semantics,
-  not more route movement
+- add tool-preview or AI-follow parity only if a concrete current frontend
+  caller still needs those websocket surfaces after the landed tool loop
+- otherwise rerank the adjacent transcription-session runtime slice instead of
+  broadening managed chat by default
 
 ## Recommended Design
 

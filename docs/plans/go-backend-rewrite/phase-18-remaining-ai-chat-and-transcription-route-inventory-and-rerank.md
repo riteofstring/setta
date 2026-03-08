@@ -43,8 +43,10 @@ Current Go state relevant to this inventory:
     execution is active
 - `internal/managedllm`
   - now owns the first bounded managed provider executor
-  - currently supports OpenAI chat-completions text streaming only and fails
-    tools/attachments/unsupported reasoning explicitly
+  - now supports bounded OpenAI chat-completions text streaming plus managed
+    MCP tool-call execution over resolved `MCPServerIDs`
+  - still leaves `thinking=true` and any optional tool-preview / AI-follow
+    parity as explicit follow-ons
 - `internal/httpapi/project_routes.go`
   - already owns the broad project-state mutation transport pattern with
     `frontendOpId` handling
@@ -121,8 +123,9 @@ Implication:
 
 - the remaining managed-chat work is executor/runtime semantics, not route
   movement
-- the highest-leverage follow-on is the explicit MCP/tool-call and reasoning
-  work behind the now-landed managed send/hydrate/stop/provider foundations
+- the highest-leverage remaining managed follow-on is now the explicit
+  `thinking=true` decision plus any still-needed tool-preview / AI-follow
+  parity behind the now-landed send/hydrate/stop/provider/tool foundations
 
 ### 2. Chat-section persistence is the adjacent direct dependency and should move with managed chat
 
@@ -244,9 +247,13 @@ Rerank:
 - 2026-03-09: landed the third executable Phase 18 slice in Go for the
   managed `setta_llm` branch of `POST /getLLMResponse` over a bounded
   runtime-start boundary with explicit unavailable handling.
-- 2026-03-09: the direct frontend managed-chat route cluster is now Go-owned
-  for the current bounded scope; the remaining managed follow-on is provider
-  execution plus live in-flight overlay, while transcription remains separate.
+- 2026-03-09: landed the later managed follow-ons for live in-flight overlay,
+  the bounded OpenAI executor, and bounded MCP tool execution over resolved
+  `MCPServerIDs`.
+- 2026-03-09: the direct frontend managed-chat route cluster and its bounded
+  current runtime surface are now Go-owned; the remaining managed follow-on is
+  explicit `thinking=true` handling plus any still-needed tool-preview /
+  AI-follow parity, while transcription remains separate.
 
 ## Verification
 
@@ -256,15 +263,15 @@ Rerank:
   - `./scripts/go.sh test ./internal/managedchat -run 'TestServiceStartChat(BuildsManagedInputsAndCombinedPrompt|ContinueFromChatSeedsExternalSourceHistory|BranchEditMissingMessageReturnsNotFound|ReturnsExecutorUnavailableWhenStarterDisabled)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterAIRoutesStarts(ExternalAgentChat|ManagedChat)|TestRegisterAIRoutesReturnsUnavailableForManagedChatWhenStarterDisabled' -count=1`
   - `./scripts/go.sh test ./internal/app -run 'TestAppServesManaged(ChatHydrateAndStopRoutes|ChatSendAsUnavailableWithoutExecutor)' -count=1`
+  - `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
   - `./scripts/go.sh test ./internal/httpapi -run 'TestRegisterProjectRoutesChatSectionMutations|TestRegisterProjectRoutesLayoutPresentationMutationsPersistInLatestState' -count=1`
   - `./scripts/go.sh test ./internal/app -run '^TestAppServesChatSectionMutationRoutes$' -count=1`
 
 ## Next Recommended Step
 
-- use the landed managed send owner as the runtime boundary for the next
-  provider-executor follow-on instead of reopening route ownership
-- feed live in-flight managed chat state through `internal/managedchat`'s
-  overlay boundary once provider execution exists
-- defer transcription-session runtime work to a separate bounded follow-on
-  unless implementation of the managed chat slice proves a hard shared
-  dependency
+- resolve the remaining managed `thinking=true` behavior explicitly before
+  broadening the managed runtime further
+- add tool-preview or AI-follow parity only if a concrete current frontend
+  caller still depends on those surfaces
+- otherwise keep transcription-session runtime as the next adjacent bounded
+  AI/runtime slice

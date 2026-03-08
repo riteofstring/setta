@@ -41,10 +41,11 @@ That does not mean the full backend runtime is fully Go-owned. User-facing
 AI/chat transport is now Go-owned for the current direct frontend managed and
 external route surface, and managed OpenAI text execution is now wired through
 Go as well. The rewrite still does not plan to recreate a broad
-LiteLLM-equivalent managed runtime in Go, and the remaining managed-chat
-follow-on is now the explicit MCP/tool-call and robust reasoning work behind
-the landed `/getLLMResponse` send owner, the landed managed live chat runtime,
-and the bounded OpenAI executor.
+LiteLLM-equivalent managed runtime in Go. The remaining managed-chat
+follow-on is now narrower: explicit provider-native or explicitly unsupported
+`thinking=true` behavior plus any still-needed tool-preview / AI-follow
+parity behind the landed `/getLLMResponse` send owner, the landed managed live
+chat runtime, the bounded OpenAI executor, and the bounded MCP tool path.
 
 The first Phase 18 slice is now landed for the adjacent project-state-backed
 chat-section persistence cluster:
@@ -81,6 +82,16 @@ executor:
   `startAgentRun`
 - stop/cancellation ordering that preserves partial outputs on managed stops
 
+The sixth Phase 18 slice is now landed for bounded managed MCP tool
+execution:
+
+- per-call MCP request metadata in `internal/mcpx.Client`
+- bounded OpenAI tool-call streaming and follow-up looping in
+  `internal/managedllm`
+- persisted assistant `tool_calls` plus tool-result transcript support
+- real IDE app coverage for managed chats calling the internal Setta MCP
+  server through the shared MCP client/runtime
+
 The separate transcription-session runtime remains a later bounded AI follow-on
 instead of being bundled into that managed-chat slice. The current bounded
 Go-owned Phase 12 surface now includes:
@@ -112,8 +123,8 @@ Go-owned Phase 12 surface now includes:
     routing, and same-chat `sessionId` continuity
 - `internal/httpapi/ai_routes.go`
   - thin Go transport for:
-    - `/getLLMResponse` (managed and external dispatch; managed currently
-      returns explicit unavailable until a provider executor is wired)
+    - `/getLLMResponse` (managed and external dispatch; managed now executes
+      through the bounded OpenAI executor and bounded MCP tool path)
     - `/getExternalAgentChat`
     - `/getAIFollowSnapshot`
     - `/stopExternalAgentRun`

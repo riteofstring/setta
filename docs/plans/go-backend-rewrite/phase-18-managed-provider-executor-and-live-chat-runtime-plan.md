@@ -2,13 +2,13 @@
 
 ## Purpose
 
-This doc scopes the remaining Phase 18 follow-on after the landed managed chat
+This doc records the Phase 18 follow-on that landed after the managed chat
 send owner, hydrate/stop routes, and chat-section persistence transport.
 
-The remaining direct product gap is no longer route ownership. It is the
-missing managed provider executor behind the now-landed Go-owned live chat
-runtime path that can drive the existing frontend `LLMStreamingResponse`
-contract while the run is still in flight.
+When this follow-on opened, the remaining direct product gap was no longer
+route ownership. It was the missing managed provider executor behind the
+Go-owned live chat runtime path that drives the existing frontend
+`LLMStreamingResponse` contract while a run is still in flight.
 
 ## Current Status
 
@@ -22,9 +22,11 @@ Already landed in Phase 18:
 
 Remaining direct gaps for managed `setta_llm` chats:
 
-- MCP/tool-call execution over explicit resolved server IDs
 - a robust non-heuristic path for managed `thinking=true`
-- additional provider adapters only if the active managed surface requires them
+- additional websocket parity only if the active managed surface still proves
+  it necessary
+- additional provider adapters only if the active managed surface requires
+  them
 
 Landed during Slice 1:
 
@@ -48,6 +50,19 @@ Landed during Slice 2:
   `startAgentRun` now execute through the Go-owned executor path
 - `internal/agentruns` cancellation persistence and `Runtime.StopRun`
   ordering that preserve partial executor outputs on stop
+
+Landed during Slice 3:
+
+- bounded managed MCP tool execution over the already-resolved
+  `MCPServerIDs` path
+- per-call MCP `meta` propagation in `internal/mcpx.Client` so managed Setta
+  tool invocations do not rely on shared-session context mutation
+- bounded OpenAI tool-call streaming, sequential MCP tool execution, and
+  provider follow-up looping in `internal/managedllm`
+- transcript persistence and replay support for assistant `tool_calls` plus
+  tool-result messages with `tool_call_id`
+- real IDE app coverage proving managed chats can call the internal Setta MCP
+  server through the same MCP client/runtime used elsewhere in Go
 
 Repo findings that shaped this follow-on:
 
@@ -158,6 +173,8 @@ Status: landed on 2026-03-09.
 Provider/tool-call follow-ons only if the bounded provider slice proves they
 are required for the current direct managed chat product surface.
 
+Status: landed on 2026-03-09.
+
 ## Decisions Made
 
 - treat the managed live runtime as a direct dependency of provider execution
@@ -175,13 +192,16 @@ are required for the current direct managed chat product surface.
 - resolve MCP server IDs through `llmconfig.AllConfigs.ResolveMCPServerIDs`
   inside `internal/agentruns` so tool support decisions use the same
   source-of-truth config path as the rest of the runtime
+- prefer per-call MCP request `meta` over session-scoped `set_agentic_context`
+  because the Go client intentionally reuses long-lived sessions per server
 
 ## Open Questions
 
-- whether the next bounded follow-on should prioritize MCP/tool-call support or
-  managed `thinking=true` alignment first for the active product surface
-- whether Anthropic support is required before the bounded OpenAI slice proves
-  insufficient for the active managed surface
+- whether the active managed surface now needs explicit provider-native
+  `thinking=true` support before the separate transcription runtime slice
+- whether provider-visible tool-definition pruning needs to mirror additional
+  Python scope filtering beyond the already-landed invocation-time MCP scope
+  enforcement
 
 ## Verification
 
@@ -192,6 +212,10 @@ Slice 1 verification:
 Slice 2 verification:
 
 - `./scripts/go.sh test ./internal/app ./internal/httpapi ./internal/managedllm ./internal/agentruns ./internal/managedchat -run 'Test(AppServesManagedChatSendThroughManagedExecutor|AppWiresManagedAgentRunFoundationInIDEMode|AppServesManagedAgentRunRoutesWithManagedExecutor|Executor|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|ServiceGetChatUsesConcreteLiveRuntimeOverlay|RegisterAIRoutes)' -count=1`
+
+Slice 3 verification:
+
+- `./scripts/go.sh test ./internal/app ./internal/managedllm ./internal/mcpx ./internal/agentruns ./internal/httpapi ./internal/managedchat -run 'Test(AppServesManaged(ChatSendThroughManagedExecutor|ChatToolCallThroughInternalMCPClient)|Executor|Client|RuntimeStopRun|RuntimeStartRun|ServiceRunSubAgent|RegisterAIRoutes|ServiceGetChatUsesConcreteLiveRuntimeOverlay)' -count=1`
 
 ## Progress Notes
 
@@ -210,14 +234,19 @@ Slice 2 verification:
 - 2026-03-09: landed Slice 2 with a bounded OpenAI managed executor, real IDE
   app wiring, route-level end-to-end coverage, and cancellation ordering that
   preserves partial outputs on stop.
+- 2026-03-09: landed Slice 3 with per-call MCP request metadata, bounded
+  OpenAI tool-call execution over resolved `MCPServerIDs`, transcript support
+  for `tool_calls` and tool results, and real app coverage against the
+  internal Setta MCP server.
 
 ## Next Recommended Step
 
-Implement Slice 3:
+Implement the next bounded follow-on only if the active managed surface still
+needs it:
 
-- add MCP/tool-call execution over the already-resolved `MCPServerIDs` path
-  instead of creating a second config-resolution route
-- preserve the landed bounded-provider approach; expand only the explicit
-  provider/runtime contracts required by the current managed product surface
 - resolve managed `thinking=true` through explicit provider-native config or a
   separate bounded product/default decision, not model-name heuristics
+- add tool-preview or AI-follow parity only if a concrete current caller still
+  depends on those websocket surfaces
+- otherwise rerank the adjacent transcription-session runtime slice instead of
+  broadening managed chat further by default

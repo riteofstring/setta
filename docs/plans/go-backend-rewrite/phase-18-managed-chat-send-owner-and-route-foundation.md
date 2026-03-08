@@ -189,12 +189,14 @@ Decision for this slice:
 - 2026-03-09: landed Go-owned managed `/getLLMResponse` send semantics,
   managed/external route dispatch, and explicit `503` unavailable behavior
   through the real IDE app wiring.
+- 2026-03-09: the later follow-on docs have now landed the managed live chat
+  runtime, bounded OpenAI executor, and bounded MCP tool execution behind this
+  start boundary.
 
 ## Next Recommended Step
 
-- implement the real managed provider executor behind the landed
-  `internal/managedchat` start boundary
-- feed live in-flight managed chat state into `internal/managedchat` through
-  its optional overlay boundary instead of inventing a second source of truth
-- keep websocket chunk parity as an explicit follow-on if the executor slice
-  does not naturally require it in the same landing
+- this owner/route foundation is complete for its bounded scope
+- use the later Phase 18 follow-on docs as the source of truth for the
+  remaining managed work:
+  - `phase-18-managed-provider-executor-and-live-chat-runtime-plan.md`
+  - `phase-18-managed-mcp-tool-execution-plan.md`
