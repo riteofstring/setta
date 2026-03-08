@@ -98,8 +98,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list tools: %v", err)
 	}
-	if len(toolsResult.Tools) != 63 {
-		t.Fatalf("expected 63 tools, got %d", len(toolsResult.Tools))
+	if len(toolsResult.Tools) != 64 {
+		t.Fatalf("expected 64 tools, got %d", len(toolsResult.Tools))
 	}
 
 	listResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
@@ -117,8 +117,8 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected tool list array, got %#v", listPayload["tools"])
 	}
-	if len(rawNames) != 63 {
-		t.Fatalf("expected 63 registered tool names, got %d", len(rawNames))
+	if len(rawNames) != 64 {
+		t.Fatalf("expected 64 registered tool names, got %d", len(rawNames))
 	}
 	if !containsStructuredStringValue(rawNames, "get_app_definition") {
 		t.Fatalf("expected get_app_definition in registered tool names, got %#v", rawNames)
@@ -152,6 +152,9 @@ func TestAppIDEMCPServerSupportsAuthenticatedSSECalls(t *testing.T) {
 	}
 	if !containsStructuredStringValue(rawNames, "list_app_components") {
 		t.Fatalf("expected list_app_components in registered tool names, got %#v", rawNames)
+	}
+	if !containsStructuredStringValue(rawNames, "report_completion_status") {
+		t.Fatalf("expected report_completion_status in registered tool names, got %#v", rawNames)
 	}
 	if !containsStructuredStringValue(rawNames, "set_group_overflow_mode") {
 		t.Fatalf("expected set_group_overflow_mode in registered tool names, got %#v", rawNames)
@@ -394,6 +397,97 @@ func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.
 	docs := mustStructuredListValue(t, docsPayload["docs"])
 	if len(docs) != 4 {
 		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+}
+
+func TestAppIDEMCPServerSupportsReportCompletionStatusOverAuthenticatedSSE(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated mcp client: %v", err)
+	}
+	defer session.Close()
+
+	setContextResult, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"chatId":          "chat-1",
+			"sectionId":       "chat-section",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context: %v", err)
+	}
+	if setContextResult.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", setContextResult.StructuredContent)
+	}
+
+	result, err := session.CallTool(context.Background(), &sdkmcp.CallToolParams{
+		Name: "report_completion_status",
+		Arguments: map[string]any{
+			"taskId":               " task-a ",
+			"completionIntent":     true,
+			"requiresVerification": true,
+			"checkResults": []any{
+				map[string]any{
+					"checkName": "pytest",
+					"status":    "passed",
+					"details":   "  ok  ",
+					"source":    "  go test  ",
+				},
+				map[string]any{
+					"checkName": "lint",
+					"required":  false,
+					"status":    "failed",
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("call report_completion_status: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected report_completion_status success, got %#v", result.StructuredContent)
+	}
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	if payload["taskId"] != "task-a" {
+		t.Fatalf("expected trimmed taskId, got %#v", payload["taskId"])
+	}
+	if payload["verificationStatus"] != "passed" {
+		t.Fatalf("expected verificationStatus passed, got %#v", payload["verificationStatus"])
+	}
+	checkResults := mustStructuredListValue(t, payload["checkResults"])
+	if len(checkResults) != 2 {
+		t.Fatalf("expected two check results, got %#v", checkResults)
+	}
+	firstCheck := mustStructuredMapValue(t, checkResults[0])
+	if firstCheck["details"] != "ok" {
+		t.Fatalf("expected trimmed details, got %#v", firstCheck["details"])
+	}
+	if firstCheck["source"] != "go test" {
+		t.Fatalf("expected trimmed source, got %#v", firstCheck["source"])
 	}
 }
 
@@ -6897,6 +6991,73 @@ func TestAppIDEMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	docs := mustStructuredListValue(t, docsResult["docs"])
 	if len(docs) != 4 {
 		t.Fatalf("expected four default docs, got %#v", docs)
+	}
+}
+
+func TestAppIDEMCPToolCallRouteSupportsReportCompletionStatus(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := mustAuthenticatedMCPHTTPClient(t, app, server.URL)
+	response, err := client.Post(
+		server.URL+httpapi.RouteMCPToolCall,
+		"application/json",
+		strings.NewReader(`{
+			"tool":"report_completion_status",
+			"arguments":{
+				"taskId":" task-a ",
+				"completionIntent":true,
+				"requiresVerification":true,
+				"checkResults":[
+					{"checkName":"pytest","status":"passed","details":"  ok  ","source":"  go test  "}
+				]
+			},
+			"agenticContext":{
+				"projectConfigId":"project-alpha",
+				"chatId":"chat-1",
+				"sectionId":"chat-section"
+			}
+		}`),
+	)
+	if err != nil {
+		t.Fatalf("post report_completion_status tool call route: %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	payload := decodeAppToolCallRoutePayload(t, response.Body)
+	if payload.IsError {
+		t.Fatalf("expected report_completion_status success, got %#v", payload.StructuredContent)
+	}
+	result := mustStructuredMapValue(t, payload.StructuredContent)
+	if result["taskId"] != "task-a" {
+		t.Fatalf("expected trimmed taskId, got %#v", result["taskId"])
+	}
+	if result["verificationStatus"] != "passed" {
+		t.Fatalf("expected verificationStatus passed, got %#v", result["verificationStatus"])
+	}
+	checkResults := mustStructuredListValue(t, result["checkResults"])
+	if len(checkResults) != 1 {
+		t.Fatalf("expected one check result, got %#v", checkResults)
 	}
 }
 

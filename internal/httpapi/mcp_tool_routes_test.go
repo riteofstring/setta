@@ -5388,6 +5388,82 @@ func TestMCPToolCallRouteSupportsUtilityReadInitTools(t *testing.T) {
 	}
 }
 
+func TestMCPToolCallRouteSupportsReportCompletionStatus(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openMCPToolRouteProjectRuntime(t)
+	diagnostics := openMCPToolRouteDiagnosticsRegistry()
+	server, err := mcpx.NewServer(mcpx.ServerOptions{
+		WorkspaceRoot:  t.TempDir(),
+		ProjectState:   projectRuntime,
+		SectionNames:   routeSectionNameService{runtime: projectRuntime},
+		LSPDiagnostics: diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new mcp server: %v", err)
+	}
+
+	handler, err := NewHandler(Dependencies{
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:       stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := RegisterMCPRootRoutes(r, MCPRootRouteDependencies{
+				ModePolicy: modes.NewPolicy(config.ModeIDE),
+				Server:     server,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := postMCPToolRoute(t, handler, `{
+		"tool":"report_completion_status",
+		"arguments":{
+			"taskId":" task-a ",
+			"completionIntent":true,
+			"requiresVerification":true,
+			"checkResults":[
+				{"checkName":"pytest","status":"passed","details":"  ok  ","source":"  go test  "}
+			]
+		},
+		"agenticContext":{
+			"projectConfigId":"project-alpha",
+			"chatId":"chat-1",
+			"sectionId":"chat-section"
+		}
+	}`)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	payload := decodeCallToolRouteResult(t, response.Body.Bytes())
+	if payload.IsError {
+		t.Fatalf("expected report_completion_status success, got %#v", payload.StructuredContent)
+	}
+	result := mustStructuredMapForRoute(t, payload.StructuredContent)
+	if result["taskId"] != "task-a" {
+		t.Fatalf("expected trimmed taskId, got %#v", result["taskId"])
+	}
+	if result["verificationStatus"] != "passed" {
+		t.Fatalf("expected passed verificationStatus, got %#v", result["verificationStatus"])
+	}
+	checkResults := mustStructuredListForRoute(t, result["checkResults"])
+	if len(checkResults) != 1 {
+		t.Fatalf("expected one check result, got %#v", checkResults)
+	}
+	firstCheck := mustStructuredMapForRoute(t, checkResults[0])
+	if firstCheck["details"] != "ok" {
+		t.Fatalf("expected trimmed details, got %#v", firstCheck["details"])
+	}
+	if firstCheck["source"] != "go test" {
+		t.Fatalf("expected trimmed source, got %#v", firstCheck["source"])
+	}
+}
+
 func TestMCPToolCallRouteSupportsAppCatalogReadTools(t *testing.T) {
 	t.Parallel()
 
