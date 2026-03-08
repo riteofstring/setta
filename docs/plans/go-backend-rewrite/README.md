@@ -217,11 +217,15 @@ Use the docs in this order:
     `update_app_definition` MCP parity over the completed app-spec
     validation/store foundation and the document-level app-definition metadata
     boundary
-81. `spike-mcp.md`
+81. `phase-6-app-definition-read-and-validation-tool-parity.md`
+  - focused implementation-plan doc for Go-owned `get_app_definition` and
+    `validate_app_definition` parity over the completed app-definition
+    mutation/store foundations and the still-missing diagnostics owner
+82. `spike-mcp.md`
    - MCP uncertainty-reduction plan
-82. `spike-pty.md`
+83. `spike-pty.md`
    - PTY uncertainty-reduction plan
-83. `spike-lsp.md`
+84. `spike-lsp.md`
    - LSP uncertainty-reduction plan
 
 All docs in this folder assume a clean-break rewrite:

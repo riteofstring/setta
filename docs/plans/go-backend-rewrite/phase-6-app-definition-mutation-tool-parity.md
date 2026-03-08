@@ -6,14 +6,8 @@ This doc scopes the app-definition mutation parity slice that follows the
 validation/store prerequisite in
 `phase-6-app-definition-validation-and-store-foundation.md`.
 
-The remaining mutation gaps on the Python MCP surface are now:
-
-- `set_app_definition`
-- `update_app_definition`
-
-These are not another thin section-payload transport slice. They cross the
-document-level app-definition metadata boundary and the stored app-spec file
-boundary, so the next step needs an explicit Go runtime owner first.
+This slice covered the last remaining Python-owned Phase 6 mutation gap on the
+app-definition surface.
 
 ## Status
 
@@ -27,8 +21,13 @@ Current repo status as of 2026-03-08:
   `internal/appspec`
 - Go now owns the document-level app-definition mutation owner in
   `internal/projectstate`
-- the remaining gap in this slice is transport parity on the MCP, HTTP tool
-  route, and authenticated SSE boundaries
+- Go now owns transport parity for `set_app_definition` and
+  `update_app_definition` on the MCP, HTTP tool route, and authenticated SSE
+  boundaries
+- the remaining Python-owned app-definition gaps are now the non-mutation
+  reads:
+  - `get_app_definition`
+  - `validate_app_definition`
 
 ## Scope
 
@@ -104,16 +103,15 @@ The document-level runtime owner is also now complete.
 
 ## Implementation Outline
 
-1. Add MCP parity for the mutation pair.
+1. Land transport parity for the mutation pair.
    - structural/project-scoped tool definitions
    - thin handlers
    - HTTP tool-call route and authenticated SSE coverage
 
-2. Add focused transport tests.
-   - MCP tool listing and invocation
-   - HTTP tool-call route coverage
-   - authenticated SSE coverage
-   - temporary project id translation where applicable
+2. Close the slice and hand off to the remaining read/validation work.
+   - update Phase 6 inventory
+   - add a dedicated follow-on plan doc for `get_app_definition` and
+     `validate_app_definition`
 
 ## Open Questions
 
@@ -123,15 +121,16 @@ The document-level runtime owner is also now complete.
 
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/projectstate -run 'Test(Runtime(SetAppDefinition|UpdateAppDefinition)|Document.*AppDefinition)' -count=1 -timeout 300s`
 - `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/mcpx -run 'TestServer(ListsToolsAndScopesToolCalls|SetAppDefinition|UpdateAppDefinition)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetAppDefinition|SupportsUpdateAppDefinition)' -count=1 -timeout 300s`
-- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetAppDefinition|ServerSupportsUpdateAppDefinition|ToolCallRouteSupportsSetAppDefinition|ToolCallRouteSupportsUpdateAppDefinition|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/httpapi -run 'TestMCPToolCallRoute(SupportsSetAppDefinition|SetAppDefinitionAcceptsTemporaryIDs|SupportsUpdateAppDefinition|UpdateAppDefinitionAcceptsTemporaryIDs)' -count=1 -timeout 300s`
+- `source activate.sh && GOCACHE=$(pwd)/.gocache ./scripts/go.sh test ./internal/app -run 'TestAppIDEMCP(ServerSupportsSetAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForSetAppDefinitionOverAuthenticatedSSE|ServerSupportsUpdateAppDefinitionOverAuthenticatedSSE|ServerSupportsTemporaryIDsForUpdateAppDefinitionOverAuthenticatedSSE|ToolCallRouteSupportsSetAppDefinition|ToolCallRouteSupportsUpdateAppDefinition|SupportsAuthenticatedSSECalls)' -count=1 -timeout 420s`
 
 ## Next Recommended Step
 
-- add MCP transport parity over the completed `internal/projectstate`
-  app-definition mutation owner
-- keep transport thin and do not duplicate path/default/validation logic above
-  the owner
+- use `phase-6-app-definition-read-and-validation-tool-parity.md` as the next
+  bounded Phase 6 slice
+- keep `get_app_definition` and `validate_app_definition` separate from the now
+  completed persisted-write boundary unless a new shared diagnostics owner
+  makes the merge trivial
 
 ## Progress Notes
 
@@ -148,3 +147,8 @@ The document-level runtime owner is also now complete.
   path normalization, persisted app-spec writes, explicit JSON merge patch
   semantics, and focused owner tests; the next remaining work is transport
   parity.
+- 2026-03-08: MCP transport parity landed in `internal/mcpx`, plus HTTP
+  tool-call route coverage in `internal/httpapi` and authenticated SSE/tool
+  route coverage in `internal/app`; the mutation slice is now complete and the
+  next remaining app-definition gaps are `get_app_definition` and
+  `validate_app_definition`.

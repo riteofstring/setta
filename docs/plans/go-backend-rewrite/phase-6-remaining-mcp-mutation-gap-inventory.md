@@ -5,21 +5,24 @@
 This doc tracks the remaining Phase 6 MCP mutation surface after the completed
 section-filter and MetaControl-title slice.
 
-The non-app-definition mutation backlog is now complete on the Go-owned MCP
-boundary, so the next slice should be chosen from the remaining document-level
-app-definition work instead of from section-local payload writes.
+The mutation backlog tracked by this doc is now complete on the Go-owned MCP
+boundary. The remaining Python-owned app-definition gap is now read-only, not
+mutation transport.
 
 ## Status
 
 Current repo status as of 2026-03-08:
 
 - Phase 6 MCP parity is still the active phase
-- Go MCP now exposes 52 tools total
-- 49 current Go tool names overlap with Python
+- Go MCP now exposes 54 tools total
+- 51 current Go tool names overlap with Python
   `BaseProjectManager.@project_state_tool` names
-- 47 of those overlaps are mutation or structural tools
-- Python still has 2 mutation or structural project-state MCP tools that do
-  not yet have Go MCP parity
+- 49 of those overlaps are mutation or structural tools
+- Python has no remaining mutation or structural project-state MCP tools
+  without Go parity
+- the remaining Python-owned app-definition MCP gaps are the read-only tools:
+  - `get_app_definition`
+  - `validate_app_definition`
 
 ## Inputs
 
@@ -92,43 +95,27 @@ MCP server:
   - `set_section_variant`
   - `set_default_section_variant`
   - `set_section_variant_sort_order`
-
-## Remaining Mutation Gaps
-
-### 1. Highest-Leverage Next Slice
-
-- app-definition mutation parity:
   - `set_app_definition`
   - `update_app_definition`
 
-Why this is next:
+## Remaining Mutation Gaps
 
-1. the completed section-filter slice cleared the non-app-definition mutation
-   backlog, so the only mutation gap left is the deferred app-definition pair.
-2. the prerequisite validation/store boundary is now complete in
-   `internal/appspec`, and the document-level mutation owner is now complete in
-   `internal/projectstate`.
-3. the remaining gap is transport parity for the mutation pair on the MCP,
-   HTTP tool route, and authenticated SSE boundaries.
-4. the next slice is scoped in:
-   `phase-6-app-definition-mutation-tool-parity.md`
+### 1. Mutation Gap Status
 
-### 2. After The App-Definition Mutation Slice
+- no remaining Phase 6 mutation gaps
+
+### 2. After The Mutation Backlog
 
 - close the remaining app-definition read gap:
   - `get_app_definition`
   - `validate_app_definition`
-- keep those reads separate unless the mutation owner makes it trivial to land
-  them together
+- use the follow-on slice doc:
+  - `phase-6-app-definition-read-and-validation-tool-parity.md`
 
 ### 3. Gaps That Still Need More Go Runtime Work First
 
-These should not be turned into MCP work until the new document-level mutation
-owner lands:
+These should not be turned into MCP work until the new diagnostics owner lands:
 
-- `set_app_definition`
-- `update_app_definition`
-- `get_app_definition`
 - `validate_app_definition`
 
 ### 4. Non-Mutation Read Gaps
@@ -141,9 +128,10 @@ priority:
 
 ## Recommended Next Step
 
-- use `phase-6-app-definition-mutation-tool-parity.md` as the next bounded
-  Phase 6 slice
-- add MCP transport parity over the completed document-level mutation owner
+- use `phase-6-app-definition-read-and-validation-tool-parity.md` as the next
+  bounded Phase 6 slice
+- start with the Go diagnostics/capabilities owner needed by
+  `validate_app_definition`
 
 ## Open Questions
 
@@ -263,3 +251,6 @@ priority:
 - 2026-03-08: the document-level app-definition mutation owner landed in
   `internal/projectstate`, so the remaining work in the active slice is MCP,
   HTTP tool-route, and authenticated SSE transport parity.
+- 2026-03-08: the app-definition mutation transport slice is now complete
+  across the Go MCP server, HTTP tool-call route, and authenticated SSE
+  boundary, so the mutation backlog tracked by this doc is now complete.
